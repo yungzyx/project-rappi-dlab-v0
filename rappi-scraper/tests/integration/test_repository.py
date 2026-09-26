@@ -212,3 +212,21 @@ def test_export_catalog_csv(db, tmp_path):
     assert [(r["vertical"], r["nombre"], r["categoria"]) for r in rows] == [
         ("supermercado", "Pañales Babysec", "Pañales")
     ]
+
+
+def test_search_ignores_accents_both_ways(db):
+    _store(db, 1, "lider", "supermercado")
+    run = repository.start_run(db, "stores", {})
+    repository.save_products(
+        db,
+        run,
+        1,
+        [_product("a", 100, "Café Molido Colombiano", 4990), _product("b", 101, "Jamon Serrano", 5990)],
+    )
+    db.commit()
+    build_search_documents(db)
+
+    assert [h["entity_id"] for h in search(db, "supermercado", "cafe") if h["entity_type"] == "catalog_item"] == ["100"]
+    assert [h["entity_id"] for h in search(db, "supermercado", "jamón") if h["entity_type"] == "catalog_item"] == [
+        "101"
+    ]
