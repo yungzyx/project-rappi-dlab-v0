@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rappi-scraper:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rappi-scraper
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17  # misma versión que el Postgres local (Homebrew)
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rappi_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/rappi_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: rappi-scraper/pyproject.toml
+
+      - name: Instalar
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          python -m ruff check src tests
+          python -m ruff format --check src tests
+
+      - name: Tests (unitarios + integración contra Postgres)
+        run: python -m pytest
