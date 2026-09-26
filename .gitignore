@@ -1,0 +1,18 @@
+# Entorno local
+.DS_Store
+.venv/
+.env
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Datos scrapeados de Rappi: no se versionan (tamaño y términos de uso).
+# Se traspasan con un respaldo de la base (ver CLAUDE.md).
+rappi-scraper/data/
+
+# Evidencia generada por archify al verificar diagramas
+docs/diagramas/*.visual-check.*
+
+# Carpeta vacía creada fuera del proyecto
+Proyecto/

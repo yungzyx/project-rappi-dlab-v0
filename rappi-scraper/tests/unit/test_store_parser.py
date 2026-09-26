@@ -1,0 +1,80 @@
+import pytest
+
+from rappi_scraper.pricing import discount_pct
+from rappi_scraper.scraping.next_data import ParseError, extract_next_data
+from rappi_scraper.scraping.store_parser import (
+    parse_aisles,
+    parse_products,
+    parse_store,
+    parse_sub_aisles,
+    slugify,
+)
+
+
+def test_extract_next_data_raises_when_script_missing():
+    with pytest.raises(ParseError):
+        extract_next_data("<html><body>sin datos</body></html>")
+
+
+def test_parse_store_returns_store_info_and_canonical_path(page):
+    store = parse_store(page("store"))
+    assert store["store_id"] == 900025946
+    assert store["name"] == "Lider"
+    assert store["path"] == "/tiendas/900025946-lider"
+    assert store["address"]
+
+
+def test_parse_store_includes_brand_and_subvertical(page):
+    store = parse_store(page("store_mall"))
+    assert store["brand_id"] == 64116
+    assert store["store_type"] == "accesoriosnyr_mt_enc"
+    assert store["sub_group"] == "Tecnologia"
+
+
+def test_parse_aisles_lists_aisles_with_ids_urls_and_counts(page):
+    aisles = parse_aisles(page("store"))
+    assert len(aisles) == 19
+    assert all(a["aisle_id"] for a in aisles)
+    lacteos = next(a for a in aisles if a["friendly_url"] == "lacteos-y-huevos")
+    assert lacteos["name"] == "Lácteos y Huevos"
+    assert lacteos["product_count"] > 0
+
+
+def test_parse_sub_aisles_includes_non_rendered_ones_with_generated_slug(page):
+    subs = parse_sub_aisles(page("aisle"))
+    urls = {s["friendly_url"] for s in subs}
+    assert len(subs) == 10
+    assert {"yogurt", "leche", "leche-saborizada"} <= urls  # renderizados
+    assert "mantequillas-y-margarinas" in urls  # generado desde el nombre
+    assert next(s for s in subs if s["name"] == "Yogurt")["product_count"] == 313
+
+
+def test_parse_products_on_sub_aisle_page(page):
+    products = parse_products(page("subaisle"))
+    assert len(products) == 24
+    assert all(p["product_id"] and p["store_id"] == 900025946 for p in products)
+
+
+def test_parse_products_on_aisle_page(page):
+    assert len(parse_products(page("aisle"))) == 45
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Lácteos y Huevos", "lacteos-y-huevos"),
+        ("Mantequillas y margarinas", "mantequillas-y-margarinas"),
+        ("Arroz, granos y pastas", "arroz-granos-y-pastas"),
+        ("Santiago de Chile", "santiago-de-chile"),
+    ],
+)
+def test_slugify(text, expected):
+    assert slugify(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("price", "real_price", "expected"),
+    [(1030, 1280, 19.5), (500, 500, 0.0), (None, 500, 0.0), (500, None, 0.0), (600, 500, 0.0)],
+)
+def test_discount_pct(price, real_price, expected):
+    assert discount_pct(price, real_price) == expected

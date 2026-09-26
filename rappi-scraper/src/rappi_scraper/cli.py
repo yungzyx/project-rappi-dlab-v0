@@ -1,0 +1,231 @@
+"""CLI de la base de datos de contenido por vertical.
+
+Flujo típico:
+    rappi migrate
+    rappi discover                          # tiendas por vertical + restaurantes
+    rappi scrape-stores --vertical mall
+    rappi scrape-restaurants
+    rappi build-search
+    rappi search "pañales" --vertical supermercado
+    rappi retry-failed --kind stores        # reintentar jobs fallidos de la última corrida
+    rappi report                            # reporte de calidad de la última corrida
+"""
+
+import argparse
+import json
+import logging
+import sys
+from datetime import datetime
+from pathlib import Path
+
+from . import config
+from .keep_awake import keep_awake
+from .legacy.csv_format import OUTPUT_DIR as LEGACY_CSV_DIR
+from .legacy.csv_io import export_catalog_csv, import_legacy_csv
+from .pipeline.discover import VERTICAL_LISTINGS, city_locations, discover_restaurants, discover_stores
+from .pipeline.restaurants import process_restaurant_jobs
+from .pipeline.stores import process_store_jobs
+from .reporting import render_markdown, write_run_report
+from .scraping.client import RappiClient
+from .storage import repository
+from .storage.db import connect, migrate
+from .storage.search import VERTICALS, build_search_documents, search
+
+log = logging.getLogger("rappi_scraper")
+
+LOGS_DIR = config.DATA_DIR / "logs"
+LONG_COMMANDS = {"discover", "scrape-stores", "scrape-restaurants"}  # log a archivo + Mac despierto
+JOB_TYPES = {"stores": "store_group", "restaurants": "restaurant"}
+
+
+def _run_id(conn, kind: str, args) -> int:
+    """Reanuda la última corrida abierta de ese tipo, o crea una nueva con --new-run."""
+    run_id = None if args.new_run else repository.open_run(conn, kind)
+    if run_id is None:
+        run_id = repository.start_run(conn, kind, {})
+        log.info("Corrida nueva %d (%s)", run_id, kind)
+    else:
+        log.info("Reanudando corrida %d (%s)", run_id, kind)
+    return run_id
+
+
+def cmd_discover(conn, args) -> None:
+    client = RappiClient()
+    if args.verticals != ["restaurantes"]:
+        verticals = [v for v in args.verticals if v in VERTICAL_LISTINGS]
+        cities = city_locations(client.get_json(config.STORES_METADATA_URL))
+        cities = [c for c in cities if not args.cities or any(x.lower() in c["city"].lower() for x in args.cities)]
+        run_id = _run_id(conn, "stores", args)
+        n = discover_stores(conn, client, run_id, verticals, cities)
+        log.info("%d grupos de tiendas en la cola (corrida %d)", n, run_id)
+    if "restaurantes" in args.verticals:
+        run_id = _run_id(conn, "restaurants", args)
+        n = discover_restaurants(conn, client, run_id, args.max_chains, args.max_independents)
+        log.info("%d jobs de restaurantes en la cola (corrida %d)", n, run_id)
+
+
+def _finish_and_report(conn, run_id: int, kind: str) -> None:
+    """Cierra la corrida si no quedan pendientes y deja el reporte de calidad (DB + data/reports/)."""
+    if not repository.pending_jobs(conn, run_id, JOB_TYPES[kind]):
+        repository.finish_run(conn, run_id)
+        log.info("Corrida %d terminada", run_id)
+    report, path = write_run_report(conn, run_id)
+    print(render_markdown(report))
+    log.info("Reporte guardado en %s", path)
+
+
+def cmd_scrape_stores(conn, args) -> None:
+    run_id = repository.open_run(conn, "stores")
+    if run_id is None:
+        raise SystemExit("No hay corrida de tiendas abierta: ejecuta primero `discover`.")
+    process_store_jobs(conn, RappiClient(), run_id, args.vertical, args.limit, args.max_aisles)
+    _finish_and_report(conn, run_id, "stores")
+
+
+def cmd_scrape_restaurants(conn, args) -> None:
+    run_id = repository.open_run(conn, "restaurants")
+    if run_id is None:
+        raise SystemExit("No hay corrida de restaurantes abierta: ejecuta `discover --verticals restaurantes`.")
+    process_restaurant_jobs(conn, RappiClient(), run_id, args.limit)
+    _finish_and_report(conn, run_id, "restaurants")
+
+
+def cmd_retry_failed(conn, args) -> None:
+    run_id = repository.latest_run(conn, args.kind)
+    if run_id is None:
+        raise SystemExit(f"No hay corridas de tipo {args.kind}.")
+    requeued = repository.requeue_failed(conn, run_id, args.max_attempts)
+    if requeued:
+        repository.reopen_run(conn, run_id)
+    command = "scrape-stores" if args.kind == "stores" else "scrape-restaurants"
+    print(f"{len(requeued)} jobs fallidos vuelven a la cola (corrida {run_id}). Siguiente: rappi {command}")
+
+
+def cmd_report(conn, args) -> None:
+    run_id = args.run or repository.latest_run(conn, args.kind)
+    if run_id is None:
+        raise SystemExit("No hay corridas para reportar.")
+    report, path = write_run_report(conn, run_id)
+    print(render_markdown(report))
+    print(f"Guardado en {path}")
+
+
+def cmd_status(conn, args) -> None:
+    print("corrida\ttipo\testado\tjobs\tcantidad")
+    for row in repository.run_status(conn):
+        print(*row, sep="\t")
+    print()
+    columns, rows = repository.vertical_summary(conn)
+    print(*columns, sep="\t")
+    for row in rows:
+        print(*row, sep="\t")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Base de datos de contenido de Rappi Chile por vertical")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("migrate", help="Aplicar migraciones pendientes")
+
+    p = sub.add_parser("discover", help="Descubrir tiendas por vertical y restaurantes; crea la cola")
+    p.add_argument(
+        "--verticals",
+        nargs="+",
+        default=[*VERTICAL_LISTINGS, "restaurantes"],
+        choices=[*VERTICAL_LISTINGS, "restaurantes"],
+    )
+    p.add_argument("--cities", nargs="+", help="Limitar ciudades (coincidencia parcial)")
+    p.add_argument("--max-chains", type=int, help="Máximo de cadenas de restaurantes (pruebas)")
+    p.add_argument("--max-independents", type=int, help="Máximo de restaurantes independientes (pruebas)")
+    p.add_argument("--new-run", action="store_true", help="Empezar corrida nueva en vez de reanudar")
+
+    p = sub.add_parser("scrape-stores", help="Procesar la cola de tiendas")
+    p.add_argument("--vertical", choices=[v for v in VERTICALS if v != "restaurantes"])
+    p.add_argument("--limit", type=int)
+    p.add_argument("--max-aisles", type=int, help="Máximo de pasillos por tienda (pruebas)")
+
+    p = sub.add_parser("scrape-restaurants", help="Procesar la cola de restaurantes")
+    p.add_argument("--limit", type=int)
+
+    sub.add_parser("build-search", help="Regenerar documentos de búsqueda por vertical")
+
+    p = sub.add_parser("search", help="Buscar por texto dentro de un vertical")
+    p.add_argument("query")
+    p.add_argument("--vertical", required=True, choices=VERTICALS)
+    p.add_argument("--limit", type=int, default=10)
+
+    p = sub.add_parser("import-csv", help="Importar CSVs del scraper legacy como corrida histórica")
+    p.add_argument("folder", type=Path, nargs="?", default=LEGACY_CSV_DIR)
+
+    p = sub.add_parser("export-csv", help="Exportar catálogo por vertical a CSV")
+    p.add_argument("--output", type=Path, default=config.EXPORT_DIR / "catalogo_por_vertical.csv")
+
+    sub.add_parser("status", help="Estado de corridas y resumen por vertical")
+
+    p = sub.add_parser("retry-failed", help="Reencolar los jobs fallidos de la última corrida")
+    p.add_argument("--kind", choices=list(JOB_TYPES), default="stores")
+    p.add_argument("--max-attempts", type=int, default=4, help="Solo jobs con menos intentos que esto")
+
+    p = sub.add_parser("report", help="Reporte de calidad de una corrida")
+    p.add_argument("--run", type=int, help="ID de corrida (por defecto, la última del tipo)")
+    p.add_argument("--kind", choices=list(JOB_TYPES), default="stores")
+    return parser
+
+
+COMMANDS = {
+    "discover": cmd_discover,
+    "scrape-stores": cmd_scrape_stores,
+    "scrape-restaurants": cmd_scrape_restaurants,
+    "status": cmd_status,
+    "retry-failed": cmd_retry_failed,
+    "report": cmd_report,
+}
+
+
+def _setup_logging(command: str) -> None:
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if command in LONG_COMMANDS:
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        log_path = LOGS_DIR / f"{command}_{datetime.now():%Y%m%d-%H%M%S}.log"
+        handlers.append(logging.FileHandler(log_path, encoding="utf-8"))
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S", handlers=handlers
+    )
+    if command in LONG_COMMANDS:
+        log.info("Log en %s", log_path)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    _setup_logging(args.command)
+    try:
+        if args.command in LONG_COMMANDS:
+            with keep_awake(), connect() as conn:
+                COMMANDS[args.command](conn, args)
+        else:
+            _run_simple(args)
+    except KeyboardInterrupt:
+        log.warning("Interrumpido. Lo avanzado quedó guardado: retoma con el mismo comando.")
+        sys.exit(130)
+
+
+def _run_simple(args) -> None:
+    with connect() as conn:
+        if args.command in COMMANDS:
+            COMMANDS[args.command](conn, args)
+        elif args.command == "migrate":
+            print("Aplicadas:", migrate(conn) or "ninguna (al día)")
+        elif args.command == "build-search":
+            print(build_search_documents(conn))
+        elif args.command == "search":
+            for hit in search(conn, args.vertical, args.query, args.limit):
+                print(f"{hit['rank']:.3f}  [{hit['entity_type']}] {hit['content'][:110]}")
+                print("       ", json.dumps(hit["metadata"], ensure_ascii=False)[:160])
+        elif args.command == "import-csv":
+            import_legacy_csv(conn, args.folder)
+        elif args.command == "export-csv":
+            print(export_catalog_csv(conn, args.output))
+
+
+if __name__ == "__main__":
+    main()
