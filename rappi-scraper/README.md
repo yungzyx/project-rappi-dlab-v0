@@ -30,6 +30,8 @@ rappi build-search                      # 4. documentos de búsqueda por vertica
 rappi search "pañales" --vertical supermercado
 rappi status                            # avance de las corridas y resumen por vertical
 rappi report                            # reporte de calidad de la última corrida
+rappi refresh                           # todo de una vez: tiendas, restaurantes, búsqueda, reportes y respaldo
+rappi backup                            # respaldo de la base en data/backups/ (conserva los últimos 4)
 rappi retry-failed --kind stores        # reencola los jobs fallidos
 rappi import-csv                        # carga los CSV de rappi-csv como corrida histórica
 rappi export-csv                        # catálogo por vertical -> data/exports/
@@ -53,6 +55,18 @@ rappi export-csv                        # catálogo por vertical -> data/exports
 - **Reporte:** al terminar se imprime y se guarda en `data/reports/run_<id>_<tipo>.md` (y en `scrape_runs.report`): jobs por estado, errores frecuentes, productos por vertical y validaciones de calidad. Un `⚠` indica un posible cambio en el sitio de Rappi o un bloqueo.
 - **Reintentar a mano:** `rappi retry-failed --kind stores` (o `restaurants`) y volver a correr el comando.
 - **Ver el reporte de nuevo:** `rappi report` (o `rappi report --run N`).
+
+## Actualización semanal automática
+
+`rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4). Para que corra solo los domingos a las 03:00 en el Mac que quede prendido (p. ej. el Mac mini):
+
+```bash
+make schedule          # instala la tarea en launchd (~/Library/LaunchAgents/cl.rappi.refresh.plist)
+make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
+make unschedule        # quitarla
+```
+
+Si el Mac está dormido o apagado a esa hora, corre al despertar. Salida de launchd en `data/logs/launchd.*.log`; el log detallado y el reporte, como en cualquier corrida. Programarla en **un solo** Mac.
 
 ## Estructura
 
@@ -91,6 +105,8 @@ rappi-scraper/
 └── data/
     ├── supermercados_csv/      salida de `rappi-csv`
     ├── exports/                salida de `rappi export-csv`
+    ├── reports/, logs/         reportes y logs de cada corrida
+    ├── backups/                respaldos de la base (`rappi backup` / `refresh`)
     └── muestras/               CSV de muestra
 ```
 

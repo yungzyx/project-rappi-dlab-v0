@@ -15,10 +15,11 @@ Base de datos del contenido de Rappi Chile por vertical (supermercado, convenien
 
 | Fase | Estado |
 |---|---|
-| 1. Scraper → Postgres | Código listo y probado (63 tests). **Descarga completa pendiente**: 891 grupos de tiendas y 4.855 restaurantes en cola. |
+| 1. Scraper → Postgres | Código listo y probado (70 tests, también en CI). **Descarga completa pendiente**: 891 grupos de tiendas y 4.855 restaurantes en cola. |
 | Paso 1 del scraper: corridas confiables | Listo: reintento automático, `retry-failed`, reporte de calidad, log a archivo, `caffeinate`, progreso con ETA. |
 | Paso 2: descarga completa | Siguiente. `rappi scrape-stores` (~10–15 h) y luego `rappi scrape-restaurants` (~4 h). **No correr las dos en paralelo.** |
-| Paso 3: corridas periódicas (semanal) | Pendiente. |
+| Paso 3: corridas periódicas (semanal) | Listo: `rappi refresh` + respaldo rotativo + `make schedule` (launchd, domingos 03:00). **Activar solo en el Mac mini** con `make schedule`. |
+| CI | GitHub Actions: lint + tests (unitarios e integración con Postgres + pgvector) en cada push. |
 | Paso 4: capa 2 del modelo (taxonomía común + mapeo, platos estándar, trazabilidad, H3) | Pendiente; conviene hacerla con los datos completos. |
 | 2. RAG | Diseñado (ver diagrama). Pendiente: set de evaluación, modelo de embeddings, LLM. |
 
@@ -62,6 +63,12 @@ make test
 ```
 
 Si no hay respaldo: `make migrate` y `rappi discover` (~1 h) recrean la cola desde cero.
+
+## Notas técnicas
+
+- La búsqueda por texto (`to_tsvector('spanish', …)`) ya ignora tildes normales (café = cafe); mantiene ñ y ü a propósito (año ≠ ano).
+- Pendientes del scraper que requieren los datos completos: revisar las ~80 cadenas de restaurantes que no traen datos; capa 2 del modelo.
+- `rappi-csv` (scraper CSV original) quedó redundante con la base + `export-csv`; el usuario no ha decidido si eliminarlo.
 
 ## Convenciones
 

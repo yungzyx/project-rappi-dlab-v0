@@ -1,6 +1,7 @@
-.PHONY: help install db migrate test test-unit test-integration lint format status report
+.PHONY: help install db migrate test test-unit test-integration lint format status report refresh backup schedule unschedule schedule-status
 
 PY := .venv/bin/python
+PLIST := $(HOME)/Library/LaunchAgents/cl.rappi.refresh.plist
 # postgresql@17 de Homebrew no agrega sus comandos al PATH
 PG_BIN := $(shell brew --prefix 2>/dev/null)/opt/postgresql@17/bin
 
@@ -44,3 +45,24 @@ status:  ## Estado de las corridas y resumen por vertical
 
 report:  ## Reporte de calidad de la última corrida de tiendas
 	$(PY) -m rappi_scraper report
+
+refresh:  ## Actualización completa: tiendas, restaurantes, búsqueda, reportes y respaldo
+	$(PY) -m rappi_scraper refresh
+
+backup:  ## Respaldar la base en data/backups/
+	$(PY) -m rappi_scraper backup
+
+schedule:  ## Programar `rappi refresh` los domingos 03:00 (launchd, en este Mac)
+	mkdir -p data/logs $(dir $(PLIST))
+	sed "s#__PROJECT__#$(CURDIR)#g" scripts/launchd/cl.rappi.refresh.plist.template > $(PLIST)
+	plutil -lint $(PLIST)
+	-launchctl bootout gui/$$(id -u) $(PLIST) 2>/dev/null
+	launchctl bootstrap gui/$$(id -u) $(PLIST)
+	@echo "Programado: domingos 03:00. Estado: make schedule-status"
+
+unschedule:  ## Quitar la programación semanal
+	-launchctl bootout gui/$$(id -u) $(PLIST)
+	rm -f $(PLIST)
+
+schedule-status:  ## Ver si la programación semanal está activa
+	@launchctl print gui/$$(id -u)/cl.rappi.refresh 2>/dev/null | grep -E "state =|last exit code" || echo "No programado en este Mac"

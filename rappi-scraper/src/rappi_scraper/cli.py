@@ -9,6 +9,7 @@ Flujo típico:
     rappi search "pañales" --vertical supermercado
     rappi retry-failed --kind stores        # reintentar jobs fallidos de la última corrida
     rappi report                            # reporte de calidad de la última corrida
+    rappi refresh                           # todo lo anterior de una vez (pensado para correr semanal)
 """
 
 import argparse
@@ -23,19 +24,20 @@ from .keep_awake import keep_awake
 from .legacy.csv_format import OUTPUT_DIR as LEGACY_CSV_DIR
 from .legacy.csv_io import export_catalog_csv, import_legacy_csv
 from .pipeline.discover import VERTICAL_LISTINGS, city_locations, discover_restaurants, discover_stores
+from .pipeline.refresh import JOB_TYPES, finish_and_report, refresh
 from .pipeline.restaurants import process_restaurant_jobs
 from .pipeline.stores import process_store_jobs
 from .reporting import render_markdown, write_run_report
 from .scraping.client import RappiClient
 from .storage import repository
-from .storage.db import connect, migrate
+from .storage.backup import backup_database
+from .storage.db import connect, database_url, migrate
 from .storage.search import VERTICALS, build_search_documents, search
 
 log = logging.getLogger("rappi_scraper")
 
 LOGS_DIR = config.DATA_DIR / "logs"
-LONG_COMMANDS = {"discover", "scrape-stores", "scrape-restaurants"}  # log a archivo + Mac despierto
-JOB_TYPES = {"stores": "store_group", "restaurants": "restaurant"}
+LONG_COMMANDS = {"discover", "scrape-stores", "scrape-restaurants", "refresh"}  # log a archivo + Mac despierto
 
 
 def _run_id(conn, kind: str, args) -> int:
@@ -49,29 +51,55 @@ def _run_id(conn, kind: str, args) -> int:
     return run_id
 
 
+def _store_discoverer(client: RappiClient, verticals: list[str], city_filter: list[str] | None = None):
+    def run(conn, run_id: int) -> int:
+        cities = city_locations(client.get_json(config.STORES_METADATA_URL))
+        cities = [c for c in cities if not city_filter or any(x.lower() in c["city"].lower() for x in city_filter)]
+        n = discover_stores(conn, client, run_id, verticals, cities)
+        log.info("%d grupos de tiendas en la cola (corrida %d)", n, run_id)
+        return n
+
+    return run
+
+
+def _restaurant_discoverer(client: RappiClient, max_chains: int | None = None, max_independents: int | None = None):
+    def run(conn, run_id: int) -> int:
+        n = discover_restaurants(conn, client, run_id, max_chains, max_independents)
+        log.info("%d jobs de restaurantes en la cola (corrida %d)", n, run_id)
+        return n
+
+    return run
+
+
 def cmd_discover(conn, args) -> None:
     client = RappiClient()
     if args.verticals != ["restaurantes"]:
         verticals = [v for v in args.verticals if v in VERTICAL_LISTINGS]
-        cities = city_locations(client.get_json(config.STORES_METADATA_URL))
-        cities = [c for c in cities if not args.cities or any(x.lower() in c["city"].lower() for x in args.cities)]
-        run_id = _run_id(conn, "stores", args)
-        n = discover_stores(conn, client, run_id, verticals, cities)
-        log.info("%d grupos de tiendas en la cola (corrida %d)", n, run_id)
+        _store_discoverer(client, verticals, args.cities)(conn, _run_id(conn, "stores", args))
     if "restaurantes" in args.verticals:
-        run_id = _run_id(conn, "restaurants", args)
-        n = discover_restaurants(conn, client, run_id, args.max_chains, args.max_independents)
-        log.info("%d jobs de restaurantes en la cola (corrida %d)", n, run_id)
+        _restaurant_discoverer(client, args.max_chains, args.max_independents)(conn, _run_id(conn, "restaurants", args))
 
 
 def _finish_and_report(conn, run_id: int, kind: str) -> None:
-    """Cierra la corrida si no quedan pendientes y deja el reporte de calidad (DB + data/reports/)."""
-    if not repository.pending_jobs(conn, run_id, JOB_TYPES[kind]):
-        repository.finish_run(conn, run_id)
-        log.info("Corrida %d terminada", run_id)
-    report, path = write_run_report(conn, run_id)
+    report, _ = finish_and_report(conn, run_id, kind)
     print(render_markdown(report))
-    log.info("Reporte guardado en %s", path)
+
+
+def cmd_refresh(conn, args) -> None:
+    client = RappiClient()
+    reports = refresh(
+        conn,
+        client,
+        _store_discoverer(client, list(VERTICAL_LISTINGS)),
+        _restaurant_discoverer(client),
+        backup=None if args.no_backup else lambda: backup_database(database_url()),
+    )
+    for report in reports:
+        print(render_markdown(report))
+
+
+def cmd_backup(conn, args) -> None:
+    print(backup_database(database_url()))
 
 
 def cmd_scrape_stores(conn, args) -> None:
@@ -162,6 +190,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="Estado de corridas y resumen por vertical")
 
+    p = sub.add_parser("refresh", help="Actualización completa: tiendas, restaurantes, búsqueda, reportes y respaldo")
+    p.add_argument("--no-backup", action="store_true", help="No respaldar la base al final")
+
+    sub.add_parser("backup", help="Respaldar la base en data/backups/ (conserva los últimos 4)")
+
     p = sub.add_parser("retry-failed", help="Reencolar los jobs fallidos de la última corrida")
     p.add_argument("--kind", choices=list(JOB_TYPES), default="stores")
     p.add_argument("--max-attempts", type=int, default=4, help="Solo jobs con menos intentos que esto")
@@ -179,6 +212,8 @@ COMMANDS = {
     "status": cmd_status,
     "retry-failed": cmd_retry_failed,
     "report": cmd_report,
+    "refresh": cmd_refresh,
+    "backup": cmd_backup,
 }
 
 
