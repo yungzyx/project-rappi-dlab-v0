@@ -12,7 +12,9 @@ export default function ForYouRow({ title, reason, products, push }) {
   if (products.length === 0) return null
 
   const openStore = (product) =>
-    push('store', { store: findStore(product.store) ?? { name: product.store, img: product.storeLogo ?? product.img, logo: true } })
+    push('store', {
+      store: findStore(product.store) ?? { name: product.store, img: product.storeLogo ?? product.img, logo: true },
+    })
 
   return (
     <section className="for-you">

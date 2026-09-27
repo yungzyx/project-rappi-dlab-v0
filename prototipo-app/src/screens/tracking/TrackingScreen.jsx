@@ -81,7 +81,12 @@ function Courier() {
           Your Rappitendero · <StarIcon filled size={12} /> 4.9
         </small>
       </span>
-      <button type="button" className="tracking-contact tap" aria-label="Contactar" onClick={() => toast('Chat con el Rappitendero (simulado)')}>
+      <button
+        type="button"
+        className="tracking-contact tap"
+        aria-label="Contactar"
+        onClick={() => toast('Chat con el Rappitendero (simulado)')}
+      >
         <HeadsetIcon size={20} />
       </button>
     </div>
@@ -141,9 +146,7 @@ function Delivered({ order }) {
 function OrderSummary({ order }) {
   return (
     <details className="tracking-summary">
-      <summary>
-        Order details · {formatPrice(order.total)}
-      </summary>
+      <summary>Order details · {formatPrice(order.total)}</summary>
       <ul>
         {order.items.map((item) => (
           <li key={item.name}>

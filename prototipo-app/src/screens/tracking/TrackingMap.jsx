@@ -11,7 +11,12 @@ export default function TrackingMap({ progress, delivered }) {
   const [storeX, storeY] = ROUTE[0]
 
   return (
-    <svg className="tracking-map" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-label="Mapa del pedido">
+    <svg
+      className="tracking-map"
+      viewBox="0 0 400 300"
+      preserveAspectRatio="xMidYMid slice"
+      aria-label="Mapa del pedido"
+    >
       <rect width="400" height="300" fill="#eef1ec" />
       <path d="M0 262 C90 250 160 285 260 268 S380 250 400 258 V300 H0 Z" fill="#cfe4f3" />
       <circle cx="262" cy="200" r="46" fill="#d6ecd0" />
@@ -44,9 +49,18 @@ export default function TrackingMap({ progress, delivered }) {
 
       <g transform={`translate(${storeX} ${storeY})`}>
         <circle r="13" fill="#fff" stroke="#f0532b" strokeWidth="3" />
-        <path d="M-4 -6v5a3 3 0 0 0 6 0v-5M-1 -6v12M5 -6c-2 0-3 2-3 5v1h3v6" fill="none" stroke="#f0532b" strokeWidth="1.8" strokeLinecap="round" />
+        <path
+          d="M-4 -6v5a3 3 0 0 0 6 0v-5M-1 -6v12M5 -6c-2 0-3 2-3 5v1h3v6"
+          fill="none"
+          stroke="#f0532b"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
       </g>
-      <g transform={`translate(${homeX} ${homeY})`} className={delivered ? 'tracking-home is-arrived' : 'tracking-home'}>
+      <g
+        transform={`translate(${homeX} ${homeY})`}
+        className={delivered ? 'tracking-home is-arrived' : 'tracking-home'}
+      >
         <circle r="15" fill="#1f1f1f" />
         <path d="M-7 1 0 -6 7 1V8H-7Z" fill="#fff" />
       </g>

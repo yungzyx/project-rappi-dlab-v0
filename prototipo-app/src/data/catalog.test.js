@@ -25,7 +25,7 @@ describe('catálogo', () => {
   })
 
   test('findStore encuentra sin tildes y productsOfStore filtra por tienda', () => {
-    expect(findStore('mcdonald\'s')?.name).toBe("McDonald's")
+    expect(findStore("mcdonald's")?.name).toBe("McDonald's")
     const oxxo = productsOfStore('OXXO')
     expect(oxxo.length).toBeGreaterThan(0)
     oxxo.forEach((product) => expect(product.store).toBe('OXXO'))

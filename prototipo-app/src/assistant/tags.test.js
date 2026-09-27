@@ -10,7 +10,7 @@ describe('tagsOf', () => {
 
   test('acepta plurales y derivados que empiezan con la palabra clave', () => {
     expect(tagsOf('Hamburguesas')).toContain('hamburguesa')
-    expect(tagsOf("Papa Johns Pizza")).toContain('pizza')
+    expect(tagsOf('Papa Johns Pizza')).toContain('pizza')
     expect(tagsOf('Mascotas felices')).toContain('mascota')
   })
 

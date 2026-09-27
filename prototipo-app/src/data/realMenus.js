@@ -63,4 +63,6 @@ function toRestaurant(restaurant) {
 
 export const REAL_RESTAURANTS = raw.map(toRestaurant)
 
-export const REAL_DISHES = REAL_RESTAURANTS.flatMap((restaurant) => restaurant.sections.flatMap((section) => section.items))
+export const REAL_DISHES = REAL_RESTAURANTS.flatMap((restaurant) =>
+  restaurant.sections.flatMap((section) => section.items),
+)
