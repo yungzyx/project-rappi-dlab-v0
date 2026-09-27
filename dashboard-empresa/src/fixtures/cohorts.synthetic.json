@@ -1,0 +1,833 @@
+{
+  "source": "synthetic",
+  "data": [
+    {
+      "cohorte": "2026-05-11",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 26
+    },
+    {
+      "cohorte": "2026-05-11",
+      "semana": 1,
+      "retencion_pct": 61.5,
+      "usuarios": 26
+    },
+    {
+      "cohorte": "2026-05-11",
+      "semana": 2,
+      "retencion_pct": 57.7,
+      "usuarios": 26
+    },
+    {
+      "cohorte": "2026-05-11",
+      "semana": 3,
+      "retencion_pct": 61.5,
+      "usuarios": 26
+    },
+    {
+      "cohorte": "2026-05-11",
+      "semana": 4,
+      "retencion_pct": 61.5,
+      "usuarios": 26
+    },
+    {
+      "cohorte": "2026-05-11",
+      "semana": 5,
+      "retencion_pct": 50,
+      "usuarios": 26
+    },
+    {
+      "cohorte": "2026-05-11",
+      "semana": 6,
+      "retencion_pct": 61.5,
+      "usuarios": 26
+    },
+    {
+      "cohorte": "2026-05-11",
+      "semana": 7,
+      "retencion_pct": 61.5,
+      "usuarios": 26
+    },
+    {
+      "cohorte": "2026-05-11",
+      "semana": 8,
+      "retencion_pct": 61.5,
+      "usuarios": 26
+    },
+    {
+      "cohorte": "2026-05-18",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 62
+    },
+    {
+      "cohorte": "2026-05-18",
+      "semana": 1,
+      "retencion_pct": 40.3,
+      "usuarios": 62
+    },
+    {
+      "cohorte": "2026-05-18",
+      "semana": 2,
+      "retencion_pct": 38.7,
+      "usuarios": 62
+    },
+    {
+      "cohorte": "2026-05-18",
+      "semana": 3,
+      "retencion_pct": 40.3,
+      "usuarios": 62
+    },
+    {
+      "cohorte": "2026-05-18",
+      "semana": 4,
+      "retencion_pct": 38.7,
+      "usuarios": 62
+    },
+    {
+      "cohorte": "2026-05-18",
+      "semana": 5,
+      "retencion_pct": 45.2,
+      "usuarios": 62
+    },
+    {
+      "cohorte": "2026-05-18",
+      "semana": 6,
+      "retencion_pct": 33.9,
+      "usuarios": 62
+    },
+    {
+      "cohorte": "2026-05-18",
+      "semana": 7,
+      "retencion_pct": 41.9,
+      "usuarios": 62
+    },
+    {
+      "cohorte": "2026-05-18",
+      "semana": 8,
+      "retencion_pct": 43.5,
+      "usuarios": 62
+    },
+    {
+      "cohorte": "2026-05-25",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 91
+    },
+    {
+      "cohorte": "2026-05-25",
+      "semana": 1,
+      "retencion_pct": 42.9,
+      "usuarios": 91
+    },
+    {
+      "cohorte": "2026-05-25",
+      "semana": 2,
+      "retencion_pct": 40.7,
+      "usuarios": 91
+    },
+    {
+      "cohorte": "2026-05-25",
+      "semana": 3,
+      "retencion_pct": 41.8,
+      "usuarios": 91
+    },
+    {
+      "cohorte": "2026-05-25",
+      "semana": 4,
+      "retencion_pct": 41.8,
+      "usuarios": 91
+    },
+    {
+      "cohorte": "2026-05-25",
+      "semana": 5,
+      "retencion_pct": 48.4,
+      "usuarios": 91
+    },
+    {
+      "cohorte": "2026-05-25",
+      "semana": 6,
+      "retencion_pct": 42.9,
+      "usuarios": 91
+    },
+    {
+      "cohorte": "2026-05-25",
+      "semana": 7,
+      "retencion_pct": 42.9,
+      "usuarios": 91
+    },
+    {
+      "cohorte": "2026-05-25",
+      "semana": 8,
+      "retencion_pct": 44,
+      "usuarios": 91
+    },
+    {
+      "cohorte": "2026-06-01",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 109
+    },
+    {
+      "cohorte": "2026-06-01",
+      "semana": 1,
+      "retencion_pct": 45,
+      "usuarios": 109
+    },
+    {
+      "cohorte": "2026-06-01",
+      "semana": 2,
+      "retencion_pct": 40.4,
+      "usuarios": 109
+    },
+    {
+      "cohorte": "2026-06-01",
+      "semana": 3,
+      "retencion_pct": 39.4,
+      "usuarios": 109
+    },
+    {
+      "cohorte": "2026-06-01",
+      "semana": 4,
+      "retencion_pct": 43.1,
+      "usuarios": 109
+    },
+    {
+      "cohorte": "2026-06-01",
+      "semana": 5,
+      "retencion_pct": 41.3,
+      "usuarios": 109
+    },
+    {
+      "cohorte": "2026-06-01",
+      "semana": 6,
+      "retencion_pct": 35.8,
+      "usuarios": 109
+    },
+    {
+      "cohorte": "2026-06-01",
+      "semana": 7,
+      "retencion_pct": 31.2,
+      "usuarios": 109
+    },
+    {
+      "cohorte": "2026-06-01",
+      "semana": 8,
+      "retencion_pct": 32.1,
+      "usuarios": 109
+    },
+    {
+      "cohorte": "2026-06-08",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 105
+    },
+    {
+      "cohorte": "2026-06-08",
+      "semana": 1,
+      "retencion_pct": 41,
+      "usuarios": 105
+    },
+    {
+      "cohorte": "2026-06-08",
+      "semana": 2,
+      "retencion_pct": 41.9,
+      "usuarios": 105
+    },
+    {
+      "cohorte": "2026-06-08",
+      "semana": 3,
+      "retencion_pct": 40,
+      "usuarios": 105
+    },
+    {
+      "cohorte": "2026-06-08",
+      "semana": 4,
+      "retencion_pct": 41,
+      "usuarios": 105
+    },
+    {
+      "cohorte": "2026-06-08",
+      "semana": 5,
+      "retencion_pct": 37.1,
+      "usuarios": 105
+    },
+    {
+      "cohorte": "2026-06-08",
+      "semana": 6,
+      "retencion_pct": 46.7,
+      "usuarios": 105
+    },
+    {
+      "cohorte": "2026-06-08",
+      "semana": 7,
+      "retencion_pct": 36.2,
+      "usuarios": 105
+    },
+    {
+      "cohorte": "2026-06-08",
+      "semana": 8,
+      "retencion_pct": 30.5,
+      "usuarios": 105
+    },
+    {
+      "cohorte": "2026-06-15",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 108
+    },
+    {
+      "cohorte": "2026-06-15",
+      "semana": 1,
+      "retencion_pct": 30.6,
+      "usuarios": 108
+    },
+    {
+      "cohorte": "2026-06-15",
+      "semana": 2,
+      "retencion_pct": 42.6,
+      "usuarios": 108
+    },
+    {
+      "cohorte": "2026-06-15",
+      "semana": 3,
+      "retencion_pct": 35.2,
+      "usuarios": 108
+    },
+    {
+      "cohorte": "2026-06-15",
+      "semana": 4,
+      "retencion_pct": 38,
+      "usuarios": 108
+    },
+    {
+      "cohorte": "2026-06-15",
+      "semana": 5,
+      "retencion_pct": 35.2,
+      "usuarios": 108
+    },
+    {
+      "cohorte": "2026-06-15",
+      "semana": 6,
+      "retencion_pct": 35.2,
+      "usuarios": 108
+    },
+    {
+      "cohorte": "2026-06-15",
+      "semana": 7,
+      "retencion_pct": 32.4,
+      "usuarios": 108
+    },
+    {
+      "cohorte": "2026-06-15",
+      "semana": 8,
+      "retencion_pct": 31.5,
+      "usuarios": 108
+    },
+    {
+      "cohorte": "2026-06-22",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 98
+    },
+    {
+      "cohorte": "2026-06-22",
+      "semana": 1,
+      "retencion_pct": 40.8,
+      "usuarios": 98
+    },
+    {
+      "cohorte": "2026-06-22",
+      "semana": 2,
+      "retencion_pct": 46.9,
+      "usuarios": 98
+    },
+    {
+      "cohorte": "2026-06-22",
+      "semana": 3,
+      "retencion_pct": 38.8,
+      "usuarios": 98
+    },
+    {
+      "cohorte": "2026-06-22",
+      "semana": 4,
+      "retencion_pct": 38.8,
+      "usuarios": 98
+    },
+    {
+      "cohorte": "2026-06-22",
+      "semana": 5,
+      "retencion_pct": 40.8,
+      "usuarios": 98
+    },
+    {
+      "cohorte": "2026-06-22",
+      "semana": 6,
+      "retencion_pct": 42.9,
+      "usuarios": 98
+    },
+    {
+      "cohorte": "2026-06-22",
+      "semana": 7,
+      "retencion_pct": 49,
+      "usuarios": 98
+    },
+    {
+      "cohorte": "2026-06-22",
+      "semana": 8,
+      "retencion_pct": 39.8,
+      "usuarios": 98
+    },
+    {
+      "cohorte": "2026-06-29",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 107
+    },
+    {
+      "cohorte": "2026-06-29",
+      "semana": 1,
+      "retencion_pct": 38.3,
+      "usuarios": 107
+    },
+    {
+      "cohorte": "2026-06-29",
+      "semana": 2,
+      "retencion_pct": 40.2,
+      "usuarios": 107
+    },
+    {
+      "cohorte": "2026-06-29",
+      "semana": 3,
+      "retencion_pct": 38.3,
+      "usuarios": 107
+    },
+    {
+      "cohorte": "2026-06-29",
+      "semana": 4,
+      "retencion_pct": 41.1,
+      "usuarios": 107
+    },
+    {
+      "cohorte": "2026-06-29",
+      "semana": 5,
+      "retencion_pct": 28,
+      "usuarios": 107
+    },
+    {
+      "cohorte": "2026-06-29",
+      "semana": 6,
+      "retencion_pct": 32.7,
+      "usuarios": 107
+    },
+    {
+      "cohorte": "2026-06-29",
+      "semana": 7,
+      "retencion_pct": 36.4,
+      "usuarios": 107
+    },
+    {
+      "cohorte": "2026-06-29",
+      "semana": 8,
+      "retencion_pct": 39.3,
+      "usuarios": 107
+    },
+    {
+      "cohorte": "2026-07-06",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 116
+    },
+    {
+      "cohorte": "2026-07-06",
+      "semana": 1,
+      "retencion_pct": 35.3,
+      "usuarios": 116
+    },
+    {
+      "cohorte": "2026-07-06",
+      "semana": 2,
+      "retencion_pct": 34.5,
+      "usuarios": 116
+    },
+    {
+      "cohorte": "2026-07-06",
+      "semana": 3,
+      "retencion_pct": 31,
+      "usuarios": 116
+    },
+    {
+      "cohorte": "2026-07-06",
+      "semana": 4,
+      "retencion_pct": 34.5,
+      "usuarios": 116
+    },
+    {
+      "cohorte": "2026-07-06",
+      "semana": 5,
+      "retencion_pct": 29.3,
+      "usuarios": 116
+    },
+    {
+      "cohorte": "2026-07-06",
+      "semana": 6,
+      "retencion_pct": 38.8,
+      "usuarios": 116
+    },
+    {
+      "cohorte": "2026-07-06",
+      "semana": 7,
+      "retencion_pct": 29.3,
+      "usuarios": 116
+    },
+    {
+      "cohorte": "2026-07-06",
+      "semana": 8,
+      "retencion_pct": 31.9,
+      "usuarios": 116
+    },
+    {
+      "cohorte": "2026-07-13",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-13",
+      "semana": 1,
+      "retencion_pct": 40.2,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-13",
+      "semana": 2,
+      "retencion_pct": 39.3,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-13",
+      "semana": 3,
+      "retencion_pct": 33,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-13",
+      "semana": 4,
+      "retencion_pct": 33.9,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-13",
+      "semana": 5,
+      "retencion_pct": 37.5,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-13",
+      "semana": 6,
+      "retencion_pct": 32.1,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-13",
+      "semana": 7,
+      "retencion_pct": 27.7,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-13",
+      "semana": 8,
+      "retencion_pct": 21.4,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-20",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-20",
+      "semana": 1,
+      "retencion_pct": 42,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-20",
+      "semana": 2,
+      "retencion_pct": 44.6,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-20",
+      "semana": 3,
+      "retencion_pct": 42.9,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-20",
+      "semana": 4,
+      "retencion_pct": 34.8,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-20",
+      "semana": 5,
+      "retencion_pct": 29.5,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-20",
+      "semana": 6,
+      "retencion_pct": 33.9,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-20",
+      "semana": 7,
+      "retencion_pct": 32.1,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-20",
+      "semana": 8,
+      "retencion_pct": 33,
+      "usuarios": 112
+    },
+    {
+      "cohorte": "2026-07-27",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 120
+    },
+    {
+      "cohorte": "2026-07-27",
+      "semana": 1,
+      "retencion_pct": 40.8,
+      "usuarios": 120
+    },
+    {
+      "cohorte": "2026-07-27",
+      "semana": 2,
+      "retencion_pct": 30.8,
+      "usuarios": 120
+    },
+    {
+      "cohorte": "2026-07-27",
+      "semana": 3,
+      "retencion_pct": 32.5,
+      "usuarios": 120
+    },
+    {
+      "cohorte": "2026-07-27",
+      "semana": 4,
+      "retencion_pct": 37.5,
+      "usuarios": 120
+    },
+    {
+      "cohorte": "2026-07-27",
+      "semana": 5,
+      "retencion_pct": 41.7,
+      "usuarios": 120
+    },
+    {
+      "cohorte": "2026-07-27",
+      "semana": 6,
+      "retencion_pct": 40,
+      "usuarios": 120
+    },
+    {
+      "cohorte": "2026-07-27",
+      "semana": 7,
+      "retencion_pct": 37.5,
+      "usuarios": 120
+    },
+    {
+      "cohorte": "2026-07-27",
+      "semana": 8,
+      "retencion_pct": 37.5,
+      "usuarios": 120
+    },
+    {
+      "cohorte": "2026-08-03",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 90
+    },
+    {
+      "cohorte": "2026-08-03",
+      "semana": 1,
+      "retencion_pct": 31.1,
+      "usuarios": 90
+    },
+    {
+      "cohorte": "2026-08-03",
+      "semana": 2,
+      "retencion_pct": 40,
+      "usuarios": 90
+    },
+    {
+      "cohorte": "2026-08-03",
+      "semana": 3,
+      "retencion_pct": 34.4,
+      "usuarios": 90
+    },
+    {
+      "cohorte": "2026-08-03",
+      "semana": 4,
+      "retencion_pct": 28.9,
+      "usuarios": 90
+    },
+    {
+      "cohorte": "2026-08-03",
+      "semana": 5,
+      "retencion_pct": 31.1,
+      "usuarios": 90
+    },
+    {
+      "cohorte": "2026-08-03",
+      "semana": 6,
+      "retencion_pct": 24.4,
+      "usuarios": 90
+    },
+    {
+      "cohorte": "2026-08-03",
+      "semana": 7,
+      "retencion_pct": 21.1,
+      "usuarios": 90
+    },
+    {
+      "cohorte": "2026-08-10",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 55
+    },
+    {
+      "cohorte": "2026-08-10",
+      "semana": 1,
+      "retencion_pct": 34.5,
+      "usuarios": 55
+    },
+    {
+      "cohorte": "2026-08-10",
+      "semana": 2,
+      "retencion_pct": 32.7,
+      "usuarios": 55
+    },
+    {
+      "cohorte": "2026-08-10",
+      "semana": 3,
+      "retencion_pct": 25.5,
+      "usuarios": 55
+    },
+    {
+      "cohorte": "2026-08-10",
+      "semana": 4,
+      "retencion_pct": 34.5,
+      "usuarios": 55
+    },
+    {
+      "cohorte": "2026-08-10",
+      "semana": 5,
+      "retencion_pct": 30.9,
+      "usuarios": 55
+    },
+    {
+      "cohorte": "2026-08-10",
+      "semana": 6,
+      "retencion_pct": 34.5,
+      "usuarios": 55
+    },
+    {
+      "cohorte": "2026-08-17",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 39
+    },
+    {
+      "cohorte": "2026-08-17",
+      "semana": 1,
+      "retencion_pct": 28.2,
+      "usuarios": 39
+    },
+    {
+      "cohorte": "2026-08-17",
+      "semana": 2,
+      "retencion_pct": 30.8,
+      "usuarios": 39
+    },
+    {
+      "cohorte": "2026-08-17",
+      "semana": 3,
+      "retencion_pct": 25.6,
+      "usuarios": 39
+    },
+    {
+      "cohorte": "2026-08-17",
+      "semana": 4,
+      "retencion_pct": 33.3,
+      "usuarios": 39
+    },
+    {
+      "cohorte": "2026-08-17",
+      "semana": 5,
+      "retencion_pct": 38.5,
+      "usuarios": 39
+    },
+    {
+      "cohorte": "2026-08-24",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 21
+    },
+    {
+      "cohorte": "2026-08-24",
+      "semana": 1,
+      "retencion_pct": 33.3,
+      "usuarios": 21
+    },
+    {
+      "cohorte": "2026-08-24",
+      "semana": 2,
+      "retencion_pct": 28.6,
+      "usuarios": 21
+    },
+    {
+      "cohorte": "2026-08-24",
+      "semana": 3,
+      "retencion_pct": 28.6,
+      "usuarios": 21
+    },
+    {
+      "cohorte": "2026-08-24",
+      "semana": 4,
+      "retencion_pct": 23.8,
+      "usuarios": 21
+    },
+    {
+      "cohorte": "2026-08-31",
+      "semana": 0,
+      "retencion_pct": 100,
+      "usuarios": 22
+    },
+    {
+      "cohorte": "2026-08-31",
+      "semana": 1,
+      "retencion_pct": 13.6,
+      "usuarios": 22
+    },
+    {
+      "cohorte": "2026-08-31",
+      "semana": 2,
+      "retencion_pct": 13.6,
+      "usuarios": 22
+    },
+    {
+      "cohorte": "2026-08-31",
+      "semana": 3,
+      "retencion_pct": 22.7,
+      "usuarios": 22
+    }
+  ]
+}

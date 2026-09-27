@@ -1,0 +1,113 @@
+{
+  "source": "synthetic",
+  "data": [
+    {
+      "vertical": "restaurantes",
+      "concept_id": "peruana",
+      "que": "🇵🇪 Comida peruana",
+      "busquedas": 594,
+      "usuarios": 445,
+      "ciudades": [
+        "Antofagasta",
+        "Concepción",
+        "Santiago",
+        "Valparaíso"
+      ],
+      "recientes": 271,
+      "anteriores": 190,
+      "crecimiento_pct": 43,
+      "existe_en": null,
+      "accion": "Oportunidad: sumar comercios o categoría"
+    },
+    {
+      "vertical": "restaurantes",
+      "concept_id": "desayuno",
+      "que": "🥞 Desayunos y brunch",
+      "busquedas": 320,
+      "usuarios": 272,
+      "ciudades": [
+        "Antofagasta",
+        "Concepción",
+        "Santiago",
+        "Valparaíso"
+      ],
+      "recientes": 136,
+      "anteriores": 101,
+      "crecimiento_pct": 35,
+      "existe_en": null,
+      "accion": "Oportunidad: sumar comercios o categoría"
+    },
+    {
+      "vertical": "restaurantes",
+      "concept_id": "mexicana",
+      "que": "🌮 Comida mexicana",
+      "busquedas": 240,
+      "usuarios": 213,
+      "ciudades": [
+        "Antofagasta",
+        "Concepción",
+        "Santiago",
+        "Valparaíso"
+      ],
+      "recientes": 90,
+      "anteriores": 70,
+      "crecimiento_pct": 29,
+      "existe_en": null,
+      "accion": "Oportunidad: sumar comercios o categoría"
+    },
+    {
+      "vertical": "restaurantes",
+      "concept_id": "arabe",
+      "que": "🥙 Comida árabe",
+      "busquedas": 171,
+      "usuarios": 159,
+      "ciudades": [
+        "Antofagasta",
+        "Concepción",
+        "Santiago",
+        "Valparaíso"
+      ],
+      "recientes": 49,
+      "anteriores": 51,
+      "crecimiento_pct": -4,
+      "existe_en": "supermercado",
+      "accion": "Existe en otro vertical: que Bigotes lo ofrezca ahí"
+    },
+    {
+      "vertical": "supermercado",
+      "concept_id": null,
+      "que": "kombucha",
+      "busquedas": 157,
+      "usuarios": 144,
+      "ciudades": [
+        "Antofagasta",
+        "Concepción",
+        "Santiago",
+        "Valparaíso"
+      ],
+      "recientes": 70,
+      "anteriores": 44,
+      "crecimiento_pct": 59,
+      "existe_en": null,
+      "accion": "Revisar la consulta: sumar sinónimo o concepto nuevo"
+    },
+    {
+      "vertical": "mall",
+      "concept_id": "automotriz",
+      "que": "🚗 Auto",
+      "busquedas": 22,
+      "usuarios": 22,
+      "ciudades": [
+        "Antofagasta",
+        "Concepción",
+        "Santiago",
+        "Valparaíso"
+      ],
+      "recientes": 5,
+      "anteriores": 6,
+      "crecimiento_pct": -17,
+      "existe_en": "supermercado, conveniencia",
+      "accion": "Existe en otro vertical: que Bigotes lo ofrezca ahí"
+    }
+  ]
+}

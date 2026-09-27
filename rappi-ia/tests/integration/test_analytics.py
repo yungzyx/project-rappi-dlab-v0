@@ -97,12 +97,16 @@ def test_synthetic_data_is_reproducible_and_marked(simulated):
     assert sources == {"synthetic"}
 
 
-def test_funnel_is_monotonic_and_cohorts_are_percentages(simulated):
+def test_funnel_is_monotonic_and_cohorts_are_percentages(simulated, monkeypatch):
     db, _ = simulated
     for row in queries.funnel(db, "synthetic"):
         assert row["buscan"] >= row["agregan"] >= row["pagan"] >= row["piden"]
-    assert all(0 <= r["retencion_pct"] <= 100 for r in queries.cohorts(db, "synthetic"))
-    assert queries.cohorts(db, "synthetic")[0]["retencion_pct"] == 100.0  # semana 0 = la del primer pedido
+    monkeypatch.setattr(queries, "MIN_GROUP_USERS", 1)  # los datos de prueba tienen cohortes chicas
+    cohorts = queries.cohorts(db, "synthetic")
+    assert all(0 <= r["retencion_pct"] <= 100 for r in cohorts)
+    assert cohorts[0]["semana"] == 0 and cohorts[0]["retencion_pct"] == 100.0  # semana 0 = la del primer pedido
+    first = [r["semana"] for r in cohorts if r["cohorte"] == cohorts[0]["cohorte"]]
+    assert first == list(range(len(first)))  # semanas consecutivas: las de 0% también vienen
 
 
 def test_at_risk_uses_pseudonyms_and_no_sensitive_concepts(simulated):

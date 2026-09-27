@@ -1,0 +1,89 @@
+{
+  "source": "synthetic",
+  "data": [
+    {
+      "concept_id": "peruana",
+      "concepto": "🇵🇪 Comida peruana",
+      "recientes": 271,
+      "anteriores": 190,
+      "crecimiento_pct": 43
+    },
+    {
+      "concept_id": "dermocosmetica",
+      "concepto": "🧴 Dermocosmética y cuidado de la piel",
+      "recientes": 25,
+      "anteriores": 41,
+      "crecimiento_pct": -39
+    },
+    {
+      "concept_id": "quesos",
+      "concepto": "🧀 Quesos",
+      "recientes": 13,
+      "anteriores": 21,
+      "crecimiento_pct": -38
+    },
+    {
+      "concept_id": "desayuno",
+      "concepto": "🥞 Desayunos y brunch",
+      "recientes": 136,
+      "anteriores": 101,
+      "crecimiento_pct": 35
+    },
+    {
+      "concept_id": "pisco",
+      "concepto": "🍸 Pisco",
+      "recientes": 186,
+      "anteriores": 282,
+      "crecimiento_pct": -34
+    },
+    {
+      "concept_id": "hielo",
+      "concepto": "🧊 Hielo",
+      "recientes": 33,
+      "anteriores": 50,
+      "crecimiento_pct": -34
+    },
+    {
+      "concept_id": "mexicana",
+      "concepto": "🌮 Comida mexicana",
+      "recientes": 90,
+      "anteriores": 70,
+      "crecimiento_pct": 29
+    },
+    {
+      "concept_id": "cocina-menaje",
+      "concepto": "🍳 Cocina y menaje",
+      "recientes": 69,
+      "anteriores": 91,
+      "crecimiento_pct": -24
+    },
+    {
+      "concept_id": "alimento-gato",
+      "concepto": "🐈 Alimento para gatos",
+      "recientes": 156,
+      "anteriores": 126,
+      "crecimiento_pct": 24
+    },
+    {
+      "concept_id": "alimentacion-bebe",
+      "concepto": "🍼 Alimentación infantil",
+      "recientes": 256,
+      "anteriores": 208,
+      "crecimiento_pct": 23
+    },
+    {
+      "concept_id": "espumante",
+      "concepto": "🥂 Espumante",
+      "recientes": 57,
+      "anteriores": 73,
+      "crecimiento_pct": -22
+    },
+    {
+      "concept_id": "helados",
+      "concepto": "🍦 Helados",
+      "recientes": 93,
+      "anteriores": 119,
+      "crecimiento_pct": -22
+    }
+  ]
+}

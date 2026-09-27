@@ -1,0 +1,19 @@
+{
+  "source": "prototype",
+  "data": [
+    {
+      "vertical": "licores",
+      "buscan": 2,
+      "agregan": 0,
+      "pagan": 0,
+      "piden": 0
+    },
+    {
+      "vertical": "supermercado",
+      "buscan": 0,
+      "agregan": 0,
+      "pagan": 0,
+      "piden": 0
+    }
+  ]
+}

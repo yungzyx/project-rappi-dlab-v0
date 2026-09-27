@@ -1,0 +1,18 @@
+.trends {
+  gap: var(--space-5) var(--space-6);
+}
+
+.trend-group {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.trend-group h4 {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}

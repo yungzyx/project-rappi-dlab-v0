@@ -1,0 +1,47 @@
+{
+  "source": "synthetic",
+  "data": [
+    {
+      "vertical": "restaurantes",
+      "buscan": 6895,
+      "agregan": 5570,
+      "pagan": 3927,
+      "piden": 3927
+    },
+    {
+      "vertical": "supermercado",
+      "buscan": 4296,
+      "agregan": 4139,
+      "pagan": 3118,
+      "piden": 3118
+    },
+    {
+      "vertical": "conveniencia",
+      "buscan": 2001,
+      "agregan": 2001,
+      "pagan": 1367,
+      "piden": 1367
+    },
+    {
+      "vertical": "licores",
+      "buscan": 1584,
+      "agregan": 1584,
+      "pagan": 1060,
+      "piden": 1060
+    },
+    {
+      "vertical": "chocolateria",
+      "buscan": 417,
+      "agregan": 417,
+      "pagan": 316,
+      "piden": 316
+    },
+    {
+      "vertical": "mall",
+      "buscan": 297,
+      "agregan": 275,
+      "pagan": 158,
+      "piden": 158
+    }
+  ]
+}

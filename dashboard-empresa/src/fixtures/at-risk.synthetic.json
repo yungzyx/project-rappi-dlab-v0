@@ -1,0 +1,1005 @@
+{
+  "source": "synthetic",
+  "data": [
+    {
+      "usuario": "u-84cc1d46",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 1.5,
+      "dias_sin_pedir": 42,
+      "concepto_top": "🥨 Snacks salados",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-93491cc0",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 1,
+      "dias_sin_pedir": 27,
+      "concepto_top": "🍣 Sushi",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-f615acdd",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 2,
+      "dias_sin_pedir": 44,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-e67549aa",
+      "persona": "mascotero",
+      "estado": "en_riesgo",
+      "ritmo_dias": 2,
+      "dias_sin_pedir": 38,
+      "concepto_top": "🐈 Alimento para gatos",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-95e5eb44",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 2.5,
+      "dias_sin_pedir": 40,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-77c55c7e",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3,
+      "dias_sin_pedir": 41,
+      "concepto_top": "🍝 Pastas",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-28428561",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3,
+      "dias_sin_pedir": 39,
+      "concepto_top": "🥪 Sándwiches y completos",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-3bd613ad",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 2,
+      "dias_sin_pedir": 26,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-37ce039c",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 2,
+      "dias_sin_pedir": 25,
+      "concepto_top": "☕ Café",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-53d97373",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3,
+      "dias_sin_pedir": 37,
+      "concepto_top": "🍕 Pizza",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-9481906d",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3.5,
+      "dias_sin_pedir": 40,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-ad801514",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3,
+      "dias_sin_pedir": 33,
+      "concepto_top": "🍺 Cerveza",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-7bd6992a",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 2.5,
+      "dias_sin_pedir": 27,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-3e2cb935",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3,
+      "dias_sin_pedir": 33,
+      "concepto_top": "🍞 Pan",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-1ce339c8",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3,
+      "dias_sin_pedir": 28,
+      "concepto_top": "🥨 Snacks salados",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-a2221417",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 2.5,
+      "dias_sin_pedir": 23,
+      "concepto_top": "🧷 Pañales y toallitas",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-e654e8f7",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 2.5,
+      "dias_sin_pedir": 23,
+      "concepto_top": "⚡ Energéticas e isotónicas",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-a1d961b8",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3,
+      "dias_sin_pedir": 27,
+      "concepto_top": "🥨 Snacks salados",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-90467192",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 36,
+      "concepto_top": "🎂 Tortas y pastelería",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-d0a039bb",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4.5,
+      "dias_sin_pedir": 40,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-51f23071",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 36,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-a261471c",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 34,
+      "concepto_top": "🍺 Cerveza",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-00055308",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 33,
+      "concepto_top": "🥪 Sándwiches y completos",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-649faaf0",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 33,
+      "concepto_top": "🧷 Pañales y toallitas",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-7a2a5b24",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 32,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-28e92def",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 39,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-66f355a5",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 37,
+      "concepto_top": "🥪 Sándwiches y completos",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-dd64219f",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 44,
+      "concepto_top": "🍸 Pisco",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-3e315af6",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 36,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-29699051",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 29,
+      "concepto_top": "🍝 Pastas",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-b857d91c",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 35,
+      "concepto_top": "🍣 Sushi",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-b5f14e4e",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 35,
+      "concepto_top": "🍣 Sushi",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-614f206c",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3.5,
+      "dias_sin_pedir": 23,
+      "concepto_top": "🥡 Comida asiática",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-674bd2af",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 33,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-22da9a9e",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 32,
+      "concepto_top": "🍮 Postres",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-d4d07cfd",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 38,
+      "concepto_top": "☕ Café",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-77d8e14c",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 25,
+      "concepto_top": "🥪 Sándwiches y completos",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-70e5c592",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 31,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-08f9585e",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 43,
+      "concepto_top": "🍝 Pastas",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-478cc022",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 3.5,
+      "dias_sin_pedir": 22,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-1fe6124d",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 25,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-3a6c5ce2",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 43,
+      "concepto_top": "🍕 Pizza",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-fb6ea542",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 29,
+      "concepto_top": "☕ Café",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-13e3194a",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 23,
+      "concepto_top": "☕ Café",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-bea6b3ff",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 29,
+      "concepto_top": "🍺 Cerveza",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-adbe7f9f",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 34,
+      "concepto_top": "🥪 Sándwiches y completos",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-0df3cbfc",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 40,
+      "concepto_top": "⚡ Energéticas e isotónicas",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-d1dea282",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 40,
+      "concepto_top": "🍗 Pollo",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-2251abdc",
+      "persona": "mascotero",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 40,
+      "concepto_top": "🐈 Alimento para gatos",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-f15e0f4f",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 28,
+      "concepto_top": "🥤 Bebidas gaseosas",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-d66b9427",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 22,
+      "concepto_top": "🍣 Sushi",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-cc6fbfa0",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 39,
+      "concepto_top": "🍸 Pisco",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-9bbcf79a",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 21,
+      "concepto_top": "🍦 Helados",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-4ceb7500",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4,
+      "dias_sin_pedir": 21,
+      "concepto_top": "🍺 Cerveza",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-dca1be06",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 26,
+      "concepto_top": "🍸 Pisco",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-82a3c26f",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4.5,
+      "dias_sin_pedir": 23,
+      "concepto_top": "🧽 Limpieza",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-8aa3037b",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 36,
+      "concepto_top": "🥂 Espumante",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-6f5f6fa8",
+      "persona": "mascotero",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 26,
+      "concepto_top": "🐕 Alimento para perros",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-ccfb77ed",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 30,
+      "concepto_top": "🍣 Sushi",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-e3e8119a",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 8,
+      "dias_sin_pedir": 40,
+      "concepto_top": "☕ Café",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-2fb37c8c",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 25,
+      "concepto_top": "🍺 Cerveza",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-aa289f1c",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 4.5,
+      "dias_sin_pedir": 22,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-efde9ca6",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 25,
+      "concepto_top": "🍎 Frutas",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-53fb28bf",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 8,
+      "dias_sin_pedir": 39,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-d7968547",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 24,
+      "concepto_top": "🍝 Pastas",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-da93d6bb",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 33,
+      "concepto_top": "🍦 Helados",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-e312ab4f",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 28,
+      "concepto_top": "🧽 Limpieza",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-d54ebe3c",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 9,
+      "dias_sin_pedir": 41,
+      "concepto_top": "🥣 Cereales y avena",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-51b1eb8a",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 9,
+      "dias_sin_pedir": 41,
+      "concepto_top": "🧽 Limpieza",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-37e5020e",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 8,
+      "dias_sin_pedir": 36,
+      "concepto_top": "☕ Café",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-151f8f80",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5.5,
+      "dias_sin_pedir": 25,
+      "concepto_top": "🍞 Pan",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-8ebc5293",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 31,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-ad0ecd84",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 22,
+      "concepto_top": "🍎 Frutas",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-52c621b7",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 8,
+      "dias_sin_pedir": 35,
+      "concepto_top": "🍺 Cerveza",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-60abf1cc",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 26,
+      "concepto_top": "🍎 Frutas",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-a703f13c",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 30,
+      "concepto_top": "🥪 Sándwiches y completos",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-cc1d8583",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 21,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-077ed5a5",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5,
+      "dias_sin_pedir": 21,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-d53c153c",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5.5,
+      "dias_sin_pedir": 23,
+      "concepto_top": "🍫 Chocolates",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-57c239cf",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7.5,
+      "dias_sin_pedir": 31,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-b6c71edf",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 29,
+      "concepto_top": "🥨 Snacks salados",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-3408a5fb",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 8,
+      "dias_sin_pedir": 33,
+      "concepto_top": "🍸 Pisco",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-21c238a6",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 9,
+      "dias_sin_pedir": 37,
+      "concepto_top": "🍣 Sushi",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-75fd01f6",
+      "persona": "mascotero",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 25,
+      "concepto_top": "🐕 Alimento para perros",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-cd30eafe",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 28,
+      "concepto_top": "🥪 Sándwiches y completos",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-effa0657",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6.5,
+      "dias_sin_pedir": 26,
+      "concepto_top": "🥗 Ensaladas y bowls",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-cac85534",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 11,
+      "dias_sin_pedir": 45,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-098b580e",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 10,
+      "dias_sin_pedir": 40,
+      "concepto_top": "🍎 Frutas",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-334ded6e",
+      "persona": "carrete",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 24,
+      "concepto_top": "🍺 Cerveza",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-83fd27b3",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 9.5,
+      "dias_sin_pedir": 38,
+      "concepto_top": "🍷 Vino",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-30e4e97a",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 24,
+      "concepto_top": "🥩 Carnes y parrilla",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-848701d8",
+      "persona": "mascotero",
+      "estado": "en_riesgo",
+      "ritmo_dias": 10,
+      "dias_sin_pedir": 39,
+      "concepto_top": "🐕 Alimento para perros",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-cd8348f4",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 5.5,
+      "dias_sin_pedir": 21,
+      "concepto_top": "🍣 Sushi",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-d8cc0b1f",
+      "persona": "foodie",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 23,
+      "concepto_top": "🍝 Pastas",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-8d47048e",
+      "persona": "oficina",
+      "estado": "en_riesgo",
+      "ritmo_dias": 9,
+      "dias_sin_pedir": 34,
+      "concepto_top": "🍪 Galletas",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-3a4869f4",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 8,
+      "dias_sin_pedir": 30,
+      "concepto_top": "🥛 Leche y yogur",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-061867b1",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 8,
+      "dias_sin_pedir": 30,
+      "concepto_top": "🧽 Limpieza",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-a9b1ccf9",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 6,
+      "dias_sin_pedir": 23,
+      "concepto_top": "🧽 Limpieza",
+      "consiente_avisos": true,
+      "accion": "Recordatorio en su ritmo con su concepto top + complemento"
+    },
+    {
+      "usuario": "u-3c42d4d6",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 26,
+      "concepto_top": "🥩 Carnes y parrilla",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    },
+    {
+      "usuario": "u-96e6a398",
+      "persona": "familia",
+      "estado": "en_riesgo",
+      "ritmo_dias": 7,
+      "dias_sin_pedir": 26,
+      "concepto_top": "🍕 Pizza",
+      "consiente_avisos": false,
+      "accion": "Sin consentimiento: solo en la app (Bigotes)"
+    }
+  ]
+}

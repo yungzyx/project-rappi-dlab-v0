@@ -1,0 +1,105 @@
+{
+  "source": "catalogo_real",
+  "data": {
+    "cobertura": [
+      {
+        "vertical": "mall",
+        "tiendas": 232,
+        "declarados": 50242,
+        "obtenidos": 18806
+      },
+      {
+        "vertical": "supermercado",
+        "tiendas": 209,
+        "declarados": 44827,
+        "obtenidos": 20322
+      },
+      {
+        "vertical": "licores",
+        "tiendas": 36,
+        "declarados": 11531,
+        "obtenidos": 3361
+      },
+      {
+        "vertical": "conveniencia",
+        "tiendas": 19,
+        "declarados": 8868,
+        "obtenidos": 6541
+      },
+      {
+        "vertical": "chocolateria",
+        "tiendas": 13,
+        "declarados": 681,
+        "obtenidos": 555
+      },
+      {
+        "vertical": "farmacia",
+        "tiendas": 3,
+        "declarados": 241,
+        "obtenidos": 156
+      }
+    ],
+    "calidad": [
+      {
+        "vertical": "supermercado",
+        "productos": 20322,
+        "sin_imagen_pct": 0.4,
+        "sin_categoria_pct": 15.8,
+        "sin_concepto_pct": 11
+      },
+      {
+        "vertical": "mall",
+        "productos": 18806,
+        "sin_imagen_pct": 0.2,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 22.8
+      },
+      {
+        "vertical": "conveniencia",
+        "productos": 6541,
+        "sin_imagen_pct": 0.6,
+        "sin_categoria_pct": 19,
+        "sin_concepto_pct": 20.2
+      },
+      {
+        "vertical": "licores",
+        "productos": 3361,
+        "sin_imagen_pct": 0.1,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 16.6
+      },
+      {
+        "vertical": "chocolateria",
+        "productos": 555,
+        "sin_imagen_pct": 0,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 16
+      },
+      {
+        "vertical": "farmacia",
+        "productos": 156,
+        "sin_imagen_pct": 0,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 90.4
+      }
+    ],
+    "cruzados_reales": [
+      {
+        "n_verticales": 2,
+        "productos": 3818
+      },
+      {
+        "n_verticales": 3,
+        "productos": 1117
+      },
+      {
+        "n_verticales": 4,
+        "productos": 217
+      },
+      {
+        "n_verticales": 5,
+        "productos": 3
+      }
+    ]
+  }
+}

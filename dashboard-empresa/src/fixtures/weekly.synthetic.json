@@ -1,0 +1,145 @@
+{
+  "source": "synthetic",
+  "data": [
+    {
+      "semana": "2026-05-11",
+      "usuarios_activos": 31,
+      "pedidos": 40,
+      "sin_resultado_pct": 4.5,
+      "abandono_carrito_pct": 23.8
+    },
+    {
+      "semana": "2026-05-18",
+      "usuarios_activos": 106,
+      "pedidos": 120,
+      "sin_resultado_pct": 3.4,
+      "abandono_carrito_pct": 31.9
+    },
+    {
+      "semana": "2026-05-25",
+      "usuarios_activos": 162,
+      "pedidos": 203,
+      "sin_resultado_pct": 4.1,
+      "abandono_carrito_pct": 27.3
+    },
+    {
+      "semana": "2026-06-01",
+      "usuarios_activos": 236,
+      "pedidos": 306,
+      "sin_resultado_pct": 3.1,
+      "abandono_carrito_pct": 26.1
+    },
+    {
+      "semana": "2026-06-08",
+      "usuarios_activos": 310,
+      "pedidos": 370,
+      "sin_resultado_pct": 6.4,
+      "abandono_carrito_pct": 28.6
+    },
+    {
+      "semana": "2026-06-15",
+      "usuarios_activos": 358,
+      "pedidos": 438,
+      "sin_resultado_pct": 4.7,
+      "abandono_carrito_pct": 31.6
+    },
+    {
+      "semana": "2026-06-22",
+      "usuarios_activos": 393,
+      "pedidos": 495,
+      "sin_resultado_pct": 5.2,
+      "abandono_carrito_pct": 30.6
+    },
+    {
+      "semana": "2026-06-29",
+      "usuarios_activos": 481,
+      "pedidos": 591,
+      "sin_resultado_pct": 5.8,
+      "abandono_carrito_pct": 27.9
+    },
+    {
+      "semana": "2026-07-06",
+      "usuarios_activos": 537,
+      "pedidos": 611,
+      "sin_resultado_pct": 7.5,
+      "abandono_carrito_pct": 30
+    },
+    {
+      "semana": "2026-07-13",
+      "usuarios_activos": 560,
+      "pedidos": 726,
+      "sin_resultado_pct": 5.3,
+      "abandono_carrito_pct": 27.9
+    },
+    {
+      "semana": "2026-07-20",
+      "usuarios_activos": 625,
+      "pedidos": 842,
+      "sin_resultado_pct": 7,
+      "abandono_carrito_pct": 28.6
+    },
+    {
+      "semana": "2026-07-27",
+      "usuarios_activos": 687,
+      "pedidos": 846,
+      "sin_resultado_pct": 9.2,
+      "abandono_carrito_pct": 28.3
+    },
+    {
+      "semana": "2026-08-03",
+      "usuarios_activos": 709,
+      "pedidos": 885,
+      "sin_resultado_pct": 9.7,
+      "abandono_carrito_pct": 29.4
+    },
+    {
+      "semana": "2026-08-10",
+      "usuarios_activos": 671,
+      "pedidos": 820,
+      "sin_resultado_pct": 10.2,
+      "abandono_carrito_pct": 29.6
+    },
+    {
+      "semana": "2026-08-17",
+      "usuarios_activos": 697,
+      "pedidos": 877,
+      "sin_resultado_pct": 10.9,
+      "abandono_carrito_pct": 28.6
+    },
+    {
+      "semana": "2026-08-24",
+      "usuarios_activos": 670,
+      "pedidos": 788,
+      "sin_resultado_pct": 12.1,
+      "abandono_carrito_pct": 29.3
+    },
+    {
+      "semana": "2026-08-31",
+      "usuarios_activos": 656,
+      "pedidos": 815,
+      "sin_resultado_pct": 13.1,
+      "abandono_carrito_pct": 28.8
+    },
+    {
+      "semana": "2026-09-07",
+      "usuarios_activos": 641,
+      "pedidos": 796,
+      "sin_resultado_pct": 13.5,
+      "abandono_carrito_pct": 30.6
+    },
+    {
+      "semana": "2026-09-14",
+      "usuarios_activos": 643,
+      "pedidos": 751,
+      "sin_resultado_pct": 16.1,
+      "abandono_carrito_pct": 28
+    },
+    {
+      "semana": "2026-09-21",
+      "usuarios_activos": 581,
+      "pedidos": 691,
+      "sin_resultado_pct": 15.4,
+      "abandono_carrito_pct": 26.5
+    }
+  ]
+}

@@ -36,9 +36,10 @@ _AS_OF = "(SELECT max(ts) FROM app_events WHERE source = %(source)s)"
 
 # Ritmo por usuario: mediana de días entre pedidos (180 días); con 2 pedidos, el único intervalo acotado a [7, 30].
 _RHYTHM = f"""
-user_orders AS (
-    SELECT user_id, ts, lag(ts) OVER (PARTITION BY user_id ORDER BY ts) AS prev
-    FROM app_orders WHERE source = %(source)s AND ts > {_AS_OF} - interval '180 days'
+user_orders AS (  -- por día con pedidos: dos pedidos del mismo carro (dos verticales) no son "ritmo 0"
+    SELECT user_id, day AS ts, lag(day) OVER (PARTITION BY user_id ORDER BY day) AS prev
+    FROM (SELECT DISTINCT user_id, date_trunc('day', ts) AS day FROM app_orders
+          WHERE source = %(source)s AND ts > {_AS_OF} - interval '180 days') d
 ),
 rhythm AS (
     SELECT user_id, count(*) + 1 AS orders,
@@ -73,9 +74,11 @@ def kpis(conn: Connection, source: str = "synthetic") -> dict:
                 SELECT count(*) AS n FROM app_orders
                 WHERE source = %(source)s AND ts > {_AS_OF} - interval '{ACTIVE_DAYS} days'
             ),
-            carts AS (
+            carts AS (  -- carros con actividad en los últimos 30 días, como los demás indicadores
                 SELECT cart_id, max(ts) AS last_cart_ts FROM app_events
-                WHERE source = %(source)s AND type = 'cart_add' AND cart_id IS NOT NULL GROUP BY cart_id
+                WHERE source = %(source)s AND type = 'cart_add' AND cart_id IS NOT NULL
+                  AND ts > {_AS_OF} - interval '{ACTIVE_DAYS} days'
+                GROUP BY cart_id
             ),
             abandoned AS (
                 SELECT c.cart_id,
@@ -113,24 +116,41 @@ def kpis(conn: Connection, source: str = "synthetic") -> dict:
 
 
 def weekly(conn: Connection, source: str = "synthetic") -> list[dict]:
-    """Serie semanal: usuarios activos, pedidos, frecuencia, abandono de carrito y búsquedas sin resultado."""
+    """Serie semanal: usuarios activos, pedidos, búsquedas sin resultado y abandono de carrito (una sola pasada)."""
     _check(source)
     return _rows(
         conn,
-        """WITH ev AS (SELECT * FROM app_events WHERE source = %(source)s),
-            weeks AS (SELECT date_trunc('week', ts) AS week FROM ev GROUP BY 1)
-           SELECT w.week::date AS semana,
-                  (SELECT count(DISTINCT user_id) FROM ev WHERE date_trunc('week', ts) = w.week) AS usuarios_activos,
-                  (SELECT count(*) FROM app_orders o WHERE o.source = %(source)s AND date_trunc('week', o.ts) = w.week)
-                      AS pedidos,
-                  (SELECT round(100.0 * count(*) FILTER (WHERE unmet) / nullif(count(*), 0), 1) FROM ev
-                   WHERE type IN ('search', 'chat') AND date_trunc('week', ts) = w.week) AS sin_resultado_pct,
-                  (SELECT round(100.0 * count(*) FILTER (WHERE NOT EXISTS (
-                              SELECT 1 FROM app_orders o WHERE o.cart_id = c.cart_id AND o.source = %(source)s))
-                          / nullif(count(*), 0), 1)
-                   FROM (SELECT DISTINCT cart_id FROM ev WHERE type = 'cart_add' AND date_trunc('week', ts) = w.week) c)
-                      AS abandono_carrito_pct
-           FROM weeks w ORDER BY w.week""",
+        """WITH ev AS (
+               SELECT date_trunc('week', ts) AS week, user_id, type, unmet, cart_id
+               FROM app_events WHERE source = %(source)s
+           ),
+           activity AS (
+               SELECT week, count(DISTINCT user_id) AS usuarios_activos,
+                      round(100.0 * count(*) FILTER (WHERE type IN ('search', 'chat') AND unmet)
+                            / nullif(count(*) FILTER (WHERE type IN ('search', 'chat')), 0), 1) AS sin_resultado_pct
+               FROM ev GROUP BY week
+           ),
+           orders AS (
+               SELECT date_trunc('week', ts) AS week, count(*) AS pedidos
+               FROM app_orders WHERE source = %(source)s GROUP BY 1
+           ),
+           carts AS (
+               SELECT e.week, e.cart_id, bool_or(o.order_id IS NOT NULL) AS paid
+               FROM (SELECT DISTINCT week, cart_id FROM ev WHERE type = 'cart_add' AND cart_id IS NOT NULL) e
+               LEFT JOIN app_orders o ON o.cart_id = e.cart_id AND o.source = %(source)s
+               GROUP BY 1, 2
+           ),
+           abandonment AS (
+               SELECT week, round(100.0 * count(*) FILTER (WHERE NOT paid) / nullif(count(*), 0), 1)
+                          AS abandono_carrito_pct
+               FROM carts GROUP BY week
+           )
+           SELECT a.week::date AS semana, a.usuarios_activos, coalesce(o.pedidos, 0) AS pedidos,
+                  a.sin_resultado_pct, ab.abandono_carrito_pct
+           FROM activity a
+           LEFT JOIN orders o USING (week)
+           LEFT JOIN abandonment ab USING (week)
+           ORDER BY a.week""",
         {"source": source},
     )
 
@@ -141,20 +161,21 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
     return _rows(
         conn,
         f"""WITH unmet AS (
-                SELECT e.user_id, e.vertical, e.concept_id, lower(e.query) AS query, e.ts
-                FROM app_events e
+                SELECT e.user_id, e.vertical, e.concept_id, lower(e.query) AS query, e.ts, u.city
+                FROM app_events e JOIN app_users u USING (user_id)
                 WHERE e.source = %(source)s AND e.unmet AND e.type IN ('search', 'chat')
             ),
             agg AS (
                 SELECT vertical, concept_id, CASE WHEN concept_id IS NULL THEN query END AS query,
                        count(*) AS busquedas, count(DISTINCT user_id) AS usuarios,
+                       array_agg(DISTINCT city) FILTER (WHERE city IS NOT NULL) AS ciudades,
                        count(*) FILTER (WHERE ts > {_AS_OF} - make_interval(weeks => %(weeks)s)) AS recientes,
                        count(*) FILTER (WHERE ts <= {_AS_OF} - make_interval(weeks => %(weeks)s)
                                           AND ts > {_AS_OF} - make_interval(weeks => 2 * %(weeks)s)) AS anteriores
                 FROM unmet GROUP BY 1, 2, 3
             )
             SELECT a.vertical, a.concept_id, coalesce(c.emoji || ' ' || c.name, a.query) AS que,
-                   a.busquedas, a.usuarios, a.recientes, a.anteriores,
+                   a.busquedas, a.usuarios, a.ciudades, a.recientes, a.anteriores,
                    CASE WHEN a.anteriores = 0 THEN NULL
                         ELSE round(100.0 * (a.recientes - a.anteriores) / a.anteriores, 0) END AS crecimiento_pct,
                    (SELECT string_agg(ca.vertical, ', ' ORDER BY ca.items DESC) FROM v_concept_assortment ca
@@ -222,27 +243,37 @@ def funnel(conn: Connection, source: str = "synthetic") -> list[dict]:
 
 
 def cohorts(conn: Connection, source: str = "synthetic", max_weeks: int = 8) -> list[dict]:
-    """Retención por cohorte semanal (semana del primer pedido): % que vuelve a pedir en la semana k."""
+    """Retención por cohorte semanal (semana del primer pedido): % que vuelve a pedir en la semana k.
+
+    Incluye las semanas sin nadie (0%) hasta la fecha de corte, y solo cohortes de al menos 20 usuarios.
+    """
     _check(source)
     return _rows(
         conn,
-        """WITH firsts AS (
+        f"""WITH firsts AS (
                SELECT user_id, date_trunc('week', min(ts)) AS cohort FROM app_orders WHERE source = %(source)s
                GROUP BY 1
            ),
+           sizes AS (SELECT cohort, count(*) AS usuarios FROM firsts GROUP BY 1 HAVING count(*) >= %(min_users)s),
            activity AS (
                SELECT DISTINCT o.user_id, f.cohort,
                       -- en días enteros: el cambio de hora (semana de 6 días y 23 h) no corre las semanas
                       (date_trunc('week', o.ts)::date - f.cohort::date) / 7 AS k
                FROM app_orders o JOIN firsts f USING (user_id) WHERE o.source = %(source)s
+           ),
+           grid AS (
+               SELECT s.cohort, s.usuarios, k
+               FROM sizes s
+               CROSS JOIN LATERAL generate_series(
+                   0, least(%(max_weeks)s, (date_trunc('week', {_AS_OF})::date - s.cohort::date) / 7)) AS k
            )
-           SELECT cohort::date AS cohorte, k AS semana,
-                  round(100.0 * count(*) / (SELECT count(*) FROM firsts f2 WHERE f2.cohort = activity.cohort), 1)
-                      AS retencion_pct,
-                  (SELECT count(*) FROM firsts f2 WHERE f2.cohort = activity.cohort) AS usuarios
-           FROM activity WHERE k <= %(max_weeks)s
-           GROUP BY cohort, k ORDER BY cohort, k""",
-        {"source": source, "max_weeks": max_weeks},
+           SELECT g.cohort::date AS cohorte, g.k AS semana,
+                  round(100.0 * count(a.user_id) / g.usuarios, 1) AS retencion_pct, g.usuarios
+           FROM grid g
+           LEFT JOIN activity a ON a.cohort = g.cohort AND a.k = g.k
+           GROUP BY g.cohort, g.k, g.usuarios
+           ORDER BY g.cohort, g.k""",
+        {"source": source, "max_weeks": max_weeks, "min_users": MIN_GROUP_USERS},
     )
 
 
@@ -263,7 +294,7 @@ def rhythm_histogram(conn: Connection, source: str = "synthetic") -> list[dict]:
     )
 
 
-def at_risk(conn: Connection, source: str = "synthetic", limit: int = 50) -> list[dict]:
+def at_risk(conn: Connection, source: str = "synthetic", limit: int = 100) -> list[dict]:
     """Usuarios en riesgo o perdidos (id seudónimo) con su concepto top NO sensible y la acción sugerida."""
     _check(source)
     return _rows(
@@ -288,7 +319,8 @@ def at_risk(conn: Connection, source: str = "synthetic", limit: int = 50) -> lis
             LEFT JOIN (SELECT user_id, concept_id FROM top_concept) t USING (user_id)
             LEFT JOIN concepts c ON c.concept_id = t.concept_id
             WHERE r.status IN ('en_riesgo', 'perdido')
-            ORDER BY r.status DESC, r.since DESC
+            -- Primero los "en riesgo" (todavía recuperables) y, entre ellos, los más atrasados respecto a su ritmo.
+            ORDER BY (r.status = 'en_riesgo') DESC, r.since / nullif(r.rhythm, 0) DESC NULLS LAST
             LIMIT %(limit)s""",
         {"source": source, "limit": limit},
     )
@@ -461,10 +493,10 @@ def assortment_vs_demand(conn: Connection, source: str = "synthetic", limit: int
            )
            SELECT c.emoji || ' ' || c.name AS concepto, d.vertical, d.usuarios AS usuarios_que_buscan,
                   coalesce(a.items, 0) AS items_en_catalogo,
-                  round(d.usuarios::numeric / greatest(coalesce(a.items, 0), 1), 2) AS usuarios_por_item
+                  round(d.usuarios::numeric / nullif(a.items, 0), 2) AS usuarios_por_item  -- NULL = sin oferta
            FROM demand d JOIN concepts c USING (concept_id)
            LEFT JOIN v_concept_assortment a ON a.concept_id = d.concept_id AND a.vertical = d.vertical
            WHERE NOT c.sensitive
-           ORDER BY usuarios_por_item DESC LIMIT %(limit)s""",
+           ORDER BY usuarios_por_item DESC NULLS FIRST, d.usuarios DESC LIMIT %(limit)s""",
         {"source": source, "limit": limit},
     )

@@ -1,0 +1,19 @@
+{
+  "source": "prototype",
+  "data": [
+    {
+      "concepto": "🍺 Cerveza",
+      "vertical": "licores",
+      "usuarios_que_buscan": 2,
+      "items_en_catalogo": 390,
+      "usuarios_por_item": 0.01
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "licores",
+      "usuarios_que_buscan": 1,
+      "items_en_catalogo": 121,
+      "usuarios_por_item": 0.01
+    }
+  ]
+}

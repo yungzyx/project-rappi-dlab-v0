@@ -1,0 +1,110 @@
+/*
+ * Tokens del panel. Cada color trae su par claro/oscuro con light-dark(): el tema sigue al sistema
+ * (prefers-color-scheme) salvo que el usuario lo fije con el botón (data-theme en <html>).
+ * Colores de datos validados con la skill dataviz (ramas ordinales, contraste de texto >= 4,5:1).
+ * Regla semántica: el rojo es solo para tendencias malas y riesgo; el ámbar rayado marca lo simulado.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Superficies y tinta */
+  --page: light-dark(#f4f3ef, #0d0d0d);
+  --surface: light-dark(#fcfcfb, #1a1a19);
+  --surface-sunken: light-dark(#efeee9, #141413);
+  --surface-raised: light-dark(#ffffff, #222220);
+  --ink: light-dark(#0b0b0b, #ffffff);
+  --ink-2: light-dark(#52514e, #c3c2b7);
+  --ink-3: light-dark(#6b6964, #9d9b93);
+  --line: light-dark(#e1e0d9, #2c2c2a);
+  --line-strong: light-dark(#c3c2b7, #45443f);
+  --hairline: light-dark(rgba(11, 11, 11, 0.1), rgba(255, 255, 255, 0.1));
+  --focus: light-dark(#256abf, #8fbcf5);
+
+  /* Panel invertido ("Qué hacer esta semana") */
+  --inverse: light-dark(#1c1b17, #282724);
+  --inverse-ink: #ffffff;
+  --inverse-ink-2: #c9c7bd;
+  --inverse-line: rgba(255, 255, 255, 0.14);
+
+  /* Datos: un solo azul para magnitud; rampa ordinal (etapas) y secuencial (mapa de calor) */
+  --data: light-dark(#2a78d6, #3987e5);
+  --data-ink: light-dark(#256abf, #8fbcf5);
+  --data-wash: light-dark(rgba(42, 120, 214, 0.1), rgba(57, 135, 229, 0.16));
+  --deemph: #8a8883;
+  --ord-1: light-dark(#86b6ef, #184f95);
+  --ord-2: light-dark(#5598e7, #256abf);
+  --ord-3: light-dark(#2a78d6, #3987e5);
+  --ord-4: light-dark(#184f95, #86b6ef);
+  --seq-1: light-dark(#cde2fb, #0d366b);
+  --seq-2: light-dark(#9ec5f4, #104281);
+  --seq-3: light-dark(#6da7ec, #184f95);
+  --seq-4: light-dark(#3987e5, #256abf);
+  --seq-5: light-dark(#256abf, #3987e5);
+  --seq-6: light-dark(#184f95, #6da7ec);
+  --seq-ink-1: light-dark(#0b0b0b, #ffffff);
+  --seq-ink-2: light-dark(#0b0b0b, #ffffff);
+  --seq-ink-3: light-dark(#0b0b0b, #ffffff);
+  --seq-ink-4: light-dark(#0b0b0b, #ffffff);
+  --seq-ink-5: light-dark(#ffffff, #0b0b0b);
+  --seq-ink-6: light-dark(#ffffff, #0b0b0b);
+
+  /* Estados: reservados, siempre con ícono y texto */
+  --bad: light-dark(#d03b3b, #e66767);
+  --bad-ink: light-dark(#b3261e, #f28b82);
+  --bad-wash: light-dark(rgba(208, 59, 59, 0.09), rgba(230, 103, 103, 0.14));
+  --good: #0ca30c;
+  --good-ink: light-dark(#006300, #3fbf3f);
+  --warn: #fab219;
+  --warn-ink: light-dark(#8a5300, #f5c451);
+
+  /* Procedencia: simulado (ámbar rayado) y real (sólido) */
+  --sim-bg: light-dark(#fcefc6, #2b2412);
+  --sim-stripe: light-dark(#f6dd8a, #3d3218);
+  --sim-edge: light-dark(#eda100, #c98500);
+  --sim-ink: light-dark(#5a3b00, #f7d98b);
+  --sim-hatch: repeating-linear-gradient(135deg, var(--sim-stripe) 0 5px, transparent 5px 11px);
+  --real-bg: light-dark(#0b0b0b, #f4f3ef);
+  --real-ink: light-dark(#ffffff, #0b0b0b);
+
+  /* Tipografía */
+  --font: 'IBM Plex Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.625rem;
+  --text-display: clamp(1.875rem, 1.35rem + 1.7vw, 2.75rem);
+
+  /* Espacio y forma */
+  --gutter: clamp(16px, 3.4vw, 40px);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-section: clamp(40px, 5vw, 72px);
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 16px;
+  --content-max: 1320px;
+  --shadow-card: 0 1px 0 light-dark(rgba(11, 11, 11, 0.04), rgba(0, 0, 0, 0.4));
+  --shadow-float: 0 12px 32px light-dark(rgba(11, 11, 11, 0.14), rgba(0, 0, 0, 0.55));
+
+  /* Movimiento */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 320ms;
+  --duration-enter: 520ms;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}

@@ -1,0 +1,608 @@
+{
+  "source": "synthetic",
+  "data": [
+    {
+      "concepto": "🍺 Cerveza",
+      "vertical": "supermercado",
+      "mostradas": 593,
+      "aceptadas": 144,
+      "ignoradas": 449,
+      "convertidas": 98,
+      "aceptacion_pct": 24.3
+    },
+    {
+      "concepto": "🍺 Cerveza",
+      "vertical": "licores",
+      "mostradas": 531,
+      "aceptadas": 121,
+      "ignoradas": 410,
+      "convertidas": 94,
+      "aceptacion_pct": 22.8
+    },
+    {
+      "concepto": "🍺 Cerveza",
+      "vertical": "conveniencia",
+      "mostradas": 528,
+      "aceptadas": 141,
+      "ignoradas": 387,
+      "convertidas": 95,
+      "aceptacion_pct": 26.7
+    },
+    {
+      "concepto": "🥤 Bebidas gaseosas",
+      "vertical": "supermercado",
+      "mostradas": 320,
+      "aceptadas": 82,
+      "ignoradas": 238,
+      "convertidas": 60,
+      "aceptacion_pct": 25.6
+    },
+    {
+      "concepto": "🍮 Postres",
+      "vertical": "supermercado",
+      "mostradas": 309,
+      "aceptadas": 56,
+      "ignoradas": 253,
+      "convertidas": 40,
+      "aceptacion_pct": 18.1
+    },
+    {
+      "concepto": "🥤 Bebidas gaseosas",
+      "vertical": "mall",
+      "mostradas": 303,
+      "aceptadas": 83,
+      "ignoradas": 220,
+      "convertidas": 58,
+      "aceptacion_pct": 27.4
+    },
+    {
+      "concepto": "🧃 Jugos y néctares",
+      "vertical": "supermercado",
+      "mostradas": 295,
+      "aceptadas": 75,
+      "ignoradas": 220,
+      "convertidas": 54,
+      "aceptacion_pct": 25.4
+    },
+    {
+      "concepto": "🍮 Postres",
+      "vertical": "mall",
+      "mostradas": 283,
+      "aceptadas": 56,
+      "ignoradas": 227,
+      "convertidas": 42,
+      "aceptacion_pct": 19.8
+    },
+    {
+      "concepto": "🍮 Postres",
+      "vertical": "conveniencia",
+      "mostradas": 280,
+      "aceptadas": 59,
+      "ignoradas": 221,
+      "convertidas": 38,
+      "aceptacion_pct": 21.1
+    },
+    {
+      "concepto": "🥤 Bebidas gaseosas",
+      "vertical": "chocolateria",
+      "mostradas": 279,
+      "aceptadas": 74,
+      "ignoradas": 205,
+      "convertidas": 50,
+      "aceptacion_pct": 26.5
+    },
+    {
+      "concepto": "🧴 Dermocosmética y cuidado de la piel",
+      "vertical": "conveniencia",
+      "mostradas": 275,
+      "aceptadas": 61,
+      "ignoradas": 214,
+      "convertidas": 38,
+      "aceptacion_pct": 22.2
+    },
+    {
+      "concepto": "🧃 Jugos y néctares",
+      "vertical": "conveniencia",
+      "mostradas": 272,
+      "aceptadas": 54,
+      "ignoradas": 218,
+      "convertidas": 34,
+      "aceptacion_pct": 19.9
+    },
+    {
+      "concepto": "🍮 Postres",
+      "vertical": "chocolateria",
+      "mostradas": 270,
+      "aceptadas": 55,
+      "ignoradas": 215,
+      "convertidas": 42,
+      "aceptacion_pct": 20.4
+    },
+    {
+      "concepto": "🥤 Bebidas gaseosas",
+      "vertical": "conveniencia",
+      "mostradas": 269,
+      "aceptadas": 87,
+      "ignoradas": 182,
+      "convertidas": 54,
+      "aceptacion_pct": 32.3
+    },
+    {
+      "concepto": "🧃 Jugos y néctares",
+      "vertical": "licores",
+      "mostradas": 266,
+      "aceptadas": 60,
+      "ignoradas": 206,
+      "convertidas": 36,
+      "aceptacion_pct": 22.6
+    },
+    {
+      "concepto": "🧃 Jugos y néctares",
+      "vertical": "mall",
+      "mostradas": 260,
+      "aceptadas": 41,
+      "ignoradas": 219,
+      "convertidas": 29,
+      "aceptacion_pct": 15.8
+    },
+    {
+      "concepto": "🧴 Dermocosmética y cuidado de la piel",
+      "vertical": "mall",
+      "mostradas": 254,
+      "aceptadas": 74,
+      "ignoradas": 180,
+      "convertidas": 48,
+      "aceptacion_pct": 29.1
+    },
+    {
+      "concepto": "🥫 Salsas y aderezos",
+      "vertical": "mall",
+      "mostradas": 241,
+      "aceptadas": 72,
+      "ignoradas": 169,
+      "convertidas": 52,
+      "aceptacion_pct": 29.9
+    },
+    {
+      "concepto": "🥫 Salsas y aderezos",
+      "vertical": "conveniencia",
+      "mostradas": 237,
+      "aceptadas": 72,
+      "ignoradas": 165,
+      "convertidas": 51,
+      "aceptacion_pct": 30.4
+    },
+    {
+      "concepto": "🦴 Accesorios para mascotas",
+      "vertical": "mall",
+      "mostradas": 229,
+      "aceptadas": 47,
+      "ignoradas": 182,
+      "convertidas": 38,
+      "aceptacion_pct": 20.5
+    },
+    {
+      "concepto": "🥫 Salsas y aderezos",
+      "vertical": "supermercado",
+      "mostradas": 217,
+      "aceptadas": 63,
+      "ignoradas": 154,
+      "convertidas": 42,
+      "aceptacion_pct": 29
+    },
+    {
+      "concepto": "🦴 Accesorios para mascotas",
+      "vertical": "conveniencia",
+      "mostradas": 212,
+      "aceptadas": 47,
+      "ignoradas": 165,
+      "convertidas": 35,
+      "aceptacion_pct": 22.2
+    },
+    {
+      "concepto": "🔥 Carbón y leña",
+      "vertical": "conveniencia",
+      "mostradas": 197,
+      "aceptadas": 64,
+      "ignoradas": 133,
+      "convertidas": 52,
+      "aceptacion_pct": 32.5
+    },
+    {
+      "concepto": "🥤 Bebidas gaseosas",
+      "vertical": "licores",
+      "mostradas": 192,
+      "aceptadas": 37,
+      "ignoradas": 155,
+      "convertidas": 25,
+      "aceptacion_pct": 19.3
+    },
+    {
+      "concepto": "🔥 Carbón y leña",
+      "vertical": "mall",
+      "mostradas": 188,
+      "aceptadas": 55,
+      "ignoradas": 133,
+      "convertidas": 40,
+      "aceptacion_pct": 29.3
+    },
+    {
+      "concepto": "🎂 Tortas y pastelería",
+      "vertical": "restaurantes",
+      "mostradas": 186,
+      "aceptadas": 54,
+      "ignoradas": 132,
+      "convertidas": 37,
+      "aceptacion_pct": 29
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "mall",
+      "mostradas": 180,
+      "aceptadas": 61,
+      "ignoradas": 119,
+      "convertidas": 36,
+      "aceptacion_pct": 33.9
+    },
+    {
+      "concepto": "🎂 Tortas y pastelería",
+      "vertical": "supermercado",
+      "mostradas": 176,
+      "aceptadas": 39,
+      "ignoradas": 137,
+      "convertidas": 29,
+      "aceptacion_pct": 22.2
+    },
+    {
+      "concepto": "☕ Café",
+      "vertical": "supermercado",
+      "mostradas": 175,
+      "aceptadas": 32,
+      "ignoradas": 143,
+      "convertidas": 27,
+      "aceptacion_pct": 18.3
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "supermercado",
+      "mostradas": 171,
+      "aceptadas": 53,
+      "ignoradas": 118,
+      "convertidas": 37,
+      "aceptacion_pct": 31
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "restaurantes",
+      "mostradas": 170,
+      "aceptadas": 54,
+      "ignoradas": 116,
+      "convertidas": 36,
+      "aceptacion_pct": 31.8
+    },
+    {
+      "concepto": "🔥 Carbón y leña",
+      "vertical": "licores",
+      "mostradas": 169,
+      "aceptadas": 49,
+      "ignoradas": 120,
+      "convertidas": 37,
+      "aceptacion_pct": 29
+    },
+    {
+      "concepto": "☕ Café",
+      "vertical": "restaurantes",
+      "mostradas": 169,
+      "aceptadas": 40,
+      "ignoradas": 129,
+      "convertidas": 29,
+      "aceptacion_pct": 23.7
+    },
+    {
+      "concepto": "🥛 Leche y yogur",
+      "vertical": "licores",
+      "mostradas": 169,
+      "aceptadas": 44,
+      "ignoradas": 125,
+      "convertidas": 34,
+      "aceptacion_pct": 26
+    },
+    {
+      "concepto": "🥛 Leche y yogur",
+      "vertical": "mall",
+      "mostradas": 168,
+      "aceptadas": 35,
+      "ignoradas": 133,
+      "convertidas": 29,
+      "aceptacion_pct": 20.8
+    },
+    {
+      "concepto": "🎂 Tortas y pastelería",
+      "vertical": "mall",
+      "mostradas": 168,
+      "aceptadas": 42,
+      "ignoradas": 126,
+      "convertidas": 28,
+      "aceptacion_pct": 25
+    },
+    {
+      "concepto": "🥛 Leche y yogur",
+      "vertical": "restaurantes",
+      "mostradas": 167,
+      "aceptadas": 43,
+      "ignoradas": 124,
+      "convertidas": 37,
+      "aceptacion_pct": 25.7
+    },
+    {
+      "concepto": "🥛 Leche y yogur",
+      "vertical": "conveniencia",
+      "mostradas": 162,
+      "aceptadas": 38,
+      "ignoradas": 124,
+      "convertidas": 25,
+      "aceptacion_pct": 23.5
+    },
+    {
+      "concepto": "🥛 Leche y yogur",
+      "vertical": "chocolateria",
+      "mostradas": 159,
+      "aceptadas": 36,
+      "ignoradas": 123,
+      "convertidas": 34,
+      "aceptacion_pct": 22.6
+    },
+    {
+      "concepto": "☕ Café",
+      "vertical": "mall",
+      "mostradas": 157,
+      "aceptadas": 43,
+      "ignoradas": 114,
+      "convertidas": 25,
+      "aceptacion_pct": 27.4
+    },
+    {
+      "concepto": "🎂 Tortas y pastelería",
+      "vertical": "chocolateria",
+      "mostradas": 154,
+      "aceptadas": 42,
+      "ignoradas": 112,
+      "convertidas": 29,
+      "aceptacion_pct": 27.3
+    },
+    {
+      "concepto": "☕ Café",
+      "vertical": "licores",
+      "mostradas": 145,
+      "aceptadas": 33,
+      "ignoradas": 112,
+      "convertidas": 27,
+      "aceptacion_pct": 22.8
+    },
+    {
+      "concepto": "🧷 Pañales y toallitas",
+      "vertical": "mall",
+      "mostradas": 142,
+      "aceptadas": 34,
+      "ignoradas": 108,
+      "convertidas": 27,
+      "aceptacion_pct": 23.9
+    },
+    {
+      "concepto": "🧷 Pañales y toallitas",
+      "vertical": "conveniencia",
+      "mostradas": 141,
+      "aceptadas": 43,
+      "ignoradas": 98,
+      "convertidas": 31,
+      "aceptacion_pct": 30.5
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "conveniencia",
+      "mostradas": 136,
+      "aceptadas": 46,
+      "ignoradas": 90,
+      "convertidas": 27,
+      "aceptacion_pct": 33.8
+    },
+    {
+      "concepto": "🍺 Cerveza",
+      "vertical": "restaurantes",
+      "mostradas": 121,
+      "aceptadas": 32,
+      "ignoradas": 89,
+      "convertidas": 21,
+      "aceptacion_pct": 26.4
+    },
+    {
+      "concepto": "🥓 Fiambres y embutidos",
+      "vertical": "chocolateria",
+      "mostradas": 98,
+      "aceptadas": 21,
+      "ignoradas": 77,
+      "convertidas": 13,
+      "aceptacion_pct": 21.4
+    },
+    {
+      "concepto": "🥓 Fiambres y embutidos",
+      "vertical": "restaurantes",
+      "mostradas": 91,
+      "aceptadas": 23,
+      "ignoradas": 68,
+      "convertidas": 19,
+      "aceptacion_pct": 25.3
+    },
+    {
+      "concepto": "🥓 Fiambres y embutidos",
+      "vertical": "licores",
+      "mostradas": 86,
+      "aceptadas": 21,
+      "ignoradas": 65,
+      "convertidas": 15,
+      "aceptacion_pct": 24.4
+    },
+    {
+      "concepto": "🥤 Bebidas gaseosas",
+      "vertical": "restaurantes",
+      "mostradas": 85,
+      "aceptadas": 19,
+      "ignoradas": 66,
+      "convertidas": 15,
+      "aceptacion_pct": 22.4
+    },
+    {
+      "concepto": "🥓 Fiambres y embutidos",
+      "vertical": "conveniencia",
+      "mostradas": 83,
+      "aceptadas": 21,
+      "ignoradas": 62,
+      "convertidas": 16,
+      "aceptacion_pct": 25.3
+    },
+    {
+      "concepto": "☕ Café",
+      "vertical": "conveniencia",
+      "mostradas": 80,
+      "aceptadas": 14,
+      "ignoradas": 66,
+      "convertidas": 13,
+      "aceptacion_pct": 17.5
+    },
+    {
+      "concepto": "🧀 Quesos",
+      "vertical": "restaurantes",
+      "mostradas": 54,
+      "aceptadas": 19,
+      "ignoradas": 35,
+      "convertidas": 13,
+      "aceptacion_pct": 35.2
+    },
+    {
+      "concepto": "🧀 Quesos",
+      "vertical": "supermercado",
+      "mostradas": 52,
+      "aceptadas": 13,
+      "ignoradas": 39,
+      "convertidas": 10,
+      "aceptacion_pct": 25
+    },
+    {
+      "concepto": "🧀 Quesos",
+      "vertical": "mall",
+      "mostradas": 47,
+      "aceptadas": 12,
+      "ignoradas": 35,
+      "convertidas": 8,
+      "aceptacion_pct": 25.5
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "licores",
+      "mostradas": 44,
+      "aceptadas": 18,
+      "ignoradas": 26,
+      "convertidas": 13,
+      "aceptacion_pct": 40.9
+    },
+    {
+      "concepto": "🔥 Carbón y leña",
+      "vertical": "supermercado",
+      "mostradas": 41,
+      "aceptadas": 12,
+      "ignoradas": 29,
+      "convertidas": 7,
+      "aceptacion_pct": 29.3
+    },
+    {
+      "concepto": "🧀 Quesos",
+      "vertical": "conveniencia",
+      "mostradas": 41,
+      "aceptadas": 12,
+      "ignoradas": 29,
+      "convertidas": 9,
+      "aceptacion_pct": 29.3
+    },
+    {
+      "concepto": "🍫 Chocolates",
+      "vertical": "restaurantes",
+      "mostradas": 32,
+      "aceptadas": 10,
+      "ignoradas": 22,
+      "convertidas": 6,
+      "aceptacion_pct": 31.3
+    },
+    {
+      "concepto": "🦴 Accesorios para mascotas",
+      "vertical": "supermercado",
+      "mostradas": 24,
+      "aceptadas": 7,
+      "ignoradas": 17,
+      "convertidas": 6,
+      "aceptacion_pct": 29.2
+    },
+    {
+      "concepto": "🍫 Chocolates",
+      "vertical": "supermercado",
+      "mostradas": 23,
+      "aceptadas": 4,
+      "ignoradas": 19,
+      "convertidas": 2,
+      "aceptacion_pct": 17.4
+    },
+    {
+      "concepto": "🎂 Tortas y pastelería",
+      "vertical": "conveniencia",
+      "mostradas": 20,
+      "aceptadas": 5,
+      "ignoradas": 15,
+      "convertidas": 1,
+      "aceptacion_pct": 25
+    },
+    {
+      "concepto": "🍫 Chocolates",
+      "vertical": "conveniencia",
+      "mostradas": 20,
+      "aceptadas": 3,
+      "ignoradas": 17,
+      "convertidas": 3,
+      "aceptacion_pct": 15
+    },
+    {
+      "concepto": "🍫 Chocolates",
+      "vertical": "chocolateria",
+      "mostradas": 16,
+      "aceptadas": 3,
+      "ignoradas": 13,
+      "convertidas": 2,
+      "aceptacion_pct": 18.8
+    },
+    {
+      "concepto": "🍬 Golosinas",
+      "vertical": "conveniencia",
+      "mostradas": 13,
+      "aceptadas": 1,
+      "ignoradas": 12,
+      "convertidas": 0,
+      "aceptacion_pct": 7.7
+    },
+    {
+      "concepto": "🧃 Jugos y néctares",
+      "vertical": "restaurantes",
+      "mostradas": 13,
+      "aceptadas": 1,
+      "ignoradas": 12,
+      "convertidas": 1,
+      "aceptacion_pct": 7.7
+    },
+    {
+      "concepto": "🍬 Golosinas",
+      "vertical": "chocolateria",
+      "mostradas": 11,
+      "aceptadas": 2,
+      "ignoradas": 9,
+      "convertidas": 2,
+      "aceptacion_pct": 18.2
+    }
+  ]
+}
