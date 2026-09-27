@@ -26,6 +26,8 @@
   --fee-ink: #9d8a36;
 
   --gutter: 25px;
+  /* Alto de la barra de estado de iOS en las capturas; en un teléfono real la dibuja el sistema */
+  --status-zone: 54px;
   --font: 'Figtree Variable', -apple-system, system-ui, sans-serif;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --duration-fast: 150ms;

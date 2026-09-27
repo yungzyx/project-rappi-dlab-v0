@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import AddressSheet from './components/AddressSheet'
 import AssistantPanel from './components/assistant/AssistantPanel'
 import CartBar from './components/CartBar'
@@ -13,6 +13,7 @@ import StoreScreen from './screens/store/StoreScreen'
 import TravelScreen from './screens/travel/TravelScreen'
 import TurboScreen from './screens/turbo/TurboScreen'
 import VerticalScreen from './screens/vertical/VerticalScreen'
+import { useNavigation } from './hooks/useNavigation'
 import { AddressProvider } from './state/AddressContext'
 import { AssistantProvider } from './state/AssistantContext'
 import { CartProvider } from './state/CartContext'
@@ -52,20 +53,9 @@ function usePhoneScale() {
 }
 
 export default function App() {
-  const [stack, setStack] = useState([{ name: 'home', params: {} }])
-  const [direction, setDirection] = useState('none')
-  // La pestaña de la Home vive aquí para no perderla al abrir una tienda y volver.
-  const [homeTab, setHomeTab] = useState('home')
+  // La pestaña de la Home vive en la navegación para no perderla al abrir una tienda y volver.
+  const { stack, homeTab, direction, push, back, setHomeTab } = useNavigation()
   usePhoneScale()
-
-  const push = (name, params = {}) => {
-    setDirection('push')
-    setStack((prev) => [...prev, { name, params }])
-  }
-  const back = () => {
-    setDirection('pop')
-    setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev))
-  }
 
   const current = stack[stack.length - 1]
   const Screen = SCREENS[current.name]

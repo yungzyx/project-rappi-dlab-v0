@@ -62,13 +62,31 @@ img {
   isolation: isolate;
 }
 
+/*
+ * Teléfono real: la app ocupa toda la pantalla y la franja de la barra de estado falsa queda fuera
+ * (el sistema ya muestra la suya). El resto conserva las posiciones medidas en las capturas.
+ */
 @media (max-width: 500px) {
+  body {
+    background: var(--surface);
+  }
+
+  .stage {
+    display: block;
+  }
+
   .phone {
     width: 100vw;
-    height: 100dvh;
+    height: calc(100dvh + var(--status-zone));
+    margin-top: calc(-1 * var(--status-zone));
     border-radius: 0;
     box-shadow: none;
     zoom: 1;
+  }
+
+  /* .phone delante: el CSS del componente se carga después y, con la misma especificidad, ganaría */
+  .phone .status-bar {
+    display: none;
   }
 }
 

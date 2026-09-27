@@ -134,19 +134,34 @@ export default function AssistantPanel({ push }) {
     setPhase('open')
   }, [phase])
 
-  const close = () => {
+  const close = ({ viaHistory = false } = {}) => {
     cancelVoice()
     setPhase('closing')
     later(() => {
       setPhase('closed')
-      assistant.close()
+      assistant.close({ viaHistory })
     }, CLOSE_MS)
   }
 
+  // La pantalla que se abre desde el chat reemplaza la entrada del asistente en el historial.
   const go = (name, params) => {
-    push(name, params)
-    close()
+    push(name, params, { replace: Boolean(window.history.state?.assistant) })
+    close({ viaHistory: true })
   }
+
+  // Gesto "volver" (o botón atrás) con el asistente abierto: se cierra con su animación.
+  const closeRef = useRef(close)
+  useEffect(() => {
+    closeRef.current = close
+  })
+  useEffect(() => {
+    if (!assistant.isOpen) return undefined
+    const onPopState = (event) => {
+      if (!event.state?.assistant) closeRef.current({ viaHistory: true })
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [assistant.isOpen])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -173,7 +188,7 @@ export default function AssistantPanel({ push }) {
       <div className="assistant-glow" />
 
       <header className="assistant-header">
-        <button type="button" className="assistant-close tap" aria-label="Cerrar" onClick={close}>
+        <button type="button" className="assistant-close tap" aria-label="Cerrar" onClick={() => close()}>
           <ChevronDown size={20} />
         </button>
         <div className="assistant-hero">
