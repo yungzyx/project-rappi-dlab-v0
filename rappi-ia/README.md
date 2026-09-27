@@ -41,6 +41,28 @@ Otros comandos:
 - `rappi-ia analytics`
 - `rappi-ia embed-images --limit 50 --forzar`: imágenes. **No** correrlo en masa mientras el scraper descarga.
 
+## API (`make serve` → http://localhost:8000/docs)
+
+| Endpoint | Para qué |
+|---|---|
+| `POST /chat` | Bigotes: `{message, vertical?, user_id?, session_id?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
+| `POST /chat/voice`, `POST /chat/photo` | Voz (Whisper, audio ≤ 20 s) y foto (JPEG/PNG/WebP). No se guardan |
+| `GET /search` | Búsqueda híbrida en un vertical, con precios vigentes |
+| `GET /recommendations` | "Para ti, de otras tiendas": intereses → complementos → otro vertical |
+| `GET /profile/{id}` · `DELETE /profile/{id}` | Lo aprendido (sin sensibles) · "Olvidar" (todo o un concepto) |
+| `POST /events` · `POST /orders` | Eventos y pedidos del prototipo (`source = prototype`) |
+| `GET /analytics/{kpis, weekly, opportunities, trends, funnel, cohorts, rhythm, at-risk, suggestions, multi-vertical, affinity, assortment, catalog}` | Métricas del panel |
+
+**Seguridad.** Es una demo local y **no tiene autenticación**:
+- **Por defecto:** `make serve` escucha solo en este Mac.
+- **Para el iPhone:** `make serve-lan` abre la API a la red local. Solo en una red de confianza.
+
+**Privacidad:**
+- **Datos personales en consultas:** se redactan antes de guardarlas (RUT con dígito verificador, teléfonos, correos, direcciones y tarjetas) y el texto se borra a los 90 días (`make purge`).
+- **"Olvidar":** borra eventos y pedidos.
+- **Sensibles:** los conceptos sensibles no entran al perfil ni a las palancas del panel.
+- **Claude:** si hay clave, recibe solo hechos estructurados, nunca la consulta del usuario.
+
 ## Resultados (27-09-2026, datos parciales: la descarga completa sigue en curso)
 
 **Búsqueda.** 111 consultas en 6 verticales, en `eval/queries.json`. La relevancia se juzga por concepto.
@@ -81,6 +103,7 @@ El híbrido gana en todos los tipos de consulta:
 - **Datos simulados:** usuarios, eventos y pedidos son **simulados** (`source = 'synthetic'`), con supuestos explícitos en `events/synth.py`. El panel muestra la mecánica, no evidencia.
 - **Muestra pública:** el catálogo es la muestra pública (hasta 24 productos por sub-pasillo), así que "no está" no significa "Rappi no lo vende".
 - **Uso interno:** fotos y descripciones son de Rappi y de los comercios; uso interno solamente (ver `docs/contexto-y-problema.md` §7).
+- **Revisión adversarial (27-09-2026):** 4 revisores independientes (lógica, seguridad y privacidad, frontend, rendimiento), cada hallazgo verificado por separado. Los 26 hallazgos confirmados están corregidos y tienen tests de regresión (commit `fix: correcciones de la revisión adversarial`).
 
 ## Estructura
 

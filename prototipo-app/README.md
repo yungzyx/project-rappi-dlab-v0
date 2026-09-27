@@ -30,7 +30,7 @@ Si la API de [`rappi-ia`](../rappi-ia/) está corriendo (`make serve`, puerto 80
 
 <img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Bigotes con la API: cervezas reales bajo $3.000 y snacks de otra tienda">
 - **Otra dirección:** para apuntar a otra API, crea `.env.local` con `VITE_API_URL=http://localhost:8001`.
-- **Desde el iPhone:** en la red local, arranca la API con `--host 0.0.0.0`. macOS pedirá permiso de red la primera vez.
+- **Desde el iPhone:** en la red local, arranca la API con `make serve-lan` (abre la API a la red; solo en una red de confianza). macOS pedirá permiso de red la primera vez.
 
 | Comando | Para qué |
 |---|---|
