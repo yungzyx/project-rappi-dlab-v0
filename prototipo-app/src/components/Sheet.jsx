@@ -1,0 +1,31 @@
+import { useEffect, useState } from 'react'
+import './sheet.css'
+
+const CLOSE_MS = 260
+
+/** Hoja inferior dentro del teléfono (dirección, carrito). Se cierra tocando el fondo. */
+export default function Sheet({ open, onClose, title, children }) {
+  const [mounted, setMounted] = useState(open)
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      return undefined
+    }
+    const timer = setTimeout(() => setMounted(false), CLOSE_MS)
+    return () => clearTimeout(timer)
+  }, [open])
+
+  if (!mounted) return null
+
+  return (
+    <div className={open ? 'sheet-layer is-open' : 'sheet-layer'}>
+      <button type="button" className="sheet-backdrop" aria-label="Cerrar" onClick={onClose} />
+      <section className="sheet" role="dialog" aria-modal="true" aria-label={title}>
+        <span className="sheet-grabber" />
+        {title && <h2 className="sheet-title">{title}</h2>}
+        {children}
+      </section>
+    </div>
+  )
+}

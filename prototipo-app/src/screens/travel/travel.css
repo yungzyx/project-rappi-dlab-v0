@@ -1,0 +1,146 @@
+/* Medidas de IMG_9127/9128 (px a 600 de ancho × 0,67 = pt). */
+.travel {
+  padding-bottom: 60px;
+}
+
+.travel-hero {
+  position: relative;
+  height: 335px;
+  margin-top: 62px;
+  touch-action: pan-y;
+}
+
+.travel-hero img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+.travel-hero img.is-active {
+  opacity: 1;
+}
+
+/* Zonas táctiles invisibles sobre los botones dibujados en el banner */
+.travel-hit {
+  position: absolute;
+  z-index: 2;
+  border-radius: 99px;
+}
+
+.travel-hit:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.travel-hit--back {
+  left: 16px;
+  top: 19px;
+  width: 33px;
+  height: 33px;
+}
+
+.travel-hit--bell {
+  left: 144px;
+  top: 19px;
+  width: 33px;
+  height: 33px;
+}
+
+.travel-hit--help {
+  left: 184px;
+  top: 19px;
+  width: 84px;
+  height: 31px;
+}
+
+.travel-hit--trips {
+  left: 275px;
+  top: 19px;
+  width: 111px;
+  height: 31px;
+}
+
+.travel-sheet {
+  position: relative;
+  z-index: 3;
+  margin-top: -16px;
+  padding: 24px 16px 0;
+  border-radius: 24px 24px 0 0;
+  background: var(--surface);
+}
+
+.travel-search {
+  display: flex;
+  align-items: center;
+  height: 54px;
+  padding: 0 14px 0 18px;
+  border: 2px solid #eef0f3;
+  border-radius: 99px;
+}
+
+.travel-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 16.5px;
+  color: var(--ink);
+}
+
+.travel-search input::placeholder {
+  color: #3d3d3d;
+}
+
+.travel-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.travel-search button {
+  display: grid;
+  color: #333;
+}
+
+.travel-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 64px);
+  justify-content: space-between;
+  row-gap: 16px;
+  margin-top: 26px;
+  padding: 0 6px 0 6px;
+}
+
+.travel-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 64px;
+}
+
+.travel-tile img {
+  width: 64px;
+  height: 64px;
+}
+
+.travel-tile span {
+  margin-top: 8px;
+  width: 90px;
+  font-size: 13px;
+  line-height: 16px;
+  color: #5f6673;
+  text-align: center;
+}
+
+.travel-proweek {
+  display: block;
+  width: 100%;
+  margin-top: 26px;
+}
+
+.travel-proweek img {
+  width: 100%;
+  border-radius: 18px 18px 0 0;
+}

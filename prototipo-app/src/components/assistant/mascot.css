@@ -1,0 +1,158 @@
+/* Animaciones de la mascota: solo transform/opacity, que corren en la GPU. */
+.mascot {
+  display: block;
+  overflow: visible;
+}
+
+.mascot-figure {
+  animation: mascot-float 3.2s ease-in-out infinite;
+}
+
+.mascot-eye,
+.mascot-mustache,
+.mascot-mouth,
+.mascot-pupil {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.mascot-eye {
+  animation: mascot-blink 4.6s infinite;
+}
+
+.mascot-mustache {
+  animation: mascot-wiggle 6s ease-in-out infinite;
+}
+
+.mascot-mouth {
+  transform-origin: top center;
+}
+
+.mascot-arm {
+  transform-box: view-box;
+  transform-origin: 102px 68px;
+  animation: mascot-wave-idle 9s ease-in-out infinite;
+}
+
+/* ----- Estados ----- */
+.mascot--wave .mascot-arm {
+  animation: mascot-wave 1.2s ease-in-out 2;
+}
+
+.mascot--talk .mascot-mouth {
+  animation: mascot-talk 0.32s ease-in-out infinite alternate;
+}
+
+.mascot--talk .mascot-mustache {
+  animation: mascot-bounce 0.32s ease-in-out infinite alternate;
+}
+
+.mascot--listen .mascot-eye {
+  animation: none;
+  transform: scale(1.12);
+}
+
+.mascot--listen .mascot-mustache {
+  animation: mascot-bounce 0.5s ease-in-out infinite alternate;
+}
+
+.mascot--think .mascot-pupil {
+  transform: translate(-2px, -3px);
+  transition: transform 300ms var(--ease-out);
+}
+
+.mascot--think .mascot-figure {
+  animation: mascot-tilt 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes mascot-float {
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+@keyframes mascot-blink {
+  0%,
+  91%,
+  97%,
+  100% {
+    transform: scaleY(1);
+  }
+  94% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes mascot-wiggle {
+  0%,
+  72%,
+  100% {
+    transform: rotate(0);
+  }
+  78% {
+    transform: rotate(-7deg);
+  }
+  84% {
+    transform: rotate(6deg);
+  }
+  90% {
+    transform: rotate(-3deg);
+  }
+}
+
+@keyframes mascot-wave-idle {
+  0%,
+  86%,
+  100% {
+    transform: rotate(0);
+  }
+  89%,
+  95% {
+    transform: rotate(-28deg);
+  }
+  92%,
+  98% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes mascot-wave {
+  25%,
+  75% {
+    transform: rotate(-30deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes mascot-talk {
+  from {
+    transform: scaleY(0.35);
+  }
+  to {
+    transform: scaleY(1.1);
+  }
+}
+
+@keyframes mascot-bounce {
+  to {
+    transform: translateY(-1.5px) scale(1.04);
+  }
+}
+
+@keyframes mascot-tilt {
+  from {
+    transform: rotate(-3deg);
+  }
+  to {
+    transform: rotate(3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot *,
+  .mascot {
+    animation: none !important;
+  }
+}

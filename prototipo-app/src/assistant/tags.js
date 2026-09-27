@@ -1,0 +1,74 @@
+// Temas de interés del asistente. Cada producto, tienda o frase se etiqueta buscando estas palabras.
+import { ALL_PRODUCTS, ALL_STORES } from '../data/catalog'
+
+export const TAGS = {
+  cerveza: { label: 'Cerveza', emoji: '🍺', words: ['cerveza', 'beer', 'lager', 'pale ale', 'heineken', 'royal guard', 'budweiser', 'cristal', 'jester', 'kunstman', 'chela'] },
+  vino: { label: 'Vino', emoji: '🍷', words: ['vino', 'wine', 'cabernet', 'molina'] },
+  licor: { label: 'Copete', emoji: '🥃', words: ['licor', 'pisco', 'whisky', 'liquor', 'botilleria', 'copete', 'liquidos', 'drinks', 'trago'] },
+  snack: { label: 'Snacks', emoji: '🍿', words: ['snack', 'papas fritas', 'chips', 'kryzpo', 'marco polo', 'botana', 'picoteo'] },
+  dulce: { label: 'Dulces', emoji: '🍫', words: ['chocolate', 'dulce', 'postre', 'sahne', 'caramel', 'pastel', 'dulceria', 'torta', 'altiro', 'entrelagos'] },
+  pizza: { label: 'Pizza', emoji: '🍕', words: ['pizza', 'papa john'] },
+  hamburguesa: { label: 'Hamburguesas', emoji: '🍔', words: ['burger', 'hamburguesa', 'mcdonald', 'miguelayo', 'relativo'] },
+  pollo: { label: 'Pollo frito', emoji: '🍗', words: ['pollo frito', 'kfc', 'chicken', 'bucket', 'combo aniversario'] },
+  sushi: { label: 'Sushi', emoji: '🍣', words: ['sushi', 'nikkei', 'poke', 'yapones', 'umami', 'ryge'] },
+  bebe: { label: 'Bebé', emoji: '🍼', words: ['bebe', 'panal', 'pampers', 'guagua'] },
+  farmacia: { label: 'Farmacia', emoji: '💊', words: ['farmacia', 'remedio', 'dolor', 'ahumada', 'cruz verde', 'eucerin', 'cerave', 'salud'] },
+  belleza: { label: 'Belleza', emoji: '💄', words: ['belleza', 'beauty', 'perfume', 'ck in2u', 'clinique', 'labial', 'maquillaje', 'edt'] },
+  mascota: { label: 'Mascotas', emoji: '🐶', words: ['mascota', 'perro', 'gato', 'pet', 'superzoo'] },
+  fresco: { label: 'Frutas y verduras', emoji: '🥑', words: ['palta', 'fruta', 'verdura', 'naranja', 'mandarina', 'zapallo', 'habas', 'saludable', 'sano', 'detox'] },
+  carne: { label: 'Carnes', emoji: '🥩', words: ['carne', 'asado', 'parrilla', 'tuto', 'trutro', 'nuggets de pollo', 'filetito'] },
+}
+
+// Qué recomendar al lado de cada interés: aquí se cruzan verticales (restaurantes ↔ súper ↔ botillería…).
+export const COMPLEMENTS = {
+  cerveza: ['snack', 'carne'],
+  vino: ['dulce', 'fresco'],
+  licor: ['snack', 'cerveza'],
+  snack: ['cerveza'],
+  carne: ['cerveza', 'fresco'],
+  pizza: ['cerveza', 'dulce'],
+  hamburguesa: ['cerveza', 'dulce'],
+  pollo: ['cerveza', 'snack'],
+  sushi: ['dulce', 'vino'],
+  bebe: ['farmacia'],
+  farmacia: ['fresco'],
+  belleza: ['dulce'],
+  mascota: ['snack'],
+  fresco: ['carne'],
+  dulce: ['vino'],
+}
+
+export const normalize = (text) =>
+  String(text ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/ñ/g, 'n')
+
+export function tagsOf(text) {
+  const clean = normalize(text)
+  return Object.keys(TAGS).filter((tag) => TAGS[tag].words.some((word) => clean.includes(word)))
+}
+
+const itemText = (item) => `${item.name} ${item.store ?? ''}`
+// Los productos con foto cortada en el borde de la captura no se ofrecen en el chat.
+const complete = (product) => !product.partial
+
+export function productsForTags(tags, limit = 8) {
+  return ALL_PRODUCTS.filter((product) => complete(product) && tagsOf(itemText(product)).some((tag) => tags.includes(tag))).slice(
+    0,
+    limit,
+  )
+}
+
+export function storesForTags(tags, limit = 6) {
+  return ALL_STORES.filter((store) => tagsOf(store.name).some((tag) => tags.includes(tag))).slice(0, limit)
+}
+
+const discountOf = (product) => Math.abs(parseInt(product.discount, 10)) || 0
+
+export function topDiscounts(limit = 8) {
+  return ALL_PRODUCTS.filter(complete)
+    .sort((a, b) => discountOf(b) - discountOf(a))
+    .slice(0, limit)
+}

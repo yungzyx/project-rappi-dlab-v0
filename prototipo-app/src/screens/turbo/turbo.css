@@ -1,0 +1,220 @@
+/* Medidas tomadas de IMG_9110. */
+.turbo {
+  padding-bottom: 150px;
+}
+
+.turbo-green {
+  background: var(--turbo-green);
+  color: #fff;
+  padding-top: 65px;
+}
+
+.turbo-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 var(--gutter);
+}
+
+.turbo-round {
+  position: absolute;
+  left: var(--gutter);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink);
+}
+
+.turbo-round--more {
+  left: auto;
+  right: var(--gutter);
+  width: 42px;
+  height: 42px;
+}
+
+.turbo-logo {
+  height: 41px;
+}
+
+.turbo-eta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 241px;
+  height: 47px;
+  margin: 12px auto 0;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  font-size: 17.5px;
+}
+
+.turbo-eta strong {
+  font-size: 25px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.turbo-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 2 * var(--gutter));
+  height: 49px;
+  margin: 29px var(--gutter) 0;
+  padding: 0 19px;
+  border-radius: 99px;
+  background: var(--turbo-search);
+  color: #fff;
+  font-size: 16.5px;
+  text-align: left;
+}
+
+.turbo-tabs {
+  gap: 9px;
+  margin-top: 22px;
+  padding: 0 var(--gutter);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.turbo-tab {
+  flex: none;
+  position: relative;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding-bottom: 14px;
+  color: #fff;
+  font-size: 15px;
+  opacity: 0.82;
+  transition: opacity var(--duration-fast);
+}
+
+.turbo-tab img {
+  height: 31px;
+}
+
+.turbo-tab svg {
+  height: 31px;
+}
+
+.turbo-tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 4px;
+  border-radius: 3px 3px 0 0;
+  background: #fff;
+  transform: scaleX(0);
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+
+.turbo-tab.is-active {
+  opacity: 1;
+  font-weight: 700;
+}
+
+.turbo-tab.is-active::after {
+  transform: scaleX(1);
+}
+
+.turbo-hero {
+  display: block;
+  width: 100%;
+}
+
+.turbo-hero img {
+  width: 100%;
+}
+
+/* ---------- Tarifa de servicio ---------- */
+.turbo-fee {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  margin: 20px var(--gutter) 0;
+  height: 92px;
+  padding: 19px 16px 0;
+  border-radius: 25px;
+  background: var(--fee-bg);
+  color: var(--fee-ink);
+}
+
+.turbo-fee img {
+  width: 28px;
+  height: 22px;
+  margin-top: 2px;
+}
+
+.turbo-fee-title {
+  font-size: 17.5px;
+  font-weight: 500;
+}
+
+.turbo-fee-sub {
+  margin-top: 2px;
+  font-size: 12.5px;
+}
+
+.turbo-fee-sub strong {
+  font-weight: 700;
+}
+
+.turbo-fee-track {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: #efedd8;
+}
+
+.turbo-fee-check {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #dfe0dc;
+  border: 2px solid #fff;
+  transform: translateY(-50%);
+}
+
+/* ---------- Promos ---------- */
+.turbo-promos {
+  gap: 17px;
+  padding: 24px var(--gutter) 0;
+}
+
+.turbo-promo {
+  flex: none;
+  width: 146px;
+  height: 180px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.turbo-promo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bottom-nav--turbo .bottom-nav-pill {
+  flex: 0 0 282px;
+  margin-left: 4px;
+}

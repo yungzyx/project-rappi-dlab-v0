@@ -1,0 +1,25 @@
+.back-to-top {
+  position: absolute;
+  left: 50%;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 12px 0 9px;
+  border-radius: 99px;
+  background: #000;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  opacity: 0;
+  transform: translate(-50%, -8px) scale(0.95);
+  pointer-events: none;
+  transition: opacity 200ms, transform var(--duration-normal) var(--ease-out);
+}
+
+.back-to-top.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}

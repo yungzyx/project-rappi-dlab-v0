@@ -1,0 +1,39 @@
+/* Colores muestreados de las capturas (IMG_9106–9110). 1 px CSS = 1 pt de iPhone (402 pt de ancho). */
+:root {
+  --ink: #161616;
+  --ink-2: #4b4b4b;
+  --ink-3: #8b8b8b;
+  --surface: #ffffff;
+  --surface-muted: #f4f4f4;
+  --chip: #edeff3;
+  --tile: #f7f8f8;
+  --line: #e9e9ec;
+
+  --rappi-red: #db492a;
+  --yellow: #f6dd52;
+  --orange-bolt: #f39a2b;
+
+  --tile-restaurants: #fdf7f2;
+  --tile-turbo: #ecf9e3;
+  --label-restaurants: #8b2f24;
+  --label-turbo: #3e7b4b;
+  --banner-cream: #f5ead8;
+  --banner-peach: #fdf0de;
+
+  --turbo-green: #478d66;
+  --turbo-search: rgba(255, 255, 255, 0.4);
+  --fee-bg: #fdfbe5;
+  --fee-ink: #9d8a36;
+
+  --gutter: 25px;
+  --font: 'Figtree Variable', -apple-system, system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 320ms;
+
+  --shadow-search: 0 6px 18px rgba(0, 0, 0, 0.07);
+  --shadow-chip: 0 1px 6px rgba(0, 0, 0, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+}

@@ -1,0 +1,22 @@
+.not-replicated {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 40px 80px;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+.not-replicated h1 {
+  margin-bottom: 6px;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.not-replicated-hint {
+  font-size: 14px;
+  color: var(--ink-3);
+}

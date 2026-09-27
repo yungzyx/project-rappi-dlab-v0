@@ -1,0 +1,438 @@
+/* Medidas tomadas de IMG_9106–9108 y del video del 26-09-2026 (px del cuadro × 0,437 = pt). */
+.home {
+  padding-bottom: 150px;
+}
+
+/* ---------- Encabezado grande ---------- */
+.home-top {
+  position: relative;
+  padding: 68px var(--gutter) 0;
+}
+
+.home-address {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  transform-origin: left center;
+}
+
+.home-address-line {
+  font-size: 16.5px;
+  line-height: 21px;
+}
+
+.home-address-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.chevron-chip {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: var(--chip);
+}
+
+.home-top .smart-bar {
+  margin-top: 21px;
+}
+
+/* ---------- Créditos ---------- */
+.credits-banner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 76px;
+  margin-top: 28px;
+  padding: 0 8px 0 12px;
+  border: 1.5px solid #ebeff3;
+  border-radius: 22px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.credits-banner img {
+  width: 58px;
+  height: 61px;
+}
+
+.credits-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.credits-text strong {
+  font-size: 16.5px;
+  font-weight: 600;
+}
+
+.credits-text span {
+  font-size: 15px;
+}
+
+.credits-timer {
+  margin-right: 7px;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: #fcf9e1;
+  color: #ff9000;
+  font-size: 13.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Encabezado compacto al hacer scroll ---------- */
+.home-compact {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 20;
+  padding: 62px var(--gutter) 19px;
+  border-radius: 0 0 26px 26px;
+  background: rgba(240, 240, 240, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transform: translateY(-12px);
+  pointer-events: none;
+  transition: opacity 200ms, transform var(--duration-normal) var(--ease-out);
+}
+
+.home-compact.is-visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.home-compact-address {
+  display: flex;
+  gap: 9px;
+  font-size: 16.5px;
+  line-height: 24px;
+}
+
+.home-compact-address strong {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.search-bar--compact {
+  height: 49px;
+  margin-top: 13px;
+  border-color: transparent;
+}
+
+/* ---------- Restaurants / Turbo ---------- */
+.home-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 19px;
+  padding: 32px var(--gutter) 0;
+}
+
+.home-tile {
+  position: relative;
+  height: 145px;
+  border-radius: 23px;
+  overflow: hidden;
+}
+
+.home-tile img {
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  height: 94px;
+  transform: translateX(-50%);
+}
+
+.home-tile--turbo img {
+  top: 5px;
+  height: 101px;
+}
+
+.home-tile span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 13px;
+  font-size: 17.5px;
+  letter-spacing: 0.1px;
+}
+
+.home-tile--restaurants {
+  background: var(--tile-restaurants);
+  color: var(--label-restaurants);
+}
+
+.home-tile--turbo {
+  background: var(--tile-turbo);
+  color: var(--label-turbo);
+}
+
+/* ---------- Accesos rápidos ---------- */
+.home-shortcuts {
+  gap: 10px;
+  padding: 17px var(--gutter) 0;
+}
+
+.home-shortcut {
+  flex: none;
+  position: relative;
+  width: 93px;
+  height: 82px;
+  border-radius: 13px;
+  background: var(--tile);
+}
+
+.home-shortcut img {
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  height: 56px;
+  transform: translateX(-50%);
+}
+
+.home-shortcut span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* La imagen recortada ya incluye el fondo gris, el sello "Unavailable" y el texto */
+.home-shortcut.is-unavailable {
+  background: none;
+  overflow: hidden;
+}
+
+.home-shortcut.is-unavailable img {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+
+/* ---------- Banner principal ---------- */
+.home-promos {
+  gap: 12px;
+  padding: 29px var(--gutter) 0;
+}
+
+/* flex: un <button> centra su contenido en vertical aunque sea display:block */
+.home-promo {
+  display: flex;
+  flex-direction: column;
+  width: 352px;
+  height: 338px;
+  border-radius: 25px;
+  overflow: hidden;
+  background: var(--banner-cream);
+}
+
+.home-promo img {
+  width: 100%;
+}
+
+.home-promo--cover img {
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-promo-dots {
+  margin: 18px auto 0;
+}
+
+/* ---------- Turbo Restaurantes y tarjetas de restaurantes ---------- */
+.home-turbo-title {
+  width: 211px;
+  margin: 53px 0 0 var(--gutter);
+}
+
+.home-cards {
+  gap: 17px;
+  padding: 27px var(--gutter) 0;
+  scroll-padding-left: var(--gutter);
+}
+
+.home-cards--lower {
+  padding-top: 41px;
+}
+
+.home-lower-title {
+  padding: 48px var(--gutter) 0;
+}
+
+.featured-card {
+  flex: none;
+  width: 250px;
+  text-align: left;
+}
+
+.featured-media {
+  position: relative;
+  display: block;
+  height: 162px;
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.featured-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.featured-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 0 1px 0 14px;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.featured-title {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.featured-eta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Recorte que en el video solo aparece cortado en el borde: se muestra a su ancho real */
+.featured-media.is-partial img {
+  width: auto;
+}
+
+.featured-rating {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14.5px;
+  font-weight: 400;
+}
+
+.featured-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding-left: 14px;
+  font-size: 15px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.featured-bolt {
+  color: #3b5e4f;
+}
+
+.featured-bolt--plain {
+  color: var(--ink);
+}
+
+.meta-sep {
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+/* ---------- Tiendas cerca ---------- */
+.home-nearby {
+  padding: 58px var(--gutter) 0;
+}
+
+.home-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chevron-button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--chip);
+}
+
+.home-store-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 99px);
+  column-gap: 21px;
+  row-gap: 16px;
+  margin: 24px 0 0 7px;
+}
+
+.store-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.store-tile img {
+  width: 99px;
+  height: 63px;
+}
+
+.store-name {
+  max-width: 100%;
+  margin-top: 7px;
+  font-size: 17px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.store-when {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 108%;
+  margin-top: 2px;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+
+.store-when span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.store-icon {
+  flex: none;
+}
+
+.store-icon--bolt {
+  color: var(--orange-bolt);
+}
+
+.home-store-dots {
+  margin: 14px auto 0;
+}

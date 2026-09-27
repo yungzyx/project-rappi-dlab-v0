@@ -1,0 +1,93 @@
+/* Medidas del video de Offers (px del cuadro × 0,437 o × 0,67 según el cuadro = pt). */
+.deals-crown {
+  width: 28px;
+  height: 20px;
+  /* el recorte trae fondo blanco: multiply lo funde con el encabezado gris */
+  mix-blend-mode: multiply;
+}
+
+.deals-title {
+  padding: 58px var(--gutter) 0;
+}
+
+/* ---------- Crazy Deals ---------- */
+.deals-crazy {
+  gap: 10px;
+  padding: 25px var(--gutter) 0;
+  scroll-padding-left: var(--gutter);
+}
+
+/* ---------- Filas de restaurantes ---------- */
+.deals-restaurants {
+  padding-top: 40px;
+}
+
+.deals-card-row {
+  padding-top: 30px;
+}
+
+/* ---------- Top 10 Pizzas (encabezado en blanco, tarjetas sobre franja gris) ---------- */
+.deals-pizzas {
+  padding-top: 70px;
+}
+
+.deals-pizza-band {
+  margin-top: 30px;
+  padding: 20px 0 23px;
+  background: #f7f7f8;
+}
+
+.deals-pizzas .section-head {
+  justify-content: flex-start;
+}
+
+.deals-pizza-icon {
+  width: 44px;
+  height: 43px;
+}
+
+.deals-pizza-title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.deals-pizza-title h2 {
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 24px;
+  color: #f2673a;
+}
+
+.deals-pizza-title strong {
+  font-weight: 700;
+}
+
+.deals-pizza-row {
+  gap: 26px;
+}
+
+/* ---------- Secciones de supermercado ---------- */
+.deals-grocery {
+  padding-top: 64px;
+}
+
+.deals-grocery-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 var(--gutter);
+}
+
+.deals-grocery-title img {
+  width: 43px;
+  height: 43px;
+}
+
+.deals-product-row {
+  gap: 18px;
+  padding: 50px var(--gutter) 0;
+  scroll-padding-left: var(--gutter);
+}
