@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { forYou, greeting, photoReply, reply, suggestions } from './brain'
+import { forVertical, forYou, greeting, photoReply, reply, suggestions } from './brain'
 
 const EMPTY_PROFILE = { top: [] }
 const BEER_PROFILE = { top: ['cerveza'] }
@@ -69,5 +69,29 @@ describe('personalización', () => {
 
   test('la respuesta a una foto avisa que el reconocimiento es simulado', () => {
     expect(photoReply(EMPTY_PROFILE).reason).toMatch(/simulado/)
+  })
+})
+
+describe('forVertical', () => {
+  test('sin perfil, recomienda el complemento del tema de la vertical, de otra vertical', () => {
+    const picks = forVertical('liquor', EMPTY_PROFILE)
+    expect(picks.reason).toMatch(/Combina con/)
+    expect(picks.products.length).toBeGreaterThan(0)
+    picks.products.forEach((product) => expect(product.name).not.toMatch(/cerveza/i))
+  })
+
+  test('llena la fila aunque el tema favorito tenga un solo complemento', () => {
+    expect(forVertical('liquor', { top: ['licor'] }).products.length).toBeGreaterThanOrEqual(3)
+  })
+
+  test('con perfil, parte del tema favorito y excluye lo pedido', () => {
+    const all = forVertical('pharmacy', BEER_PROFILE)
+    expect(all.reason).toMatch(/Porque te gusta/)
+    const excluded = forVertical('pharmacy', BEER_PROFILE, new Set([all.products[0].id]))
+    expect(excluded.products.map((product) => product.id)).not.toContain(all.products[0].id)
+  })
+
+  test('una vertical desconocida sin perfil no recomienda nada', () => {
+    expect(forVertical('nada', EMPTY_PROFILE).products).toEqual([])
   })
 })

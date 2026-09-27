@@ -40,7 +40,8 @@
   background: var(--chip);
 }
 
-.home-top .smart-bar {
+.home-top .smart-bar,
+.home-top .search-bar {
   margin-top: 21px;
 }
 

@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import AddressSheet from './components/AddressSheet'
 import AssistantPanel from './components/assistant/AssistantPanel'
 import CartBar from './components/CartBar'
+import DemoToggle from './components/DemoToggle'
+import Nudge from './components/assistant/Nudge'
 import StatusBar from './components/StatusBar'
 import { ToastProvider } from './components/Toast'
 import HomeScreen from './screens/home/HomeScreen'
@@ -17,8 +19,10 @@ import { useNavigation } from './hooks/useNavigation'
 import { AddressProvider } from './state/AddressContext'
 import { AssistantProvider } from './state/AssistantContext'
 import { CartProvider } from './state/CartContext'
+import { DemoProvider } from './state/DemoContext'
 import { FavoritesProvider } from './state/FavoritesContext'
 import { LoyaltyProvider } from './state/LoyaltyContext'
+import { NudgeProvider } from './state/NudgeContext'
 import { ProfileProvider } from './state/ProfileContext'
 
 const SCREENS = {
@@ -61,30 +65,36 @@ export default function App() {
   const Screen = SCREENS[current.name]
 
   return (
-    <main className="stage">
-      <div className="phone">
-        <ProfileProvider>
-          <AssistantProvider>
-            <CartProvider>
-              <FavoritesProvider>
-                <AddressProvider>
-                  <LoyaltyProvider>
-                    <ToastProvider>
-                      <div key={`${stack.length}-${current.name}`} className={`screen-wrap enter-${direction}`}>
-                        <Screen push={push} back={back} params={current.params} tab={homeTab} setTab={setHomeTab} />
-                      </div>
-                      <CartBar raised={SCREENS_WITH_NAV.has(current.name)} />
-                      <AssistantPanel push={push} />
-                      <AddressSheet />
-                      <StatusBar />
-                    </ToastProvider>
-                  </LoyaltyProvider>
-                </AddressProvider>
-              </FavoritesProvider>
-            </CartProvider>
-          </AssistantProvider>
-        </ProfileProvider>
-      </div>
-    </main>
+    <DemoProvider>
+      <main className="stage">
+        <DemoToggle />
+        <div className="phone">
+          <ProfileProvider>
+            <AssistantProvider>
+              <CartProvider>
+                <FavoritesProvider>
+                  <AddressProvider>
+                    <LoyaltyProvider>
+                      <ToastProvider>
+                        <NudgeProvider>
+                          <div key={`${stack.length}-${current.name}`} className={`screen-wrap enter-${direction}`}>
+                            <Screen push={push} back={back} params={current.params} tab={homeTab} setTab={setHomeTab} />
+                          </div>
+                          <CartBar raised={SCREENS_WITH_NAV.has(current.name)} />
+                          <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
+                          <AssistantPanel push={push} />
+                          <AddressSheet />
+                          <StatusBar />
+                        </NudgeProvider>
+                      </ToastProvider>
+                    </LoyaltyProvider>
+                  </AddressProvider>
+                </FavoritesProvider>
+              </CartProvider>
+            </AssistantProvider>
+          </ProfileProvider>
+        </div>
+      </main>
+    </DemoProvider>
   )
 }

@@ -14,6 +14,7 @@ import {
   PartnerIcon,
   PinIcon,
   ShieldIcon,
+  SparkleLineIcon,
 } from '../../components/LineIcons'
 
 export const PROFILE = { initials: 'YC', name: 'Yung C.' }
@@ -50,6 +51,8 @@ export const SECTIONS = [
       { id: 'language', label: 'Language', Icon: GlobeIcon, action: 'language' },
       { id: 'notifications', label: 'Notifications', Icon: BellIcon, action: 'notifications' },
       { id: 'icon', label: 'Change Rappi icon', Icon: MustacheIcon },
+      // Solo del prototipo: alterna entre Rappi hoy y la propuesta (en notebook también con la tecla D).
+      { id: 'demo', label: 'Modo demo', Icon: SparkleLineIcon, action: 'demo' },
     ],
   },
   {

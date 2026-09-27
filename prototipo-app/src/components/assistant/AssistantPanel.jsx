@@ -119,6 +119,7 @@ export default function AssistantPanel({ push }) {
       addMessage({ from: 'bot', animate: true, text: greeting(profile), products: picks.products, reason: picks.reason })
     }
     if (session.mode === 'voice') later(listen, OPEN_MS, voiceTimers)
+    if (session.query) later(() => send(session.query), OPEN_MS)
     if (session.mode === 'photo' && session.photo) later(() => sendPhoto(session.photo), OPEN_MS)
     setChipRound((r) => r + 1)
     // Solo al abrir una sesión nueva; el resto del estado se lee en ese momento.

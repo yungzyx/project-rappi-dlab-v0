@@ -3,11 +3,16 @@ import BackToTop from '../../components/BackToTop'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
 import HomeMascot from '../../components/assistant/HomeMascot'
+import ForYouRow from '../../components/assistant/ForYouRow'
 import SmartBar from '../../components/assistant/SmartBar'
+import PlainSearchBar from '../../components/PlainSearchBar'
 import { useToast } from '../../components/Toast'
 import { ChevronDown, ChevronRight } from '../../components/Icons'
 import { useScrollState } from '../../hooks/useScrollState'
 import { useAddress } from '../../state/AddressContext'
+import { useDemo } from '../../state/DemoContext'
+import { useProfile } from '../../state/ProfileContext'
+import { forYou } from '../../assistant/brain'
 import turboRestaurantesTitle from '../../assets/turbo-restaurantes-title.webp'
 import CreditsBanner from './CreditsBanner'
 import { RestaurantCard, StoreTile } from './StoreCards'
@@ -30,6 +35,10 @@ const BACK_TO_TOP_FROM_PX = 600
 export default function HomeFeed({ push }) {
   const toast = useToast()
   const address = useAddress()
+  const demo = useDemo()
+  const profile = useProfile()
+  const picks = forYou(profile)
+  const openSearch = () => push('search')
   const screenRef = useRef(null)
   const [{ top, goingUp }, onScroll] = useScrollState()
   const [promoIndex, setPromoIndex] = useState(PROMO_START_INDEX)
@@ -46,14 +55,18 @@ export default function HomeFeed({ push }) {
           <strong>{address.selected.label}</strong>
           <span>{address.selected.line}</span>
         </button>
-        <SmartBar compact />
+        {demo.isProposal ? (
+          <SmartBar compact />
+        ) : (
+          <PlainSearchBar className="search-bar--compact" onClick={openSearch} />
+        )}
       </header>
 
       <BackToTop visible={showBackToTop} onClick={scrollToTop} />
 
       <div ref={screenRef} className="screen home" onScroll={onScroll}>
         <section className="home-top">
-          <HomeMascot />
+          {demo.isProposal && <HomeMascot />}
           <button type="button" className="home-address tap" onClick={address.openSheet}>
             <span className="home-address-line">{address.selected.line}</span>
             <span className="home-address-label">
@@ -63,7 +76,7 @@ export default function HomeFeed({ push }) {
               </span>
             </span>
           </button>
-          <SmartBar />
+          {demo.isProposal ? <SmartBar /> : <PlainSearchBar onClick={openSearch} />}
           <CreditsBanner credits={CREDITS} onClick={() => push('vertical', { id: 'pharmacy' })} />
         </section>
 
@@ -125,6 +138,15 @@ export default function HomeFeed({ push }) {
             <RestaurantCard key={store.id} store={store} onClick={() => openStore(store)} />
           ))}
         </HScroll>
+
+        {demo.isProposal && (
+          <ForYouRow
+            title="Para ti"
+            reason={picks.reason ?? 'Las ofertas más fuertes de hoy'}
+            products={picks.products}
+            push={push}
+          />
+        )}
 
         <section className="home-nearby">
           <div className="home-section-head">

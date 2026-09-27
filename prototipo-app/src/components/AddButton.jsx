@@ -1,15 +1,23 @@
 import { useCart } from '../state/CartContext'
 import { WEIGHTS, useProfile } from '../state/ProfileContext'
+import { useAssistant } from '../state/AssistantContext'
+import { useDemo } from '../state/DemoContext'
+import { useNudge } from '../state/NudgeContext'
 import './add-button.css'
 
 /** Botón verde "+" de los productos. Con unidades en el carrito se abre como contador "− 2 +". */
 export default function AddButton({ product, className = '' }) {
   const cart = useCart()
   const profile = useProfile()
+  const demo = useDemo()
+  const nudge = useNudge()
+  const assistant = useAssistant()
   const qty = cart.qtyOf(product.id)
   const add = (item) => {
     cart.add(item)
     profile.track(`${item.name} ${item.store ?? ''}`, WEIGHTS.cart)
+    // Dentro del chat Bigotes ya está recomendando: el aviso solo sale fuera.
+    if (demo.isProposal && !assistant.isOpen) nudge.offer(item)
   }
 
   const stop = (handler) => (e) => {

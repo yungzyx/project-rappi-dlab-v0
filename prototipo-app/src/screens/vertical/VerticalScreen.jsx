@@ -2,9 +2,13 @@ import { useState } from 'react'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
 import { ProductCard } from '../../components/ProductCard'
+import ForYouRow from '../../components/assistant/ForYouRow'
+import { forVertical } from '../../assistant/brain'
 import { useToast } from '../../components/Toast'
 import { BoltIcon, ChevronDown, ChevronLeft, ClockIcon, CrownIcon, SearchIcon } from '../../components/Icons'
 import { useAddress } from '../../state/AddressContext'
+import { useDemo } from '../../state/DemoContext'
+import { useProfile } from '../../state/ProfileContext'
 import { VERTICALS, toStore } from './data'
 import './vertical.css'
 
@@ -13,6 +17,8 @@ export default function VerticalScreen({ back, push, params }) {
   const vertical = VERTICALS[params.id]
   const toast = useToast()
   const address = useAddress()
+  const demo = useDemo()
+  const profile = useProfile()
 
   const allProducts = vertical.sections.filter((s) => s.type === 'products').flatMap((s) => s.products)
   const allStores = vertical.sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(toStore))
@@ -43,6 +49,14 @@ export default function VerticalScreen({ back, push, params }) {
 
       {vertical.categoryRows.length > 0 && (
         <CategoryGrid rows={vertical.categoryRows} scrollable={vertical.scrollCategories} onOpen={openCategory} />
+      )}
+
+      {demo.isProposal && (
+        <ForYouRow
+          title="Para ti, de otras tiendas"
+          {...forVertical(params.id, profile, new Set(allProducts.map((item) => item.id)))}
+          push={push}
+        />
       )}
 
       {vertical.banners && <BannerCarousel banners={vertical.banners} onOpen={openBanner} />}

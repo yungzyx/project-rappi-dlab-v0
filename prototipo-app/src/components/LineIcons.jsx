@@ -102,6 +102,13 @@ export const MustacheIcon = ({ size = 24 }) => (
   </svg>
 )
 
+export const SparkleLineIcon = (p) => (
+  <Line {...p}>
+    <path d="M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8z" />
+    <path d="M18 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />
+  </Line>
+)
+
 export const PartnerIcon = (p) => (
   <Line {...p}>
     <path d="M4 9.5 5.5 4h13L20 9.5M4 9.5h16v1a2.7 2.7 0 0 1-5.3 0 2.7 2.7 0 0 1-5.4 0 2.7 2.7 0 0 1-5.3 0z" />

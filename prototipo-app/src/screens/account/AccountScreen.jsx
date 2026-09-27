@@ -3,6 +3,7 @@ import { useToast } from '../../components/Toast'
 import { ChevronLeft, ChevronRight } from '../../components/Icons'
 import { CardIcon, HeadsetIcon, LogoutIcon, OrdersIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
+import { MODE_LABELS, useDemo } from '../../state/DemoContext'
 import dealsCrown from '../../assets/deals-crown.webp'
 import logoStreetWrap from '../../assets/logo-streetwrap.webp'
 import footer from '../../assets/account-footer.webp'
@@ -14,11 +15,16 @@ import './account.css'
 export default function AccountScreen({ onBack, push }) {
   const toast = useToast()
   const address = useAddress()
+  const demo = useDemo()
   const [sheet, setSheet] = useState(null)
 
   const runRow = (row) => {
     if (row.action === 'addresses') address.openSheet()
     else if (row.action === 'loyalty') push('loyalty')
+    else if (row.action === 'demo') {
+      demo.toggle()
+      toast(`Modo demo: ${MODE_LABELS[demo.mode === 'propuesta' ? 'actual' : 'propuesta']}`)
+    }
     else if (row.action) setSheet(row.action)
     else toast()
   }
@@ -100,7 +106,13 @@ export default function AccountScreen({ onBack, push }) {
                         <row.Icon size={24} />
                       </span>
                       <span className="account-row-label">{row.label}</span>
-                      {row.value ? <strong>{row.value}</strong> : <ChevronRight size={18} />}
+                      {row.action === 'demo' ? (
+                        <strong className="account-demo-value">{MODE_LABELS[demo.mode]}</strong>
+                      ) : row.value ? (
+                        <strong>{row.value}</strong>
+                      ) : (
+                        <ChevronRight size={18} />
+                      )}
                     </button>
                   </li>
                 ))}

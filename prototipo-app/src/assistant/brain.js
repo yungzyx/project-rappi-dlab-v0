@@ -42,10 +42,30 @@ const OCCASIONS = [
 ]
 
 const SHORTCUTS = [
-  { words: ['barato', 'oferta', 'descuento', 'promo'], build: () => ({ text: 'Las ofertas más fuertes de hoy 🔥', products: topDiscounts() }) },
-  { words: ['viaje', 'hotel', 'vuelo', 'vacaciones'], build: () => ({ text: 'Con RappiTravel tienes hasta 40% OFF en hoteles siendo Pro ✈️', actions: [{ label: 'Abrir RappiTravel', route: ['travel'] }] }) },
-  { words: ['puntos', 'millas', 'latam', 'loyalty'], build: () => ({ text: 'Puedes acumular millas o puntos en cada pedido siendo Pro 🏆', actions: [{ label: 'Elegir programa', route: ['loyalty'] }] }) },
-  { words: ['hola', 'buenas', 'wena', 'hey'], build: () => ({ text: `¡Hola! 👋 Soy ${ASSISTANT_NAME}. Pídeme lo que quieras: comida, súper, farmacia o un regalo.` }) },
+  {
+    words: ['barato', 'oferta', 'descuento', 'promo'],
+    build: () => ({ text: 'Las ofertas más fuertes de hoy 🔥', products: topDiscounts() }),
+  },
+  {
+    words: ['viaje', 'hotel', 'vuelo', 'vacaciones'],
+    build: () => ({
+      text: 'Con RappiTravel tienes hasta 40% OFF en hoteles siendo Pro ✈️',
+      actions: [{ label: 'Abrir RappiTravel', route: ['travel'] }],
+    }),
+  },
+  {
+    words: ['puntos', 'millas', 'latam', 'loyalty'],
+    build: () => ({
+      text: 'Puedes acumular millas o puntos en cada pedido siendo Pro 🏆',
+      actions: [{ label: 'Elegir programa', route: ['loyalty'] }],
+    }),
+  },
+  {
+    words: ['hola', 'buenas', 'wena', 'hey'],
+    build: () => ({
+      text: `¡Hola! 👋 Soy ${ASSISTANT_NAME}. Pídeme lo que quieras: comida, súper, farmacia o un regalo.`,
+    }),
+  },
   { words: ['gracias', 'vale', 'bacan'], build: () => ({ text: '¡De nada! 🧡 Aquí estoy si necesitas algo más.' }) },
 ]
 
@@ -75,7 +95,8 @@ export function reply(input, profile) {
     const labels = tags.map((tag) => `${TAGS[tag].emoji} ${TAGS[tag].label.toLowerCase()}`).join(' y ')
     const response = forTags(tags, `Esto encontré de ${labels}:`)
     const extra = COMPLEMENTS[tags[0]]?.[0]
-    if (extra) response.reason = `Tip: a quienes piden ${TAGS[tags[0]].label.toLowerCase()} también les gusta ${TAGS[extra].emoji} ${TAGS[extra].label.toLowerCase()}.`
+    if (extra)
+      response.reason = `Tip: a quienes piden ${TAGS[tags[0]].label.toLowerCase()} también les gusta ${TAGS[extra].emoji} ${TAGS[extra].label.toLowerCase()}.`
     return response
   }
 
@@ -104,13 +125,50 @@ export function forYou(profile) {
   }
 }
 
+// Temas propios de cada vertical: lo que se recomienda es su complemento, de otra vertical.
+const VERTICAL_TOPICS = {
+  grocery: ['fresco', 'carne'],
+  pharmacy: ['farmacia', 'bebe'],
+  retail: ['belleza'],
+  liquor: ['cerveza', 'licor'],
+  express: ['snack'],
+  pet: ['mascota'],
+  chocolates: ['dulce'],
+}
+
+/**
+ * "Para ti, de otras tiendas" dentro de una vertical: parte del interés del usuario (o del tema de la
+ * vertical si aún no hay perfil) y recomienda sus complementos, sin repetir los temas de esa vertical.
+ */
+export function forVertical(verticalId, profile, excludeIds = new Set()) {
+  const own = VERTICAL_TOPICS[verticalId] ?? []
+  const [favorite] = profile.top
+  const source = favorite ?? own[0]
+  if (!source) return { products: [], reason: null }
+  // Complementos del interés y, de relleno, los de la propia vertical (sin repetir sus temas).
+  const tags = [...new Set([source, ...own].flatMap((tag) => COMPLEMENTS[tag] ?? []))].filter(
+    (tag) => !own.includes(tag),
+  )
+  const products = productsForTags(tags, 12)
+    .filter((product) => !excludeIds.has(product.id))
+    .slice(0, 8)
+  const topic = `${TAGS[source].emoji} ${TAGS[source].label.toLowerCase()}`
+  return { products, reason: favorite ? `Porque te gusta ${topic}` : `Combina con ${topic}` }
+}
+
 export function greeting(profile) {
   const [first] = profile.top
   if (!first) return `¡Hola! Soy ${ASSISTANT_NAME}, tu asistente Rappi 🧡 ¿Qué se te antoja hoy?`
   return `¡Hola de nuevo! 🧡 Vi que te gusta ${TAGS[first].emoji} ${TAGS[first].label.toLowerCase()}. ¿Te armo algo?`
 }
 
-const DEFAULT_SUGGESTIONS = ['🍔 ¿Qué almuerzo hoy?', '🍻 Arma un carrete', '🔥 Ofertas de hoy', '🍫 Algo dulce', '🎁 Un regalo']
+const DEFAULT_SUGGESTIONS = [
+  '🍔 ¿Qué almuerzo hoy?',
+  '🍻 Arma un carrete',
+  '🔥 Ofertas de hoy',
+  '🍫 Algo dulce',
+  '🎁 Un regalo',
+]
 
 /** Sugerencias en chips: al principio genéricas, después según lo que el usuario ha mostrado interés. */
 export function suggestions(profile) {
@@ -133,4 +191,9 @@ export function photoReply(profile) {
 }
 
 // Frases de ejemplo para la voz simulada; van rotando.
-export const VOICE_SAMPLES = ['Arma un carrete para cuatro', 'Algo rico para almorzar', 'Necesito pañales para la guagua', 'Un regalo de cumpleaños']
+export const VOICE_SAMPLES = [
+  'Arma un carrete para cuatro',
+  'Algo rico para almorzar',
+  'Necesito pañales para la guagua',
+  'Un regalo de cumpleaños',
+]

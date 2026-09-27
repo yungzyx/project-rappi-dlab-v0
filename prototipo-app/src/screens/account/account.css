@@ -230,6 +230,11 @@
   font-weight: 500;
 }
 
+.account-demo-value {
+  font-size: 14px;
+  color: #f0532b;
+}
+
 .account-logout {
   display: flex;
   align-items: center;
