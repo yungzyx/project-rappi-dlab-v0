@@ -194,7 +194,6 @@ def test_unknown_vertical_and_nul_bytes_do_not_break_chat(client):
 
 def test_uploads_reject_dangerous_or_huge_files():
     import io
-    import wave
 
     import pytest
     from fastapi import HTTPException
@@ -211,6 +210,15 @@ def test_uploads_reject_dangerous_or_huge_files():
     Image.new("RGB", (800, 600), "red").save(ok, format="JPEG")
     assert api._open_image(ok.getvalue()).size[0] <= 336
 
+
+def test_long_audio_is_rejected_before_whisper():
+    import io
+    import wave
+
+    import pytest
+    from fastapi import HTTPException
+
+    pytest.importorskip("av")  # viene con el extra audio (faster-whisper); sin él /chat/voice responde 503 antes
     long_audio = io.BytesIO()
     with wave.open(long_audio, "wb") as w:
         w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000)
