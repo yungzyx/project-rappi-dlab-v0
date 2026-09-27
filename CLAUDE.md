@@ -16,14 +16,14 @@ Base de datos del contenido de Rappi Chile por vertical (supermercado, convenien
 
 | Fase | Estado |
 |---|---|
-| 1. Scraper → Postgres | Código listo y probado (70 tests, también en CI). **Descarga completa en curso** (`rappi refresh` lanzado el 26-09 19:16 por el usuario en su Terminal): 887 grupos de tiendas y luego 4.855 restaurantes. |
+| 1. Scraper → Postgres | Código listo y probado (71 tests, también en CI). **Descarga completa en curso** (`rappi refresh` lanzado el 26-09 19:16 por el usuario en su Terminal): 887 grupos de tiendas y luego 4.855 restaurantes. |
 | Paso 1 del scraper: corridas confiables | Listo: reintento automático, `retry-failed`, reporte de calidad, log a archivo, `caffeinate`, progreso con ETA. |
 | Paso 2: descarga completa | En curso con `rappi refresh` (tiendas ~14 h, restaurantes ~4 h). **No correr dos descargas en paralelo** (tampoco la descarga masiva de imágenes). |
 | Paso 3: corridas periódicas (semanal) | Listo: `rappi refresh` + respaldo rotativo + `make schedule` (launchd, domingos 03:00). **Activar solo en el Mac mini** con `make schedule`. |
 | CI | GitHub Actions: lint + tests (unitarios e integración con Postgres + pgvector) en cada push. |
 | Paso 4: capa 2 del modelo (conceptos, `category_map`, `item_concepts`, `concept_edges`, trazabilidad) | Es la etapa 1 de docs/diseno-ia.md; se vuelve a correr con los datos completos. H3 queda para después. |
 | Prototipo (`prototipo-app/`) | Listo para demo: réplica de la app, asistente Bigotes (reglas, sin backend), modo Rappi hoy / Propuesta. |
-| 2–4. RAG, agente y panel (`rappi-ia/`, `dashboard-empresa/`) | **Construido (27-09-2026)**, etapas 0–7 de [docs/diseno-ia.md](docs/diseno-ia.md#7-etapas). Resultados y límites en `rappi-ia/README.md`: búsqueda híbrida nDCG@10 0,90; conceptos ≈88% de precisión en productos. Falta correr `make post-refresh` (y `make images`) cuando termine la descarga completa. |
+| 2–4. RAG, agente y panel (`rappi-ia/`, `dashboard-empresa/`) | **Construido (27-09-2026)**, etapas 0–7 de [docs/diseno-ia.md](docs/diseno-ia.md#7-etapas). Resultados y límites en `rappi-ia/README.md`: búsqueda híbrida nDCG@10 0,90; conceptos ≈88% de precisión en productos. Tres pasadas de revisión adversarial corregidas (66 hallazgos). `make post-refresh` queda esperando en `rappi-ia/scripts/despues-del-refresh.sh` (pestaña de la Terminal); `make images` después, a mano. |
 | Prototipo conectado | Con la API (`make serve`) Bigotes usa catálogo real, voz (Whisper) y foto (CLIP), y registra eventos seudónimos; sin API, reglas locales. |
 
 El usuario pidió avanzar **paso por paso**, y el 27-09-2026 autorizó ejecutar todas las etapas del diseño con QA y tests en cada una.

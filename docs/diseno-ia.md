@@ -180,7 +180,7 @@ Decisiones:
 | En riesgo / perdido | En riesgo: días desde el último pedido > máx(2 × ritmo, 21). Perdido: > máx(3 × ritmo, 45). Los usuarios con 1 pedido van aparte ("sin segunda compra") |
 | Retención | Hizo al menos un pedido entre los días 61 y 120 desde su primer pedido |
 | Usuarios multi-vertical | Pidieron en 2 o más verticales en 60 días. Su retención se compara **a igual número de pedidos y antigüedad**: quien pide más cae más en dos verticales y además retiene más, así que la comparación directa no mide el efecto |
-| Sugerencia aceptada / convertida | Aceptada: el producto sugerido se agregó al carro en la sesión. Convertida: se pidió en ≤ 24 h |
+| Sugerencia aceptada / convertida | Aceptada: el producto sugerido (en el chat o en "Para ti") se agregó al carro. Convertida: llegó a un pedido. El aviso sobre el carro se mide aparte: ahí aceptar es abrir el chat |
 
 **Vistas:**
 

@@ -3,10 +3,10 @@
   "data": [
     {
       "semana": "2026-09-21",
-      "usuarios_activos": 4,
-      "pedidos": 0,
+      "usuarios_activos": 6,
+      "pedidos": 3,
       "sin_resultado_pct": 0,
-      "abandono_carrito_pct": null
+      "abandono_carrito_pct": 0
     }
   ]
 }

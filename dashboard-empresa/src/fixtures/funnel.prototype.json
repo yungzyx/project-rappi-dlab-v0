@@ -3,7 +3,14 @@
   "data": [
     {
       "vertical": "licores",
-      "buscan": 2,
+      "buscan": 3,
+      "agregan": 1,
+      "pagan": 1,
+      "piden": 1
+    },
+    {
+      "vertical": "restaurantes",
+      "buscan": 0,
       "agregan": 0,
       "pagan": 0,
       "piden": 0

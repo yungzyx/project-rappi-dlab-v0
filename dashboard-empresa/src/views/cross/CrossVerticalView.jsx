@@ -34,7 +34,7 @@ export function CrossVerticalView({ source }) {
           <p className="eyebrow">Bigotes entre verticales</p>
           <h2 id="sugerencias">Rendimiento de las sugerencias cruzadas</h2>
           <p>
-            Aceptada: el producto sugerido se agregó al carro en la sesión. Convertida: se pidió en 24 horas o menos.
+            Aceptada: el producto sugerido (en el chat o en «Para ti») se agregó al carro. Convertida: llegó a un pedido.
           </p>
         </div>
         <Card

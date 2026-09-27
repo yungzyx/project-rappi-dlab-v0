@@ -3,98 +3,98 @@
   "data": {
     "cobertura": [
       {
-        "vertical": "mall",
-        "tiendas": 240,
-        "declarados": 59049,
-        "obtenidos": 21353
-      },
-      {
         "vertical": "supermercado",
-        "tiendas": 212,
-        "declarados": 44908,
-        "obtenidos": 21841
+        "tiendas": 235,
+        "declarados": 89479,
+        "obtenidos": 35637
       },
       {
-        "vertical": "licores",
-        "tiendas": 39,
-        "declarados": 12512,
-        "obtenidos": 9181
+        "vertical": "mall",
+        "tiendas": 277,
+        "declarados": 70430,
+        "obtenidos": 26366
       },
       {
         "vertical": "conveniencia",
-        "tiendas": 19,
-        "declarados": 8868,
-        "obtenidos": 4598
+        "tiendas": 27,
+        "declarados": 29090,
+        "obtenidos": 9711
+      },
+      {
+        "vertical": "licores",
+        "tiendas": 55,
+        "declarados": 18281,
+        "obtenidos": 13236
       },
       {
         "vertical": "chocolateria",
-        "tiendas": 15,
-        "declarados": 720,
-        "obtenidos": 616
+        "tiendas": 19,
+        "declarados": 894,
+        "obtenidos": 758
       },
       {
         "vertical": "farmacia",
-        "tiendas": 3,
-        "declarados": 241,
-        "obtenidos": 156
+        "tiendas": 4,
+        "declarados": 879,
+        "obtenidos": 375
       }
     ],
     "calidad": [
       {
         "vertical": "mall",
-        "productos": 20818,
-        "sin_imagen_pct": 0.2,
+        "productos": 25336,
+        "sin_imagen_pct": 0.1,
         "sin_categoria_pct": 0,
-        "sin_concepto_pct": 30.2
+        "sin_concepto_pct": 41.4
       },
       {
         "vertical": "supermercado",
-        "productos": 20362,
-        "sin_imagen_pct": 0.4,
-        "sin_categoria_pct": 15.8,
-        "sin_concepto_pct": 11.2
+        "productos": 22981,
+        "sin_imagen_pct": 0.5,
+        "sin_categoria_pct": 8.5,
+        "sin_concepto_pct": 20.8
       },
       {
         "vertical": "conveniencia",
-        "productos": 6541,
-        "sin_imagen_pct": 0.6,
-        "sin_categoria_pct": 18.9,
-        "sin_concepto_pct": 20.2
+        "productos": 7470,
+        "sin_imagen_pct": 0.7,
+        "sin_categoria_pct": 9.5,
+        "sin_concepto_pct": 24.4
       },
       {
         "vertical": "licores",
-        "productos": 3539,
-        "sin_imagen_pct": 0.1,
+        "productos": 4509,
+        "sin_imagen_pct": 0.2,
         "sin_categoria_pct": 0,
-        "sin_concepto_pct": 20.4
+        "sin_concepto_pct": 29.3
       },
       {
         "vertical": "chocolateria",
-        "productos": 590,
-        "sin_imagen_pct": 0,
+        "productos": 732,
+        "sin_imagen_pct": 0.1,
         "sin_categoria_pct": 0,
-        "sin_concepto_pct": 17.3
+        "sin_concepto_pct": 22.3
       },
       {
         "vertical": "farmacia",
-        "productos": 156,
+        "productos": 375,
         "sin_imagen_pct": 0,
         "sin_categoria_pct": 0,
-        "sin_concepto_pct": 90.4
+        "sin_concepto_pct": 96
       }
     ],
     "cruzados_reales": [
       {
         "n_verticales": 2,
-        "productos": 3862
+        "productos": 4923
       },
       {
         "n_verticales": 3,
-        "productos": 1120
+        "productos": 1597
       },
       {
         "n_verticales": 4,
-        "productos": 217
+        "productos": 256
       },
       {
         "n_verticales": 5,

@@ -104,8 +104,9 @@ def kpis(conn: Connection, source: str = "synthetic") -> dict:
                 SELECT user_id, count(DISTINCT vertical) AS verticals FROM app_orders
                 WHERE source = %(source)s AND ts > {_AS_OF} - interval '{MULTI_VERTICAL_DAYS} days' GROUP BY user_id
             ),
-            searches AS (
-                SELECT count(*) FILTER (WHERE unmet) AS unmet, count(*) AS total FROM app_events
+            searches AS (  -- solo lo que sabe si encontró algo: la búsqueda local del prototipo no lo sabe (unmet NULL)
+                SELECT count(*) FILTER (WHERE unmet) AS unmet, count(*) FILTER (WHERE unmet IS NOT NULL) AS total
+                FROM app_events
                 WHERE source = %(source)s AND type IN ('search', 'chat')
                   AND ts > {_AS_OF} - interval '{ACTIVE_DAYS} days'
             )
@@ -142,7 +143,8 @@ def weekly(conn: Connection, source: str = "synthetic") -> list[dict]:
            activity AS (
                SELECT week, count(DISTINCT user_id) AS usuarios_activos,
                       round(100.0 * count(*) FILTER (WHERE type IN ('search', 'chat') AND unmet)
-                            / nullif(count(*) FILTER (WHERE type IN ('search', 'chat')), 0), 1) AS sin_resultado_pct
+                            / nullif(count(*) FILTER (WHERE type IN ('search', 'chat') AND unmet IS NOT NULL), 0), 1)
+                          AS sin_resultado_pct
                FROM ev GROUP BY week
            ),
            orders AS (
@@ -255,7 +257,8 @@ def funnel(conn: Connection, source: str = "synthetic") -> list[dict]:
 def cohorts(conn: Connection, source: str = "synthetic", max_weeks: int = 8) -> list[dict]:
     """Retención por cohorte semanal (semana del primer pedido): % que vuelve a pedir en la semana k.
 
-    Incluye las semanas sin nadie (0%) hasta la fecha de corte, y solo cohortes de al menos 20 usuarios.
+    Incluye las semanas sin nadie (0%) hasta la última semana terminada (la en curso queda vacía en el panel, no
+    en 0%), y solo cohortes de al menos 20 usuarios.
     """
     _check(source)
     return _rows(
@@ -275,7 +278,8 @@ def cohorts(conn: Connection, source: str = "synthetic", max_weeks: int = 8) -> 
                SELECT s.cohort, s.usuarios, k
                FROM sizes s
                CROSS JOIN LATERAL generate_series(
-                   0, least(%(max_weeks)s, (date_trunc('week', {_AS_OF})::date - s.cohort::date) / 7)) AS k
+                   0, greatest(0, least(%(max_weeks)s, ((date_trunc('week', {_AS_OF}) - interval '1 day')::date
+                                                         - s.cohort::date) / 7))) AS k
            )
            SELECT g.cohort::date AS cohorte, g.k AS semana,
                   round(100.0 * count(a.user_id) / g.usuarios, 1) AS retencion_pct, g.usuarios
@@ -337,7 +341,11 @@ def at_risk(conn: Connection, source: str = "synthetic", limit: int = 100) -> li
 
 
 def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
-    """Rendimiento de las sugerencias cruzadas de Bigotes por concepto sugerido."""
+    """Rendimiento de las sugerencias cruzadas de Bigotes por concepto sugerido (en el chat y en "Para ti").
+
+    Aceptada = el producto sugerido se agregó al carro; convertida = llegó a un pedido. El aviso sobre el carro no
+    entra: ahí "aceptar" es abrir el chat, otra cosa.
+    """
     _check(source)
     return _rows(
         conn,
@@ -346,7 +354,9 @@ def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
                       count(*) FILTER (WHERE type = 'suggestion_shown') AS mostradas,
                       count(*) FILTER (WHERE type = 'suggestion_accepted') AS aceptadas,
                       count(*) FILTER (WHERE type = 'suggestion_dismissed') AS ignoradas
-               FROM app_events WHERE source = %(source)s AND type LIKE 'suggestion_%%' GROUP BY 1, 2
+               FROM app_events
+               WHERE source = %(source)s AND type LIKE 'suggestion_%%' AND payload ->> 'origen' IS DISTINCT FROM 'aviso'
+               GROUP BY 1, 2
            ),
            converted AS (
                SELECT l.concept_id, o.vertical, count(*) AS convertidas

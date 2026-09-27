@@ -47,6 +47,8 @@ def test_kpis_rhythm_risk_and_cart_abandonment_are_exact(db):
             events.Event("u3", "s-10", "cart_add", ts=T0 + timedelta(days=10), cart_id="c-perdido"),
             events.Event("u3", "s-36", "search", ts=T0 + timedelta(days=36), unmet=True, query="kebab"),
             events.Event("u3", "s-36", "search", ts=T0 + timedelta(days=36), unmet=False, query="cerveza"),
+            # Búsqueda local del prototipo: no sabe si Rappi lo tiene (unmet NULL) y no diluye la tasa.
+            events.Event("u3", "s-36", "search", ts=T0 + timedelta(days=36), query="pizza"),
         ],
     )
     db.commit()
@@ -133,6 +135,39 @@ def test_catalog_coverage_compares_the_same_stores_and_units(db):
 
     [licores] = queries.catalog_health(db)["cobertura"]
     assert (licores["tiendas"], licores["declarados"], licores["obtenidos"]) == (1, 4, 2)
+
+
+def test_nudge_taps_are_not_mixed_with_suggestions_added_to_the_cart(db, monkeypatch):
+    """En el aviso "aceptar" es abrir el chat; en el chat y en "Para ti" es agregar al carro."""
+    seed_taxonomy(db, load_taxonomy())
+    at = T0 + timedelta(days=1)
+    rows = [("suggestion_shown", "aviso")] * 10 + [("suggestion_accepted", "aviso")] * 8
+    rows += [("suggestion_shown", "chat")] * 6 + [("suggestion_shown", "para-ti")] * 4
+    rows += [("suggestion_accepted", "chat")] * 3
+    events.record(
+        db,
+        [
+            events.Event(
+                "u1", "s", t, ts=at, concept_id="snacks-salados", vertical="supermercado", payload={"origen": origin}
+            )
+            for t, origin in rows
+        ],
+    )
+    db.commit()
+    [row] = queries.suggestions(db, "prototype")
+    assert (row["mostradas"], row["aceptadas"], row["aceptacion_pct"]) == (10, 3, 30.0)
+
+
+def test_cohorts_stop_at_the_last_finished_week(db, monkeypatch):
+    """La semana en curso no es 0% de retención: queda fuera (celda vacía en el panel)."""
+    monkeypatch.setattr(queries, "MIN_GROUP_USERS", 1)
+    seed_taxonomy(db, load_taxonomy())
+    _order(db, "u1", 0)  # martes 01-09: cohorte del lunes 31-08
+    _order(db, "u1", 3)
+    monday = datetime(2026, 9, 7, 8, tzinfo=UTC)  # corte: lunes 07-09 a las 8 (semana 1 recién empieza)
+    events.record(db, [events.Event("u1", "s", "app_open", ts=monday)])
+    db.commit()
+    assert [(r["semana"], r["retencion_pct"]) for r in queries.cohorts(db, "prototype")] == [(0, 100.0)]
 
 
 def test_invalid_source_is_rejected(db):

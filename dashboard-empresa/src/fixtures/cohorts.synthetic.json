@@ -644,12 +644,6 @@
       "usuarios": 120
     },
     {
-      "cohorte": "2026-07-27",
-      "semana": 8,
-      "retencion_pct": 37.5,
-      "usuarios": 120
-    },
-    {
       "cohorte": "2026-08-03",
       "semana": 0,
       "retencion_pct": 100,
@@ -692,12 +686,6 @@
       "usuarios": 90
     },
     {
-      "cohorte": "2026-08-03",
-      "semana": 7,
-      "retencion_pct": 21.1,
-      "usuarios": 90
-    },
-    {
       "cohorte": "2026-08-10",
       "semana": 0,
       "retencion_pct": 100,
@@ -734,12 +722,6 @@
       "usuarios": 55
     },
     {
-      "cohorte": "2026-08-10",
-      "semana": 6,
-      "retencion_pct": 34.5,
-      "usuarios": 55
-    },
-    {
       "cohorte": "2026-08-17",
       "semana": 0,
       "retencion_pct": 100,
@@ -770,12 +752,6 @@
       "usuarios": 39
     },
     {
-      "cohorte": "2026-08-17",
-      "semana": 5,
-      "retencion_pct": 38.5,
-      "usuarios": 39
-    },
-    {
       "cohorte": "2026-08-24",
       "semana": 0,
       "retencion_pct": 100,
@@ -800,12 +776,6 @@
       "usuarios": 21
     },
     {
-      "cohorte": "2026-08-24",
-      "semana": 4,
-      "retencion_pct": 23.8,
-      "usuarios": 21
-    },
-    {
       "cohorte": "2026-08-31",
       "semana": 0,
       "retencion_pct": 100,
@@ -821,12 +791,6 @@
       "cohorte": "2026-08-31",
       "semana": 2,
       "retencion_pct": 13.6,
-      "usuarios": 22
-    },
-    {
-      "cohorte": "2026-08-31",
-      "semana": 3,
-      "retencion_pct": 22.7,
       "usuarios": 22
     }
   ]
