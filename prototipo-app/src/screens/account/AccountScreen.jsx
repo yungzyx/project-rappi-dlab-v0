@@ -4,6 +4,8 @@ import { ChevronLeft, ChevronRight } from '../../components/Icons'
 import { CardIcon, HeadsetIcon, LogoutIcon, OrdersIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
 import { MODE_LABELS, useDemo } from '../../state/DemoContext'
+import { useOrders } from '../../state/OrdersContext'
+import { formatPrice } from '../../state/CartContext'
 import dealsCrown from '../../assets/deals-crown.webp'
 import logoStreetWrap from '../../assets/logo-streetwrap.webp'
 import footer from '../../assets/account-footer.webp'
@@ -16,6 +18,7 @@ export default function AccountScreen({ onBack, push }) {
   const toast = useToast()
   const address = useAddress()
   const demo = useDemo()
+  const { orders } = useOrders()
   const [sheet, setSheet] = useState(null)
 
   const runRow = (row) => {
@@ -24,8 +27,7 @@ export default function AccountScreen({ onBack, push }) {
     else if (row.action === 'demo') {
       demo.toggle()
       toast(`Modo demo: ${MODE_LABELS[demo.mode === 'propuesta' ? 'actual' : 'propuesta']}`)
-    }
-    else if (row.action) setSheet(row.action)
+    } else if (row.action) setSheet(row.action)
     else toast()
   }
 
@@ -82,6 +84,22 @@ export default function AccountScreen({ onBack, push }) {
               See all
             </button>
           </div>
+          {/* Pedidos hechos en la demo primero (abren su seguimiento), después el de las capturas */}
+          {orders.map((order) => (
+            <button
+              key={order.id}
+              type="button"
+              className="account-order tap"
+              onClick={() => push('tracking', { orderId: order.id })}
+            >
+              <img src={order.items[0]?.img} alt="" className="account-order-photo" />
+              <span>
+                <strong>{order.stores.join(', ') || 'Your order'}</strong>
+                <span>Today · {formatPrice(order.total)}</span>
+              </span>
+              <ChevronRight size={18} />
+            </button>
+          ))}
           <button
             type="button"
             className="account-order tap"
@@ -124,7 +142,11 @@ export default function AccountScreen({ onBack, push }) {
             <LogoutIcon size={25} />
             Log out
           </button>
-          <button type="button" className="account-logout account-logout--all tap" onClick={() => setSheet('logout-all')}>
+          <button
+            type="button"
+            className="account-logout account-logout--all tap"
+            onClick={() => setSheet('logout-all')}
+          >
             <LogoutIcon size={25} />
             Log out all sessions
           </button>

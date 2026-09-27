@@ -13,6 +13,8 @@ import {
   TrophyIcon,
 } from '../../components/Icons'
 import { useAddress } from '../../state/AddressContext'
+import { REAL_RESTAURANTS } from '../../data/realMenus'
+import { RestaurantCard } from '../home/StoreCards'
 import { BANNERS, BANNER_DOTS, CATEGORIES, FILTERS, ORDER_AGAIN } from './data'
 import './restaurants.css'
 
@@ -56,7 +58,12 @@ export default function RestaurantsScreen({ back, push }) {
       </div>
 
       <HScroll className="rest-filters">
-        <button type="button" className="filter-chip filter-chip--icon tap" aria-label="Filtros" onClick={() => toast()}>
+        <button
+          type="button"
+          className="filter-chip filter-chip--icon tap"
+          aria-label="Filtros"
+          onClick={() => toast()}
+        >
           <SlidersIcon size={19} />
         </button>
         {FILTERS.map((filter) => {
@@ -80,7 +87,12 @@ export default function RestaurantsScreen({ back, push }) {
 
       <div className="rest-categories">
         {CATEGORIES.map((cat) => (
-          <button key={cat.id} type="button" className="rest-category tap" onClick={() => push('search', { query: cat.query })}>
+          <button
+            key={cat.id}
+            type="button"
+            className="rest-category tap"
+            onClick={() => push('search', { query: cat.query })}
+          >
             <span className={cat.partial ? 'rest-category-img is-partial' : 'rest-category-img'}>
               <img src={cat.img} alt="" />
             </span>
@@ -97,7 +109,12 @@ export default function RestaurantsScreen({ back, push }) {
             className="rest-banner"
             onClick={() =>
               push('store', {
-                store: banner.store ?? { name: banner.place.replace(/^at /, ''), img: banner.img, deliveryLabel: 'FREE DELIVERY', eta: '15 min' },
+                store: banner.store ?? {
+                  name: banner.place.replace(/^at /, ''),
+                  img: banner.img,
+                  deliveryLabel: 'FREE DELIVERY',
+                  eta: '15 min',
+                },
               })
             }
           >
@@ -124,7 +141,11 @@ export default function RestaurantsScreen({ back, push }) {
             key={item.id}
             type="button"
             className="again-card tap"
-            onClick={() => push('store', { store: { name: item.name, img: item.img, eta: item.eta, deliveryLabel: 'FREE DELIVERY' } })}
+            onClick={() =>
+              push('store', {
+                store: { name: item.name, img: item.img, eta: item.eta, deliveryLabel: 'FREE DELIVERY' },
+              })
+            }
           >
             <img src={item.img} alt="" draggable="false" />
             <span className="again-name">{item.name}</span>
@@ -138,6 +159,24 @@ export default function RestaurantsScreen({ back, push }) {
           </button>
         ))}
       </HScroll>
+
+      {REAL_RESTAURANTS.length > 0 && (
+        <>
+          <h2 className="section-title rest-title">Cerca de ti</h2>
+          <p className="rest-real-note">Menús y precios reales de Rappi Chile</p>
+          <HScroll className="rest-real">
+            {REAL_RESTAURANTS.map((store) => (
+              <RestaurantCard
+                key={store.id}
+                store={store}
+                onClick={() =>
+                  push('store', { store: { name: store.name, img: store.img, eta: store.eta, rating: store.rating } })
+                }
+              />
+            ))}
+          </HScroll>
+        </>
+      )}
     </div>
   )
 }

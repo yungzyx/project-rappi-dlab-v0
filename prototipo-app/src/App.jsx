@@ -6,12 +6,14 @@ import DemoToggle from './components/DemoToggle'
 import Nudge from './components/assistant/Nudge'
 import StatusBar from './components/StatusBar'
 import { ToastProvider } from './components/Toast'
+import CheckoutScreen from './screens/checkout/CheckoutScreen'
 import HomeScreen from './screens/home/HomeScreen'
 import ListScreen from './screens/list/ListScreen'
 import LoyaltyScreen from './screens/loyalty/LoyaltyScreen'
 import RestaurantsScreen from './screens/restaurants/RestaurantsScreen'
 import SearchScreen from './screens/search/SearchScreen'
 import StoreScreen from './screens/store/StoreScreen'
+import TrackingScreen from './screens/tracking/TrackingScreen'
 import TravelScreen from './screens/travel/TravelScreen'
 import TurboScreen from './screens/turbo/TurboScreen'
 import VerticalScreen from './screens/vertical/VerticalScreen'
@@ -23,6 +25,7 @@ import { DemoProvider } from './state/DemoContext'
 import { FavoritesProvider } from './state/FavoritesContext'
 import { LoyaltyProvider } from './state/LoyaltyContext'
 import { NudgeProvider } from './state/NudgeContext'
+import { OrdersProvider } from './state/OrdersContext'
 import { ProfileProvider } from './state/ProfileContext'
 
 const SCREENS = {
@@ -35,7 +38,12 @@ const SCREENS = {
   travel: TravelScreen,
   loyalty: LoyaltyScreen,
   list: ListScreen,
+  checkout: CheckoutScreen,
+  tracking: TrackingScreen,
 }
+
+// En el checkout y el seguimiento no se muestran la barra del carrito ni el aviso de Bigotes.
+const SCREENS_WITHOUT_CART = new Set(['checkout', 'tracking'])
 
 // Pantallas con barra inferior: ahí la barra del carrito flota más arriba.
 const SCREENS_WITH_NAV = new Set(['home', 'turbo'])
@@ -72,24 +80,36 @@ export default function App() {
           <ProfileProvider>
             <AssistantProvider>
               <CartProvider>
-                <FavoritesProvider>
-                  <AddressProvider>
-                    <LoyaltyProvider>
-                      <ToastProvider>
-                        <NudgeProvider>
-                          <div key={`${stack.length}-${current.name}`} className={`screen-wrap enter-${direction}`}>
-                            <Screen push={push} back={back} params={current.params} tab={homeTab} setTab={setHomeTab} />
-                          </div>
-                          <CartBar raised={SCREENS_WITH_NAV.has(current.name)} />
-                          <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
-                          <AssistantPanel push={push} />
-                          <AddressSheet />
-                          <StatusBar />
-                        </NudgeProvider>
-                      </ToastProvider>
-                    </LoyaltyProvider>
-                  </AddressProvider>
-                </FavoritesProvider>
+                <OrdersProvider>
+                  <FavoritesProvider>
+                    <AddressProvider>
+                      <LoyaltyProvider>
+                        <ToastProvider>
+                          <NudgeProvider>
+                            <div key={`${stack.length}-${current.name}`} className={`screen-wrap enter-${direction}`}>
+                              <Screen
+                                push={push}
+                                back={back}
+                                params={current.params}
+                                tab={homeTab}
+                                setTab={setHomeTab}
+                              />
+                            </div>
+                            {!SCREENS_WITHOUT_CART.has(current.name) && (
+                              <>
+                                <CartBar raised={SCREENS_WITH_NAV.has(current.name)} push={push} />
+                                <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
+                              </>
+                            )}
+                            <AssistantPanel push={push} />
+                            <AddressSheet />
+                            <StatusBar />
+                          </NudgeProvider>
+                        </ToastProvider>
+                      </LoyaltyProvider>
+                    </AddressProvider>
+                  </FavoritesProvider>
+                </OrdersProvider>
               </CartProvider>
             </AssistantProvider>
           </ProfileProvider>

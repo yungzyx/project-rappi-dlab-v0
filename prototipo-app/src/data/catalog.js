@@ -3,6 +3,7 @@ import { LOWER_FEES, MOST_ORDERED, NEW_IN_RAPPI, CRAZY_DEALS, TOP_PIZZAS, GROCER
 import { TURBO_RESTAURANTS, NEARBY_STORES } from '../screens/home/data'
 import { BEST_RESTAURANTS, BEST_GROCERY } from '../screens/favorites/data'
 import { VERTICAL_PRODUCTS, VERTICAL_STORES } from '../screens/vertical/data'
+import { REAL_DISHES, REAL_RESTAURANTS } from './realMenus'
 
 function uniqueByName(items) {
   const seen = new Set()
@@ -22,6 +23,7 @@ export const ALL_STORES = uniqueByName([
   ...BEST_RESTAURANTS,
   ...BEST_GROCERY,
   ...VERTICAL_STORES,
+  ...REAL_RESTAURANTS,
   ...NEARBY_STORES.map((store) => ({ ...store, eta: store.when, etaIcon: store.scheduled ? 'clock' : 'bolt', logo: true })),
 ])
 
@@ -30,6 +32,7 @@ export const ALL_PRODUCTS = [
   ...TOP_PIZZAS,
   ...GROCERY_SECTIONS.flatMap((section) => section.products),
   ...VERTICAL_PRODUCTS,
+  ...REAL_DISHES,
 ]
 
 const normalize = (text) =>

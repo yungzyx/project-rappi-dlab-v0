@@ -185,6 +185,18 @@
   padding: 25px var(--gutter) 0;
 }
 
+.rest-real-note {
+  padding: 4px var(--gutter) 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.rest-real {
+  gap: 17px;
+  padding: 20px var(--gutter) 0;
+  scroll-padding-left: var(--gutter);
+}
+
 .again-card {
   flex: none;
   width: 162px;

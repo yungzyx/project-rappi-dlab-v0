@@ -17,7 +17,8 @@ function readInitial() {
 
 /**
  * Pila de pantallas sincronizada con el historial del navegador:
- * - push agrega una entrada (o reemplaza la actual con { replace: true });
+ * - push agrega una entrada; { replace: true } reutiliza la entrada del historial actual (p. ej. la del
+ *   asistente) y { swap: true } además cambia la pantalla actual por la nueva (checkout → seguimiento);
  * - back usa history.back(), así el gesto "volver" de Safari y el botón ‹ hacen lo mismo;
  * - al recargar se recupera la pantalla desde history.state.
  */
@@ -47,9 +48,10 @@ export function useNavigation() {
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
-  const push = (name, params = {}, { replace = false } = {}) => {
-    const next = { ...navRef.current, stack: [...navRef.current.stack, { name, params }] }
-    if (replace) window.history.replaceState(toState(next), '', hashFor(next))
+  const push = (name, params = {}, { replace = false, swap = false } = {}) => {
+    const base = swap ? navRef.current.stack.slice(0, -1) : navRef.current.stack
+    const next = { ...navRef.current, stack: [...base, { name, params }] }
+    if (replace || swap) window.history.replaceState(toState(next), '', hashFor(next))
     else window.history.pushState(toState(next), '', hashFor(next))
     navRef.current = next
     setDirection('push')

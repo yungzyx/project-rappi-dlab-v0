@@ -175,6 +175,11 @@
   height: 31px;
 }
 
+.account-order img.account-order-photo {
+  border-radius: 8px;
+  object-fit: cover;
+}
+
 .account-order > span {
   flex: 1;
   display: flex;

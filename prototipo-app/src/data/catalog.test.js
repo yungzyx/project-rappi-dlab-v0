@@ -31,3 +31,20 @@ describe('catálogo', () => {
     oxxo.forEach((product) => expect(product.store).toBe('OXXO'))
   })
 })
+
+describe('menús reales (si existe el JSON exportado)', () => {
+  test('cada plato real apunta a una tienda del catálogo', async () => {
+    const { REAL_DISHES } = await import('./realMenus')
+    REAL_DISHES.slice(0, 50).forEach((dish) => {
+      expect(findStore(dish.store)).toBeDefined()
+      expect(dish.price).toMatch(/^\$\d/)
+    })
+  })
+})
+
+describe('restaurantes reales', () => {
+  test('siempre tienen tiempo de entrega (aunque la base lo traiga vacío)', async () => {
+    const { REAL_RESTAURANTS } = await import('./realMenus')
+    REAL_RESTAURANTS.forEach((restaurant) => expect(restaurant.eta).toBeTruthy())
+  })
+})
