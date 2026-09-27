@@ -10,6 +10,9 @@ import RealMenu from './RealMenu'
 import './store.css'
 
 const MODES = ['Delivery', 'Pickup']
+// Pausa breve con esqueleto antes del menú real, como cuando la app lo trae de la red.
+const MENU_LOADING_MS = 400
+const SKELETON_ROWS = 5
 
 /**
  * Página de tienda (funcionalidad agregada: no está en los videos).
@@ -27,7 +30,14 @@ export default function StoreScreen({ back, params }) {
   // Los restaurantes del scraper traen su menú real (se busca en el catálogo: el historial guarda una copia liviana).
   const menu = findStore(store.name)?.sections
   const scrollRef = useRef(null)
+  const [menuReady, setMenuReady] = useState(!menu)
   const { track } = useProfile()
+
+  useEffect(() => {
+    if (menuReady) return undefined
+    const timer = setTimeout(() => setMenuReady(true), MENU_LOADING_MS)
+    return () => clearTimeout(timer)
+  }, [menuReady])
 
   useEffect(() => {
     track(store.name, WEIGHTS.store)
@@ -77,7 +87,11 @@ export default function StoreScreen({ back, params }) {
         </div>
 
         {menu ? (
-          <RealMenu sections={menu} scrollRef={scrollRef} />
+          menuReady ? (
+            <RealMenu sections={menu} scrollRef={scrollRef} />
+          ) : (
+            <MenuSkeleton />
+          )
         ) : (
           <h2 className="section-title store-title">Deals</h2>
         )}
@@ -91,6 +105,28 @@ export default function StoreScreen({ back, params }) {
           <p className="store-empty">El menú completo de esta tienda todavía no está en el prototipo.</p>
         )}
       </section>
+    </div>
+  )
+}
+
+function MenuSkeleton() {
+  return (
+    <div className="menu-skeleton" aria-label="Cargando menú" role="status">
+      <div className="menu-skeleton-tabs">
+        <span />
+        <span />
+        <span />
+      </div>
+      {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+        <div key={i} className="menu-skeleton-row">
+          <span className="menu-skeleton-lines">
+            <span />
+            <span />
+            <span />
+          </span>
+          <span className="menu-skeleton-photo" />
+        </div>
+      ))}
     </div>
   )
 }

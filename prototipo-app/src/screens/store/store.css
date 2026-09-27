@@ -168,6 +168,72 @@
   font-weight: 600;
 }
 
+/* ---------- Esqueleto de carga ---------- */
+.menu-skeleton span {
+  display: block;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #f0f1f3 25%, #f8f9fa 50%, #f0f1f3 75%) 0 0 / 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+.menu-skeleton-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.menu-skeleton-tabs span {
+  width: 96px;
+  height: 34px;
+  border-radius: 99px;
+}
+
+.menu-skeleton-row {
+  display: flex;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.menu-skeleton .menu-skeleton-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: none;
+  background: none;
+}
+
+.menu-skeleton-lines span {
+  height: 14px;
+}
+
+.menu-skeleton-lines span:nth-child(1) {
+  width: 70%;
+}
+
+.menu-skeleton-lines span:nth-child(3) {
+  width: 30%;
+}
+
+.menu-skeleton .menu-skeleton-photo {
+  width: 88px;
+  height: 88px;
+  border-radius: 14px;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-skeleton span {
+    animation: none;
+  }
+}
+
 .menu-source {
   margin-top: 20px;
   font-size: 12px;

@@ -2,7 +2,7 @@
 :root {
   --ink: #161616;
   --ink-2: #4b4b4b;
-  --ink-3: #8b8b8b;
+  --ink-3: #767676; /* 4,5:1 sobre blanco (AA) */
   --surface: #ffffff;
   --surface-muted: #f4f4f4;
   --chip: #edeff3;

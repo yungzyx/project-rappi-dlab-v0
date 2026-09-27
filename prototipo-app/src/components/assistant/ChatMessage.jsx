@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import AddButton from '../AddButton'
 import HScroll from '../HScroll'
+import { pressable } from '../pressable'
 
 const CHARS_PER_SECOND = 70
 const TICK_MS = 30
@@ -83,9 +84,7 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
                     key={product.id}
                     className="chat-product tap"
                     style={{ animationDelay: `${i * 60}ms` }}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onOpenProduct(product)}
+                    {...pressable(() => onOpenProduct(product))}
                   >
                     <span className="chat-product-media">
                       <img src={product.img} alt="" draggable="false" />

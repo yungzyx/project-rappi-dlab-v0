@@ -102,7 +102,12 @@ export default function SmartBar({ compact = false }) {
       tabIndex={0}
       aria-label="Abrir asistente"
       onClick={() => open('chat')}
-      onKeyDown={(e) => e.key === 'Enter' && open('chat')}
+      onKeyDown={(e) => {
+        // Como pressable(), pero en línea: el linter no permite pasar funciones que leen refs durante el render.
+        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+        e.preventDefault()
+        open('chat')
+      }}
     >
       <SparkleIcon />
       <span className="smart-bar-hint">

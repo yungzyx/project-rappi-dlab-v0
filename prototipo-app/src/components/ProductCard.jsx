@@ -1,11 +1,12 @@
 import { EtaIcon } from '../screens/home/StoreCards'
 import AddButton from './AddButton'
+import { pressable } from './pressable'
 import './product-card.css'
 
 /** Producto de supermercado/farmacia/botillería (Meat & Seafood, beers, Baby care…). */
 export function ProductCard({ product, onClick }) {
   return (
-    <div className="product-card tap" role="button" tabIndex={0} onClick={onClick}>
+    <div className="product-card tap" {...pressable(onClick)}>
       <span className={product.partial ? 'product-media is-partial' : 'product-media'}>
         <img src={product.img} alt="" draggable="false" />
         <AddButton product={product} className="add-button--grocery" />
@@ -26,7 +27,7 @@ export function ProductCard({ product, onClick }) {
 /** Oferta de restaurante (Crazy Deals, Top 10 Pizzas). `boxed` = tarjeta blanca sobre fondo gris. */
 export function DealCard({ deal, boxed = false, onClick }) {
   return (
-    <div className={boxed ? 'deal-card is-boxed tap' : 'deal-card tap'} role="button" tabIndex={0} onClick={onClick}>
+    <div className={boxed ? 'deal-card is-boxed tap' : 'deal-card tap'} {...pressable(onClick)}>
       <span className="deal-media">
         <img src={deal.img} alt="" draggable="false" />
         <AddButton product={deal} className={boxed ? 'add-button--boxed' : 'add-button--deal'} />
