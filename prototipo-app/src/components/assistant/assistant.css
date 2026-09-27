@@ -558,3 +558,19 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Sugerencia cruzada de la API: bloque aparte, marcado "De otra tienda". */
+.chat-suggestion {
+  margin-top: 12px;
+}
+.chat-suggestion-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--color-accent-soft, #fff1e8);
+  color: var(--color-accent, #ff441f);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}

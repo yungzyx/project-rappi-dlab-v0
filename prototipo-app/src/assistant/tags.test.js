@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { productsForTags, tagsOf, topDiscounts } from './tags'
+import { productTags, productsForTags, tagsOf, topDiscounts } from './tags'
 
 describe('tagsOf', () => {
   test('reconoce temas sin importar tildes, ñ ni mayúsculas', () => {
@@ -49,5 +49,12 @@ describe('topDiscounts', () => {
     const pct = top.map((product) => Math.abs(parseInt(product.discount, 10)) || 0)
     expect(pct).toEqual([...pct].sort((a, b) => b - a))
     expect(top.some((product) => product.partial)).toBe(false)
+  })
+})
+
+describe('temas por nombre', () => {
+  test('la tienda no contamina los temas del producto', () => {
+    expect(productTags({ name: 'Cerveza Heineken 470', store: 'Botilleria Tag' })).toEqual(['cerveza'])
+    expect(productTags({ name: 'Combo del día', store: 'KFC' })).toEqual(['pollo'])
   })
 })

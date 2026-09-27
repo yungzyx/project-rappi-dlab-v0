@@ -3,6 +3,7 @@ la API sigue funcionando y /health lo informa (el prototipo usa su cerebro local
 
 import logging
 import os
+import threading
 from dataclasses import dataclass, field
 from functools import cache
 
@@ -33,8 +34,17 @@ class Services:
         }
 
 
-@cache
+_LOCK = threading.Lock()
+
+
 def services() -> Services:
+    """Carga una sola vez aunque lleguen varias peticiones a la vez (FastAPI atiende en hilos)."""
+    with _LOCK:
+        return _load_services()
+
+
+@cache
+def _load_services() -> Services:
     """`RAPPI_IA_LIGHT=1` evita cargar modelos (tests, o un Mac sin el extra `ml`)."""
     light = os.environ.get("RAPPI_IA_LIGHT") == "1"
     missing: dict[str, str] = {}

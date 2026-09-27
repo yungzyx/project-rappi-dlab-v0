@@ -24,6 +24,7 @@ const OCCASIONS = [
     text: 'Un regalo que nunca falla 🎁: perfume o chocolates. Mira estas ofertas:',
   },
   {
+    id: 'hambre',
     words: ['hambre', 'almuerzo', 'almorzar', 'cena', 'comer', 'comida'],
     tags: ['hamburguesa', 'pizza', 'sushi'],
     text: '¿Hambre? 😋 Estos restaurantes llegan rápido y con envío gratis:',
@@ -61,15 +62,25 @@ const SHORTCUTS = [
     }),
   },
   {
+    greeting: true,
     words: ['hola', 'buenas', 'wena', 'hey'],
     build: () => ({
       text: `¡Hola! 👋 Soy ${ASSISTANT_NAME}. Pídeme lo que quieras: comida, súper, farmacia o un regalo.`,
     }),
   },
-  { words: ['gracias', 'vale', 'bacan'], build: () => ({ text: '¡De nada! 🧡 Aquí estoy si necesitas algo más.' }) },
+  {
+    alone: true, // "gracias, ahora una pizza" busca la pizza
+    words: ['gracias', 'vale', 'bacan'],
+    build: () => ({ text: '¡De nada! 🧡 Aquí estoy si necesitas algo más.' }),
+  },
 ]
 
-const matches = (text, words) => words.some((word) => text.includes(word))
+// Palabra completa al inicio (y plural): "comer" no calza con "comercial", "vale" no con "equivale".
+const matches = (text, words) =>
+  words.some((word) => new RegExp(`(^|[^a-z0-9])${word}(s|es)?($|[^a-z0-9])`).test(text))
+
+const GREETINGS = /^(hola|holi|buenas|buenos dias|buenas tardes|buenas noches|hey|wena|ola)\b[\s,!.]*/
+const GENERIC_OCCASIONS = new Set(['hambre'])
 
 function forTags(tags, text, storesOnly = false) {
   return {
@@ -82,13 +93,18 @@ function forTags(tags, text, storesOnly = false) {
 
 /** Respuesta a lo que escribió o dijo el usuario. */
 export function reply(input, profile) {
-  const text = normalize(input)
+  const full = normalize(input).trim()
+  // Un saludo al inicio no tapa el pedido: "hola, quiero sushi" busca sushi.
+  const text = full.replace(GREETINGS, '')
+  if (!text) return SHORTCUTS.find((item) => item.greeting).build()
 
-  const shortcut = SHORTCUTS.find((item) => matches(text, item.words))
+  const alone = (item) => item.words.some((word) => text.replace(/[^a-z0-9 ]/g, '').trim() === word)
+  const shortcut = SHORTCUTS.find((item) => !item.greeting && (item.alone ? alone(item) : matches(text, item.words)))
   if (shortcut) return shortcut.build()
 
-  const occasion = OCCASIONS.find((item) => matches(text, item.words))
-  if (occasion) return forTags(occasion.tags, occasion.text, occasion.storesOnly)
+  const occasions = OCCASIONS.filter((item) => matches(text, item.words))
+  const specific = occasions.find((item) => !GENERIC_OCCASIONS.has(item.id))
+  if (specific) return forTags(specific.tags, specific.text, specific.storesOnly)
 
   const tags = tagsOf(text)
   if (tags.length > 0) {
@@ -99,6 +115,10 @@ export function reply(input, profile) {
       response.reason = `Tip: a quienes piden ${TAGS[tags[0]].label.toLowerCase()} también les gusta ${TAGS[extra].emoji} ${TAGS[extra].label.toLowerCase()}.`
     return response
   }
+
+  // "Comida", "almuerzo"… solo cuando no se nombró nada más concreto ("comida para mi perro" es mascotas).
+  const generic = occasions.find((item) => GENERIC_OCCASIONS.has(item.id))
+  if (generic) return forTags(generic.tags, generic.text, generic.storesOnly)
 
   const found = search(input)
   if (found.stores.length + found.products.length > 0) {

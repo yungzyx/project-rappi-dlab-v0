@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { health, sendOrder } from '../../api/client'
+import { buildOrders } from '../../api/orders'
 import ProductRow from '../../components/ProductRow'
 import { useToast } from '../../components/Toast'
 import { ChevronLeft, ChevronRight } from '../../components/Icons'
 import { CardIcon, PinIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
+import { sessionId, useEvents, userId } from '../../state/EventsContext'
 import { formatPrice, useCart } from '../../state/CartContext'
 import { useOrders } from '../../state/OrdersContext'
 import { DEFAULT_TIP, TIPS, priceBreakdown } from './pricing'
@@ -17,6 +20,7 @@ export default function CheckoutScreen({ back, push }) {
   const address = useAddress()
   const orders = useOrders()
   const toast = useToast()
+  const events = useEvents()
   const [mode, setMode] = useState(MODES[0])
   const [tip, setTip] = useState(DEFAULT_TIP)
   const pickup = mode === 'Pickup'
@@ -24,6 +28,10 @@ export default function CheckoutScreen({ back, push }) {
   const stores = [...new Set(cart.items.map(({ product }) => product.store).filter(Boolean))]
 
   const placeOrder = () => {
+    events.track('checkout_start', { cart_id: cart.id, value: price.total })
+    const pending = buildOrders(cart.items, { userId: userId(), sessionId: sessionId(), cartId: cart.id })
+    // Registro para el panel (si la API está arriba). No bloquea el pedido de la demo.
+    health().then((online) => online && pending.forEach((order) => sendOrder(order).catch(() => {})))
     const id = orders.place({
       stores,
       items: cart.items.map(({ product, qty }) => ({

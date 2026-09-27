@@ -2,7 +2,7 @@
 import { ALL_PRODUCTS, ALL_STORES } from '../data/catalog'
 
 export const TAGS = {
-  cerveza: { label: 'Cerveza', emoji: '🍺', words: ['cerveza', 'beer', 'lager', 'pale ale', 'heineken', 'royal guard', 'budweiser', 'cristal', 'jester', 'kunstman', 'chela'] },
+  cerveza: { label: 'Cerveza', emoji: '🍺', words: ['cerveza', 'beer', 'lager', 'pale ale', 'heineken', 'royal guard', 'budweiser', 'cristal', 'jester', 'kunstmann', 'chela'] },
   vino: { label: 'Vino', emoji: '🍷', words: ['vino', 'wine', 'cabernet', 'molina'] },
   licor: { label: 'Copete', emoji: '🥃', words: ['licor', 'pisco', 'whisky', 'liquor', 'botilleria', 'copete', 'liquidos', 'drinks', 'trago'] },
   snack: { label: 'Snacks', emoji: '🍿', words: ['snack', 'papas fritas', 'chips', 'kryzpo', 'marco polo', 'botana', 'picoteo'] },
@@ -45,13 +45,13 @@ export const normalize = (text) =>
     .replace(/[̀-ͯ]/g, '')
     .replace(/ñ/g, 'n')
 
-// Cada palabra clave debe empezar al inicio de una palabra ("pet" no calza con "carpeta"), pero puede
-// continuar: así "hamburguesa" reconoce "hamburguesas" y "papa john" reconoce "Papa Johns".
+// Cada palabra clave calza como palabra completa, con plural opcional: "hamburguesa" reconoce
+// "hamburguesas" y "papa john" reconoce "Papa Johns", pero "bebe" no calza con "bebestibles".
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const TAG_PATTERNS = Object.fromEntries(
   Object.entries(TAGS).map(([tag, { words }]) => [
     tag,
-    new RegExp(`(^|[^a-z0-9])(${words.map(escapeRegex).join('|')})`),
+    new RegExp(`(^|[^a-z0-9])(${words.map(escapeRegex).join('|')})(s|es)?($|[^a-z0-9])`),
   ]),
 )
 
@@ -60,12 +60,17 @@ export function tagsOf(text) {
   return Object.keys(TAGS).filter((tag) => TAG_PATTERNS[tag].test(clean))
 }
 
-const itemText = (item) => `${item.name} ${item.store ?? ''}`
+// Los temas de un producto salen de su nombre; la tienda solo se usa si el nombre no dice nada
+// (si no, una cerveza de "Botillería" también sería "copete" y "quiero whisky" mostraría cervezas).
+export const productTags = (product) => {
+  const own = tagsOf(product.name)
+  return own.length > 0 ? own : tagsOf(product.store ?? '')
+}
 // Los productos con foto cortada en el borde de la captura no se ofrecen en el chat.
 const complete = (product) => !product.partial
 
 export function productsForTags(tags, limit = 8) {
-  return ALL_PRODUCTS.filter((product) => complete(product) && tagsOf(itemText(product)).some((tag) => tags.includes(tag))).slice(
+  return ALL_PRODUCTS.filter((product) => complete(product) && productTags(product).some((tag) => tags.includes(tag))).slice(
     0,
     limit,
   )

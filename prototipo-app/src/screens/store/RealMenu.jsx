@@ -48,7 +48,7 @@ export default function RealMenu({ sections, scrollRef }) {
       <nav className="menu-tabs" aria-label="Secciones del menú">
         {sections.map((section, i) => (
           <button
-            key={section.name}
+            key={`${i}-${section.name}`}
             ref={(el) => {
               tabRefs.current[i] = el
             }}
@@ -63,7 +63,7 @@ export default function RealMenu({ sections, scrollRef }) {
       </nav>
       {sections.map((section, i) => (
         <section
-          key={section.name}
+          key={`${i}-${section.name}`}
           ref={(el) => {
             sectionRefs.current[i] = el
           }}

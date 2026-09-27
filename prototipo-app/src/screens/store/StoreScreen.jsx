@@ -3,6 +3,7 @@ import ProductRow from '../../components/ProductRow'
 import { useToast } from '../../components/Toast'
 import { ChevronLeft, HeartIcon } from '../../components/Icons'
 import { findStore, productsOfStore } from '../../data/catalog'
+import { useEvents } from '../../state/EventsContext'
 import { useFavorites } from '../../state/FavoritesContext'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
 import { StoreMeta } from '../home/StoreCards'
@@ -39,9 +40,15 @@ export default function StoreScreen({ back, params }) {
     return () => clearTimeout(timer)
   }, [menuReady])
 
+  const events = useEvents()
+  // Una vez por tienda: StrictMode monta dos veces en desarrollo y contaría la visita doble.
+  const tracked = useRef(null)
   useEffect(() => {
+    if (tracked.current === store.name) return
+    tracked.current = store.name
     track(store.name, WEIGHTS.store)
-  }, [store.name, track])
+    events.track('view_store', { entity_type: 'store', entity_id: store.id ? String(store.id) : undefined, payload: { name: store.name } })
+  }, [store.name, store.id, track, events])
 
   const toggleFavorite = () => {
     favorites.toggle(store)

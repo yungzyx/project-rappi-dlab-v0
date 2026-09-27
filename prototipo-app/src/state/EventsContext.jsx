@@ -1,0 +1,106 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react'
+import { beaconEvents, health, sendEvents } from '../api/client'
+import { useDemo } from './DemoContext'
+
+// Eventos de uso para el panel de la empresa (búsquedas, carrito, sugerencias, pedidos). Se envían en lotes a
+// rappi-ia; sin API, se descartan en silencio. En "Rappi hoy" se envían sin concepto: Bigotes no aprende.
+const USER_KEY = 'rappi-proto-user'
+const SESSION_KEY = 'rappi-proto-session'
+const SESSION_IDLE_MS = 30 * 60 * 1000 // una sesión termina tras 30 min sin actividad
+const FLUSH_MS = 5000
+const MAX_QUEUE = 200
+
+function randomId(prefix) {
+  const random = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  return `${prefix}-${random.replace(/-/g, '').slice(0, 16)}`
+}
+
+function readStore(storage, key) {
+  try {
+    return storage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeStore(storage, key, value) {
+  try {
+    storage.setItem(key, value)
+  } catch {
+    // Modo privado: el id vive solo en memoria.
+  }
+}
+
+/** Id seudónimo de este navegador (no es una cuenta ni un dato personal). */
+export function userId() {
+  let id = readStore(localStorage, USER_KEY)
+  if (!id) {
+    id = randomId('proto')
+    writeStore(localStorage, USER_KEY, id)
+  }
+  return id
+}
+
+/** Sesión actual; se renueva tras 30 min sin actividad. */
+export function sessionId(now = Date.now()) {
+  let stored
+  try {
+    stored = JSON.parse(readStore(sessionStorage, SESSION_KEY))
+  } catch {
+    stored = null
+  }
+  const session = stored && now - stored.lastAt < SESSION_IDLE_MS ? stored : { id: randomId('s'), lastAt: now }
+  writeStore(sessionStorage, SESSION_KEY, JSON.stringify({ ...session, lastAt: now }))
+  return session.id
+}
+
+const EventsContext = createContext(null)
+
+export function EventsProvider({ children }) {
+  const demo = useDemo()
+  const queue = useRef([])
+  const opened = useRef(false)
+  const proposal = useRef(demo.isProposal)
+  useEffect(() => {
+    proposal.current = demo.isProposal
+  }, [demo.isProposal])
+
+  const flush = useCallback(async () => {
+    if (queue.current.length === 0) return
+    const batch = queue.current.splice(0, MAX_QUEUE)
+    if (!(await health())) return // sin API no hay a quién enviarlos
+    try {
+      await sendEvents(userId(), batch)
+    } catch {
+      // Evento perdido: es telemetría de la demo, no se reintenta.
+    }
+  }, [])
+
+  const track = useCallback((type, fields = {}) => {
+    const event = { type, session_id: sessionId(), ...fields }
+    if (!proposal.current) delete event.concept_id
+    queue.current.push(event)
+    if (queue.current.length > MAX_QUEUE) queue.current.shift()
+  }, [])
+
+  useEffect(() => {
+    if (!opened.current) track('app_open') // StrictMode monta dos veces en desarrollo
+    opened.current = true
+    const timer = setInterval(flush, FLUSH_MS)
+    const onHide = () => {
+      if (beaconEvents(userId(), queue.current)) queue.current = []
+    }
+    window.addEventListener('pagehide', onHide)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('pagehide', onHide)
+    }
+  }, [flush, track])
+
+  const value = useMemo(() => ({ track, flush }), [track, flush])
+  return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>
+}
+
+const NOOP = { track: () => {}, flush: async () => {} }
+/** Fuera del proveedor (tests de componentes sueltos) no registra nada. */
+export const useEvents = () => useContext(EventsContext) ?? NOOP

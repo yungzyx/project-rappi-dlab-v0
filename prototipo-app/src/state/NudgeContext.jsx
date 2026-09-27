@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { COMPLEMENTS, tagsOf } from '../assistant/tags'
+import { COMPLEMENTS, productTags } from '../assistant/tags'
 
 const VISIBLE_MS = 6000
 
@@ -20,7 +20,7 @@ export function NudgeProvider({ children }) {
   const dismiss = useCallback(() => setNudge(null), [])
 
   const offer = useCallback((product) => {
-    const tags = tagsOf(`${product.name} ${product.store ?? ''}`)
+    const tags = productTags(product)
     if (tags.some((candidate) => shown.current.has(candidate))) return
     const tag = tags.find((candidate) => COMPLEMENTS[candidate])
     if (!tag) return

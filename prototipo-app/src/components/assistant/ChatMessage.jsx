@@ -36,6 +36,32 @@ function StreamText({ text, animate, onDone }) {
   return <>{text.slice(0, count)}</>
 }
 
+function ProductCards({ products, onOpenProduct, delay = 0 }) {
+  return (
+    <HScroll className="chat-products">
+      {products.map((product, i) => (
+        <div
+          key={product.id}
+          className="chat-product tap"
+          style={{ animationDelay: `${delay + i * 60}ms` }}
+          {...pressable(() => onOpenProduct(product))}
+        >
+          <span className="chat-product-media">
+            <img src={product.img} alt="" draggable="false" />
+            <AddButton product={product} className="add-button--chat" />
+          </span>
+          <span className="chat-product-name">{product.name}</span>
+          <span className="chat-product-price">
+            <b>{product.price}</b>
+            {product.discount && <span>{product.discount}</span>}
+          </span>
+          <span className="chat-product-store">{product.store}</span>
+        </div>
+      ))}
+    </HScroll>
+  )
+}
+
 /** Un mensaje del chat: burbuja del usuario (texto o foto) o respuesta del asistente con tarjetas. */
 export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOpenStore, onAction }) {
   const [revealed, setRevealed] = useState(!message.animate)
@@ -77,28 +103,15 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
         {revealed && (
           <div className="chat-extras">
             {message.reason && <p className="chat-reason">{message.reason}</p>}
-            {message.products?.length > 0 && (
-              <HScroll className="chat-products">
-                {message.products.map((product, i) => (
-                  <div
-                    key={product.id}
-                    className="chat-product tap"
-                    style={{ animationDelay: `${i * 60}ms` }}
-                    {...pressable(() => onOpenProduct(product))}
-                  >
-                    <span className="chat-product-media">
-                      <img src={product.img} alt="" draggable="false" />
-                      <AddButton product={product} className="add-button--chat" />
-                    </span>
-                    <span className="chat-product-name">{product.name}</span>
-                    <span className="chat-product-price">
-                      <b>{product.price}</b>
-                      {product.discount && <span>{product.discount}</span>}
-                    </span>
-                    <span className="chat-product-store">{product.store}</span>
-                  </div>
-                ))}
-              </HScroll>
+            {message.products?.length > 0 && <ProductCards products={message.products} onOpenProduct={onOpenProduct} />}
+            {message.suggestion?.products?.length > 0 && (
+              <div className="chat-suggestion">
+                <p className="chat-reason">
+                  <span className="chat-suggestion-tag">De otra tienda</span> {message.suggestion.question}{' '}
+                  {message.suggestion.reason}
+                </p>
+                <ProductCards products={message.suggestion.products} onOpenProduct={onOpenProduct} delay={180} />
+              </div>
             )}
             {message.stores?.length > 0 && (
               <div className="chat-stores">

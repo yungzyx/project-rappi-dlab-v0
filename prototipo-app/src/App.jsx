@@ -22,6 +22,7 @@ import { AddressProvider } from './state/AddressContext'
 import { AssistantProvider } from './state/AssistantContext'
 import { CartProvider } from './state/CartContext'
 import { DemoProvider } from './state/DemoContext'
+import { EventsProvider } from './state/EventsContext'
 import { FavoritesProvider } from './state/FavoritesContext'
 import { LoyaltyProvider } from './state/LoyaltyContext'
 import { NudgeProvider } from './state/NudgeContext'
@@ -48,6 +49,10 @@ const SCREENS_WITHOUT_CART = new Set(['checkout', 'tracking'])
 // Pantallas con barra inferior: ahí la barra del carrito flota más arriba.
 const SCREENS_WITH_NAV = new Set(['home', 'turbo'])
 
+// Vertical de la pantalla actual (ids del prototipo): Bigotes busca ahí primero.
+const screenVertical = (screen) =>
+  screen.name === 'vertical' ? screen.params?.id : { restaurants: 'restaurants', turbo: 'express' }[screen.name]
+
 const PHONE_HEIGHT_PX = 874
 const STAGE_MARGIN_PX = 48
 
@@ -70,10 +75,12 @@ export default function App() {
   usePhoneScale()
 
   const current = stack[stack.length - 1]
-  const Screen = SCREENS[current.name]
+  // Un enlace viejo o un nombre desconocido no rompe la app: vuelve a la Home.
+  const Screen = SCREENS[current.name] ?? HomeScreen
 
   return (
     <DemoProvider>
+      <EventsProvider>
       <main className="stage">
         <DemoToggle />
         <div className="phone">
@@ -101,7 +108,7 @@ export default function App() {
                                 <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
                               </>
                             )}
-                            <AssistantPanel push={push} />
+                            <AssistantPanel push={push} vertical={screenVertical(current)} />
                             <AddressSheet />
                             <StatusBar />
                           </NudgeProvider>
@@ -115,6 +122,7 @@ export default function App() {
           </ProfileProvider>
         </div>
       </main>
+      </EventsProvider>
     </DemoProvider>
   )
 }

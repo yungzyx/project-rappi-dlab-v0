@@ -148,8 +148,8 @@ function OrderSummary({ order }) {
     <details className="tracking-summary">
       <summary>Order details · {formatPrice(order.total)}</summary>
       <ul>
-        {order.items.map((item) => (
-          <li key={item.name}>
+        {order.items.map((item, i) => (
+          <li key={`${i}-${item.name}`}>
             <span>
               {item.qty} × {item.name}
             </span>

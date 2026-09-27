@@ -16,6 +16,20 @@ npm run dev -- --host    # para abrirlo en el iPhone (misma red WiFi)
 
 En el iPhone, desde Safari: **Compartir → Agregar a pantalla de inicio**. Se abre a pantalla completa con el ícono de Bigotes y el gesto "volver" funciona.
 
+### Con Bigotes de verdad (API de `rappi-ia`)
+
+Si la API de [`rappi-ia`](../rappi-ia/) está corriendo (`make serve`, puerto 8000), Bigotes deja de ser un conjunto de reglas.
+
+- **Qué hace:**
+  - busca en el **catálogo real** con búsqueda híbrida por vertical, con precios vigentes;
+  - sugiere un complemento **de otra tienda** en un bloque aparte;
+  - transcribe la **voz** con Whisper, con micrófono real en `localhost` o `https`;
+  - reconoce **fotos** con CLIP;
+  - registra eventos seudónimos para el [panel de la empresa](../dashboard-empresa/).
+- **Sin API:** la app usa el cerebro local de siempre, sin avisos ni errores.
+- **Otra dirección:** para apuntar a otra API, crea `.env.local` con `VITE_API_URL=http://localhost:8001`.
+- **Desde el iPhone:** en la red local, arranca la API con `--host 0.0.0.0`. macOS pedirá permiso de red la primera vez.
+
 | Comando | Para qué |
 |---|---|
 | `npm run test` | Tests (Vitest): Bigotes, buscador, carrito, perfil, navegación, precios, seguimiento |
@@ -80,8 +94,11 @@ Además: Pharmacy, Retail, Express, Pet, Chocolates, Loyalty, buscador, página 
 
 ## Qué es real y qué es simulado
 
-- **Real**: las pantallas (recortes de las capturas), los precios y productos que se ven en ellas, los menús del scraper, el carrito, el historial del navegador.
-- **Simulado**: las respuestas de Bigotes (reglas sobre los datos del prototipo, sin IA), la voz, el reconocimiento de foto, el pago y el seguimiento.
+- **Real**: las pantallas (recortes de las capturas), los precios y productos que se ven en ellas, los menús del scraper, el carrito y el historial del navegador.
+  - **Con la API** también son reales: la búsqueda, los productos y precios que muestra Bigotes, la voz (Whisper) y el reconocimiento de foto (CLIP).
+- **Simulado**: el pago y el seguimiento.
+  - **Sin la API** también son simuladas las respuestas de Bigotes (reglas sobre los datos del prototipo), la voz (frases de ejemplo) y la foto. En el iPhone por `http://` la voz siempre es simulada, porque Safari solo da el micrófono en `https`.
+- **Privacidad**: el id de usuario es seudónimo (`proto-…`, guardado en este navegador). La foto y el audio no se guardan. "Olvidar" borra lo aprendido también en la API. En modo "Rappi hoy" no se aprende.
 - **Supuestos**: textos cortados en el borde de las capturas, algunos ratings y tiempos de entrega; están marcados como "supuesto" en los archivos `data.js`.
 - Las capturas de este README se toman **sin los menús reales** (son datos scrapeados y no se suben al repo).
 

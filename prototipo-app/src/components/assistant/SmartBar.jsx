@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { rectInPhone, useAssistant } from '../../state/AssistantContext'
 import './smart-bar.css'
 
@@ -12,10 +12,12 @@ const HINTS = [
 const ROTATE_MS = 3200
 
 export function SparkleIcon({ size = 22 }) {
+  // Id único por ícono: el destello aparece varias veces en la Home y los ids SVG deben ser únicos.
+  const gradientId = useId()
   return (
     <svg className="sparkle" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
       <defs>
-        <linearGradient id="sparkle-g" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#ff9a3d" />
           <stop offset="0.55" stopColor="#ff5a36" />
           <stop offset="1" stopColor="#ff3d7f" />
@@ -24,12 +26,12 @@ export function SparkleIcon({ size = 22 }) {
       <path
         className="sparkle-big"
         d="M10 2.5l1.9 5.6 5.6 1.9-5.6 1.9L10 17.5l-1.9-5.6L2.5 10l5.6-1.9z"
-        fill="url(#sparkle-g)"
+        fill={`url(#${gradientId})`}
       />
       <path
         className="sparkle-small"
         d="M18.5 13.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"
-        fill="url(#sparkle-g)"
+        fill={`url(#${gradientId})`}
       />
     </svg>
   )
@@ -91,7 +93,7 @@ export default function SmartBar({ compact = false }) {
   const onPhoto = (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (file) open('photo', { photo: URL.createObjectURL(file) })
+    if (file) open('photo', { photo: file }) // el chat crea la vista previa y la envía a la API
   }
 
   return (

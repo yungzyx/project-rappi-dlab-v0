@@ -1,4 +1,6 @@
-import { useCart } from '../state/CartContext'
+import { productTags } from '../assistant/tags'
+import { parsePrice, useCart } from '../state/CartContext'
+import { useEvents } from '../state/EventsContext'
 import { WEIGHTS, useProfile } from '../state/ProfileContext'
 import { useAssistant } from '../state/AssistantContext'
 import { useDemo } from '../state/DemoContext'
@@ -13,10 +15,24 @@ export default function AddButton({ product, className = '' }) {
   const demo = useDemo()
   const nudge = useNudge()
   const assistant = useAssistant()
+  const events = useEvents()
   const qty = cart.qtyOf(product.id)
+  const cartEvent = (type, item) =>
+    events.track(type, {
+      cart_id: cart.id,
+      vertical: item.vertical,
+      concept_id: item.concept,
+      entity_type: item.entityType,
+      entity_id: item.entityId,
+      value: parsePrice(item.price) || undefined,
+      payload: item.fromSuggestion ? { from_suggestion: true } : {},
+    })
   const add = (item) => {
     cart.add(item)
-    profile.track(`${item.name} ${item.store ?? ''}`, WEIGHTS.cart)
+    profile.trackTags(productTags(item), WEIGHTS.cart)
+    cartEvent('cart_add', item)
+    if (item.fromSuggestion)
+      events.track('suggestion_accepted', { concept_id: item.concept, vertical: item.vertical, payload: { origen: 'chat' } })
     // Dentro del chat Bigotes ya está recomendando: el aviso solo sale fuera.
     if (demo.isProposal && !assistant.isOpen) nudge.offer(item)
   }
@@ -38,7 +54,15 @@ export default function AddButton({ product, className = '' }) {
 
   return (
     <span className={`add-button is-open ${className}`}>
-      <span aria-label="Quitar uno" {...pressable(stop(cart.remove))}>
+      <span
+        aria-label="Quitar uno"
+        {...pressable(
+          stop((item) => {
+            cart.remove(item)
+            cartEvent('cart_remove', item)
+          }),
+        )}
+      >
         −
       </span>
       <strong aria-live="polite">{qty}</strong>

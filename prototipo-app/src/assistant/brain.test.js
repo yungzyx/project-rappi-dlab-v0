@@ -95,3 +95,25 @@ describe('forVertical', () => {
     expect(forVertical('nada', EMPTY_PROFILE).products).toEqual([])
   })
 })
+
+describe('regresiones del cerebro local (se usa cuando no hay API)', () => {
+  test('un saludo al inicio no tapa el pedido', () => {
+    expect(reply('hola, quiero sushi', EMPTY_PROFILE).tags).toContain('sushi')
+    expect(reply('hola', EMPTY_PROFILE).text).toMatch(/Soy Bigotes/)
+  })
+
+  test('las gracias solo se responden si vienen solas', () => {
+    expect(reply('gracias', EMPTY_PROFILE).text).toMatch(/De nada/)
+    expect(reply('gracias, ahora una pizza', EMPTY_PROFILE).tags).toContain('pizza')
+  })
+
+  test('palabras completas: "comercial", "equivale" y "bebestibles" no disparan nada raro', () => {
+    expect(reply('algo comercial', EMPTY_PROFILE).stores ?? []).not.toContainEqual(expect.objectContaining({ name: expect.stringMatching(/burger/i) }))
+    expect(reply('equivale', EMPTY_PROFILE).text).not.toMatch(/De nada/)
+    expect(reply('bebestibles', EMPTY_PROFILE).tags ?? []).not.toContain('bebe')
+  })
+
+  test('lo concreto gana a la ocasión genérica: "comida para mi perro" es mascotas', () => {
+    expect(reply('comida para mi perro', EMPTY_PROFILE).tags).toEqual(['mascota'])
+  })
+})

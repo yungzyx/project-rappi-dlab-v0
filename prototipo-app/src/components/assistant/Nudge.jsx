@@ -1,6 +1,7 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { TAGS } from '../../assistant/tags'
 import { rectInPhone, useAssistant } from '../../state/AssistantContext'
+import { useEvents } from '../../state/EventsContext'
 import { useNudge } from '../../state/NudgeContext'
 import Mascot from './Mascot'
 import './nudge.css'
@@ -9,14 +10,21 @@ import './nudge.css'
 export default function Nudge({ raised }) {
   const { nudge, dismiss } = useNudge()
   const assistant = useAssistant()
+  const events = useEvents()
   const ref = useRef(null)
+  const visible = Boolean(nudge) && !assistant.isOpen
 
-  if (!nudge || assistant.isOpen) return null
+  useEffect(() => {
+    if (visible) events.track('suggestion_shown', { payload: { from: nudge.tag, to: nudge.complement, origen: 'aviso' } })
+  }, [visible, nudge, events])
+
+  if (!visible) return null
 
   const from = TAGS[nudge.tag]
   const to = TAGS[nudge.complement]
 
   const open = () => {
+    events.track('suggestion_accepted', { payload: { from: nudge.tag, to: nudge.complement, origen: 'aviso' } })
     dismiss()
     assistant.open({ mode: 'chat', origin: rectInPhone(ref.current), query: to.label })
   }
@@ -35,7 +43,15 @@ export default function Nudge({ raised }) {
       <button type="button" className="nudge-go tap" onClick={open}>
         Ver
       </button>
-      <button type="button" className="nudge-close" aria-label="Cerrar" onClick={dismiss}>
+      <button
+        type="button"
+        className="nudge-close"
+        aria-label="Cerrar"
+        onClick={() => {
+          events.track('suggestion_dismissed', { payload: { from: nudge.tag, to: nudge.complement, origen: 'aviso' } })
+          dismiss()
+        }}
+      >
         ×
       </button>
     </div>

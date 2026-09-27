@@ -3,6 +3,7 @@ import ProductRow from '../../components/ProductRow'
 import StoreList from '../../components/StoreList'
 import { ChevronLeft, SearchIcon } from '../../components/Icons'
 import { ALL_STORES, search } from '../../data/catalog'
+import { useEvents } from '../../state/EventsContext'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
 import './search.css'
 
@@ -18,13 +19,18 @@ export default function SearchScreen({ back, push, params }) {
   const hasQuery = query.trim().length > 0
   const isEmpty = hasQuery && results.stores.length === 0 && results.products.length === 0
   const { track } = useProfile()
+  const events = useEvents()
+  const found = results.stores.length + results.products.length
 
   // Cuenta la búsqueda cuando el usuario deja de escribir, no con cada letra.
   useEffect(() => {
     if (query.trim().length < 3) return undefined
-    const timer = setTimeout(() => track(query, WEIGHTS.query), SEARCH_SETTLE_MS)
+    const timer = setTimeout(() => {
+      track(query, WEIGHTS.query)
+      events.track('search', { query: query.trim(), modality: 'texto', results: found, unmet: found === 0 })
+    }, SEARCH_SETTLE_MS)
     return () => clearTimeout(timer)
-  }, [query, track])
+  }, [query, track, events, found])
 
   return (
     <div className="screen search">

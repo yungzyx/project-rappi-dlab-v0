@@ -178,8 +178,10 @@ class Bigotes:
             age_notice=draft.age_notice,
         )
         if suggestion:
+            label = self.taxonomy.concepts[suggestion.concept].label.lower()
             response["suggestion"] = {
                 "reason": suggestion.reason,
+                "question": f"¿Te tinca sumar {label}?",
                 "vertical": suggestion.vertical,
                 "prototype_vertical": PROTOTYPE_VERTICALS.get(suggestion.vertical),
                 "concept": suggestion.concept,

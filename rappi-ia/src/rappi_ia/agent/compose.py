@@ -44,8 +44,7 @@ class TemplateComposer:
 
     def compose(self, d: Draft) -> str:
         parts = [self._main(d)]
-        if d.suggestion_reason and d.suggestion_label:
-            parts.append(f"{d.suggestion_reason}, ¿te tinca sumar {d.suggestion_label} de otra tienda?")
+        # La sugerencia cruzada va en su propio bloque ("De otra tienda"), no en el texto principal.
         if d.pharmacy_notice:
             parts.append(PHARMACY_NOTICE)
         if d.age_notice:

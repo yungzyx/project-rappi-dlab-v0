@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { chat, chatPhoto, chatVoice, forget, health, profile as remoteProfile, toMessage } from '../../api/client'
 import { forYou, greeting, photoReply, reply, suggestions, ASSISTANT_NAME, VOICE_SAMPLES } from '../../assistant/brain'
 import { TAGS } from '../../assistant/tags'
+import { useDemo } from '../../state/DemoContext'
+import { sessionId, useEvents, userId } from '../../state/EventsContext'
 import { findStore } from '../../data/catalog'
 import { useAssistant } from '../../state/AssistantContext'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
@@ -13,7 +16,9 @@ import './assistant.css'
 const OPEN_MS = 460
 const CLOSE_MS = 320
 const TYPING_MS = 850
+const MIN_TYPING_MS = 450
 const VOICE_LISTEN_MS = 2600
+const MAX_RECORDING_MS = 7000
 const WAVE_BARS = 7
 
 /** clip-path que recorta el panel al rectángulo de origen (la barra o la mascota). */
@@ -27,9 +32,15 @@ function clipFrom(origin) {
 let nextId = 1
 
 /** Chat del asistente. Siempre montado (para no perder la conversación); se muestra al abrirlo. */
-export default function AssistantPanel({ push }) {
+/** ¿Se puede grabar de verdad? El micrófono solo funciona en localhost o https (en el iPhone por http, no). */
+const canRecord = () =>
+  typeof window !== 'undefined' && window.isSecureContext && Boolean(navigator.mediaDevices?.getUserMedia) && 'MediaRecorder' in window
+
+export default function AssistantPanel({ push, vertical }) {
   const assistant = useAssistant()
   const profile = useProfile()
+  const demo = useDemo()
+  const events = useEvents()
   const [phase, setPhase] = useState('closed')
   const [origin, setOrigin] = useState(null)
   const [messages, setMessages] = useState([])
@@ -43,41 +54,135 @@ export default function AssistantPanel({ push }) {
   const voiceIndex = useRef(0)
   const timers = useRef([])
   const voiceTimers = useRef([])
+  const recorder = useRef(null)
+  const shownTopics = useRef(new Set())
+  const [caps, setCaps] = useState(null) // capacidades de la API; null = sin conexión (cerebro local)
+  const [learnedRemote, setLearnedRemote] = useState(null)
 
   const later = (fn, ms, bucket = timers) => bucket.current.push(setTimeout(fn, ms))
   useEffect(() => () => [...timers.current, ...voiceTimers.current].forEach(clearTimeout), [])
 
   const addMessage = (message) => setMessages((prev) => [...prev, { id: nextId++, ...message }])
 
-  const botSays = useCallback((response) => {
+  /** Muestra "escribiendo…" hasta que llega la respuesta (de la API o local), con un mínimo para que se note. */
+  const botSays = useCallback((responseOrPromise) => {
     const typingId = nextId++
+    const startedAt = Date.now()
     setMood('think')
     setMessages((prev) => [...prev, { id: typingId, from: 'bot', typing: true }])
-    later(() => {
-      setMood('talk')
-      // Id nuevo: si reutilizara el del indicador, React conservaría su estado y mostraría las tarjetas antes del texto.
-      setMessages((prev) => [...prev.filter((m) => m.id !== typingId), { id: nextId++, from: 'bot', animate: true, ...response }])
-      setChipRound((r) => r + 1)
-    }, TYPING_MS)
+    Promise.resolve(responseOrPromise).then((response) => {
+      const wait = response.source === 'api' ? Math.max(0, MIN_TYPING_MS - (Date.now() - startedAt)) : TYPING_MS
+      later(() => {
+        setMood('talk')
+        // Id nuevo: si reutilizara el del indicador, React conservaría su estado y mostraría las tarjetas antes del texto.
+        setMessages((prev) => [...prev.filter((m) => m.id !== typingId), { id: nextId++, from: 'bot', animate: true, ...response }])
+        setChipRound((r) => r + 1)
+      }, wait)
+    })
   }, [])
 
-  const send = (text) => {
+  const apiContext = (extra = {}) => ({
+    vertical,
+    user_id: userId(),
+    session_id: sessionId(),
+    mode: demo.isProposal ? 'propuesta' : 'actual',
+    ...extra,
+  })
+
+  /** Registra la sugerencia cruzada mostrada (para el panel) y no la repite en la sesión. */
+  const noteSuggestion = (message) => {
+    if (!message.suggestion) return message
+    shownTopics.current.add(message.suggestion.concept)
+    events.track('suggestion_shown', {
+      concept_id: message.suggestion.concept,
+      vertical: message.suggestion.vertical,
+      payload: { origen: 'chat' },
+    })
+    return message
+  }
+
+  /** Respuesta de la API; si no está o falla, el cerebro local de siempre. */
+  const answer = async (text, askVertical) => {
+    if (await health()) {
+      try {
+        const response = await chat({ message: text, ...apiContext({ vertical: askVertical ?? vertical }), shown_topics: [...shownTopics.current] })
+        return noteSuggestion(toMessage(response))
+      } catch {
+        // cae al cerebro local
+      }
+    }
+    return reply(text, profile)
+  }
+
+  const send = (text, askVertical) => {
     const clean = text.trim()
     if (!clean) return
     setDraft('')
     addMessage({ from: 'user', text: clean })
-    const response = reply(clean, profile)
-    if (response.tags) profile.trackTags(response.tags, WEIGHTS.query)
-    else profile.track(clean, WEIGHTS.query)
-    botSays(response)
+    profile.track(clean, WEIGHTS.query)
+    botSays(answer(clean, askVertical))
   }
 
-  const sendPhoto = (url) => {
+  const sendPhoto = (file) => {
+    const url = URL.createObjectURL(file)
     addMessage({ from: 'user', image: url })
-    botSays(photoReply(profile))
+    const run = async () => {
+      if ((await health())?.fotos) {
+        try {
+          return noteSuggestion(toMessage(await chatPhoto(file, apiContext())))
+        } catch {
+          // cae a la respuesta simulada
+        }
+      }
+      return photoReply(profile)
+    }
+    botSays(run())
   }
 
-  const listen = () => {
+  /** Voz real: graba hasta 7 s (o hasta "Listo") y la API la transcribe con Whisper. El audio no se guarda. */
+  const record = async () => {
+    let stream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      return false // sin permiso de micrófono: voz simulada
+    }
+    const chunks = []
+    const media = new MediaRecorder(stream)
+    recorder.current = media
+    media.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data)
+    media.onstop = async () => {
+      stream.getTracks().forEach((track) => track.stop())
+      recorder.current = null
+      if (media.cancelled) return
+      setVoice({ transcript: 'Transcribiendo…' })
+      try {
+        const blob = new Blob(chunks, { type: media.mimeType || 'audio/webm' })
+        const message = toMessage(await chatVoice(new File([blob], 'voz.webm', { type: blob.type }), apiContext()))
+        setVoice(null)
+        if (message.transcript && !message.transcript.discarded) addMessage({ from: 'user', text: message.transcript.text })
+        botSays(noteSuggestion(message))
+      } catch {
+        setVoice(null)
+        botSays({ text: 'No pude procesar el audio 🙉 ¿Me lo escribes?' })
+      }
+    }
+    media.start()
+    setMood('listen')
+    setVoice({ transcript: '', recording: true })
+    later(() => media.state === 'recording' && media.stop(), MAX_RECORDING_MS, voiceTimers)
+    return true
+  }
+
+  const stopRecording = () => recorder.current?.state === 'recording' && recorder.current.stop()
+
+  const listen = async () => {
+    if (canRecord() && (await health())?.voz && (await record())) return
+    simulateVoice()
+  }
+
+  // Voz simulada (sin micrófono o sin API): recorre frases de ejemplo.
+  const simulateVoice = () => {
     const sample = VOICE_SAMPLES[voiceIndex.current++ % VOICE_SAMPLES.length]
     setMood('listen')
     setVoice({ transcript: '' })
@@ -96,6 +201,10 @@ export default function AssistantPanel({ push }) {
   }
 
   const cancelVoice = () => {
+    if (recorder.current) {
+      recorder.current.cancelled = true
+      stopRecording()
+    }
     voiceTimers.current.forEach(clearTimeout)
     voiceTimers.current = []
     setVoice(null)
@@ -112,6 +221,14 @@ export default function AssistantPanel({ push }) {
     setPhase('from-origin')
     setMood('wave')
     later(() => setMood('idle'), OPEN_MS + 1400)
+
+    health({ force: true }).then((capabilities) => {
+      setCaps(capabilities)
+      if (!capabilities) return setLearnedRemote(null)
+      remoteProfile(userId())
+        .then((data) => setLearnedRemote(data.interests.slice(0, 3)))
+        .catch(() => setLearnedRemote(null))
+    })
 
     const isFirst = messages.length === 0
     if (isFirst) {
@@ -182,7 +299,14 @@ export default function AssistantPanel({ push }) {
     transitionDuration: `${phase === 'closing' ? CLOSE_MS : OPEN_MS}ms`,
   }
   const chips = suggestions(profile)
-  const learned = profile.top.slice(0, 3)
+  // Con la API, lo aprendido viene de rappi-ia (conceptos, sin sensibles); sin ella, del perfil local.
+  const learned = learnedRemote ?? profile.top.slice(0, 3).map((tag) => ({ concept: tag, label: `${TAGS[tag].emoji} ${TAGS[tag].label}` }))
+  const forgetAll = () => {
+    profile.reset()
+    setLearnedRemote(null)
+    shownTopics.current.clear()
+    if (caps) forget(userId()).catch(() => {})
+  }
 
   return (
     <div ref={rootRef} className={`assistant is-${phase}`} style={style} role="dialog" aria-modal="true" aria-label={`Asistente ${ASSISTANT_NAME}`}>
@@ -208,12 +332,10 @@ export default function AssistantPanel({ push }) {
       {learned.length > 0 && (
         <div className="assistant-learning">
           <span>Aprendiendo de ti:</span>
-          {learned.map((tag) => (
-            <b key={tag}>
-              {TAGS[tag].emoji} {TAGS[tag].label}
-            </b>
+          {learned.map((item) => (
+            <b key={item.concept}>{item.label}</b>
           ))}
-          <button type="button" onClick={profile.reset}>
+          <button type="button" onClick={forgetAll}>
             Olvidar
           </button>
         </div>
@@ -229,7 +351,7 @@ export default function AssistantPanel({ push }) {
               go('store', { store: findStore(product.store) ?? { name: product.store, img: product.img, eta: product.eta } })
             }
             onOpenStore={(store) => go('store', { store })}
-            onAction={(action) => go(...action.route)}
+            onAction={(action) => (action.ask ? send(action.ask.text, action.ask.vertical) : go(...action.route))}
           />
         ))}
       </div>
@@ -257,6 +379,11 @@ export default function AssistantPanel({ push }) {
               ))}
             </div>
             <p>{voice.transcript || 'Te escucho…'}</p>
+            {voice.recording && (
+              <button type="button" className="assistant-voice-cancel" onClick={stopRecording}>
+                Listo
+              </button>
+            )}
             <button type="button" className="assistant-voice-cancel" onClick={cancelVoice}>
               Cancelar
             </button>
@@ -297,7 +424,7 @@ export default function AssistantPanel({ push }) {
               onChange={(e) => {
                 const file = e.target.files?.[0]
                 e.target.value = ''
-                if (file) sendPhoto(URL.createObjectURL(file))
+                if (file) sendPhoto(file)
               }}
             />
           </form>
