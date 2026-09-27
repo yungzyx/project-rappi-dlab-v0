@@ -48,6 +48,11 @@ function ProductCards({ products, onOpenProduct, delay = 0 }) {
         >
           <span className="chat-product-media">
             <img src={product.img} alt="" draggable="false" />
+            {product.ageRestricted && (
+              <span className="chat-product-age" aria-label="Solo mayores de 18">
+                +18
+              </span>
+            )}
             <AddButton product={product} className="add-button--chat" />
           </span>
           <span className="chat-product-name">{product.name}</span>

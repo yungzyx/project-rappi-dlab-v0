@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve
+.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan images purge post-refresh
 
 PY := .venv/bin/python
 PG_BIN := $(shell brew --prefix 2>/dev/null)/opt/postgresql@17/bin
@@ -47,5 +47,17 @@ synth:  ## Usuarios y eventos SIMULADOS para el panel (reemplaza los anteriores)
 analytics:  ## Resumen de métricas del panel
 	$(PY) -m rappi_ia analytics
 
-serve:  ## API en http://localhost:8000 (docs en /docs)
-	$(PY) -m uvicorn rappi_ia.api.app:app --host 0.0.0.0 --port 8000
+serve:  ## API en http://localhost:8000, solo este Mac (docs en /docs)
+	$(PY) -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8000
+
+serve-lan:  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
+	API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --host 0.0.0.0 --port 8000
+
+images:  ## Fotos del catálogo con CLIP (miles de descargas: correr con el scraper detenido)
+	$(PY) -m rappi_ia embed-images
+
+purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/diseno-ia.md §2)
+	$(PY) -m rappi_ia purge
+
+post-refresh: migrate concepts embed eval synth purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
+	@echo "Listo: conceptos, embeddings, evaluación y datos simulados al día."

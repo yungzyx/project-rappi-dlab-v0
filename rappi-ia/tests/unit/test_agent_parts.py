@@ -5,9 +5,9 @@ from types import SimpleNamespace
 import numpy as np
 
 from rappi_ia.agent.audio import assess
-from rappi_ia.agent.compose import ClaudeComposer, Draft, TemplateComposer, verify_llm_text
+from rappi_ia.agent.compose import AGE_NOTICE, ClaudeComposer, Draft, TemplateComposer, facts, verify_llm_text
 from rappi_ia.agent.photo import classify
-from rappi_ia.agent.understand import _price, _strip_greeting
+from rappi_ia.agent.understand import Understander, _clean, _price
 
 
 def _segment(avg_logprob=-0.1, no_speech_prob=0.05, compression_ratio=1.2):
@@ -79,9 +79,84 @@ def test_claude_composer_falls_back_to_template_on_any_failure():
     assert "$100" not in composer.compose(draft)
 
 
-def test_price_and_greeting_parsing():
-    assert _price("cerveza bajo 2 mil") == 2000
-    assert _price("vino hasta $12.990") == 12990
-    assert _price("algo rico") is None
-    assert _strip_greeting("hola quiero sushi") == "quiero sushi"
-    assert _strip_greeting("buenas tardes una pizza") == "una pizza"
+def test_price_parsing_ignores_units_and_small_numbers():
+    assert _price("cerveza bajo 2 mil")[0] == 2000
+    assert _price("vino hasta $12.990")[0] == 12990
+    assert _price("snacks bajo 5k")[0] == 5000
+    assert _price("pisco bajo 8000")[0] == 8000
+    for text in [
+        "arroz hasta 5 kilos",
+        "pañales hasta 12 kg",
+        "leche no mas de 2 litros",
+        "cerveza bajo 5 grados",
+        "pizza para hasta 4 personas",
+        "algo bajo 5",
+    ]:
+        assert _price(text)[0] is None, text
+    assert "3 mil" not in _price("cerveza bajo 3 mil")[1]  # la frase de precio sale de la consulta
+
+
+def test_clean_query_drops_greeting_and_request_words():
+    assert _clean("hola bigotes quiero sushi") == "sushi"
+    assert _clean("buenas tardes tienen kombucha") == "kombucha"
+
+
+def test_greeting_and_thanks_combos_are_not_searches():
+    u = Understander()
+    for text in ["hola buenas", "hola, buenas tardes", "hola bigotes"]:
+        assert u.understand(None, text, "licores").kind == "saludo", text
+    for text in ["ok gracias", "gracias bigotes", "muchas gracias!"]:
+        assert u.understand(None, text, "licores").kind == "gracias", text
+
+
+def test_brand_words_do_not_switch_vertical():
+    u = Understander()
+    assert u.understand(None, "cigarros pall mall", "conveniencia").vertical == "conveniencia"
+    assert u.understand(None, "chocolate super 8", "conveniencia").vertical == "conveniencia"
+    mention = u.understand(None, "leche del super", "conveniencia")
+    assert (mention.vertical, mention.explicit_vertical) == ("supermercado", True)
+
+
+def test_symptoms_flag_pharmacy_notice_and_never_map_to_medicines():
+    intent = Understander().understand(None, "tengo fiebre y dolor de cabeza", "supermercado")
+    assert intent.symptom and "medicamentos" not in intent.concepts
+    assert "medicamentos" not in Understander().understand(None, "me siento enfermo", "supermercado").concepts
+
+
+def test_llm_verifier_blocks_claims_invented_names_and_spelled_numbers():
+    refs = {"p1": "Cerveza Escudo 470 cc"}
+    allowed = "Cerveza Escudo 470 cc 🍺 cerveza Licores"
+    assert (
+        verify_llm_text("Te recomiendo {p1}, bien heladita.", refs, allowed)
+        == "Te recomiendo Cerveza Escudo 470 cc, bien heladita."
+    )
+    for bad in [
+        "{p1} es sin alcohol y el más barato",
+        "Llévate {p1} y una Kunstmann Torobayo",
+        "cuesta mil novecientos pesos {p1}",
+        "{p1} con envío gratis",
+    ]:
+        assert verify_llm_text(bad, refs, allowed) is None, bad
+
+
+def test_llm_never_sees_the_user_query_and_notices_are_added_in_code():
+    draft = Draft(
+        kind="sin_resultado",
+        query="kebab, mi rut 12.345.678-5 y fono +56 9 1234 5678",
+        vertical_label="restaurantes",
+        age_notice=True,
+    )
+    payload = facts(draft, {})
+    assert "query" not in payload and "12.345" not in str(payload)
+
+    composer = ClaudeComposer.__new__(ClaudeComposer)
+    composer.model, composer._fallback = "test", TemplateComposer()
+    composer._client = SimpleNamespace(
+        messages=SimpleNamespace(
+            create=lambda **_: SimpleNamespace(
+                content=[SimpleNamespace(text='{"text": "Uy, eso no lo tengo por ahora."}')]
+            )
+        )
+    )
+    text = composer.compose(draft)
+    assert text.startswith("Uy, eso no lo tengo") and text.endswith(AGE_NOTICE)

@@ -28,10 +28,12 @@ export default function AddButton({ product, className = '' }) {
       payload: item.fromSuggestion ? { from_suggestion: true } : {},
     })
   const add = (item) => {
+    const first = cart.qtyOf(item.id) === 0
     cart.add(item)
     profile.trackTags(productTags(item), WEIGHTS.cart)
     cartEvent('cart_add', item)
-    if (item.fromSuggestion)
+    // Aceptar una sugerencia es agregarla por primera vez; los "+" siguientes son solo cantidad.
+    if (item.fromSuggestion && first)
       events.track('suggestion_accepted', { concept_id: item.concept, vertical: item.vertical, payload: { origen: 'chat' } })
     // Dentro del chat Bigotes ya está recomendando: el aviso solo sale fuera.
     if (demo.isProposal && !assistant.isOpen) nudge.offer(item)

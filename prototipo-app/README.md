@@ -27,6 +27,8 @@ Si la API de [`rappi-ia`](../rappi-ia/) está corriendo (`make serve`, puerto 80
   - reconoce **fotos** con CLIP;
   - registra eventos seudónimos para el [panel de la empresa](../dashboard-empresa/).
 - **Sin API:** la app usa el cerebro local de siempre, sin avisos ni errores.
+
+<img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Bigotes con la API: cervezas reales bajo $3.000 y snacks de otra tienda">
 - **Otra dirección:** para apuntar a otra API, crea `.env.local` con `VITE_API_URL=http://localhost:8001`.
 - **Desde el iPhone:** en la red local, arranca la API con `--host 0.0.0.0`. macOS pedirá permiso de red la primera vez.
 

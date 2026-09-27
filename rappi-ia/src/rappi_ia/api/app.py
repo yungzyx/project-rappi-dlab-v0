@@ -11,7 +11,8 @@ from typing import Literal
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from psycopg import Connection
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+from rappi_scraper.storage.search import VERTICALS
 
 from .. import config
 from ..agent.bigotes import PROTOTYPE_VERTICALS, Context
@@ -26,17 +27,25 @@ from .services import Services, services
 log = logging.getLogger(__name__)
 
 app = FastAPI(title="rappi-ia", version="0.1.0", description="Bigotes, búsqueda por vertical y panel empresa")
+# Solo este Mac por defecto. La red local (iPhone) se abre con API_ALLOW_LAN=1 (`make serve-lan`): la API no
+# tiene autenticación, así que solo en una red de confianza.
+_LOCAL = r"localhost|127\.0\.0\.1"
+_LAN = r"|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+" if config.API_ALLOW_LAN else ""
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.API_CORS_ORIGINS,
-    # El prototipo también se abre desde el iPhone en la red local (http://192.168.x.x:5174).
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):51\d\d",
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origin_regex=rf"http://({_LOCAL}{_LAN}):51\d\d",
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["content-type"],
 )
 
 FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 MAX_UPLOAD_BYTES = 8_000_000
+MAX_AUDIO_SECONDS = 20  # el prototipo graba hasta 7 s; esto protege a Whisper de audios de horas
+MAX_IMAGE_PIXELS = 40_000_000  # evita "bombas" de descompresión (un PNG de 17 KB puede pesar 500 MB en memoria)
+IMAGE_FORMATS = ["JPEG", "PNG", "WEBP"]  # nunca EPS/PS (Pillow llamaría a Ghostscript)
+AUDIO_TYPES = ("audio/", "video/webm", "video/mp4", "application/octet-stream")
+MODES_LITERAL = ("propuesta", "actual")
 
 
 def get_conn() -> Iterator[Connection]:
@@ -49,14 +58,34 @@ def get_services() -> Services:
 
 
 def backend_vertical(vertical: str | None) -> str | None:
-    """Acepta el código del backend ('licores') o el id del prototipo ('liquor')."""
+    """Acepta el código del backend ('licores') o el id del prototipo ('liquor'). Otro valor ('pet', que no es un
+    vertical del catálogo) se trata como "sin vertical": Bigotes lo deduce del mensaje."""
     if vertical is None:
         return None
-    return FROM_PROTOTYPE.get(vertical, vertical)
+    code = FROM_PROTOTYPE.get(vertical, vertical)
+    return code if code in VERTICALS else None
+
+
+def _no_nul(value):
+    """Postgres no acepta \x00 en texto ni en JSON: se quita en vez de devolver un 500."""
+    if isinstance(value, str):
+        return value.replace("\x00", "")
+    if isinstance(value, dict):
+        return {_no_nul(k): _no_nul(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_no_nul(v) for v in value]
+    return value
+
+
+class Clean(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def strip_nul(cls, data):
+        return _no_nul(data)
 
 
 # ── Modelos ──────────────────────────────────────────────────────────────────
-class ChatIn(BaseModel):
+class ChatIn(Clean):
     message: str = Field(min_length=1, max_length=500)
     vertical: str | None = None
     user_id: str | None = Field(default=None, max_length=64)
@@ -66,7 +95,7 @@ class ChatIn(BaseModel):
     mode: Literal["propuesta", "actual"] = "propuesta"
 
 
-class EventIn(BaseModel):
+class EventIn(Clean):
     type: str
     session_id: str = Field(max_length=64)
     vertical: str | None = None
@@ -82,12 +111,12 @@ class EventIn(BaseModel):
     payload: dict = Field(default_factory=dict)
 
 
-class EventsIn(BaseModel):
+class EventsIn(Clean):
     user_id: str = Field(max_length=64)
     events: list[EventIn] = Field(max_length=200)
 
 
-class OrderLineIn(BaseModel):
+class OrderLineIn(Clean):
     entity_type: Literal["catalog_item", "menu_item"]
     entity_id: str = Field(max_length=64)
     concept_id: str | None = None
@@ -96,7 +125,7 @@ class OrderLineIn(BaseModel):
     from_suggestion: bool = False
 
 
-class OrderIn(BaseModel):
+class OrderIn(Clean):
     user_id: str = Field(max_length=64)
     session_id: str = Field(max_length=64)
     cart_id: str = Field(max_length=64)
@@ -114,24 +143,32 @@ def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_ser
 @app.post("/chat")
 def chat(body: ChatIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
     ctx = _context(conn, body.vertical, body.user_id, body.profile, body.shown_topics, body.mode)
-    response = svc.bigotes.reply(conn, body.message, ctx)
+    try:
+        response = svc.bigotes.reply(conn, body.message, ctx)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     _log_chat(conn, body.user_id, body.session_id, body.message, response, "texto", body.mode)
     return response
 
 
 @app.post("/chat/voice")
-async def chat_voice(
+def chat_voice(
     audio: UploadFile = File(...),
-    vertical: str | None = Form(None),
-    user_id: str | None = Form(None),
-    session_id: str | None = Form(None),
+    vertical: str | None = Form(None, max_length=32),
+    user_id: str | None = Form(None, max_length=64),
+    session_id: str | None = Form(None, max_length=64),
     mode: str = Form("propuesta"),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
 ) -> dict:
+    # Endpoint sin async: FastAPI lo corre en un hilo y Whisper no bloquea a las demás peticiones.
     if svc.transcriber is None:
         raise HTTPException(503, "Voz no disponible en este servidor (falta el extra audio)")
-    data = await _read_upload(audio)
+    _check_mode(mode)
+    if not (audio.content_type or "").startswith(AUDIO_TYPES):
+        raise HTTPException(415, "El archivo no es audio")
+    data = _read_upload(audio)
+    _check_audio_length(data)
     transcript = svc.transcriber.transcribe(io.BytesIO(data))  # el audio no se guarda
     ctx = _context(conn, vertical, user_id, None, [], mode)
     response = svc.bigotes.reply_voice(conn, transcript, ctx)
@@ -141,26 +178,21 @@ async def chat_voice(
 
 
 @app.post("/chat/photo")
-async def chat_photo(
+def chat_photo(
     image: UploadFile = File(...),
-    vertical: str | None = Form(None),
-    user_id: str | None = Form(None),
-    session_id: str | None = Form(None),
+    vertical: str | None = Form(None, max_length=32),
+    user_id: str | None = Form(None, max_length=64),
+    session_id: str | None = Form(None, max_length=64),
     mode: str = Form("propuesta"),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
 ) -> dict:
     if svc.photo_reader is None:
         raise HTTPException(503, "Fotos no disponibles en este servidor (falta el extra ml)")
-    from PIL import Image, UnidentifiedImageError
-
+    _check_mode(mode)
     from ..agent.photo import similar_items
 
-    try:
-        picture = Image.open(io.BytesIO(await _read_upload(image))).convert("RGB")  # la foto no se guarda
-    except UnidentifiedImageError as exc:
-        raise HTTPException(400, "El archivo no es una imagen") from exc
-    picture.thumbnail((336, 336))
+    picture = _open_image(_read_upload(image))  # la foto no se guarda
     ctx = _context(conn, vertical, user_id, None, [], mode)
     reading = svc.photo_reader.read(picture)
     similar = similar_items(conn, reading.vector, svc.image_model, ctx.vertical)
@@ -349,8 +381,39 @@ def _log_chat(conn, user_id, session_id, text, response, modality, mode) -> None
     conn.commit()
 
 
-async def _read_upload(upload: UploadFile) -> bytes:
-    data = await upload.read(MAX_UPLOAD_BYTES + 1)
+def _read_upload(upload: UploadFile) -> bytes:
+    data = upload.file.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, "Archivo demasiado grande (máx. 8 MB)")
     return data
+
+
+def _check_mode(mode: str) -> None:
+    if mode not in MODES_LITERAL:
+        raise HTTPException(400, f"mode debe ser uno de {MODES_LITERAL}")
+
+
+def _open_image(data: bytes):
+    from PIL import Image, UnidentifiedImageError
+
+    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+    try:
+        picture = Image.open(io.BytesIO(data), formats=IMAGE_FORMATS)
+        picture.draft("RGB", (672, 672))  # JPEG: decodifica ya reducido
+        picture = picture.convert("RGB")
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, SyntaxError, ValueError) as exc:
+        raise HTTPException(400, "La imagen no es válida (se aceptan JPEG, PNG y WebP)") from exc
+    picture.thumbnail((336, 336))
+    return picture
+
+
+def _check_audio_length(data: bytes) -> None:
+    try:
+        import av
+
+        with av.open(io.BytesIO(data)) as container:
+            seconds = (container.duration or 0) / 1_000_000
+    except Exception as exc:  # formato ilegible
+        raise HTTPException(400, "El audio no es válido") from exc
+    if seconds > MAX_AUDIO_SECONDS:
+        raise HTTPException(413, f"Audio demasiado largo (máx. {MAX_AUDIO_SECONDS} s)")

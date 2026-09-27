@@ -574,3 +574,19 @@
   font-weight: 700;
   letter-spacing: 0.01em;
 }
+
+/* Productos solo para mayores de edad: marca visible en la tarjeta. */
+.chat-product-media {
+  position: relative;
+}
+.chat-product-age {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(20, 20, 20, 0.78);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}

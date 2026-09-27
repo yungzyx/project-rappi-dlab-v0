@@ -27,7 +27,6 @@ def matcher():
         ("Papas fritas corte americano", "snacks-salados"),  # frase más específica que "papa"
         ("comida para mi perro", "alimento-perro"),
         ("quiero whisky", "whisky"),
-        ("tengo dolor de cabeza", "medicamentos"),
         ("hola, quiero sushi", "sushi"),
         ("Pizza pepperoni familiar", "pizza"),
         ("Pañal Huggies etapa 3", "panales"),

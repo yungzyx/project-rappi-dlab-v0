@@ -23,6 +23,8 @@ WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or None
 BIGOTES_LLM_MODEL = os.environ.get("BIGOTES_LLM_MODEL", "claude-sonnet-5")
 
+# Red local (iPhone): solo con API_ALLOW_LAN=1 (`make serve-lan`). La API no tiene autenticación.
+API_ALLOW_LAN = os.environ.get("API_ALLOW_LAN") == "1"
 API_CORS_ORIGINS = [
     o.strip()
     for o in os.environ.get("API_CORS_ORIGINS", "http://localhost:5174,http://localhost:5175").split(",")

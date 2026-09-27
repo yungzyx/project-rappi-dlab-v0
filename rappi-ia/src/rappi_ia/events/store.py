@@ -12,6 +12,7 @@ from datetime import datetime
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import load_taxonomy
 
 EVENT_TYPES = {
@@ -31,6 +32,8 @@ EVENT_TYPES = {
 }
 QUERY_RETENTION_DAYS = 90
 HALF_LIFE_DAYS = 14  # el interés se reduce a la mitad cada 2 semanas sin actividad
+# Solo señales positivas del propio usuario. Lo que Bigotes mostró (suggestion_shown), lo que rechazó
+# (suggestion_dismissed) o sacó del carro (cart_remove) no suma interés.
 WEIGHTS = {
     "order_placed": 5.0,
     "cart_add": 3.0,
@@ -42,21 +45,59 @@ WEIGHTS = {
     "recommendation_click": 2.0,
 }
 
-_PATTERNS = [
-    (re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b"), "[correo]"),
-    (re.compile(r"\b\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]\b"), "[rut]"),
-    (re.compile(r"(?:\+?56\s?)?\b9\s?\d{4}\s?\d{4}\b"), "[teléfono]"),
-    (re.compile(r"\b(?:calle|av\.?|avenida|pasaje|psje\.?)\s+[\w\sáéíóúñ]+?\s\d{1,5}\b", re.IGNORECASE), "[dirección]"),
-]
+_DASH = "[-‐‑‒–—]"
+_EMAIL = re.compile(r"[\w.+-]+\s?@\s?[\w-]+(?:\.[\w-]+)+")
+_RUT = re.compile(r"(?<!\d)(\d{1,2})[.\s]?(\d{3})[.\s]?(\d{3})\s*" + _DASH + r"\s*([\dkK])(?!\w)")
+_CARD = re.compile(r"(?<!\d)(?:\d[\s-]?){12,18}\d(?!\d)")
+# Teléfono chileno: celular 9 + 8 dígitos o fijo (código de área + 7-8 dígitos), con +56 opcional.
+_PHONE = re.compile(
+    r"(?<![\d$])(?:\+?\s?56[\s.-]*)?(?:9[\s.-]*\d{4}[\s.-]*\d{4}|\d{1,2}[\s.-]*\d{3,4}[\s.-]*\d{4})(?!\d)"
+)
+_STREET_TYPES = r"(?:calle|av(?:da)?\.?|avenida|pasaje|psje\.?|pje\.?|camino|ruta)"
+_TAIL = r"(?:\s*(?:depto|dpto|departamento|of|oficina|casa)\.?\s*\w+)?"
+_ADDRESS = re.compile(
+    r"\b" + _STREET_TYPES + r"\s+(?P<name>[^\d,;\n]{2,40}?)\s*(?:n[°º]\.?\s*|#\s*)?\d{1,5}\b" + _TAIL,
+    re.IGNORECASE,
+)
+# Sin tipo de calle: solo con una frase que anuncia la dirección ("vivo en Los Leones 123").
+_ADDRESS_CONTEXT = re.compile(
+    r"(?P<intro>vivo en|mi direcci[oó]n(?: es)?|despacho a|entregar en|env[ií]a(?:lo)? a)\s+[^\d,;\n]{2,40}?\s*"
+    r"(?:n[°º]\.?\s*|#\s*)?\d{1,5}\b" + _TAIL,
+    re.IGNORECASE,
+)
+_NOT_A_STREET = {"para", "de", "la", "el", "los", "las", "con", "sin", "y", "a", "en", "por", "que", "un", "una"}
+
+
+def _rut_valid(body: str, check: str) -> bool:
+    total, factor = 0, 2
+    for digit in reversed(body):
+        total += int(digit) * factor
+        factor = 2 if factor == 7 else factor + 1
+    expected = 11 - total % 11
+    return check.upper() == {10: "K", 11: "0"}.get(expected, str(expected))
+
+
+def _luhn(number: str) -> bool:
+    digits = [int(d) for d in re.sub(r"\D", "", number)]
+    doubled = [d if i % 2 == 0 else (d * 2 - 9 if d * 2 > 9 else d * 2) for i, d in enumerate(reversed(digits))]
+    return 13 <= len(digits) <= 19 and sum(doubled) % 10 == 0
+
+
+def _street(match: re.Match) -> str:
+    """ "calle para 4" no es una dirección: el nombre de la calle debe tener alguna palabra que no sea de relleno."""
+    return "[dirección]" if set(match.group("name").lower().split()) - _NOT_A_STREET else match.group(0)
 
 
 def redact(text: str | None) -> str | None:
-    """Quita correo, RUT, teléfono y direcciones antes de guardar una consulta."""
+    """Quita correo, RUT (válido), tarjetas (Luhn), teléfonos chilenos y direcciones antes de guardar una consulta."""
     if text is None:
         return None
-    for pattern, replacement in _PATTERNS:
-        text = pattern.sub(replacement, text)
-    return text
+    text = _EMAIL.sub("[correo]", text)
+    text = _RUT.sub(lambda m: "[rut]" if _rut_valid("".join(m.groups()[:3]), m.group(4)) else m.group(0), text)
+    text = _CARD.sub(lambda m: "[tarjeta]" if _luhn(m.group(0)) else m.group(0), text)
+    text = _PHONE.sub("[teléfono]", text)
+    text = _ADDRESS.sub(_street, text)
+    return _ADDRESS_CONTEXT.sub(lambda m: f"{m.group('intro')} [dirección]", text)
 
 
 @dataclass
@@ -188,23 +229,44 @@ def profile(conn: Connection, user_id: str, now: datetime | None = None) -> dict
     rows = conn.execute(
         """SELECT concept_id, type, extract(epoch FROM (coalesce(%(now)s, now()) - ts)) / 86400.0 AS days
            FROM app_events
-           WHERE user_id = %(user)s AND concept_id IS NOT NULL AND concept_id <> ALL(%(sensitive)s)""",
-        {"now": now, "user": user_id, "sensitive": sensitive},
+           WHERE user_id = %(user)s AND concept_id IS NOT NULL AND concept_id <> ALL(%(sensitive)s)
+             AND type = ANY(%(types)s)""",
+        {"now": now, "user": user_id, "sensitive": sensitive, "types": list(WEIGHTS)},
     ).fetchall()
     scores: dict[str, float] = {}
     for concept_id, event_type, days in rows:
-        weight = WEIGHTS.get(event_type, 0.5) * 0.5 ** (max(float(days), 0) / HALF_LIFE_DAYS)
+        weight = WEIGHTS[event_type] * 0.5 ** (max(float(days), 0) / HALF_LIFE_DAYS)
         scores[concept_id] = scores.get(concept_id, 0.0) + weight
     return {c: round(s, 3) for c, s in sorted(scores.items(), key=lambda kv: -kv[1]) if s >= 0.05}
 
 
 def forget(conn: Connection, user_id: str, concept_id: str | None = None) -> int:
-    """'Olvidar': borra los eventos del concepto (o todos los del usuario). No basta con limpiar el perfil."""
-    if concept_id:
-        return conn.execute(
-            "DELETE FROM app_events WHERE user_id = %s AND concept_id = %s", (user_id, concept_id)
-        ).rowcount
-    return conn.execute("DELETE FROM app_events WHERE user_id = %s", (user_id,)).rowcount
+    """'Olvidar' (docs/diseno-ia.md §2). Sin concepto: borra al usuario entero (eventos, pedidos y líneas en
+    cascada). Con concepto: borra sus eventos de ese concepto, lo quita de sus líneas de pedido y borra el texto de
+    las consultas que lo nombran. Devuelve cuántos registros se borraron o anonimizaron."""
+    if concept_id is None:
+        events = conn.execute("SELECT count(*) FROM app_events WHERE user_id = %s", (user_id,)).fetchone()[0]
+        orders = conn.execute("SELECT count(*) FROM app_orders WHERE user_id = %s", (user_id,)).fetchone()[0]
+        conn.execute("DELETE FROM app_users WHERE user_id = %s", (user_id,))
+        return events + orders
+    deleted = conn.execute(
+        "DELETE FROM app_events WHERE user_id = %s AND concept_id = %s", (user_id, concept_id)
+    ).rowcount
+    deleted += conn.execute(
+        """UPDATE app_order_lines l SET concept_id = NULL FROM app_orders o
+           WHERE o.order_id = l.order_id AND o.user_id = %s AND l.concept_id = %s""",
+        (user_id, concept_id),
+    ).rowcount
+    concept = load_taxonomy().concepts.get(concept_id)
+    if concept is not None:
+        matcher = KeywordMatcher((concept.id, kw) for kw in (concept.name, *concept.keywords))
+        rows = conn.execute(
+            "SELECT event_id, query FROM app_events WHERE user_id = %s AND query IS NOT NULL", (user_id,)
+        ).fetchall()
+        mentions = [event_id for event_id, query in rows if matcher.best(query)]
+        if mentions:
+            deleted += conn.execute("UPDATE app_events SET query = NULL WHERE event_id = ANY(%s)", (mentions,)).rowcount
+    return deleted
 
 
 def purge_old_queries(conn: Connection, days: int = QUERY_RETENTION_DAYS) -> int:

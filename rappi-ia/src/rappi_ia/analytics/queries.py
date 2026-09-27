@@ -167,6 +167,7 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
                         ELSE 'Oportunidad: sumar comercios o categoría' END AS accion
             FROM agg a LEFT JOIN concepts c ON c.concept_id = a.concept_id
             WHERE a.usuarios >= %(min_users)s
+              AND c.sensitive IS NOT TRUE  -- ninguna palanca usa conceptos sensibles (regla 6)
             ORDER BY a.usuarios DESC""",
         {"source": source, "weeks": weeks, "min_users": 5},
     )
@@ -231,7 +232,8 @@ def cohorts(conn: Connection, source: str = "synthetic", max_weeks: int = 8) -> 
            ),
            activity AS (
                SELECT DISTINCT o.user_id, f.cohort,
-                      floor(extract(epoch FROM date_trunc('week', o.ts) - f.cohort) / 604800)::int AS k
+                      -- en días enteros: el cambio de hora (semana de 6 días y 23 h) no corre las semanas
+                      (date_trunc('week', o.ts)::date - f.cohort::date) / 7 AS k
                FROM app_orders o JOIN firsts f USING (user_id) WHERE o.source = %(source)s
            )
            SELECT cohort::date AS cohorte, k AS semana,

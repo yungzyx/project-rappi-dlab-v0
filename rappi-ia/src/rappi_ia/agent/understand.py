@@ -1,13 +1,17 @@
-"""Entender el mensaje: intención, vertical, conceptos, ocasión y filtros (reglas; sin LLM).
+"""Entender el mensaje: intención, vertical, conceptos, ocasión, filtros y consulta limpia (reglas; sin LLM).
 
 Corrige los errores del cerebro por reglas del prototipo:
-- un saludo al inicio ya no tapa el pedido ("hola, quiero sushi" → buscar sushi);
+- un saludo al inicio ya no tapa el pedido ("hola, quiero sushi" → buscar sushi), y "hola buenas" u
+  "ok gracias" son saludo/agradecimiento, no una búsqueda;
 - palabras completas, no substrings ("bebestibles" no es bebé);
-- el vertical sale del contexto (pantalla actual), de una mención explícita o del surtido del concepto; si un
-  concepto vive en restaurantes y en tiendas con surtido parecido (pizza), se pregunta en vez de adivinar.
+- a la búsqueda va la consulta limpia (sin saludo, sin "quiero/tienen", sin el tope de precio);
+- el vertical sale del contexto (pantalla actual), de una mención inequívoca ("en el súper", no "super 8") o del
+  surtido del concepto; si un concepto vive en restaurantes y en tiendas con surtido parecido, pregunta;
+- los síntomas ("tengo fiebre") no llevan a medicamentos: activan el aviso de farmacia (regla 6d).
 """
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from psycopg import Connection
@@ -17,22 +21,66 @@ from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import load_taxonomy
 from ..text import normalize
 
-GREETINGS = {"hola", "holi", "buenas", "buenos dias", "buenas tardes", "buenas noches", "hey", "wena", "alo", "ola"}
-THANKS = {"gracias", "muchas gracias", "vale", "listo", "ok", "okay", "perfecto", "genial", "bacan"}
+GREETING_WORDS = {"hola", "holi", "buenas", "buenos", "dias", "tardes", "noches", "hey", "wena", "alo", "ola"}
+THANKS_WORDS = {"gracias", "muchas", "vale", "listo", "ok", "okay", "perfecto", "genial", "bacan", "buenisimo"}
+ASSISTANT_WORDS = {"bigotes"}
+REQUEST_WORDS = {
+    "quiero",
+    "queria",
+    "busco",
+    "necesito",
+    "tienen",
+    "tienes",
+    "hay",
+    "dame",
+    "me",
+    "podrias",
+    "puedes",
+    "porfa",
+    "por",
+    "favor",
+    "un",
+    "una",
+    "unos",
+    "unas",
+}  # solo se quitan al inicio del mensaje
 
+# Menciones inequívocas de un vertical. Palabras sueltas como "mall", "super" o "express" son también marcas
+# ("Pall Mall", "Super 8", "Express Lider"): no cuentan.
 VERTICAL_MENTIONS = {
-    "supermercado": ["supermercado", "super", "súper", "lider", "líder", "unimarc", "jumbo", "tottus"],
-    "licores": ["botilleria", "botillería", "licoreria", "licorería", "liquor"],
-    "farmacia": ["farmacia", "cruz verde", "salcobrand", "ahumada"],
-    "restaurantes": ["restaurante", "restaurant", "para pedir", "delivery de comida", "comida preparada"],
-    "mall": ["rappi mall", "tienda de ropa", "mall", "retail"],
-    "conveniencia": ["oxxo", "express", "almacen", "almacén", "minimarket"],
-    "chocolateria": ["chocolateria", "chocolatería"],
+    "supermercado": ["supermercado", "en el super", "del super", "al super", "lider", "unimarc", "jumbo", "tottus"],
+    "licores": ["botilleria", "licoreria", "en licores"],
+    "farmacia": ["farmacia", "cruz verde", "salcobrand", "farmacias ahumada"],
+    "restaurantes": ["restaurante", "restaurant", "para pedir ya", "delivery de comida"],
+    "mall": ["rappi mall", "en el mall", "tienda de ropa"],
+    "conveniencia": ["oxxo", "minimarket", "almacen de barrio"],
+    "chocolateria": ["chocolateria"],
 }
+SYMPTOMS = [
+    "fiebre",
+    "resfrio",
+    "resfriado",
+    "tos",
+    "gripe",
+    "dolor",
+    "migrana",
+    "me duele",
+    "guata",
+    "nauseas",
+    "diarrea",
+    "alergia",
+    "enfermo",
+    "enferma",
+    "me siento mal",
+    "remedio",
+]
+
 # Un concepto en restaurantes y en otra tienda es ambiguo si la tienda tiene al menos esta fracción del surtido.
 AMBIGUITY_RATIO = 0.3
+_UNITS = r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u|personas?|porciones|cm|mts?|metros?)"
 PRICE = re.compile(
-    r"(?:bajo|menos de|hasta|maximo|max|no mas de|por menos de)\s*\$?\s*(\d{1,3}(?:[.\s]\d{3})+|\d+)\s*(mil|lucas|k)?"
+    r"(?:bajo|menos de|hasta|maximo|max|no mas de|por menos de|que cueste menos de)\s*"
+    r"(\$)?\s*(\d{1,3}(?:[.\s]\d{3})+|\d+)\s*(mil|lucas|k)?\b(?!\s*" + _UNITS + r"\b)"
 )
 
 
@@ -48,6 +96,8 @@ class Intent:
     options: list[str] = field(default_factory=list)  # verticales candidatos cuando hay que aclarar
     explicit_vertical: bool = False
     explicit_concepts: bool = False  # los conceptos se nombraron (no vienen solo de la ocasión)
+    query: str = ""  # consulta limpia para buscar y para repetirle al usuario
+    symptom: bool = False  # habló de síntomas: aviso de farmacia, nunca medicamentos sugeridos
 
 
 class Understander:
@@ -57,72 +107,86 @@ class Understander:
         self.concepts = concept_matcher(taxonomy)
         self.occasions = KeywordMatcher((o.id, kw) for o in taxonomy.occasions.values() for kw in o.keywords)
         self.verticals = KeywordMatcher((v, kw) for v, kws in VERTICAL_MENTIONS.items() for kw in kws)
+        self.symptoms = KeywordMatcher(("sintoma", kw) for kw in SYMPTOMS)
 
     def understand(self, conn: Connection, text: str, current_vertical: str | None = None) -> Intent:
         normalized = normalize(text)
+        words = set(normalized.split())
         if not normalized:
             return Intent("vacio", text)
-        if normalized in GREETINGS:
+        if words <= GREETING_WORDS | ASSISTANT_WORDS:
             return Intent("saludo", text, current_vertical, confidence=1.0)
-        if normalized in THANKS:
+        if words <= THANKS_WORDS | GREETING_WORDS | ASSISTANT_WORDS and words & THANKS_WORDS:
             return Intent("gracias", text, current_vertical, confidence=1.0)
 
-        body = _strip_greeting(normalized)
-        price_max = _price(body)
+        price_max, without_price = _price(text)
+        body = _clean(normalize(without_price))
         occasion = self.occasions.best(body)
         concept_matches = self.concepts.matches(body)
         concepts = [m.target for m in concept_matches]
-        mention = self.verticals.best(body)
+        mention = self._mention(body, concept_matches)
+        symptom = self.symptoms.best(body) is not None
 
         explicit = bool(concepts)
         if occasion and not concepts:
             concepts = list(self.taxonomy.occasions[occasion.target].concepts)
         kind = "ocasion" if occasion else "buscar"
         confidence = 0.9 if concept_matches else (0.7 if occasion else 0.3)
+        common = dict(
+            occasion=_id(occasion),
+            price_max=price_max,
+            confidence=confidence,
+            explicit_concepts=explicit,
+            query=body or normalized,
+            symptom=symptom,
+        )
 
         if mention:
-            return Intent(
-                kind, text, mention.target, concepts, _id(occasion), price_max, confidence, [], True, explicit
-            )
+            return Intent(kind, text, mention, concepts, explicit_vertical=True, **common)
         if current_vertical:
-            return Intent(
-                kind, text, current_vertical, concepts, _id(occasion), price_max, confidence, [], False, explicit
-            )
+            return Intent(kind, text, current_vertical, concepts, **common)
         if not concepts:
-            return Intent(kind, text, None, [], _id(occasion), price_max, confidence)
+            return Intent(kind, text, None, [], **common)
 
         options = _verticals_for(conn, concepts[0])
         if len(options) >= 2 and "restaurantes" in options[:2] and _comparable(conn, concepts[0], options[:2]):
-            return Intent(
-                "aclarar", text, None, concepts, _id(occasion), price_max, confidence, options[:2], False, explicit
-            )
-        return Intent(
-            kind,
-            text,
-            options[0] if options else None,
-            concepts,
-            _id(occasion),
-            price_max,
-            confidence,
-            [],
-            False,
-            explicit,
-        )
+            return Intent("aclarar", text, None, concepts, options=options[:2], **common)
+        return Intent(kind, text, options[0] if options else None, concepts, **common)
 
-
-def _strip_greeting(normalized: str) -> str:
-    words = normalized.split()
-    while words and (words[0] in GREETINGS or " ".join(words[:2]) in GREETINGS):
-        words = words[2:] if " ".join(words[:2]) in GREETINGS else words[1:]
-    return " ".join(words) or normalized
-
-
-def _price(text: str) -> float | None:
-    match = PRICE.search(text)
-    if not match:
+    def _mention(self, body: str, concept_matches) -> str | None:
+        """Mención de vertical que no se solapa con un concepto nombrado (p. ej. "cigarros pall mall")."""
+        covered = {i for m in concept_matches for i in range(m.position, m.position + m.words)}
+        for match in self.verticals.matches(body):
+            if not set(range(match.position, match.position + match.words)) & covered:
+                return match.target
         return None
-    value = float(re.sub(r"[.\s]", "", match.group(1)))
-    return value * 1000 if match.group(2) else value
+
+
+def _simplify(text: str) -> str:
+    """Minúsculas y sin tildes, pero conservando $ y puntos (normalize los borra y el precio los necesita)."""
+    decomposed = unicodedata.normalize("NFD", text.lower())
+    return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
+
+
+def _price(text: str) -> tuple[float | None, str]:
+    """Tope de precio y el texto sin esa frase. "hasta 5 kilos" o "2 litros" no son precios; "bajo 5" tampoco:
+    se exige $, "mil"/"lucas"/"k" o al menos 3 dígitos."""
+    simple = _simplify(text)
+    for match in PRICE.finditer(simple):
+        currency, digits, thousands = match.groups()
+        value = float(re.sub(r"[.\s]", "", digits))
+        if not (currency or thousands or value >= 100):
+            continue
+        return (value * 1000 if thousands else value), simple[: match.start()] + simple[match.end() :]
+    return None, simple
+
+
+def _clean(body: str) -> str:
+    """Quita saludo, nombre del asistente y verbos de pedido al inicio: "hola bigotes quiero sushi" → "sushi"."""
+    words = body.split()
+    while words and words[0] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | REQUEST_WORDS:
+        words = words[1:]
+    return " ".join(words)
 
 
 def _id(match) -> str | None:

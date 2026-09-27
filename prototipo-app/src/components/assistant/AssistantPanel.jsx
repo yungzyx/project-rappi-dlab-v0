@@ -56,7 +56,6 @@ export default function AssistantPanel({ push, vertical }) {
   const voiceTimers = useRef([])
   const recorder = useRef(null)
   const shownTopics = useRef(new Set())
-  const [caps, setCaps] = useState(null) // capacidades de la API; null = sin conexión (cerebro local)
   const [learnedRemote, setLearnedRemote] = useState(null)
 
   const later = (fn, ms, bucket = timers) => bucket.current.push(setTimeout(fn, ms))
@@ -223,8 +222,7 @@ export default function AssistantPanel({ push, vertical }) {
     later(() => setMood('idle'), OPEN_MS + 1400)
 
     health({ force: true }).then((capabilities) => {
-      setCaps(capabilities)
-      if (!capabilities) return setLearnedRemote(null)
+      if (!capabilities) return setLearnedRemote(null) // sin API: cerebro local
       remoteProfile(userId())
         .then((data) => setLearnedRemote(data.interests.slice(0, 3)))
         .catch(() => setLearnedRemote(null))
@@ -301,11 +299,19 @@ export default function AssistantPanel({ push, vertical }) {
   const chips = suggestions(profile)
   // Con la API, lo aprendido viene de rappi-ia (conceptos, sin sensibles); sin ella, del perfil local.
   const learned = learnedRemote ?? profile.top.slice(0, 3).map((tag) => ({ concept: tag, label: `${TAGS[tag].emoji} ${TAGS[tag].label}` }))
-  const forgetAll = () => {
+  const forgetAll = async () => {
+    events.clear() // lo que estaba por enviarse no debe revivir lo olvidado
     profile.reset()
     setLearnedRemote(null)
     shownTopics.current.clear()
-    if (caps) forget(userId()).catch(() => {})
+    // Siempre se intenta en el servidor (aunque el último chequeo de salud haya fallado).
+    try {
+      await forget(userId())
+    } catch {
+      if (await health({ force: true })) {
+        botSays({ text: 'No pude borrar lo aprendido en el servidor 😿 Inténtalo de nuevo en un rato.' })
+      }
+    }
   }
 
   return (

@@ -50,12 +50,13 @@ Decisiones:
   - en el vectorial, con un pool amplio de candidatos (k = 200, o `hnsw.iterative_scan` de pgvector 0.8);
   - se compara contra el precio mínimo en stock entre las tiendas del vertical.
   - Si el filtro deja la lista vacía, Bigotes lo dice ("no hay bajo $X; el más barato cuesta $Y") y **no** registra demanda no satisfecha.
-- **"Sin resultado" bien definido.** La búsqueda vectorial siempre devuelve vecinos, así que "no encontrar" necesita una regla. Hay sin resultado cuando se cumplen las tres:
-  - lo léxico no encuentra coincidencias;
-  - el coseno máximo de e5 queda bajo τ del vertical;
-  - ningún producto del vertical comparte concepto con la consulta.
-  - τ se calibra por vertical con consultas negativas del set de evaluación (productos que no existen), buscando una precisión ≥ 0,9.
-  - Se guarda qué condición se cumplió. Si el concepto cae en un sub-pasillo truncado por el tope de 24, se marca "posible falta de muestra".
+- **"Sin resultado" bien definido.** La búsqueda vectorial siempre devuelve vecinos, así que "no encontrar" necesita una regla.
+  - **Primera condición, siempre:** que nada calce todas las palabras de la consulta.
+  - **Si la consulta nombra un concepto:** además, que el concepto no tenga surtido real en el vertical, es decir, menos de 3 ítems o del 0,05% del vertical.
+  - **Si no nombra ninguno:** además, que el coseno máximo de e5 quede bajo τ del vertical.
+  - **Por qué no se usa solo el coseno:** en la evaluación, los cosenos de e5 se concentran entre 0,78 y 0,90 y separan mal; la presencia del concepto es mejor señal.
+  - **Calibración:** τ se calibra por vertical con las consultas negativas del set de evaluación, pidiendo precisión ≥ 0,9. Resultado: precisión 0,91 y recall 0,67.
+  - **Límite conocido:** un iPhone en el súper no cuenta, porque hay accesorios del mismo concepto.
 - **Reranker:** no por ahora. Se agrega (p. ej. `bge-reranker-v2-m3`) solo si la evaluación lo justifica, porque suma latencia y otro modelo.
 - **Evaluación antes de elegir.** Un set de preguntas por vertical, con juicios guardados en el repo, que incluye consultas negativas y consultas escritas sin tildes. Métricas nDCG@10, Recall@10 y MRR, comparando léxico, vectorial e híbrido. El modo por defecto sale de ahí.
 - **Dos audiencias, un solo núcleo:**

@@ -97,10 +97,15 @@ export function EventsProvider({ children }) {
     }
   }, [flush, track])
 
-  const value = useMemo(() => ({ track, flush }), [track, flush])
+  /** Descarta lo que aún no se envía (p. ej. al "Olvidar": si no, volvería a aparecer en el servidor). */
+  const clear = useCallback(() => {
+    queue.current = []
+  }, [])
+
+  const value = useMemo(() => ({ track, flush, clear }), [track, flush, clear])
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>
 }
 
-const NOOP = { track: () => {}, flush: async () => {} }
+const NOOP = { track: () => {}, flush: async () => {}, clear: () => {} }
 /** Fuera del proveedor (tests de componentes sueltos) no registra nada. */
 export const useEvents = () => useContext(EventsContext) ?? NOOP

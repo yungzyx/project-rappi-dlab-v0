@@ -592,7 +592,9 @@ parent = "salud"
 name = "Medicamentos"
 emoji = "💊"
 sensitive = true
-keywords = ["paracetamol", "ibuprofeno", "aspirina", "antigripal", "jarabe", "remedio", "analgésico", "antiácido", "antiacido", "descongestionante", "suero oral", "resfrío", "resfriado", "dolor de cabeza", "fiebre", "tos", "gripe", "antialérgico", "migraña", "guata", "digestivo", "tapsin", "zolben", "kitadol"]
+# Solo nombres de medicamentos o tipos de producto: los síntomas NO llevan aquí (regla 6d: no se sugieren
+# medicamentos a partir de síntomas; los síntomas activan el aviso de farmacia en agent/understand.py).
+keywords = ["paracetamol", "ibuprofeno", "aspirina", "antigripal", "jarabe", "analgésico", "antiácido", "antiacido", "descongestionante", "suero oral", "antialérgico", "tapsin", "zolben", "kitadol"]
 
 [[concept]]
 id = "vitaminas"
@@ -977,7 +979,7 @@ id = "enfermo"
 name = "Me siento mal"
 emoji = "🤒"
 keywords = ["enfermo", "enferma", "me siento mal", "resfriado", "gripe", "dolor", "fiebre", "malestar", "cuidarme"]
-concepts = ["medicamentos", "sopas", "jugos", "te", "vitaminas", "frutas"]
+concepts = ["sopas", "jugos", "te", "frutas"]  # nunca medicamentos: no se sugieren por síntomas
 
 [[occasion]]
 id = "once"

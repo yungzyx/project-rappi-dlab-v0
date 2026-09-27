@@ -58,3 +58,19 @@ describe('eventos', () => {
     expect(body.events.find((e) => e.type === 'cart_add').concept_id).toBeUndefined()
   })
 })
+
+test('clear descarta lo pendiente (Olvidar no se deshace con eventos en cola)', async () => {
+  const fetchMock = vi.fn(async (url) => ({ ok: true, json: async () => (String(url).endsWith('/health') ? { capacidades: {} } : {}) }))
+  vi.stubGlobal('fetch', fetchMock)
+  const { result } = renderHook(() => useEvents(), {
+    wrapper: ({ children }) => (
+      <DemoProvider>
+        <EventsProvider>{children}</EventsProvider>
+      </DemoProvider>
+    ),
+  })
+  act(() => result.current.track('cart_add', { concept_id: 'cerveza' }))
+  act(() => result.current.clear())
+  await act(() => result.current.flush())
+  expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/events'))).toBe(false)
+})

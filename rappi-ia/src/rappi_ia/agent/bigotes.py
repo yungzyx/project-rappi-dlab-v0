@@ -16,7 +16,7 @@ from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
-from .compose import Draft, TemplateComposer
+from .compose import AGE_NOTICE, Draft, TemplateComposer
 from .tools import VERTICAL_LABELS, Suggestion, clp, products_for_keys, search_products, suggest_complement
 from .understand import Intent, Understander
 
@@ -56,7 +56,9 @@ class Bigotes:
             return self._clarify(intent)
         vertical = intent.vertical or ctx.vertical or "supermercado"
         search_query = self._search_query(intent)
-        outcome = search_products(conn, vertical, search_query, intent.concepts, self.embedder, intent.price_max)
+        # Por síntomas no se buscan medicamentos (regla 6d): solo lo que el usuario nombró.
+        concepts = [c for c in intent.concepts if c != "medicamentos"] if intent.symptom else intent.concepts
+        outcome = search_products(conn, vertical, search_query, concepts, self.embedder, intent.price_max)
         products = outcome.products
 
         suggestion = None
@@ -65,7 +67,8 @@ class Bigotes:
             exclude = set(ctx.shown_topics) | set(intent.concepts)
             suggestion = suggest_complement(conn, sources, vertical, self.embedder, exclude)
 
-        unmet = not products and outcome.result.unmet and intent.price_max is None
+        # Con tope de precio también es demanda no satisfecha si no existe a ningún precio.
+        unmet = not products and outcome.result.unmet and outcome.cheapest_without_filter is None
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
         text = self.composer.compose(draft)
         return self._response(intent, vertical, text, products, suggestion, unmet, outcome.result.unmet_reason, draft)
@@ -98,7 +101,9 @@ class Bigotes:
             vertical = ctx.vertical or similar[0][0]
             rows = [row for row in similar if row[0] == vertical]
             products = products_for_keys(conn, vertical, [(t, i) for _, t, i, _ in rows], [c for *_, c in rows])
-            text = "No estoy seguro de qué es, pero encontré cosas parecidas a tu foto:" if products else ""
+            text = "No estoy seguro de qué es, pero encontré cosas parecidas a tu foto." if products else ""
+            if any(p.age_restricted for p in products):
+                text += f" {AGE_NOTICE}"
             response = _base(
                 Intent("buscar", "foto", vertical), text or "No logré reconocer la foto 😿 ¿Me cuentas qué es?"
             )
@@ -106,6 +111,7 @@ class Bigotes:
                 vertical=vertical,
                 prototype_vertical=PROTOTYPE_VERTICALS.get(vertical),
                 products=[p.to_dict() for p in products],
+                age_notice=any(p.age_restricted for p in products),
             )
         else:
             response = _base(Intent("vacio", "foto"), "No logré reconocer la foto 😿 ¿Me cuentas qué es?")
@@ -118,7 +124,7 @@ class Bigotes:
         if intent.kind == "ocasion" and intent.occasion and not intent.explicit_concepts:
             occasion = self.taxonomy.occasions[intent.occasion]
             return " ".join(self.taxonomy.concepts[c].name for c in occasion.concepts[:4])
-        return intent.text
+        return intent.query or intent.text
 
     def _small_talk(self, intent: Intent, ctx: Context) -> dict:
         interest = self._top_interest(ctx.profile) if ctx.mode == "propuesta" else None
@@ -147,14 +153,14 @@ class Bigotes:
         occasion = self.taxonomy.occasions.get(intent.occasion) if intent.occasion else None
         if products:
             kind = "resultados"
-        elif intent.price_max is not None:
+        elif intent.price_max is not None and outcome.cheapest_without_filter is not None:
             kind = "sin_precio"
         else:
             kind = "sin_resultado"  # se dice igual; solo se registra como demanda si `unmet`
         suggestion_concept = self.taxonomy.concepts.get(suggestion.concept) if suggestion else None
         return Draft(
             kind=kind,
-            query=intent.text,
+            query=intent.query or intent.text,
             concept_label=_label(occasion, concept),
             vertical_label=VERTICAL_LABELS.get(vertical, vertical),
             product_names=[p.name for p in products],
@@ -162,8 +168,9 @@ class Bigotes:
             cheapest=clp(outcome.cheapest_without_filter.price_value) if outcome.cheapest_without_filter else None,
             suggestion_reason=suggestion.reason if suggestion else None,
             suggestion_label=suggestion_concept.label.lower() if suggestion_concept else None,
-            age_notice=any(p.age_restricted for p in products),
-            pharmacy_notice=vertical == "farmacia" or "medicamentos" in intent.concepts,
+            # +18 si lo muestra la respuesta o la sugerencia cruzada (ambas tienen botón para agregar).
+            age_notice=any(p.age_restricted for p in [*products, *(suggestion.products if suggestion else [])]),
+            pharmacy_notice=vertical == "farmacia" or "medicamentos" in intent.concepts or intent.symptom,
             unmet=unmet,
         )
 
@@ -188,7 +195,6 @@ class Bigotes:
                 "products": [p.to_dict() for p in suggestion.products],
             }
             response["reason"] = suggestion.reason  # el prototipo muestra `reason` en el primer nivel
-            response["age_notice"] = response["age_notice"] or any(p.age_restricted for p in suggestion.products)
         return response
 
     def _top_interest(self, profile: dict[str, float]) -> str | None:

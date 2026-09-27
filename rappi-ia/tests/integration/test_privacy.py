@@ -1,0 +1,92 @@
+"""Olvidar, perfil y retención contra `rappi_ia_test` (docs/diseno-ia.md §2)."""
+
+from datetime import UTC, datetime, timedelta
+
+from rappi_ia.analytics import queries
+from rappi_ia.concepts.store import seed_taxonomy
+from rappi_ia.concepts.taxonomy import load_taxonomy
+from rappi_ia.events import store as events
+
+NOW = datetime(2026, 9, 27, 12, tzinfo=UTC)
+
+
+def _user_with_beer(db, user="u1"):
+    seed_taxonomy(db, load_taxonomy())
+    events.record(
+        db,
+        [
+            events.Event(user, "s1", "cart_add", ts=NOW, concept_id="cerveza", cart_id="c1"),
+            events.Event(user, "s1", "search", ts=NOW, query="unas chelas bien heladas"),
+            events.Event(user, "s1", "search", ts=NOW, concept_id="vino", query="vino tinto"),
+        ],
+    )
+    events.record_order(
+        db,
+        user,
+        "s1",
+        "c1",
+        "licores",
+        [{"entity_type": "catalog_item", "entity_id": "1", "concept_id": "cerveza", "unit_price": 1000}],
+    )
+
+
+def test_forget_everything_deletes_user_events_and_orders(db):
+    _user_with_beer(db)
+    assert events.forget(db, "u1") > 0
+    for table in ("app_users", "app_events", "app_orders", "app_order_lines"):
+        assert db.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0, table
+
+
+def test_forget_one_concept_removes_it_everywhere_but_keeps_the_rest(db):
+    _user_with_beer(db)
+    events.forget(db, "u1", "cerveza")
+    assert db.execute("SELECT count(*) FROM app_events WHERE concept_id = 'cerveza'").fetchone()[0] == 0
+    assert db.execute("SELECT count(*) FROM app_order_lines WHERE concept_id = 'cerveza'").fetchone()[0] == 0
+    queries_left = [r[0] for r in db.execute("SELECT query FROM app_events WHERE query IS NOT NULL")]
+    assert queries_left == ["vino tinto"]  # "chelas" nombraba cerveza: se borró el texto
+    assert list(events.profile(db, "u1", now=NOW)) == ["vino"]
+
+
+def test_profile_learns_only_from_positive_signals(db):
+    seed_taxonomy(db, load_taxonomy())
+    events.record(
+        db,
+        [
+            events.Event("u2", "s1", "suggestion_shown", ts=NOW, concept_id="cerveza"),
+            events.Event("u2", "s1", "suggestion_dismissed", ts=NOW, concept_id="cerveza"),
+            events.Event("u2", "s1", "cart_remove", ts=NOW, concept_id="vino"),
+            events.Event("u2", "s1", "search", ts=NOW, concept_id="medicamentos", query="paracetamol"),
+            events.Event("u2", "s1", "search", ts=NOW, concept_id="pizza", query="pizza"),
+        ],
+    )
+    assert list(events.profile(db, "u2", now=NOW)) == ["pizza"]
+
+
+def test_old_query_text_is_purged_after_retention(db):
+    seed_taxonomy(db, load_taxonomy())
+    old = datetime.now(UTC) - timedelta(days=events.QUERY_RETENTION_DAYS + 1)
+    events.record(
+        db,
+        [
+            events.Event("u3", "s1", "search", ts=old, concept_id="pizza", query="pizza vieja"),
+            events.Event("u3", "s2", "search", concept_id="pizza", query="pizza nueva"),
+        ],
+    )
+    assert events.purge_old_queries(db) == 1
+    assert [r[0] for r in db.execute("SELECT query FROM app_events ORDER BY ts")] == [None, "pizza nueva"]
+    assert db.execute("SELECT count(*) FROM app_events WHERE concept_id = 'pizza'").fetchone()[0] == 2
+
+
+def test_opportunities_never_list_sensitive_concepts(db):
+    seed_taxonomy(db, load_taxonomy())
+    rows = []
+    for i in range(6):
+        rows += [
+            events.Event(
+                f"p{i}", "s", "search", ts=NOW, vertical="supermercado", concept_id="salud-sexual", unmet=True
+            ),
+            events.Event(f"p{i}", "s", "search", ts=NOW, vertical="restaurantes", concept_id="peruana", unmet=True),
+        ]
+    events.record(db, rows)
+    found = {r["concept_id"] for r in queries.opportunities(db, "prototype")}
+    assert found == {"peruana"}

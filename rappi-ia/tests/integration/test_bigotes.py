@@ -101,3 +101,23 @@ def test_explicit_request_wins_over_occasion(bigotes):
     assert r["intent"]["kind"] == "ocasion" and r["intent"]["occasion"] == "carrete"
     assert set(r["intent"]["concepts"]) == {"cerveza", "snacks-salados"}
     assert {p["concept"] for p in r["products"]} <= {"cerveza", "snacks-salados"}
+
+
+def test_symptoms_never_bring_medicines_but_add_pharmacy_notice(bigotes):
+    agent, db = bigotes
+    r = agent.reply(db, "tengo fiebre", Context(vertical="supermercado"))
+    assert "medicamentos" not in {p["concept"] for p in r["products"]}
+    assert "químico farmacéutico" in r["text"]
+
+
+def test_age_notice_covers_the_cross_suggestion(bigotes):
+    agent, db = bigotes
+    r = agent.reply(db, "pizza", Context(vertical="restaurantes"))
+    assert r["suggestion"]["concept"] == "cerveza"
+    assert r["age_notice"] and "mayores de 18" in r["text"]
+
+
+def test_unmet_is_recorded_even_with_a_price_cap(bigotes):
+    agent, db = bigotes
+    r = agent.reply(db, "kebab bajo 10 mil", Context(vertical="restaurantes"))
+    assert r["unmet"] and "Lo anoté" in r["text"]

@@ -12,7 +12,8 @@ export const TAGS = {
   pollo: { label: 'Pollo frito', emoji: '🍗', words: ['pollo frito', 'kfc', 'chicken', 'bucket', 'combo aniversario'] },
   sushi: { label: 'Sushi', emoji: '🍣', words: ['sushi', 'nikkei', 'poke', 'yapones', 'umami', 'ryge'] },
   bebe: { label: 'Bebé', emoji: '🍼', words: ['bebe', 'panal', 'pampers', 'guagua'] },
-  farmacia: { label: 'Farmacia', emoji: '💊', words: ['farmacia', 'remedio', 'dolor', 'ahumada', 'cruz verde', 'eucerin', 'cerave', 'salud'] },
+  // Sin síntomas ni "remedio": la salud es sensible y no se aprende ni se sugiere (docs/diseno-ia.md §4, regla 6).
+  farmacia: { label: 'Farmacia', emoji: '💊', words: ['farmacia', 'ahumada', 'cruz verde', 'eucerin', 'cerave'] },
   belleza: { label: 'Belleza', emoji: '💄', words: ['belleza', 'beauty', 'perfume', 'ck in2u', 'clinique', 'labial', 'maquillaje', 'edt'] },
   mascota: { label: 'Mascotas', emoji: '🐶', words: ['mascota', 'perro', 'gato', 'pet', 'superzoo'] },
   fresco: { label: 'Frutas y verduras', emoji: '🥑', words: ['palta', 'fruta', 'verdura', 'naranja', 'mandarina', 'zapallo', 'habas', 'saludable', 'sano', 'detox'] },

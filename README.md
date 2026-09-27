@@ -10,12 +10,29 @@ Proyecto para entender qué contenido hay en cada vertical de Rappi Chile (super
 
 ## Componentes
 
+```text
+rappi.cl ──► rappi-scraper ──► Postgres + pgvector ◄── rappi-ia (conceptos, embeddings, búsqueda, Bigotes, métricas)
+                                                          │  API :8000
+                                     prototipo-app ◄──────┤  (chat, voz, foto, eventos)
+                                  dashboard-empresa ◄─────┘  (tendencias, oportunidades, frecuencia, abandono)
+```
+
 | Carpeta | Qué es | Estado |
 |---|---|---|
 | [`rappi-scraper/`](rappi-scraper/) | Scraper de páginas públicas de rappi.cl → Postgres + pgvector (catálogo, menús, precios con historial, documentos de búsqueda por vertical) | Listo; descarga completa en curso |
-| [`prototipo-app/`](prototipo-app/) | Prototipo navegable de la app (Vite + React): réplica de las pantallas, modo demo Rappi hoy / Propuesta, asistente Bigotes con recomendaciones entre verticales, checkout y menús reales del scraper. `npm install && npm run dev` | Listo para demo |
+| [`rappi-ia/`](rappi-ia/) | Capa 2 de conceptos, embeddings locales (e5, CLIP, Whisper), búsqueda híbrida por vertical, agente **Bigotes**, eventos y métricas, API FastAPI | Listo; se actualiza tras cada descarga (`make post-refresh`) |
+| [`prototipo-app/`](prototipo-app/) | Prototipo navegable de la app (Vite + React): réplica de las pantallas, modo demo Rappi hoy / Propuesta, Bigotes con recomendaciones entre verticales. Con la API usa catálogo real, voz y foto; sin ella, reglas locales | Listo para demo |
+| [`dashboard-empresa/`](dashboard-empresa/) | Panel para la empresa: oportunidades (demanda no satisfecha), tendencias, frecuencia, abandono, cruce entre verticales y salud del catálogo. Usuarios **simulados** marcados como tales | Listo para demo |
 
-Próximas piezas (carpetas hermanas, por etapas según [docs/diseno-ia.md](docs/diseno-ia.md#7-etapas)): `rappi-ia/` (conceptos, embeddings, búsqueda híbrida, agente Bigotes y analítica) y `dashboard-empresa/` (panel para la empresa).
+## Correr la demo completa
+
+```bash
+cd ~/Documents/LeRepo/Rappi/rappi-ia && make serve                # API en :8000 (la primera vez carga los modelos, ~30 s)
+cd ~/Documents/LeRepo/Rappi/prototipo-app && npm run dev          # app en :5174
+cd ~/Documents/LeRepo/Rappi/dashboard-empresa && npm run dev      # panel en :5175
+```
+
+Después de cada descarga del scraper: `cd rappi-ia && ./scripts/despues-del-refresh.sh`. Espera a que termine `rappi refresh` y actualiza conceptos, embeddings, evaluación y datos simulados.
 
 ## Dónde están los datos
 

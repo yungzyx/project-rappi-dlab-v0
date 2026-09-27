@@ -11,7 +11,11 @@ from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
 from ..retrieval.hybrid import Filters, RetrievalResult, _concepts_of, _hydrate, retrieve
 
-TOBACCO_AND_ADULT = {"cigarrillos", "vapeo", "accesorios-fumador", "bienestar-sexual"}
+
+def _sensitive() -> set[str]:
+    return {c.id for c in load_taxonomy().concepts.values() if c.sensitive}
+
+
 VERTICAL_LABELS = {
     "supermercado": "el súper",
     "conveniencia": "Express",
@@ -90,7 +94,7 @@ def search_products(
 ) -> SearchOutcome:
     result = retrieve(conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), concepts=concepts)
     hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts)], concepts, result.unmet)
-    products = _dedupe(_with_prices(conn, vertical, hits))[:k]
+    products = _dedupe(_within_budget(_with_prices(conn, vertical, hits), price_max))[:k]
     cheapest = None
     if not products and price_max is not None:
         unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, concepts=concepts)
@@ -135,6 +139,13 @@ def suggest_complement(
     return None
 
 
+def _within_budget(products: list[Product], price_max: float | None) -> list[Product]:
+    """El filtro de la búsqueda usa el precio del índice; aquí se revisa contra el precio vigente que se muestra."""
+    if price_max is None:
+        return products
+    return [p for p in products if p.price_value is not None and p.price_value <= price_max]
+
+
 def _dedupe(products: list[Product]) -> list[Product]:
     """Un solo producto por nombre (el catálogo repite nombres entre presentaciones y tiendas)."""
     seen: set[str] = set()
@@ -162,8 +173,9 @@ def _focus(hits, concepts: list[str], unmet: bool):
 
 
 def _allowed(concept_id: str | None, requested: list[str]) -> bool:
-    """Tabaco, vapeo y productos para adultos solo aparecen si se piden por concepto (Ley 20.105 y política)."""
-    return concept_id not in TOBACCO_AND_ADULT or concept_id in requested
+    """Los conceptos sensibles (medicamentos, salud sexual, tabaco, vapeo, adultos) solo aparecen si se piden
+    por su nombre: nunca por un síntoma, una ocasión o la cercanía vectorial (regla 6, Ley 20.105)."""
+    return concept_id not in _sensitive() or concept_id in requested
 
 
 def _verticals_for(conn: Connection, concept_id: str, current_vertical: str | None) -> list[str]:

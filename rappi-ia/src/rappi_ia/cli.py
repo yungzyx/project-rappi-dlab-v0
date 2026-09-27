@@ -104,6 +104,14 @@ def cmd_eval_search(conn, args) -> None:
     print(f"Reporte en {out}")
 
 
+def cmd_purge(conn, args) -> None:
+    from .events.store import QUERY_RETENTION_DAYS, purge_old_queries
+
+    n = purge_old_queries(conn, args.dias or QUERY_RETENTION_DAYS)
+    conn.commit()
+    print(f"Consultas de más de {args.dias or QUERY_RETENTION_DAYS} días borradas: {n}")
+
+
 def cmd_synth(conn, args) -> None:
     from datetime import date
 
@@ -132,6 +140,7 @@ def cmd_analytics(conn, args) -> None:
 
 COMMANDS = {
     "synth": cmd_synth,
+    "purge": cmd_purge,
     "analytics": cmd_analytics,
     "migrate": cmd_migrate,
     "concepts": cmd_concepts,
@@ -174,6 +183,8 @@ def build_parser() -> argparse.ArgumentParser:
     synth.add_argument("--semanas", type=int, default=20)
     synth.add_argument("--semilla", type=int, default=7)
     synth.add_argument("--hasta", help="fecha final AAAA-MM-DD (por defecto hoy)")
+    purge = sub.add_parser("purge", help="borra el texto de consultas más antiguas que la retención (90 días)")
+    purge.add_argument("--dias", type=int)
     analytics = sub.add_parser("analytics", help="resumen de métricas del panel")
     analytics.add_argument("--fuente", choices=("synthetic", "prototype"), default="synthetic")
     return parser

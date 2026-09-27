@@ -23,7 +23,8 @@ Base de datos del contenido de Rappi Chile por vertical (supermercado, convenien
 | CI | GitHub Actions: lint + tests (unitarios e integración con Postgres + pgvector) en cada push. |
 | Paso 4: capa 2 del modelo (conceptos, `category_map`, `item_concepts`, `concept_edges`, trazabilidad) | Es la etapa 1 de docs/diseno-ia.md; se vuelve a correr con los datos completos. H3 queda para después. |
 | Prototipo (`prototipo-app/`) | Listo para demo: réplica de la app, asistente Bigotes (reglas, sin backend), modo Rappi hoy / Propuesta. |
-| 2–4. RAG, agente y panel (`rappi-ia/`, `dashboard-empresa/`) | Diseñado (etapa 0). Se construye por etapas según [docs/diseno-ia.md](docs/diseno-ia.md#7-etapas); ver la sección de estado de cada carpeta. |
+| 2–4. RAG, agente y panel (`rappi-ia/`, `dashboard-empresa/`) | **Construido (27-09-2026)**, etapas 0–7 de [docs/diseno-ia.md](docs/diseno-ia.md#7-etapas). Resultados y límites en `rappi-ia/README.md`: búsqueda híbrida nDCG@10 0,90; conceptos ≈88% de precisión en productos. Falta correr `make post-refresh` (y `make images`) cuando termine la descarga completa. |
+| Prototipo conectado | Con la API (`make serve`) Bigotes usa catálogo real, voz (Whisper) y foto (CLIP), y registra eventos seudónimos; sin API, reglas locales. |
 
 El usuario pidió avanzar **paso por paso**, y el 27-09-2026 autorizó ejecutar todas las etapas del diseño con QA y tests en cada una.
 
@@ -79,6 +80,9 @@ Si no hay respaldo: `make migrate` y `rappi discover` (~1 h) recrean la cola des
 - Código (funciones, módulos, variables) en inglés; todo lo que ve el usuario (logs, CLI, docs, columnas) en español.
 - `make test` y `make lint` antes de dar algo por terminado. Tests de integración contra `rappi_test` (scraper) y `rappi_ia_test` (rappi-ia), para que no se pisen.
 - Las migraciones de la base (también las de conceptos, embeddings y eventos) viven en `rappi-scraper/src/rappi_scraper/storage/migrations/`: un solo historial.
+- `rappi-ia` carga su `.env` antes que el de `rappi-scraper` (ver `rappi_ia/__init__.py`); sus tests se niegan a borrar otra base que no sea `rappi_ia_test`.
+- Servidores de demo: API `:8000` (`make serve`; `0.0.0.0` pide permiso de red a macOS la primera vez), prototipo `:5174`, panel `:5175`. El prototipo apunta a otra API con `.env.local` (`VITE_API_URL`).
+- Datos de usuarios: solo `source = 'synthetic'` (generador con semilla) o `'prototype'`. Nunca presentar métricas simuladas como evidencia.
 - `build_search_documents` borra de `search_documents` todo lo que no regenera: los datos derivados (conceptos, caché de embeddings, imágenes) van en tablas propias.
 - Mover la carpeta del proyecto rompe el `.venv` (rutas absolutas): recrearlo con `make install`.
 - No mover la carpeta con un proceso del scraper corriendo.

@@ -61,8 +61,7 @@ function upload(path, field, file, context) {
 export const chatVoice = (audio, context) => upload('/chat/voice', 'audio', audio, context)
 export const chatPhoto = (image, context) => upload('/chat/photo', 'image', image, context)
 export const profile = (userId) => request(`/profile/${encodeURIComponent(userId)}`, { timeout: 4000 })
-export const forget = (userId) =>
-  request(`/profile/${encodeURIComponent(userId)}`, { method: 'DELETE', timeout: 4000 })
+export const forget = (userId) => request(`/profile/${encodeURIComponent(userId)}`, { method: 'DELETE', timeout: 4000 })
 export const recommendations = (userId, vertical) =>
   request(`/recommendations?user_id=${encodeURIComponent(userId)}${vertical ? `&vertical=${vertical}` : ''}`, {
     timeout: 8000,
@@ -80,7 +79,8 @@ export function beaconEvents(userId, events) {
 
 // ── De la API al formato del prototipo ──────────────────────────────────────
 
-const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"%3E%3Crect width="1" height="1" fill="%23f1f1f1"/%3E%3C/svg%3E'
+const PLACEHOLDER_IMG =
+  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"%3E%3Crect width="1" height="1" fill="%23f1f1f1"/%3E%3C/svg%3E'
 
 /** Producto de la API → tarjeta del prototipo (mismo formato que src/data/catalog.js). */
 export function toPrototypeProduct(p) {
@@ -120,10 +120,13 @@ export function toMessage(response) {
     reason: suggestion ? null : response.reason,
     suggestion,
     // Acciones de aclaración ("¿para pedir ya o para el súper?"): vuelven a preguntar con ese vertical.
-    actions: (response.actions ?? []).map((a) => (a.query ? { label: a.label, ask: { text: a.query, vertical: a.vertical } } : a)),
+    actions: (response.actions ?? []).map((a) =>
+      a.query ? { label: a.label, ask: { text: a.query, vertical: a.vertical } } : a,
+    ),
     tags: response.tags ?? [],
     concepts: response.intent?.concepts ?? [],
     unmet: Boolean(response.unmet),
+    ageNotice: Boolean(response.age_notice),
     transcript: response.transcript ?? null,
     photo: response.photo ?? null,
     source: 'api',

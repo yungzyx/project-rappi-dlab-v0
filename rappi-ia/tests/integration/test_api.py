@@ -138,3 +138,43 @@ def test_search_and_analytics(client):
 def test_voice_and_photo_need_their_models(client):
     assert client.post("/chat/voice", files={"audio": ("a.wav", b"123", "audio/wav")}).status_code == 503
     assert client.post("/chat/photo", files={"image": ("a.jpg", b"123", "image/jpeg")}).status_code == 503
+
+
+def test_unknown_vertical_and_nul_bytes_do_not_break_chat(client):
+    for vertical in ("pet", "xyz"):
+        r = client.post("/chat", json={"message": "cerveza", "vertical": vertical})
+        assert r.status_code == 200, vertical
+    assert client.post("/chat", json={"message": "cerve\u0000za", "vertical": "liquor"}).status_code == 200
+    bad = {
+        "user_id": "u9",
+        "events": [{"type": "search", "session_id": "s", "query": "a\u0000b", "payload": {"k": "\u0000"}}],
+    }
+    assert client.post("/events", json=bad).status_code == 200
+
+
+def test_uploads_reject_dangerous_or_huge_files():
+    import io
+    import wave
+
+    import pytest
+    from fastapi import HTTPException
+    from PIL import Image
+
+    with pytest.raises(HTTPException) as eps:
+        api._open_image(b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n")
+    assert eps.value.status_code == 400
+    huge = io.BytesIO()
+    Image.new("1", (9000, 9000)).save(huge, format="PNG")  # pocos KB en disco, 81 MP en memoria
+    with pytest.raises(HTTPException):
+        api._open_image(huge.getvalue())
+    ok = io.BytesIO()
+    Image.new("RGB", (800, 600), "red").save(ok, format="JPEG")
+    assert api._open_image(ok.getvalue()).size[0] <= 336
+
+    long_audio = io.BytesIO()
+    with wave.open(long_audio, "wb") as w:
+        w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000)
+        w.writeframes(b"\x00\x00" * 8000 * 25)  # 25 s de silencio
+    with pytest.raises(HTTPException) as too_long:
+        api._check_audio_length(long_audio.getvalue())
+    assert too_long.value.status_code == 413

@@ -45,6 +45,12 @@ describe('de la API al prototipo', () => {
     expect(message.suggestion.products[0].fromSuggestion).toBe(true)
     expect(message.actions[0]).toEqual({ label: 'Pedir de un restaurante', ask: { text: 'pizza', vertical: 'restaurantes' } })
   })
+
+  test('el aviso +18 viaja al mensaje y a cada tarjeta', () => {
+    const message = toMessage({ text: 'Mira', products: [API_PRODUCT], age_notice: true })
+    expect(message.ageNotice).toBe(true)
+    expect(message.products[0].ageRestricted).toBe(true)
+  })
 })
 
 describe('health', () => {
