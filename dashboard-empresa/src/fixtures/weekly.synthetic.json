@@ -125,7 +125,7 @@
       "usuarios_activos": 641,
       "pedidos": 796,
       "sin_resultado_pct": 13.5,
-      "abandono_carrito_pct": 30.6
+      "abandono_carrito_pct": 30.7
     },
     {
       "semana": "2026-09-14",
@@ -139,7 +139,7 @@
       "usuarios_activos": 581,
       "pedidos": 691,
       "sin_resultado_pct": 15.4,
-      "abandono_carrito_pct": 26.5
+      "abandono_carrito_pct": 21.3
     }
   ]
 }
