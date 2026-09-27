@@ -22,7 +22,7 @@ describe('CartContext', () => {
     act(() => result.current.add(BEER))
     act(() => result.current.add(BEER))
     act(() => result.current.add(CHIPS))
-    expect(result.current.qtyOf('beer')).toBe(2)
+    expect(result.current.qtyOf(BEER)).toBe(2)
     expect(result.current.count).toBe(3)
     expect(result.current.total).toBe(6690 * 2 + 2690)
   })
@@ -35,6 +35,33 @@ describe('CartContext', () => {
     act(() => result.current.add(CHIPS))
     act(() => result.current.clear())
     expect(result.current.count).toBe(0)
+  })
+
+  // Productos de la API: el mismo "cat-<id>" del catálogo se vende en varias tiendas y verticales.
+  const OFFER_A = { id: 'cat-200', name: 'Cerveza Escudo', price: '$1.290', vertical: 'licores', store: 'Botillería' }
+  const OFFER_B = { ...OFFER_A, price: '$1.390', vertical: 'supermercado', store: 'Unimarc' }
+
+  test('cada oferta es su propia línea (mismo producto en otra tienda o vertical)', () => {
+    const { result } = setup()
+    act(() => result.current.add(OFFER_A))
+    act(() => result.current.add(OFFER_B))
+    act(() => result.current.add(OFFER_A))
+    expect(result.current.items).toHaveLength(2)
+    expect(result.current.qtyOf(OFFER_A)).toBe(2)
+    expect(result.current.qtyOf(OFFER_B)).toBe(1)
+    expect(result.current.total).toBe(1290 * 2 + 1390)
+    act(() => result.current.remove(OFFER_B))
+    expect(result.current.items.map((line) => line.product.store)).toEqual(['Botillería'])
+  })
+
+  test('la línea recuerda que vino de una sugerencia aunque después se sume desde otra tarjeta', () => {
+    const { result } = setup()
+    act(() => result.current.add({ ...OFFER_A, fromSuggestion: true }))
+    act(() => result.current.add(OFFER_A))
+    act(() => result.current.add(OFFER_B))
+    const lineOf = (offer) => result.current.items.find((line) => line.product.store === offer.store)
+    expect(lineOf(OFFER_A).fromSuggestion).toBe(true)
+    expect(lineOf(OFFER_B).fromSuggestion).toBe(false)
   })
 })
 

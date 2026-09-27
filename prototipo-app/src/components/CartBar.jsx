@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { formatPrice, parsePrice, useCart } from '../state/CartContext'
+import { formatPrice, lineKey, parsePrice, useCart } from '../state/CartContext'
 import AddButton from './AddButton'
 import Sheet from './Sheet'
 import './cart.css'
@@ -37,7 +37,7 @@ export default function CartBar({ raised, push }) {
           <>
             <ul className="cart-lines">
               {cart.items.map(({ product, qty }) => (
-                <li key={product.id} className="cart-line">
+                <li key={lineKey(product)} className="cart-line">
                   <img src={product.img} alt="" />
                   <span className="cart-line-text">
                     <strong>{product.name}</strong>

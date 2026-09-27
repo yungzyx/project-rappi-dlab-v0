@@ -26,6 +26,19 @@
   width: auto;
 }
 
+/* Solo mayores de edad (alcohol, tabaco): la fila "Para ti" de rappi-ia puede traerlos. */
+.product-age {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(20, 20, 20, 0.78);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .product-price.is-plain {
   padding: 0;
   background: none;

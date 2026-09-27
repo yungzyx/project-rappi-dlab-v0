@@ -30,6 +30,10 @@ function toDish(item, store) {
     storeLogo: store.img,
     eta: store.eta,
     etaIcon: 'bolt',
+    // Para eventos y pedidos: el plato del menú real y su vertical.
+    entityType: 'menu_item',
+    entityId: String(item.id),
+    vertical: 'restaurants',
   }
 }
 

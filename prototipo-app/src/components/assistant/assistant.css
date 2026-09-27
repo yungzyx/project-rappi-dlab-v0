@@ -568,8 +568,8 @@
   margin-right: 4px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--color-accent-soft, #fff1e8);
-  color: var(--color-accent, #ff441f);
+  background: #fff1e8;
+  color: #b8300d; /* 5,5:1 sobre #fff1e8 (AA a 11 px); el naranjo #ff441f daba 3,1:1 */
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.01em;

@@ -28,18 +28,37 @@ export function conceptOf(product) {
   return tag ? TAG_TO_CONCEPT[tag] : undefined
 }
 
-/** Líneas del carrito → pedidos por vertical. Los productos de las capturas usan su id local ("proto:…"). */
+// Verticales que acepta POST /orders. El pedido va con el código del backend: así un producto de la API
+// ('licores') y uno de las capturas ('liquor') de la misma vertical forman un solo pedido.
+const BACKEND_VERTICALS = {
+  grocery: 'supermercado',
+  liquor: 'licores',
+  pharmacy: 'farmacia',
+  retail: 'mall',
+  express: 'conveniencia',
+  chocolates: 'chocolateria',
+  restaurants: 'restaurantes',
+}
+const BACKEND_CODES = new Set([...Object.values(BACKEND_VERTICALS), 'turbo'])
+const orderVertical = (vertical) => (BACKEND_CODES.has(vertical) ? vertical : BACKEND_VERTICALS[vertical])
+
+/**
+ * Líneas del carrito → pedidos por vertical. Los productos de las capturas usan su id local ("proto:…").
+ * Un producto sin vertical del catálogo (p. ej. de una tienda de mascotas) sigue en el carrito de la demo,
+ * pero no se envía: la API rechazaría el pedido completo.
+ */
 export function buildOrders(items, { userId, sessionId, cartId }) {
   const byVertical = new Map()
-  for (const { product, qty } of items) {
-    const vertical = product.vertical ?? 'otro'
+  for (const { product, qty, fromSuggestion } of items) {
+    const vertical = orderVertical(product.vertical)
+    if (!vertical) continue
     const line = {
       entity_type: product.entityType === 'menu_item' ? 'menu_item' : 'catalog_item',
       entity_id: product.entityId ?? `proto:${product.id}`,
       concept_id: conceptOf(product),
       qty,
       unit_price: parsePrice(product.price) || undefined,
-      from_suggestion: Boolean(product.fromSuggestion),
+      from_suggestion: Boolean(fromSuggestion ?? product.fromSuggestion),
     }
     byVertical.set(vertical, [...(byVertical.get(vertical) ?? []), line])
   }

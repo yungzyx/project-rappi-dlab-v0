@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ProductRow from '../../components/ProductRow'
 import StoreList from '../../components/StoreList'
 import { ChevronLeft, SearchIcon } from '../../components/Icons'
@@ -20,17 +20,24 @@ export default function SearchScreen({ back, push, params }) {
   const isEmpty = hasQuery && results.stores.length === 0 && results.products.length === 0
   const { track } = useProfile()
   const events = useEvents()
-  const found = results.stores.length + results.products.length
+  const logged = useRef(null)
 
   // Cuenta la búsqueda cuando el usuario deja de escribir, no con cada letra.
   useEffect(() => {
     if (query.trim().length < 3) return undefined
-    const timer = setTimeout(() => {
-      track(query, WEIGHTS.query)
-      events.track('search', { query: query.trim(), modality: 'texto', results: found, unmet: found === 0 })
-    }, SEARCH_SETTLE_MS)
+    const timer = setTimeout(() => track(query, WEIGHTS.query), SEARCH_SETTLE_MS)
     return () => clearTimeout(timer)
-  }, [query, track, events, found])
+  }, [query, track])
+
+  // Para el panel, solo búsquedas terminadas (Enter, salir del campo o una sugerencia), no palabras a medio
+  // escribir. Sin "unmet": este catálogo es solo lo de las capturas, no dice si Rappi lo tiene.
+  const logSearch = (term) => {
+    const clean = term.trim()
+    if (!clean || clean === logged.current) return
+    logged.current = clean
+    const found = search(clean)
+    events.track('search', { query: clean, modality: 'texto', results: found.stores.length + found.products.length })
+  }
 
   return (
     <div className="screen search">
@@ -45,7 +52,10 @@ export default function SearchScreen({ back, push, params }) {
             type="search"
             placeholder="What do you want today?"
             value={query}
+            maxLength={500}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && logSearch(query)}
+            onBlur={() => logSearch(query)}
           />
           {hasQuery && (
             <button type="button" className="search-clear" aria-label="Borrar" onClick={() => setQuery('')}>
@@ -60,7 +70,15 @@ export default function SearchScreen({ back, push, params }) {
           <h2 className="search-heading">Recent searches</h2>
           <div className="search-chips">
             {RECENT.map((term) => (
-              <button key={term} type="button" className="search-chip tap" onClick={() => setQuery(term)}>
+              <button
+                key={term}
+                type="button"
+                className="search-chip tap"
+                onClick={() => {
+                  setQuery(term)
+                  logSearch(term)
+                }}
+              >
                 {term}
               </button>
             ))}

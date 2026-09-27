@@ -74,3 +74,65 @@ test('clear descarta lo pendiente (Olvidar no se deshace con eventos en cola)', 
   await act(() => result.current.flush())
   expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/events'))).toBe(false)
 })
+
+describe('regresiones', () => {
+  const setup = () =>
+    renderHook(() => useEvents(), {
+      wrapper: ({ children }) => (
+        <DemoProvider>
+          <EventsProvider>{children}</EventsProvider>
+        </DemoProvider>
+      ),
+    })
+  const eventsBody = (fetchMock) => JSON.parse(fetchMock.mock.calls.find(([url]) => String(url).endsWith('/events'))[1].body)
+
+  test('un texto más largo que el límite del servidor se recorta: no hace fallar el lote completo', async () => {
+    const fetchMock = vi.fn(async (url) => ({ ok: true, json: async () => (String(url).endsWith('/health') ? { capacidades: {} } : {}) }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = setup()
+    act(() => result.current.track('search', { query: 'a'.repeat(600), entity_id: 'x'.repeat(80) }))
+    await act(() => result.current.flush())
+    const search = eventsBody(fetchMock).events.find((e) => e.type === 'search')
+    expect(search.query).toHaveLength(500)
+    expect(search.entity_id).toHaveLength(64)
+  })
+
+  test('settled espera el lote que ya salió (Olvidar no se adelanta a un envío en curso)', async () => {
+    let answer
+    const fetchMock = vi.fn((url) =>
+      String(url).endsWith('/health')
+        ? Promise.resolve({ ok: true, json: async () => ({ capacidades: {} }) })
+        : new Promise((resolve) => (answer = () => resolve({ ok: true, json: async () => ({}) }))),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = setup()
+    act(() => result.current.track('cart_add', { concept_id: 'cerveza' }))
+    let sending
+    act(() => {
+      sending = result.current.flush()
+    })
+    let settled = false
+    result.current.settled().then(() => (settled = true))
+    await vi.waitFor(() => expect(answer).toBeTypeOf('function'))
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    answer()
+    await act(() => sending)
+    await vi.waitFor(() => expect(settled).toBe(true))
+  })
+
+  test('al ocultar la página, la cola solo se vacía si el navegador aceptó el beacon', async () => {
+    const fetchMock = vi.fn(async (url) => ({ ok: true, json: async () => (String(url).endsWith('/health') ? { capacidades: {} } : {}) }))
+    vi.stubGlobal('fetch', fetchMock)
+    Object.defineProperty(navigator, 'sendBeacon', { value: vi.fn(() => false), configurable: true })
+    try {
+      const { result } = setup()
+      act(() => result.current.track('cart_add', { concept_id: 'cerveza' }))
+      window.dispatchEvent(new Event('pagehide'))
+      await act(() => result.current.flush())
+      expect(eventsBody(fetchMock).events.map((e) => e.type)).toEqual(['app_open', 'cart_add'])
+    } finally {
+      delete navigator.sendBeacon
+    }
+  })
+})

@@ -63,6 +63,7 @@ export const CRAZY_DEALS = [
     storeLogo: logoKfc,
     eta: '15 min',
     etaIcon: 'turbo',
+    vertical: 'restaurants',
   },
   {
     id: 'deal-combo-aniversario',
@@ -75,6 +76,7 @@ export const CRAZY_DEALS = [
     storeLogo: logoChickenFactory,
     eta: '14 min',
     etaIcon: 'clock',
+    vertical: 'restaurants',
   },
   {
     id: 'deal-mediana-palitos',
@@ -87,6 +89,7 @@ export const CRAZY_DEALS = [
     storeLogo: logoPapaJohns,
     eta: '24 min',
     etaIcon: 'clock',
+    vertical: 'restaurants',
   },
 ]
 
@@ -126,6 +129,7 @@ export const TOP_PIZZAS = [
     storeLogo: logoPizzaDelivery,
     eta: '15 min',
     etaIcon: 'clock',
+    vertical: 'restaurants',
   },
   {
     id: 'pizza-combo-lunch',
@@ -138,6 +142,7 @@ export const TOP_PIZZAS = [
     storeLogo: logoPapaJohnsSm,
     eta: '24 min',
     etaIcon: 'clock',
+    vertical: 'restaurants',
   },
 ]
 export const TOP_PIZZAS_ICON = icPizza
@@ -148,11 +153,12 @@ export const NEW_IN_RAPPI = [
   { id: 'r-pitahouse', name: 'Pita House', rating: '4.60', eta: '20 min', distance: '2.0 km', img: newPitaHouse, deliveryLabel: SHIPPING, partial: true },
 ]
 
-const UNIMARC = { store: 'Unimarc', storeLogo: logoUnimarc, eta: 'Sun, 9 AM', etaIcon: 'clock' }
-const EXPRESS = { store: 'Express Lider', storeLogo: logoExpress, eta: 'Sun, 9 AM', etaIcon: 'clock' }
-const LIQUIDOS = { store: 'Liquidos', storeLogo: logoLiquidos, eta: '26 min or sched.', etaIcon: 'bolt' }
-const TAG = { store: 'Botilleria Tag', storeLogo: logoTag, eta: '36 min or sched.', etaIcon: 'clock' }
-const AHUMADA = { store: 'Farmacias Ahumada', storeLogo: logoAhumada, eta: 'Sun, 11 AM', etaIcon: 'bolt' }
+// `vertical`: id del prototipo de la tienda (va en los eventos y en los pedidos a rappi-ia).
+const UNIMARC = { store: 'Unimarc', storeLogo: logoUnimarc, eta: 'Sun, 9 AM', etaIcon: 'clock', vertical: 'grocery' }
+const EXPRESS = { store: 'Express Lider', storeLogo: logoExpress, eta: 'Sun, 9 AM', etaIcon: 'clock', vertical: 'grocery' }
+const LIQUIDOS = { store: 'Liquidos', storeLogo: logoLiquidos, eta: '26 min or sched.', etaIcon: 'bolt', vertical: 'liquor' }
+const TAG = { store: 'Botilleria Tag', storeLogo: logoTag, eta: '36 min or sched.', etaIcon: 'clock', vertical: 'liquor' }
+const AHUMADA = { store: 'Farmacias Ahumada', storeLogo: logoAhumada, eta: 'Sun, 11 AM', etaIcon: 'bolt', vertical: 'pharmacy' }
 
 export const GROCERY_SECTIONS = [
   {

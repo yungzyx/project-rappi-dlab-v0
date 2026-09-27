@@ -114,6 +114,7 @@ def test_events_orders_profile_recommendations_and_forget(client, db):
 
     recs = client.get("/recommendations", params={"user_id": "u1", "vertical": "liquor"}).json()
     assert recs["rows"][0]["concept"] == "snacks-salados" and recs["rows"][0]["vertical"] == "supermercado"
+    assert recs["rows"][0]["reason"] == "Porque te interesa 🍺 cerveza"
 
     forgotten = client.delete("/profile/u1", params={"concept": "cerveza"}).json()
     assert forgotten["eventos_borrados"] >= 2

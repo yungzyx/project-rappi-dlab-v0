@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight } from '../../components/Icons'
 import { CardIcon, PinIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
 import { sessionId, useEvents, userId } from '../../state/EventsContext'
-import { formatPrice, useCart } from '../../state/CartContext'
+import { formatPrice, lineKey, useCart } from '../../state/CartContext'
 import { useOrders } from '../../state/OrdersContext'
 import { DEFAULT_TIP, TIPS, priceBreakdown } from './pricing'
 import './checkout.css'
@@ -92,7 +92,7 @@ export default function CheckoutScreen({ back, push }) {
         <h2 className="checkout-title">Your order</h2>
         <ul className="checkout-items">
           {cart.items.map(({ product }) => (
-            <ProductRow key={product.id} product={product} showStore />
+            <ProductRow key={lineKey(product)} product={product} showStore />
           ))}
         </ul>
 

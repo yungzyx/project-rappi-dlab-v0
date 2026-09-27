@@ -9,6 +9,11 @@ export function ProductCard({ product, onClick }) {
     <div className="product-card tap" {...pressable(onClick)}>
       <span className={product.partial ? 'product-media is-partial' : 'product-media'}>
         <img src={product.img} alt="" draggable="false" />
+        {product.ageRestricted && (
+          <span className="product-age" aria-label="Solo mayores de 18">
+            +18
+          </span>
+        )}
         <AddButton product={product} className="add-button--grocery" />
       </span>
       <span className="product-price-row">

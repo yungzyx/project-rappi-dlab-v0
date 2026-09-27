@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { health, resetHealthCache, toMessage, toPrototypeProduct } from './client'
+import { beaconEvents, chatVoice, health, resetHealthCache, toMessage, toPrototypeProduct } from './client'
 
 const API_PRODUCT = {
   id: 'cat-200',
@@ -41,9 +41,14 @@ describe('de la API al prototipo', () => {
     })
     expect(message.source).toBe('api')
     expect(message.reason).toBeNull() // la razón se muestra con la sugerencia, no dos veces
-    expect(message.suggestion).toMatchObject({ vertical: 'grocery', concept: 'snacks-salados' })
+    expect(message.suggestion).toMatchObject({ vertical: 'supermercado', concept: 'snacks-salados' })
     expect(message.suggestion.products[0].fromSuggestion).toBe(true)
     expect(message.actions[0]).toEqual({ label: 'Pedir de un restaurante', ask: { text: 'pizza', vertical: 'restaurantes' } })
+  })
+
+  test('la sugerencia se registra con el código del backend: Turbo no se confunde con conveniencia', () => {
+    const message = toMessage({ text: 'Mira', suggestion: { concept: 'snacks-salados', vertical: 'turbo', prototype_vertical: 'express', products: [] } })
+    expect(message.suggestion.vertical).toBe('turbo')
   })
 
   test('el aviso +18 viaja al mensaje y a cada tarjeta', () => {
@@ -65,5 +70,32 @@ describe('health', () => {
   test('con API devuelve sus capacidades', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, capacidades: { voz: true, fotos: false } }) }))
     expect(await health({ force: true })).toEqual({ voz: true, fotos: false })
+  })
+})
+
+describe('envíos', () => {
+  test('al cerrar la pestaña los eventos van como text/plain a /events/beacon (sin preflight CORS)', async () => {
+    const sendBeacon = vi.fn(() => true)
+    Object.defineProperty(navigator, 'sendBeacon', { value: sendBeacon, configurable: true })
+    try {
+      expect(beaconEvents('proto-1', [{ type: 'app_open', session_id: 's-1' }])).toBe(true)
+      const [url, blob] = sendBeacon.mock.calls[0]
+      expect(url).toMatch(/\/events\/beacon$/)
+      expect(blob.type).toBe('text/plain')
+      expect(JSON.parse(await blob.text())).toEqual({ user_id: 'proto-1', events: [{ type: 'app_open', session_id: 's-1' }] })
+    } finally {
+      delete navigator.sendBeacon
+    }
+  })
+
+  test('la voz se puede cancelar: la señal aborta la subida', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url, { signal }) => new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('abortado'))))),
+    )
+    const controller = new AbortController()
+    const pending = chatVoice(new Blob(['x']), { user_id: 'proto-1' }, { signal: controller.signal })
+    controller.abort()
+    await expect(pending).rejects.toThrow('abortado')
   })
 })

@@ -23,9 +23,10 @@ Si la API de [`rappi-ia`](../rappi-ia/) está corriendo (`make serve`, puerto 80
 - **Qué hace:**
   - busca en el **catálogo real** con búsqueda híbrida por vertical, con precios vigentes;
   - sugiere un complemento **de otra tienda** en un bloque aparte;
-  - transcribe la **voz** con Whisper, con micrófono real en `localhost` o `https`;
+  - arma la fila **"Para ti"** del inicio con lo que aprendió de ti (productos reales de otro vertical, con +18 si corresponde);
+  - transcribe la **voz** con Whisper, con micrófono real en `localhost` o `https` (la voz simulada nunca va a la API: no ensucia tu perfil ni el panel);
   - reconoce **fotos** con CLIP;
-  - registra eventos seudónimos para el [panel de la empresa](../dashboard-empresa/).
+  - registra eventos seudónimos y pedidos (uno por vertical) para el [panel de la empresa](../dashboard-empresa/).
 - **Sin API:** la app usa el cerebro local de siempre, sin avisos ni errores.
 
 <img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Bigotes con la API: cervezas reales bajo $3.000 y snacks de otra tienda">

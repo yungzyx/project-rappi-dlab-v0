@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import BackToTop from '../../components/BackToTop'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
@@ -13,6 +13,8 @@ import { useAddress } from '../../state/AddressContext'
 import { useDemo } from '../../state/DemoContext'
 import { useProfile } from '../../state/ProfileContext'
 import { forYou } from '../../assistant/brain'
+import { useRemoteForYou } from '../../api/useRemoteForYou'
+import { useEvents } from '../../state/EventsContext'
 import turboRestaurantesTitle from '../../assets/turbo-restaurantes-title.webp'
 import CreditsBanner from './CreditsBanner'
 import { RestaurantCard, StoreTile } from './StoreCards'
@@ -37,7 +39,14 @@ export default function HomeFeed({ push }) {
   const address = useAddress()
   const demo = useDemo()
   const profile = useProfile()
-  const picks = forYou(profile)
+  const events = useEvents()
+  // Con la API, lo que aprendió rappi-ia (productos reales de otro vertical); sin ella, el cerebro local.
+  const remote = useRemoteForYou(demo.isProposal)
+  const picks = remote ?? forYou(profile)
+  useEffect(() => {
+    if (remote)
+      events.track('suggestion_shown', { concept_id: remote.concept, vertical: remote.vertical, payload: { origen: 'para-ti' } })
+  }, [remote, events])
   const openSearch = () => push('search')
   const screenRef = useRef(null)
   const [{ top, goingUp }, onScroll] = useScrollState()

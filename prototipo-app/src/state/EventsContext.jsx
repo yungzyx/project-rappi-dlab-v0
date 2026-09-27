@@ -9,6 +9,16 @@ const SESSION_KEY = 'rappi-proto-session'
 const SESSION_IDLE_MS = 30 * 60 * 1000 // una sesión termina tras 30 min sin actividad
 const FLUSH_MS = 5000
 const MAX_QUEUE = 200
+// Largo máximo de los textos en rappi-ia (EventIn): uno más largo haría rechazar (422) el lote completo.
+const FIELD_LIMITS = { query: 500, entity_id: 64, cart_id: 64, session_id: 64 }
+
+function withinLimits(event) {
+  const clipped = { ...event }
+  for (const [field, max] of Object.entries(FIELD_LIMITS)) {
+    if (typeof clipped[field] === 'string') clipped[field] = clipped[field].slice(0, max)
+  }
+  return clipped
+}
 
 function randomId(prefix) {
   const random = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -60,6 +70,8 @@ export function EventsProvider({ children }) {
   const demo = useDemo()
   const queue = useRef([])
   const opened = useRef(false)
+  // Lotes que ya salieron: "Olvidar" los espera para que no recreen en el servidor lo que se borra.
+  const inFlight = useRef(Promise.resolve())
   const proposal = useRef(demo.isProposal)
   useEffect(() => {
     proposal.current = demo.isProposal
@@ -68,16 +80,20 @@ export function EventsProvider({ children }) {
   const flush = useCallback(async () => {
     if (queue.current.length === 0) return
     const batch = queue.current.splice(0, MAX_QUEUE)
-    if (!(await health())) return // sin API no hay a quién enviarlos
-    try {
-      await sendEvents(userId(), batch)
-    } catch {
-      // Evento perdido: es telemetría de la demo, no se reintenta.
-    }
+    const sending = (async () => {
+      if (!(await health())) return // sin API no hay a quién enviarlos
+      try {
+        await sendEvents(userId(), batch)
+      } catch {
+        // Evento perdido: es telemetría de la demo, no se reintenta.
+      }
+    })()
+    inFlight.current = Promise.all([inFlight.current, sending])
+    await sending
   }, [])
 
   const track = useCallback((type, fields = {}) => {
-    const event = { type, session_id: sessionId(), ...fields }
+    const event = withinLimits({ type, session_id: sessionId(), ...fields })
     if (!proposal.current) delete event.concept_id
     queue.current.push(event)
     if (queue.current.length > MAX_QUEUE) queue.current.shift()
@@ -102,10 +118,13 @@ export function EventsProvider({ children }) {
     queue.current = []
   }, [])
 
-  const value = useMemo(() => ({ track, flush, clear }), [track, flush, clear])
+  /** Se cumple cuando terminan los lotes ya enviados. */
+  const settled = useCallback(() => inFlight.current, [])
+
+  const value = useMemo(() => ({ track, flush, clear, settled }), [track, flush, clear, settled])
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>
 }
 
-const NOOP = { track: () => {}, flush: async () => {}, clear: () => {} }
+const NOOP = { track: () => {}, flush: async () => {}, clear: () => {}, settled: async () => {} }
 /** Fuera del proveedor (tests de componentes sueltos) no registra nada. */
 export const useEvents = () => useContext(EventsContext) ?? NOOP

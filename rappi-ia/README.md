@@ -29,8 +29,8 @@ Los modelos (~2 GB) se bajan de Hugging Face la primera vez que se usan. Para qu
 Después de cada `rappi refresh` del scraper:
 
 ```bash
-make concepts     # capa 2 (≈1 min; con kNN si está el extra ml)
-make embed        # embeddings nuevos (incremental; ~45 textos/s en un M2)
+make concepts     # capa 2 y surtido por concepto (≈1 min; con kNN si está el extra ml)
+make embed        # embeddings nuevos (incremental; ~45 textos/s en un M2; no corre con el scraper en curso)
 make eval         # evalúa la búsqueda y recalibra τ
 make synth        # usuarios simulados para el panel (1.500 usuarios, 20 semanas, semilla 7)
 ```
@@ -50,7 +50,8 @@ Otros comandos:
 | `GET /search` | Búsqueda híbrida en un vertical, con precios vigentes |
 | `GET /recommendations` | "Para ti, de otras tiendas": intereses → complementos → otro vertical |
 | `GET /profile/{id}` · `DELETE /profile/{id}` | Lo aprendido (sin sensibles) · "Olvidar" (todo o un concepto) |
-| `POST /events` · `POST /orders` | Eventos y pedidos del prototipo (`source = prototype`) |
+| `POST /events` · `POST /orders` | Eventos y pedidos del prototipo (`source = prototype`). Un pedido sin vertical del catálogo es un 400 |
+| `POST /events/beacon` | Lo que queda en cola al cerrar la pestaña (`sendBeacon`, text/plain: sin preflight de CORS) |
 | `GET /analytics/{kpis, weekly, opportunities, trends, funnel, cohorts, rhythm, at-risk, suggestions, multi-vertical, affinity, assortment, catalog}` | Métricas del panel |
 
 **Seguridad.** Es una demo local y **no tiene autenticación**:
@@ -103,7 +104,7 @@ El híbrido gana en todos los tipos de consulta:
 - **Datos simulados:** usuarios, eventos y pedidos son **simulados** (`source = 'synthetic'`), con supuestos explícitos en `events/synth.py`. El panel muestra la mecánica, no evidencia.
 - **Muestra pública:** el catálogo es la muestra pública (hasta 24 productos por sub-pasillo), así que "no está" no significa "Rappi no lo vende".
 - **Uso interno:** fotos y descripciones son de Rappi y de los comercios; uso interno solamente (ver `docs/contexto-y-problema.md` §7).
-- **Revisión adversarial (27-09-2026):** 4 revisores independientes (lógica, seguridad y privacidad, frontend, rendimiento), cada hallazgo verificado por separado. Los 26 hallazgos confirmados están corregidos y tienen tests de regresión (commit `fix: correcciones de la revisión adversarial`).
+- **Revisión adversarial (27-09-2026):** 4 revisores independientes (lógica, seguridad y privacidad, frontend, rendimiento), cada hallazgo verificado por separado. Los 55 hallazgos confirmados (26 en la primera pasada, 29 en la segunda) están corregidos y tienen tests de regresión, salvo uno que espera a que termine la descarga: el filtro de precio lee el JSON de cada documento dentro del recorrido HNSW (lento con topes muy bajos); la solución es una columna de precio en `search_documents`, que es DDL sobre una tabla del scraper.
 
 ## Estructura
 
@@ -119,4 +120,4 @@ src/rappi_ia/
 └── api/         FastAPI
 ```
 
-Las migraciones de la base (009 conceptos, 010 embeddings, 011 eventos) viven en `rappi-scraper/src/rappi_scraper/storage/migrations/`, para que haya un solo historial.
+Las migraciones de la base (009 conceptos, 010 embeddings, 011 eventos, 012 surtido materializado) viven en `rappi-scraper/src/rappi_scraper/storage/migrations/`, para que haya un solo historial.

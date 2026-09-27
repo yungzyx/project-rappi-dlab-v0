@@ -1,3 +1,4 @@
+import { conceptOf } from '../api/orders'
 import { productTags } from '../assistant/tags'
 import { parsePrice, useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
@@ -16,25 +17,29 @@ export default function AddButton({ product, className = '' }) {
   const nudge = useNudge()
   const assistant = useAssistant()
   const events = useEvents()
-  const qty = cart.qtyOf(product.id)
+  const qty = cart.qtyOf(product)
   const cartEvent = (type, item) =>
     events.track(type, {
       cart_id: cart.id,
       vertical: item.vertical,
-      concept_id: item.concept,
+      concept_id: conceptOf(item),
       entity_type: item.entityType,
       entity_id: item.entityId,
       value: parsePrice(item.price) || undefined,
       payload: item.fromSuggestion ? { from_suggestion: true } : {},
     })
   const add = (item) => {
-    const first = cart.qtyOf(item.id) === 0
+    const first = cart.qtyOf(item) === 0
     cart.add(item)
     profile.trackTags(productTags(item), WEIGHTS.cart)
     cartEvent('cart_add', item)
     // Aceptar una sugerencia es agregarla por primera vez; los "+" siguientes son solo cantidad.
     if (item.fromSuggestion && first)
-      events.track('suggestion_accepted', { concept_id: item.concept, vertical: item.vertical, payload: { origen: 'chat' } })
+      events.track('suggestion_accepted', {
+        concept_id: item.concept,
+        vertical: item.vertical,
+        payload: { origen: item.suggestionOrigin ?? 'chat' },
+      })
     // Dentro del chat Bigotes ya está recomendando: el aviso solo sale fuera.
     if (demo.isProposal && !assistant.isOpen) nudge.offer(item)
   }

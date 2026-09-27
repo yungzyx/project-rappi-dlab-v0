@@ -49,9 +49,10 @@ const SCREENS_WITHOUT_CART = new Set(['checkout', 'tracking'])
 // Pantallas con barra inferior: ahí la barra del carrito flota más arriba.
 const SCREENS_WITH_NAV = new Set(['home', 'turbo'])
 
-// Vertical de la pantalla actual (ids del prototipo): Bigotes busca ahí primero.
-const screenVertical = (screen) =>
-  screen.name === 'vertical' ? screen.params?.id : { restaurants: 'restaurants', turbo: 'express' }[screen.name]
+// Vertical de la pantalla actual (ids del prototipo): Bigotes busca ahí primero. Turbo va con su código del
+// backend: el 'express' del prototipo es conveniencia para la API.
+export const screenVertical = (screen) =>
+  screen.name === 'vertical' ? screen.params?.id : { restaurants: 'restaurants', turbo: 'turbo' }[screen.name]
 
 const PHONE_HEIGHT_PX = 874
 const STAGE_MARGIN_PX = 48

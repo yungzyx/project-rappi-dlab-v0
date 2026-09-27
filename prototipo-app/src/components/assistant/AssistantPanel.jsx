@@ -55,29 +55,44 @@ export default function AssistantPanel({ push, vertical }) {
   const timers = useRef([])
   const voiceTimers = useRef([])
   const recorder = useRef(null)
+  // Cada intento de voz lleva un número: cancelar (o cerrar) lo sube, y lo que llegue de un intento viejo se ignora.
+  const voiceAttempt = useRef(0)
+  const voicePending = useRef(false) // pidiendo el micrófono: los toques extra se ignoran
+  const voiceUpload = useRef(null)
+  // Preguntas en fila: la siguiente sale cuando la respuesta anterior ya está en pantalla.
+  const chatQueue = useRef(Promise.resolve())
+  const profileGeneration = useRef(0) // sube al "Olvidar": un perfil remoto pedido antes ya no vale
   const shownTopics = useRef(new Set())
   const [learnedRemote, setLearnedRemote] = useState(null)
+  const [forgetting, setForgetting] = useState(false)
 
   const later = (fn, ms, bucket = timers) => bucket.current.push(setTimeout(fn, ms))
   useEffect(() => () => [...timers.current, ...voiceTimers.current].forEach(clearTimeout), [])
 
   const addMessage = (message) => setMessages((prev) => [...prev, { id: nextId++, ...message }])
 
-  /** Muestra "escribiendo…" hasta que llega la respuesta (de la API o local), con un mínimo para que se note. */
+  /**
+   * Muestra "escribiendo…" hasta que llega la respuesta (de la API o local), con un mínimo para que se note.
+   * Devuelve una promesa que se cumple cuando la respuesta ya está en pantalla.
+   */
   const botSays = useCallback((responseOrPromise) => {
     const typingId = nextId++
     const startedAt = Date.now()
     setMood('think')
     setMessages((prev) => [...prev, { id: typingId, from: 'bot', typing: true }])
-    Promise.resolve(responseOrPromise).then((response) => {
-      const wait = response.source === 'api' ? Math.max(0, MIN_TYPING_MS - (Date.now() - startedAt)) : TYPING_MS
-      later(() => {
-        setMood('talk')
-        // Id nuevo: si reutilizara el del indicador, React conservaría su estado y mostraría las tarjetas antes del texto.
-        setMessages((prev) => [...prev.filter((m) => m.id !== typingId), { id: nextId++, from: 'bot', animate: true, ...response }])
-        setChipRound((r) => r + 1)
-      }, wait)
-    })
+    return Promise.resolve(responseOrPromise).then(
+      (response) =>
+        new Promise((shown) => {
+          const wait = response.source === 'api' ? Math.max(0, MIN_TYPING_MS - (Date.now() - startedAt)) : TYPING_MS
+          later(() => {
+            setMood('talk')
+            // Id nuevo: si reutilizara el del indicador, React conservaría su estado y mostraría las tarjetas antes del texto.
+            setMessages((prev) => [...prev.filter((m) => m.id !== typingId), { id: nextId++, from: 'bot', animate: true, ...response }])
+            setChipRound((r) => r + 1)
+            shown()
+          }, wait)
+        }),
+    )
   }, [])
 
   const apiContext = (extra = {}) => ({
@@ -113,16 +128,19 @@ export default function AssistantPanel({ push, vertical }) {
     return reply(text, profile)
   }
 
-  const send = (text, askVertical) => {
+  // En orden: la pregunta N+1 sale cuando la respuesta N ya está en pantalla, así sus shown_topics incluyen
+  // lo que N sugirió. `local`: responde el cerebro local, sin la API (voz simulada).
+  const send = (text, askVertical, { local = false } = {}) => {
     const clean = text.trim()
-    if (!clean) return
+    if (!clean || forgetting) return
     setDraft('')
     addMessage({ from: 'user', text: clean })
     profile.track(clean, WEIGHTS.query)
-    botSays(answer(clean, askVertical))
+    chatQueue.current = chatQueue.current.then(() => botSays(local ? reply(clean, profile) : answer(clean, askVertical)))
   }
 
   const sendPhoto = (file) => {
+    if (forgetting) return
     const url = URL.createObjectURL(file)
     addMessage({ from: 'user', image: url })
     const run = async () => {
@@ -139,29 +157,28 @@ export default function AssistantPanel({ push, vertical }) {
   }
 
   /** Voz real: graba hasta 7 s (o hasta "Listo") y la API la transcribe con Whisper. El audio no se guarda. */
-  const record = async () => {
-    let stream
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch {
-      return false // sin permiso de micrófono: voz simulada
-    }
+  const record = (stream, attempt) => {
     const chunks = []
     const media = new MediaRecorder(stream)
     recorder.current = media
     media.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data)
     media.onstop = async () => {
       stream.getTracks().forEach((track) => track.stop())
-      recorder.current = null
-      if (media.cancelled) return
+      if (recorder.current === media) recorder.current = null
+      if (attempt !== voiceAttempt.current) return // cancelada
       setVoice({ transcript: 'Transcribiendo…' })
+      const upload = new AbortController()
+      voiceUpload.current = upload
       try {
         const blob = new Blob(chunks, { type: media.mimeType || 'audio/webm' })
-        const message = toMessage(await chatVoice(new File([blob], 'voz.webm', { type: blob.type }), apiContext()))
+        const file = new File([blob], 'voz.webm', { type: blob.type })
+        const message = toMessage(await chatVoice(file, apiContext(), { signal: upload.signal }))
+        if (attempt !== voiceAttempt.current) return // se canceló mientras transcribía
         setVoice(null)
         if (message.transcript && !message.transcript.discarded) addMessage({ from: 'user', text: message.transcript.text })
         botSays(noteSuggestion(message))
       } catch {
+        if (attempt !== voiceAttempt.current) return
         setVoice(null)
         botSays({ text: 'No pude procesar el audio 🙉 ¿Me lo escribes?' })
       }
@@ -170,17 +187,44 @@ export default function AssistantPanel({ push, vertical }) {
     setMood('listen')
     setVoice({ transcript: '', recording: true })
     later(() => media.state === 'recording' && media.stop(), MAX_RECORDING_MS, voiceTimers)
-    return true
   }
 
   const stopRecording = () => recorder.current?.state === 'recording' && recorder.current.stop()
 
+  /** Voz real si se puede; si no, la simulada. Un intento a la vez: los toques mientras se pide el micrófono se ignoran. */
   const listen = async () => {
-    if (canRecord() && (await health())?.voz && (await record())) return
-    simulateVoice()
+    if (forgetting || voicePending.current || recorder.current) return
+    voicePending.current = true
+    const attempt = ++voiceAttempt.current
+    const stale = () => attempt !== voiceAttempt.current // se canceló o se cerró el panel mientras tanto
+    try {
+      if (!canRecord() || !(await health())?.voz) {
+        if (!stale()) simulateVoice()
+        return
+      }
+      let stream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      } catch (error) {
+        if (stale()) return
+        // Si el usuario negó el permiso no se inventa una frase como si la hubiera dicho: se le avisa.
+        if (error?.name === 'NotAllowedError')
+          botSays({ text: 'Tu micrófono está bloqueado 🙊 Actívalo en el navegador o escríbeme.' })
+        else simulateVoice()
+        return
+      }
+      if (stale() || recorder.current) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
+      record(stream, attempt)
+    } finally {
+      if (!stale()) voicePending.current = false
+    }
   }
 
-  // Voz simulada (sin micrófono o sin API): recorre frases de ejemplo.
+  // Voz simulada (sin micrófono o sin voz en la API): recorre frases de ejemplo. Las contesta el cerebro local:
+  // no son del usuario, así que no van a la API (no ensucian su perfil ni el panel).
   const simulateVoice = () => {
     const sample = VOICE_SAMPLES[voiceIndex.current++ % VOICE_SAMPLES.length]
     setMood('listen')
@@ -192,7 +236,7 @@ export default function AssistantPanel({ push, vertical }) {
     later(
       () => {
         setVoice(null)
-        send(sample)
+        send(sample, undefined, { local: true })
       },
       VOICE_LISTEN_MS,
       voiceTimers,
@@ -200,9 +244,14 @@ export default function AssistantPanel({ push, vertical }) {
   }
 
   const cancelVoice = () => {
-    if (recorder.current) {
-      recorder.current.cancelled = true
-      stopRecording()
+    voiceAttempt.current++ // lo que llegue después (permiso, grabación, transcripción) es de un intento viejo
+    voicePending.current = false
+    voiceUpload.current?.abort()
+    const media = recorder.current
+    recorder.current = null
+    if (media) {
+      media.stream.getTracks().forEach((track) => track.stop())
+      if (media.state !== 'inactive') media.stop()
     }
     voiceTimers.current.forEach(clearTimeout)
     voiceTimers.current = []
@@ -221,11 +270,15 @@ export default function AssistantPanel({ push, vertical }) {
     setMood('wave')
     later(() => setMood('idle'), OPEN_MS + 1400)
 
+    // Si mientras tanto se tocó "Olvidar", la respuesta es de antes de borrar: se ignora.
+    const generation = profileGeneration.current
+    const fresh = () => generation === profileGeneration.current
     health({ force: true }).then((capabilities) => {
+      if (!fresh()) return
       if (!capabilities) return setLearnedRemote(null) // sin API: cerebro local
       remoteProfile(userId())
-        .then((data) => setLearnedRemote(data.interests.slice(0, 3)))
-        .catch(() => setLearnedRemote(null))
+        .then((data) => fresh() && setLearnedRemote(data.interests.slice(0, 3)))
+        .catch(() => fresh() && setLearnedRemote(null))
     })
 
     const isFirst = messages.length === 0
@@ -297,13 +350,22 @@ export default function AssistantPanel({ push, vertical }) {
     transitionDuration: `${phase === 'closing' ? CLOSE_MS : OPEN_MS}ms`,
   }
   const chips = suggestions(profile)
-  // Con la API, lo aprendido viene de rappi-ia (conceptos, sin sensibles); sin ella, del perfil local.
-  const learned = learnedRemote ?? profile.top.slice(0, 3).map((tag) => ({ concept: tag, label: `${TAGS[tag].emoji} ${TAGS[tag].label}` }))
+  // Con la API, lo aprendido viene de rappi-ia (conceptos, sin sensibles); sin ella (o si aún no aprendió nada),
+  // del perfil local. Así "Olvidar" se ve siempre que alguno de los dos tenga algo.
+  const learned = learnedRemote?.length
+    ? learnedRemote
+    : profile.top.slice(0, 3).map((tag) => ({ concept: tag, label: `${TAGS[tag].emoji} ${TAGS[tag].label}` }))
   const forgetAll = async () => {
-    events.clear() // lo que estaba por enviarse no debe revivir lo olvidado
+    setForgetting(true) // mientras tanto no se envía nada: una pregunta nueva recrearía lo borrado
+    profileGeneration.current++
     profile.reset()
     setLearnedRemote(null)
+    // Lo que ya salió (una pregunta pendiente, un lote de eventos) podría recrear lo olvidado en el servidor:
+    // se espera antes del DELETE, y lo que haya dejado en cola se descarta.
+    await chatQueue.current
+    events.clear()
     shownTopics.current.clear()
+    await events.settled()
     // Siempre se intenta en el servidor (aunque el último chequeo de salud haya fallado).
     try {
       await forget(userId())
@@ -311,6 +373,8 @@ export default function AssistantPanel({ push, vertical }) {
       if (await health({ force: true })) {
         botSays({ text: 'No pude borrar lo aprendido en el servidor 😿 Inténtalo de nuevo en un rato.' })
       }
+    } finally {
+      setForgetting(false)
     }
   }
 
@@ -407,6 +471,7 @@ export default function AssistantPanel({ push, vertical }) {
             </button>
             <input
               value={draft}
+              disabled={forgetting}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={`Escríbele a ${ASSISTANT_NAME}…`}
               enterKeyHint="send"

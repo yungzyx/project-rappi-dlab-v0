@@ -22,11 +22,12 @@ function product(id, img, price, before, discount, name, size, unit, store, extr
   return { id, img, price, before, discount, name, size, unit, ...store, ...extra }
 }
 
-const UNIMARC = { store: 'Unimarc', storeLogo: logoUnimarc, eta: 'Sun, 9 AM', etaIcon: 'clock' }
-const AHUMADA = { store: 'Farmacias Ahumada', storeLogo: logoAhumada, eta: 'Sun, 11 AM', etaIcon: 'bolt' }
-const CRUZ_VERDE = { store: 'Cruz Verde', storeBadge: '#1d9c3f', eta: '26 min or sched.', etaIcon: 'bolt' }
-const RIPLEY = { store: 'Ripley', storeBadge: '#c4007a', eta: 'Sun, 10 AM', etaIcon: 'clock' }
-const OXXO = { store: 'OXXO', storeLogo: a('logo-oxxo'), eta: 'Sun, 10 AM', etaIcon: 'bolt' }
+// `vertical`: id del prototipo de la tienda (va en los eventos y en los pedidos a rappi-ia).
+const UNIMARC = { store: 'Unimarc', storeLogo: logoUnimarc, eta: 'Sun, 9 AM', etaIcon: 'clock', vertical: 'grocery' }
+const AHUMADA = { store: 'Farmacias Ahumada', storeLogo: logoAhumada, eta: 'Sun, 11 AM', etaIcon: 'bolt', vertical: 'pharmacy' }
+const CRUZ_VERDE = { store: 'Cruz Verde', storeBadge: '#1d9c3f', eta: '26 min or sched.', etaIcon: 'bolt', vertical: 'pharmacy' }
+const RIPLEY = { store: 'Ripley', storeBadge: '#c4007a', eta: 'Sun, 10 AM', etaIcon: 'clock', vertical: 'retail' }
+const OXXO = { store: 'OXXO', storeLogo: a('logo-oxxo'), eta: 'Sun, 10 AM', etaIcon: 'bolt', vertical: 'express' }
 
 export const VERTICALS = {
   grocery: {

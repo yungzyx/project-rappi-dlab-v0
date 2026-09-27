@@ -102,6 +102,13 @@ describe('regresiones del cerebro local (se usa cuando no hay API)', () => {
     expect(reply('hola', EMPTY_PROFILE).text).toMatch(/Soy Bigotes/)
   })
 
+  test('saludos de varias palabras o encadenados son solo un saludo', () => {
+    for (const text of ['buenas tardes', 'hola buenas', 'hola, buenas noches', 'Buenos días!']) {
+      expect(reply(text, EMPTY_PROFILE).text).toMatch(/Soy Bigotes/)
+    }
+    expect(reply('buenas tardes, quiero sushi', EMPTY_PROFILE).tags).toContain('sushi')
+  })
+
   test('las gracias solo se responden si vienen solas', () => {
     expect(reply('gracias', EMPTY_PROFILE).text).toMatch(/De nada/)
     expect(reply('gracias, ahora una pizza', EMPTY_PROFILE).tags).toContain('pizza')

@@ -238,15 +238,18 @@ def recommendations(
 ) -> dict:
     """ "Para ti, de otras tiendas": intereses del usuario → complementos → productos de otro vertical."""
     interests = list(events.profile(conn, user_id))
+    taxonomy = load_taxonomy()
     shown: set[str] = set()
     rows = []
     for concept in interests[:4]:
         suggestion = suggest_complement(conn, [concept], backend_vertical(vertical), svc.embedder, shown)
         if suggestion:
             shown.add(suggestion.concept)
+            interest = taxonomy.concepts[concept]
             rows.append(
                 {
-                    "reason": suggestion.reason,
+                    # En el inicio no hay carro: la razón es el interés aprendido, no "porque llevas".
+                    "reason": f"Porque te interesa {interest.emoji} {interest.name.lower()}",
                     "concept": suggestion.concept,
                     "vertical": suggestion.vertical,
                     "prototype_vertical": PROTOTYPE_VERTICALS.get(suggestion.vertical),
