@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint .",
-    "format": "prettier --write src"
+    "format": "prettier --write src",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",
@@ -25,6 +26,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.12.0",
     "jsdom": "^30.1.1",
+    "playwright-core": "^1.63.0",
     "prettier": "^3.9.9",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"

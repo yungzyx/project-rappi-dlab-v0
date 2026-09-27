@@ -23,4 +23,9 @@ export default [
     files: ['**/*.test.{js,jsx}', 'vite.config.js', 'eslint.config.js'],
     languageOptions: { globals: { ...globals.node } },
   },
+  {
+    // Scripts de Node que además mandan código al navegador (page.evaluate en las capturas).
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
 ]
