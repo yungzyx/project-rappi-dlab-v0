@@ -45,7 +45,7 @@ El usuario pidió avanzar **paso por paso**: terminar y perfeccionar el scraper 
 ## Configurar en otro Mac (p. ej. Mac mini)
 
 ```bash
-git clone https://github.com/yungzyx/rappi.git ~/Documents/LeRepo/Rappi
+git clone https://github.com/yungzyx/rappi-dlab.git ~/Documents/LeRepo/Rappi
 cd ~/Documents/LeRepo/Rappi/rappi-scraper
 make db        # Homebrew: Postgres 17 + pgvector, bases rappi y rappi_test
 make install   # .venv + dependencias + .env desde .env.example

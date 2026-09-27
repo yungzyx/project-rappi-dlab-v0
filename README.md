@@ -11,6 +11,7 @@ Proyecto para entender qué contenido hay en cada vertical de Rappi Chile (super
 | Carpeta | Qué es | Estado |
 |---|---|---|
 | [`rappi-scraper/`](rappi-scraper/) | Scraper de páginas públicas de rappi.cl → Postgres + pgvector (catálogo, menús, precios con historial, documentos de búsqueda por vertical) | Listo; descarga completa pendiente |
+| [`prototipo-app/`](prototipo-app/) | Prototipo navegable de la app (Vite + React): réplica de las pantallas, modo demo Rappi hoy / Propuesta, asistente Bigotes con recomendaciones entre verticales, checkout y menús reales del scraper. `npm install && npm run dev` | Listo para demo |
 
 Próximas piezas (cuando se construyan, van como carpetas hermanas): análisis inicial, embeddings / RAG, agente.
 
