@@ -1,0 +1,987 @@
+# Taxonomía propia de conceptos (capa 2). Estable: los pasillos y categorías de Rappi cambian; el concepto no.
+#
+# - `id` es estable (slug ASCII). `parent` apunta al grupo.
+# - `keywords` se usan para reglas sobre nombres de productos, platos y consultas. Se escriben con tildes
+#   y se normalizan al cargar (sin tildes ni ñ, minúsculas). Una palabra suelta también calza su plural
+#   (s/es); las frases calzan completas. Evitar palabras ambiguas (collar, arnés, papel, filtro, tenis).
+# - `sensitive = true`: Bigotes nunca lo sugiere por iniciativa propia (solo responde si se lo piden).
+# - `age_restricted = true`: +18; la respuesta lleva el recordatorio.
+
+version = "2026-09-27"
+
+# ─── Grupos ───────────────────────────────────────────────────────────────────
+[[group]]
+id = "alcohol"
+name = "Bebidas alcohólicas"
+emoji = "🍷"
+
+[[group]]
+id = "bebidas"
+name = "Bebidas sin alcohol"
+emoji = "🥤"
+
+[[group]]
+id = "snacks"
+name = "Snacks"
+emoji = "🍿"
+
+[[group]]
+id = "dulces"
+name = "Dulces y postres"
+emoji = "🍫"
+
+[[group]]
+id = "despensa"
+name = "Despensa"
+emoji = "🥫"
+
+[[group]]
+id = "frescos"
+name = "Frescos"
+emoji = "🥬"
+
+[[group]]
+id = "comida"
+name = "Comida preparada"
+emoji = "🍱"
+
+[[group]]
+id = "bebe"
+name = "Bebé"
+emoji = "👶"
+
+[[group]]
+id = "salud"
+name = "Farmacia y cuidado personal"
+emoji = "💊"
+
+[[group]]
+id = "belleza"
+name = "Belleza"
+emoji = "💄"
+
+[[group]]
+id = "hogar"
+name = "Hogar y limpieza"
+emoji = "🏠"
+
+[[group]]
+id = "mascotas"
+name = "Mascotas"
+emoji = "🐶"
+
+[[group]]
+id = "tabaco"
+name = "Tabaco y vapeo"
+emoji = "🚬"
+
+[[group]]
+id = "adultos"
+name = "Bienestar sexual"
+emoji = "🔞"
+
+[[group]]
+id = "moda"
+name = "Moda y accesorios"
+emoji = "👕"
+
+[[group]]
+id = "juguetes"
+name = "Juguetes y juegos"
+emoji = "🧸"
+
+[[group]]
+id = "tecnologia"
+name = "Tecnología"
+emoji = "📱"
+
+[[group]]
+id = "deportes"
+name = "Deportes y aire libre"
+emoji = "🏋️"
+
+[[group]]
+id = "libreria"
+name = "Librería y oficina"
+emoji = "✏️"
+
+[[group]]
+id = "regalos"
+name = "Flores y regalos"
+emoji = "💐"
+
+# ─── Conceptos ────────────────────────────────────────────────────────────────
+# Alcohol
+[[concept]]
+id = "cerveza"
+parent = "alcohol"
+name = "Cerveza"
+emoji = "🍺"
+age_restricted = true
+keywords = ["cerveza", "chela", "lager", "ipa", "stout", "pilsner", "pale ale", "heineken", "kunstmann", "cristal", "escudo", "royal guard", "corona extra", "stella artois", "austral", "becker", "budweiser", "michelob", "sidra"]
+
+[[concept]]
+id = "vino"
+parent = "alcohol"
+name = "Vino"
+emoji = "🍷"
+age_restricted = true
+keywords = ["vino", "vino tinto", "vino blanco", "vino rosado", "cabernet", "carmenere", "carménère", "merlot", "sauvignon", "chardonnay", "syrah", "malbec", "pinot", "ensamblaje", "sangría", "navegado"]
+
+[[concept]]
+id = "espumante"
+parent = "alcohol"
+name = "Espumante"
+emoji = "🥂"
+age_restricted = true
+keywords = ["espumante", "champagne", "champaña", "prosecco", "brut", "cava", "moscato"]
+
+[[concept]]
+id = "whisky"
+parent = "alcohol"
+name = "Whisky"
+emoji = "🥃"
+age_restricted = true
+keywords = ["whisky", "whiskey", "bourbon", "johnnie walker", "jack daniel", "chivas", "jameson", "ballantine"]
+
+[[concept]]
+id = "pisco"
+parent = "alcohol"
+name = "Pisco"
+emoji = "🍸"
+age_restricted = true
+keywords = ["pisco", "mistral", "alto del carmen", "capel", "control c", "piscola", "pisco sour"]
+
+[[concept]]
+id = "ron"
+parent = "alcohol"
+name = "Ron"
+emoji = "🥃"
+age_restricted = true
+keywords = ["ron", "rum", "havana club", "bacardi", "bacardí", "flor de caña", "captain morgan", "cachaça", "cachaca"]
+
+[[concept]]
+id = "gin"
+parent = "alcohol"
+name = "Gin"
+emoji = "🍸"
+age_restricted = true
+keywords = ["gin", "ginebra", "tanqueray", "bombay", "beefeater", "hendrick"]
+
+[[concept]]
+id = "vodka"
+parent = "alcohol"
+name = "Vodka"
+emoji = "🍸"
+age_restricted = true
+keywords = ["vodka", "absolut", "smirnoff", "stolichnaya", "grey goose"]
+
+[[concept]]
+id = "tequila"
+parent = "alcohol"
+name = "Tequila y mezcal"
+emoji = "🌵"
+age_restricted = true
+keywords = ["tequila", "mezcal", "jose cuervo", "josé cuervo", "olmeca"]
+
+[[concept]]
+id = "licores"
+parent = "alcohol"
+name = "Licores y aperitivos"
+emoji = "🍹"
+age_restricted = true
+keywords = ["licor", "crema de licor", "aperitivo", "aperol", "campari", "fernet", "jägermeister", "jagermeister", "baileys", "amaretto", "cognac", "coñac", "brandy", "aguardiente", "vermouth", "martini", "anís", "araucano", "manzanilla licor"]
+
+[[concept]]
+id = "cocteles"
+parent = "alcohol"
+name = "Cócteles listos"
+emoji = "🍹"
+age_restricted = true
+keywords = ["cóctel", "coctel", "cocktail", "hard seltzer", "seltzer", "mojito", "margarita", "spritz", "ready to drink"]
+
+# Bebidas sin alcohol
+[[concept]]
+id = "gaseosas"
+parent = "bebidas"
+name = "Bebidas gaseosas"
+emoji = "🥤"
+keywords = ["bebida", "gaseosa", "coca cola", "coca-cola", "sprite", "fanta", "pepsi", "bilz", "pap", "ginger ale", "agua tónica", "tónica", "seven up", "7up", "kem", "canada dry", "limón soda"]
+
+[[concept]]
+id = "jugos"
+parent = "bebidas"
+name = "Jugos y néctares"
+emoji = "🧃"
+keywords = ["jugo", "néctar", "nectar", "limonada", "refresco en polvo", "zuko", "watts", "andina del sur", "smoothie", "licuado"]
+
+[[concept]]
+id = "agua"
+parent = "bebidas"
+name = "Agua"
+emoji = "💧"
+keywords = ["agua mineral", "agua purificada", "agua sin gas", "agua con gas", "agua saborizada", "benedictino", "cachantun", "cachantún", "vital"]
+
+[[concept]]
+id = "energizantes"
+parent = "bebidas"
+name = "Energéticas e isotónicas"
+emoji = "⚡"
+keywords = ["energizante", "energética", "red bull", "monster", "isotónica", "gatorade", "powerade", "burn"]
+
+[[concept]]
+id = "cafe"
+parent = "bebidas"
+name = "Café"
+emoji = "☕"
+keywords = ["café", "cafe", "espresso", "cappuccino", "capuccino", "latte", "americano", "nescafé", "nescafe", "cápsulas de café", "moka", "frappé", "frappuccino", "mocaccino"]
+
+[[concept]]
+id = "te"
+parent = "bebidas"
+name = "Té e infusiones"
+emoji = "🍵"
+keywords = ["té verde", "té negro", "té rojo", "té de hierbas", "infusión", "yerba mate", "mate", "manzanilla", "hierbas", "chai", "matcha", "té helado"]
+
+[[concept]]
+id = "hielo"
+parent = "bebidas"
+name = "Hielo"
+emoji = "🧊"
+keywords = ["hielo", "cubos de hielo"]
+
+# Snacks
+[[concept]]
+id = "snacks-salados"
+parent = "snacks"
+name = "Snacks salados"
+emoji = "🥨"
+keywords = ["papas fritas", "chips", "ramitas", "suflitos", "doritos", "pringles", "lays", "lay's", "nachos", "cheetos", "cabritas", "pochoclos", "popcorn", "pretzel", "tortilla chips", "snack", "maní salado", "papas lisas", "papas corrugadas"]
+
+[[concept]]
+id = "frutos-secos"
+parent = "snacks"
+name = "Frutos secos"
+emoji = "🥜"
+keywords = ["frutos secos", "almendra", "nuez", "nueces", "maní", "pistacho", "castaña de cajú", "cajú", "avellana", "mix de frutos", "semillas de", "pasas", "arándanos deshidratados", "fruta deshidratada"]
+
+[[concept]]
+id = "galletas"
+parent = "snacks"
+name = "Galletas"
+emoji = "🍪"
+keywords = ["galleta", "oreo", "tritón", "triton", "obsesión", "kuky", "vino galleta", "criollitas", "soda galleta", "alfajor mini"]
+
+[[concept]]
+id = "barras-cereal"
+parent = "snacks"
+name = "Barras de cereal"
+emoji = "🥣"
+keywords = ["barra de cereal", "barrita", "barra de proteína", "barra proteica", "granola bar", "costa barra"]
+
+# Dulces
+[[concept]]
+id = "chocolates"
+parent = "dulces"
+name = "Chocolates"
+emoji = "🍫"
+keywords = ["chocolate", "bombón", "bombon", "trufa", "sahne nuss", "cadbury", "milka", "toblerone", "kinder", "ferrero", "rocher", "hershey", "m&m", "snickers", "twix", "kit kat", "super 8", "negrita", "cacao"]
+
+[[concept]]
+id = "golosinas"
+parent = "dulces"
+name = "Golosinas"
+emoji = "🍬"
+keywords = ["gomitas", "gomita", "caramelo", "chicle", "calugas", "marshmallow", "malvavisco", "chupete dulce", "mentitas", "alfajor", "dulces típicos", "turrón", "mazapán", "calugón"]
+
+[[concept]]
+id = "helados"
+parent = "dulces"
+name = "Helados"
+emoji = "🍦"
+keywords = ["helado", "gelato", "paleta helada", "sorbete", "cassata", "sundae", "mcflurry", "barquillo"]
+
+[[concept]]
+id = "postres"
+parent = "dulces"
+name = "Postres"
+emoji = "🍮"
+keywords = ["postre", "flan", "mousse", "tiramisú", "tiramisu", "cheesecake", "leche asada", "suspiro limeño", "panqueque", "brownie", "gelatina", "arroz con leche", "tres leches", "crème brûlée", "creme brulee", "volcán de chocolate", "copa de helado"]
+
+[[concept]]
+id = "pasteleria"
+parent = "dulces"
+name = "Tortas y pastelería"
+emoji = "🎂"
+keywords = ["torta", "pastel", "kuchen", "queque", "cupcake", "muffin", "dona", "donut", "croissant", "medialuna", "berlín", "berlin", "pie de limón", "tarta dulce", "cinnamon roll", "rollo de canela", "macarons", "pastelito"]
+
+[[concept]]
+id = "untables-dulces"
+parent = "dulces"
+name = "Manjar, mermeladas y miel"
+emoji = "🍯"
+keywords = ["manjar", "dulce de leche", "mermelada", "nutella", "miel", "crema de avellana", "leche condensada", "mantequilla de maní"]
+
+# Despensa
+[[concept]]
+id = "pastas"
+parent = "despensa"
+name = "Pastas"
+emoji = "🍝"
+keywords = ["pasta", "fideos", "spaghetti", "espagueti", "tallarines", "lasaña", "lasagna", "ravioles", "raviolis", "ñoquis", "gnocchi", "fettuccine", "fetuccini", "penne", "canelones", "carbonara", "bolognesa", "bolognese", "sorrentinos", "tortellini", "mac and cheese"]
+
+[[concept]]
+id = "arroz-legumbres"
+parent = "despensa"
+name = "Arroz, legumbres y granos"
+emoji = "🍚"
+keywords = ["arroz", "porotos", "lentejas", "garbanzos", "quinoa", "quínoa", "legumbres", "granos", "cuscús", "chía"]
+
+[[concept]]
+id = "aceites-condimentos"
+parent = "despensa"
+name = "Aceites y condimentos"
+emoji = "🧂"
+keywords = ["aceite", "aceite de oliva", "vinagre", "sal de mar", "pimienta", "especias", "orégano", "comino", "merkén", "merken", "aliño", "condimento", "ajo en polvo", "paprika", "canela molida"]
+
+[[concept]]
+id = "salsas"
+parent = "despensa"
+name = "Salsas y aderezos"
+emoji = "🥫"
+keywords = ["salsa", "ketchup", "kétchup", "mayonesa", "mostaza", "pesto", "salsa de tomate", "salsa de soya", "salsa de soja", "ají", "aji", "dip", "aderezo", "barbecue", "bbq", "sriracha", "chimichurri", "pebre"]
+
+[[concept]]
+id = "conservas"
+parent = "despensa"
+name = "Conservas"
+emoji = "🥫"
+keywords = ["conserva", "atún", "atun", "jurel", "sardinas", "enlatado", "choclo en conserva", "arvejas en conserva", "durazno en conserva", "palmitos", "paté", "pate", "champiñones laminados"]
+
+[[concept]]
+id = "reposteria"
+parent = "despensa"
+name = "Harinas y repostería"
+emoji = "🧁"
+keywords = ["harina", "polvos de hornear", "levadura", "esencia de vainilla", "colorante", "chantilly", "cobertura", "mezcla para torta", "premezcla", "maicena", "chips de chocolate"]
+
+[[concept]]
+id = "azucar"
+parent = "despensa"
+name = "Azúcar y endulzantes"
+emoji = "🍬"
+keywords = ["azúcar", "azucar", "endulzante", "stevia", "sucralosa", "sacarina", "chancaca"]
+
+[[concept]]
+id = "cereales"
+parent = "despensa"
+name = "Cereales y avena"
+emoji = "🥣"
+keywords = ["cereal", "avena", "granola", "muesli", "corn flakes", "chocapic", "zucaritas", "trix", "fitness cereal", "hojuelas"]
+
+[[concept]]
+id = "sopas"
+parent = "despensa"
+name = "Sopas y caldos"
+emoji = "🍜"
+keywords = ["sopa", "crema de", "caldo", "cubo de caldo", "sopa instantánea", "sopaipa", "consomé", "cazuela", "carbonada", "sopa de pollo"]
+
+# Frescos
+[[concept]]
+id = "frutas"
+parent = "frescos"
+name = "Frutas"
+emoji = "🍎"
+keywords = ["fruta", "frutas", "manzana", "plátano", "platano", "frutilla", "uva", "pera", "limón", "limon", "kiwi", "palta", "arándano", "frambuesa", "mango", "piña", "sandía", "melón", "durazno", "cereza", "mandarina", "naranja fresca", "frutas y verduras"]
+
+[[concept]]
+id = "verduras"
+parent = "frescos"
+name = "Verduras"
+emoji = "🥦"
+keywords = ["verdura", "lechuga", "tomate", "cebolla", "zanahoria", "zapallo", "pimentón", "brócoli", "brocoli", "espinaca", "pepino", "zapallo italiano", "apio", "betarraga", "coliflor", "champiñón", "papa", "papas", "ajo", "cilantro", "perejil", "choclo", "hortalizas", "tubérculos"]
+
+[[concept]]
+id = "carnes"
+parent = "frescos"
+name = "Carnes y parrilla"
+emoji = "🥩"
+keywords = ["carne", "vacuno", "lomo liso", "lomo vetado", "posta", "asado de tira", "asado", "costillar", "cerdo", "chuleta", "cordero", "carne molida", "filete", "entraña", "plateada", "malaya", "punta paleta", "abastero", "parrillada", "lomo a lo pobre", "bife", "churrasco de vacuno", "costillas", "pulled pork", "brisket", "res"]
+
+[[concept]]
+id = "pollo"
+parent = "frescos"
+name = "Pollo"
+emoji = "🍗"
+keywords = ["pollo", "pechuga", "trutro", "alitas", "nuggets", "pavo", "chicken", "tenders", "pollo asado", "pollo frito", "broaster", "kfc"]
+
+[[concept]]
+id = "pescados-mariscos"
+parent = "frescos"
+name = "Pescados y mariscos"
+emoji = "🐟"
+keywords = ["pescado", "salmón", "salmon", "reineta", "merluza", "congrio", "corvina", "camarón", "camarones", "mariscos", "choritos", "machas", "pulpo", "calamar", "ostiones", "jaiba", "ceviche", "fish and chips", "fish & chips"]
+
+[[concept]]
+id = "lacteos"
+parent = "frescos"
+name = "Leche y yogur"
+emoji = "🥛"
+keywords = ["leche", "yogur", "yoghurt", "yogurt", "mantequilla", "margarina", "crema de leche", "leche vegetal", "leche de almendras", "bebida de avena", "kéfir", "leche en polvo", "leche cultivada", "quesillo"]
+
+[[concept]]
+id = "quesos"
+parent = "frescos"
+name = "Quesos"
+emoji = "🧀"
+keywords = ["queso", "gouda", "mantecoso", "parmesano", "mozzarella", "mozarella", "cheddar", "brie", "camembert", "queso crema", "ricotta", "roquefort", "edam", "provoleta", "tabla de quesos"]
+
+[[concept]]
+id = "huevos"
+parent = "frescos"
+name = "Huevos"
+emoji = "🥚"
+keywords = ["huevo", "huevos", "huevos de campo"]
+
+[[concept]]
+id = "panaderia"
+parent = "frescos"
+name = "Pan"
+emoji = "🍞"
+keywords = ["pan", "marraqueta", "hallulla", "baguette", "pan de molde", "tortilla de trigo", "pan pita", "pan integral", "pan amasado", "ciabatta", "focaccia", "bagel", "pan brioche", "tostadas", "masa madre"]
+
+[[concept]]
+id = "fiambres"
+parent = "frescos"
+name = "Fiambres y embutidos"
+emoji = "🥓"
+keywords = ["jamón", "jamon", "salame", "fiambre", "embutido", "salchicha", "vienesa", "chorizo", "longaniza", "tocino", "prosciutto", "pastrami", "mortadela", "arrollado", "prieta", "charcutería", "charcuteria"]
+
+[[concept]]
+id = "vegano"
+parent = "frescos"
+name = "Alternativas vegetales"
+emoji = "🌱"
+keywords = ["vegano", "vegana", "vegetariano", "vegetariana", "veggie", "plant based", "tofu", "seitán", "seitan", "soya texturizada", "hamburguesa vegetal", "carne vegetal", "not burger", "notco"]
+
+# Comida preparada
+[[concept]]
+id = "pizza"
+parent = "comida"
+name = "Pizza"
+emoji = "🍕"
+keywords = ["pizza", "pizzas", "calzone", "pizzeta", "napolitana", "margarita pizza", "pepperoni", "tartas saladas"]
+
+[[concept]]
+id = "hamburguesa"
+parent = "comida"
+name = "Hamburguesa"
+emoji = "🍔"
+keywords = ["hamburguesa", "burger", "cheeseburger", "whopper", "big mac", "smash", "cuarto de libra", "doble queso"]
+
+[[concept]]
+id = "sushi"
+parent = "comida"
+name = "Sushi"
+emoji = "🍣"
+keywords = ["sushi", "roll", "rolls", "nigiri", "sashimi", "handroll", "hand roll", "maki", "gohan", "uramaki", "tempura roll", "california roll"]
+
+[[concept]]
+id = "sandwiches"
+parent = "comida"
+name = "Sándwiches y completos"
+emoji = "🥪"
+keywords = ["sándwich", "sandwich", "churrasco", "barros luco", "barros jarpa", "chacarero", "completos", "completo italiano", "hot dog", "lomito", "wrap", "chacarera", "ave palta", "ave mayo"]
+
+[[concept]]
+id = "empanadas"
+parent = "comida"
+name = "Empanadas"
+emoji = "🥟"
+keywords = ["empanada", "empanadas", "pino", "empanada de queso", "empanadita"]
+
+[[concept]]
+id = "asiatica"
+parent = "comida"
+name = "Comida asiática"
+emoji = "🥡"
+keywords = ["wok", "chapsui", "chapsuy", "arroz chaufán", "chaufán", "chaufa", "ramen", "pad thai", "gyoza", "gyozas", "dim sum", "curry", "teriyaki", "kung pao", "arrollado primavera", "wantán", "wantan", "bao", "yakisoba", "pollo agridulce", "comida china", "comida thai", "coreana", "bibimbap"]
+
+[[concept]]
+id = "mexicana"
+parent = "comida"
+name = "Comida mexicana"
+emoji = "🌮"
+keywords = ["taco", "tacos", "burrito", "quesadilla", "fajita", "enchilada", "guacamole", "nachos con", "chilaquiles", "tex mex", "mexicana"]
+
+[[concept]]
+id = "peruana"
+parent = "comida"
+name = "Comida peruana"
+emoji = "🇵🇪"
+keywords = ["lomo saltado", "ají de gallina", "causa", "anticucho", "tiradito", "papa a la huancaína", "huancaína", "chicharrón de pescado", "jalea", "peruana", "arroz chaufa"]
+
+[[concept]]
+id = "arabe"
+parent = "comida"
+name = "Comida árabe"
+emoji = "🥙"
+keywords = ["shawarma", "kebab", "hummus", "falafel", "tabule", "pita rellena", "árabe", "arabe", "shawarmas"]
+
+[[concept]]
+id = "ensaladas-bowls"
+parent = "comida"
+name = "Ensaladas y bowls"
+emoji = "🥗"
+keywords = ["ensalada", "bowl", "poke", "poké", "ensaladas", "saludable", "buddha bowl", "acai", "açaí"]
+
+[[concept]]
+id = "desayuno"
+parent = "comida"
+name = "Desayunos y brunch"
+emoji = "🥞"
+keywords = ["desayuno", "brunch", "huevos revueltos", "pancakes", "waffles", "avocado toast", "tostada con palta", "omelette", "huevos benedictinos"]
+
+[[concept]]
+id = "picoteo"
+parent = "comida"
+name = "Picoteo y tablas"
+emoji = "🍟"
+keywords = ["chorrillana", "picoteo", "tabla", "papas rústicas", "aros de cebolla", "fritos", "papas con queso", "salchipapa"]
+
+[[concept]]
+id = "platos-listos"
+parent = "comida"
+name = "Platos listos"
+emoji = "🍱"
+keywords = ["plato preparado", "listo para comer", "comida preparada", "platos listos", "listos para calentar", "listo para cocinar", "almuerzo", "menú del día", "colación", "pastel de choclo", "charquicán", "porotos granados", "lasaña congelada"]
+
+[[concept]]
+id = "latina"
+parent = "comida"
+name = "Comida latina"
+emoji = "🫓"
+keywords = ["arepa", "arepas", "tequeños", "cachapa", "pupusa", "patacón", "pastelitos venezolanos", "reina pepiada", "empanada venezolana", "tamal"]
+
+# Bebé
+[[concept]]
+id = "panales"
+parent = "bebe"
+name = "Pañales y toallitas"
+emoji = "🧷"
+keywords = ["pañal", "pañales", "toallitas húmedas", "huggies", "pampers", "babysec", "pañal para adulto"]
+
+[[concept]]
+id = "alimentacion-bebe"
+parent = "bebe"
+name = "Alimentación infantil"
+emoji = "🍼"
+keywords = ["fórmula infantil", "leche infantil", "papilla", "compota", "colado", "nan", "similac", "nestum", "alimento infantil"]
+
+[[concept]]
+id = "articulos-bebe"
+parent = "bebe"
+name = "Artículos de bebé"
+emoji = "🧸"
+keywords = ["mamadera", "chupete", "tetina", "mordedor", "babero", "coche de bebé", "silla de auto", "cuna", "extractor de leche", "ropa de bebé", "body de bebé", "pañalera", "bañera de bebé"]
+
+# Salud y cuidado personal
+[[concept]]
+id = "medicamentos"
+parent = "salud"
+name = "Medicamentos"
+emoji = "💊"
+sensitive = true
+keywords = ["paracetamol", "ibuprofeno", "aspirina", "antigripal", "jarabe", "remedio", "analgésico", "antiácido", "antiacido", "descongestionante", "suero oral", "resfrío", "resfriado", "dolor de cabeza", "fiebre", "tos", "gripe", "antialérgico", "migraña", "guata", "digestivo", "tapsin", "zolben", "kitadol"]
+
+[[concept]]
+id = "vitaminas"
+parent = "salud"
+name = "Vitaminas y suplementos"
+emoji = "💪"
+keywords = ["vitamina", "suplemento", "multivitamínico", "proteína", "whey", "creatina", "colágeno", "omega 3", "probiótico", "magnesio", "zinc", "melatonina"]
+
+[[concept]]
+id = "primeros-auxilios"
+parent = "salud"
+name = "Botiquín"
+emoji = "🩹"
+keywords = ["parche curita", "curitas", "venda", "gasa", "apósito", "alcohol gel", "termómetro", "algodón", "jeringa", "mascarilla", "tapabocas", "suero fisiológico", "agua oxigenada", "botiquín"]
+
+[[concept]]
+id = "salud-sexual"
+parent = "salud"
+name = "Salud sexual"
+emoji = "🩺"
+sensitive = true
+keywords = ["preservativo", "condón", "condon", "lubricante", "prueba de embarazo", "test de embarazo", "anticonceptivo"]
+
+[[concept]]
+id = "higiene-femenina"
+parent = "salud"
+name = "Higiene femenina"
+emoji = "🌸"
+keywords = ["toalla higiénica", "toallas higiénicas", "tampón", "tampones", "copa menstrual", "protector diario", "calzón menstrual"]
+
+[[concept]]
+id = "cuidado-oral"
+parent = "salud"
+name = "Cuidado oral"
+emoji = "🪥"
+keywords = ["pasta dental", "crema dental", "cepillo de dientes", "cepillo dental", "enjuague bucal", "hilo dental", "colgate", "listerine", "oral-b"]
+
+[[concept]]
+id = "higiene-personal"
+parent = "salud"
+name = "Higiene personal"
+emoji = "🧼"
+keywords = ["shampoo", "champú", "acondicionador", "jabón", "jabon", "desodorante", "gel de ducha", "afeitadora", "máquina de afeitar", "crema de afeitar", "talco", "antitranspirante", "body wash", "rexona", "dove", "gillette"]
+
+[[concept]]
+id = "dermocosmetica"
+parent = "salud"
+name = "Dermocosmética y cuidado de la piel"
+emoji = "🧴"
+keywords = ["protector solar", "bloqueador", "crema facial", "humectante", "sérum", "serum", "agua micelar", "eucerin", "la roche-posay", "la roche posay", "vichy", "cerave", "avène", "antiacné", "contorno de ojos", "crema corporal", "exfoliante", "limpiador facial", "bálsamo labial"]
+
+# Belleza
+[[concept]]
+id = "maquillaje"
+parent = "belleza"
+name = "Maquillaje y uñas"
+emoji = "💄"
+keywords = ["maquillaje", "labial", "base de maquillaje", "máscara de pestañas", "rímel", "rimel", "sombra de ojos", "delineador", "rubor", "blush", "corrector", "polvo compacto", "iluminador", "esmalte", "brochas", "manicure", "pestañas postizas"]
+
+[[concept]]
+id = "fragancias"
+parent = "belleza"
+name = "Perfumes"
+emoji = "🌺"
+keywords = ["perfume", "colonia", "fragancia", "eau de parfum", "eau de toilette", "body splash", "body mist"]
+
+[[concept]]
+id = "cuidado-cabello"
+parent = "belleza"
+name = "Cuidado del cabello"
+emoji = "💇"
+keywords = ["tinte", "coloración", "secador de pelo", "plancha de pelo", "rizador", "gel para el pelo", "cera para el pelo", "tratamiento capilar", "keratina", "mascarilla capilar", "peineta", "cepillo de pelo"]
+
+# Hogar
+[[concept]]
+id = "limpieza"
+parent = "hogar"
+name = "Limpieza"
+emoji = "🧽"
+keywords = ["detergente", "lavaloza", "cloro", "limpiador", "desinfectante", "suavizante", "quitamanchas", "esponja", "lysol", "bolsas de basura", "insecticida", "limpiavidrios", "virutex", "cera para piso", "lavalozas", "cif", "omo", "ariel"]
+
+[[concept]]
+id = "papeles-desechables"
+parent = "hogar"
+name = "Papeles y desechables"
+emoji = "🧻"
+keywords = ["papel higiénico", "toalla de papel", "servilletas", "pañuelos desechables", "confort", "nova", "papel aluminio", "papel film", "bolsas herméticas", "vasos desechables", "platos desechables", "bolsas para hornear"]
+
+[[concept]]
+id = "cocina-menaje"
+parent = "hogar"
+name = "Cocina y menaje"
+emoji = "🍳"
+keywords = ["sartén", "sarten", "olla", "vajilla", "cubiertos", "utensilios de cocina", "termo", "tomatodo", "tupper", "hermético", "copas de vino", "vasos de vidrio", "tabla de picar", "cuchillo cocinero", "molde"]
+
+[[concept]]
+id = "electrohogar"
+parent = "hogar"
+name = "Electrohogar"
+emoji = "🔌"
+keywords = ["licuadora", "batidora", "tostadora", "microondas", "hervidor", "aspiradora", "plancha de ropa", "ventilador", "cafetera", "freidora de aire", "air fryer", "lavadora", "secadora", "sandwichera", "waflera"]
+
+[[concept]]
+id = "textil-hogar"
+parent = "hogar"
+name = "Textiles del hogar"
+emoji = "🛏️"
+keywords = ["ropa de cama", "sábanas", "plumón", "cobija", "manta", "almohada", "cortina", "cojín", "alfombra", "toalla de baño", "mantel"]
+
+[[concept]]
+id = "decoracion"
+parent = "hogar"
+name = "Decoración y fiestas"
+emoji = "🎉"
+keywords = ["vela", "difusor", "aromatizante", "ambientador", "decoración", "cuadro", "florero", "globos", "navidad", "halloween", "guirnalda", "cotillón"]
+
+[[concept]]
+id = "ferreteria"
+parent = "hogar"
+name = "Ferretería y electricidad"
+emoji = "🔧"
+keywords = ["ampolleta", "foco led", "pilas", "batería aa", "alargador", "herramienta", "cinta adhesiva", "pegamento", "candado", "linterna", "destornillador", "taladro", "enchufe", "tira led"]
+
+[[concept]]
+id = "muebles"
+parent = "hogar"
+name = "Muebles y organización"
+emoji = "🪑"
+keywords = ["mueble", "silla", "mesa de centro", "repisa", "organizador", "caja organizadora", "estante", "velador", "escritorio"]
+
+[[concept]]
+id = "jardin"
+parent = "hogar"
+name = "Plantas y jardín"
+emoji = "🪴"
+keywords = ["planta", "maceta", "tierra de hoja", "fertilizante", "semillas para plantar", "jardín", "manguera"]
+
+[[concept]]
+id = "automotriz"
+parent = "hogar"
+name = "Auto"
+emoji = "🚗"
+keywords = ["aceite de motor", "shampoo para auto", "cera para auto", "plumillas", "aromatizante para auto", "limpiaparabrisas", "accesorios para auto", "neumático", "refrigerante"]
+
+[[concept]]
+id = "carbon"
+parent = "hogar"
+name = "Carbón y leña"
+emoji = "🔥"
+keywords = ["carbón", "carbon", "leña", "briquetas", "encendedor de carbón", "parrilla portátil"]
+
+# Mascotas
+[[concept]]
+id = "alimento-perro"
+parent = "mascotas"
+name = "Alimento para perros"
+emoji = "🐕"
+keywords = ["alimento para perro", "comida para perro", "comida de perro", "perro", "perros", "cachorro", "dog chow", "pedigree", "master dog", "royal canin perro", "snack para perro"]
+
+[[concept]]
+id = "alimento-gato"
+parent = "mascotas"
+name = "Alimento para gatos"
+emoji = "🐈"
+keywords = ["alimento para gato", "comida para gato", "gato", "gatos", "felino", "whiskas", "cat chow", "arena para gatos", "arena sanitaria", "gatito"]
+
+[[concept]]
+id = "accesorios-mascota"
+parent = "mascotas"
+name = "Accesorios para mascotas"
+emoji = "🦴"
+keywords = ["mascota", "mascotas", "juguete para perro", "collar para perro", "correa para perro", "cama para perro", "rascador", "pipeta", "antipulgas", "comedero", "transportadora"]
+
+# Tabaco
+[[concept]]
+id = "cigarrillos"
+parent = "tabaco"
+name = "Cigarrillos"
+emoji = "🚬"
+sensitive = true
+age_restricted = true
+keywords = ["cigarrillo", "cigarrillos", "cajetilla", "marlboro", "lucky strike", "pall mall", "kent", "belmont", "philip morris", "habano", "puro", "tabaco"]
+
+[[concept]]
+id = "vapeo"
+parent = "tabaco"
+name = "Vapeo"
+emoji = "💨"
+sensitive = true
+age_restricted = true
+keywords = ["vape", "vaporizador", "pod", "e-liquid", "sales de nicotina", "desechable vape", "elf bar", "ignite", "nicotina"]
+
+[[concept]]
+id = "accesorios-fumador"
+parent = "tabaco"
+name = "Accesorios para fumar"
+emoji = "🔥"
+sensitive = true
+age_restricted = true
+keywords = ["papelillo", "papel para armar", "ocb", "raw papel", "encendedor", "grinder", "moledor", "pipa", "boquilla", "filtros para armar", "cenicero"]
+
+# Adultos
+[[concept]]
+id = "bienestar-sexual"
+parent = "adultos"
+name = "Bienestar sexual"
+emoji = "🔞"
+sensitive = true
+age_restricted = true
+keywords = ["vibrador", "dildo", "succionador", "masajeador íntimo", "juguete sexual", "juguetes sexuales", "lencería erótica", "bondage", "kit erótico", "feromonas", "estimulante sexual", "anillo vibrador", "plug anal"]
+
+# Moda
+[[concept]]
+id = "ropa"
+parent = "moda"
+name = "Ropa"
+emoji = "👕"
+keywords = ["polera", "camiseta", "pantalón", "jeans", "vestido", "falda", "chaqueta", "polerón", "hoodie", "blusa", "camisa", "short", "bikini", "traje de baño", "pijama", "calcetines", "calzas", "leggins", "parka", "abrigo", "sweater", "chaleco", "buzo"]
+
+[[concept]]
+id = "ropa-interior"
+parent = "moda"
+name = "Ropa interior"
+emoji = "🩲"
+keywords = ["calzón", "calzones", "bóxer", "boxer", "sostén", "brasier", "calzoncillo", "colaless", "peto", "body lencería"]
+
+[[concept]]
+id = "calzado"
+parent = "moda"
+name = "Calzado"
+emoji = "👟"
+keywords = ["zapatilla", "zapatillas", "zapato", "bota", "botín", "sandalia", "chala", "chalas", "pantufla", "mocasín", "tacones"]
+
+[[concept]]
+id = "joyeria"
+parent = "moda"
+name = "Joyería y relojes"
+emoji = "💍"
+keywords = ["aros", "aretes", "earcuff", "collar de plata", "cadena de plata", "pulsera", "tobillera", "anillo de plata", "reloj", "piercing", "dije", "charm", "bisutería", "joya", "plata 925", "acero quirúrgico"]
+
+[[concept]]
+id = "accesorios-moda"
+parent = "moda"
+name = "Carteras y accesorios"
+emoji = "👜"
+keywords = ["cartera", "bolso", "mochila", "billetera", "monedero", "cinturón", "gorro", "jockey", "lentes de sol", "bufanda", "maleta", "riñonera", "paraguas", "guantes de lana"]
+
+# Juguetes
+[[concept]]
+id = "juguetes-infantiles"
+parent = "juguetes"
+name = "Juguetes"
+emoji = "🧸"
+keywords = ["juguete", "juguetes", "muñeca", "peluche", "figura de acción", "lego", "bloques de construcción", "autito", "pistola de agua", "disfraz", "títere", "funko", "slime", "plasticina", "hot wheels", "barbie"]
+
+[[concept]]
+id = "juegos-mesa"
+parent = "juguetes"
+name = "Juegos de mesa"
+emoji = "🎲"
+keywords = ["juego de mesa", "rompecabezas", "puzzle", "naipes", "cartas uno", "monopoly", "jenga", "dominó", "ajedrez", "cachos", "metrópoli"]
+
+[[concept]]
+id = "videojuegos"
+parent = "juguetes"
+name = "Videojuegos"
+emoji = "🎮"
+keywords = ["videojuego", "playstation", "ps5", "ps4", "nintendo", "nintendo switch", "xbox", "control gamer", "gamer", "gaming"]
+
+# Tecnología
+[[concept]]
+id = "celulares"
+parent = "tecnologia"
+name = "Celulares y accesorios"
+emoji = "📱"
+keywords = ["celular", "smartphone", "iphone", "samsung galaxy", "cargador", "cable usb", "cable tipo c", "carcasa", "funda para celular", "protector de pantalla", "power bank", "batería externa", "soporte para celular", "smartwatch", "smartband"]
+
+[[concept]]
+id = "audio"
+parent = "tecnologia"
+name = "Audio"
+emoji = "🎧"
+keywords = ["audífonos", "audifonos", "parlante", "bocina", "micrófono", "radio", "equipo de sonido", "earbuds", "airpods", "soundbar"]
+
+[[concept]]
+id = "computacion"
+parent = "tecnologia"
+name = "Computación"
+emoji = "💻"
+keywords = ["notebook", "computador", "laptop", "tablet", "ipad", "teclado", "mouse", "monitor", "impresora", "disco duro", "pendrive", "memoria usb", "tarjeta de memoria", "tinta impresora", "antivirus"]
+
+[[concept]]
+id = "tv-video"
+parent = "tecnologia"
+name = "TV y video"
+emoji = "📺"
+keywords = ["televisor", "smart tv", "chromecast", "fire tv", "apple tv", "proyector", "decodificador", "cámara", "gopro", "soporte tv"]
+
+[[concept]]
+id = "musica"
+parent = "tecnologia"
+name = "Música e instrumentos"
+emoji = "🎸"
+keywords = ["guitarra", "ukelele", "teclado musical", "batería musical", "instrumento musical", "cd de música", "vinilo", "dvd", "percusión"]
+
+# Deportes
+[[concept]]
+id = "articulos-deportivos"
+parent = "deportes"
+name = "Artículos deportivos"
+emoji = "⚽"
+keywords = ["pesas", "mancuernas", "yoga", "pilates", "balón", "pelota de fútbol", "bicicleta", "casco", "patines", "skate", "carpa", "saco de dormir", "camping", "natación", "golf", "ping pong", "raqueta", "colchoneta", "banda elástica", "cuerda de saltar"]
+
+# Librería
+[[concept]]
+id = "utiles"
+parent = "libreria"
+name = "Útiles y oficina"
+emoji = "✏️"
+keywords = ["cuaderno", "lápiz", "lapiz", "bolígrafo", "destacador", "plumón", "cartulina", "tijeras", "corrector", "agenda", "carpeta", "archivador", "resma", "block de dibujo", "estuche escolar", "témpera", "acuarela"]
+
+[[concept]]
+id = "libros"
+parent = "libreria"
+name = "Libros y revistas"
+emoji = "📚"
+keywords = ["libro", "novela", "revista", "diccionario", "cuento", "cómic", "comic", "manga", "enciclopedia", "álbum de láminas"]
+
+[[concept]]
+id = "manualidades"
+parent = "libreria"
+name = "Manualidades y mercería"
+emoji = "🧶"
+keywords = ["lana", "ovillo", "palillos de tejer", "crochet", "hilo de bordar", "mostacillas", "manualidades", "glitter", "goma eva", "mercería"]
+
+# Regalos
+[[concept]]
+id = "flores-regalos"
+parent = "regalos"
+name = "Flores y regalos"
+emoji = "💐"
+keywords = ["flores", "ramo", "bouquet", "rosas", "arreglo floral", "caja de regalo", "gift card", "tarjeta de regalo", "desayuno sorpresa", "peluche de regalo"]
+
+# ─── Ocasiones: una necesidad que abarca varios conceptos ─────────────────────
+[[occasion]]
+id = "asado"
+name = "Asado"
+emoji = "🔥"
+keywords = ["asado", "parrilla", "parrillada", "quincho", "costillar al palo"]
+concepts = ["carnes", "carbon", "cerveza", "vino", "panaderia", "verduras", "salsas", "gaseosas"]
+
+[[occasion]]
+id = "carrete"
+name = "Carrete"
+emoji = "🎉"
+keywords = ["carrete", "fiesta", "previa", "junta", "cumpleaños", "celebrar", "piscola", "after"]
+concepts = ["cerveza", "pisco", "ron", "vodka", "gaseosas", "hielo", "snacks-salados", "picoteo"]
+
+[[occasion]]
+id = "regalo"
+name = "Regalo"
+emoji = "🎁"
+keywords = ["regalo", "regalar", "sorpresa", "aniversario", "día de la madre", "san valentín", "detalle para"]
+concepts = ["flores-regalos", "chocolates", "fragancias", "vino", "espumante", "joyeria", "juguetes-infantiles"]
+
+[[occasion]]
+id = "hambre"
+name = "Hambre ya"
+emoji = "🍽️"
+keywords = ["hambre", "tengo hambre", "almorzar", "cenar", "comida rápida", "algo rico", "delivery de comida", "para comer"]
+concepts = ["pizza", "hamburguesa", "sushi", "pollo", "sandwiches", "asiatica", "empanadas", "platos-listos"]
+
+[[occasion]]
+id = "guagua"
+name = "Guagua en casa"
+emoji = "👶"
+keywords = ["guagua", "bebé", "bebe", "recién nacido", "lactancia", "mi hijo chico"]
+concepts = ["panales", "alimentacion-bebe", "articulos-bebe", "dermocosmetica"]
+
+[[occasion]]
+id = "enfermo"
+name = "Me siento mal"
+emoji = "🤒"
+keywords = ["enfermo", "enferma", "me siento mal", "resfriado", "gripe", "dolor", "fiebre", "malestar", "cuidarme"]
+concepts = ["medicamentos", "sopas", "jugos", "te", "vitaminas", "frutas"]
+
+[[occasion]]
+id = "once"
+name = "Once"
+emoji = "☕"
+keywords = ["once", "onces", "tecito", "hora del té"]
+concepts = ["panaderia", "fiambres", "quesos", "cafe", "te", "pasteleria", "untables-dulces"]

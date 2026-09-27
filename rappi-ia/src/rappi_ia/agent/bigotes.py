@@ -1,0 +1,221 @@
+"""Bigotes: un turno de conversación = entender → herramientas → componer → verificar → registrar.
+
+Reglas de conducta (docs/diseno-ia.md §4) que se aplican aquí, en código:
+1. Solo productos recuperados de la base, con precio vigente.        → tools.search_products
+2. La respuesta sale del vertical actual; lo cruzado va aparte.       → `suggestion`
+3. Máximo 1 sugerencia cruzada por respuesta y 1 por tema por sesión. → `shown_topics`
+4. Si no encuentra, lo dice y lo marca como demanda no satisfecha.    → `unmet`
+5. Si es ambiguo entre verticales, pregunta.                          → intent "aclarar"
+6. Sensibles: nunca por iniciativa propia; +18 y farmacia con aviso.  → tools + avisos
+7. En modo "Rappi hoy" no hay sugerencias cruzadas ni aprendizaje.
+"""
+
+from dataclasses import dataclass, field
+
+from psycopg import Connection
+
+from ..concepts.taxonomy import load_taxonomy
+from ..embeddings.base import TextEmbedder
+from .compose import Draft, TemplateComposer
+from .tools import VERTICAL_LABELS, Suggestion, clp, products_for_keys, search_products, suggest_complement
+from .understand import Intent, Understander
+
+PROTOTYPE_VERTICALS = {  # ids del prototipo (prototipo-app/src/screens/vertical/data.js)
+    "supermercado": "grocery",
+    "licores": "liquor",
+    "farmacia": "pharmacy",
+    "mall": "retail",
+    "conveniencia": "express",
+    "turbo": "express",
+    "chocolateria": "chocolates",
+    "restaurantes": "restaurants",
+}
+
+
+@dataclass
+class Context:
+    vertical: str | None = None  # vertical de la pantalla actual (código del backend)
+    profile: dict[str, float] = field(default_factory=dict)  # interés por concepto
+    shown_topics: list[str] = field(default_factory=list)  # conceptos ya sugeridos en la sesión
+    mode: str = "propuesta"  # propuesta | actual ("Rappi hoy")
+
+
+class Bigotes:
+    def __init__(self, embedder: TextEmbedder | None = None, composer=None):
+        self.embedder = embedder
+        self.composer = composer or TemplateComposer()
+        self.understander = Understander()
+        self.taxonomy = load_taxonomy()
+
+    def reply(self, conn: Connection, message: str, ctx: Context | None = None) -> dict:
+        ctx = ctx or Context()
+        intent = self.understander.understand(conn, message, ctx.vertical)
+        if intent.kind in ("saludo", "gracias", "vacio"):
+            return self._small_talk(intent, ctx)
+        if intent.kind == "aclarar":
+            return self._clarify(intent)
+        vertical = intent.vertical or ctx.vertical or "supermercado"
+        search_query = self._search_query(intent)
+        outcome = search_products(conn, vertical, search_query, intent.concepts, self.embedder, intent.price_max)
+        products = outcome.products
+
+        suggestion = None
+        if ctx.mode == "propuesta" and products:
+            sources = intent.concepts or [p.concept for p in products[:1] if p.concept]
+            exclude = set(ctx.shown_topics) | set(intent.concepts)
+            suggestion = suggest_complement(conn, sources, vertical, self.embedder, exclude)
+
+        unmet = not products and outcome.result.unmet and intent.price_max is None
+        draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
+        text = self.composer.compose(draft)
+        return self._response(intent, vertical, text, products, suggestion, unmet, outcome.result.unmet_reason, draft)
+
+    def reply_voice(self, conn: Connection, transcript, ctx: Context | None = None) -> dict:
+        """`transcript`: resultado de audio.Transcriber. Si es dudoso, confirma antes de buscar."""
+        if transcript.discarded:
+            response = _base(Intent("vacio", ""), "No te escuché bien 🙉 ¿Me lo repites o lo escribes?")
+        elif transcript.needs_confirmation:
+            response = _base(Intent("aclarar", transcript.text), f"¿Dijiste «{transcript.text}»?")
+            response["actions"] = [{"label": "Sí, buscar", "query": transcript.text}]
+        else:
+            response = self.reply(conn, transcript.text, ctx)
+        response["transcript"] = {
+            "text": transcript.text,
+            "confidence": transcript.confidence,
+            "needs_confirmation": transcript.needs_confirmation,
+            "discarded": transcript.discarded,
+        }
+        return response
+
+    def reply_photo(self, conn: Connection, reading, similar: list[tuple], ctx: Context | None = None) -> dict:
+        """`reading`: photo.PhotoReading; `similar`: photo.similar_items (vertical, tipo, id, coseno)."""
+        ctx = ctx or Context()
+        if reading.concept:
+            concept = self.taxonomy.concepts[reading.concept]
+            response = self.reply(conn, concept.name, ctx)
+            response["text"] = f"Parece {concept.label.lower()} 📸. " + response["text"]
+        elif similar:
+            vertical = ctx.vertical or similar[0][0]
+            rows = [row for row in similar if row[0] == vertical]
+            products = products_for_keys(conn, vertical, [(t, i) for _, t, i, _ in rows], [c for *_, c in rows])
+            text = "No estoy seguro de qué es, pero encontré cosas parecidas a tu foto:" if products else ""
+            response = _base(
+                Intent("buscar", "foto", vertical), text or "No logré reconocer la foto 😿 ¿Me cuentas qué es?"
+            )
+            response.update(
+                vertical=vertical,
+                prototype_vertical=PROTOTYPE_VERTICALS.get(vertical),
+                products=[p.to_dict() for p in products],
+            )
+        else:
+            response = _base(Intent("vacio", "foto"), "No logré reconocer la foto 😿 ¿Me cuentas qué es?")
+        response["photo"] = {"concept": reading.concept, "probability": reading.probability}
+        return response
+
+    # ── Partes ────────────────────────────────────────────────────────────────
+    def _search_query(self, intent: Intent) -> str:
+        if intent.kind == "ocasion" and intent.occasion:
+            occasion = self.taxonomy.occasions[intent.occasion]
+            return " ".join(self.taxonomy.concepts[c].name for c in occasion.concepts[:4])
+        return intent.text
+
+    def _small_talk(self, intent: Intent, ctx: Context) -> dict:
+        interest = self._top_interest(ctx.profile) if ctx.mode == "propuesta" else None
+        label = self.taxonomy.concepts[interest].label.lower() if interest else None
+        text = self.composer.compose(Draft(kind=intent.kind, interest_label=label))
+        return _base(intent, text)
+
+    def _clarify(self, intent: Intent) -> dict:
+        concept = self.taxonomy.concepts[intent.concepts[0]]
+        labels = [VERTICAL_LABELS[v] for v in intent.options]
+        text = self.composer.compose(Draft(kind="aclarar", concept_label=concept.label, options=labels))
+        response = _base(intent, text)
+        response["actions"] = [
+            {
+                "label": "Pedir de un restaurante" if v == "restaurantes" else f"Comprar en {VERTICAL_LABELS[v]}",
+                "query": intent.text,
+                "vertical": v,
+                "route": PROTOTYPE_VERTICALS.get(v),
+            }
+            for v in intent.options
+        ]
+        return response
+
+    def _draft(self, intent, vertical, products, outcome, suggestion: Suggestion | None, unmet: bool) -> Draft:
+        concept = self.taxonomy.concepts.get(intent.concepts[0]) if intent.concepts else None
+        occasion = self.taxonomy.occasions.get(intent.occasion) if intent.occasion else None
+        if products:
+            kind = "resultados"
+        elif intent.price_max is not None:
+            kind = "sin_precio"
+        else:
+            kind = "sin_resultado"  # se dice igual; solo se registra como demanda si `unmet`
+        suggestion_concept = self.taxonomy.concepts.get(suggestion.concept) if suggestion else None
+        return Draft(
+            kind=kind,
+            query=intent.text,
+            concept_label=_label(occasion, concept),
+            vertical_label=VERTICAL_LABELS.get(vertical, vertical),
+            product_names=[p.name for p in products],
+            price_max=clp(intent.price_max),
+            cheapest=clp(outcome.cheapest_without_filter.price_value) if outcome.cheapest_without_filter else None,
+            suggestion_reason=suggestion.reason if suggestion else None,
+            suggestion_label=suggestion_concept.label.lower() if suggestion_concept else None,
+            age_notice=any(p.age_restricted for p in products),
+            pharmacy_notice=vertical == "farmacia" or "medicamentos" in intent.concepts,
+            unmet=unmet,
+        )
+
+    def _response(self, intent, vertical, text, products, suggestion, unmet, unmet_reason, draft: Draft) -> dict:
+        response = _base(intent, text)
+        response.update(
+            vertical=vertical,
+            prototype_vertical=PROTOTYPE_VERTICALS.get(vertical),
+            products=[p.to_dict() for p in products],
+            unmet=unmet,
+            unmet_reason=unmet_reason if unmet else None,
+            age_notice=draft.age_notice,
+        )
+        if suggestion:
+            response["suggestion"] = {
+                "reason": suggestion.reason,
+                "vertical": suggestion.vertical,
+                "prototype_vertical": PROTOTYPE_VERTICALS.get(suggestion.vertical),
+                "concept": suggestion.concept,
+                "products": [p.to_dict() for p in suggestion.products],
+            }
+            response["reason"] = suggestion.reason  # el prototipo muestra `reason` en el primer nivel
+            response["age_notice"] = response["age_notice"] or any(p.age_restricted for p in suggestion.products)
+        return response
+
+    def _top_interest(self, profile: dict[str, float]) -> str | None:
+        concepts = self.taxonomy.concepts
+        allowed = {c: s for c, s in profile.items() if c in concepts and not concepts[c].sensitive}
+        return max(allowed, key=allowed.get) if allowed else None
+
+
+def _base(intent: Intent, text: str) -> dict:
+    return {
+        "text": text,
+        "products": [],
+        "stores": [],
+        "actions": [],
+        "reason": None,
+        "tags": intent.concepts,
+        "intent": {
+            "kind": intent.kind,
+            "vertical": intent.vertical,
+            "concepts": intent.concepts,
+            "occasion": intent.occasion,
+            "price_max": intent.price_max,
+            "confidence": intent.confidence,
+        },
+        "unmet": False,
+        "age_notice": False,
+    }
+
+
+def _label(occasion, concept) -> str | None:
+    if occasion:
+        return f"{occasion.name.lower()} {occasion.emoji}"
+    return concept.label if concept else None

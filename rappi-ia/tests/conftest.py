@@ -1,0 +1,82 @@
+import zlib
+
+import pytest
+
+from rappi_ia.db import connect, database_url, migrate
+
+
+@pytest.fixture
+def db():
+    """Conexión a `rappi_ia_test` con el esquema recreado desde cero para cada test.
+
+    Base propia (no `rappi_test`) para que los tests de rappi-ia y del scraper no se pisen.
+    """
+    try:
+        url = database_url("DATABASE_URL_TEST")
+    except RuntimeError:
+        pytest.skip("DATABASE_URL_TEST no configurada")
+    if not url.rstrip("/").endswith("rappi_ia_test"):
+        pytest.fail(f"Por seguridad los tests solo borran la base rappi_ia_test, no {url}")
+    with connect(url) as conn:
+        conn.execute("DROP SCHEMA public CASCADE")
+        conn.execute("CREATE SCHEMA public")
+        conn.commit()
+        migrate(conn)
+        yield conn
+        conn.rollback()
+
+
+def add_store(conn, store_id: int, vertical: str, name: str = "Tienda") -> None:
+    conn.execute(
+        "INSERT INTO stores (store_id, name, store_type, path) VALUES (%s, %s, %s, %s)",
+        (store_id, name, f"tipo_{store_id}", f"/tiendas/{store_id}"),
+    )
+    conn.execute("INSERT INTO store_verticals (store_id, vertical) VALUES (%s, %s)", (store_id, vertical))
+
+
+def add_product(conn, product_id: int, name: str, store_id: int, category: str | None = None) -> None:
+    category_id = None
+    if category:
+        category_id = conn.execute(
+            """INSERT INTO categories (category_id, name)
+               VALUES ((SELECT coalesce(max(category_id), 0) + 1 FROM categories), %s)
+               RETURNING category_id""",
+            (category,),
+        ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO catalog_items (master_product_id, name, category_id) VALUES (%s, %s, %s)",
+        (product_id, name, category_id),
+    )
+    conn.execute(
+        "INSERT INTO store_products (store_id, sku, master_product_id) VALUES (%s, %s, %s)",
+        (store_id, f"sku-{product_id}", product_id),
+    )
+
+
+def add_dish(conn, item_id: int, name: str, store_id: int, section: str, cuisines=()) -> None:
+    section_id = zlib.crc32(section.encode()) % 100_000
+    conn.execute(
+        """INSERT INTO menu_sections (store_id, section_id, name, position)
+           VALUES (%s, %s, %s, 0) ON CONFLICT DO NOTHING""",
+        (store_id, section_id, section),
+    )
+    conn.execute(
+        "INSERT INTO menu_items (item_id, store_id, section_id, name) VALUES (%s, %s, %s, %s)",
+        (item_id, store_id, section_id, name),
+    )
+    for cuisine in cuisines:
+        conn.execute("INSERT INTO cuisines (name) VALUES (%s) ON CONFLICT DO NOTHING", (cuisine,))
+        conn.execute(
+            "INSERT INTO restaurant_cuisines (store_id, cuisine) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (store_id, cuisine),
+        )
+
+
+def add_price(conn, store_id: int, product_id: int, price: float) -> None:
+    run_id = conn.execute(
+        "INSERT INTO scrape_runs (kind, status) VALUES ('stores', 'done') RETURNING run_id"
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO price_snapshots (run_id, store_id, sku, price, in_stock) VALUES (%s, %s, %s, %s, true)",
+        (run_id, store_id, f"sku-{product_id}", price),
+    )

@@ -1,0 +1,38 @@
+import csv
+
+from rappi_ia.concepts.store import CATEGORY_MAP_CSV, NO_CONCEPT
+from rappi_ia.concepts.taxonomy import load_complements, load_taxonomy
+
+
+def test_taxonomy_loads_with_unique_ids_and_valid_parents():
+    taxonomy = load_taxonomy()
+    assert len(taxonomy.concepts) >= 100
+    assert all(c.parent in taxonomy.groups for c in taxonomy.concepts.values())
+    assert not taxonomy.groups.keys() & taxonomy.concepts.keys()
+
+
+def test_sensitive_and_age_flags():
+    concepts = load_taxonomy().concepts
+    for concept_id in ("medicamentos", "cigarrillos", "vapeo", "bienestar-sexual", "salud-sexual"):
+        assert concepts[concept_id].sensitive, concept_id
+    for concept_id in ("cerveza", "vino", "pisco", "cigarrillos", "bienestar-sexual"):
+        assert concepts[concept_id].age_restricted, concept_id
+    assert not concepts["snacks-salados"].sensitive
+
+
+def test_curated_complements_reference_existing_concepts():
+    edges = load_complements()
+    assert ("cerveza", "snacks-salados", 0.9) in edges
+    assert all(source != target for source, target, _ in edges)
+
+
+def test_category_map_csv_uses_known_concepts():
+    known = set(load_taxonomy().concepts) | {NO_CONCEPT}
+    with CATEGORY_MAP_CSV.open(encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) > 800
+    unknown = {r["concept_id"] for r in rows} - known
+    assert not unknown
+    assert {r["tipo"] for r in rows} == {"categoria", "seccion_menu", "cocina"}
+    assert all(0 <= float(r["confianza"]) <= 1 for r in rows)
+    assert all(r["metodo"] in {"llm", "curado"} for r in rows)
