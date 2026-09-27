@@ -55,4 +55,10 @@ def test_multiword_needs_whole_phrase():
 def test_matches_are_ranked_by_specificity_then_position():
     m = KeywordMatcher([("x", "leche"), ("y", "leche condensada"), ("z", "manjar")])
     found = [match.target for match in m.matches("manjar y leche condensada")]
-    assert found == ["y", "z", "x"]
+    assert found == ["y", "z"]  # "leche" queda dentro de "leche condensada"
+    assert [x.target for x in m.matches("leche y manjar")] == ["x", "z"]
+
+
+def test_overlapping_matches_keep_only_the_most_specific():
+    m = KeywordMatcher([("snack", "papas fritas"), ("verdura", "papas"), ("cerveza", "cervezas")])
+    assert [x.target for x in m.matches("cervezas y papas fritas")] == ["snack", "cerveza"]

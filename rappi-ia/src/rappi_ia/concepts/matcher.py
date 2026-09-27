@@ -40,7 +40,16 @@ class KeywordMatcher:
                         best = found.get(target)
                         if best is None or _rank(match) > _rank(best):
                             found[target] = match
-        return sorted(found.values(), key=_rank, reverse=True)
+        # Sin solapes: si "papas fritas" (snacks) calzó, "papas" (verduras) en las mismas palabras no cuenta.
+        covered: set[int] = set()
+        result = []
+        for match in sorted(found.values(), key=_rank, reverse=True):
+            span = set(range(match.position, match.position + match.words))
+            if span & covered:
+                continue
+            covered |= span
+            result.append(match)
+        return result
 
     def best(self, text: str) -> Match | None:
         found = self.matches(text)

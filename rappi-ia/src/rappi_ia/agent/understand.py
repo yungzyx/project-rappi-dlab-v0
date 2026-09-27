@@ -47,6 +47,7 @@ class Intent:
     confidence: float = 0.0
     options: list[str] = field(default_factory=list)  # verticales candidatos cuando hay que aclarar
     explicit_vertical: bool = False
+    explicit_concepts: bool = False  # los conceptos se nombraron (no vienen solo de la ocasión)
 
 
 class Understander:
@@ -73,22 +74,40 @@ class Understander:
         concepts = [m.target for m in concept_matches]
         mention = self.verticals.best(body)
 
+        explicit = bool(concepts)
         if occasion and not concepts:
             concepts = list(self.taxonomy.occasions[occasion.target].concepts)
         kind = "ocasion" if occasion else "buscar"
         confidence = 0.9 if concept_matches else (0.7 if occasion else 0.3)
 
         if mention:
-            return Intent(kind, text, mention.target, concepts, _id(occasion), price_max, confidence, [], True)
+            return Intent(
+                kind, text, mention.target, concepts, _id(occasion), price_max, confidence, [], True, explicit
+            )
         if current_vertical:
-            return Intent(kind, text, current_vertical, concepts, _id(occasion), price_max, confidence)
+            return Intent(
+                kind, text, current_vertical, concepts, _id(occasion), price_max, confidence, [], False, explicit
+            )
         if not concepts:
             return Intent(kind, text, None, [], _id(occasion), price_max, confidence)
 
         options = _verticals_for(conn, concepts[0])
         if len(options) >= 2 and "restaurantes" in options[:2] and _comparable(conn, concepts[0], options[:2]):
-            return Intent("aclarar", text, None, concepts, _id(occasion), price_max, confidence, options[:2])
-        return Intent(kind, text, options[0] if options else None, concepts, _id(occasion), price_max, confidence)
+            return Intent(
+                "aclarar", text, None, concepts, _id(occasion), price_max, confidence, options[:2], False, explicit
+            )
+        return Intent(
+            kind,
+            text,
+            options[0] if options else None,
+            concepts,
+            _id(occasion),
+            price_max,
+            confidence,
+            [],
+            False,
+            explicit,
+        )
 
 
 def _strip_greeting(normalized: str) -> str:

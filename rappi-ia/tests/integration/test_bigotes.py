@@ -93,3 +93,11 @@ def test_greeting_mentions_only_non_sensitive_interests(bigotes):
     hello = agent.reply(db, "hola", Context(profile={"cerveza": 3.0, "cigarrillos": 9.0}))
     assert "cerveza" in hello["text"] and "cigarrillo" not in hello["text"].lower()
     assert "Veo que" not in agent.reply(db, "hola", Context(profile={"cigarrillos": 9.0}))["text"]
+
+
+def test_explicit_request_wins_over_occasion(bigotes):
+    agent, db = bigotes
+    r = agent.reply(db, "cervezas y papas fritas para el carrete", Context(vertical="licores"))
+    assert r["intent"]["kind"] == "ocasion" and r["intent"]["occasion"] == "carrete"
+    assert set(r["intent"]["concepts"]) == {"cerveza", "snacks-salados"}
+    assert {p["concept"] for p in r["products"]} <= {"cerveza", "snacks-salados"}

@@ -114,7 +114,8 @@ class Bigotes:
 
     # ── Partes ────────────────────────────────────────────────────────────────
     def _search_query(self, intent: Intent) -> str:
-        if intent.kind == "ocasion" and intent.occasion:
+        """Lo que se pidió explícitamente manda; la ocasión solo completa cuando no se nombró nada."""
+        if intent.kind == "ocasion" and intent.occasion and not intent.explicit_concepts:
             occasion = self.taxonomy.occasions[intent.occasion]
             return " ".join(self.taxonomy.concepts[c].name for c in occasion.concepts[:4])
         return intent.text

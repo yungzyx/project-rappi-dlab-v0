@@ -90,7 +90,7 @@ def search_products(
 ) -> SearchOutcome:
     result = retrieve(conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), concepts=concepts)
     hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts)], concepts, result.unmet)
-    products = _with_prices(conn, vertical, hits)[:k]
+    products = _dedupe(_with_prices(conn, vertical, hits))[:k]
     cheapest = None
     if not products and price_max is not None:
         unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, concepts=concepts)
@@ -127,12 +127,24 @@ def suggest_complement(
             continue
         for vertical in _verticals_for(conn, target, current_vertical):
             outcome = search_products(conn, vertical, concept.name, [target], embedder, k=4)
-            products = [p for p in outcome.products if p.concept == target]
+            products = _dedupe([p for p in outcome.products if p.concept == target])
             if products:
                 origin = taxonomy.concepts[source]
                 reason = f"Porque llevas {origin.emoji} {origin.name.lower()}"
                 return Suggestion(target, source, vertical, reason, products[:3])
     return None
+
+
+def _dedupe(products: list[Product]) -> list[Product]:
+    """Un solo producto por nombre (el catálogo repite nombres entre presentaciones y tiendas)."""
+    seen: set[str] = set()
+    unique = []
+    for product in products:
+        key = " ".join(product.name.lower().split())
+        if key not in seen:
+            seen.add(key)
+            unique.append(product)
+    return unique
 
 
 def _focus(hits, concepts: list[str], unmet: bool):
