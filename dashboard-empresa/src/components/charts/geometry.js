@@ -2,16 +2,18 @@
 const RADIUS = 4
 
 /** Paso "redondo" (1, 2, 2,5 o 5 × 10^n) que cubre `raw`. */
-export function niceStep(raw) {
+export function niceStep(raw, { integer = false } = {}) {
   if (!(raw > 0)) return 1
   const power = 10 ** Math.floor(Math.log10(raw))
-  const factor = [1, 2, 2.5, 5, 10].find((candidate) => candidate * power >= raw - 1e-9)
-  return factor * power
+  // Conteos (pedidos, usuarios): sin pasos fraccionarios ("0,25 pedidos") ni de 2,5.
+  const factors = integer ? [1, 2, 5, 10] : [1, 2, 2.5, 5, 10]
+  const factor = factors.find((candidate) => candidate * power >= raw - 1e-9)
+  return integer ? Math.max(1, factor * power) : factor * power
 }
 
 /** Marcas del eje desde 0 hasta un máximo redondo que cubre `max`. */
-export function niceTicks(max, count = 4) {
-  const step = niceStep(max / count)
+export function niceTicks(max, count = 4, { integer = false } = {}) {
+  const step = niceStep(max / count, { integer })
   const top = Math.max(step, Math.ceil(max / step - 1e-9) * step)
   const ticks = []
   for (let index = 0; index * step <= top + 1e-9; index += 1) ticks.push(Number((index * step).toFixed(6)))

@@ -249,6 +249,63 @@ describe('lo aprendido y Olvidar', () => {
     expect(api.forget).toHaveBeenCalledTimes(1)
   })
 
+  test('Olvidar espera la foto en camino antes del DELETE (el servidor la registra al responder)', async () => {
+    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
+    api.health.mockResolvedValue({ voz: true, fotos: true })
+    const pendingPhoto = deferred()
+    api.chatPhoto.mockReturnValueOnce(pendingPhoto.promise)
+    URL.createObjectURL = () => 'blob:foto'
+    await renderPanel()
+    const photo = new File(['x'], 'foto.jpg', { type: 'image/jpeg' })
+    fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [photo] } })
+    await advance(100)
+    expect(api.chatPhoto).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByText('Olvidar'))
+    await advance(100)
+    expect(api.forget).not.toHaveBeenCalled()
+
+    pendingPhoto.resolve(apiAnswer('Parece cerveza'))
+    await runUntilIdle()
+    expect(api.forget).toHaveBeenCalledTimes(1)
+    delete URL.createObjectURL
+  })
+
+  test('Olvidar con audio ya subido espera al servidor (sin abortar) e ignora su respuesta', async () => {
+    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
+    mockMic(vi.fn(async () => fakeStream()))
+    const transcription = deferred()
+    api.chatVoice.mockReturnValueOnce(transcription.promise)
+    await renderPanel()
+    fireEvent.click(screen.getByLabelText('Hablar'))
+    await advance(10)
+    fireEvent.click(screen.getByText('Listo'))
+    await advance(10)
+    fireEvent.click(screen.getByText('Olvidar'))
+    await advance(100)
+    expect(api.forget).not.toHaveBeenCalled()
+    expect(api.chatVoice.mock.calls[0][2].signal.aborted).toBe(false)
+
+    transcription.resolve({ text: 'Mira estas cervezas', products: [], transcript: { text: 'quiero cerveza' } })
+    await runUntilIdle()
+    expect(api.forget).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('quiero cerveza')).toBeNull()
+    expect(bubbles().some((text) => text.includes('Mira estas cervezas'))).toBe(false)
+  })
+
+  test('Olvidar mientras graba descarta la grabación sin subirla', async () => {
+    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
+    const stream = fakeStream()
+    mockMic(vi.fn(async () => stream))
+    await renderPanel()
+    fireEvent.click(screen.getByLabelText('Hablar'))
+    await advance(10)
+    fireEvent.click(screen.getByText('Olvidar'))
+    await runUntilIdle()
+    expect(stream.track.stop).toHaveBeenCalled()
+    expect(api.chatVoice).not.toHaveBeenCalled()
+    expect(api.forget).toHaveBeenCalledTimes(1)
+  })
+
   test('un perfil remoto que llega después de Olvidar no revive lo olvidado', async () => {
     localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
     const remote = deferred()

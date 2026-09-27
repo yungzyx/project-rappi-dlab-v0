@@ -26,6 +26,7 @@ const ProfileContext = createContext(null)
 
 export function ProfileProvider({ children }) {
   const [scores, setScores] = useState(load)
+  const [resets, setResets] = useState(0) // sube con "Olvidar": lo pedido antes a la API ya no vale
 
   /** Suma `weight` a los temas dados (p. ej. los de una ocasión como "asado"). */
   const trackTags = useCallback((tags, weight) => {
@@ -50,14 +51,16 @@ export function ProfileProvider({ children }) {
     return {
       scores,
       top,
+      resets,
       track,
       trackTags,
       reset: () => {
         save({})
         setScores({})
+        setResets((n) => n + 1)
       },
     }
-  }, [scores, track, trackTags])
+  }, [scores, resets, track, trackTags])
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
 }

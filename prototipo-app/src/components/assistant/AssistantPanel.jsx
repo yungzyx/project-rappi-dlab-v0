@@ -34,7 +34,10 @@ let nextId = 1
 /** Chat del asistente. Siempre montado (para no perder la conversación); se muestra al abrirlo. */
 /** ¿Se puede grabar de verdad? El micrófono solo funciona en localhost o https (en el iPhone por http, no). */
 const canRecord = () =>
-  typeof window !== 'undefined' && window.isSecureContext && Boolean(navigator.mediaDevices?.getUserMedia) && 'MediaRecorder' in window
+  typeof window !== 'undefined' &&
+  window.isSecureContext &&
+  Boolean(navigator.mediaDevices?.getUserMedia) &&
+  'MediaRecorder' in window
 
 export default function AssistantPanel({ push, vertical }) {
   const assistant = useAssistant()
@@ -59,6 +62,7 @@ export default function AssistantPanel({ push, vertical }) {
   const voiceAttempt = useRef(0)
   const voicePending = useRef(false) // pidiendo el micrófono: los toques extra se ignoran
   const voiceUpload = useRef(null)
+  const voiceRequest = useRef(null) // audio ya subido: "Olvidar" espera a que el servidor termine
   // Preguntas en fila: la siguiente sale cuando la respuesta anterior ya está en pantalla.
   const chatQueue = useRef(Promise.resolve())
   const profileGeneration = useRef(0) // sube al "Olvidar": un perfil remoto pedido antes ya no vale
@@ -87,7 +91,10 @@ export default function AssistantPanel({ push, vertical }) {
           later(() => {
             setMood('talk')
             // Id nuevo: si reutilizara el del indicador, React conservaría su estado y mostraría las tarjetas antes del texto.
-            setMessages((prev) => [...prev.filter((m) => m.id !== typingId), { id: nextId++, from: 'bot', animate: true, ...response }])
+            setMessages((prev) => [
+              ...prev.filter((m) => m.id !== typingId),
+              { id: nextId++, from: 'bot', animate: true, ...response },
+            ])
             setChipRound((r) => r + 1)
             shown()
           }, wait)
@@ -119,7 +126,11 @@ export default function AssistantPanel({ push, vertical }) {
   const answer = async (text, askVertical) => {
     if (await health()) {
       try {
-        const response = await chat({ message: text, ...apiContext({ vertical: askVertical ?? vertical }), shown_topics: [...shownTopics.current] })
+        const response = await chat({
+          message: text,
+          ...apiContext({ vertical: askVertical ?? vertical }),
+          shown_topics: [...shownTopics.current],
+        })
         return noteSuggestion(toMessage(response))
       } catch {
         // cae al cerebro local
@@ -136,7 +147,9 @@ export default function AssistantPanel({ push, vertical }) {
     setDraft('')
     addMessage({ from: 'user', text: clean })
     profile.track(clean, WEIGHTS.query)
-    chatQueue.current = chatQueue.current.then(() => botSays(local ? reply(clean, profile) : answer(clean, askVertical)))
+    chatQueue.current = chatQueue.current.then(() =>
+      botSays(local ? reply(clean, profile) : answer(clean, askVertical)),
+    )
   }
 
   const sendPhoto = (file) => {
@@ -153,7 +166,8 @@ export default function AssistantPanel({ push, vertical }) {
       }
       return photoReply(profile)
     }
-    botSays(run())
+    // En la misma fila que las preguntas: "Olvidar" la espera (el servidor registra la foto al responder).
+    chatQueue.current = chatQueue.current.then(() => botSays(run()))
   }
 
   /** Voz real: graba hasta 7 s (o hasta "Listo") y la API la transcribe con Whisper. El audio no se guarda. */
@@ -172,10 +186,13 @@ export default function AssistantPanel({ push, vertical }) {
       try {
         const blob = new Blob(chunks, { type: media.mimeType || 'audio/webm' })
         const file = new File([blob], 'voz.webm', { type: blob.type })
-        const message = toMessage(await chatVoice(file, apiContext(), { signal: upload.signal }))
-        if (attempt !== voiceAttempt.current) return // se canceló mientras transcribía
+        const request = chatVoice(file, apiContext(), { signal: upload.signal })
+        voiceRequest.current = request
+        const message = toMessage(await request)
+        if (attempt !== voiceAttempt.current) return // se canceló (o se olvidó) mientras transcribía
         setVoice(null)
-        if (message.transcript && !message.transcript.discarded) addMessage({ from: 'user', text: message.transcript.text })
+        if (message.transcript && !message.transcript.discarded)
+          addMessage({ from: 'user', text: message.transcript.text })
         botSays(noteSuggestion(message))
       } catch {
         if (attempt !== voiceAttempt.current) return
@@ -231,7 +248,11 @@ export default function AssistantPanel({ push, vertical }) {
     setVoice({ transcript: '' })
     const words = sample.split(' ')
     words.forEach((_, i) => {
-      later(() => setVoice({ transcript: words.slice(0, i + 1).join(' ') }), 700 + (i * (VOICE_LISTEN_MS - 900)) / words.length, voiceTimers)
+      later(
+        () => setVoice({ transcript: words.slice(0, i + 1).join(' ') }),
+        700 + (i * (VOICE_LISTEN_MS - 900)) / words.length,
+        voiceTimers,
+      )
     })
     later(
       () => {
@@ -284,7 +305,13 @@ export default function AssistantPanel({ push, vertical }) {
     const isFirst = messages.length === 0
     if (isFirst) {
       const picks = forYou(profile)
-      addMessage({ from: 'bot', animate: true, text: greeting(profile), products: picks.products, reason: picks.reason })
+      addMessage({
+        from: 'bot',
+        animate: true,
+        text: greeting(profile),
+        products: picks.products,
+        reason: picks.reason,
+      })
     }
     if (session.mode === 'voice') later(listen, OPEN_MS, voiceTimers)
     if (session.query) later(() => send(session.query), OPEN_MS)
@@ -360,9 +387,16 @@ export default function AssistantPanel({ push, vertical }) {
     profileGeneration.current++
     profile.reset()
     setLearnedRemote(null)
-    // Lo que ya salió (una pregunta pendiente, un lote de eventos) podría recrear lo olvidado en el servidor:
-    // se espera antes del DELETE, y lo que haya dejado en cola se descarta.
-    await chatQueue.current
+    // Voz: si está grabando se descarta sin subirla; si ya se subió, se espera al servidor y su respuesta se ignora.
+    const voiceInFlight = voiceRequest.current
+    if (recorder.current || voicePending.current) cancelVoice()
+    else {
+      voiceAttempt.current++
+      setVoice(null)
+    }
+    // Lo que ya salió (preguntas y fotos pendientes, audio, un lote de eventos) podría recrear lo olvidado en el
+    // servidor: se espera antes del DELETE, y lo que haya dejado en cola se descarta.
+    await Promise.allSettled([chatQueue.current, voiceInFlight])
     events.clear()
     shownTopics.current.clear()
     await events.settled()
@@ -379,7 +413,14 @@ export default function AssistantPanel({ push, vertical }) {
   }
 
   return (
-    <div ref={rootRef} className={`assistant is-${phase}`} style={style} role="dialog" aria-modal="true" aria-label={`Asistente ${ASSISTANT_NAME}`}>
+    <div
+      ref={rootRef}
+      className={`assistant is-${phase}`}
+      style={style}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Asistente ${ASSISTANT_NAME}`}
+    >
       <div className="assistant-glow" />
 
       <header className="assistant-header">
@@ -418,7 +459,9 @@ export default function AssistantPanel({ push, vertical }) {
             message={message}
             onStreamDone={() => markStreamed(message.id)}
             onOpenProduct={(product) =>
-              go('store', { store: findStore(product.store) ?? { name: product.store, img: product.img, eta: product.eta } })
+              go('store', {
+                store: findStore(product.store) ?? { name: product.store, img: product.img, eta: product.eta },
+              })
             }
             onOpenStore={(store) => go('store', { store })}
             onAction={(action) => (action.ask ? send(action.ask.text, action.ask.vertical) : go(...action.route))}
@@ -466,7 +509,12 @@ export default function AssistantPanel({ push, vertical }) {
               send(draft)
             }}
           >
-            <button type="button" className="assistant-icon-btn" aria-label="Enviar foto" onClick={() => fileRef.current.click()}>
+            <button
+              type="button"
+              className="assistant-icon-btn"
+              aria-label="Enviar foto"
+              onClick={() => fileRef.current.click()}
+            >
               <CameraIcon />
             </button>
             <input
@@ -479,7 +527,14 @@ export default function AssistantPanel({ push, vertical }) {
             {draft.trim() ? (
               <button type="submit" className="assistant-send" aria-label="Enviar">
                 <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M12 19V5M5.5 11.5 12 5l6.5 6.5"
+                    fill="none"
+                    stroke="#fff"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
             ) : (

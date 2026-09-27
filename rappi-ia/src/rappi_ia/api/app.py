@@ -41,6 +41,7 @@ app.add_middleware(
 )
 
 FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
+EMPTY_VERTICAL_FALLBACK = {"turbo": "conveniencia"}  # mismo tipo de tienda (minimarket con entrega rápida)
 MAX_UPLOAD_BYTES = 8_000_000
 MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
 MAX_AUDIO_SECONDS = 20  # el prototipo graba hasta 7 s; esto protege a Whisper de audios de horas
@@ -383,7 +384,21 @@ def analytics(
 def _context(conn, vertical, user_id, profile, shown_topics, mode) -> Context:
     if profile is None and user_id and mode == "propuesta":
         profile = events.profile(conn, user_id)
-    return Context(backend_vertical(vertical), profile or {}, list(shown_topics), mode)
+    return Context(_searchable(conn, backend_vertical(vertical)), profile or {}, list(shown_topics), mode)
+
+
+def _searchable(conn: Connection, vertical: str | None) -> str | None:
+    """Un vertical todavía sin documentos (Turbo, antes de que termine la descarga) haría que todo diera "no está"
+    y se anotara como demanda: se usa el más parecido o, si tampoco tiene, Bigotes deduce el vertical del mensaje."""
+    for candidate in (vertical, EMPTY_VERTICAL_FALLBACK.get(vertical)):
+        if (
+            candidate
+            and conn.execute(
+                "SELECT EXISTS (SELECT 1 FROM search_documents WHERE vertical = %s)", (candidate,)
+            ).fetchone()[0]
+        ):
+            return candidate
+    return None
 
 
 def _log_chat(conn, user_id, session_id, text, response, modality, mode) -> None:

@@ -44,7 +44,7 @@ export const KPI_GROUPS = [
       {
         key: 'abandono_carrito_pct',
         label: 'Abandono de carrito',
-        window: 'todo el período',
+        window: '30 días',
         format: formatPct,
         definition:
           'Carros con al menos un producto, cuyo último evento de carro fue hace más de 24 h y sin pedido, sobre todos los carros con productos.',

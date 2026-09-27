@@ -1,6 +1,6 @@
-import { conceptOf } from '../api/orders'
+import { cartEventFields } from '../api/orders'
 import { productTags } from '../assistant/tags'
-import { parsePrice, useCart } from '../state/CartContext'
+import { useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
 import { WEIGHTS, useProfile } from '../state/ProfileContext'
 import { useAssistant } from '../state/AssistantContext'
@@ -18,16 +18,7 @@ export default function AddButton({ product, className = '' }) {
   const assistant = useAssistant()
   const events = useEvents()
   const qty = cart.qtyOf(product)
-  const cartEvent = (type, item) =>
-    events.track(type, {
-      cart_id: cart.id,
-      vertical: item.vertical,
-      concept_id: conceptOf(item),
-      entity_type: item.entityType,
-      entity_id: item.entityId,
-      value: parsePrice(item.price) || undefined,
-      payload: item.fromSuggestion ? { from_suggestion: true } : {},
-    })
+  const cartEvent = (type, item) => events.track(type, cartEventFields(item, cart.id))
   const add = (item) => {
     const first = cart.qtyOf(item) === 0
     cart.add(item)

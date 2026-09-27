@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { isPartialWeek, WEEKLY_SERIES, weeklySeries } from './weekly.js'
+import { formatPct } from '../../lib/format.js'
+import { isPartialWeek, tickDecimals, WEEKLY_SERIES, weeklySeries } from './weekly.js'
 
 const [activeUsers, , cartAbandon] = WEEKLY_SERIES
 const rows = [
@@ -42,5 +43,43 @@ describe('weeklySeries', () => {
     const { change } = weeklySeries(rows.slice(-3), activeUsers, AS_OF)
 
     expect(change).toBeNull()
+  })
+})
+
+describe('semanas sin dato', () => {
+  const gap = [
+    { semana: '2026-08-10', abandono_carrito_pct: 31 },
+    { semana: '2026-08-17', abandono_carrito_pct: 30 },
+    { semana: '2026-08-24', abandono_carrito_pct: null },
+    { semana: '2026-08-31', abandono_carrito_pct: 28 },
+    { semana: '2026-09-07', abandono_carrito_pct: 27 },
+    { semana: '2026-09-14', abandono_carrito_pct: null },
+    { semana: '2026-09-21', abandono_carrito_pct: 26 },
+  ]
+
+  test('si la última semana completa no tiene dato no se muestra otra como si fuera la última', () => {
+    const { latest, change } = weeklySeries(gap, cartAbandon, AS_OF) // 21-09 es parcial; 14-09 sin carros
+    expect(latest).toBeNull()
+    expect(change).toBeNull()
+  })
+
+  test('la comparación es con la semana de 4 semanas antes por fecha, no por posición', () => {
+    const complete = gap.slice(0, 5) // termina el 07-09: base = 10-08 (el hueco del 24-08 no corre la base)
+    const { latest, change } = weeklySeries(complete, cartAbandon, AS_OF)
+    expect(latest.date).toBe('2026-09-07')
+    expect(change).toBe(27 - 31)
+    const withoutBase = weeklySeries(gap.slice(2, 5), cartAbandon, AS_OF)
+    expect(withoutBase.change).toBeNull()
+  })
+
+  test('las marcas del eje conservan sus decimales (2,5 % no se lee 3 %)', () => {
+    expect([0, 2.5, 5, 7.5, 10].map((tick) => formatPct(tick, tickDecimals(tick)))).toEqual([
+      '0%',
+      '2,5%',
+      '5%',
+      '7,5%',
+      '10%',
+    ])
+    expect(tickDecimals(0.25)).toBe(2)
   })
 })

@@ -9,11 +9,21 @@ const ROW = {
   reason: 'Porque te interesa 🍺 cerveza',
   concept: 'snacks-salados',
   vertical: 'supermercado',
-  products: [{ id: 'cat-1', name: 'Papas Lays', price: '$1.990', entity_type: 'catalog_item', entity_id: '1', vertical: 'supermercado' }],
+  products: [
+    {
+      id: 'cat-1',
+      name: 'Papas Lays',
+      price: '$1.990',
+      entity_type: 'catalog_item',
+      entity_id: '1',
+      vertical: 'supermercado',
+    },
+  ],
 }
 
 describe('"Para ti" desde rappi-ia', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     api.health.mockResolvedValue({ voz: true })
     api.recommendations.mockResolvedValue({ rows: [ROW] })
   })
@@ -22,7 +32,21 @@ describe('"Para ti" desde rappi-ia', () => {
     const { result } = renderHook(() => useRemoteForYou(true))
     await waitFor(() => expect(result.current).not.toBeNull())
     expect(result.current.reason).toBe('Porque te interesa 🍺 cerveza')
-    expect(result.current.products[0]).toMatchObject({ entityId: '1', fromSuggestion: true, suggestionOrigin: 'para-ti' })
+    expect(result.current.products[0]).toMatchObject({
+      entityId: '1',
+      fromSuggestion: true,
+      suggestionOrigin: 'para-ti',
+    })
+  })
+
+  test('tras "Olvidar" (otra generación del perfil) la fila pedida antes ya no se muestra', async () => {
+    const { result, rerender } = renderHook(({ generation }) => useRemoteForYou(true, generation), {
+      initialProps: { generation: 0 },
+    })
+    await waitFor(() => expect(result.current).not.toBeNull())
+    rerender({ generation: 1 })
+    expect(result.current).toBeNull()
+    expect(api.recommendations).toHaveBeenCalledTimes(1) // no se vuelve a pedir: el servidor quizá aún no borró
   })
 
   test('sin API, sin nada aprendido o en modo "Rappi hoy" queda la fila local (null)', async () => {

@@ -17,6 +17,12 @@ describe('niceTicks', () => {
     expect(niceStep(0.13)).toBe(0.2)
     expect(niceStep(220)).toBe(250)
   })
+
+  test('en conteos no hay pasos fraccionarios ni de 2,5 (el eje de pedidos no dice 0, 0, 1, 1, 1)', () => {
+    expect(niceTicks(1, 4, { integer: true })).toEqual([0, 1])
+    expect(niceTicks(9.2, 4, { integer: true })).toEqual([0, 5, 10])
+    expect(niceTicks(9.2)).toEqual([0, 2.5, 5, 7.5, 10])
+  })
 })
 
 describe('scaleLinear', () => {

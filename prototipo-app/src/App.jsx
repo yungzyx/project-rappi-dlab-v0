@@ -82,47 +82,47 @@ export default function App() {
   return (
     <DemoProvider>
       <EventsProvider>
-      <main className="stage">
-        <DemoToggle />
-        <div className="phone">
-          <ProfileProvider>
-            <AssistantProvider>
-              <CartProvider>
-                <OrdersProvider>
-                  <FavoritesProvider>
-                    <AddressProvider>
-                      <LoyaltyProvider>
-                        <ToastProvider>
-                          <NudgeProvider>
-                            <div key={`${stack.length}-${current.name}`} className={`screen-wrap enter-${direction}`}>
-                              <Screen
-                                push={push}
-                                back={back}
-                                params={current.params}
-                                tab={homeTab}
-                                setTab={setHomeTab}
-                              />
-                            </div>
-                            {!SCREENS_WITHOUT_CART.has(current.name) && (
-                              <>
-                                <CartBar raised={SCREENS_WITH_NAV.has(current.name)} push={push} />
-                                <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
-                              </>
-                            )}
-                            <AssistantPanel push={push} vertical={screenVertical(current)} />
-                            <AddressSheet />
-                            <StatusBar />
-                          </NudgeProvider>
-                        </ToastProvider>
-                      </LoyaltyProvider>
-                    </AddressProvider>
-                  </FavoritesProvider>
-                </OrdersProvider>
-              </CartProvider>
-            </AssistantProvider>
-          </ProfileProvider>
-        </div>
-      </main>
+        <main className="stage">
+          <DemoToggle />
+          <div className="phone">
+            <ProfileProvider>
+              <AssistantProvider>
+                <CartProvider>
+                  <OrdersProvider>
+                    <FavoritesProvider>
+                      <AddressProvider>
+                        <LoyaltyProvider>
+                          <ToastProvider>
+                            <NudgeProvider>
+                              <div key={`${stack.length}-${current.name}`} className={`screen-wrap enter-${direction}`}>
+                                <Screen
+                                  push={push}
+                                  back={back}
+                                  params={current.params}
+                                  tab={homeTab}
+                                  setTab={setHomeTab}
+                                />
+                              </div>
+                              {!SCREENS_WITHOUT_CART.has(current.name) && (
+                                <>
+                                  <CartBar raised={SCREENS_WITH_NAV.has(current.name)} push={push} />
+                                  <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
+                                </>
+                              )}
+                              <AssistantPanel push={push} vertical={screenVertical(current)} />
+                              <AddressSheet />
+                              <StatusBar />
+                            </NudgeProvider>
+                          </ToastProvider>
+                        </LoyaltyProvider>
+                      </AddressProvider>
+                    </FavoritesProvider>
+                  </OrdersProvider>
+                </CartProvider>
+              </AssistantProvider>
+            </ProfileProvider>
+          </div>
+        </main>
       </EventsProvider>
     </DemoProvider>
   )

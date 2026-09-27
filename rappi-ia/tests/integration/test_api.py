@@ -127,6 +127,15 @@ def test_invalid_event_type_and_vertical_are_rejected(client):
     assert client.get("/search", params={"q": "cerveza", "vertical": "aerolineas"}).status_code == 400
 
 
+def test_screen_vertical_without_documents_does_not_turn_everything_into_unmet_demand(client, db):
+    """Turbo tiene tiendas pero aún no documentos: antes cada pregunta en esa pantalla era "no está" y demanda."""
+    add_store(db, 9, "turbo", "Turbo")
+    db.commit()
+    r = client.post("/chat", json={"message": "quiero cerveza", "vertical": "turbo", "user_id": "u", "session_id": "s"})
+    body = r.json()
+    assert body["vertical"] == "licores" and body["products"] and not body["unmet"]  # sin conveniencia: lo deduce
+
+
 def test_order_without_catalog_vertical_is_a_400_not_a_500(client, db):
     line = {"entity_type": "catalog_item", "entity_id": "proto:1"}
     for vertical in ["otro", "pet"]:

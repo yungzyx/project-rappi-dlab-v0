@@ -9,7 +9,7 @@ import logging
 import time
 
 from psycopg import Connection
-from rappi_scraper.storage.search import VERTICALS
+from rappi_scraper.storage.search import SEARCH_DOCUMENTS_LOCK, VERTICALS
 
 from .base import TextEmbedder, to_pgvector
 from .images import ScrapeRunning, scrape_running
@@ -54,7 +54,13 @@ def embed_pending(conn: Connection, embedder: TextEmbedder, limit: int | None = 
 
 
 def sync_document_embeddings(conn: Connection, model: str) -> int:
-    """Copia los vectores del caché a `search_documents` (donde los usa el índice HNSW de cada partición)."""
+    """Copia los vectores del caché a `search_documents` (donde los usa el índice HNSW de cada partición).
+
+    Toma el mismo candado que `build_search_documents` del scraper: si la reescritura está en curso, no espera ni
+    compite por las filas (deadlock); avisa que hay que correrlo después."""
+    if not conn.execute("SELECT pg_try_advisory_xact_lock(%s)", (SEARCH_DOCUMENTS_LOCK,)).fetchone()[0]:
+        conn.rollback()
+        raise ScrapeRunning("El scraper está reescribiendo los documentos de búsqueda: embed-text corre después")
     updated = conn.execute(
         """UPDATE search_documents d
            SET embedding = e.embedding, embedding_model = e.embedding_model

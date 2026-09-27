@@ -8,7 +8,8 @@ cd "$(dirname "$0")/.."
 LOG="data/logs/despues-del-refresh_$(date +%Y%m%d-%H%M%S).log"
 mkdir -p data/logs
 echo "Log: $LOG"
-while pgrep -f "rappi_scraper refresh" >/dev/null; do
+# "python -m rappi_scraper refresh" (Terminal) o ".venv/bin/rappi refresh" (launchd, los domingos).
+while pgrep -f "rappi(_scraper)? refresh" >/dev/null; do
   echo "$(date +%H:%M) el scraper sigue descargando; reviso de nuevo en 10 min…" | tee -a "$LOG"
   sleep 600
 done

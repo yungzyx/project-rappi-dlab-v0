@@ -37,8 +37,9 @@ export function isPartialWeek(weekIso, asOfIso) {
 }
 
 /**
- * Puntos de una serie y su cambio: última semana completa contra la de 4 semanas antes.
- * Devuelve { points, latest, change, formatChange }; `change` es null si no hay con qué comparar.
+ * Puntos de una serie y su cambio: última semana completa contra la de 4 semanas antes (por fecha).
+ * Devuelve { points, latest, change, formatChange }. `latest` es null si la última semana completa no tiene dato
+ * (no se muestra una semana anterior como si fuera la última); `change` es null si falta alguna de las dos.
  */
 export function weeklySeries(rows, series, asOfIso) {
   const points = rows.map((row) => ({
@@ -46,12 +47,18 @@ export function weeklySeries(rows, series, asOfIso) {
     value: row[series.key] ?? null,
     partial: isPartialWeek(row.semana, asOfIso),
   }))
-  const complete = points.filter((point) => !point.partial && point.value !== null)
-  const latest = complete.at(-1) ?? null
-  const base = complete.length > COMPARE_WEEKS ? complete.at(-1 - COMPARE_WEEKS) : null
+  const last = points.filter((point) => !point.partial).at(-1)
+  const latest = last?.value != null ? last : null
+  const baseDay = latest ? utcDay(latest.date) - COMPARE_WEEKS * 7 * DAY_MS : null
+  const base = points.find((point) => !point.partial && point.value !== null && utcDay(point.date) === baseDay) ?? null
   let change = null
   if (latest && base) {
     change = series.rate ? latest.value - base.value : base.value > 0 ? ((latest.value - base.value) / base.value) * 100 : null
   }
   return { points, latest, change, formatChange: series.rate ? formatPoints : formatSignedPct }
+}
+
+/** Decimales de una marca del eje (2,5 % o 0,25 %): redondearlas a enteros repetía o corría las etiquetas. */
+export function tickDecimals(value) {
+  return Math.min(2, (String(value).split('.')[1] ?? '').length)
 }

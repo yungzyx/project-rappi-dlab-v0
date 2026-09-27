@@ -28,6 +28,19 @@ export function conceptOf(product) {
   return tag ? TAG_TO_CONCEPT[tag] : undefined
 }
 
+/** Campos de un evento de carro (agregar, quitar, vaciar) para rappi-ia; `qty` = unidades del evento. */
+export function cartEventFields(item, cartId, { qty } = {}) {
+  return {
+    cart_id: cartId,
+    vertical: item.vertical,
+    concept_id: conceptOf(item),
+    entity_type: item.entityType,
+    entity_id: item.entityId,
+    value: parsePrice(item.price) || undefined,
+    payload: { ...(item.fromSuggestion ? { from_suggestion: true } : {}), ...(qty ? { qty } : {}) },
+  }
+}
+
 // Verticales que acepta POST /orders. El pedido va con el código del backend: así un producto de la API
 // ('licores') y uno de las capturas ('liquor') de la misma vertical forman un solo pedido.
 const BACKEND_VERTICALS = {

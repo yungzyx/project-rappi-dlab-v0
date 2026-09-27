@@ -1,10 +1,11 @@
 """Embeddings (con el modelo falso de hashing) y búsqueda híbrida dentro de un vertical, contra `rappi_ia_test`."""
 
 import pytest
-from rappi_scraper.storage.search import build_search_documents
+from rappi_scraper.storage.search import SEARCH_DOCUMENTS_LOCK, build_search_documents
 
 from conftest import add_price, add_product, add_store
 from rappi_ia.concepts.pipeline import build_concepts
+from rappi_ia.db import connect, database_url
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.images import ScrapeRunning
 from rappi_ia.embeddings.text_store import embed_search_documents, hnsw_index_name
@@ -49,6 +50,16 @@ def test_text_embeddings_wait_for_a_running_scrape(catalog):
     catalog.execute("INSERT INTO scrape_runs (kind, status) VALUES ('stores', 'running')")
     with pytest.raises(ScrapeRunning):
         embed_search_documents(catalog, HashEmbedder())
+
+
+def test_vectors_are_not_copied_while_the_scraper_rewrites_documents(catalog):
+    """La corrida ya está 'done' cuando el scraper reescribe search_documents: el candado es lo que los separa."""
+    with connect(database_url("DATABASE_URL_TEST")) as scraper:
+        scraper.execute("SELECT pg_advisory_xact_lock(%s)", (SEARCH_DOCUMENTS_LOCK,))  # reescritura en curso
+        with pytest.raises(ScrapeRunning):
+            embed_search_documents(catalog, HashEmbedder())
+        scraper.rollback()
+    assert embed_search_documents(catalog, HashEmbedder())["documentos_actualizados"] > 0
 
 
 def test_concept_assortment_is_materialized_by_build_concepts(catalog):

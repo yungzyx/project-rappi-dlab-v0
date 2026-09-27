@@ -37,11 +37,15 @@ _AS_OF = "(SELECT max(ts) FROM app_events WHERE source = %(source)s)"
 # Carros (docs/diseno-ia.md §5): con al menos un producto (agregados − quitados > 0, o con pedido); abandonado si su
 # último evento de carro (agregar, quitar o ir a pagar) fue hace más de 24 h y no tiene pedido. Una vez por carro.
 _CARTS = f"""
-cart_events AS (
+cart_events AS (  -- unidades: payload.qty si es un número (vaciar el carro saca la línea entera), si no 1
     SELECT cart_id, max(ts) AS last_cart_ts,
-           count(*) FILTER (WHERE type = 'cart_add') - count(*) FILTER (WHERE type = 'cart_remove') AS units
-    FROM app_events
-    WHERE source = %(source)s AND type IN ('cart_add', 'cart_remove', 'checkout_start') AND cart_id IS NOT NULL
+           coalesce(sum(qty) FILTER (WHERE type = 'cart_add'), 0)
+             - coalesce(sum(qty) FILTER (WHERE type = 'cart_remove'), 0) AS units
+    FROM (SELECT cart_id, ts, type,
+                 CASE WHEN jsonb_typeof(payload -> 'qty') = 'number'
+                      THEN least(greatest((payload ->> 'qty')::numeric, 0), 99) ELSE 1 END AS qty
+          FROM app_events
+          WHERE source = %(source)s AND type IN ('cart_add', 'cart_remove', 'checkout_start') AND cart_id IS NOT NULL) e
     GROUP BY cart_id
 ),
 cart_status AS (

@@ -81,16 +81,21 @@ def test_cart_abandonment_follows_the_definition(db):
             events.Event("u3", "s", "cart_remove", ts=day(10), cart_id="c-vaciado"),
             events.Event("u4", "s", "cart_add", ts=day(5), cart_id="c-pagando"),  # fue a pagar hace < 24 h
             events.Event("u4", "s", "checkout_start", ts=day(35.9), cart_id="c-pagando"),
+            events.Event("u6", "s", "cart_add", ts=day(10), cart_id="c-vaciado-de-una"),  # "Vaciar carro": 1 evento
+            events.Event("u6", "s", "cart_add", ts=day(10), cart_id="c-vaciado-de-una"),
+            events.Event("u6", "s", "cart_remove", ts=day(10), cart_id="c-vaciado-de-una", payload={"qty": 2}),
+            events.Event("u7", "s", "cart_add", ts=day(10), cart_id="c-qty-rara", payload={"qty": "muchas"}),
             events.Event("u5", "s", "cart_add", ts=day(35.95), cart_id="c-reciente"),
             events.Event("u5", "s", "search", ts=day(36), query="x"),
         ],
     )
     db.commit()
 
-    assert queries.kpis(db, "prototype")["abandono_carrito_pct"] == 25.0  # c-perdido de 4 carros con productos
+    # c-perdido y c-qty-rara (qty no numérica = 1 unidad) de 5 carros con productos
+    assert queries.kpis(db, "prototype")["abandono_carrito_pct"] == 40.0
     weekly = {r["semana"]: r["abandono_carrito_pct"] for r in queries.weekly(db, "prototype")}
     assert weekly[date(2026, 8, 31)] is None  # c-pagando cuenta en su última semana, no en la de su primer evento
-    assert weekly[date(2026, 9, 7)] == 100.0  # c-perdido
+    assert weekly[date(2026, 9, 7)] == 100.0  # c-perdido y c-qty-rara (los vaciados no cuentan)
 
 
 def test_same_pair_can_be_learned_from_both_sources(db, monkeypatch):

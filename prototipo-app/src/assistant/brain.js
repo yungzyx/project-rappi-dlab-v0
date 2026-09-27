@@ -76,8 +76,7 @@ const SHORTCUTS = [
 ]
 
 // Palabra completa al inicio (y plural): "comer" no calza con "comercial", "vale" no con "equivale".
-const matches = (text, words) =>
-  words.some((word) => new RegExp(`(^|[^a-z0-9])${word}(s|es)?($|[^a-z0-9])`).test(text))
+const matches = (text, words) => words.some((word) => new RegExp(`(^|[^a-z0-9])${word}(s|es)?($|[^a-z0-9])`).test(text))
 
 // Las frases largas primero ("buenas tardes" antes que "buenas") y repetidos: "hola, buenas noches" es un saludo.
 const GREETINGS = /^((buenas tardes|buenas noches|buenos dias|buenas|holi|hola|hey|wena|ola)\b[\s,!.]*)+/

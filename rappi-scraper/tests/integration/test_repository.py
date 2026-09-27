@@ -1,10 +1,14 @@
 import csv
 
+import pytest
+from psycopg import errors
+
 from rappi_scraper.legacy.csv_format import CSV_COLUMNS, CSV_ENCODING
 from rappi_scraper.legacy.csv_io import export_catalog_csv, import_legacy_csv
 from rappi_scraper.scraping.restaurant_parser import parse_restaurant
 from rappi_scraper.storage import repository
-from rappi_scraper.storage.search import build_search_documents, search
+from rappi_scraper.storage.db import connect, database_url
+from rappi_scraper.storage.search import SEARCH_DOCUMENTS_LOCK, build_search_documents, search
 
 
 def _product(sku, master_id, name, price, **extra):
@@ -249,3 +253,20 @@ def test_search_ignores_accents_both_ways(db):
     assert [h["entity_id"] for h in search(db, "supermercado", "jamón") if h["entity_type"] == "catalog_item"] == [
         "101"
     ]
+
+
+def test_rebuilding_search_takes_the_documents_lock(db):
+    """rappi-ia no copia vectores mientras se reescriben los documentos (la corrida ya figura 'done'): si alguien
+    tiene el candado, la reescritura espera."""
+    _store(db, 1, "lider", "supermercado")
+    run = repository.start_run(db, "stores", {})
+    repository.save_products(db, run, 1, [_product("a", 100, "Arroz Tucapel", 1500)])
+    db.commit()
+    with connect(database_url("DATABASE_URL_TEST")) as other:
+        other.execute("SELECT pg_advisory_xact_lock(%s)", (SEARCH_DOCUMENTS_LOCK,))
+        db.execute("SET lock_timeout = '200ms'")
+        with pytest.raises(errors.LockNotAvailable):
+            build_search_documents(db)
+        db.rollback()
+        other.rollback()
+    assert build_search_documents(db)["catalog_item"] == 1

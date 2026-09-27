@@ -41,7 +41,7 @@ export default function HomeFeed({ push }) {
   const profile = useProfile()
   const events = useEvents()
   // Con la API, lo que aprendió rappi-ia (productos reales de otro vertical); sin ella, el cerebro local.
-  const remote = useRemoteForYou(demo.isProposal)
+  const remote = useRemoteForYou(demo.isProposal, profile.resets)
   const picks = remote ?? forYou(profile)
   useEffect(() => {
     if (remote)

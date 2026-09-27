@@ -39,10 +39,10 @@ function monthTicks(points, x) {
  * Serie semanal de una sola medida. points: [{ date, value, partial }].
  * La semana parcial (en curso) va punteada y con marcador hueco. Flechas ← → recorren las semanas.
  */
-export function LineChart({ points, formatValue, formatTick, label }) {
+export function LineChart({ points, formatValue, formatTick, label, integerTicks = false }) {
   const [ref, width] = useElementWidth()
   const [active, setActive] = useState(null)
-  const ticks = niceTicks(Math.max(0, ...points.map((point) => point.value ?? 0)))
+  const ticks = niceTicks(Math.max(0, ...points.map((point) => point.value ?? 0)), 4, { integer: integerTicks })
   const innerWidth = Math.max(width - MARGIN.left - MARGIN.right, 1)
   const baseline = HEIGHT - MARGIN.bottom
   const last = points.length - 1

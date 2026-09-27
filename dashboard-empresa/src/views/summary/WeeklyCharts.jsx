@@ -5,7 +5,7 @@ import { EmptyState } from '../../components/States.jsx'
 import { LineChart } from '../../components/charts/LineChart.jsx'
 import { formatShortDate } from '../../lib/format.js'
 import { useAnalyticsMany } from '../../lib/useAnalytics.js'
-import { COMPARE_WEEKS, isPartialWeek, WEEKLY_SERIES, weeklySeries } from './weekly.js'
+import { COMPARE_WEEKS, isPartialWeek, tickDecimals, WEEKLY_SERIES, weeklySeries } from './weekly.js'
 
 function SeriesCard({ rows, series, asOf }) {
   const { points, latest, change, formatChange } = weeklySeries(rows, series, asOf)
@@ -22,7 +22,8 @@ function SeriesCard({ rows, series, asOf }) {
       <LineChart
         points={points}
         formatValue={series.format}
-        formatTick={(value) => series.format(value, 0)}
+        formatTick={(value) => series.format(value, tickDecimals(value))}
+        integerTicks={!series.rate}
         label={`${series.title} por semana. Última semana completa: ${latest ? series.format(latest.value) : 'sin dato'}.`}
       />
     </figure>

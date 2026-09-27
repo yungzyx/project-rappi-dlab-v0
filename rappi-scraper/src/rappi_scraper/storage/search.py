@@ -8,6 +8,11 @@ from psycopg import Connection
 
 VERTICALS = ("supermercado", "conveniencia", "turbo", "mall", "farmacia", "licores", "chocolateria", "restaurantes")
 
+# Clave de pg_advisory_xact_lock para reescribir search_documents. rappi-ia la toma antes de copiar vectores: sin
+# ella, su UPDATE masivo y el upsert de abajo bloquean filas en distinto orden (deadlock). No sirve mirar
+# scrape_runs: la corrida ya quedó 'done' cuando empieza esta reescritura.
+SEARCH_DOCUMENTS_LOCK = 72_001
+
 # Los documentos se arman primero en una tabla temporal y solo se escriben los que cambiaron: reescribir las
 # ~300 mil filas en cada refresh insertaba cada una de nuevo en todos los índices (GIN y HNSW por partición).
 _STAGE = """
@@ -130,6 +135,7 @@ def build_search_documents(conn: Connection) -> dict[str, int]:
     escribieron (nuevos o con otro texto, precio o metadatos) y cuántos se borraron (ya no existen)."""
     counts = {}
     with conn.transaction():
+        conn.execute("SELECT pg_advisory_xact_lock(%s)", (SEARCH_DOCUMENTS_LOCK,))
         conn.execute("DROP TABLE IF EXISTS pg_temp.staged_documents")
         conn.execute(_STAGE)
         for name, sql in (("catalog_item", CATALOG_DOCS), ("menu_item", MENU_DOCS), ("store", STORE_DOCS)):
