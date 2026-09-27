@@ -1,0 +1,275 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Rappi: catálogo, agente Bigotes y panel de negocio",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "conversacion",
+        "label": "Conversación",
+        "focus": [
+          "prototipo",
+          "api",
+          "agente",
+          "busqueda"
+        ],
+        "note": "Texto, voz o foto llegan al agente, que busca dentro del vertical y verifica antes de responder."
+      },
+      {
+        "id": "datos",
+        "label": "Datos offline",
+        "focus": [
+          "rappi",
+          "scraper",
+          "indexar",
+          "vectores",
+          "busqueda",
+          "conceptos"
+        ],
+        "note": "Tras cada refresh: conceptos y embeddings de texto (e5) e imagen (CLIP), con un índice HNSW por vertical."
+      },
+      {
+        "id": "cruce",
+        "label": "Entre verticales",
+        "focus": [
+          "agente",
+          "conceptos",
+          "busqueda",
+          "eventos"
+        ],
+        "note": "El puente es el concepto: interés del usuario → complemento → búsqueda en el índice de otro vertical."
+      },
+      {
+        "id": "negocio",
+        "label": "Panel de negocio",
+        "focus": [
+          "api",
+          "eventos",
+          "dashboard",
+          "conceptos"
+        ],
+        "note": "Eventos simulados y del prototipo alimentan tendencias, demanda no satisfecha, frecuencia y abandono."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "offline",
+      "label": "Datos · offline",
+      "variant": "exception"
+    },
+    {
+      "id": "online",
+      "label": "Conversación · online"
+    },
+    {
+      "id": "cruce_lane",
+      "label": "Entre verticales"
+    },
+    {
+      "id": "negocio_lane",
+      "label": "Negocio"
+    }
+  ],
+  "mainPath": [
+    "prototipo",
+    "api",
+    "agente",
+    "busqueda"
+  ],
+  "nodes": [
+    {
+      "id": "rappi",
+      "lane": "offline",
+      "col": 0,
+      "type": "external",
+      "label": "rappi.cl",
+      "sublabel": "páginas públicas",
+      "width": 140
+    },
+    {
+      "id": "scraper",
+      "lane": "offline",
+      "col": 1,
+      "type": "backend",
+      "label": "rappi-scraper",
+      "sublabel": "refresh semanal",
+      "width": 150
+    },
+    {
+      "id": "indexar",
+      "lane": "offline",
+      "col": 2,
+      "type": "backend",
+      "label": "Indexación",
+      "sublabel": "conceptos + embeddings",
+      "tag": "e5 · CLIP",
+      "width": 170
+    },
+    {
+      "id": "vectores",
+      "lane": "offline",
+      "col": 3,
+      "type": "database",
+      "label": "Postgres + pgvector",
+      "sublabel": "catálogo · vectores",
+      "width": 170
+    },
+    {
+      "id": "prototipo",
+      "lane": "online",
+      "col": 0,
+      "type": "frontend",
+      "label": "prototipo-app",
+      "sublabel": "texto · voz · foto",
+      "width": 150
+    },
+    {
+      "id": "api",
+      "lane": "online",
+      "col": 1,
+      "type": "backend",
+      "label": "API FastAPI",
+      "sublabel": "/chat · /events",
+      "width": 150
+    },
+    {
+      "id": "agente",
+      "lane": "online",
+      "col": 2,
+      "type": "backend",
+      "label": "Agente Bigotes",
+      "sublabel": "entender → verificar",
+      "tag": "LLM opcional",
+      "width": 170
+    },
+    {
+      "id": "busqueda",
+      "lane": "online",
+      "col": 3,
+      "type": "database",
+      "label": "Búsqueda híbrida",
+      "sublabel": "léxico + vector · RRF",
+      "tag": "WHERE vertical",
+      "width": 170
+    },
+    {
+      "id": "conceptos",
+      "lane": "cruce_lane",
+      "col": 2,
+      "type": "database",
+      "label": "Conceptos · capa 2",
+      "sublabel": "perfil + complementos",
+      "width": 170
+    },
+    {
+      "id": "eventos",
+      "lane": "negocio_lane",
+      "col": 1,
+      "type": "database",
+      "label": "Eventos · capa 3",
+      "sublabel": "simulados + prototipo",
+      "width": 160
+    },
+    {
+      "id": "dashboard",
+      "lane": "negocio_lane",
+      "col": 2,
+      "type": "frontend",
+      "label": "dashboard-empresa",
+      "sublabel": "oportunidades · churn",
+      "width": 170
+    }
+  ],
+  "edges": [
+    {
+      "id": "prototipo-api",
+      "from": "prototipo",
+      "to": "api",
+      "label": "pregunta",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-agente",
+      "from": "api",
+      "to": "agente",
+      "variant": "emphasis"
+    },
+    {
+      "id": "agente-busqueda",
+      "from": "agente",
+      "to": "busqueda",
+      "label": "en el vertical",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rappi-scraper",
+      "from": "rappi",
+      "to": "scraper",
+      "label": "HTML",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "scraper-indexar",
+      "from": "scraper",
+      "to": "indexar",
+      "label": "tras refresh",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "indexar-vectores",
+      "from": "indexar",
+      "to": "vectores",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "vectores-busqueda",
+      "from": "vectores",
+      "to": "busqueda",
+      "label": "HNSW",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "indexar-conceptos",
+      "from": "indexar",
+      "to": "conceptos",
+      "label": "item_concepts",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "agente-conceptos",
+      "from": "agente",
+      "to": "conceptos",
+      "label": "complementos",
+      "role": "branch"
+    },
+    {
+      "id": "api-eventos",
+      "from": "api",
+      "to": "eventos",
+      "label": "registrar",
+      "role": "branch"
+    },
+    {
+      "id": "eventos-conceptos",
+      "from": "eventos",
+      "to": "conceptos",
+      "label": "co-ocurrencia",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "eventos-dashboard",
+      "from": "eventos",
+      "to": "dashboard",
+      "label": "SQL",
+      "role": "branch"
+    }
+  ]
+}

@@ -128,7 +128,7 @@ rappi-scraper/
 
 **Aislamiento por vertical:** las búsquedas siempre llevan `vertical` y cada vertical es su propia partición, así que un índice vectorial nunca mezcla verticales. Los análisis cruzados se hacen sobre las tablas núcleo.
 
-**Embeddings (pendiente):** `search_documents.content` no incluye precios (un cambio de precio no obliga a regenerar el embedding) y `content_hash` invalida el embedding solo si cambia el texto. Al elegir modelo se llena `embedding`/`embedding_model` y se crea un índice HNSW por partición (ver `storage/migrations/003_search.sql`).
+**Embeddings:** `search_documents.content` no incluye precios (un cambio de precio no obliga a regenerar el embedding) y `content_hash` invalida el embedding solo si cambia el texto. Modelo elegido (27-09-2026): `intfloat/multilingual-e5-base` (768 dimensiones). `rappi-ia` llena `embedding`/`embedding_model` y crea un HNSW por partición con `embedding::vector(768)` (el ejemplo de `003_search.sql` con `vector(1536)` es anterior a la decisión). Ver [docs/diseno-ia.md](../docs/diseno-ia.md).
 
 ## Scraper original a CSV (`rappi-csv`)
 

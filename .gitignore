@@ -14,5 +14,5 @@ rappi-scraper/data/
 # Evidencia generada por archify al verificar diagramas
 docs/diagramas/*.visual-check.*
 
-# Carpeta vacía creada fuera del proyecto
+# Carpeta personal (intento previo de agente con LangChain), fuera del proyecto
 Proyecto/

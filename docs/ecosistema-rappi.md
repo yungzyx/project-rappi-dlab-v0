@@ -1,8 +1,8 @@
 # Ecosistema Rappi Chile: research y modelo de datos
 
 > Cómo está armado el ecosistema de Rappi en Chile, cómo modelan sus datos las super-apps comparables y qué modelo de datos proponemos para conectar todos los servicios y verticales.
-> Research con fuentes públicas al 26-09-2026. No tenemos datos internos de Rappi: todo lo que no tiene fuente es **inferencia** y está marcado así.
-> Contexto del proyecto: [contexto-y-problema.md](contexto-y-problema.md).
+> Research con fuentes públicas al 26-09-2026; última actualización: 27-09-2026. No tenemos datos internos de Rappi: todo lo que no tiene fuente es **inferencia** y está marcado así.
+> Contexto del proyecto: [contexto-y-problema.md](contexto-y-problema.md) · Diseño del RAG, agente y panel: [diseno-ia.md](diseno-ia.md).
 
 ## Resumen
 
@@ -65,7 +65,7 @@ Fuentes principales: [Instacart catálogo (2021)](https://company.instacart.com/
 
 ## 3. Modelo de datos del ecosistema (propuesta)
 
-Tres capas. La primera ya existe; la segunda es la mejora que proponemos; la tercera queda **solo como diseño** hasta tener datos internos.
+Tres capas. La primera ya existe; la segunda es la mejora que proponemos; de la tercera, usuarios, eventos y pedidos tendrán tablas con datos simulados (27-09-2026) y el resto queda solo como diseño hasta tener datos internos.
 
 ```mermaid
 erDiagram
@@ -95,15 +95,17 @@ erDiagram
 
 | Mejora | Qué agrega | Para qué |
 |---|---|---|
-| **`concepts`** (taxonomía común) | Árbol estable de conceptos ("lácteos > yogur", "comida > pizza") con referencias opcionales a GS1 GPC y Google Product Taxonomy | Análisis entre verticales que no dependa de cómo cada tienda nombra sus pasillos |
+| **`concepts`** (taxonomía común) | Árbol propio y estable de conceptos ("lácteos > yogur", "comida > pizza"), enlazable después a Google Product Taxonomy | Análisis entre verticales que no dependa de cómo cada tienda nombra sus pasillos |
 | **`category_map`** | Mapeo categorías/pasillos de Rappi → `concepts`, versionado | Las categorías de Rappi cambian; el concepto no |
 | **`dish_concepts`** | Plato estándar ("pizza napolitana", "sushi roll acevichado") agrupando `menu_items` de distintos locales, vinculado a `concepts` | Comparar platos y precios entre restaurantes; conectar "pizza" de restaurante con pizza congelada del súper |
-| **Trazabilidad** en todo dato inferido | Columnas `source`, `method` (regla / LLM / humano), `model_version`, `confidence`, `valid_from` en mapeos, etiquetas y agrupaciones | Poder auditar y rehacer lo que generen LLM, Jev o reglas |
+| **Trazabilidad** en todo dato inferido | Columnas `source`, `method` (`curado`, `llm`, `regla`, `embedding`, `coocurrencia`; ver [diseno-ia.md](diseno-ia.md#6-modelo-de-datos-nuevo)), `model_version`, `confidence`, `valid_from` en mapeos, etiquetas y agrupaciones | Poder auditar y rehacer lo que generen LLM, Jev o reglas |
 | **Geografía H3** | `h3_cell` (y comuna) en `stores` | Análisis por zona y, más adelante, cobertura de despacho |
 
-Las etiquetas de la capa 2 (conceptos, platos estándar, atributos como "vegano") se generan offline con reglas + LLM o Jev, siempre con trazabilidad. Es el "enriquecimiento del catálogo" del flujo del RAG.
+Las etiquetas de la capa 2 (conceptos, platos estándar, atributos como "vegano") se generan offline con reglas + embeddings (y, si hay clave, LLM o Jev, el modelo de juicios tipados de TypeSafe), siempre con trazabilidad. Es el "enriquecimiento del catálogo" del flujo del RAG.
 
-### Capa 3: datos internos (solo diseño, sin tablas todavía)
+**Diseño (27-09-2026):** `dish_concepts` se reemplaza por `item_concepts` (un plato y un producto del súper se conectan al compartir concepto) y se agregan `concept_edges` (complementos entre conceptos, curados o aprendidos por co-ocurrencia). H3 queda para después. Se implementa en la etapa 1. Detalle en [diseno-ia.md](diseno-ia.md#6-modelo-de-datos-nuevo).
+
+### Capa 3: datos internos (diseño; usuarios, eventos y pedidos tendrán datos simulados)
 
 Entidades que existen en el ecosistema pero **no se pueden obtener públicamente**. Se documentan para que el esquema actual no las bloquee (IDs globales, `vertical` como dato, precios versionados):
 
@@ -121,6 +123,8 @@ Entidades que existen en el ecosistema pero **no se pueden obtener públicamente
 | `event` | Eventos de uso de la app (vistas, búsquedas, clics) por vertical |
 
 Con datos internos, estas entidades permitirían **medir directamente** el problema de los silos: qué hace un mismo usuario en distintos verticales y cómo cambian sus recomendaciones.
+
+**Decisión (27-09-2026):** se crearán `app_users`, `app_events`, `app_orders` y `app_order_lines` con usuarios **simulados** y eventos del prototipo (columna `source`), para construir el panel empresa antes de tener datos reales (etapa 5 de [diseno-ia.md](diseno-ia.md#7-etapas)). Las líneas de pedido podrán apuntar a un producto (`catalog_item`) o a un plato (`menu_item`).
 
 ---
 
@@ -144,11 +148,11 @@ Con datos internos, estas entidades permitirían **medir directamente** el probl
 
 ## 5. Próximos pasos
 
-1. **Terminar la fase 1:** `rappi scrape-stores` y `rappi scrape-restaurants`.
-2. **Mejoras de la capa 2:** `concepts` + `category_map`, `dish_concepts`, trazabilidad y H3.
-3. **Fase 2 (RAG):** set de evaluación por área (Marketing / contenido, Producto / growth, Data / BI), embeddings, búsqueda híbrida y generación. Flujo en [diagramas/rag-flujo.html](diagramas/rag-flujo.html).
+1. **Terminar la fase 1:** la descarga completa en curso con `rappi refresh`.
+2. **Capa 2:** `concepts`, `category_map`, `item_concepts`, `concept_edges` y trazabilidad (H3 queda para después).
+3. **RAG, agente y panel:** por etapas según [diseno-ia.md](diseno-ia.md#7-etapas) (set de evaluación por vertical, embeddings e5/CLIP, búsqueda híbrida). El primer flujo del RAG ([diagramas/rag-flujo.html](diagramas/rag-flujo.html)) quedó reemplazado por [diagramas/arquitectura-ia.html](diagramas/arquitectura-ia.html).
 
 ## Pendiente de decidir
 
-- ¿Crear ya las tablas vacías de la capa 3 o mantenerlas solo como diseño? (por ahora: solo diseño)
-- ¿Qué taxonomía de referencia usar para `concepts`: GS1 GPC, Google Product Taxonomy o una propia?
+- ~~¿Crear ya las tablas de la capa 3?~~ Sí, para usuarios, eventos y pedidos, con datos simulados (27-09-2026).
+- ~~¿Qué taxonomía usar para `concepts`?~~ Propia, enlazable a Google Product Taxonomy después (27-09-2026).

@@ -1,7 +1,7 @@
 # Contexto y problema
 
 > Por qué existe este proyecto, qué queremos responder y qué decisiones salen de eso.
-> Última actualización: 26-09-2026. Research del ecosistema: [ecosistema-rappi.md](ecosistema-rappi.md).
+> Última actualización: 27-09-2026. Research del ecosistema: [ecosistema-rappi.md](ecosistema-rappi.md). Diseño del RAG, agente y panel: [diseno-ia.md](diseno-ia.md).
 
 ## 1. El problema
 
@@ -20,6 +20,7 @@ Sin ese mapa de contenido no se puede:
 1. **Mapa de contenido por vertical:** una base de datos con todo lo que se puede extraer públicamente de Rappi Chile, organizada por vertical.
 2. **Análisis inicial y cruce de información:** cuánto contenido hay por vertical, qué se repite entre verticales, cómo varían los precios entre cadenas y en el tiempo.
 3. **Base para un RAG / búsqueda semántica:** que un agente LLM pueda buscar por significado ("algo liviano para almorzar", "pañales talla G baratos") **dentro de un vertical a la vez**.
+4. **Romper el silo en las recomendaciones:** que lo que alguien hace en un vertical informe las sugerencias de los otros, a través de conceptos comunes, sin mezclar los índices de búsqueda. Diseño en [diseno-ia.md](diseno-ia.md).
 
 ## 3. Preguntas que la base debe poder responder
 
@@ -32,7 +33,7 @@ Sin ese mapa de contenido no se puede:
 
 | Decisión | Por qué |
 |---|---|
-| **Búsqueda e índices aislados por vertical** (una partición por vertical; toda búsqueda exige `vertical`) | Replica el funcionamiento real de Rappi: un vertical no influye en otro. Evita que resultados de un vertical contaminen otro. |
+| **Búsqueda e índices aislados por vertical** (una partición por vertical; toda búsqueda exige `vertical`) | Precisión: quien está en Licores quiere resultados de Licores. Es una **regla de búsqueda**, no un límite del modelo: los intereses del usuario sí cruzan verticales, a través de conceptos (27-09-2026, ver [diseno-ia.md](diseno-ia.md)). |
 | **Catálogo compartido para análisis** (un producto = un `master_product_id` en todo Rappi) | Permite cruzar verticales en SQL sin romper el aislamiento de la búsqueda. |
 | **Catálogo separado de precios** | Las 88.627 filas del primer scraping eran solo 7.458 productos únicos: las sucursales repiten el catálogo. El contenido (lo que se busca) es único; el precio es por tienda. |
 | **Una sucursal por marca/formato** | Suficiente para saber *qué hay*; bajar todas las sucursales multiplica el tiempo sin aportar contenido nuevo. |
@@ -45,7 +46,7 @@ Sin ese mapa de contenido no se puede:
 
 - **8 verticales activos:** supermercado, conveniencia, Turbo, Rappi Mall (tecnología, belleza, hogar, deportes, librería, moda…), farmacia, licores, chocolatería y restaurantes.
 - **Tiendas descubiertas** (14 ciudades): supermercado 463, Rappi Mall 506, licores 90, conveniencia 84, farmacia 66, chocolatería 51, Turbo 17. Una misma tienda puede aparecer en varios verticales.
-- **Restaurantes:** 6.697 locales, de los cuales 3.157 pertenecen a 722 cadenas (se descarga una sucursal por cadena) y 4.133 son independientes.
+- **Restaurantes:** 3.157 locales de 722 cadenas (se descarga una sucursal por cadena) y 4.133 independientes: 4.855 restaurantes en la cola de descarga.
 - **Cobertura en tiendas:** las páginas públicas muestran hasta 24 productos por sub-pasillo; en las pruebas se obtuvo entre 8% y 58% de lo que declara cada tienda. Los restaurantes sí muestran el menú completo.
 - **Jumbo y Tottus** no estaban activos en Rappi en septiembre de 2026.
 
@@ -54,8 +55,10 @@ Sin ese mapa de contenido no se puede:
 | Fase | Qué es | Estado |
 |---|---|---|
 | **1. Datos** | Scraper → Postgres: catálogo, menús, precios e historial por vertical (`rappi-scraper/`) | Código listo; descarga completa en curso |
-| **2. RAG** | Embeddings, búsqueda híbrida (semántica + léxica) por vertical, generación con LLM, evaluación | Diseñado; pendiente de decisiones (ver abajo) |
-| **3. Agente** | LLM con herramientas (búsqueda + consultas SQL exactas), si las preguntas reales lo requieren | Por definir |
+| **Prototipo** | App navegable con el asistente Bigotes y recomendaciones entre verticales (`prototipo-app/`) | Listo para demo |
+| **2. RAG** | Conceptos (capa 2), embeddings de texto e imagen, búsqueda híbrida por vertical y evaluación (`rappi-ia/`) | Diseñado ([diseno-ia.md](diseno-ia.md)); por etapas |
+| **3. Agente** | Bigotes en el backend: herramientas de búsqueda, reglas de conducta, voz y foto; LLM opcional | Diseñado; por etapas |
+| **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono (`dashboard-empresa/`), con usuarios simulados | Diseñado; por etapas |
 
 ## 7. Límites y riesgos
 
@@ -66,7 +69,7 @@ Sin ese mapa de contenido no se puede:
 ## 8. Preguntas abiertas
 
 - **¿Quién va a usar el RAG / agente y dónde?** (equipo interno, usuarios finales, análisis de mercado). Define la interfaz y el nivel de riesgo legal.
-- **¿Qué se quiere hacer con la observación de los silos?** (medirla, explicarla, proponer recomendaciones cruzadas…). Define qué análisis priorizar en la fase 2.
+- ~~¿Qué se quiere hacer con la observación de los silos?~~ **Resuelto (27-09-2026):** proponer recomendaciones cruzadas (prototipo Bigotes) y medir su efecto en frecuencia y abandono (panel empresa).
 - **Áreas iniciales:** Marketing / contenido, Producto / growth y Data / BI (definido 26-09-2026).
-- **Modelo de embeddings** (OpenAI, local, o comparar ambos) y **LLM** para redactar respuestas.
-- **Set de evaluación:** 20–30 preguntas reales por vertical con su respuesta esperada.
+- ~~Modelo de embeddings y LLM~~ **Decidido (27-09-2026):** embeddings locales (e5 para texto, CLIP para imagen, Whisper para voz); LLM opcional (Claude) solo para redactar. Se pueden cambiar según la evaluación.
+- **Set de evaluación:** 20–30 preguntas por vertical con su respuesta esperada (se arma en `rappi-ia/`).

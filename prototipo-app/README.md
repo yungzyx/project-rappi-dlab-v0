@@ -40,7 +40,7 @@ El interruptor junto al teléfono (tecla **D**, o Account → Modo demo en el ce
 | Chat | Voz |
 |:---:|:---:|
 | <img src="docs/screenshots/20-asistente.jpg" width="300" alt="Chat con Bigotes"> | <img src="docs/screenshots/21-voz.jpg" width="300" alt="Bigotes escuchando"> |
-| Responde con productos y tiendas reales del prototipo. Arriba muestra lo que va aprendiendo ("Aprendiendo de ti: 🍺 Cerveza · 🥃 Copete") y las sugerencias de abajo cambian según eso. | Onda animada mientras escucha (la voz está simulada: por `http://` el iPhone bloquea el micrófono). La foto sí se envía de verdad. |
+| Responde con productos y tiendas reales del prototipo. Arriba muestra lo que va aprendiendo ("Aprendiendo de ti: 🍺 Cerveza · 🥃 Copete") y las sugerencias de abajo cambian según eso. | Onda animada mientras escucha (la voz está simulada: por `http://` el iPhone bloquea el micrófono). La foto sí se puede tomar o elegir de verdad (cámara o galería) y aparece en el chat, pero hoy no sale del teléfono ni se analiza: la respuesta es simulada a partir de tus intereses. |
 
 Diseño y animaciones del personaje: [`design/bigotes.html`](design/bigotes.html) (se abre con doble clic).
 
@@ -60,7 +60,7 @@ Diseño y animaciones del personaje: [`design/bigotes.html`](design/bigotes.html
 | <img src="docs/screenshots/25-checkout.jpg" width="240" alt="Checkout"> | <img src="docs/screenshots/26-seguimiento.jpg" width="240" alt="Seguimiento"> | <img src="docs/screenshots/27-entregado.jpg" width="240" alt="Pedido entregado"> |
 | Delivery o retiro, propina y desglose (envío gratis con Pro). El medio de pago es un texto de ejemplo. | Los pasos avanzan solos y Bigotes recorre la ruta en el mapa. | Calificación y la siguiente sugerencia cruzada. |
 
-También: **menús reales de 8 restaurantes** del scraper (sección "Cerca de ti" en Restaurants, con pestañas por sección) y **Loyalty** con programa vinculable.
+También: **menús reales** de los restaurantes ya descargados por el scraper (8 al 27-09-2026) (sección "Cerca de ti" en Restaurants, con pestañas por sección) y **Loyalty** con programa vinculable.
 
 <img src="docs/screenshots/28-loyalty-vinculado.jpg" width="240" alt="Loyalty con LATAM Pass vinculado">
 
