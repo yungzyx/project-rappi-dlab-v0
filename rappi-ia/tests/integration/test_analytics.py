@@ -66,6 +66,70 @@ def test_kpis_rhythm_risk_and_cart_abandonment_are_exact(db):
     assert queries.kpis(db, "synthetic")["usuarios_activos"] == 0  # las fuentes no se mezclan
 
 
+def test_cart_abandonment_follows_the_definition(db):
+    """§5: carros con productos; abandonado si su último evento de carro (agregar, quitar, pagar) fue hace > 24 h
+    y no tiene pedido; una vez por carro, en la semana de su último evento."""
+    seed_taxonomy(db, load_taxonomy())
+    _order(db, "u1", 30, cart="c-pagado")
+    day = lambda d: T0 + timedelta(days=d)  # noqa: E731
+    events.record(
+        db,
+        [
+            events.Event("u1", "s", "cart_add", ts=day(30), cart_id="c-pagado"),
+            events.Event("u2", "s", "cart_add", ts=day(10), cart_id="c-perdido"),
+            events.Event("u3", "s", "cart_add", ts=day(10), cart_id="c-vaciado"),  # lo vació: no es un carro
+            events.Event("u3", "s", "cart_remove", ts=day(10), cart_id="c-vaciado"),
+            events.Event("u4", "s", "cart_add", ts=day(5), cart_id="c-pagando"),  # fue a pagar hace < 24 h
+            events.Event("u4", "s", "checkout_start", ts=day(35.9), cart_id="c-pagando"),
+            events.Event("u5", "s", "cart_add", ts=day(35.95), cart_id="c-reciente"),
+            events.Event("u5", "s", "search", ts=day(36), query="x"),
+        ],
+    )
+    db.commit()
+
+    assert queries.kpis(db, "prototype")["abandono_carrito_pct"] == 25.0  # c-perdido de 4 carros con productos
+    weekly = {r["semana"]: r["abandono_carrito_pct"] for r in queries.weekly(db, "prototype")}
+    assert weekly[date(2026, 8, 31)] is None  # c-pagando cuenta en su última semana, no en la de su primer evento
+    assert weekly[date(2026, 9, 7)] == 100.0  # c-perdido
+
+
+def test_same_pair_can_be_learned_from_both_sources(db, monkeypatch):
+    seed_taxonomy(db, load_taxonomy())
+    db.execute(
+        """INSERT INTO concept_edges (from_concept, to_concept, method, weight, support, data_source)
+           VALUES ('cerveza', 'snacks-salados', 'coocurrencia', 0.5, 40, 'synthetic')"""
+    )
+    for user, concepts in [("u1", ["cerveza", "snacks-salados"]), ("u2", ["cerveza", "snacks-salados"])]:
+        for i, concept in enumerate(concepts):
+            _order(db, user, i, concept=concept)
+    _order(db, "u3", 0, concept="lacteos")
+    monkeypatch.setattr(queries, "MIN_SUPPORT", 1)
+
+    assert queries.learn_edges(db, "prototype") >= 1  # antes: UniqueViolation con la arista simulada
+    sources = db.execute(
+        """SELECT data_source FROM concept_edges
+           WHERE from_concept = 'cerveza' AND to_concept = 'snacks-salados' ORDER BY 1"""
+    ).fetchall()
+    assert sources == [("prototype",), ("synthetic",)]
+
+
+def test_catalog_coverage_compares_the_same_stores_and_units(db):
+    add_store(db, 1, "licores", "Botillería con pasillos")
+    add_store(db, 2, "licores", "Botillería sin pasillos")
+    db.execute(
+        """INSERT INTO aisles (store_id, aisle_id, parent_aisle_id, name, product_count_declared)
+           VALUES (1, 1, NULL, 'Cervezas', 4)"""
+    )
+    for pid in range(2):
+        add_product(db, 100 + pid, f"Cerveza {pid}", 1)
+    for pid in range(5):
+        add_product(db, 200 + pid, f"Vino {pid}", 2)  # tienda sin pasillos declarados: fuera de la cobertura
+    db.commit()
+
+    [licores] = queries.catalog_health(db)["cobertura"]
+    assert (licores["tiendas"], licores["declarados"], licores["obtenidos"]) == (1, 4, 2)
+
+
 def test_invalid_source_is_rejected(db):
     with pytest.raises(ValueError):
         queries.kpis(db, "real")

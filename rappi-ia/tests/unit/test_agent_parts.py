@@ -5,9 +5,10 @@ from types import SimpleNamespace
 import numpy as np
 
 from rappi_ia.agent.audio import assess
+from rappi_ia.agent.bigotes import Bigotes
 from rappi_ia.agent.compose import AGE_NOTICE, ClaudeComposer, Draft, TemplateComposer, facts, verify_llm_text
 from rappi_ia.agent.photo import classify
-from rappi_ia.agent.understand import Understander, _clean, _price
+from rappi_ia.agent.understand import Intent, Understander, _clean, _price
 
 
 def _segment(avg_logprob=-0.1, no_speech_prob=0.05, compression_ratio=1.2):
@@ -160,3 +161,13 @@ def test_llm_never_sees_the_user_query_and_notices_are_added_in_code():
     )
     text = composer.compose(draft)
     assert text.startswith("Uy, eso no lo tengo") and text.endswith(AGE_NOTICE)
+
+
+def test_off_topic_results_are_not_labelled_as_the_requested_concept():
+    """'un lomo saltado' (peruana) que solo calza por palabras con pastas del súper: se cita la consulta."""
+    intent = Intent("buscar", "un lomo saltado", concepts=["peruana"], explicit_concepts=True, query="lomo saltado")
+    pasta = SimpleNamespace(name="Vivaldi Chef Pasta Fetuccini", concept="pastas", age_restricted=False)
+    no_cheapest = SimpleNamespace(cheapest_without_filter=None)
+    draft = Bigotes()._draft(intent, "supermercado", [pasta], no_cheapest, None, False)
+    assert draft.concept_label is None
+    assert "«lomo saltado»" in TemplateComposer().compose(draft) and "peruana" not in TemplateComposer().compose(draft)

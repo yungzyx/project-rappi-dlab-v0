@@ -44,10 +44,18 @@ def cmd_concepts(conn, args) -> None:
 
 
 def cmd_embed_text(conn, args) -> None:
+    from .embeddings.images import ScrapeRunning, scrape_running
     from .embeddings.models import text_embedder
     from .embeddings.text_store import embed_search_documents
 
-    print(embed_search_documents(conn, text_embedder(), limit=args.limit))
+    if scrape_running(conn):  # antes de cargar el modelo
+        log.error("Hay una corrida del scraper en curso: embed-text corre después (make post-refresh)")
+        sys.exit(1)
+    try:
+        print(embed_search_documents(conn, text_embedder(), limit=args.limit))
+    except ScrapeRunning as exc:
+        log.error("%s", exc)
+        sys.exit(1)
 
 
 def cmd_embed_images(conn, args) -> None:

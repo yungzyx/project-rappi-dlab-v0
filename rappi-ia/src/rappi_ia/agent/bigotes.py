@@ -158,10 +158,12 @@ class Bigotes:
         else:
             kind = "sin_resultado"  # se dice igual; solo se registra como demanda si `unmet`
         suggestion_concept = self.taxonomy.concepts.get(suggestion.concept) if suggestion else None
+        # Si ningún resultado es del concepto pedido (la búsqueda calzó por palabras), no se rotulan con ese concepto.
+        off_topic = products and intent.concepts and not any(p.concept in intent.concepts for p in products)
         return Draft(
             kind=kind,
             query=intent.query or intent.text,
-            concept_label=_label(occasion, concept),
+            concept_label=None if off_topic else _label(occasion, concept),
             vertical_label=VERTICAL_LABELS.get(vertical, vertical),
             product_names=[p.name for p in products],
             price_max=clp(intent.price_max),

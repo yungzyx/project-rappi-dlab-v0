@@ -87,17 +87,22 @@ def search_products(
     conn: Connection,
     vertical: str,
     query: str,
-    concepts: list[str],
+    concepts: list[str] | None,
     embedder: TextEmbedder | None,
     price_max: float | None = None,
     k: int = 6,
+    mode: str = "hibrido",
 ) -> SearchOutcome:
-    result = retrieve(conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), concepts=concepts)
+    """Con `concepts=None`, los conceptos los detecta la búsqueda en la consulta (endpoint /search)."""
+    result = retrieve(
+        conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), mode=mode, concepts=concepts
+    )
+    concepts = result.query_concepts
     hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts)], concepts, result.unmet)
     products = _dedupe(_within_budget(_with_prices(conn, vertical, hits), price_max))[:k]
     cheapest = None
     if not products and price_max is not None:
-        unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, concepts=concepts)
+        unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, mode=mode, concepts=concepts)
         allowed = [h for h in unfiltered.hits if _allowed(h.concept_id, concepts)]
         candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet))
         priced = [p for p in candidates if p.price_value is not None]
@@ -180,7 +185,7 @@ def _allowed(concept_id: str | None, requested: list[str]) -> bool:
 
 def _verticals_for(conn: Connection, concept_id: str, current_vertical: str | None) -> list[str]:
     rows = conn.execute(
-        "SELECT vertical FROM v_concept_assortment WHERE concept_id = %s AND items > 0 ORDER BY items DESC",
+        "SELECT vertical FROM concept_assortment WHERE concept_id = %s AND items > 0 ORDER BY items DESC",
         (concept_id,),
     ).fetchall()
     verticals = [r[0] for r in rows]

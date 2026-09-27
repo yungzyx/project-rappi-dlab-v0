@@ -6,7 +6,8 @@ Corrige los errores del cerebro por reglas del prototipo:
 - palabras completas, no substrings ("bebestibles" no es bebé);
 - a la búsqueda va la consulta limpia (sin saludo, sin "quiero/tienen", sin el tope de precio);
 - el vertical sale del contexto (pantalla actual), de una mención inequívoca ("en el súper", no "super 8") o del
-  surtido del concepto; si un concepto vive en restaurantes y en tiendas con surtido parecido, pregunta;
+  surtido del concepto (de todos los de la ocasión, si es una ocasión); si un concepto nombrado vive en
+  restaurantes y en tiendas con surtido parecido, pregunta; sin surtido en ningún lado, el vertical de su grupo;
 - los síntomas ("tengo fiebre") no llevan a medicamentos: activan el aviso de farmacia (regla 6d).
 """
 
@@ -77,6 +78,17 @@ SYMPTOMS = [
 
 # Un concepto en restaurantes y en otra tienda es ambiguo si la tienda tiene al menos esta fracción del surtido.
 AMBIGUITY_RATIO = 0.3
+# Vertical natural de un grupo, para conceptos sin surtido en ningún vertical (los demás grupos van al súper).
+GROUP_VERTICALS = {
+    "comida": "restaurantes",
+    "alcohol": "licores",
+    "salud": "farmacia",
+    "moda": "mall",
+    "tecnologia": "mall",
+    "deportes": "mall",
+    "juguetes": "mall",
+    "libreria": "mall",
+}
 _UNITS = r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u|personas?|porciones|cm|mts?|metros?)"
 PRICE = re.compile(
     r"(?:bajo|menos de|hasta|maximo|max|no mas de|por menos de|que cueste menos de)\s*"
@@ -148,10 +160,20 @@ class Understander:
         if not concepts:
             return Intent(kind, text, None, [], **common)
 
-        options = _verticals_for(conn, concepts[0])
+        if not explicit:  # ocasión: su vertical fijo o el de más surtido para el conjunto de sus conceptos
+            fixed = self.taxonomy.occasions[occasion.target].vertical
+            if fixed:
+                return Intent(kind, text, fixed, concepts, **common)
+            options = _verticals_for(conn, concepts)
+            return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
+        options = _verticals_for(conn, concepts[:1])
         if len(options) >= 2 and "restaurantes" in options[:2] and _comparable(conn, concepts[0], options[:2]):
             return Intent("aclarar", text, None, concepts, options=options[:2], **common)
-        return Intent(kind, text, options[0] if options else None, concepts, **common)
+        return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
+
+    def _home(self, concept_id: str) -> str | None:
+        concept = self.taxonomy.concepts.get(concept_id)
+        return GROUP_VERTICALS.get(concept.parent) if concept else None
 
     def _mention(self, body: str, concept_matches) -> str | None:
         """Mención de vertical que no se solapa con un concepto nombrado (p. ej. "cigarros pall mall")."""
@@ -193,10 +215,11 @@ def _id(match) -> str | None:
     return match.target if match else None
 
 
-def _verticals_for(conn: Connection, concept_id: str) -> list[str]:
+def _verticals_for(conn: Connection, concept_ids: list[str]) -> list[str]:
     rows = conn.execute(
-        "SELECT vertical FROM v_concept_assortment WHERE concept_id = %s AND items > 0 ORDER BY items DESC",
-        (concept_id,),
+        """SELECT vertical FROM concept_assortment WHERE concept_id = ANY(%s) AND items > 0
+           GROUP BY vertical ORDER BY sum(items) DESC, vertical""",
+        (concept_ids,),
     ).fetchall()
     return [r[0] for r in rows]
 
@@ -204,7 +227,7 @@ def _verticals_for(conn: Connection, concept_id: str) -> list[str]:
 def _comparable(conn: Connection, concept_id: str, verticals: list[str]) -> bool:
     counts = dict(
         conn.execute(
-            "SELECT vertical, items FROM v_concept_assortment WHERE concept_id = %s AND vertical = ANY(%s)",
+            "SELECT vertical, items FROM concept_assortment WHERE concept_id = %s AND vertical = ANY(%s)",
             (concept_id, verticals),
         ).fetchall()
     )

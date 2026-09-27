@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
+from rappi_scraper.storage.search import VERTICALS
+
 DATA_DIR = Path(__file__).resolve().parent
 
 
@@ -30,6 +32,7 @@ class Occasion:
     emoji: str
     keywords: tuple[str, ...]
     concepts: tuple[str, ...]
+    vertical: str | None = None  # vertical fijo ("hambre ya" = pedir a un restaurante); si no, el del surtido
 
 
 @dataclass(frozen=True)
@@ -64,7 +67,7 @@ def load_taxonomy(path: Path = DATA_DIR / "taxonomy.toml") -> Taxonomy:
         for c in raw["concept"]
     }
     occasions = {
-        o["id"]: Occasion(o["id"], o["name"], o["emoji"], tuple(o["keywords"]), tuple(o["concepts"]))
+        o["id"]: Occasion(o["id"], o["name"], o["emoji"], tuple(o["keywords"]), tuple(o["concepts"]), o.get("vertical"))
         for o in raw.get("occasion", ())
     }
     _validate(groups, concepts, occasions)
@@ -94,3 +97,5 @@ def _validate(groups: dict, concepts: dict, occasions: dict) -> None:
         unknown = [c for c in occasion.concepts if c not in concepts]
         if unknown:
             raise ValueError(f"Ocasión {occasion.id} con conceptos inexistentes: {unknown}")
+        if occasion.vertical and occasion.vertical not in VERTICALS:
+            raise ValueError(f"Ocasión {occasion.id} con vertical inexistente: {occasion.vertical}")

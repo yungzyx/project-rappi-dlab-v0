@@ -6,6 +6,7 @@ from rappi_scraper.storage.search import build_search_documents
 from conftest import add_price, add_product, add_store
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.embeddings.base import HashEmbedder
+from rappi_ia.embeddings.images import ScrapeRunning
 from rappi_ia.embeddings.text_store import embed_search_documents, hnsw_index_name
 from rappi_ia.retrieval.hybrid import Filters, retrieve
 
@@ -41,6 +42,18 @@ def test_embeddings_are_cached_by_content_and_indexed_per_vertical(catalog):
 
     again = embed_search_documents(catalog, embedder)
     assert again["textos_nuevos"] == 0 and again["indices_creados"] == 0
+
+
+def test_text_embeddings_wait_for_a_running_scrape(catalog):
+    """La copia a search_documents podría trabarse (deadlock) con la reescritura del final de la corrida."""
+    catalog.execute("INSERT INTO scrape_runs (kind, status) VALUES ('stores', 'running')")
+    with pytest.raises(ScrapeRunning):
+        embed_search_documents(catalog, HashEmbedder())
+
+
+def test_concept_assortment_is_materialized_by_build_concepts(catalog):
+    rows = catalog.execute("SELECT vertical, items FROM concept_assortment WHERE concept_id = 'cerveza'").fetchall()
+    assert sorted(rows) == [("licores", 3), ("supermercado", 1)]  # la 101 también se vende en el súper
 
 
 def test_lexical_ignores_accents_and_enie(catalog):

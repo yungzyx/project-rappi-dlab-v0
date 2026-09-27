@@ -139,6 +139,25 @@ def test_rebuilding_search_keeps_embedding_only_if_text_unchanged(db):
     assert _count(db, EMBEDDED_ITEMS) == 0
 
 
+def test_rebuilding_search_writes_only_changes_and_drops_missing_entities(db):
+    _store(db, 1, "lider", "supermercado")
+    run = repository.start_run(db, "stores", {})
+    repository.save_products(
+        db, run, 1, [_product("a", 100, "Arroz Tucapel", 1500), _product("b", 101, "Té Club", 900)]
+    )
+    db.commit()
+    assert build_search_documents(db)["escritos"] == 3  # 2 productos + la tienda
+    db.commit()
+
+    unchanged = build_search_documents(db)  # sin cambios: no reescribe filas (ni sus entradas en los índices)
+    assert (unchanged["catalog_item"], unchanged["escritos"], unchanged["eliminados"]) == (2, 0, 0)
+
+    db.execute("DELETE FROM store_products WHERE master_product_id = 101")
+    db.execute("DELETE FROM catalog_items WHERE master_product_id = 101")
+    assert build_search_documents(db)["eliminados"] == 1
+    assert _count(db, "SELECT count(*) FROM search_documents WHERE entity_type = 'catalog_item'") == 1
+
+
 def test_job_queue_resume_and_done_store_types(db):
     run = repository.start_run(db, "stores", {})
     jobs = [

@@ -12,6 +12,7 @@ from psycopg import Connection
 from rappi_scraper.storage.search import VERTICALS
 
 from .base import TextEmbedder, to_pgvector
+from .images import ScrapeRunning, scrape_running
 
 log = logging.getLogger(__name__)
 
@@ -89,6 +90,9 @@ def ensure_hnsw_indexes(conn: Connection, model: str, dim: int) -> list[str]:
 
 
 def embed_search_documents(conn: Connection, embedder: TextEmbedder, limit: int | None = None) -> dict:
+    # La copia a search_documents bloquea filas que el scraper reescribe al final de su corrida (deadlock).
+    if scrape_running(conn):
+        raise ScrapeRunning("Hay una corrida del scraper en curso: embed-text corre después (make post-refresh)")
     embedded = embed_pending(conn, embedder, limit)
     synced = sync_document_embeddings(conn, embedder.model_name)
     indexes = ensure_hnsw_indexes(conn, embedder.model_name, embedder.dim)

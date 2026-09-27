@@ -41,6 +41,7 @@ def build_concepts(conn: Connection, embedder: TextEmbedder | None = None) -> di
         catalog_assigned = sum(1 for a in assignments if a.entity_type == "catalog_item")
 
     store.save_assignments(conn, assignments)
+    store.refresh_assortment(conn)
     conn.commit()
     counts["productos_con_concepto"] = catalog_assigned
     counts["platos_con_concepto"] = len(assignments) - catalog_assigned

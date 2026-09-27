@@ -8,7 +8,17 @@ from psycopg import Connection
 
 VERTICALS = ("supermercado", "conveniencia", "turbo", "mall", "farmacia", "licores", "chocolateria", "restaurantes")
 
+# Los documentos se arman primero en una tabla temporal y solo se escriben los que cambiaron: reescribir las
+# ~300 mil filas en cada refresh insertaba cada una de nuevo en todos los índices (GIN y HNSW por partición).
+_STAGE = """
+CREATE TEMP TABLE staged_documents (
+    vertical text, entity_type text, entity_id text, content text, metadata jsonb, content_hash text
+) ON COMMIT DROP
+"""
+
 _UPSERT = """
+INSERT INTO search_documents (vertical, entity_type, entity_id, content, metadata, content_hash)
+SELECT vertical, entity_type, entity_id, content, metadata, content_hash FROM staged_documents
 ON CONFLICT (vertical, entity_type, entity_id) DO UPDATE SET
     content = EXCLUDED.content,
     metadata = EXCLUDED.metadata,
@@ -18,12 +28,19 @@ ON CONFLICT (vertical, entity_type, entity_id) DO UPDATE SET
     embedding_model = CASE WHEN search_documents.content_hash = EXCLUDED.content_hash
                            THEN search_documents.embedding_model END,
     updated_at = now()
+WHERE (search_documents.content_hash, search_documents.metadata)
+      IS DISTINCT FROM (EXCLUDED.content_hash, EXCLUDED.metadata)
+"""
+
+_DELETE_STALE = """
+DELETE FROM search_documents d
+WHERE NOT EXISTS (SELECT 1 FROM staged_documents s
+                  WHERE s.vertical = d.vertical AND s.entity_type = d.entity_type AND s.entity_id = d.entity_id)
 """
 
 # Los precios se agregan una sola vez por (producto, vertical) en CTEs; hacerlo con un
 # LATERAL por producto recalculaba el último precio de todo el historial en cada fila.
-CATALOG_DOCS = (
-    """
+CATALOG_DOCS = """
 WITH latest AS (
     SELECT DISTINCT ON (store_id, sku) store_id, sku, price
     FROM price_snapshots
@@ -42,7 +59,7 @@ prices AS (
     WHERE sp.master_product_id IS NOT NULL
     GROUP BY sp.master_product_id, sv.vertical
 )
-INSERT INTO search_documents (vertical, entity_type, entity_id, content, metadata, content_hash)
+INSERT INTO staged_documents (vertical, entity_type, entity_id, content, metadata, content_hash)
 SELECT iv.vertical, 'catalog_item', ci.master_product_id::text, d.content,
        jsonb_strip_nulls(jsonb_build_object(
            'master_product_id', ci.master_product_id, 'categoria', c.name, 'marca', NULLIF(ci.trademark, ''),
@@ -58,17 +75,14 @@ CROSS JOIN LATERAL (SELECT concat_ws('. ', ci.name, 'Marca: ' || NULLIF(ci.trade
                                      NULLIF(NULLIF(ci.description, ''), ci.name)) AS content) d
 LEFT JOIN prices p ON p.master_product_id = iv.master_product_id AND p.vertical = iv.vertical
 """
-    + _UPSERT
-)
 
-MENU_DOCS = (
-    """
+MENU_DOCS = """
 WITH latest AS (
     SELECT DISTINCT ON (item_id) item_id, price, real_price
     FROM menu_price_snapshots
     ORDER BY item_id, scraped_at DESC
 )
-INSERT INTO search_documents (vertical, entity_type, entity_id, content, metadata, content_hash)
+INSERT INTO staged_documents (vertical, entity_type, entity_id, content, metadata, content_hash)
 SELECT 'restaurantes', 'menu_item', mi.item_id::text, d.content,
        jsonb_strip_nulls(jsonb_build_object(
            'store_id', s.store_id, 'restaurante', s.name, 'cadena', b.name, 'ciudad', NULLIF(s.city, ''),
@@ -85,12 +99,9 @@ LEFT JOIN latest mp ON mp.item_id = mi.item_id
 CROSS JOIN LATERAL (SELECT concat_ws('. ', mi.name, NULLIF(NULLIF(mi.description, ''), mi.name), 'Sección: ' || ms.name,
                                      'Restaurante: ' || s.name, 'Cocina: ' || cu.cocinas) AS content) d
 """
-    + _UPSERT
-)
 
-STORE_DOCS = (
-    """
-INSERT INTO search_documents (vertical, entity_type, entity_id, content, metadata, content_hash)
+STORE_DOCS = """
+INSERT INTO staged_documents (vertical, entity_type, entity_id, content, metadata, content_hash)
 SELECT DISTINCT ON (vsv.vertical, s.store_id)
        vsv.vertical, 'store', s.store_id::text, d.content,
        jsonb_strip_nulls(jsonb_build_object(
@@ -112,18 +123,20 @@ WHERE EXISTS (SELECT 1 FROM store_products sp WHERE sp.store_id = s.store_id)
    OR EXISTS (SELECT 1 FROM menu_items mi WHERE mi.store_id = s.store_id)
 ORDER BY vsv.vertical, s.store_id, vsv.subvertical NULLS LAST
 """
-    + _UPSERT
-)
 
 
 def build_search_documents(conn: Connection) -> dict[str, int]:
-    """Regenera los documentos a partir de las tablas núcleo. Devuelve filas afectadas por tipo."""
+    """Regenera los documentos a partir de las tablas núcleo. Devuelve documentos armados por tipo, cuántos se
+    escribieron (nuevos o con otro texto, precio o metadatos) y cuántos se borraron (ya no existen)."""
     counts = {}
     with conn.transaction():
+        conn.execute("DROP TABLE IF EXISTS pg_temp.staged_documents")
+        conn.execute(_STAGE)
         for name, sql in (("catalog_item", CATALOG_DOCS), ("menu_item", MENU_DOCS), ("store", STORE_DOCS)):
             counts[name] = conn.execute(sql).rowcount
-        # now() es la hora de inicio de la transacción: lo que no se tocó arriba ya no existe.
-        counts["eliminados"] = conn.execute("DELETE FROM search_documents WHERE updated_at < now()").rowcount
+        conn.execute("ANALYZE staged_documents")
+        counts["escritos"] = conn.execute(_UPSERT).rowcount
+        counts["eliminados"] = conn.execute(_DELETE_STALE).rowcount
     return counts
 
 

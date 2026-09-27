@@ -227,7 +227,7 @@ def _concept_in_vertical(conn: Connection, vertical: str, concepts: list[str]) -
         return False
     return bool(
         conn.execute(
-            """SELECT 1 FROM v_concept_assortment a
+            """SELECT 1 FROM concept_assortment a
                WHERE a.vertical = %(v)s AND a.concept_id = ANY(%(c)s)
                  AND a.items >= greatest(%(min)s, round(%(share)s * (SELECT count(*) FROM search_documents
                                                                       WHERE vertical = %(v)s)))

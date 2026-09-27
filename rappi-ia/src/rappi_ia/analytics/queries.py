@@ -34,6 +34,24 @@ def _check(source: str) -> None:
 
 _AS_OF = "(SELECT max(ts) FROM app_events WHERE source = %(source)s)"
 
+# Carros (docs/diseno-ia.md §5): con al menos un producto (agregados − quitados > 0, o con pedido); abandonado si su
+# último evento de carro (agregar, quitar o ir a pagar) fue hace más de 24 h y no tiene pedido. Una vez por carro.
+_CARTS = f"""
+cart_events AS (
+    SELECT cart_id, max(ts) AS last_cart_ts,
+           count(*) FILTER (WHERE type = 'cart_add') - count(*) FILTER (WHERE type = 'cart_remove') AS units
+    FROM app_events
+    WHERE source = %(source)s AND type IN ('cart_add', 'cart_remove', 'checkout_start') AND cart_id IS NOT NULL
+    GROUP BY cart_id
+),
+cart_status AS (
+    SELECT c.cart_id, c.last_cart_ts,
+           o.cart_id IS NULL AND c.last_cart_ts < {_AS_OF} - interval '24 hours' AS is_abandoned
+    FROM cart_events c
+    LEFT JOIN (SELECT DISTINCT cart_id FROM app_orders WHERE source = %(source)s) o ON o.cart_id = c.cart_id
+    WHERE c.units > 0 OR o.cart_id IS NOT NULL
+)"""
+
 # Ritmo por usuario: mediana de días entre pedidos (180 días); con 2 pedidos, el único intervalo acotado a [7, 30].
 _RHYTHM = f"""
 user_orders AS (  -- por día con pedidos: dos pedidos del mismo carro (dos verticales) no son "ritmo 0"
@@ -74,17 +92,9 @@ def kpis(conn: Connection, source: str = "synthetic") -> dict:
                 SELECT count(*) AS n FROM app_orders
                 WHERE source = %(source)s AND ts > {_AS_OF} - interval '{ACTIVE_DAYS} days'
             ),
-            carts AS (  -- carros con actividad en los últimos 30 días, como los demás indicadores
-                SELECT cart_id, max(ts) AS last_cart_ts FROM app_events
-                WHERE source = %(source)s AND type = 'cart_add' AND cart_id IS NOT NULL
-                  AND ts > {_AS_OF} - interval '{ACTIVE_DAYS} days'
-                GROUP BY cart_id
-            ),
-            abandoned AS (
-                SELECT c.cart_id,
-                       NOT EXISTS (SELECT 1 FROM app_orders o WHERE o.cart_id = c.cart_id AND o.source = %(source)s)
-                         AND c.last_cart_ts < {_AS_OF} - interval '24 hours' AS is_abandoned
-                FROM carts c
+            {_CARTS.strip()},
+            abandoned AS (  -- carros con actividad en los últimos 30 días, como los demás indicadores
+                SELECT is_abandoned FROM cart_status WHERE last_cart_ts > {_AS_OF} - interval '{ACTIVE_DAYS} days'
             ),
             multi AS (
                 SELECT user_id, count(DISTINCT vertical) AS verticals FROM app_orders
@@ -120,8 +130,9 @@ def weekly(conn: Connection, source: str = "synthetic") -> list[dict]:
     _check(source)
     return _rows(
         conn,
-        """WITH ev AS (
-               SELECT date_trunc('week', ts) AS week, user_id, type, unmet, cart_id
+        f"""WITH {_CARTS.strip()},
+           ev AS (
+               SELECT date_trunc('week', ts) AS week, user_id, type, unmet
                FROM app_events WHERE source = %(source)s
            ),
            activity AS (
@@ -134,16 +145,11 @@ def weekly(conn: Connection, source: str = "synthetic") -> list[dict]:
                SELECT date_trunc('week', ts) AS week, count(*) AS pedidos
                FROM app_orders WHERE source = %(source)s GROUP BY 1
            ),
-           carts AS (
-               SELECT e.week, e.cart_id, bool_or(o.order_id IS NOT NULL) AS paid
-               FROM (SELECT DISTINCT week, cart_id FROM ev WHERE type = 'cart_add' AND cart_id IS NOT NULL) e
-               LEFT JOIN app_orders o ON o.cart_id = e.cart_id AND o.source = %(source)s
-               GROUP BY 1, 2
-           ),
-           abandonment AS (
-               SELECT week, round(100.0 * count(*) FILTER (WHERE NOT paid) / nullif(count(*), 0), 1)
+           abandonment AS (  -- cada carro, en la semana de su último evento
+               SELECT date_trunc('week', last_cart_ts) AS week,
+                      round(100.0 * count(*) FILTER (WHERE is_abandoned) / nullif(count(*), 0), 1)
                           AS abandono_carrito_pct
-               FROM carts GROUP BY week
+               FROM cart_status GROUP BY 1
            )
            SELECT a.week::date AS semana, a.usuarios_activos, coalesce(o.pedidos, 0) AS pedidos,
                   a.sin_resultado_pct, ab.abandono_carrito_pct
@@ -178,11 +184,11 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
                    a.busquedas, a.usuarios, a.ciudades, a.recientes, a.anteriores,
                    CASE WHEN a.anteriores = 0 THEN NULL
                         ELSE round(100.0 * (a.recientes - a.anteriores) / a.anteriores, 0) END AS crecimiento_pct,
-                   (SELECT string_agg(ca.vertical, ', ' ORDER BY ca.items DESC) FROM v_concept_assortment ca
+                   (SELECT string_agg(ca.vertical, ', ' ORDER BY ca.items DESC) FROM concept_assortment ca
                     WHERE ca.concept_id = a.concept_id AND ca.vertical <> a.vertical AND ca.items >= 3)
                        AS existe_en,
                    CASE WHEN a.concept_id IS NULL THEN 'Revisar la consulta: sumar sinónimo o concepto nuevo'
-                        WHEN EXISTS (SELECT 1 FROM v_concept_assortment ca WHERE ca.concept_id = a.concept_id
+                        WHEN EXISTS (SELECT 1 FROM concept_assortment ca WHERE ca.concept_id = a.concept_id
                                      AND ca.vertical <> a.vertical AND ca.items >= 3)
                              THEN 'Existe en otro vertical: que Bigotes lo ofrezca ahí'
                         ELSE 'Oportunidad: sumar comercios o categoría' END AS accion
@@ -449,12 +455,17 @@ def catalog_health(conn: Connection) -> dict:
     """Muestra pública REAL del catálogo: cobertura, calidad y precios (no depende de datos simulados)."""
     coverage = _rows(
         conn,
-        """SELECT sv.vertical, count(DISTINCT a.store_id) AS tiendas,
-                  sum(a.product_count_declared) AS declarados,
-                  (SELECT count(DISTINCT sp.master_product_id) FROM store_products sp
-                   JOIN v_store_verticals v ON v.store_id = sp.store_id WHERE v.vertical = sv.vertical) AS obtenidos
-           FROM aisles a JOIN store_verticals sv USING (store_id)
-           WHERE a.parent_aisle_id IS NULL
+        # Declarados y obtenidos en la misma unidad (productos por tienda) y sobre las mismas tiendas.
+        """WITH declared AS (
+               SELECT sv.vertical, a.store_id, sum(a.product_count_declared) AS declared
+               FROM aisles a JOIN store_verticals sv USING (store_id)
+               WHERE a.parent_aisle_id IS NULL
+               GROUP BY 1, 2
+           ),
+           obtained AS (SELECT store_id, count(*) AS obtained FROM store_products GROUP BY 1)
+           SELECT d.vertical, count(*) AS tiendas, sum(d.declared) AS declarados,
+                  coalesce(sum(o.obtained), 0) AS obtenidos
+           FROM declared d LEFT JOIN obtained o USING (store_id)
            GROUP BY 1 ORDER BY 3 DESC NULLS LAST""",
         {},
     )
@@ -495,7 +506,7 @@ def assortment_vs_demand(conn: Connection, source: str = "synthetic", limit: int
                   coalesce(a.items, 0) AS items_en_catalogo,
                   round(d.usuarios::numeric / nullif(a.items, 0), 2) AS usuarios_por_item  -- NULL = sin oferta
            FROM demand d JOIN concepts c USING (concept_id)
-           LEFT JOIN v_concept_assortment a ON a.concept_id = d.concept_id AND a.vertical = d.vertical
+           LEFT JOIN concept_assortment a ON a.concept_id = d.concept_id AND a.vertical = d.vertical
            WHERE NOT c.sensitive
            ORDER BY usuarios_por_item DESC NULLS FIRST, d.usuarios DESC LIMIT %(limit)s""",
         {"source": source, "limit": limit},

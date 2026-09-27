@@ -8,10 +8,11 @@ import logging
 from collections.abc import Iterator
 from typing import Literal
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from psycopg import Connection
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from rappi_scraper.storage.search import VERTICALS
 
 from .. import config
@@ -41,6 +42,7 @@ app.add_middleware(
 
 FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 MAX_UPLOAD_BYTES = 8_000_000
+MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
 MAX_AUDIO_SECONDS = 20  # el prototipo graba hasta 7 s; esto protege a Whisper de audios de horas
 MAX_IMAGE_PIXELS = 40_000_000  # evita "bombas" de descompresión (un PNG de 17 KB puede pesar 500 MB en memoria)
 IMAGE_FORMATS = ["JPEG", "PNG", "WEBP"]  # nunca EPS/PS (Pillow llamaría a Ghostscript)
@@ -215,7 +217,7 @@ def search(
         raise HTTPException(400, f"mode debe ser uno de {MODES}")
     code = backend_vertical(vertical)
     try:
-        outcome = search_products(conn, code, q, [], svc.embedder if mode != "lexico" else None, price_max, k=limit)
+        outcome = search_products(conn, code, q, None, svc.embedder, price_max, k=limit, mode=mode)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return {
@@ -280,6 +282,24 @@ def forget(user_id: str, concept: str | None = None, conn: Connection = Depends(
 
 @app.post("/events")
 def post_events(body: EventsIn, conn: Connection = Depends(get_conn)) -> dict:
+    return {"guardados": _save_events(conn, body)}
+
+
+@app.post("/events/beacon", status_code=204)
+async def post_events_beacon(request: Request, conn: Connection = Depends(get_conn)) -> None:
+    """Lo que queda en cola al cerrar la pestaña (navigator.sendBeacon). Llega como text/plain, que no necesita
+    preflight de CORS; el contenido es el mismo JSON de /events."""
+    raw = await request.body()
+    if len(raw) > MAX_BEACON_BYTES:
+        raise HTTPException(413, "Demasiados eventos")
+    try:
+        body = EventsIn.model_validate_json(raw)
+    except ValidationError as exc:
+        raise HTTPException(422, "Eventos inválidos") from exc
+    await run_in_threadpool(_save_events, conn, body)
+
+
+def _save_events(conn: Connection, body: EventsIn) -> int:
     try:
         n = events.record(
             conn,
@@ -292,17 +312,20 @@ def post_events(body: EventsIn, conn: Connection = Depends(get_conn)) -> dict:
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     conn.commit()
-    return {"guardados": n}
+    return n
 
 
 @app.post("/orders")
 def post_order(body: OrderIn, conn: Connection = Depends(get_conn)) -> dict:
+    vertical = backend_vertical(body.vertical)
+    if vertical is None:  # un pedido es de una tienda: sin vertical del catálogo no se puede guardar
+        raise HTTPException(400, f"Vertical desconocido: {body.vertical}")
     order_id = events.record_order(
         conn,
         body.user_id,
         body.session_id,
         body.cart_id,
-        backend_vertical(body.vertical),
+        vertical,
         [line.model_dump() for line in body.lines],
         source="prototype",
     )

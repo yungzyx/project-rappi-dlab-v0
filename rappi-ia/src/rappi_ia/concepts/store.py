@@ -128,6 +128,12 @@ def menu_items_for_assignment(conn: Connection) -> list[tuple[str, str, str | No
     ).fetchall()
 
 
+def refresh_assortment(conn: Connection) -> None:
+    """Surtido por concepto y vertical que leen Bigotes y el panel (vista materializada; ver migración 012).
+    CONCURRENTLY: la API sigue leyendo la versión anterior mientras se recalcula."""
+    conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY concept_assortment")
+
+
 def save_assignments(conn: Connection, assignments: list[Assignment]) -> int:
     """Upsert de las asignaciones y borra las gestionadas aquí que ya no aplican (p. ej. cambió la taxonomía)."""
     conn.execute("""CREATE TEMP TABLE new_item_concepts (LIKE item_concepts INCLUDING DEFAULTS) ON COMMIT DROP""")

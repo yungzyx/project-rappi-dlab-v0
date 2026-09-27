@@ -36,3 +36,8 @@ def test_category_map_csv_uses_known_concepts():
     assert {r["tipo"] for r in rows} == {"categoria", "seccion_menu", "cocina"}
     assert all(0 <= float(r["confianza"]) <= 1 for r in rows)
     assert all(r["metodo"] in {"llm", "curado"} for r in rows)
+
+
+def test_hunger_occasion_is_always_restaurants():
+    assert load_taxonomy().occasions["hambre"].vertical == "restaurantes"
+    assert load_taxonomy().occasions["asado"].vertical is None  # las demás: el vertical con más surtido

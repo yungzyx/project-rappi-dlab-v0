@@ -1,5 +1,7 @@
 """API contra `rappi_ia_test`, con el modelo falso de embeddings y sin modelos de voz ni foto."""
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 from rappi_scraper.storage.search import build_search_documents
@@ -122,6 +124,43 @@ def test_invalid_event_type_and_vertical_are_rejected(client):
     bad = client.post("/events", json={"user_id": "u1", "events": [{"type": "hack", "session_id": "s"}]})
     assert bad.status_code == 400
     assert client.get("/search", params={"q": "cerveza", "vertical": "aerolineas"}).status_code == 400
+
+
+def test_order_without_catalog_vertical_is_a_400_not_a_500(client, db):
+    line = {"entity_type": "catalog_item", "entity_id": "proto:1"}
+    for vertical in ["otro", "pet"]:
+        order = {"user_id": "u1", "session_id": "s", "cart_id": "c", "vertical": vertical, "lines": [line]}
+        assert client.post("/orders", json=order).status_code == 400
+    assert db.execute("SELECT count(*) FROM app_orders").fetchone()[0] == 0
+
+
+def test_beacon_accepts_text_plain_without_cors_preflight(client, db):
+    """sendBeacon con JSON necesitaría preflight (y el navegador lo bloquea): el prototipo manda text/plain."""
+    events = [{"type": "app_open", "session_id": "s1"}, {"type": "cart_add", "session_id": "s1", "vertical": "turbo"}]
+    sent = client.post(
+        "/events/beacon",
+        content=json.dumps({"user_id": "u-beacon", "events": events}),
+        headers={"content-type": "text/plain;charset=UTF-8", "origin": "http://localhost:5174"},
+    )
+    assert sent.status_code == 204
+    rows = db.execute("SELECT type, vertical FROM app_events WHERE user_id = 'u-beacon' ORDER BY event_id").fetchall()
+    assert rows == [("app_open", None), ("cart_add", "turbo")]
+    assert (
+        client.post("/events/beacon", content="{no es json", headers={"content-type": "text/plain"}).status_code == 422
+    )
+
+
+def test_search_honours_mode_and_detects_query_concepts(client, monkeypatch):
+    from rappi_ia.agent import tools
+
+    modes, real = [], tools.retrieve
+    monkeypatch.setattr(tools, "retrieve", lambda *a, **kw: modes.append(kw["mode"]) or real(*a, **kw))
+    assert client.get("/search", params={"q": "cerveza", "vertical": "licores", "mode": "vector"}).json()["products"]
+    assert set(modes) == {"vector"}  # antes siempre corría el híbrido
+    # Con los conceptos detectados, "cerveza" solo trae cervezas (antes pasaba concepts=[] y no había foco).
+    hybrid = client.get("/search", params={"q": "cerveza", "vertical": "supermercado"}).json()
+    assert hybrid["products"] == [] and hybrid["unmet"]
+    assert client.get("/search", params={"q": "cerveza", "vertical": "licores", "mode": "otro"}).status_code == 400
 
 
 def test_search_and_analytics(client):

@@ -121,3 +121,26 @@ def test_unmet_is_recorded_even_with_a_price_cap(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "kebab bajo 10 mil", Context(vertical="restaurantes"))
     assert r["unmet"] and "Lo anoté" in r["text"]
+
+
+def test_occasion_picks_its_vertical_without_asking_about_its_first_concept(bigotes):
+    """Antes el vertical salía solo del primer concepto de la ocasión: 'tengo hambre' preguntaba por pizza (o iba
+    al súper) y un carrete iba adonde estuviera la cerveza aunque el resto de la ocasión estuviera en otro lado."""
+    agent, db = bigotes
+    hungry = agent.reply(db, "tengo hambre", Context())
+    assert hungry["intent"]["kind"] == "ocasion" and hungry["vertical"] == "restaurantes"  # vertical fijo
+    # Carrete: cerveza (2 en licores) va primero, pero snacks (3 en el súper) pesa más en el total de la ocasión.
+    for pid, name in [(102, "Ramitas Evercrisp Queso 250 g"), (103, "Papas Kryzpo Original 130 g")]:
+        add_product(db, pid, name, 1, "Snacks salados")
+        add_price(db, 1, pid, 1590)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    party = agent.reply(db, "arma un carrete", Context())
+    assert party["intent"]["kind"] == "ocasion" and party["vertical"] == "supermercado"
+
+
+def test_concept_without_assortment_goes_to_its_group_vertical(bigotes):
+    agent, db = bigotes
+    r = agent.reply(db, "quiero sushi", Context())  # no hay sushi en ningún vertical
+    assert r["vertical"] == "restaurantes" and r["unmet"]
