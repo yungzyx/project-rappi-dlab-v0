@@ -45,9 +45,19 @@ export const normalize = (text) =>
     .replace(/[̀-ͯ]/g, '')
     .replace(/ñ/g, 'n')
 
+// Cada palabra clave debe empezar al inicio de una palabra ("pet" no calza con "carpeta"), pero puede
+// continuar: así "hamburguesa" reconoce "hamburguesas" y "papa john" reconoce "Papa Johns".
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const TAG_PATTERNS = Object.fromEntries(
+  Object.entries(TAGS).map(([tag, { words }]) => [
+    tag,
+    new RegExp(`(^|[^a-z0-9])(${words.map(escapeRegex).join('|')})`),
+  ]),
+)
+
 export function tagsOf(text) {
   const clean = normalize(text)
-  return Object.keys(TAGS).filter((tag) => TAGS[tag].words.some((word) => clean.includes(word)))
+  return Object.keys(TAGS).filter((tag) => TAG_PATTERNS[tag].test(clean))
 }
 
 const itemText = (item) => `${item.name} ${item.store ?? ''}`

@@ -6,12 +6,11 @@ const CLOSE_MS = 260
 /** Hoja inferior dentro del teléfono (dirección, carrito). Se cierra tocando el fondo. */
 export default function Sheet({ open, onClose, title, children }) {
   const [mounted, setMounted] = useState(open)
+  // Montar al abrir se decide durante el render; desmontar espera a que termine la animación de salida.
+  if (open && !mounted) setMounted(true)
 
   useEffect(() => {
-    if (open) {
-      setMounted(true)
-      return undefined
-    }
+    if (open) return undefined
     const timer = setTimeout(() => setMounted(false), CLOSE_MS)
     return () => clearTimeout(timer)
   }, [open])

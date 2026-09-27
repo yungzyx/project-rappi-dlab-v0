@@ -106,6 +106,8 @@ export default function AssistantPanel({ push }) {
   useLayoutEffect(() => {
     const session = assistant.session
     if (!session) return
+    // Paso 1 de la animación: hay que pintar el recorte inicial antes de expandir, así que el render extra es buscado.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOrigin(session.origin ?? null)
     setPhase('from-origin')
     setMood('wave')
@@ -128,6 +130,7 @@ export default function AssistantPanel({ push }) {
   useLayoutEffect(() => {
     if (phase !== 'from-origin') return
     rootRef.current?.getBoundingClientRect()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- paso 2: depende de haber medido el DOM
     setPhase('open')
   }, [phase])
 
