@@ -31,22 +31,23 @@ def crawl_store(client: RappiClient, store_data: dict, max_aisles: int | None = 
     for aisle in parse_aisles(store_data)[:max_aisles]:
         aisles.append({**aisle, "parent_aisle_id": None})
         aisle_path = f"{store['path']}/{aisle['friendly_url']}"
-        try:
+        try:  # leer la página también va aquí: puede llegar sin fallback['storefront/...'] (ParseError)
             aisle_data = client.get_next_data(aisle_path)
+            aisle_products, sub_aisles = parse_products(aisle_data), parse_sub_aisles(aisle_data)
         except PAGE_ERRORS as exc:
             log.warning("  pasillo omitido %s: %s", aisle_path, exc)
             continue
-        products.update(_tag(parse_products(aisle_data), aisle["aisle_id"]))
+        products.update(_tag(aisle_products, aisle["aisle_id"]))
 
-        for sub in parse_sub_aisles(aisle_data):
+        for sub in sub_aisles:
             aisles.append({**sub, "parent_aisle_id": aisle["aisle_id"]})
             sub_path = f"{aisle_path}/{sub['friendly_url']}"
             try:
-                sub_data = client.get_next_data(sub_path)
+                sub_products = parse_products(client.get_next_data(sub_path))
             except PAGE_ERRORS as exc:
                 log.warning("  sub-pasillo omitido %s: %s", sub_path, exc)
                 continue
-            products.update(_tag(parse_products(sub_data), aisle["aisle_id"], sub["aisle_id"]))
+            products.update(_tag(sub_products, aisle["aisle_id"], sub["aisle_id"]))
 
     context = store_data["props"]["pageProps"].get("storeContext")
     return {"store": store, "context": context, "aisles": aisles, "products": list(products.values())}

@@ -54,6 +54,29 @@ def test_store_job_fails_when_no_branch_available(db):
     assert _statuses(db) == {"type:x": "failed"}
 
 
+@pytest.mark.parametrize(
+    ("bad_path", "next_path"),
+    [
+        ("/tiendas/900025946-lider/lacteos-y-huevos", "/tiendas/900025946-lider/snacks-y-dulces"),
+        ("/tiendas/900025946-lider/lacteos-y-huevos/yogurt", "/tiendas/900025946-lider/lacteos-y-huevos/leche"),
+    ],
+    ids=["pasillo", "sub-pasillo"],
+)
+def test_page_without_storefront_skips_only_that_aisle(db, bad_path, next_path):
+    # Rappi a veces entrega un pasillo o sub-pasillo sin fallback['storefront/...'] (27-09-2026): se omite esa
+    # página y la tienda sigue, en vez de perder todo lo recorrido.
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:lider", "/tiendas/900025946-lider")])
+    client = FakeClient({bad_path: "listing_market"})  # página real sin storefront
+
+    process_store_jobs(db, client, run, max_aisles=2)
+
+    # sigue con la página hermana siguiente, no corta el recorrido
+    assert client.requested.index(next_path) > client.requested.index(bad_path)
+    assert _statuses(db) == {"type:lider": "done"}
+    assert db.execute("SELECT count(*) FROM store_products").fetchone()[0] > 0
+
+
 def test_restaurant_branches_of_same_brand_are_scraped_once(db):
     run = repository.start_run(db, "restaurants", {})
     repository.add_jobs(
