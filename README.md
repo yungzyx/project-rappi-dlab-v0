@@ -39,9 +39,9 @@ Actualización semanal: en el Mac que la tenga programada (`make schedule` en `r
 - **Base de datos:** Postgres 17 local (Homebrew), base `rappi`. No es un archivo ni vive en esta carpeta (`/opt/homebrew/var/postgresql@17`). Cómo conectarse y consultas de ejemplo: [docs/sql/](docs/sql/).
 - **Archivos:** `rappi-scraper/data/` (respaldos de la base, reportes de cada corrida, exportaciones CSV). Fuera de git.
 
-## Instalar en otro Mac (Mac mini)
+## Instalación y operación
 
-[docs/mac-mini.md](docs/mac-mini.md): código por GitHub, base por respaldo, modelos, apps y la tarea semanal.
+[docs/instalacion.md](docs/instalacion.md): requisitos, código, base de datos desde un respaldo, modelos, apps y la actualización semanal.
 
 ## Empezar
 

@@ -1,6 +1,6 @@
 # Consultar la base `rappi` con SQL
 
-La base es un **PostgreSQL 17 local** (Homebrew), no un archivo: sus datos viven en `/opt/homebrew/var/postgresql@17` y se consultan con SQL. No está en GitHub; para llevarla a otro Mac, ver [docs/mac-mini.md](../mac-mini.md).
+La base es un **PostgreSQL 17 local** (Homebrew), no un archivo: sus datos viven en `/opt/homebrew/var/postgresql@17` y se consultan con SQL. No está en GitHub; para llevarla a otro Mac, ver [docs/instalacion.md](../instalacion.md).
 
 [consultas.sql](consultas.sql) tiene 24 consultas probadas contra la base (todas de solo lectura, menos de 3 s), agrupadas en catálogo y precios, restaurantes, entre verticales y conceptos, y técnicas.
 
@@ -17,7 +17,7 @@ Con TablePlus, Beekeeper Studio o la extensión "PostgreSQL" de VS Code:
 | Base | `rappi` |
 
 - **Solo lectura:** en la conexión, agrega como comando de inicio (TablePlus: *Bootstrap commands*) `SET default_transaction_read_only = on;`. Así un `DELETE` o `UPDATE` por error se rechaza.
-- **Desde la Terminal:** `psql rappi` (en un Mac nuevo, primero deja `psql` en el PATH: ver [mac-mini.md](../mac-mini.md), paso 3). `\dt` lista las tablas, `\d tabla` muestra sus columnas, `\timing on` mide cada consulta y `\q` sale.
+- **Desde la Terminal:** `psql rappi` (en un Mac nuevo, primero deja `psql` en el PATH: ver [instalacion.md](../instalacion.md), paso 3). `\dt` lista las tablas, `\d tabla` muestra sus columnas, `\timing on` mide cada consulta y `\q` sale.
 
 ## Qué hay en cada tabla
 

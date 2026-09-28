@@ -19,7 +19,7 @@ Base de datos del contenido de Rappi Chile por vertical (supermercado, convenien
 | 1. Scraper → Postgres | Código listo y probado (72 tests, también en CI). Primera descarga completa terminada el 27-09-2026 21:28: 780 grupos de tiendas (69.850 productos, 121.557 ofertas) y 3.080 restaurantes (150.955 platos). Farmacia quedó corta (ParseError en 23 cadenas, pendiente). Reportes en `rappi-scraper/data/reports/`. |
 | Paso 1 del scraper: corridas confiables | Listo: reintento automático, `retry-failed`, reporte de calidad, log a archivo, `caffeinate`, progreso con ETA. |
 | Paso 2: descarga completa | Hecha (27-09-2026; tiendas ~3 días con pausas, restaurantes ~4 h). Respaldo `rappi-scraper/data/backups/rappi_20260927-231341.dump` (con conceptos y embeddings parciales). **No correr dos descargas en paralelo** (tampoco la descarga masiva de imágenes). |
-| Paso 3: corridas periódicas (semanal) | Listo: `make schedule` (launchd, domingos 03:00) corre `rappi refresh` + respaldo rotativo y después la capa de IA (`scripts/refresh-semanal.sh`). **Activar solo en el Mac mini** ([docs/mac-mini.md](docs/mac-mini.md)). |
+| Paso 3: corridas periódicas (semanal) | Listo: `make schedule` (launchd, domingos 03:00) corre `rappi refresh` + respaldo rotativo y después la capa de IA (`scripts/refresh-semanal.sh`). **Activar en un solo Mac** (el Mac mini; [docs/instalacion.md](docs/instalacion.md)). |
 | CI | GitHub Actions: lint + tests (unitarios e integración con Postgres + pgvector) en cada push. |
 | Paso 4: capa 2 del modelo (conceptos, `category_map`, `item_concepts`, `concept_edges`, trazabilidad) | Es la etapa 1 de docs/diseno-ia.md; se vuelve a correr con los datos completos. H3 queda para después. |
 | Prototipo (`prototipo-app/`) | Listo para demo: réplica de la app, asistente Bigotes (reglas, sin backend), modo Rappi hoy / Propuesta. |
@@ -47,9 +47,9 @@ El usuario pidió avanzar **paso por paso**, y el 27-09-2026 autorizó ejecutar 
 
 - Qué hacer con `Proyecto/` (no la creó Claude; está ignorada por git). No está vacía: tiene `agent.py`, un intento con LangChain y `gpt-4.1-mini` que no corre; `rappi-ia/` lo reemplaza.
 
-## Configurar en otro Mac (p. ej. Mac mini)
+## Instalar en otro Mac
 
-Guía completa en [docs/mac-mini.md](docs/mac-mini.md): código por GitHub, base por respaldo (`make backup` → AirDrop → `pg_restore`), rappi-ia con modelos, prototipo y panel, y `make schedule` (descarga + capa de IA los domingos, solo en el Mac mini).
+Guía completa en [docs/instalacion.md](docs/instalacion.md): código por GitHub, base por respaldo (`make backup` → AirDrop → `pg_restore`), rappi-ia con modelos, prototipo y panel, y `make schedule` (descarga + capa de IA los domingos, solo en el Mac mini).
 
 ## Notas técnicas
 

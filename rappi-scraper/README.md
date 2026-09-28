@@ -58,7 +58,7 @@ rappi export-csv                        # catálogo por vertical -> data/exports
 
 ## Actualización semanal automática
 
-`rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4). Para que corra solo los domingos a las 03:00 en el Mac que quede prendido (el Mac mini; ver [docs/mac-mini.md](../docs/mac-mini.md)), seguida de la capa de IA si `../rappi-ia` está instalado (`scripts/refresh-semanal.sh`):
+`rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4). Para que corra solo los domingos a las 03:00 en el Mac que quede prendido (ver [docs/instalacion.md](../docs/instalacion.md)), seguida de la capa de IA si `../rappi-ia` está instalado (`scripts/refresh-semanal.sh`):
 
 ```bash
 make schedule          # instala la tarea en launchd (~/Library/LaunchAgents/cl.rappi.refresh.plist)
