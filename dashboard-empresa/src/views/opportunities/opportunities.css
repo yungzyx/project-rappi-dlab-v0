@@ -10,9 +10,9 @@
 }
 
 .trend-group h4 {
-  font-size: var(--text-xs);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line-strong);
+  font-size: var(--text-md);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink);
 }

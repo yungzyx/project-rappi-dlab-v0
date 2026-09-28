@@ -78,7 +78,7 @@ Después vienen los 8 indicadores, cada uno con su definición y la ventana que 
 
 La serie compara la última semana completa con la de 4 semanas antes. La semana en curso va punteada y no entra en esa comparación.
 
-El Resumen se lee como un informe: la decisión principal como titular, las otras dos en columnas menores, los indicadores en una tabla y las series semanales separadas por líneas finas, sin tarjetas.
+Todo el panel se lee como un informe: cada sección abre con su titular numérico (la cifra que se mira primero) a la derecha del título, los bloques van separados por líneas finas en vez de tarjetas, y las tablas llevan cabecera en negrita. En el Resumen, la decisión principal es el titular y las otras dos van en columnas menores.
 
 ![Resumen: qué hacer esta semana, indicadores y serie semanal](docs/screenshots/1-resumen-escritorio-claro.jpg)
 

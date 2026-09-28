@@ -5,12 +5,20 @@
 
 .hero-number strong {
   font-size: clamp(2.5rem, 2rem + 1.6vw, 3.25rem);
-  font-weight: 600;
-  letter-spacing: -0.035em;
+  font-weight: 700;
+  letter-spacing: -0.04em;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .hero-number span {
   font-size: var(--text-sm);
   color: var(--ink-2);
+}
+
+/* Calidad (tabla ancha) y productos cruzados (lista corta): 7/5 en vez de mitades iguales */
+@media (min-width: 1000px) {
+  .catalog-pair {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
 }

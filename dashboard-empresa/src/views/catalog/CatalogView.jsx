@@ -1,9 +1,13 @@
 import { Async } from '../../components/Async.jsx'
 import { Card } from '../../components/Card.jsx'
+import { Headline } from '../../components/Headline.jsx'
 import { ProvenanceBadge } from '../../components/ProvenanceBadge.jsx'
 import { CATALOG } from '../../lib/api.js'
+import { formatNumber, formatPct } from '../../lib/format.js'
+import { verticalLabel } from '../../lib/labels.js'
 import { useAnalytics } from '../../lib/useAnalytics.js'
 import { AssortmentTable } from './AssortmentTable.jsx'
+import { coverageRows } from './coverage.js'
 import { CoverageChart } from './CoverageChart.jsx'
 import { CrossProducts } from './CrossProducts.jsx'
 import { QualityTable } from './QualityTable.jsx'
@@ -12,6 +16,37 @@ import './catalog.css'
 const DEMAND_NOTES = {
   synthetic: 'Los ítems son reales (muestra pública); los usuarios que buscan son simulados.',
   prototype: 'Los ítems son reales (muestra pública); los usuarios que buscan vienen de pruebas en el prototipo.',
+}
+
+/** Titular: productos obtenidos en la muestra y cobertura global frente a lo declarado. */
+function CoverageHeadline() {
+  const rows = coverageRows(useAnalytics(CATALOG).cobertura)
+  const obtained = rows.reduce((total, row) => total + row.obtenidos, 0)
+  const declared = rows.reduce((total, row) => total + row.declarados, 0)
+  if (!obtained) return null
+  const lowest = rows.filter((row) => row.coveragePct !== null && !row.overCount).sort((a, b) => a.coveragePct - b.coveragePct)[0]
+  return (
+    <Headline
+      value={formatNumber(obtained)}
+      unit={`productos en la muestra, ${formatPct((obtained * 100) / declared, 0)} de lo que declaran las tiendas`}
+      context={lowest ? `menor cobertura: ${verticalLabel(lowest.vertical)}, ${formatPct(lowest.coveragePct, 0)}` : undefined}
+      tone="brand"
+    />
+  )
+}
+
+/** Titular: el concepto con más usuarios por ítem (mucha búsqueda, poco surtido). */
+function AssortmentHeadline({ source }) {
+  const rows = useAnalytics('assortment', source)
+  if (!rows.length) return null
+  const [top] = [...rows].sort((a, b) => b.usuarios_por_item - a.usuarios_por_item)
+  return (
+    <Headline
+      value={formatNumber(top.usuarios_por_item, 1)}
+      unit={`usuarios por ítem en ${top.concepto}, ${verticalLabel(top.vertical)}`}
+      context={`${formatNumber(top.usuarios_que_buscan)} usuarios buscan y hay ${formatNumber(top.items_en_catalogo)} ítems`}
+    />
+  )
 }
 
 // El catálogo no depende de la fuente de usuarios: siempre es la muestra pública real.
@@ -37,12 +72,14 @@ export function CatalogView({ source }) {
     <div className="view">
       <section className="section" aria-labelledby="catalogo-real">
         <div className="section-head">
-          <p className="eyebrow">Muestra pública real de rappi.cl</p>
           <h2 id="catalogo-real">Salud del catálogo</h2>
           <p>
             Datos reales del scraper: la muestra trae hasta 24 productos por sub-pasillo, así que «no está» no significa
             «Rappi no lo vende».
           </p>
+          <Async fallback={null}>
+            <CoverageHeadline />
+          </Async>
         </div>
         <Card
           title="Cobertura por vertical"
@@ -53,7 +90,7 @@ export function CatalogView({ source }) {
             <Coverage />
           </Async>
         </Card>
-        <div className="grid-2">
+        <div className="grid-2 catalog-pair">
           <Card title="Calidad de los datos" subtitle="% de productos de cada vertical con el dato faltante." badge={real} index={1}>
             <Async>
               <Quality />
@@ -69,9 +106,11 @@ export function CatalogView({ source }) {
 
       <section className="section" aria-labelledby="surtido">
         <div className="section-head">
-          <p className="eyebrow">Dónde hay más interés que oferta</p>
-          <h2 id="surtido">Surtido vs demanda</h2>
+          <h2 id="surtido">Dónde hay más interés que oferta</h2>
           <p>Ordenado por usuarios por ítem: arriba, conceptos con mucha búsqueda y poco surtido real.</p>
+          <Async fallback={null}>
+            <AssortmentHeadline source={source} />
+          </Async>
         </div>
         <Card
           title="Surtido real frente a demanda"
