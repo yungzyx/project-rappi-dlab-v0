@@ -54,7 +54,6 @@ def test_store_job_fails_when_no_branch_available(db):
     assert _statuses(db) == {"type:x": "failed"}
 
 
-@pytest.mark.parametrize("redirects", [False, True], ids=["sin-storefront", "redirige-al-listado"])
 @pytest.mark.parametrize(
     ("bad_path", "next_path"),
     [
@@ -63,13 +62,12 @@ def test_store_job_fails_when_no_branch_available(db):
     ],
     ids=["pasillo", "sub-pasillo"],
 )
-def test_page_without_storefront_skips_only_that_aisle(db, bad_path, next_path, redirects):
-    # Rappi a veces entrega un pasillo o sub-pasillo sin fallback['storefront/...'] (27-09-2026) o lo redirige al
-    # listado (StoreUnavailable): se omite esa página y la tienda sigue, en vez de perder todo lo recorrido.
+def test_page_without_storefront_skips_only_that_aisle(db, bad_path, next_path):
+    # Rappi a veces entrega un pasillo o sub-pasillo sin fallback['storefront/...'] (27-09-2026): se omite esa
+    # página y la tienda sigue, en vez de perder todo lo recorrido.
     run = repository.start_run(db, "stores", {})
     repository.add_jobs(db, run, [_store_job("type:lider", "/tiendas/900025946-lider")])
-    # página real sin storefront, o una que redirige al listado
-    client = FakeClient(unavailable={bad_path}) if redirects else FakeClient({bad_path: "listing_market"})
+    client = FakeClient({bad_path: "listing_market"})  # página real sin storefront
 
     process_store_jobs(db, client, run, max_aisles=2)
 
@@ -80,17 +78,44 @@ def test_page_without_storefront_skips_only_that_aisle(db, bad_path, next_path, 
     assert db.execute("SELECT count(*) FROM store_products").fetchone()[0] > 0
 
 
+def test_branch_that_redirects_mid_crawl_falls_back_to_next_branch(db):
+    # Un pasillo que redirige al listado (/tiendas/tipo/...) dice que la sucursal dejó de despachar a esa ubicación:
+    # no se guarda su catálogo a medias, se prueba la siguiente sucursal.
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:x", "/tiendas/900025946-lider", "/tiendas/2-otra")])
+    client = FakeClient({"/tiendas/2-otra": "store_mall"}, unavailable={"/tiendas/900025946-lider/lacteos-y-huevos"})
+
+    process_store_jobs(db, client, run, max_aisles=1)
+
+    status, result = db.execute("SELECT status, result FROM scrape_jobs WHERE job_key = 'type:x'").fetchone()
+    assert (status, result["store_id"]) == ("done", 900099813)
+    assert db.execute("SELECT count(*) FROM store_products WHERE store_id = 900025946").fetchone()[0] == 0
+
+
+def test_branch_that_redirects_mid_crawl_fails_when_no_other_branch(db):
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:lider", "/tiendas/900025946-lider")])
+    client = FakeClient(unavailable={"/tiendas/900025946-lider/lacteos-y-huevos"})
+
+    process_store_jobs(db, client, run, max_aisles=1)
+
+    status, error = db.execute("SELECT status, error FROM scrape_jobs WHERE job_key = 'type:lider'").fetchone()
+    assert (status, error) == ("failed", "sucursal no disponible a mitad del recorrido")
+    assert db.execute("SELECT count(*) FROM store_products").fetchone()[0] == 0
+
+
 def test_store_fails_when_no_aisle_can_be_read(db):
-    # Con solo la portada la tienda quedaría "done" y casi vacía: mejor 'failed', visible en el reporte.
+    # Con solo la portada la tienda quedaría "done" y casi vacía: mejor 'failed', visible en el reporte. El mensaje
+    # no lleva números para que el reporte agrupe todas las tiendas con este error.
     run = repository.start_run(db, "stores", {})
     repository.add_jobs(db, run, [_store_job("type:lider", "/tiendas/900025946-lider")])
     lider = "/tiendas/900025946-lider"
-    client = FakeClient({f"{lider}/lacteos-y-huevos": "listing_market"}, unavailable={f"{lider}/snacks-y-dulces"})
+    client = FakeClient({f"{lider}/lacteos-y-huevos": "listing_market", f"{lider}/snacks-y-dulces": "listing_market"})
 
     process_store_jobs(db, client, run, max_aisles=2)
 
     status, error = db.execute("SELECT status, error FROM scrape_jobs WHERE job_key = 'type:lider'").fetchone()
-    assert (status, error) == ("failed", "ParseError: ningún pasillo se pudo leer (2 omitidos)")
+    assert (status, error) == ("failed", "ParseError: ningún pasillo se pudo leer")
     assert db.execute("SELECT count(*) FROM store_products").fetchone()[0] == 0
 
 
