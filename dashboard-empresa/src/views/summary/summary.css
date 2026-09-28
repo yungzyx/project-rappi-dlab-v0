@@ -1,77 +1,80 @@
-/* ---------- Qué hacer esta semana (panel invertido: lo primero que se lee) ---------- */
+/*
+ * Resumen: composición de informe. Nada de bloques oscuros ni tarjetas iguales: una apertura tipo portada
+ * (la decisión principal como titular, las otras dos en columnas menores), indicadores como tabla de informe
+ * y series semanales separadas por hairlines. Un solo acento (la marca) para lo que hay que mirar primero.
+ */
+
+/* ---------- Qué hacer esta semana (apertura) ---------- */
 .actions-panel {
   display: grid;
   gap: var(--space-5);
-  padding: clamp(20px, 3vw, 36px);
-  border-radius: var(--radius-l);
-  color: var(--inverse-ink);
-  background:
-    radial-gradient(90% 120% at 100% 0%, var(--inverse-glow), transparent 58%),
-    radial-gradient(120% 140% at 0% 100%, rgba(255, 255, 255, 0.04), transparent 55%),
-    var(--inverse);
-  box-shadow: var(--shadow-float);
-}
-
-.actions-panel :focus-visible {
-  outline-color: #ffffff;
 }
 
 .actions-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
-}
-
-.actions-head .eyebrow {
-  color: #ffb59f;
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--ink);
 }
 
 .actions-head h2 {
-  margin-top: 4px;
-  font-size: var(--text-xl);
+  font-size: var(--text-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.actions-head .eyebrow {
+  display: none; /* el titular ya dice qué es; el rótulo sobraba */
 }
 
 .actions-empty {
   max-width: 60ch;
-  color: var(--inverse-ink-2);
+  font-size: var(--text-md);
+  color: var(--ink-2);
 }
 
+/* Portada: la primera decisión ocupa 7 columnas; las otras dos se apilan a la derecha */
 .actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  row-gap: 10px;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 0 var(--space-7);
   list-style: none;
 }
 
-/* Subgrid: cada fila (tipo, cifra, título, detalle, acción, enlace) queda alineada entre las tres columnas. */
 .action {
   display: grid;
-  grid-row: span 6;
-  grid-template-rows: subgrid;
-  padding: 0 var(--space-5);
-  border-left: 1px solid var(--inverse-line);
+  align-content: start;
+  gap: var(--space-3);
+  animation: rise var(--duration-enter) var(--ease-out) both;
+  animation-delay: calc(80ms + var(--i, 0) * 90ms);
 }
 
 .action:first-child {
-  padding-left: 0;
-  border-left: 0;
+  grid-row: 1 / span 2;
+  padding-right: var(--space-7);
+  border-right: 1px solid var(--line-strong);
 }
 
-.action:last-child {
-  padding-right: 0;
+.action:nth-child(2) {
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.action:nth-child(3) {
+  padding-top: var(--space-5);
 }
 
 .action-kind {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--inverse-ink-2);
+  color: var(--ink-2);
 }
 
 .action-index {
@@ -83,55 +86,61 @@
   background: var(--brand);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0;
   color: var(--on-brand);
 }
 
 .action-figure {
   font-size: var(--text-sm);
-  color: var(--inverse-ink-2);
+  color: var(--ink-2);
 }
 
 .action-figure strong {
   display: block;
-  font-size: clamp(2.25rem, 1.7rem + 1.6vw, 3.25rem);
+  font-size: clamp(2.5rem, 1.8rem + 2vw, 3.75rem);
   font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1;
-  color: var(--inverse-ink);
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Las cifras entran con un escalonado propio, después del panel */
-.action {
-  animation: rise var(--duration-enter) var(--ease-out) both;
-  animation-delay: calc(120ms + var(--i, 0) * 90ms);
+/* El titular de la decisión principal es el más grande de la página */
+.action:first-child .action-figure strong {
+  font-size: clamp(4rem, 2.5rem + 6vw, 8rem);
+  color: var(--brand);
 }
 
 .action h3 {
   font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.action:first-child h3 {
+  font-size: var(--text-xl);
 }
 
 .action-detail {
   font-size: var(--text-sm);
-  color: var(--inverse-ink-2);
+  color: var(--ink-2);
+  max-width: 48ch;
 }
 
 .action-do {
   display: grid;
-  align-content: start;
   gap: 2px;
-  padding: 10px 12px;
-  border-radius: var(--radius-m);
-  background: rgba(255, 255, 255, 0.07);
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--brand);
   font-size: var(--text-sm);
+  max-width: 48ch;
 }
 
 .action-do span {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--inverse-ink-2);
+  color: var(--brand-ink);
 }
 
 .action-link {
@@ -139,10 +148,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding-block: 4px;
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--inverse-ink);
+  color: var(--ink);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;
@@ -155,7 +163,7 @@
 }
 
 .action-link:hover {
-  color: #ffb59f;
+  color: var(--brand-ink);
 }
 
 .action-link:hover svg {
@@ -164,158 +172,156 @@
 
 .actions-foot {
   padding-top: var(--space-3);
-  border-top: 1px solid var(--inverse-line);
-  font-size: var(--text-xs);
-  color: var(--inverse-ink-2);
+  border-top: 1px solid var(--line);
+  font-size: var(--text-sm);
+  color: var(--ink-3);
 }
 
 @media (max-width: 900px) {
-  .action,
-  .action:first-child,
-  .action:last-child {
-    padding: var(--space-5) 0 0;
-    border-left: 0;
-    border-top: 1px solid var(--inverse-line);
+  .actions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
 
   .action:first-child {
-    padding-top: 0;
-    border-top: 0;
+    grid-row: auto;
+    padding: 0 0 var(--space-5);
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 
-  .action + .action {
-    margin-top: var(--space-5);
+  .action:nth-child(2) {
+    padding-top: var(--space-5);
+  }
+
+  .action:first-child .action-figure strong {
+    font-size: clamp(3.5rem, 2rem + 8vw, 5rem);
   }
 }
 
-/* ---------- Indicadores: dos franjas, sin pila de tarjetas ---------- */
+/* ---------- Indicadores: tabla de informe ---------- */
 .kpi-groups {
   display: grid;
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+  gap: var(--space-6) var(--space-7);
 }
 
 .kpi-group {
   display: grid;
-  gap: var(--space-4);
-  padding: clamp(16px, 2vw, 24px);
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-l);
-  box-shadow: var(--shadow-card);
+  gap: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .kpi-group-title {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--ink);
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
 }
 
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 
+/* Cada indicador es una fila: etiqueta | valor | contexto, separada por una hairline */
 .kpi {
   display: grid;
-  align-content: start;
-  gap: 6px;
-  padding: 0 var(--space-5);
-  border-left: 1px solid var(--line);
-}
-
-.kpi:first-child {
-  padding-left: 0;
-  border-left: 0;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1.4fr);
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
 }
 
 .kpi-label {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--ink-2);
+  gap: 4px 8px;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--ink);
   letter-spacing: 0;
 }
 
 .kpi-label .chip {
   font-weight: 500;
+  background: none;
+  padding: 0;
+  color: var(--ink-3);
+}
+
+.kpi-label .chip::before {
+  content: '· ';
 }
 
 .kpi-value {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 2px 8px;
-  font-size: clamp(1.75rem, 1.45rem + 0.9vw, 2.25rem);
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
+  gap: 6px;
+  justify-self: end;
+  font-size: clamp(1.5rem, 1.2rem + 0.8vw, 1.875rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .kpi-unit {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0;
   color: var(--ink-3);
 }
 
 .kpi-context {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--ink-2);
 }
 
 .kpi-definition {
+  grid-column: 1 / -1;
   font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--ink-3);
 }
 
-@media (max-width: 1000px) {
-  .kpi-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    row-gap: var(--space-5);
-  }
-
-  .kpi:nth-child(odd) {
-    padding-left: 0;
-    border-left: 0;
-  }
-
-  .kpi:nth-child(even) {
-    padding-right: 0;
-  }
-}
-
-@media (max-width: 380px) {
+@media (max-width: 640px) {
   .kpi {
-    padding-inline: 0 var(--space-3);
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .kpi:nth-child(even) {
-    padding-left: var(--space-3);
+  .kpi-context {
+    grid-column: 1 / -1;
   }
 }
 
-/* ---------- Serie semanal ---------- */
+/* ---------- Serie semanal: sin tarjetas, hairlines ---------- */
 .series-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
-  gap: var(--space-4);
+  gap: 0 var(--space-7);
+  border-top: 2px solid var(--ink);
 }
 
 .series-card {
   display: grid;
   gap: var(--space-3);
   min-width: 0;
-  padding: 18px 20px 12px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-l);
-  box-shadow: var(--shadow-card);
+  padding: var(--space-5) 0 var(--space-4);
+  border-bottom: 1px solid var(--line);
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .series-card figcaption {
@@ -327,15 +333,16 @@
 
 .series-title {
   width: 100%;
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   font-weight: 600;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 
 .series-value strong {
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 .series-value span {

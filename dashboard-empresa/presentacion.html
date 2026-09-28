@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Propuesta para Rappi Chile: entender al usuario a través de los verticales para recomendar mejor. Catálogo público, búsqueda híbrida evaluada, el asistente Bigotes y un panel de negocio."
+    />
+    <title>Recomendaciones entre verticales · Propuesta para Rappi Chile</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      try {
+        const theme = localStorage.getItem('panel-empresa:tema')
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme
+      } catch {
+        // Sin almacenamiento se sigue al sistema.
+      }
+    </script>
+    <script type="module" src="/src/presentacion.js"></script>
+  </head>
+  <body class="landing">
+    <header class="masthead-lite">
+      <div class="container masthead-lite-inner">
+        <a class="wordmark" href="/presentacion.html" aria-label="Inicio de la propuesta">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="9" />
+            <path class="brand-bar" d="M9 22v-5" />
+            <path class="brand-bar" d="M16 22V10" />
+            <path class="brand-bar" d="M23 22v-8" />
+          </svg>
+          <span>rappi-dlab</span>
+        </a>
+        <nav class="lite-nav" aria-label="Secciones">
+          <a href="#problema">Problema</a>
+          <a href="#propuesta">Propuesta</a>
+          <a href="#resultados">Resultados</a>
+          <a href="#limites">Límites</a>
+        </nav>
+        <a class="button button--primary" href="/">Abrir el panel</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- Portada: titular editorial a la izquierda, el producto real a la derecha -->
+      <section class="hero container">
+        <div class="hero-copy">
+          <h1>Lo que compras en el súper debería mejorar lo que ves en farmacia.</h1>
+          <p>
+            Un prototipo con el catálogo público de Rappi Chile que muestra cómo cruzar verticales sin mezclar
+            sus búsquedas: entender al usuario a través de conceptos comunes y recomendar en el vertical correcto.
+          </p>
+          <div class="hero-actions">
+            <a class="button button--primary" href="/">Ver el panel de negocio</a>
+            <a class="button button--ghost" href="#propuesta">Cómo funciona</a>
+          </div>
+        </div>
+        <figure class="hero-figure">
+          <img
+            src="/presentacion/prototipo-propuesta.jpg"
+            width="1120"
+            height="1920"
+            alt="Prototipo de la app en modo Propuesta: barra para preguntarle a Bigotes por texto, foto o voz"
+            fetchpriority="high"
+          />
+          <figcaption>El prototipo, en modo Propuesta. La tecla D alterna con la app como es hoy.</figcaption>
+        </figure>
+      </section>
+
+      <section class="note container">
+        <p>
+          Proyecto independiente: no está afiliado a Rappi ni cuenta con su respaldo. Rappi y las demás marcas
+          pertenecen a sus dueños. Usuarios, eventos y pedidos del panel son simulados; el catálogo es real.
+        </p>
+      </section>
+
+      <!-- Problema: una sola columna de lectura, sin tarjetas -->
+      <section id="problema" class="prose container">
+        <h2>El problema, visto desde fuera</h2>
+        <p>
+          Cada vertical de Rappi parece funcionar como un silo. Lo que una persona compra o busca en el
+          supermercado no parece cambiar lo que se le recomienda en licores, farmacia o restaurantes.
+        </p>
+        <p>
+          La señal existe: cada búsqueda y cada pedido dice algo de quien lo hace. Pero no se ve que cruce de un
+          vertical a otro. Con ella se pueden perder oportunidades de venta cruzada y de frecuencia.
+        </p>
+        <p class="prose-aside">
+          Esta observación se hizo como usuarios de la app, sin acceso a datos internos. Con ellos, Rappi puede
+          confirmarla o descartarla.
+        </p>
+      </section>
+
+      <!-- Propuesta: principio + tres pasos numerados en columnas asimétricas -->
+      <section id="propuesta" class="container">
+        <h2 class="section-title">Buscar dentro del vertical, entender a través de los verticales</h2>
+        <ol class="steps">
+          <li>
+            <span class="step-number">1</span>
+            <h3>La búsqueda sigue aislada por vertical</h3>
+            <p>Quien está en Licores ve resultados de Licores. Así se cuida la precisión que hoy funciona.</p>
+          </li>
+          <li>
+            <span class="step-number">2</span>
+            <h3>Los intereses se guardan como conceptos</h3>
+            <p>Cerveza, snacks salados, pañales: 132 conceptos comunes a todos los verticales, con complementos curados.</p>
+          </li>
+          <li>
+            <span class="step-number">3</span>
+            <h3>La recomendación cruzada sigue un camino visible</h3>
+            <p>Concepto → complemento → búsqueda en el otro vertical. Una sola sugerencia por respuesta, siempre con su razón.</p>
+          </li>
+        </ol>
+
+        <div class="example">
+          <figure class="example-figure">
+            <img
+              src="/presentacion/bigotes-api.jpg"
+              width="1120"
+              height="1920"
+              alt="Bigotes con el catálogo real: cervezas bajo $3.000 y una sugerencia de snacks salados de otra tienda"
+              loading="lazy"
+            />
+          </figure>
+          <div class="example-copy">
+            <h3>Un ejemplo con el catálogo real</h3>
+            <p>
+              Alguien pide cerveza bajo $3.000 en Licores. Bigotes, el asistente del prototipo, responde con
+              cervezas reales y agrega una sola sugerencia de otro vertical: snacks salados, con la razón a la
+              vista.
+            </p>
+            <ul class="rules">
+              <li>Como máximo una sugerencia cruzada por respuesta.</li>
+              <li>Nunca productos sensibles por iniciativa propia.</li>
+              <li>El alcohol siempre con el aviso +18.</li>
+              <li>Lo aprendido se muestra y se puede borrar.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cómo está hecho: el diagrama real, ancho completo -->
+      <section class="container">
+        <h2 class="section-title">Cómo está hecho</h2>
+        <p class="lede">
+          Cinco etapas: descarga semanal de páginas públicas, catálogo en Postgres + pgvector, capa de IA fuera de
+          línea (conceptos, embeddings, evaluación), la consulta (léxico + vectorial dentro del vertical) y las
+          aplicaciones.
+        </p>
+        <figure class="diagram">
+          <img
+            src="/presentacion/flujo-de-datos.png"
+            width="2000"
+            height="1073"
+            alt="Flujo de datos: rappi.cl, rappi refresh, catálogo y documentos de búsqueda en Postgres, conceptos, embeddings y evaluación, búsqueda híbrida y agente Bigotes, API, prototipo y panel"
+            loading="lazy"
+          />
+        </figure>
+      </section>
+
+      <!-- Resultados: números como titulares, cada uno con su tipo de dato -->
+      <section id="resultados" class="container">
+        <h2 class="section-title">Resultados al 28 de septiembre de 2026</h2>
+        <dl class="figures">
+          <div>
+            <dt>Documentos de búsqueda</dt>
+            <dd>240.200</dd>
+            <p>83.108 productos, 153.136 platos y 3.956 tiendas, todos con embedding. Catálogo público real.</p>
+          </div>
+          <div>
+            <dt>Calidad del orden de resultados (nDCG@10)</dt>
+            <dd>0,889</dd>
+            <p>Búsqueda híbrida, frente a 0,825 solo vectorial y 0,744 solo por palabras. 96 consultas en 6 verticales.</p>
+          </div>
+          <div>
+            <dt>Ítems con concepto asignado</dt>
+            <dd>97 a 100%</dd>
+            <p>Según el vertical. La precisión de la asignación se estima en 88% por categoría, con jueces automáticos.</p>
+          </div>
+          <div>
+            <dt>Tests automáticos</dt>
+            <dd>402</dd>
+            <p>Scraper 83, capa de IA 137, prototipo 106 y panel 76, con integración continua en cada cambio.</p>
+          </div>
+        </dl>
+        <p class="figures-note">
+          Lo que no es evidencia: los indicadores del panel salen de usuarios simulados y muestran la mecánica. La
+          evaluación de búsqueda juzga la relevancia automáticamente por concepto, así que la ventaja del modo
+          híbrido está sobreestimada. Farmacia y Turbo aún no entran en la evaluación.
+        </p>
+      </section>
+
+      <!-- Verlo funcionando: dos caminos, en dos columnas -->
+      <section class="container">
+        <h2 class="section-title">Verlo funcionando</h2>
+        <div class="paths">
+          <div>
+            <h3>En dos minutos, sin base de datos</h3>
+            <p>El prototipo y el panel corren en el navegador con datos guardados. Solo hace falta Node.</p>
+            <pre><code>cd prototipo-app &amp;&amp; npm ci &amp;&amp; npm run dev
+cd dashboard-empresa &amp;&amp; npm ci &amp;&amp; npm run dev</code></pre>
+          </div>
+          <div>
+            <h3>Con el catálogo real</h3>
+            <p>
+              Postgres 17 con pgvector, Python 3.13 y unos 2 GB de modelos locales. Bigotes pasa a buscar en el
+              catálogo real, con voz y foto. La guía está en <code>docs/instalacion.md</code>.
+            </p>
+            <a class="button button--ghost" href="/">Abrir el panel con datos guardados</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="limites" class="prose container">
+        <h2>Límites</h2>
+        <p>
+          El catálogo es una muestra pública: hasta 24 productos por sub-pasillo, así que «no está» no significa
+          que Rappi no lo venda. El efecto real de las recomendaciones solo se puede medir con datos de Rappi y un
+          experimento con grupo de control.
+        </p>
+        <p class="prose-aside">
+          Datos de uso responsable: solo páginas públicas, una descarga a la vez con pausas, frecuencia semanal, sin
+          datos personales y sin datos descargados en el repositorio.
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>rappi-dlab. Desarrollo asistido por IA con Claude Code. Repositorio privado en GitHub.</p>
+      </div>
+    </footer>
+  </body>
+</html>

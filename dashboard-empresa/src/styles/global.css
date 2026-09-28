@@ -101,6 +101,8 @@ abbr {
 
 .section-head h2 {
   font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .section-head p {
@@ -342,18 +344,14 @@ abbr {
 }
 
 /* Tarjetas: al pasar el cursor suben 1px y el borde toma un poco de tinta (jerarquía, no decoración) */
-.card,
-.series-card,
-.kpi-group {
+.card {
   transition:
     transform var(--duration-normal) var(--ease-out),
     box-shadow var(--duration-normal) var(--ease-out),
     border-color var(--duration-normal) var(--ease-out);
 }
 
-.card:hover,
-.series-card:hover,
-.kpi-group:hover {
+.card:hover {
   transform: translateY(-1px);
   border-color: var(--line-strong);
   box-shadow: var(--shadow-card), 0 8px 24px light-dark(rgba(22, 22, 22, 0.06), rgba(0, 0, 0, 0.35));

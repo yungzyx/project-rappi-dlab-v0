@@ -15,8 +15,7 @@ export function SummaryView({ source, onNavigate }) {
 
       <section className="section" aria-labelledby="indicadores">
         <div className="section-head">
-          <p className="eyebrow">Al corte</p>
-          <h2 id="indicadores">Indicadores</h2>
+          <h2 id="indicadores">Indicadores al corte</h2>
           <p>Cada uno con su definición y la ventana de tiempo que usa la API.</p>
         </div>
         <Async>
@@ -26,11 +25,8 @@ export function SummaryView({ source, onNavigate }) {
 
       <section className="section" aria-labelledby="semanal">
         <div className="section-head">
-          <p className="eyebrow">Semana a semana</p>
           <h2 id="semanal">Evolución semanal</h2>
-          <p>
-            Rojo solo si empeora. La semana en curso va punteada y no entra en la comparación.
-          </p>
+          <p>Rojo solo si empeora. La semana en curso va punteada y no entra en la comparación.</p>
         </div>
         <Async>
           <WeeklyCharts source={source} />
