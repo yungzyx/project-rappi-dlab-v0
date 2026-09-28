@@ -3,11 +3,14 @@
 Se cargan una sola vez por proceso. En un Mac con Apple Silicon usan la GPU (MPS) si está disponible.
 """
 
+import logging
 from functools import cache
 
 import numpy as np
 
 from .. import config
+
+log = logging.getLogger(__name__)
 
 
 def _device() -> str:
@@ -24,7 +27,9 @@ class E5Embedder:
 
         self.model_name = model_name
         self.batch_size = batch_size
-        self._model = SentenceTransformer(model_name, device=_device())
+        device = _device()
+        log.info("Cargando %s en %s", model_name, device)
+        self._model = SentenceTransformer(model_name, device=device)
         self._model.max_seq_length = 512
         dimension = (
             getattr(self._model, "get_embedding_dimension", None) or self._model.get_sentence_embedding_dimension
@@ -57,6 +62,7 @@ class ClipEmbedder:
         from sentence_transformers import SentenceTransformer
 
         device = _device()
+        log.info("Cargando %s y %s en %s", image_model, text_model, device)
         self.model_name = image_model
         self.text_model_name = text_model
         self._image_model = SentenceTransformer(image_model, device=device)

@@ -34,6 +34,8 @@ def pending_texts(conn: Connection, model: str, limit: int | None = None) -> lis
 
 def embed_pending(conn: Connection, embedder: TextEmbedder, limit: int | None = None) -> int:
     pending = pending_texts(conn, embedder.model_name, limit)
+    # Por largo: el modelo rellena cada lote hasta su texto más largo; con textos parecidos no se pierde cómputo.
+    pending.sort(key=lambda row: len(row[1]))
     log.info("%d textos por embeber con %s", len(pending), embedder.model_name)
     started = time.monotonic()
     for start in range(0, len(pending), BATCH_SIZE):

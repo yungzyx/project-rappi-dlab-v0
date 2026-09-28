@@ -63,7 +63,7 @@ def embed_texts(conn: Connection, embedder: TextEmbedder, items: list[ItemText])
     missing = {it.content_hash: it.text for it in items if it.content_hash not in cached}
     if missing:
         log.info("Embebiendo %d nombres nuevos", len(missing))
-        keys = list(missing)
+        keys = sorted(missing, key=lambda h: len(missing[h]))  # por largo: lotes parejos (menos relleno)
         for start in range(0, len(keys), 512):
             batch = keys[start : start + 512]
             vectors = embedder.embed_documents([missing[h] for h in batch])
