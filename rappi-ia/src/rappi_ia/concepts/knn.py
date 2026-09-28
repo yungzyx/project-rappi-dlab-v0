@@ -28,6 +28,7 @@ OVERRIDE_SHARE = 0.75  # para contradecir a la categoría, los vecinos deben est
 FALLBACK_SHARE = 0.5  # para reemplazar una regla o llenar un vacío basta mayoría
 CHUNK = 1024
 FETCH_ROWS = 1000  # vectores del caché por viaje del cursor de servidor (~3 MB con 768 dimensiones)
+EMBED_BATCH = 512  # nombres nuevos por llamada al modelo (y por commit al caché)
 
 
 @dataclass(frozen=True)
@@ -74,8 +75,8 @@ def embed_texts(conn: Connection, embedder: TextEmbedder, items: list[ItemText])
     if missing:
         log.info("Embebiendo %d nombres nuevos", len(missing))
         keys = sorted(missing, key=lambda h: len(missing[h]))  # por largo: lotes parejos (menos relleno)
-        for start in range(0, len(keys), 512):
-            batch = keys[start : start + 512]
+        for start in range(0, len(keys), EMBED_BATCH):
+            batch = keys[start : start + EMBED_BATCH]
             vectors = embedder.embed_documents([missing[h] for h in batch])
             with (
                 conn.cursor() as cur,

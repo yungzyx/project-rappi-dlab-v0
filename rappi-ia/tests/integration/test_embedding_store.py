@@ -7,6 +7,7 @@ from rappi_scraper.storage.search import VERTICALS, build_search_documents
 
 from conftest import add_product, add_store
 from rappi_ia import config
+from rappi_ia.concepts import knn
 from rappi_ia.concepts.knn import ItemText, embed_texts
 from rappi_ia.embeddings import text_store
 from rappi_ia.embeddings.base import HashEmbedder
@@ -73,12 +74,14 @@ def test_pending_texts_reach_the_model_sorted_by_length(db, monkeypatch):
     assert text_store.embed_pending(db, spy) == 0 and len(spy.calls) == calls  # incremental
 
 
-def test_new_item_names_reach_the_model_sorted_by_length(db):
+def test_new_item_names_reach_the_model_sorted_by_length(db, monkeypatch):
+    monkeypatch.setattr(knn, "EMBED_BATCH", 3)  # varios lotes: el orden tiene que ser global, no por llamada
     items = [ItemText("catalog_item", str(i), name) for i, name in enumerate(NAMES)]
     spy = SpyEmbedder()
 
     vectors = embed_texts(db, spy, items)
 
+    assert len(spy.calls) > 1 and all(len(call) <= 3 for call in spy.calls)
     sent = [text for call in spy.calls for text in call]
     assert sorted(sent) == sorted(NAMES)
     assert [len(t) for t in sent] == sorted(len(t) for t in sent)
