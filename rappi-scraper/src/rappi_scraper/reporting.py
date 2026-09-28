@@ -96,14 +96,21 @@ def _store_section(conn: Connection, params: dict, jobs: dict) -> tuple[list[dic
     columns = [d.name for d in cur.description]
     verticals = [dict(zip(columns, row, strict=True)) for row in cur.fetchall()]
     obtained, declared = conn.execute(COVERAGE_SQL, params).fetchone()
-    zero_stores = conn.execute(
-        "SELECT count(*) FROM scrape_jobs WHERE run_id = %(run)s AND status = 'done' "
-        "AND (result->>'products')::int = 0",
+    zero_stores, skipped_pages = conn.execute(
+        "SELECT count(*) FILTER (WHERE (result->>'products')::int = 0), "
+        "coalesce(sum((result->>'paginas_omitidas')::int), 0) "
+        "FROM scrape_jobs WHERE run_id = %(run)s AND status = 'done'",
         params,
-    ).fetchone()[0]
+    ).fetchone()
     price_changes = conn.execute("SELECT count(*) FROM v_price_changes WHERE run_id = %(run)s", params).fetchone()[0]
     # La marca es solo informativa: depende del vertical (chocolaterías y tecnología suelen no traerla).
-    totals = {"ofertas": total, "cambios_de_precio": price_changes, "sin_marca_pct": _pct(no_brand, total)}
+    # paginas_omitidas: pasillos y sub-pasillos que no se pudieron leer en tiendas que sí quedaron hechas.
+    totals = {
+        "ofertas": total,
+        "cambios_de_precio": price_changes,
+        "paginas_omitidas": skipped_pages,
+        "sin_marca_pct": _pct(no_brand, total),
+    }
     checks = [
         _check("Productos sin precio (%)", _pct(no_price, total), MAX_MISSING_PRICE_PCT),
         _check("Productos sin categoría (%)", _pct(no_category, total), MAX_MISSING_CATEGORY_PCT),

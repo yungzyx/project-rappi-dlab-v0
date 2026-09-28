@@ -54,6 +54,7 @@ def test_store_job_fails_when_no_branch_available(db):
     assert _statuses(db) == {"type:x": "failed"}
 
 
+@pytest.mark.parametrize("redirects", [False, True], ids=["sin-storefront", "redirige-al-listado"])
 @pytest.mark.parametrize(
     ("bad_path", "next_path"),
     [
@@ -62,19 +63,35 @@ def test_store_job_fails_when_no_branch_available(db):
     ],
     ids=["pasillo", "sub-pasillo"],
 )
-def test_page_without_storefront_skips_only_that_aisle(db, bad_path, next_path):
-    # Rappi a veces entrega un pasillo o sub-pasillo sin fallback['storefront/...'] (27-09-2026): se omite esa
-    # página y la tienda sigue, en vez de perder todo lo recorrido.
+def test_page_without_storefront_skips_only_that_aisle(db, bad_path, next_path, redirects):
+    # Rappi a veces entrega un pasillo o sub-pasillo sin fallback['storefront/...'] (27-09-2026) o lo redirige al
+    # listado (StoreUnavailable): se omite esa página y la tienda sigue, en vez de perder todo lo recorrido.
     run = repository.start_run(db, "stores", {})
     repository.add_jobs(db, run, [_store_job("type:lider", "/tiendas/900025946-lider")])
-    client = FakeClient({bad_path: "listing_market"})  # página real sin storefront
+    # página real sin storefront, o una que redirige al listado
+    client = FakeClient(unavailable={bad_path}) if redirects else FakeClient({bad_path: "listing_market"})
 
     process_store_jobs(db, client, run, max_aisles=2)
 
     # sigue con la página hermana siguiente, no corta el recorrido
     assert client.requested.index(next_path) > client.requested.index(bad_path)
-    assert _statuses(db) == {"type:lider": "done"}
+    status, result = db.execute("SELECT status, result FROM scrape_jobs WHERE job_key = 'type:lider'").fetchone()
+    assert (status, result["paginas_omitidas"]) == ("done", 1)
     assert db.execute("SELECT count(*) FROM store_products").fetchone()[0] > 0
+
+
+def test_store_fails_when_no_aisle_can_be_read(db):
+    # Con solo la portada la tienda quedaría "done" y casi vacía: mejor 'failed', visible en el reporte.
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:lider", "/tiendas/900025946-lider")])
+    lider = "/tiendas/900025946-lider"
+    client = FakeClient({f"{lider}/lacteos-y-huevos": "listing_market"}, unavailable={f"{lider}/snacks-y-dulces"})
+
+    process_store_jobs(db, client, run, max_aisles=2)
+
+    status, error = db.execute("SELECT status, error FROM scrape_jobs WHERE job_key = 'type:lider'").fetchone()
+    assert (status, error) == ("failed", "ParseError: ningún pasillo se pudo leer (2 omitidos)")
+    assert db.execute("SELECT count(*) FROM store_products").fetchone()[0] == 0
 
 
 def test_restaurant_branches_of_same_brand_are_scraped_once(db):

@@ -84,6 +84,16 @@ def test_store_report_counts_jobs_and_flags_missing_prices(db):
     assert checks["Productos sin categoría (%)"]["ok"]
 
 
+def test_store_report_sums_skipped_pages(db):
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_job("a"), _job("b"), _job("c")])
+    repository.mark_job(db, run, "a", "done", {"products": 5, "paginas_omitidas": 2})
+    repository.mark_job(db, run, "b", "done", {"products": 5, "paginas_omitidas": 1})
+    repository.mark_job(db, run, "c", "done", {"products": 5})  # jobs anteriores no traen el conteo
+
+    assert build_run_report(db, run)["totals"]["paginas_omitidas"] == 3
+
+
 def test_restaurant_report_and_written_files(db, tmp_path):
     run = repository.start_run(db, "restaurants", {})
     repository.save_restaurant(db, run, parse_restaurant(load_page("restaurant")))

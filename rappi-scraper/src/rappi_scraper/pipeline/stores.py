@@ -6,6 +6,7 @@ from psycopg import Connection
 
 from .. import config
 from ..scraping.client import PAGE_ERRORS, RappiClient, StoreUnavailable
+from ..scraping.next_data import ParseError
 from ..scraping.store_parser import parse_aisles, parse_products, parse_store, parse_sub_aisles
 from ..storage import repository
 from .queue import process_with_retry
@@ -23,20 +24,27 @@ def _tag(products: list[dict], aisle_id=None, sub_aisle_id=None) -> dict[str, di
 
 
 def crawl_store(client: RappiClient, store_data: dict, max_aisles: int | None = None) -> dict:
-    """Recorre pasillos y sub-pasillos a partir de la página de la tienda ya descargada."""
+    """Recorre pasillos y sub-pasillos a partir de la página de la tienda ya descargada.
+
+    Una página de pasillo o sub-pasillo ilegible se omite (y se cuenta); si no se pudo leer ningún pasillo,
+    lanza ParseError para que el job quede fallido en vez de "hecho" solo con la portada."""
     store = parse_store(store_data)
     products = _tag(parse_products(store_data))
     aisles = []
+    store_aisles = parse_aisles(store_data)[:max_aisles]
+    skipped_pages = aisles_read = 0
 
-    for aisle in parse_aisles(store_data)[:max_aisles]:
+    for aisle in store_aisles:
         aisles.append({**aisle, "parent_aisle_id": None})
         aisle_path = f"{store['path']}/{aisle['friendly_url']}"
         try:  # leer la página también va aquí: puede llegar sin fallback['storefront/...'] (ParseError)
             aisle_data = client.get_next_data(aisle_path)
             aisle_products, sub_aisles = parse_products(aisle_data), parse_sub_aisles(aisle_data)
-        except PAGE_ERRORS as exc:
+        except (*PAGE_ERRORS, StoreUnavailable) as exc:  # StoreUnavailable: el pasillo redirigió al listado
             log.warning("  pasillo omitido %s: %s", aisle_path, exc)
+            skipped_pages += 1
             continue
+        aisles_read += 1
         products.update(_tag(aisle_products, aisle["aisle_id"]))
 
         for sub in sub_aisles:
@@ -44,13 +52,22 @@ def crawl_store(client: RappiClient, store_data: dict, max_aisles: int | None = 
             sub_path = f"{aisle_path}/{sub['friendly_url']}"
             try:
                 sub_products = parse_products(client.get_next_data(sub_path))
-            except PAGE_ERRORS as exc:
+            except (*PAGE_ERRORS, StoreUnavailable) as exc:
                 log.warning("  sub-pasillo omitido %s: %s", sub_path, exc)
+                skipped_pages += 1
                 continue
             products.update(_tag(sub_products, aisle["aisle_id"], sub["aisle_id"]))
 
+    if store_aisles and not aisles_read:
+        raise ParseError(f"ningún pasillo se pudo leer ({skipped_pages} omitidos)")
     context = store_data["props"]["pageProps"].get("storeContext")
-    return {"store": store, "context": context, "aisles": aisles, "products": list(products.values())}
+    return {
+        "store": store,
+        "context": context,
+        "aisles": aisles,
+        "products": list(products.values()),
+        "skipped_pages": skipped_pages,
+    }
 
 
 def save_crawl(conn: Connection, run_id: int, crawl: dict, verticals: list[str]) -> int:
@@ -106,5 +123,11 @@ def _run_store_job(
         saved = save_crawl(conn, run_id, crawl, payload["verticals"])
         done_types.add(store_type)
         log.info("  -> %s: %d productos", crawl["store"]["name"], saved)
-        return "done", {"store_id": crawl["store"]["store_id"], "store_type": store_type, "products": saved}, None
+        result = {
+            "store_id": crawl["store"]["store_id"],
+            "store_type": store_type,
+            "products": saved,
+            "paginas_omitidas": crawl["skipped_pages"],
+        }
+        return "done", result, None
     return "failed", None, error
