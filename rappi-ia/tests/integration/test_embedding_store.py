@@ -1,5 +1,7 @@
 """Caché de embeddings de texto (`text_embeddings`) contra `rappi_ia_test`, con un embedder espía."""
 
+import tracemalloc
+
 import numpy as np
 from rappi_scraper.storage.search import VERTICALS, build_search_documents
 
@@ -113,3 +115,59 @@ def test_hnsw_indexes_get_more_memory_only_inside_their_transaction(db, monkeypa
     assert len(created) == len(VERTICALS)
     assert spy.memory_at_create == ["123MB"] * (len(VERTICALS) + 1)
     assert db.execute("SHOW maintenance_work_mem").fetchone()[0] == before != "123MB"  # SET LOCAL: no queda fijado
+
+
+def _cache_names(db, model: str, names: list[str], dim: int) -> None:
+    """Vectores de ejemplo en el caché de nombres, generados en SQL (sin formatear miles de literales en Python)."""
+    db.execute(
+        """INSERT INTO text_embeddings (content_hash, embedding_model, embedding)
+           SELECT md5('nombre|' || name), %s,
+                  (SELECT array_agg(sin(n * d + 1)::real ORDER BY d) FROM generate_series(1, %s) d)::vector
+           FROM unnest(%s::text[]) WITH ORDINALITY AS x(name, n)""",
+        (model, dim, names),
+    )
+    db.commit()
+
+
+def _vectors_as_before(db, model: str, items: list[ItemText]) -> np.ndarray:
+    """El método anterior: `embedding::text` a un dict de strings y después número por número."""
+    cached = dict(
+        db.execute(
+            "SELECT content_hash, embedding::text FROM text_embeddings WHERE embedding_model = %s", (model,)
+        ).fetchall()
+    )
+    return np.stack([_parse(cached[it.content_hash]) for it in items])
+
+
+def test_item_vectors_match_the_text_method(db):
+    embedder = HashEmbedder(dim=32)
+    _cache_names(db, embedder.model_name, NAMES[:5], embedder.dim)
+    # Repetidos (mismo nombre en dos ítems) y nombres sin vector, que se embeben y quedan en el caché.
+    names = NAMES[:5] + [NAMES[0], NAMES[3]] + NAMES[5:]
+    items = [ItemText("menu_item", str(i), name) for i, name in enumerate(names)]
+
+    vectors = embed_texts(db, embedder, items)
+
+    assert vectors.shape == (len(items), embedder.dim) and vectors.dtype == np.float32
+    assert np.allclose(vectors, _vectors_as_before(db, embedder.model_name, items), atol=1e-6)
+    assert np.array_equal(vectors[[5, 6]], vectors[[0, 3]])
+    assert np.allclose(vectors[-3:], embedder.embed_documents(NAMES[5:]), atol=1e-6)
+
+
+def test_cached_item_vectors_are_not_kept_as_text(db):
+    """~220k nombres × 768 como texto eran ~1,6 GB antes de convertirlos: ahora van directo a la matriz."""
+    embedder = HashEmbedder(dim=256)
+    names = [f"producto de ejemplo {i}" for i in range(10000)]
+    _cache_names(db, embedder.model_name, names, embedder.dim)
+    items = [ItemText("catalog_item", str(i), name) for i, name in enumerate(names)]
+
+    tracemalloc.start()
+    try:
+        vectors = embed_texts(db, embedder, items)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+    assert vectors.shape == (10000, 256)
+    assert np.allclose(vectors, _vectors_as_before(db, embedder.model_name, items), atol=1e-6)
+    assert peak < 2 * vectors.nbytes, f"pico de {peak / 1e6:.1f} MB para una matriz de {vectors.nbytes / 1e6:.1f} MB"

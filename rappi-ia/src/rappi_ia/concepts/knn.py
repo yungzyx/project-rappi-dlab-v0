@@ -27,6 +27,7 @@ MAX_LABELS_PER_CONCEPT = 400  # acota el costo (y evita que los conceptos enorme
 OVERRIDE_SHARE = 0.75  # para contradecir a la categoría, los vecinos deben estar muy de acuerdo
 FALLBACK_SHARE = 0.5  # para reemplazar una regla o llenar un vacío basta mayoría
 CHUNK = 1024
+FETCH_ROWS = 1000  # vectores del caché por viaje del cursor de servidor (~3 MB con 768 dimensiones)
 
 
 @dataclass(frozen=True)
@@ -51,16 +52,25 @@ def item_texts(conn: Connection) -> list[ItemText]:
 
 
 def embed_texts(conn: Connection, embedder: TextEmbedder, items: list[ItemText]) -> np.ndarray:
-    """Vectores de los ítems, usando el caché `text_embeddings` (clave: hash del texto del nombre)."""
-    hashes = [it.content_hash for it in items]
-    cached = dict(
-        conn.execute(
-            """SELECT content_hash, embedding::text FROM text_embeddings
+    """Vectores de los ítems, usando el caché `text_embeddings` (clave: hash del texto del nombre).
+
+    Los del caché llegan en binario por bloques (cursor de servidor) y van directo a la matriz: pedidos como texto,
+    los strings de ~220k nombres ocupaban ~1,6 GB antes de convertirlos."""
+    rows_by_hash: dict[str, list[int]] = defaultdict(list)  # un mismo nombre puede estar en varios ítems
+    for row, item in enumerate(items):
+        rows_by_hash[item.content_hash].append(row)
+    out = np.empty((len(items), embedder.dim), dtype=np.float32)
+    missing = {h: items[rows[0]].text for h, rows in rows_by_hash.items()}
+    with conn.cursor(name="knn_text_embeddings", binary=True) as cur:
+        cur.itersize = FETCH_ROWS
+        cur.execute(
+            """SELECT content_hash, embedding FROM text_embeddings
                WHERE embedding_model = %s AND content_hash = ANY(%s)""",
-            (embedder.model_name, list(set(hashes))),
-        ).fetchall()
-    )
-    missing = {it.content_hash: it.text for it in items if it.content_hash not in cached}
+            (embedder.model_name, list(rows_by_hash)),
+        )
+        for content_hash, embedding in cur:
+            out[rows_by_hash[content_hash]] = _from_pgvector_binary(embedding)
+            del missing[content_hash]
     if missing:
         log.info("Embebiendo %d nombres nuevos", len(missing))
         keys = sorted(missing, key=lambda h: len(missing[h]))  # por largo: lotes parejos (menos relleno)
@@ -73,9 +83,9 @@ def embed_texts(conn: Connection, embedder: TextEmbedder, items: list[ItemText])
             ):
                 for h, v in zip(batch, vectors, strict=True):
                     copy.write_row((h, embedder.model_name, to_pgvector(v)))
-                    cached[h] = v
+                    out[rows_by_hash[h]] = v
             conn.commit()
-    return np.stack([_as_array(cached[h]) for h in hashes]).astype(np.float32)
+    return out
 
 
 def refine(conn: Connection, embedder: TextEmbedder, assignments: list[Assignment]) -> list[Assignment]:
@@ -157,7 +167,6 @@ def _decide(
     return knn if share >= OVERRIDE_SHARE and len(sims) >= NEIGHBORS - 5 else current
 
 
-def _as_array(value) -> np.ndarray:
-    if isinstance(value, np.ndarray):
-        return value
-    return np.array([float(x) for x in value.strip("[]").split(",")], dtype=np.float32)
+def _from_pgvector_binary(data: bytes) -> np.ndarray:
+    """Formato binario de `vector`: dimensión y un campo sin uso (dos int16) y después los float4 en big-endian."""
+    return np.frombuffer(data, dtype=">f4", offset=4)
