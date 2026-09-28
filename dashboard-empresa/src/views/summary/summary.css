@@ -6,7 +6,8 @@
   border-radius: var(--radius-l);
   color: var(--inverse-ink);
   background:
-    radial-gradient(120% 140% at 100% 0%, rgba(255, 255, 255, 0.06), transparent 55%),
+    radial-gradient(90% 120% at 100% 0%, var(--inverse-glow), transparent 58%),
+    radial-gradient(120% 140% at 0% 100%, rgba(255, 255, 255, 0.04), transparent 55%),
     var(--inverse);
   box-shadow: var(--shadow-float);
 }
@@ -24,7 +25,7 @@
 }
 
 .actions-head .eyebrow {
-  color: var(--inverse-ink-2);
+  color: #ffb59f;
 }
 
 .actions-head h2 {
@@ -79,10 +80,11 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1px var(--inverse-line);
+  background: var(--brand);
   font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0;
-  color: var(--inverse-ink);
+  color: var(--on-brand);
 }
 
 .action-figure {
@@ -93,10 +95,16 @@
 .action-figure strong {
   display: block;
   font-size: clamp(2.25rem, 1.7rem + 1.6vw, 3.25rem);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1;
   color: var(--inverse-ink);
+}
+
+/* Las cifras entran con un escalonado propio, después del panel */
+.action {
+  animation: rise var(--duration-enter) var(--ease-out) both;
+  animation-delay: calc(120ms + var(--i, 0) * 90ms);
 }
 
 .action h3 {
@@ -144,6 +152,10 @@
   width: 14px;
   height: 14px;
   transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.action-link:hover {
+  color: #ffb59f;
 }
 
 .action-link:hover svg {

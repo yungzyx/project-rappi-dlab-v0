@@ -1,6 +1,6 @@
 # Panel de negocio (demo)
 
-> Proyecto independiente: no está afiliado a Rappi ni cuenta con su respaldo. Las marcas pertenecen a sus dueños. La etiqueta «Rappi Chile · uso interno» del encabezado es parte de la maqueta de la propuesta.
+> Proyecto independiente: no está afiliado a Rappi ni cuenta con su respaldo. Las marcas pertenecen a sus dueños. La etiqueta «Rappi Chile · propuesta» del encabezado es parte de la maqueta.
 
 Panel de demostración que muestra cómo la conducta de compra y lo que la gente pide en búsquedas y chat se pueden convertir en **decisiones para subir la frecuencia y bajar el abandono**:
 
@@ -82,7 +82,7 @@ La serie compara la última semana completa con la de 4 semanas antes. La semana
 
 ### 2. Oportunidades
 
-**Demanda no satisfecha**, rankeada por usuarios. Cada fila trae qué se pide, en qué vertical, cuántos usuarios y búsquedas, el crecimiento, dónde existe y la acción sugerida. En la simulación, «comida peruana» aparece arriba porque el generador la plantó como antojo creciente. La marca «sin oferta» de las capturas se calculó con el catálogo parcial, antes de la descarga completa, y no refleja la oferta real: con el catálogo completo hay, por ejemplo, restaurantes mexicanos. En la operación real, cada fila sería una señal que hay que validar antes de actuar.
+**Demanda no satisfecha**, rankeada por usuarios. Cada fila trae qué se pide, en qué vertical, cuántos usuarios y búsquedas, el crecimiento, dónde existe y la acción sugerida. En la simulación, «comida peruana» aparece arriba porque el generador la plantó como antojo creciente. Con el catálogo completo (28-09-2026) el concepto sí existe en otros verticales, así que la acción sugerida pasa a «que Bigotes lo ofrezca ahí». En la operación real, cada fila sería una señal que hay que validar antes de actuar.
 
 **Conceptos que suben y bajan**: las últimas 4 semanas contra las 4 anteriores. Se marcan los que suben pero no tienen oferta.
 

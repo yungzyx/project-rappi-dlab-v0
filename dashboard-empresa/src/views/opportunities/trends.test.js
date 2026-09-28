@@ -20,11 +20,12 @@ describe('splitTrends', () => {
     expect(falling).toEqual([])
   })
 
-  test('con los datos guardados: peruana sube primero y dermocosmética baja primero', () => {
+  test('con los datos guardados: peruana sube primero y el que más cae va primero entre los que bajan', () => {
     const { rising, falling } = splitTrends(saved.data)
+    const lowest = saved.data.reduce((min, row) => (row.crecimiento_pct < min.crecimiento_pct ? row : min))
 
     expect(rising[0].concept_id).toBe('peruana')
-    expect(falling[0].concept_id).toBe('dermocosmetica')
+    expect(falling[0].concept_id).toBe(lowest.concept_id)
     expect(rising.length + falling.length).toBe(saved.data.length)
   })
 })

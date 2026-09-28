@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { pickActions } from './actions.js'
-import { formatNumber } from '../../lib/format.js'
+import { formatNumber, formatSignedPct } from '../../lib/format.js'
 import opportunities from '../../fixtures/opportunities.synthetic.json'
 import trends from '../../fixtures/trends.synthetic.json'
 import kpis from '../../fixtures/kpis.synthetic.json'
@@ -24,16 +24,23 @@ const trend = (concept_id, crecimiento_pct) => ({
 })
 
 describe('pickActions', () => {
-  test('con los datos guardados elige peruana, alimento para gatos y los usuarios en riesgo', () => {
+  test('con los datos guardados elige peruana, el concepto con oferta que más sube y los usuarios en riesgo', () => {
     const actions = pickActions({ opportunities: opportunities.data, trends: trends.data, kpis: kpis.data })
+    // La simulación cambia con cada `make synth`: lo esperado se lee del fixture, no se fija a mano.
+    const top = [...opportunities.data].sort((a, b) => b.usuarios - a.usuarios)[0]
+    const unmet = new Set(opportunities.data.map((row) => row.concept_id).filter(Boolean))
+    const rising = trends.data.filter((row) => row.crecimiento_pct > 0).sort((a, b) => b.crecimiento_pct - a.crecimiento_pct)
+    const actionable = rising.find((row) => !unmet.has(row.concept_id))
 
     expect(actions.map((action) => action.id)).toEqual(['oportunidad', 'tendencia', 'riesgo'])
+    expect(top.concept_id).toBe('peruana')
     expect(actions[0].title).toBe('🇵🇪 Comida peruana en Restaurantes')
-    expect(actions[0].figure).toBe('445')
-    expect(actions[0].action).toBe('Oportunidad: sumar comercios o categoría')
-    // Peruana, desayunos y mexicana suben pero no tienen oferta: la tendencia accionable es alimento para gatos.
-    expect(actions[1].title).toBe('🐈 Alimento para gatos')
-    expect(actions[1].figure).toBe('+24%')
+    expect(actions[0].figure).toBe(formatNumber(top.usuarios))
+    expect(actions[0].action).toBe(top.accion)
+    // Los que suben sin oferta (demanda no satisfecha) no se eligen: la tendencia accionable es la primera con oferta.
+    expect(unmet.has(rising[0].concept_id)).toBe(true)
+    expect(actions[1].title).toBe(actionable.concepto)
+    expect(actions[1].figure).toBe(formatSignedPct(actionable.crecimiento_pct))
     expect(actions[2].figure).toBe(formatNumber(kpis.data.en_riesgo))
     expect(actions[2].detail).toContain(`${formatNumber(kpis.data.perdidos)} perdidos`)
   })

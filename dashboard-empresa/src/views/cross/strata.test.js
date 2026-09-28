@@ -25,7 +25,9 @@ describe('strataRows', () => {
   test('con los datos guardados no hay grupo "un vertical" contra qué comparar', () => {
     const rows = strataRows(saved.data)
 
+    const multi6 = saved.data.find((row) => row.estrato === '6+ pedidos' && row.grupo === 'multi-vertical')
+
     expect(rows.every((item) => item.gap === null)).toBe(true)
-    expect(rows[2].groups[0].retencion_pct).toBe(93.3)
+    expect(rows[2].groups[0].retencion_pct).toBe(multi6.retencion_pct)
   })
 })

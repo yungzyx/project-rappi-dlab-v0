@@ -9,14 +9,21 @@
       "piden": 1
     },
     {
-      "vertical": "restaurantes",
-      "buscan": 0,
+      "vertical": "supermercado",
+      "buscan": 1,
       "agregan": 0,
       "pagan": 0,
       "piden": 0
     },
     {
-      "vertical": "supermercado",
+      "vertical": "restaurantes",
+      "buscan": 1,
+      "agregan": 0,
+      "pagan": 0,
+      "piden": 0
+    },
+    {
+      "vertical": "conveniencia",
       "buscan": 0,
       "agregan": 0,
       "pagan": 0,

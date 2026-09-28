@@ -5,35 +5,35 @@
       "vertical": "restaurantes",
       "concept_id": "peruana",
       "que": "🇵🇪 Comida peruana",
-      "busquedas": 594,
-      "usuarios": 445,
+      "busquedas": 545,
+      "usuarios": 440,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 271,
-      "anteriores": 190,
-      "crecimiento_pct": 43,
-      "existe_en": null,
-      "accion": "Oportunidad: sumar comercios o categoría"
+      "recientes": 243,
+      "anteriores": 163,
+      "crecimiento_pct": 49,
+      "existe_en": "farmacia, supermercado",
+      "accion": "Existe en otro vertical: que Bigotes lo ofrezca ahí"
     },
     {
       "vertical": "restaurantes",
       "concept_id": "desayuno",
       "que": "🥞 Desayunos y brunch",
-      "busquedas": 320,
-      "usuarios": 272,
+      "busquedas": 275,
+      "usuarios": 245,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 136,
-      "anteriores": 101,
-      "crecimiento_pct": 35,
+      "recientes": 113,
+      "anteriores": 91,
+      "crecimiento_pct": 24,
       "existe_en": null,
       "accion": "Oportunidad: sumar comercios o categoría"
     },
@@ -41,17 +41,17 @@
       "vertical": "restaurantes",
       "concept_id": "mexicana",
       "que": "🌮 Comida mexicana",
-      "busquedas": 240,
-      "usuarios": 213,
+      "busquedas": 275,
+      "usuarios": 232,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 90,
-      "anteriores": 70,
-      "crecimiento_pct": 29,
+      "recientes": 86,
+      "anteriores": 80,
+      "crecimiento_pct": 8,
       "existe_en": null,
       "accion": "Oportunidad: sumar comercios o categoría"
     },
@@ -59,35 +59,35 @@
       "vertical": "restaurantes",
       "concept_id": "arabe",
       "que": "🥙 Comida árabe",
-      "busquedas": 171,
-      "usuarios": 159,
+      "busquedas": 137,
+      "usuarios": 127,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 49,
-      "anteriores": 51,
-      "crecimiento_pct": -4,
-      "existe_en": "supermercado",
-      "accion": "Existe en otro vertical: que Bigotes lo ofrezca ahí"
+      "recientes": 42,
+      "anteriores": 46,
+      "crecimiento_pct": -9,
+      "existe_en": null,
+      "accion": "Oportunidad: sumar comercios o categoría"
     },
     {
       "vertical": "supermercado",
       "concept_id": null,
       "que": "kombucha",
-      "busquedas": 157,
-      "usuarios": 144,
+      "busquedas": 137,
+      "usuarios": 127,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 70,
-      "anteriores": 44,
-      "crecimiento_pct": 59,
+      "recientes": 63,
+      "anteriores": 45,
+      "crecimiento_pct": 40,
       "existe_en": null,
       "accion": "Revisar la consulta: sumar sinónimo o concepto nuevo"
     },
@@ -95,19 +95,37 @@
       "vertical": "mall",
       "concept_id": "automotriz",
       "que": "🚗 Auto",
-      "busquedas": 22,
-      "usuarios": 22,
+      "busquedas": 34,
+      "usuarios": 33,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 5,
-      "anteriores": 6,
-      "crecimiento_pct": -17,
-      "existe_en": "supermercado, conveniencia",
+      "recientes": 16,
+      "anteriores": 7,
+      "crecimiento_pct": 129,
+      "existe_en": "supermercado, conveniencia, turbo",
       "accion": "Existe en otro vertical: que Bigotes lo ofrezca ahí"
+    },
+    {
+      "vertical": "supermercado",
+      "concept_id": null,
+      "que": null,
+      "busquedas": 10,
+      "usuarios": 10,
+      "ciudades": [
+        "Antofagasta",
+        "Concepción",
+        "Santiago",
+        "Valparaíso"
+      ],
+      "recientes": 0,
+      "anteriores": 0,
+      "crecimiento_pct": null,
+      "existe_en": null,
+      "accion": "Revisar la consulta: sumar sinónimo o concepto nuevo"
     }
   ]
 }

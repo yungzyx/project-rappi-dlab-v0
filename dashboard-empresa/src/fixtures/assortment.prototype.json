@@ -5,15 +5,36 @@
       "concepto": "🍺 Cerveza",
       "vertical": "licores",
       "usuarios_que_buscan": 3,
-      "items_en_catalogo": 391,
-      "usuarios_por_item": 0.01
+      "items_en_catalogo": 604,
+      "usuarios_por_item": 0
+    },
+    {
+      "concepto": "🍺 Cerveza",
+      "vertical": "supermercado",
+      "usuarios_que_buscan": 1,
+      "items_en_catalogo": 235,
+      "usuarios_por_item": 0
     },
     {
       "concepto": "🥨 Snacks salados",
       "vertical": "licores",
       "usuarios_que_buscan": 1,
-      "items_en_catalogo": 122,
-      "usuarios_por_item": 0.01
+      "items_en_catalogo": 217,
+      "usuarios_por_item": 0
+    },
+    {
+      "concepto": "🍔 Hamburguesa",
+      "vertical": "restaurantes",
+      "usuarios_que_buscan": 1,
+      "items_en_catalogo": 12729,
+      "usuarios_por_item": 0
+    },
+    {
+      "concepto": "🍱 Platos listos",
+      "vertical": "supermercado",
+      "usuarios_que_buscan": 1,
+      "items_en_catalogo": 422,
+      "usuarios_por_item": 0
     }
   ]
 }

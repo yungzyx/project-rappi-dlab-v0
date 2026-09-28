@@ -4,101 +4,118 @@
     "cobertura": [
       {
         "vertical": "supermercado",
-        "tiendas": 235,
-        "declarados": 89479,
-        "obtenidos": 35637
+        "tiendas": 264,
+        "declarados": 116592,
+        "obtenidos": 48580
       },
       {
         "vertical": "mall",
-        "tiendas": 277,
-        "declarados": 70430,
-        "obtenidos": 26366
+        "tiendas": 327,
+        "declarados": 80894,
+        "obtenidos": 33052
       },
       {
         "vertical": "conveniencia",
-        "tiendas": 27,
-        "declarados": 29090,
-        "obtenidos": 9711
+        "tiendas": 34,
+        "declarados": 38197,
+        "obtenidos": 12426
+      },
+      {
+        "vertical": "turbo",
+        "tiendas": 16,
+        "declarados": 38192,
+        "obtenidos": 17584
       },
       {
         "vertical": "licores",
-        "tiendas": 55,
-        "declarados": 18281,
-        "obtenidos": 13236
-      },
-      {
-        "vertical": "chocolateria",
-        "tiendas": 19,
-        "declarados": 894,
-        "obtenidos": 758
+        "tiendas": 66,
+        "declarados": 23970,
+        "obtenidos": 15863
       },
       {
         "vertical": "farmacia",
-        "tiendas": 4,
-        "declarados": 879,
-        "obtenidos": 375
+        "tiendas": 13,
+        "declarados": 20099,
+        "obtenidos": 8105
+      },
+      {
+        "vertical": "chocolateria",
+        "tiendas": 24,
+        "declarados": 1191,
+        "obtenidos": 1045
       }
     ],
     "calidad": [
       {
         "vertical": "mall",
-        "productos": 25336,
+        "productos": 31246,
         "sin_imagen_pct": 0.1,
         "sin_categoria_pct": 0,
-        "sin_concepto_pct": 41.4
+        "sin_concepto_pct": 2.3
       },
       {
         "vertical": "supermercado",
-        "productos": 22981,
-        "sin_imagen_pct": 0.5,
-        "sin_categoria_pct": 8.5,
-        "sin_concepto_pct": 20.8
+        "productos": 29563,
+        "sin_imagen_pct": 0.4,
+        "sin_categoria_pct": 4.3,
+        "sin_concepto_pct": 0.9
       },
       {
         "vertical": "conveniencia",
-        "productos": 7470,
-        "sin_imagen_pct": 0.7,
-        "sin_categoria_pct": 9.5,
-        "sin_concepto_pct": 24.4
+        "productos": 8501,
+        "sin_imagen_pct": 0.6,
+        "sin_categoria_pct": 4.8,
+        "sin_concepto_pct": 0.2
       },
       {
         "vertical": "licores",
-        "productos": 4509,
-        "sin_imagen_pct": 0.2,
+        "productos": 5190,
+        "sin_imagen_pct": 0.3,
         "sin_categoria_pct": 0,
-        "sin_concepto_pct": 29.3
-      },
-      {
-        "vertical": "chocolateria",
-        "productos": 732,
-        "sin_imagen_pct": 0.1,
-        "sin_categoria_pct": 0,
-        "sin_concepto_pct": 22.3
+        "sin_concepto_pct": 0
       },
       {
         "vertical": "farmacia",
-        "productos": 375,
+        "productos": 5028,
+        "sin_imagen_pct": 0.2,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 3.3
+      },
+      {
+        "vertical": "turbo",
+        "productos": 2562,
         "sin_imagen_pct": 0,
         "sin_categoria_pct": 0,
-        "sin_concepto_pct": 96
+        "sin_concepto_pct": 0
+      },
+      {
+        "vertical": "chocolateria",
+        "productos": 1018,
+        "sin_imagen_pct": 0.1,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 0
       }
     ],
     "cruzados_reales": [
       {
         "n_verticales": 2,
-        "productos": 4923
+        "productos": 10960
       },
       {
         "n_verticales": 3,
-        "productos": 1597
+        "productos": 2413
       },
       {
         "n_verticales": 4,
-        "productos": 256
+        "productos": 718
       },
       {
         "n_verticales": 5,
-        "productos": 3
+        "productos": 171
+      },
+      {
+        "n_verticales": 6,
+        "productos": 11
       }
     ]
   }

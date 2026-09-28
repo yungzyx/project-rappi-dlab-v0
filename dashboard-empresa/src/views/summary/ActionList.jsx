@@ -26,7 +26,7 @@ export function ActionList({ source, onNavigate }) {
       ) : (
         <ol className="actions">
           {actions.map((action, index) => (
-            <li key={action.id} className="action">
+            <li key={action.id} className="action" style={{ '--i': index }}>
               <p className="action-kind">
                 <span className="action-index">{index + 1}</span>
                 {action.kind}

@@ -20,13 +20,16 @@ export function Header({ source, onSourceChange }) {
     <header className="masthead">
       <div className="container masthead-inner">
         <div className="brand">
+          {/* Marca del panel: tres barras que crecen, en el naranja-rojo de Rappi (decorativa). */}
           <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="8" />
-            <path d="M9 22v-5M16 22V10M23 22v-8" />
+            <rect width="32" height="32" rx="9" />
+            <path className="brand-bar" d="M9 22v-5" />
+            <path className="brand-bar" d="M16 22V10" />
+            <path className="brand-bar" d="M23 22v-8" />
           </svg>
           <div>
-            <p className="eyebrow">Rappi Chile · uso interno</p>
-            <h1>Panel empresa</h1>
+            <p className="eyebrow">Rappi Chile · propuesta</p>
+            <h1>Panel de negocio</h1>
           </div>
         </div>
         <div className="masthead-controls">

@@ -2,144 +2,144 @@
   "source": "synthetic",
   "data": [
     {
-      "concepto": "🇵🇪 Comida peruana",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 445,
-      "items_en_catalogo": 0,
-      "usuarios_por_item": null
-    },
-    {
-      "concepto": "🥞 Desayunos y brunch",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 272,
-      "items_en_catalogo": 0,
-      "usuarios_por_item": null
-    },
-    {
-      "concepto": "🌮 Comida mexicana",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 213,
-      "items_en_catalogo": 0,
-      "usuarios_por_item": null
-    },
-    {
-      "concepto": "🥙 Comida árabe",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 159,
-      "items_en_catalogo": 0,
-      "usuarios_por_item": null
-    },
-    {
-      "concepto": "🥡 Comida asiática",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 225,
-      "items_en_catalogo": 4,
-      "usuarios_por_item": 56.25
-    },
-    {
-      "concepto": "🍦 Helados",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 92,
-      "items_en_catalogo": 2,
-      "usuarios_por_item": 46
-    },
-    {
-      "concepto": "🥪 Sándwiches y completos",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 253,
-      "items_en_catalogo": 11,
-      "usuarios_por_item": 23
-    },
-    {
-      "concepto": "🍗 Pollo",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 169,
-      "items_en_catalogo": 8,
-      "usuarios_por_item": 21.13
-    },
-    {
-      "concepto": "🥗 Ensaladas y bowls",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 268,
-      "items_en_catalogo": 16,
-      "usuarios_por_item": 16.75
-    },
-    {
-      "concepto": "🍣 Sushi",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 487,
-      "items_en_catalogo": 37,
-      "usuarios_por_item": 13.16
-    },
-    {
-      "concepto": "🚗 Auto",
-      "vertical": "mall",
-      "usuarios_que_buscan": 22,
-      "items_en_catalogo": 2,
-      "usuarios_por_item": 11
-    },
-    {
-      "concepto": "🥩 Carnes y parrilla",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 102,
-      "items_en_catalogo": 10,
-      "usuarios_por_item": 10.2
-    },
-    {
-      "concepto": "🍝 Pastas",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 353,
-      "items_en_catalogo": 37,
-      "usuarios_por_item": 9.54
-    },
-    {
-      "concepto": "🍔 Hamburguesa",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 121,
-      "items_en_catalogo": 13,
-      "usuarios_por_item": 9.31
-    },
-    {
-      "concepto": "🍕 Pizza",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 363,
-      "items_en_catalogo": 41,
-      "usuarios_por_item": 8.85
-    },
-    {
-      "concepto": "🍮 Postres",
-      "vertical": "restaurantes",
-      "usuarios_que_buscan": 116,
-      "items_en_catalogo": 17,
-      "usuarios_por_item": 6.82
-    },
-    {
       "concepto": "☕ Café",
       "vertical": "conveniencia",
-      "usuarios_que_buscan": 243,
-      "items_en_catalogo": 43,
-      "usuarios_por_item": 5.65
+      "usuarios_que_buscan": 209,
+      "items_en_catalogo": 75,
+      "usuarios_por_item": 2.79
     },
     {
       "concepto": "⚡ Energéticas e isotónicas",
       "vertical": "conveniencia",
-      "usuarios_que_buscan": 275,
-      "items_en_catalogo": 87,
-      "usuarios_por_item": 3.16
+      "usuarios_que_buscan": 258,
+      "items_en_catalogo": 120,
+      "usuarios_por_item": 2.15
     },
     {
-      "concepto": "🧊 Hielo",
-      "vertical": "licores",
-      "usuarios_que_buscan": 50,
-      "items_en_catalogo": 17,
-      "usuarios_por_item": 2.94
+      "concepto": "🚗 Auto",
+      "vertical": "mall",
+      "usuarios_que_buscan": 33,
+      "items_en_catalogo": 16,
+      "usuarios_por_item": 2.06
     },
     {
       "concepto": "🧷 Pañales y toallitas",
       "vertical": "supermercado",
-      "usuarios_que_buscan": 272,
-      "items_en_catalogo": 115,
-      "usuarios_por_item": 2.37
+      "usuarios_que_buscan": 255,
+      "items_en_catalogo": 195,
+      "usuarios_por_item": 1.31
+    },
+    {
+      "concepto": "🥞 Desayunos y brunch",
+      "vertical": "restaurantes",
+      "usuarios_que_buscan": 245,
+      "items_en_catalogo": 196,
+      "usuarios_por_item": 1.25
+    },
+    {
+      "concepto": "🧊 Hielo",
+      "vertical": "licores",
+      "usuarios_que_buscan": 52,
+      "items_en_catalogo": 42,
+      "usuarios_por_item": 1.24
+    },
+    {
+      "concepto": "🎂 Tortas y pastelería",
+      "vertical": "chocolateria",
+      "usuarios_que_buscan": 161,
+      "items_en_catalogo": 170,
+      "usuarios_por_item": 0.95
+    },
+    {
+      "concepto": "🍼 Alimentación infantil",
+      "vertical": "supermercado",
+      "usuarios_que_buscan": 148,
+      "items_en_catalogo": 170,
+      "usuarios_por_item": 0.87
+    },
+    {
+      "concepto": "🥤 Bebidas gaseosas",
+      "vertical": "conveniencia",
+      "usuarios_que_buscan": 115,
+      "items_en_catalogo": 140,
+      "usuarios_por_item": 0.82
+    },
+    {
+      "concepto": "🥃 Ron",
+      "vertical": "licores",
+      "usuarios_que_buscan": 112,
+      "items_en_catalogo": 140,
+      "usuarios_por_item": 0.8
+    },
+    {
+      "concepto": "🥣 Cereales y avena",
+      "vertical": "supermercado",
+      "usuarios_que_buscan": 174,
+      "items_en_catalogo": 221,
+      "usuarios_por_item": 0.79
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "conveniencia",
+      "usuarios_que_buscan": 143,
+      "items_en_catalogo": 181,
+      "usuarios_por_item": 0.79
+    },
+    {
+      "concepto": "🍪 Galletas",
+      "vertical": "conveniencia",
+      "usuarios_que_buscan": 150,
+      "items_en_catalogo": 195,
+      "usuarios_por_item": 0.77
+    },
+    {
+      "concepto": "🍎 Frutas",
+      "vertical": "supermercado",
+      "usuarios_que_buscan": 264,
+      "items_en_catalogo": 351,
+      "usuarios_por_item": 0.75
+    },
+    {
+      "concepto": "🍸 Pisco",
+      "vertical": "licores",
+      "usuarios_que_buscan": 164,
+      "items_en_catalogo": 218,
+      "usuarios_por_item": 0.75
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "licores",
+      "usuarios_que_buscan": 154,
+      "items_en_catalogo": 217,
+      "usuarios_por_item": 0.71
+    },
+    {
+      "concepto": "🍺 Cerveza",
+      "vertical": "conveniencia",
+      "usuarios_que_buscan": 137,
+      "items_en_catalogo": 198,
+      "usuarios_por_item": 0.69
+    },
+    {
+      "concepto": "🍸 Vodka",
+      "vertical": "licores",
+      "usuarios_que_buscan": 79,
+      "items_en_catalogo": 133,
+      "usuarios_por_item": 0.59
+    },
+    {
+      "concepto": "🥩 Carnes y parrilla",
+      "vertical": "supermercado",
+      "usuarios_que_buscan": 238,
+      "items_en_catalogo": 442,
+      "usuarios_por_item": 0.54
+    },
+    {
+      "concepto": "🍞 Pan",
+      "vertical": "supermercado",
+      "usuarios_que_buscan": 211,
+      "items_en_catalogo": 417,
+      "usuarios_por_item": 0.51
     }
   ]
 }

@@ -2,6 +2,8 @@ import { screen } from '@testing-library/react'
 import { afterEach, describe, expect, test } from 'vitest'
 import { renderWithData, resetApi, serveFixtures } from '../../test/fixtureApi.js'
 import { CrossVerticalView } from './CrossVerticalView.jsx'
+import { formatNumber } from '../../lib/format.js'
+import suggestions from '../../fixtures/suggestions.synthetic.json'
 
 describe('CrossVerticalView', () => {
   afterEach(resetApi)
@@ -10,7 +12,8 @@ describe('CrossVerticalView', () => {
     serveFixtures()
     await renderWithData(<CrossVerticalView source="synthetic" />)
 
-    expect(await screen.findByText('11.659')).toBeTruthy()
+    const shown = suggestions.data.reduce((total, row) => total + (row.mostradas ?? 0), 0)
+    expect(await screen.findByText(formatNumber(shown))).toBeTruthy()
     expect(screen.getByText('Aristas aprendidas de datos simulados: solo se ven en el panel. El agente NO las usa.')).toBeTruthy()
     expect(await screen.findByRole('table', { name: 'Afinidad dirigida entre conceptos' })).toBeTruthy()
     expect((await screen.findAllByText('Sin grupo: menos de 20 usuarios')).length).toBeGreaterThan(0)
