@@ -58,7 +58,7 @@ rappi export-csv                        # catálogo por vertical -> data/exports
 
 ## Actualización semanal automática
 
-`rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4). Para que corra solo los domingos a las 03:00 en el Mac que quede prendido (p. ej. el Mac mini):
+`rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4). Para que corra solo los domingos a las 03:00 en el Mac que quede prendido (el Mac mini; ver [docs/mac-mini.md](../docs/mac-mini.md)), seguida de la capa de IA si `../rappi-ia` está instalado (`scripts/refresh-semanal.sh`):
 
 ```bash
 make schedule          # instala la tarea en launchd (~/Library/LaunchAgents/cl.rappi.refresh.plist)
@@ -66,7 +66,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 make unschedule        # quitarla
 ```
 
-Si el Mac está dormido o apagado a esa hora, corre al despertar. Salida de launchd en `data/logs/launchd.*.log`; el log detallado y el reporte, como en cualquier corrida. Programarla en **un solo** Mac.
+Si el Mac está dormido a esa hora, corre al despertar; si está apagado, esa semana se salta. Nunca corren dos actualizaciones a la vez. Salida de launchd en `data/logs/launchd.*.log`; el log detallado y el reporte, como en cualquier corrida. Programarla en **un solo** Mac.
 
 ## Estructura
 

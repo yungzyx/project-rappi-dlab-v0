@@ -19,7 +19,7 @@ rappi.cl ──► rappi-scraper ──► Postgres + pgvector ◄── rappi-i
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| [`rappi-scraper/`](rappi-scraper/) | Scraper de páginas públicas de rappi.cl → Postgres + pgvector (catálogo, menús, precios con historial, documentos de búsqueda por vertical) | Listo; descarga completa en curso |
+| [`rappi-scraper/`](rappi-scraper/) | Scraper de páginas públicas de rappi.cl → Postgres + pgvector (catálogo, menús, precios con historial, documentos de búsqueda por vertical) | Listo; primera descarga completa el 27-09-2026 |
 | [`rappi-ia/`](rappi-ia/) | Capa 2 de conceptos, embeddings locales (e5, CLIP, Whisper), búsqueda híbrida por vertical, agente **Bigotes**, eventos y métricas, API FastAPI | Listo; se actualiza tras cada descarga (`make post-refresh`) |
 | [`prototipo-app/`](prototipo-app/) | Prototipo navegable de la app (Vite + React): réplica de las pantallas, modo demo Rappi hoy / Propuesta, Bigotes con recomendaciones entre verticales. Con la API usa catálogo real, voz y foto; sin ella, reglas locales | Listo para demo |
 | [`dashboard-empresa/`](dashboard-empresa/) | Panel para la empresa: oportunidades (demanda no satisfecha), tendencias, frecuencia, abandono, cruce entre verticales y salud del catálogo. Usuarios **simulados** marcados como tales | Listo para demo |
@@ -32,12 +32,16 @@ cd ~/Documents/LeRepo/Rappi/prototipo-app && npm run dev          # app en :5174
 cd ~/Documents/LeRepo/Rappi/dashboard-empresa && npm run dev      # panel en :5175
 ```
 
-Después de cada descarga del scraper: `cd rappi-ia && ./scripts/despues-del-refresh.sh`. Espera a que termine `rappi refresh` y actualiza conceptos, embeddings, evaluación y datos simulados.
+Actualización semanal: en el Mac que la tenga programada (`make schedule` en `rappi-scraper/`), cada domingo descarga rappi.cl y después actualiza conceptos, embeddings, evaluación y datos simulados. Para una descarga lanzada a mano: `cd rappi-ia && ./scripts/despues-del-refresh.sh` espera a que termine y hace lo mismo.
 
 ## Dónde están los datos
 
-- **Base de datos:** Postgres 17 local (Homebrew), base `rappi`. No vive en esta carpeta: `/opt/homebrew/var/postgresql@17`.
-- **Archivos:** `rappi-scraper/data/` (CSV del scraper original, exportaciones y muestras).
+- **Base de datos:** Postgres 17 local (Homebrew), base `rappi`. No es un archivo ni vive en esta carpeta (`/opt/homebrew/var/postgresql@17`). Cómo conectarse y consultas de ejemplo: [docs/sql/](docs/sql/).
+- **Archivos:** `rappi-scraper/data/` (respaldos de la base, reportes de cada corrida, exportaciones CSV). Fuera de git.
+
+## Instalar en otro Mac (Mac mini)
+
+[docs/mac-mini.md](docs/mac-mini.md): código por GitHub, base por respaldo, modelos, apps y la tarea semanal.
 
 ## Empezar
 

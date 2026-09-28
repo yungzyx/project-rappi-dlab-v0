@@ -104,7 +104,7 @@ El híbrido gana en todos los tipos de consulta:
 - **Datos simulados:** usuarios, eventos y pedidos son **simulados** (`source = 'synthetic'`), con supuestos explícitos en `events/synth.py`. El panel muestra la mecánica, no evidencia.
 - **Muestra pública:** el catálogo es la muestra pública (hasta 24 productos por sub-pasillo), así que "no está" no significa "Rappi no lo vende".
 - **Uso interno:** fotos y descripciones son de Rappi y de los comercios; uso interno solamente (ver `docs/contexto-y-problema.md` §7).
-- **Revisión adversarial (27-09-2026):** tres pasadas con revisores independientes (lógica, seguridad y privacidad, frontend, rendimiento y contratos entre piezas), cada hallazgo verificado por separado. Los 66 hallazgos confirmados (26, 29 y 11) están corregidos y tienen tests de regresión, salvo uno que espera a que termine la descarga: el filtro de precio lee el JSON de cada documento dentro del recorrido HNSW (lento con topes muy bajos); la solución es una columna de precio en `search_documents`, que es DDL sobre una tabla del scraper.
+- **Revisión adversarial (27-09-2026):** tres pasadas con revisores independientes (lógica, seguridad y privacidad, frontend, rendimiento y contratos entre piezas), cada hallazgo verificado por separado. Los 66 hallazgos confirmados (26, 29 y 11) están corregidos y tienen tests de regresión. El último, el filtro de precio en la búsqueda vectorial, usa ahora una columna de precio indexada (migración 013) y revisa todos los documentos cuando el tope deja pocos (el índice HNSW cortaba antes y devolvía de menos).
 
 ## Estructura
 

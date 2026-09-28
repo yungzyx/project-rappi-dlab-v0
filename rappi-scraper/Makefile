@@ -1,6 +1,9 @@
 .PHONY: help install db migrate test test-unit test-integration lint format status report refresh backup schedule unschedule schedule-status
 
 PY := .venv/bin/python
+# Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
+# (Homebrew: `brew install python@3.13`, que solo instala `python3.13`).
+PYTHON ?= $(shell command -v python3.13 || command -v python3)
 PLIST := $(HOME)/Library/LaunchAgents/cl.rappi.refresh.plist
 # postgresql@17 de Homebrew no agrega sus comandos al PATH
 PG_BIN := $(shell brew --prefix 2>/dev/null)/opt/postgresql@17/bin
@@ -9,7 +12,7 @@ help:  ## Muestra esta ayuda
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-17s %s\n", $$1, $$2}'
 
 install:  ## Crea .venv e instala el proyecto con dependencias de desarrollo
-	python3 -m venv .venv
+	$(PYTHON) -m venv .venv
 	$(PY) -m pip install -q --upgrade pip
 	$(PY) -m pip install -q -e ".[dev]"
 	@test -f .env || cp .env.example .env
@@ -52,7 +55,7 @@ refresh:  ## Actualización completa: tiendas, restaurantes, búsqueda, reportes
 backup:  ## Respaldar la base en data/backups/
 	$(PY) -m rappi_scraper backup
 
-schedule:  ## Programar `rappi refresh` los domingos 03:00 (launchd, en este Mac)
+schedule:  ## Programar la tarea semanal (descarga + capa de IA) los domingos 03:00 (launchd, en este Mac)
 	mkdir -p data/logs $(dir $(PLIST))
 	sed "s#__PROJECT__#$(CURDIR)#g" scripts/launchd/cl.rappi.refresh.plist.template > $(PLIST)
 	plutil -lint $(PLIST)

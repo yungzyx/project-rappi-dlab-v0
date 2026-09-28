@@ -16,14 +16,14 @@ Base de datos del contenido de Rappi Chile por vertical (supermercado, convenien
 
 | Fase | Estado |
 |---|---|
-| 1. Scraper → Postgres | Código listo y probado (71 tests, también en CI). **Descarga completa en curso** (`rappi refresh` lanzado el 26-09 19:16 por el usuario en su Terminal): 887 grupos de tiendas y luego 4.855 restaurantes. |
+| 1. Scraper → Postgres | Código listo y probado (72 tests, también en CI). Primera descarga completa terminada el 27-09-2026 21:28: 780 grupos de tiendas (69.850 productos, 121.557 ofertas) y 3.080 restaurantes (150.955 platos). Farmacia quedó corta (ParseError en 23 cadenas, pendiente). Reportes en `rappi-scraper/data/reports/`. |
 | Paso 1 del scraper: corridas confiables | Listo: reintento automático, `retry-failed`, reporte de calidad, log a archivo, `caffeinate`, progreso con ETA. |
-| Paso 2: descarga completa | En curso con `rappi refresh` (tiendas ~14 h, restaurantes ~4 h). **No correr dos descargas en paralelo** (tampoco la descarga masiva de imágenes). |
-| Paso 3: corridas periódicas (semanal) | Listo: `rappi refresh` + respaldo rotativo + `make schedule` (launchd, domingos 03:00). **Activar solo en el Mac mini** con `make schedule`. |
+| Paso 2: descarga completa | Hecha (27-09-2026; tiendas ~3 días con pausas, restaurantes ~4 h). Respaldo `rappi-scraper/data/backups/rappi_20260927-231341.dump` (con conceptos y embeddings parciales). **No correr dos descargas en paralelo** (tampoco la descarga masiva de imágenes). |
+| Paso 3: corridas periódicas (semanal) | Listo: `make schedule` (launchd, domingos 03:00) corre `rappi refresh` + respaldo rotativo y después la capa de IA (`scripts/refresh-semanal.sh`). **Activar solo en el Mac mini** ([docs/mac-mini.md](docs/mac-mini.md)). |
 | CI | GitHub Actions: lint + tests (unitarios e integración con Postgres + pgvector) en cada push. |
 | Paso 4: capa 2 del modelo (conceptos, `category_map`, `item_concepts`, `concept_edges`, trazabilidad) | Es la etapa 1 de docs/diseno-ia.md; se vuelve a correr con los datos completos. H3 queda para después. |
 | Prototipo (`prototipo-app/`) | Listo para demo: réplica de la app, asistente Bigotes (reglas, sin backend), modo Rappi hoy / Propuesta. |
-| 2–4. RAG, agente y panel (`rappi-ia/`, `dashboard-empresa/`) | **Construido (27-09-2026)**, etapas 0–7 de [docs/diseno-ia.md](docs/diseno-ia.md#7-etapas). Resultados y límites en `rappi-ia/README.md`: búsqueda híbrida nDCG@10 0,90; conceptos ≈88% de precisión en productos. Tres pasadas de revisión adversarial corregidas (66 hallazgos). `make post-refresh` queda esperando en `rappi-ia/scripts/despues-del-refresh.sh` (pestaña de la Terminal); `make images` después, a mano. |
+| 2–4. RAG, agente y panel (`rappi-ia/`, `dashboard-empresa/`) | **Construido (27-09-2026)**, etapas 0–7 de [docs/diseno-ia.md](docs/diseno-ia.md#7-etapas). Resultados y límites en `rappi-ia/README.md`: búsqueda híbrida nDCG@10 0,90; conceptos ≈88% de precisión en productos. Tres pasadas de revisión adversarial corregidas (66 hallazgos). Con los datos completos, conceptos listos (98,8% de productos, 97,9% de platos); embeddings cortados en 104.960/183.025 textos: falta `make embed eval synth purge` (se hará en el Mac mini tras restaurar). `make images` después, a mano. |
 | Prototipo conectado | Con la API (`make serve`) Bigotes usa catálogo real, voz (Whisper) y foto (CLIP), y registra eventos seudónimos; sin API, reglas locales. |
 
 El usuario pidió avanzar **paso por paso**, y el 27-09-2026 autorizó ejecutar todas las etapas del diseño con QA y tests en cada una.
@@ -49,25 +49,7 @@ El usuario pidió avanzar **paso por paso**, y el 27-09-2026 autorizó ejecutar 
 
 ## Configurar en otro Mac (p. ej. Mac mini)
 
-```bash
-git clone https://github.com/yungzyx/rappi-dlab.git ~/Documents/LeRepo/Rappi
-cd ~/Documents/LeRepo/Rappi/rappi-scraper
-make db        # Homebrew: Postgres 17 + pgvector, bases rappi y rappi_test
-make install   # .venv + dependencias + .env desde .env.example
-```
-
-Restaurar la base desde el respaldo `rappi.dump` (copiado por AirDrop o iCloud Drive, no está en GitHub):
-
-```bash
-export PATH="$(brew --prefix)/opt/postgresql@17/bin:$PATH"   # postgresql@17 no queda en el PATH
-dropdb --if-exists rappi && createdb rappi
-pg_restore --no-owner -d rappi ~/Downloads/rappi.dump   # ajustar la ruta del archivo
-.venv/bin/rappi migrate                                  # aplica migraciones nuevas, si las hay
-.venv/bin/rappi status                                   # debe mostrar las corridas y la cola
-make test
-```
-
-Si no hay respaldo: `make migrate` y `rappi discover` (~1 h) recrean la cola desde cero.
+Guía completa en [docs/mac-mini.md](docs/mac-mini.md): código por GitHub, base por respaldo (`make backup` → AirDrop → `pg_restore`), rappi-ia con modelos, prototipo y panel, y `make schedule` (descarga + capa de IA los domingos, solo en el Mac mini).
 
 ## Notas técnicas
 

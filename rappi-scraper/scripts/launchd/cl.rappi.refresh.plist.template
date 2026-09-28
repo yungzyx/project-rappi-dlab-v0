@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Plantilla: `make schedule` reemplaza __PROJECT__ por la ruta de rappi-scraper y la instala. -->
+<!-- Plantilla: `make schedule` reemplaza __PROJECT__ por la ruta de rappi-scraper y la instala.
+     Corre scripts/refresh-semanal.sh: la descarga y, si rappi-ia está instalado, la capa de IA. -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>cl.rappi.refresh</string>
     <key>ProgramArguments</key>
     <array>
-        <string>__PROJECT__/.venv/bin/rappi</string>
-        <string>refresh</string>
+        <string>/bin/zsh</string>
+        <string>__PROJECT__/scripts/refresh-semanal.sh</string>
     </array>
     <key>WorkingDirectory</key>
     <string>__PROJECT__</string>
-    <!-- Domingos 03:00. Si el Mac estaba apagado o dormido, corre al despertar. -->
+    <!-- Domingos 03:00. Si el Mac estaba dormido, corre al despertar; si estaba apagado, esa semana se salta. -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Weekday</key>
