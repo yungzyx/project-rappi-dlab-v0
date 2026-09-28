@@ -15,6 +15,10 @@ if [[ -f $LOCK ]] && ps -p "$(<$LOCK)" -o command= 2>/dev/null | grep -q refresh
 fi
 echo $$ > $LOCK
 trap 'rm -f "$LOCK"' EXIT
+# zsh no corre el trap EXIT si el script muere por una señal (Ctrl-C, launchctl bootout, cerrar la terminal):
+# sin estos, el candado quedaba puesto.
+trap 'rm -f "$LOCK"; exit 130' INT
+trap 'rm -f "$LOCK"; exit 143' TERM HUP
 if pgrep -f "rappi(_scraper)? refresh|post-refresh" >/dev/null; then  # una descarga o actualización lanzada a mano
   echo "$(date '+%F %T') hay una descarga o una actualización de rappi-ia en curso; se omite"
   exit 0
