@@ -3,11 +3,12 @@
 import os
 
 import psycopg
+from psycopg import sql
 from rappi_scraper.storage.db import migrate
 
-from . import config  # noqa: F401  (carga .env antes de leer DATABASE_URL)
+from . import config  # carga .env antes de leer DATABASE_URL
 
-__all__ = ["connect", "database_url", "migrate"]
+__all__ = ["connect", "database_url", "migrate", "set_index_build_memory"]
 
 
 def database_url(env_var: str = "DATABASE_URL") -> str:
@@ -19,3 +20,10 @@ def database_url(env_var: str = "DATABASE_URL") -> str:
 
 def connect(url: str | None = None) -> psycopg.Connection:
     return psycopg.connect(url or database_url())
+
+
+def set_index_build_memory(conn: psycopg.Connection) -> None:
+    """Memoria para construir un índice HNSW, solo en la transacción en curso (SET LOCAL: al terminarla vuelve sola
+    al valor normal). Va justo antes del CREATE INDEX, sin commit entre medio."""
+    memory = sql.Literal(config.HNSW_MAINTENANCE_WORK_MEM)
+    conn.execute(sql.SQL("SET LOCAL maintenance_work_mem = {}").format(memory))

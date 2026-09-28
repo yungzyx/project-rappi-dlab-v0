@@ -19,6 +19,10 @@ IMAGE_TEXT_EMBEDDING_MODEL = os.environ.get(
 )
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
 
+# Memoria para construir los índices HNSW (SET LOCAL, solo esa transacción). Con los 64 MB por defecto de Postgres
+# el grafo de la partición restaurantes (~151k × 768) no cabe y pgvector lo construye mucho más lento.
+HNSW_MAINTENANCE_WORK_MEM = os.environ.get("HNSW_MAINTENANCE_WORK_MEM", "1GB")
+
 # LLM opcional: sin ANTHROPIC_API_KEY, Bigotes responde con plantillas.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or None
 BIGOTES_LLM_MODEL = os.environ.get("BIGOTES_LLM_MODEL", "claude-sonnet-5")

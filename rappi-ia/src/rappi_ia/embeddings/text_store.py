@@ -11,6 +11,7 @@ import time
 from psycopg import Connection
 from rappi_scraper.storage.search import SEARCH_DOCUMENTS_LOCK, VERTICALS
 
+from ..db import set_index_build_memory
 from .base import TextEmbedder, to_pgvector
 from .images import ScrapeRunning, scrape_running
 
@@ -87,6 +88,7 @@ def ensure_hnsw_indexes(conn: Connection, model: str, dim: int) -> list[str]:
         exists = conn.execute("SELECT 1 FROM pg_indexes WHERE indexname = %s", (name,)).fetchone()
         if exists:
             continue
+        set_index_build_memory(conn)
         conn.execute(
             f"""CREATE INDEX {name} ON search_documents_{vertical}
                 USING hnsw ((embedding::vector({int(dim)})) vector_cosine_ops)

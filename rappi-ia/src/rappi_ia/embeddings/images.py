@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from psycopg import Connection
 
+from ..db import set_index_build_memory
 from .base import to_pgvector
 
 log = logging.getLogger(__name__)
@@ -105,6 +106,7 @@ def embed_images(
 
 def ensure_image_index(conn: Connection, model: str, dim: int = 512) -> None:
     name = f"image_embeddings_hnsw_{hashlib.md5(model.encode()).hexdigest()[:8]}"
+    set_index_build_memory(conn)
     conn.execute(
         f"""CREATE INDEX IF NOT EXISTS {name} ON image_embeddings
             USING hnsw ((embedding::vector({int(dim)})) vector_cosine_ops)

@@ -1,12 +1,14 @@
 """Caché de embeddings de texto (`text_embeddings`) contra `rappi_ia_test`, con un embedder espía."""
 
 import numpy as np
-from rappi_scraper.storage.search import build_search_documents
+from rappi_scraper.storage.search import VERTICALS, build_search_documents
 
 from conftest import add_product, add_store
+from rappi_ia import config
 from rappi_ia.concepts.knn import ItemText, embed_texts
 from rappi_ia.embeddings import text_store
 from rappi_ia.embeddings.base import HashEmbedder
+from rappi_ia.embeddings.images import ensure_image_index
 
 NAMES = [
     "Sal",
@@ -79,3 +81,35 @@ def test_new_item_names_reach_the_model_sorted_by_length(db):
     assert sorted(sent) == sorted(NAMES)
     assert [len(t) for t in sent] == sorted(len(t) for t in sent)
     assert np.allclose(vectors, HashEmbedder().embed_documents(NAMES), atol=1e-5)
+
+
+class SpyConnection:
+    """Delega en la conexión real y anota el `maintenance_work_mem` vigente en cada CREATE INDEX."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.memory_at_create: list[str] = []
+
+    def execute(self, query, params=None):
+        text = query if isinstance(query, str) else query.as_string(self._conn)
+        if "CREATE INDEX" in text:
+            self.memory_at_create.append(self._conn.execute("SHOW maintenance_work_mem").fetchone()[0])
+        return self._conn.execute(query, params)
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+def test_hnsw_indexes_get_more_memory_only_inside_their_transaction(db, monkeypatch):
+    """Con los 64 MB por defecto el grafo de una partición grande no cabe y pgvector lo construye lento."""
+    monkeypatch.setattr(config, "HNSW_MAINTENANCE_WORK_MEM", "123MB")
+    before = db.execute("SHOW maintenance_work_mem").fetchone()[0]
+    db.commit()
+    spy = SpyConnection(db)
+
+    created = text_store.ensure_hnsw_indexes(spy, "modelo-test", 64)
+    ensure_image_index(spy, "clip-test")
+
+    assert len(created) == len(VERTICALS)
+    assert spy.memory_at_create == ["123MB"] * (len(VERTICALS) + 1)
+    assert db.execute("SHOW maintenance_work_mem").fetchone()[0] == before != "123MB"  # SET LOCAL: no queda fijado
