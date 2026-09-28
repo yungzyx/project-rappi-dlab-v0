@@ -38,7 +38,32 @@
         ],
         "note": "Arma los documentos de búsqueda por vertical, deja el reporte de calidad y respalda la base."
       }
-    ]
+    ],
+    "legend": {
+      "entries": {
+        "frontend": {
+          "label": "interfaz"
+        },
+        "backend": {
+          "label": "lógica / servicio"
+        },
+        "database": {
+          "label": "datos"
+        },
+        "security": {
+          "label": "control / reintento"
+        },
+        "messagebus": {
+          "label": "cola"
+        },
+        "external": {
+          "label": "sistema externo"
+        },
+        "cloud": {
+          "label": "API / nube"
+        }
+      }
+    }
   },
   "lanes": [
     {

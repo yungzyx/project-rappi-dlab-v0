@@ -1,0 +1,377 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "RAG de Rappi: de rappi.cl a Bigotes y el panel",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "descarga",
+        "label": "1. Descarga semanal",
+        "focus": [
+          "rappi",
+          "scraper",
+          "catalogo",
+          "busqueda"
+        ],
+        "note": "Domingos 03:00: rappi refresh baja tiendas y restaurantes, guarda precios y arma un índice de texto por vertical."
+      },
+      {
+        "id": "offline",
+        "label": "2. Capa de IA offline",
+        "focus": [
+          "catalogo",
+          "busqueda",
+          "conceptos",
+          "embed",
+          "eval"
+        ],
+        "note": "Al terminar la descarga: conceptos por ítem, embeddings e5 incrementales y evaluación de la búsqueda."
+      },
+      {
+        "id": "consulta",
+        "label": "3. Una consulta",
+        "focus": [
+          "busqueda",
+          "embed",
+          "conceptos",
+          "eval",
+          "retrieve",
+          "bigotes"
+        ],
+        "note": "Léxico + vectorial dentro del vertical, fusión RRF, refuerzo por concepto y regla de sin resultado con τ."
+      },
+      {
+        "id": "apps",
+        "label": "4. API, prototipo y panel",
+        "focus": [
+          "bigotes",
+          "api",
+          "apps",
+          "eventos"
+        ],
+        "note": "La API expone chat, voz, foto y analítica; el prototipo y el panel la consumen y registran eventos."
+      },
+      {
+        "id": "cruce",
+        "label": "5. Entre verticales",
+        "focus": [
+          "conceptos",
+          "bigotes",
+          "eventos",
+          "retrieve"
+        ],
+        "note": "El puente es el concepto: interés del usuario, complemento curado y búsqueda en el otro vertical."
+      }
+    ],
+    "viewBox": [
+      1080,
+      560
+    ],
+    "legend": {
+      "entries": {
+        "emphasis": {
+          "label": "flujo principal"
+        },
+        "dashed": {
+          "label": "lote / asíncrono"
+        },
+        "default": {
+          "label": "flujo de datos"
+        },
+        "database": {
+          "label": "almacén de datos"
+        }
+      }
+    }
+  },
+  "stages": [
+    {
+      "label": "Descarga"
+    },
+    {
+      "label": "Postgres"
+    },
+    {
+      "label": "IA offline"
+    },
+    {
+      "label": "Consulta"
+    },
+    {
+      "label": "Apps"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "rappi",
+      "type": "external",
+      "label": "rappi.cl",
+      "sublabel": "páginas públicas",
+      "stage": 0,
+      "row": 0,
+      "tag": "sitemaps"
+    },
+    {
+      "id": "scraper",
+      "type": "backend",
+      "label": "rappi refresh",
+      "sublabel": "jobs + crawl",
+      "stage": 0,
+      "row": 1,
+      "tag": "domingos 03:00"
+    },
+    {
+      "id": "catalogo",
+      "type": "database",
+      "label": "Catálogo (capa 1)",
+      "sublabel": "precios · menús",
+      "stage": 1,
+      "row": 0,
+      "tag": "historial"
+    },
+    {
+      "id": "busqueda",
+      "type": "database",
+      "label": "search_documents",
+      "sublabel": "por vertical",
+      "stage": 1,
+      "row": 1,
+      "tag": "GIN + HNSW"
+    },
+    {
+      "id": "eventos",
+      "type": "database",
+      "label": "Eventos (capa 3)",
+      "sublabel": "synth · prototipo",
+      "stage": 4,
+      "row": 2,
+      "tag": "purga 90 días"
+    },
+    {
+      "id": "conceptos",
+      "type": "backend",
+      "label": "Conceptos (capa 2)",
+      "sublabel": "taxonomía + kNN",
+      "stage": 2,
+      "row": 0,
+      "tag": "item_concepts"
+    },
+    {
+      "id": "embed",
+      "type": "backend",
+      "label": "Embeddings e5",
+      "sublabel": "768 dimensiones",
+      "stage": 2,
+      "row": 1,
+      "tag": "caché por hash"
+    },
+    {
+      "id": "eval",
+      "type": "backend",
+      "label": "Evaluación",
+      "sublabel": "111 consultas",
+      "stage": 2,
+      "row": 2,
+      "tag": "nDCG · τ"
+    },
+    {
+      "id": "retrieve",
+      "type": "backend",
+      "label": "Búsqueda híbrida",
+      "sublabel": "léxico + vector",
+      "stage": 3,
+      "row": 1,
+      "tag": "concepto · τ"
+    },
+    {
+      "id": "bigotes",
+      "type": "backend",
+      "label": "Agente Bigotes",
+      "sublabel": "busca y responde",
+      "stage": 3,
+      "row": 0,
+      "tag": "Claude opcional"
+    },
+    {
+      "id": "api",
+      "type": "cloud",
+      "label": "API :8000",
+      "sublabel": "chat · voz · foto",
+      "stage": 4,
+      "row": 0,
+      "tag": "make serve"
+    },
+    {
+      "id": "apps",
+      "type": "frontend",
+      "label": "Prototipo y panel",
+      "sublabel": ":5174 · :5175",
+      "stage": 4,
+      "row": 1,
+      "tag": "Vite"
+    }
+  ],
+  "flows": [
+    {
+      "id": "html",
+      "from": "rappi",
+      "to": "scraper",
+      "label": "HTML + sitemaps",
+      "variant": "emphasis",
+      "labelAt": [
+        100,
+        214
+      ]
+    },
+    {
+      "id": "upsert",
+      "from": "scraper",
+      "to": "catalogo",
+      "label": "upsert + precios",
+      "variant": "emphasis"
+    },
+    {
+      "id": "docs",
+      "from": "catalogo",
+      "to": "busqueda",
+      "label": "build_search_documents",
+      "variant": "emphasis",
+      "labelAt": [
+        315,
+        214
+      ]
+    },
+    {
+      "id": "categorias",
+      "from": "catalogo",
+      "to": "conceptos",
+      "label": "categorías y nombres",
+      "labelAt": [
+        423,
+        200
+      ]
+    },
+    {
+      "id": "pendientes",
+      "from": "busqueda",
+      "to": "embed",
+      "label": "textos sin vector",
+      "variant": "emphasis"
+    },
+    {
+      "id": "vectores",
+      "from": "embed",
+      "to": "retrieve",
+      "label": "índice HNSW",
+      "variant": "emphasis",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "tau",
+      "from": "eval",
+      "to": "retrieve",
+      "label": "τ por vertical",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          745,
+          385
+        ]
+      ]
+    },
+    {
+      "id": "complementos",
+      "from": "conceptos",
+      "to": "bigotes",
+      "label": "complementos",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "hits",
+      "from": "retrieve",
+      "to": "bigotes",
+      "label": "resultados",
+      "variant": "emphasis",
+      "route": "straight",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        745,
+        214
+      ]
+    },
+    {
+      "id": "respuesta",
+      "from": "bigotes",
+      "to": "api",
+      "label": "respuesta",
+      "variant": "emphasis",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "json",
+      "from": "api",
+      "to": "apps",
+      "label": "chat y métricas",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        960,
+        214
+      ]
+    },
+    {
+      "id": "registro",
+      "from": "apps",
+      "to": "eventos",
+      "label": "/events · /orders",
+      "variant": "dashed",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        960,
+        328
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Offline, cada domingo",
+      "items": [
+        "refresh-semanal.sh: rappi refresh y luego make post-refresh",
+        "Conceptos, embeddings, evaluación, datos simulados y purga",
+        "Candado propio: nunca corren dos descargas a la vez"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Online, en cada consulta",
+      "items": [
+        "Siempre dentro de un vertical: léxico por IDF y vectorial e5",
+        "RRF y refuerzo por concepto; sin resultado si nada calza y el coseno queda bajo τ",
+        "Bigotes arma la respuesta con plantillas o, con clave, con Claude"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "Límites",
+      "items": [
+        "Catálogo = muestra pública: hasta 24 productos por sub-pasillo",
+        "Usuarios y eventos del panel: simulados",
+        "Claude es opcional: sin clave, Bigotes responde con plantillas"
+      ]
+    }
+  ]
+}

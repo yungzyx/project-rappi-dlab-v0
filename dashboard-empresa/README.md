@@ -1,16 +1,18 @@
-# Panel empresa
+# Panel de negocio (demo)
 
-Panel interno para Rappi Chile que convierte la conducta de compra y lo que la gente pide en búsquedas y chat en **decisiones para subir la frecuencia y bajar el abandono**:
+> Proyecto independiente: no está afiliado a Rappi ni cuenta con su respaldo. Las marcas pertenecen a sus dueños. La etiqueta «Rappi Chile · uso interno» del encabezado es parte de la maqueta de la propuesta.
+
+Panel de demostración que muestra cómo la conducta de compra y lo que la gente pide en búsquedas y chat se pueden convertir en **decisiones para subir la frecuencia y bajar el abandono**:
 
 - tendencias de interés por concepto;
-- demanda no satisfecha como oportunidad de negocio (p. ej. «mucha gente pide comida peruana y no hay»);
+- demanda no satisfecha como oportunidad de negocio (en la simulación, el generador inventa una demanda creciente de «comida peruana» para mostrar cómo se ve una oportunidad; no describe la oferta real de Rappi);
 - usuarios en riesgo según su propio ritmo de compra;
 - rendimiento de las sugerencias cruzadas de Bigotes entre verticales;
 - salud real del catálogo.
 
 Las definiciones de cada métrica y la redacción vienen de [docs/diseno-ia.md §5](../docs/diseno-ia.md#5-panel-para-la-empresa-vale-la-pena). Los datos salen de la API de [`rappi-ia`](../rappi-ia/).
 
-> **Usuarios y eventos SIMULADOS.** Hoy los usuarios, eventos y pedidos son simulados (`source=synthetic`, generados con semilla y supuestos explícitos en `rappi-ia/src/rappi_ia/events/synth.py`). El panel **muestra la mecánica, no evidencia**. Por ejemplo, el simulador asume que quien usa más verticales se va menos, así que esa relación aparece por construcción. El catálogo sí es real: es la muestra pública de rappi.cl.
+> **Usuarios, eventos y pedidos SIMULADOS.** Se generan con `rappi-ia/src/rappi_ia/events/synth.py` (1.500 usuarios × 20 semanas, semilla 7, `source=synthetic`) y supuestos explícitos. El panel **muestra la mecánica, no evidencia**. Por ejemplo, el simulador asume que quien usa más verticales se va menos, así que esa relación aparece por construcción. La pestaña Catálogo sí usa datos reales: la muestra pública de rappi.cl.
 
 El panel lo dice siempre:
 
@@ -21,18 +23,20 @@ Las fuentes nunca se mezclan: cada respuesta se valida contra la fuente pedida.
 
 ## Cómo correrlo
 
+Desde la raíz del repositorio:
+
 1. Levantar la API de `rappi-ia`. El panel la busca por defecto en `http://localhost:8000`:
 
    ```bash
-   cd ../rappi-ia
+   cd rappi-ia
    make serve
    ```
 
-2. Levantar el panel:
+2. En otra terminal, levantar el panel:
 
    ```bash
-   cd ../dashboard-empresa
-   npm install
+   cd dashboard-empresa
+   npm ci
    npm run dev          # http://localhost:5175
    ```
 
@@ -46,12 +50,14 @@ La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://
 | `npm test` | Tests (Vitest + Testing Library, sin red: usan `src/fixtures/`) |
 | `npm run lint` | ESLint (reglas de React Hooks 7) |
 | `npm run build` | Build de producción en `dist/` |
-| `npm run fixtures` | Vuelve a guardar las respuestas de la API en `src/fixtures/` (correr tras `make synth` o un refresh del scraper) |
+| `npm run fixtures` | Vuelve a guardar las respuestas de la API en `src/fixtures/` (correr tras `make synth` o una actualización del catálogo) |
 | `npm run screenshots` | Regenera `docs/screenshots/` con el Chrome instalado y un Vite propio en el 5198 |
+
+Tests: 76 (Vitest). CI en GitHub Actions: lint, tests y build.
 
 ## Vistas
 
-Arriba se elige la fuente de usuarios y eventos: **Simulados** o **Prototipo**, que son las pruebas hechas en `prototipo-app`. Con el prototipo casi todo queda vacío y el panel lo dice en cada bloque, con el mínimo que exige la API. La vista y la fuente quedan en la URL (`?vista=frecuencia&fuente=prototipo`), así que un enlace abre exactamente lo mismo.
+Arriba se elige la fuente de usuarios y eventos: **Simulados** o **Prototipo** (las pruebas hechas en `prototipo-app`). Con el prototipo casi todo queda vacío y el panel lo dice en cada bloque, con el mínimo que exige la API. La vista y la fuente quedan en la URL (`?vista=frecuencia&fuente=prototipo`), así que un enlace abre exactamente lo mismo.
 
 ### 1. Resumen
 
@@ -70,15 +76,19 @@ Después vienen los 8 indicadores, cada uno con su definición y la ventana que 
 
 La serie compara la última semana completa con la de 4 semanas antes. La semana en curso va punteada y no entra en esa comparación.
 
-![Resumen](docs/screenshots/1-resumen-escritorio-claro.jpg)
+![Resumen: qué hacer esta semana, indicadores y serie semanal](docs/screenshots/1-resumen-escritorio-claro.jpg)
+
+*Datos simulados: muestran la mecánica, no evidencia.*
 
 ### 2. Oportunidades
 
-**Demanda no satisfecha**, rankeada por usuarios. Cada fila trae qué se pide, en qué vertical, cuántos usuarios y búsquedas, el crecimiento, dónde existe y la acción sugerida.
+**Demanda no satisfecha**, rankeada por usuarios. Cada fila trae qué se pide, en qué vertical, cuántos usuarios y búsquedas, el crecimiento, dónde existe y la acción sugerida. En la simulación, «comida peruana» aparece arriba porque el generador la plantó como antojo creciente. La marca «sin oferta» de las capturas se calculó con el catálogo parcial, antes de la descarga completa, y no refleja la oferta real: con el catálogo completo hay, por ejemplo, restaurantes mexicanos. En la operación real, cada fila sería una señal que hay que validar antes de actuar.
 
 **Conceptos que suben y bajan**: las últimas 4 semanas contra las 4 anteriores. Se marcan los que suben pero no tienen oferta.
 
-![Oportunidades](docs/screenshots/2-oportunidades-escritorio-claro.jpg)
+![Oportunidades: demanda no satisfecha y conceptos que suben y bajan](docs/screenshots/2-oportunidades-escritorio-claro.jpg)
+
+*Datos simulados: muestran la mecánica, no evidencia.*
 
 ### 3. Frecuencia y abandono
 
@@ -87,27 +97,33 @@ La serie compara la última semana completa con la de 4 semanas antes. La semana
 - **Distribución del ritmo de compra.**
 - **Usuarios en riesgo y perdidos**: id seudónimo, estado, ritmo, días sin pedir, concepto top no sensible, consentimiento y acción.
 
-![Frecuencia y abandono](docs/screenshots/3-frecuencia-escritorio-claro.jpg)
+![Frecuencia y abandono: embudo, cohortes, ritmo y usuarios en riesgo](docs/screenshots/3-frecuencia-escritorio-claro.jpg)
+
+*Datos simulados: muestran la mecánica, no evidencia.*
 
 ### 4. Entre verticales
 
 - **Sugerencias de Bigotes**: cuántas se mostraron, aceptaron y convirtieron.
 - **Afinidad dirigida A → B**: confianza P(B | A), lift y usuarios. Las aristas aprendidas de datos simulados **no las usa el agente**.
-- **Retención multi-vertical vs un vertical por estrato**, con el mismo número de pedidos en cada comparación. Sirve para evitar la confusión obvia, pero no mide causa: eso solo lo da un A/B con holdout.
+- **Retención multi-vertical vs un vertical por estrato**, con el mismo número de pedidos en cada comparación. Descarta la explicación más evidente (quien pide más también usa más verticales), pero no mide causa: eso solo lo da un A/B con grupo de control (holdout). En la simulación la diferencia existe por construcción (ver el aviso de arriba).
 
-![Entre verticales](docs/screenshots/4-verticales-escritorio-claro.jpg)
+![Entre verticales: sugerencias de Bigotes, afinidad y retención](docs/screenshots/4-verticales-escritorio-claro.jpg)
+
+*Datos simulados: muestran la mecánica, no evidencia.*
 
 ### 5. Catálogo (real)
 
-Sale de la muestra pública real:
+Sale de la muestra pública real de rappi.cl:
 
 - cobertura: obtenidos vs declarados por vertical;
 - calidad: % sin imagen, sin categoría o sin concepto;
 - productos presentes en 2 o más verticales.
 
-Aparte va **surtido vs demanda**, marcado «demanda simulada».
+Aparte va **surtido vs demanda**, marcado «demanda simulada»: cruza el surtido real con la demanda de los usuarios simulados.
 
-![Catálogo](docs/screenshots/5-catalogo-escritorio-claro.jpg)
+![Catálogo: cobertura, calidad, productos en varios verticales y surtido vs demanda](docs/screenshots/5-catalogo-escritorio-claro.jpg)
+
+*Datos reales de la muestra pública, capturados antes de la descarga completa: las cifras cambian con cada corrida del scraper (resultados vigentes en [README.md#resultados](../README.md#resultados)). El bloque «Surtido vs demanda» usa demanda simulada.*
 
 Todas las vistas tienen versión móvil (sin scroll horizontal; las tablas pasan a tarjetas) y tema claro y oscuro: sigue al sistema y se puede fijar con el botón.
 
@@ -116,12 +132,14 @@ Todas las vistas tienen versión móvil (sin scroll horizontal; las tablas pasan
   <img src="docs/screenshots/3-frecuencia-escritorio-oscuro.jpg" alt="Frecuencia en tema oscuro" width="520" />
 </p>
 
+*Resumen en móvil y Frecuencia en tema oscuro. Datos simulados: muestran la mecánica, no evidencia.*
+
 ## Cómo se lee
 
 - **Color con significado.** Un solo azul para magnitudes. El rojo queda **solo** para lo que empeora y para el riesgo, y el verde para lo que mejora; siempre van con flecha o ícono y texto, nunca solo por color. El ámbar rayado marca lo simulado.
 - **Cada gráfico tiene su tabla.** El botón *Ver tabla* muestra todos los valores. Los gráficos se recorren con teclado: flechas en las series semanales y Tab en las columnas.
-- Pestañas accesibles (← → Inicio Fin). Además se respeta `prefers-reduced-motion`.
-- Paletas validadas con la skill *dataviz*: rampas ordinales y secuenciales, y contraste de texto ≥ 4,5:1 en ambos temas.
+- **Accesibilidad.** Pestañas accesibles (← → Inicio Fin) y respeto de `prefers-reduced-motion`.
+- **Paletas validadas:** rampas ordinales y secuenciales, y contraste de texto ≥ 4,5:1 en ambos temas.
 
 ## Estructura
 
@@ -134,6 +152,7 @@ src/
 │   └── shell/              encabezado, selector de fuente, tema, pestañas
 ├── views/<vista>/          una carpeta por vista, con sus transformaciones y tests
 ├── fixtures/               respuestas guardadas de la API (tests y modo sin conexión)
+├── styles/                 estilos
 └── test/                   API falsa para los tests de render
 scripts/                    update-fixtures.mjs, screenshots.mjs
 docs/screenshots/           capturas (en git solo las 7 que usa este README, comprimidas)
@@ -141,11 +160,11 @@ docs/screenshots/           capturas (en git solo las 7 que usa este README, com
 
 ## Límites conocidos
 
-**Datos simulados.** Los gráficos confirman los supuestos del simulador. No sirven para decidir hasta tener datos reales.
+**Datos simulados.** Los gráficos de usuarios, eventos y pedidos confirman los supuestos del simulador. No sirven para decidir hasta tener datos reales.
 
-**Catálogo parcial.** El catálogo es una muestra: hasta 24 productos por sub-pasillo, y la descarga completa seguía en curso al 27-09-2026. Los números de cobertura cambian con cada corrida del scraper, y «no está» no significa «Rappi no lo vende».
+**Catálogo como muestra.** El catálogo es la muestra pública: hasta 24 productos por sub-pasillo. Los números de cobertura cambian con cada corrida del scraper, y «no está» no significa «Rappi no lo vende».
 
-**Serie semanal lenta.** `/analytics/weekly` tardó entre 7 y 28 s en las pruebas. Ese bloque puede quedar cargando un rato o, si pasa de 30 s, mostrarse con datos guardados (y el aviso lo dice).
+**Serie semanal lenta.** `/analytics/weekly` tardó varios segundos en las pruebas. Ese bloque puede quedar cargando un rato o, si pasa de 30 s, mostrarse con datos guardados (y el aviso lo dice).
 
 **La API no entrega todo lo que pide §5.** Falta:
 

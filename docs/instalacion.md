@@ -2,15 +2,17 @@
 
 Cómo montar el proyecto completo en un Mac (Apple Silicon, macOS con [Homebrew](https://brew.sh)) y dejarlo actualizándose solo cada semana.
 
+Después de clonar (paso 2), **todos los comandos parten de la raíz del repositorio**.
+
 ## Qué viaja por dónde
 
 | Qué | Cómo llega |
 |---|---|
 | Código (scraper, rappi-ia, prototipo, panel, docs) | Este repositorio (privado): `gh repo clone` |
-| Base de datos (catálogo, precios, menús, conceptos, embeddings) | Un respaldo de Postgres (`.dump`) desde otro Mac, o una descarga nueva. **No va al repositorio:** son datos de rappi.cl, de uso interno |
+| Base de datos (catálogo, precios, menús, conceptos, embeddings) | Un respaldo de Postgres (`.dump`) hecho en otro equipo, o una descarga nueva. **No va al repositorio:** contiene datos de rappi.cl y de sus comercios, que se usan solo con fines de investigación y demostración |
 | Configuración (`.env`) | Se crea sola desde `.env.example` al instalar. `ANTHROPIC_API_KEY` es opcional y se agrega a mano |
 | Modelos de IA (e5, CLIP, Whisper; ~2 GB) | Se descargan de Hugging Face la primera vez que se usan |
-| `node_modules`, `.venv` | Se instalan con los comandos de abajo; no se copian entre Macs |
+| `node_modules`, `.venv` | Se instalan con los comandos de abajo; no se copian entre equipos |
 
 ## 1. Requisitos
 
@@ -24,15 +26,16 @@ gh auth login          # GitHub.com → HTTPS → "Authenticate Git with your Gi
 ## 2. Código
 
 ```bash
-gh repo clone yungzyx/rappi-dlab ~/Rappi
+gh repo clone yungzyx/rappi-dlab
+cd rappi-dlab
 ```
 
-Si ese Mac va a correr la actualización semanal, el proyecto debe estar **fuera** de Documentos, Escritorio y Descargas (por ejemplo `~/Rappi`). macOS no deja que las tareas programadas (launchd) lean esas carpetas, y la actualización fallaría sin avisar.
+Si este equipo va a correr la actualización semanal, clona el repositorio **fuera** de Documentos, Escritorio y Descargas (por ejemplo, directamente en tu carpeta de usuario). macOS no deja que las tareas programadas (launchd) lean esas carpetas, y la actualización fallaría sin avisar.
 
 ## 3. Base de datos
 
 ```bash
-cd ~/Rappi/rappi-scraper
+cd rappi-scraper
 make db        # Postgres 17 + pgvector (Homebrew), bases rappi y rappi_test
 make install   # .venv del scraper y .env
 ```
@@ -44,7 +47,7 @@ echo 'export PATH="$(brew --prefix)/opt/postgresql@17/bin:$PATH"' >> ~/.zprofile
 source ~/.zprofile
 ```
 
-**Desde un respaldo** (recomendado). En el Mac de origen, `make backup` en `rappi-scraper/` deja `data/backups/rappi_<fecha>.dump`. Cópialo a este Mac y:
+**Desde un respaldo** (recomendado). En el equipo de origen, `make backup` en `rappi-scraper/` deja `data/backups/rappi_<fecha>.dump`. Cópialo a este equipo y, desde `rappi-scraper/`:
 
 ```bash
 dropdb --if-exists rappi && createdb rappi
@@ -54,58 +57,80 @@ pg_restore --no-owner -d rappi ruta/al/rappi_<fecha>.dump
 make test
 ```
 
-**Sin respaldo:** `.venv/bin/rappi refresh` descubre y descarga todo desde cero. Son días de descarga; se puede cortar y retomar con el mismo comando.
+**Opcional:** la restauración reconstruye los índices vectoriales (HNSW), y lo hace más rápido con más memoria de mantenimiento. Para darle 1 GB solo a esa sesión de Postgres, usa este `pg_restore` en lugar del de arriba:
+
+```bash
+PGOPTIONS='-c maintenance_work_mem=1GB' pg_restore --no-owner -d rappi ruta/al/rappi_<fecha>.dump
+```
+
+No cambia la configuración de Postgres. Si el equipo tiene poca memoria, usa un valor menor.
+
+**Sin respaldo:** `.venv/bin/rappi refresh` descubre y descarga todo desde cero. Son días de descarga (la primera descarga completa tomó del 24 al 27-09-2026), porque va una página a la vez con pausas de 1,5–3 s. Se puede cortar y retomar con el mismo comando.
 
 ## 4. Capa de IA
 
 ```bash
-cd ~/Rappi/rappi-ia
+cd rappi-ia
 make install install-ml db-test migrate   # .venv, modelos locales (~1 GB de paquetes), base de tests
 make test
 caffeinate -i make post-refresh           # conceptos, embeddings, evaluación y datos simulados al día con la base
 ```
 
-`make post-refresh` también recalibra τ en `eval/thresholds.json`: si cambia, revisar y hacer commit.
+- **τ:** `make post-refresh` también recalibra τ en `src/rappi_ia/eval/thresholds.json`. Si cambia, revisar y hacer commit.
+- **Evaluación:** el reporte queda en `data/eval/busqueda.md` (dentro de `rappi-ia/`).
+- **Memoria de los índices:** `make embed` (parte de `post-refresh`) construye un índice HNSW por vertical con 1 GB de `maintenance_work_mem`, solo durante esa transacción. Se ajusta con `HNSW_MAINTENANCE_WORK_MEM` en `rappi-ia/.env` (ver `.env.example`); bájalo si el equipo tiene poca memoria.
 
 ## 5. Prototipo y panel
 
 ```bash
-cd ~/Rappi/prototipo-app && npm ci
-cd ~/Rappi/dashboard-empresa && npm ci
+(cd prototipo-app && npm ci)
+(cd dashboard-empresa && npm ci)
 ```
 
-Para la demo, ver "Correr la demo completa" en el [README](../README.md). Para abrirla desde un iPhone, la API se levanta con `make serve-lan` (solo en una red de confianza: no tiene autenticación).
+Para correr la demo, ver el [README](../README.md). Para abrirla desde un iPhone:
+
+- la API se levanta con `make serve-lan` en `rappi-ia/` (solo en una red de confianza: no tiene autenticación);
+- el prototipo apunta a ella con `VITE_API_URL` en `prototipo-app/.env.local`.
 
 ## 6. Actualización semanal
 
-En **un solo** Mac, el que quede siempre prendido:
+Va en **un solo** equipo: uno que quede siempre encendido. Programarla en dos equipos duplicaría las descargas sobre rappi.cl.
 
 ```bash
-cd ~/Rappi/rappi-scraper
+cd rappi-scraper
 make schedule          # domingos 03:00: descarga y, al terminar, capa de IA
 make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 ```
 
-- **Qué corre:** `scripts/refresh-semanal.sh`. Primero `rappi refresh` (tiendas, restaurantes, búsqueda, reportes y respaldo en `data/backups/`, últimos 4). Si termina bien, `make post-refresh` de rappi-ia (conceptos, embeddings, evaluación, datos simulados y purga). Nunca corren dos a la vez.
-- **τ:** la evaluación semanal no guarda τ, porque `eval/thresholds.json` está en el repositorio. Para recalibrar: `make eval` a mano y commit.
-- **Dormido o apagado:** si a esa hora el Mac estaba **dormido**, la tarea corre al despertar; si estaba **apagado**, esa semana se salta. Por eso conviene:
+- **Qué corre:** `rappi-scraper/scripts/refresh-semanal.sh`.
+  - Primero `rappi refresh`: tiendas, restaurantes, búsqueda, reportes y respaldo en `data/backups/` (quedan los últimos 4).
+  - Si termina bien, `make post-refresh` de rappi-ia: conceptos, embeddings, evaluación, datos simulados y purga.
+  - Nunca corren dos a la vez. El candado que lo impide se borra aunque la tarea se corte con una señal (Ctrl-C, cerrar la terminal).
+- **τ:** la evaluación semanal no guarda τ, porque `thresholds.json` está en el repositorio. Para recalibrar: `make eval` a mano en `rappi-ia/` y commit.
+- **Dormido o apagado:** si a esa hora el equipo estaba **dormido**, la tarea corre al despertar; si estaba **apagado**, esa semana se salta. Por eso conviene:
   - que no se duerma (Ajustes del Sistema → Energía → evitar el reposo automático);
   - que se encienda solo tras un corte de luz (misma pantalla);
   - que quede con la sesión iniciada, porque launchd corre la tarea en la sesión del usuario.
-- **Después de la primera semana:** `make schedule-status` debe mostrar `last exit code = 0`. La salida queda en `data/logs/launchd.*.log` y el reporte de calidad en `data/reports/`.
-- **Fotos:** `make images` en rappi-ia, a mano y sin una descarga en curso (son decenas de miles de descargas).
+- **Después de la primera semana:** `make schedule-status` debe mostrar `last exit code = 0`. La salida queda en `rappi-scraper/data/logs/launchd.*.log` y el reporte de calidad en `rappi-scraper/data/reports/`.
+- **`rappi refresh` lanzado a mano:** `./scripts/despues-del-refresh.sh` en `rappi-ia/` espera a que termine y corre `make post-refresh`. A diferencia de la tarea semanal, recalibra τ en `thresholds.json`: si cambia, revisar y hacer commit.- **Fotos:** `make images` en `rappi-ia/`, a mano y sin una descarga en curso (son decenas de miles de descargas).
 
 ## Operación
 
 - **Jobs fallidos en una corrida** (el reporte los lista; a veces Rappi entrega páginas incompletas por un rato):
 
   ```bash
-  cd ~/Rappi/rappi-scraper
+  cd rappi-scraper
   .venv/bin/rappi retry-failed --kind stores
   .venv/bin/rappi retry-failed --kind restaurants
   ./scripts/refresh-semanal.sh
   ```
 
-  El script retoma solo lo reencolado, arma la búsqueda, respalda y actualiza la capa de IA.
+  El script retoma solo lo reencolado, arma la búsqueda, respalda y actualiza la capa de IA. Así se recuperaron el 28-09-2026 los fallidos de la primera descarga completa; farmacia, por ejemplo, pasó de 5 a 13 tiendas descargadas.
 - **Respaldo a mano:** `make backup` en `rappi-scraper/`.
-- **Ver la base desde otro Mac**, sin abrir Postgres a la red: en el Mac de la base activa Ajustes del Sistema → General → Compartir → **Sesión remota** (SSH). En TablePlus, conexión **Over SSH** con ese Mac como servidor, y base en `127.0.0.1:5432`, `rappi`. Como comando de inicio, `SET default_transaction_read_only = on;`. Consultas de ejemplo: [docs/sql/](sql/).
+- **Mover la carpeta del proyecto** rompe los `.venv` (guardan rutas absolutas): recréalos con `make install` en `rappi-scraper/` y `make install install-ml` en `rappi-ia/`. No la muevas con una descarga en curso.
+- **Ver la base desde otro equipo**, sin abrir Postgres a la red:
+  - en el equipo de la base, activa Ajustes del Sistema → General → Compartir → **Sesión remota** (SSH);
+  - en TablePlus, crea una conexión **Over SSH** con ese equipo como servidor y la base en `127.0.0.1:5432`, `rappi`;
+  - como comando de inicio, `SET default_transaction_read_only = on;`.
+
+  Consultas de ejemplo: [sql/](sql/).

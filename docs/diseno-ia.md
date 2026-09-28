@@ -1,9 +1,9 @@
 # Diseño: RAG, agente Bigotes y panel para la empresa
 
-> Cómo se conectan el catálogo (scraper), la búsqueda semántica, el agente, el prototipo y un panel de negocio.
-> Última actualización: 27-09-2026. Grafo: [diagramas/arquitectura-ia.html](diagramas/arquitectura-ia.html).
-> Contexto: [contexto-y-problema.md](contexto-y-problema.md) · Modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md).
-> Las cifras son de datos parciales al 27-09-2026 (la descarga completa sigue en curso) y hay que recalcularlas después del refresh.
+> Cómo se conectan el catálogo (scraper), la búsqueda semántica, el agente, el prototipo y un panel de negocio. Las etapas 0–7 están construidas (§7); lo que el código todavía no cubre se marca como pendiente.
+> Última actualización: 28-09-2026. Contexto: [contexto-y-problema.md](contexto-y-problema.md) · Modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Resultados vigentes: [README → Resultados](../README.md#resultados).
+> Diagramas: [flujo de datos por etapas](diagramas/rag-datos.png) y [vista por carriles](diagramas/arquitectura-ia.png). Sus versiones interactivas ([rag-datos.html](diagramas/rag-datos.html), [arquitectura-ia.html](diagramas/arquitectura-ia.html)) se descargan y se abren en el navegador.
+> Lo marcado "datos parciales" se midió el 27-09-2026, antes de terminar la descarga completa.
 
 ## 0. La regla que ordena todo
 
@@ -13,13 +13,17 @@
 |---|---|---|
 | **Qué es** | Recuperar productos, platos y tiendas | Saber qué le interesa a la persona |
 | **Dónde vive** | `search_documents`, particionada por vertical, con un índice vectorial por partición | Perfil de intereses expresado en **conceptos** (capa 2), compartidos por todos los verticales |
-| **Por qué** | Quien está en Licores quiere resultados de Licores: mezclar verticales baja la precisión | El problema del proyecto es que hoy lo que haces en un vertical no cambia los otros |
+| **Por qué** | Quien está en Licores quiere resultados de Licores: mezclar verticales baja la precisión | El problema que aborda el proyecto: visto desde fuera, lo que haces en un vertical no parece cambiar los otros |
 
 La recomendación cruzada se arma así: interés del usuario (concepto) → **arista de complemento** (cerveza → snacks) → búsqueda **en el índice del otro vertical**. El puente entre verticales es el concepto, no el índice.
 
-Esto corrige una contradicción de los documentos anteriores. Presentaban el silo como "principio de diseño", cuando es **el problema** que el prototipo busca resolver. El aislamiento sigue siendo una regla de búsqueda, no un límite del modelo.
+El aislamiento es una regla de búsqueda, no un límite del modelo: el silo es el problema que el prototipo busca resolver.
 
-## 1. Cómo se diseña el RAG
+## 1. Cómo funciona el RAG
+
+![Flujo de datos del RAG por etapas: descarga, Postgres, IA offline, consulta y apps](diagramas/rag-datos.png)
+
+Versión interactiva: [diagramas/rag-datos.html](diagramas/rag-datos.html) (descargar y abrir en el navegador).
 
 ```text
 OFFLINE (después de cada refresh)
@@ -37,28 +41,38 @@ texto / voz→texto / foto ─► entender (intención, vertical, conceptos, fil
 
 Decisiones:
 
-- **Documentos.** Hay uno por producto, plato o tienda, y por vertical. La tabla `search_documents` y el SQL que la arma (`build_search_documents`) ya existen, con nombre, marca, presentación, categoría y descripción. Hoy solo está poblada para supermercado, chocolatería y restaurantes, del 24-09, y sin embeddings: se regenera al terminar la descarga en curso.
-- **Sin dividir en trozos.** Son textos cortos: mediana ≈ 230 caracteres, y ≈ 320 en mall. Unos 300 documentos, casi todos de mall, superan los 2.000 caracteres y se truncan en 512 tokens. Por eso el nombre va primero.
+- **Documentos.** Hay uno por producto, plato o tienda, y por vertical, en la tabla `search_documents`. La arma el SQL `build_search_documents` del scraper, con nombre, marca, presentación, categoría y descripción. Con el catálogo completo (28-09-2026) son 240.200 documentos: 83.108 productos, 153.136 platos y 3.956 tiendas, todos con embedding.
+- **Sin dividir en trozos.** Son textos cortos. En los datos parciales, solo unos pocos documentos, casi todos de Mall, superaban los 2.000 caracteres; esos se truncan en 512 tokens. Por eso el nombre va primero.
 - **El precio no va en el texto que se embebe.** Cambia en cada corrida y obligaría a volver a embeber. Se lee por SQL (`price_snapshots`, `menu_price_snapshots`).
 - **Caché por `content_hash`.** Los vectores se guardan en una tabla propia `text_embeddings(content_hash, embedding_model, embedding)`. Así, un texto repetido en varios verticales se embebe una sola vez y se copia a `search_documents.embedding`, donde vive el HNSW de cada partición. Además, si el texto no cambió, el `refresh` conserva el vector de cada fila (`_UPSERT` en `rappi-scraper/src/rappi_scraper/storage/search.py`).
+- **Rendimiento del cálculo offline.**
+  - Los textos por embeber se ordenan por largo antes de armar los lotes.
+  - Los índices HNSW se construyen con 1 GB de `maintenance_work_mem`, solo durante esa transacción (se ajusta con `HNSW_MAINTENANCE_WORK_MEM`, ver `rappi-ia/.env.example`).
+  - El kNN de conceptos lee los vectores del caché en binario y por bloques, sin cargarlos como texto.
 - **Híbrido con RRF (k = 60)** en lugar de solo vectores:
   - lo léxico acierta marcas y nombres exactos ("Heineken 470");
   - lo vectorial acierta necesidades ("algo para el carrete", "remedio para la guata").
-  - El léxico usa una columna de texto sin tildes ni ñ (`unaccent` + español), en el documento y en la consulta: "panales" encuentra "pañales".
-- **Filtros duros dentro de cada recuperador, antes de fusionar.** Precio máximo, en stock y vertical:
-  - en el léxico, con un JOIN a los precios vigentes;
-  - en el vectorial, con un pool amplio de candidatos (k = 200, o `hnsw.iterative_scan` de pgvector 0.8);
-  - se compara contra el precio mínimo en stock entre las tiendas del vertical.
+  - El léxico usa una columna de texto sin tildes ni ñ (`unaccent` + español), en el documento y en la consulta: "panales" encuentra "pañales". Cada palabra pesa según su IDF dentro del vertical: las palabras raras pesan más.
+- **Filtros duros dentro de cada recuperador, antes de fusionar.** Precio máximo, tipo de ítem y vertical:
+  - el precio se compara contra `price_min`, una columna indexada con el precio vigente más bajo entre las tiendas del vertical (migración 013);
+  - en el vectorial, un pool de 200 candidatos con `hnsw.iterative_scan` de pgvector; si el tope de precio deja pocos documentos (hasta 5.000), se revisan todos, porque el índice filtrado podría devolver de menos.
   - Si el filtro deja la lista vacía, Bigotes lo dice ("no hay bajo $X; el más barato cuesta $Y") y **no** registra demanda no satisfecha.
 - **"Sin resultado" bien definido.** La búsqueda vectorial siempre devuelve vecinos, así que "no encontrar" necesita una regla.
   - **Primera condición, siempre:** que nada calce todas las palabras de la consulta.
   - **Si la consulta nombra un concepto:** además, que el concepto no tenga surtido real en el vertical, es decir, menos de 3 ítems o del 0,05% del vertical.
   - **Si no nombra ninguno:** además, que el coseno máximo de e5 quede bajo τ del vertical.
-  - **Por qué no se usa solo el coseno:** en la evaluación, los cosenos de e5 se concentran entre 0,78 y 0,90 y separan mal; la presencia del concepto es mejor señal.
-  - **Calibración:** τ se calibra por vertical con las consultas negativas del set de evaluación, pidiendo precisión ≥ 0,9. Resultado: precisión 0,91 y recall 0,67.
+  - **Por qué no se usa solo el coseno:** en la evaluación, los cosenos de e5 se concentran en un rango estrecho (datos parciales) y separan mal; la presencia del concepto es mejor señal.
+  - **Calibración:** τ se calibra por vertical con las consultas negativas del set de evaluación, pidiendo precisión ≥ 0,9.
+  - **Resultado con el catálogo completo (28-09-2026):** precisión 1,00 (0 falsas alarmas) y recall 0,33 (5 de 15). Con datos parciales (27-09-2026) había sido 0,91 y 0,67.
+  - **Por qué bajó el recall:** varias consultas "negativas" ya tienen coincidencias con todas sus palabras. Algunas son oferta real que no estaba en los datos parciales ("kebab mixto": 16 platos), así que el set de negativas quedó desactualizado. Otras son coincidencias casuales ("neumáticos" → un renovador de neumáticos en conveniencia): es un límite real de la regla léxica estricta.
   - **Límite conocido:** un iPhone en el súper no cuenta, porque hay accesorios del mismo concepto.
 - **Reranker:** no por ahora. Se agrega (p. ej. `bge-reranker-v2-m3`) solo si la evaluación lo justifica, porque suma latencia y otro modelo.
-- **Evaluación antes de elegir.** Un set de preguntas por vertical, con juicios guardados en el repo, que incluye consultas negativas y consultas escritas sin tildes. Métricas nDCG@10, Recall@10 y MRR, comparando léxico, vectorial e híbrido. El modo por defecto sale de ahí.
+- **Evaluación antes de elegir.**
+  - **Set:** 96 consultas positivas en 6 verticales (supermercado, conveniencia, Mall, licores, chocolatería y restaurantes; todavía sin farmacia ni Turbo) y 15 negativas, en `rappi-ia/src/rappi_ia/eval/queries.json`. Incluye consultas exactas, sin tildes y necesidades en lenguaje natural.
+  - **Relevancia:** se juzga automáticamente por concepto (un resultado es relevante si su concepto está entre los esperados).
+  - **Métricas:** P@10, MRR y nDCG@10, comparando léxico, vectorial e híbrido. Recall@10 no se calcula.
+  - **Resultado:** el híbrido quedó como modo por defecto. Cifras en [README → Resultados](../README.md#resultados); el reporte de cada corrida queda en `rappi-ia/data/eval/busqueda.md`.
+  - **Salvedad:** el híbrido recibe un refuerzo por el mismo concepto con que se juzga la relevancia, así que su ventaja sobre léxico y vectorial está sobreestimada.
 - **Dos audiencias, un solo núcleo:**
   - Bigotes, para clientes, en el prototipo;
   - más adelante, preguntas del equipo interno (Marketing, Producto, BI), que usan las mismas herramientas más consultas SQL de análisis.
@@ -70,10 +84,10 @@ Decisiones:
 | Relación | Llave | Confianza | Uso |
 |---|---|---|---|
 | Producto ↔ oferta de tienda ↔ vertical | `master_product_id`, `store_id` | Exacta | Catálogo, precios y disponibilidad |
-| Mismo producto en varios verticales | `master_product_id` | Exacta, pero **inflada** por tiendas con doble etiqueta (Lider, Express Lider y Unimarc aparecen como conveniencia y como súper) | Contando solo tiendas de un único vertical, ≈ 3.300 productos cruzados reales, frente a ≈ 6.370 con la doble etiqueta. La consulta queda en el repo como vista |
-| Producto o plato ↔ concepto | `item_concepts` (curado, reglas o embeddings) | Probabilística: se guardan `method`, `confidence` y `model_version` | El puente entre verticales |
+| Mismo producto en varios verticales | `master_product_id` | Exacta, pero **inflada** por tiendas con doble etiqueta (Lider, Express Lider y Unimarc aparecen como conveniencia y como súper) | Contando solo tiendas de un único vertical, la doble etiqueta aproximadamente duplica los productos cruzados (datos parciales). La consulta está en el repo como vista (`v_cross_vertical_items_real`) |
+| Producto o plato ↔ concepto | `item_concepts` (mapa de categorías hecho con LLM, ajustes curados, reglas o embeddings) | Probabilística: se guardan `method`, `confidence` y `model_version` | El puente entre verticales |
 | Plato de restaurante ↔ producto del súper | **Solo vía concepto** (pizza ↔ pizza congelada) | Probabilística | "Pizza hoy en restaurante o para el fin de semana del súper" |
-| Marca de producto entre verticales | `trademark` normalizado | Media: solo el 35% de los productos trae marca | Análisis de surtido |
+| Marca de producto entre verticales | `trademark` normalizado | Media: solo una minoría de los productos trae marca (datos parciales) | Análisis de surtido |
 | Usuario ↔ concepto | Eventos → perfil con decaimiento | Hoy simulada | Recomendaciones y panel |
 | Consulta ↔ concepto ↔ vertical | Entendimiento de la consulta | Probabilística | Tendencias y demanda no satisfecha |
 | Foto ↔ producto | Espacio CLIP (imagen ↔ imagen, texto ↔ imagen) | Aproximada | Buscar por foto |
@@ -82,7 +96,7 @@ Decisiones:
 
 - **Precios entre verticales** si no son el mismo `master_product_id` y la misma presentación.
 - **Plato y producto por id:** no comparten llave; solo el concepto.
-- **Cadenas entre verticales.** `brands` no identifica cadenas: cubre ~⅓ de las tiendas, casi siempre con una tienda por marca, y no incluye Lider ni Unimarc. Por nombre, cadenas como Unimarc, Cruz Verde u OXXO sí aparecen en 2 o 3 verticales. El nombre normalizado sirve para analizar surtido, pero no como puente de recomendación: ese puente es el concepto.
+- **Cadenas entre verticales.** `brands` no identifica cadenas: cubre una minoría de las tiendas (datos parciales), casi siempre con una tienda por marca, y no incluye Lider ni Unimarc. Por nombre, cadenas como Unimarc, Cruz Verde u OXXO sí aparecen en 2 o 3 verticales. El nombre normalizado sirve para analizar surtido, pero no como puente de recomendación: ese puente es el concepto.
 - **"No está en el catálogo" ≠ "Rappi no lo vende":** la muestra pública trae hasta 24 productos por sub-pasillo. La demanda no satisfecha es una **señal que hay que validar**, no una prueba.
 - **Vectores de modelos distintos:** e5 y CLIP viven en espacios distintos. Nunca se comparan entre sí; se fusionan por ranking (RRF), no por puntaje.
 - **Datos simulados con datos reales:** cada usuario, evento y pedido lleva `source` (`synthetic` o `prototype`). El panel los muestra marcados y nunca los suma con métricas reales.
@@ -114,18 +128,18 @@ Decisiones:
 - Los conceptos detectados en la foto refuerzan los resultados que comparten concepto.
 - Cada vector guarda su `embedding_model`.
 
-**¿Por qué modelos locales?** No hay claves de API configuradas, los datos no salen del Mac y el costo es cero. Se pueden cambiar sin rehacer el diseño: el caché se separa por modelo.
+**¿Por qué modelos locales?** No requieren claves de API, los datos no salen del equipo y no tienen costo por uso. Se pueden cambiar sin rehacer el diseño: el caché se separa por modelo.
 
 ## 4. Comportamiento del agente (Bigotes)
 
 **Flujo por turno:** entender → decidir herramienta(s) → recuperar → componer → verificar → registrar.
 
-**Herramientas:**
-- `buscar_productos(vertical, consulta, conceptos, precio_max)`
-- `buscar_por_foto(imagen, vertical?)`
-- `recomendar_complementos(conceptos, vertical_actual)`
-- `detalle(entidad)`
-- `historial_precio(producto)`
+**Herramientas** (en `rappi-ia/src/rappi_ia/agent/`):
+- `buscar_productos(vertical, consulta, conceptos, precio_max)`: `search_products` en `tools.py`
+- `buscar_por_foto(imagen, vertical?)`: `photo.py` (los productos parecidos requieren haber corrido `make images`)
+- `recomendar_complementos(conceptos, vertical_actual)`: `suggest_complement` en `tools.py`
+- `detalle(entidad)`: pendiente
+- `historial_precio(producto)`: pendiente
 
 **Reglas de conducta:**
 
@@ -137,7 +151,7 @@ Decisiones:
    - El verificador rechaza ids no recuperados y cifras, precios o atributos ("sin alcohol", "el más barato") que no salgan de esos campos.
    - Los botones (`actions`) los arma siempre el código.
 2. **Respeta el vertical en que estás.** La respuesta principal sale de ese vertical. Lo cruzado va aparte y marcado "De otra tienda", con su razón visible ("porque llevas cerveza").
-3. **Máximo una sugerencia cruzada por respuesta**, una por tema por sesión y un tope diario. Nada de urgencias falsas.
+3. **Máximo una sugerencia cruzada por respuesta** y una por tema por sesión (el tope diario queda pendiente). Nada de urgencias falsas.
 4. **Honestidad.** Si no encuentra (según la definición del §1), lo dice y registra **demanda no satisfecha** (consulta, vertical, conceptos y condición). Esa es la materia prima de las oportunidades de negocio.
 5. **Aclara, no adivina.** Si la intención es ambigua entre verticales, hace una sola pregunta con opciones.
 6. **Categorías sensibles y restringidas.**
@@ -149,7 +163,7 @@ Decisiones:
 7. **Memoria transparente.** Intereses por concepto con decaimiento (vida media de 14 días), visibles ("Aprendiendo de ti") y borrables ("Olvidar"). En modo "Rappi hoy" no aprende.
 8. **El código decide y el LLM solo redacta.**
    - Sin clave de API, Bigotes responde con plantillas y las mismas reglas. Con `ANTHROPIC_API_KEY`, Claude redacta el texto en JSON estricto sobre lo recuperado.
-   - Entender la consulta: hoy son reglas + embeddings. Jev (el modelo "System One" de TypeSafe: juicios tipados con probabilidad y baja latencia) queda como adaptador para esta etapa cuando haya clave.
+   - Entender la consulta: hoy son reglas + embeddings. Jev (el modelo "System One" de TypeSafe: juicios tipados con probabilidad y baja latencia) es una opción futura para esta etapa; no está implementado.
 
 **Contrato de respuesta.** Amplía el de `prototipo-app/src/assistant/brain.js` (`text`, `products`, `stores`, `reason`, `actions` y `tags`) sin romperlo:
 - `reason` sigue en el primer nivel;
@@ -168,7 +182,7 @@ Decisiones:
 
 **Sí, si se enfoca en decisiones y no en gráficos.** Las conversaciones y búsquedas son una encuesta continua de lo que la gente quiere. El panel convierte eso, junto con la conducta de compra, en acciones para **subir la frecuencia y bajar el abandono**.
 
-**Métricas** (definidas en SQL en `rappi-ia`):
+**Métricas** (definidas en SQL en `rappi-ia/src/rappi_ia/analytics/queries.py`):
 
 | Métrica | Definición |
 |---|---|
@@ -182,7 +196,7 @@ Decisiones:
 | Usuarios multi-vertical | Pidieron en 2 o más verticales en 60 días. Su retención se compara **a igual número de pedidos y antigüedad**: quien pide más cae más en dos verticales y además retiene más, así que la comparación directa no mide el efecto |
 | Sugerencia aceptada / convertida | Aceptada: el producto sugerido (en el chat o en "Para ti") se agregó al carro. Convertida: llegó a un pedido. El aviso sobre el carro se mide aparte: ahí aceptar es abrir el chat |
 
-**Vistas:**
+**Vistas** (además de una pestaña Resumen con los indicadores y las palancas):
 
 1. **Oportunidades.**
    - Demanda no satisfecha, agrupada por concepto, vertical y ciudad: cuántos usuarios la piden, su tendencia y una acción sugerida (sumar comercios o categoría, sinónimo de búsqueda, o avisar cuando llegue).
@@ -193,7 +207,7 @@ Decisiones:
 
 **Aristas aprendidas** (alimentan al agente con `method = 'coocurrencia'`):
 - Usan la confianza dirigida P(B | A). El lift > 1 es solo un filtro: el lift es simétrico y no da dirección.
-- Requieren al menos 30 usuarios distintos con A y B, y se suavizan hacia la arista curada.
+- Requieren al menos 30 usuarios distintos con A y B. Suavizarlas hacia la arista curada queda pendiente: hoy su peso es la confianza P(B | A).
 - No cuentan co-ocurrencias en que B se agregó desde una sugerencia de Bigotes, para no retroalimentarse.
 - Las aprendidas de datos `synthetic` quedan marcadas y **el agente no las usa**: solo se ven en el panel.
 - Nunca se aprenden aristas hacia conceptos sensibles.
@@ -215,7 +229,7 @@ Ninguna palanca usa conceptos sensibles.
 
 **Límites honestos:**
 
-- Hoy los usuarios y eventos son **simulados**, generados con semilla y con supuestos explícitos. Por ejemplo, el generador asume que quien usa más verticales abandona menos. El panel **muestra la mecánica, no evidencia**: con datos reales, esa relación se mide y puede no cumplirse.
+- Hoy los usuarios, eventos y pedidos son **simulados**: los genera `events/synth.py` (1.500 usuarios × 20 semanas, semilla 7; `source = 'synthetic'`), con supuestos explícitos. Por ejemplo, el generador asume que quien usa más verticales abandona menos. El panel **muestra la mecánica, no evidencia**: con datos reales, esa relación se mide y puede no cumplirse. La pestaña Catálogo es la única que usa datos reales.
 - Cualquier palanca se valida con un grupo de control (A/B con *holdout*) antes de escalar. El efecto causal de "Segunda vertical" se mide solo así, no con la comparación de retención.
 
 ## 6. Modelo de datos nuevo
@@ -240,22 +254,24 @@ erDiagram
 
 Notas del modelo:
 
-- **Platos estándar:** `dish_concepts` se reemplaza por `item_concepts`. Un plato y un producto del súper se conectan al compartir concepto.
+- **Platos y productos:** no hay una tabla de platos estándar. Un plato y un producto del súper se conectan al compartir concepto en `item_concepts`.
 - **Eventos:** `APP_EVENT` lleva `session_id` (una sesión termina tras 30 minutos sin actividad) y `cart_id` en los eventos de carro (`cart_add`, `cart_remove`, `checkout_start`, `order_placed`).
-- **Líneas de pedido:** `APP_ORDER_LINE` puede apuntar a un producto o a un plato. El ERD anterior solo permitía productos.
+- **Líneas de pedido:** `APP_ORDER_LINE` puede apuntar a un producto o a un plato.
 - **Procedencia:** todo dato inferido guarda `method` (`curado`, `llm`, `regla`, `embedding`, `coocurrencia`), `confidence`, `model_version` y fecha. Los datos de usuario guardan `source`.
 - **H3:** queda para después, porque no lo necesita ninguna vista de este plan.
 
 ## 7. Etapas
 
-| Etapa | Entrega | QA |
-|---|---|---|
-| 0. Diseño | Este documento, el grafo y docs sin contradicciones | Validación Archify y revisión adversarial |
-| 1. Conceptos (capa 2) | `concepts`, `category_map`, `item_concepts`, `concept_edges` y `rappi-ia concepts` | Cobertura ≥ 85% y precisión revisada por muestreo |
-| 2. Embeddings y búsqueda híbrida | `embed-text`, `embed-images`, `retrieve()` y set de evaluación | nDCG, Recall y MRR: léxico vs vectorial vs híbrido; calibración de τ |
-| 3. Agente | Bigotes en el backend (texto, foto, voz) | Tests de reglas de conducta y escenarios |
-| 4. API | FastAPI | Tests de endpoints |
-| 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados |
-| 6. Prototipo conectado | Cliente API con respaldo local, eventos y bugs corregidos | Vitest y prueba en el navegador |
-| 7. Panel empresa | `dashboard-empresa/` | Vitest y chequeo visual |
-| 8. Cierre | CI, docs y corrida completa post-refresh | CI en verde |
+| Etapa | Entrega | QA | Estado |
+|---|---|---|---|
+| 0. Diseño | Este documento, los diagramas y docs sin contradicciones | Validación Archify y revisión adversarial | Hecha |
+| 1. Conceptos (capa 2) | `concepts`, `category_map`, `item_concepts`, `concept_edges` y `rappi-ia concepts` | Cobertura ≥ 85% y precisión revisada por muestreo | Hecha |
+| 2. Embeddings y búsqueda híbrida | `embed-text`, `embed-images`, `retrieve()` y set de evaluación | P@10, MRR y nDCG@10 (Recall@10 no se calcula): léxico vs vectorial vs híbrido; calibración de τ | Hecha |
+| 3. Agente | Bigotes en el backend (texto, foto, voz) | Tests de reglas de conducta y escenarios | Hecha |
+| 4. API | FastAPI | Tests de endpoints | Hecha |
+| 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados | Hecha |
+| 6. Prototipo conectado | Cliente API con respaldo local, eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |
+| 7. Panel empresa | `dashboard-empresa/` | Vitest y chequeo visual | Hecha |
+| 8. Cierre | CI (4 jobs), docs y corrida completa post-refresh | CI en verde | En cierre: CI y corrida post-refresh sobre el catálogo completo hechas (28-09-2026); falta confirmar el CI en verde con los cambios del 28-09 |
+
+**Revisión:** tres pasadas de revisión adversarial automatizada (agentes de IA) con 66 hallazgos corregidos (27-09-2026) y otra revisión adversarial de los cambios del 28-09-2026. Resultados de cobertura, precisión y búsqueda en [README → Resultados](../README.md#resultados).

@@ -51,13 +51,37 @@
         ],
         "note": "Eventos simulados y del prototipo alimentan tendencias, demanda no satisfecha, frecuencia y abandono."
       }
-    ]
+    ],
+    "legend": {
+      "entries": {
+        "frontend": {
+          "label": "interfaz"
+        },
+        "backend": {
+          "label": "lógica / servicio"
+        },
+        "database": {
+          "label": "datos"
+        },
+        "security": {
+          "label": "control / reintento"
+        },
+        "messagebus": {
+          "label": "cola"
+        },
+        "external": {
+          "label": "sistema externo"
+        },
+        "cloud": {
+          "label": "API / nube"
+        }
+      }
+    }
   },
   "lanes": [
     {
       "id": "offline",
-      "label": "Datos · offline",
-      "variant": "exception"
+      "label": "Datos · offline"
     },
     {
       "id": "online",

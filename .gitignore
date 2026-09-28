@@ -7,12 +7,16 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 
-# Datos scrapeados de Rappi: no se versionan (tamaño y términos de uso).
-# Se traspasan con un respaldo de la base (ver CLAUDE.md).
+# Datos descargados de rappi.cl: no se versionan (tamaño y uso responsable; ver README.md#uso-responsable-de-los-datos).
+# Se traspasan con un respaldo de la base (ver docs/instalacion.md).
 rappi-scraper/data/
 
 # Evidencia generada por archify al verificar diagramas
 docs/diagramas/*.visual-check.*
 
-# Carpeta personal (intento previo de agente con LangChain), fuera del proyecto
+# Carpeta local fuera del proyecto
 Proyecto/
+
+# Configuración local de Claude Code y sus worktrees (no se ignora .claude/ entero)
+.claude/settings.local.json
+.claude/worktrees/
