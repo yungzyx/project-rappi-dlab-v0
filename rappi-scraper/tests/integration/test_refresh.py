@@ -1,5 +1,7 @@
 """`refresh`: retoma corridas abiertas o crea nuevas, y deja búsqueda, reportes y respaldo."""
 
+import pytest
+
 from conftest import FakeClient
 from rappi_scraper.pipeline.refresh import refresh
 from rappi_scraper.storage import repository
@@ -72,3 +74,24 @@ def test_refresh_starts_new_runs_and_discovers_when_none_open(db, tmp_path):
     assert all(r["jobs"] == {"done": 1} for r in reports)
     params = db.execute("SELECT DISTINCT params->>'trigger' FROM scrape_runs").fetchall()
     assert params == [("refresh",)]
+
+
+def test_failed_discovery_closes_the_run_so_the_next_refresh_discovers_again(db, tmp_path):
+    """Si rappi.cl no responde al descubrir (p. ej. sin red al despertar), la corrida no queda "en curso"."""
+
+    def offline(conn, run_id):
+        raise RuntimeError("sin red")
+
+    with pytest.raises(RuntimeError):
+        refresh(db, FakeClient(), offline, _no_discovery, reports_dir=tmp_path)
+    assert db.execute("SELECT kind, status FROM scrape_runs").fetchall() == [("stores", "failed")]
+
+    calls = []
+    refresh(
+        db,
+        FakeClient({"/restaurantes/384": "restaurant"}),
+        _discoverer(STORE_JOB, calls),
+        _discoverer(RESTAURANT_JOB, []),
+        reports_dir=tmp_path,
+    )
+    assert len(calls) == 1  # corrida nueva, con descubrimiento

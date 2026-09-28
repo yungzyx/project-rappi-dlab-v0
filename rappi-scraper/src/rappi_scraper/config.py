@@ -45,3 +45,5 @@ MAX_JOB_ATTEMPTS = 2
 
 # Rappi redirige aquí cuando la tienda no despacha a la ubicación configurada.
 UNAVAILABLE_PATH_PREFIX = "/tiendas/tipo/"
+# Rappi redirige a /restaurantes?restaurantNotFound=true cuando el restaurante ya no existe (cerró o se dio de baja).
+RESTAURANT_NOT_FOUND_QUERY = "restaurantNotFound=true"

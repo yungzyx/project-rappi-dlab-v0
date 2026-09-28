@@ -42,7 +42,14 @@ def ensure_run(conn: Connection, kind: str, discover: Discoverer) -> int:
         return run_id
     run_id = repository.start_run(conn, kind, {"trigger": "refresh"})
     log.info("Corrida nueva %d (%s): descubriendo…", run_id, kind)
-    discover(conn, run_id)
+    try:
+        discover(conn, run_id)
+    except BaseException:
+        # Sin esto quedaría "en curso" con la cola a medias: la próxima vez se retomaría sin descubrir de nuevo
+        # (y mientras tanto rappi-ia no embebe ni baja fotos, porque cree que hay una descarga en curso).
+        conn.rollback()
+        repository.finish_run(conn, run_id, "failed")
+        raise
     return run_id
 
 

@@ -80,6 +80,19 @@ def test_restaurant_branches_of_same_brand_are_scraped_once(db):
     assert db.execute("SELECT count(*) FROM menu_price_snapshots").fetchone()[0] == 61
 
 
+def test_restaurant_that_no_longer_exists_is_skipped_not_failed(db):
+    """Un restaurante dado de baja no es una falla del scraper (no debe inflar "Jobs fallidos" del reporte)."""
+    run = repository.start_run(db, "restaurants", {})
+    job = {"verticals": ["restaurantes"], "candidates": [{"store_id": 7, "path": "/restaurantes/7-cerrado"}]}
+    repository.add_jobs(db, run, [{"job_key": "rest:7", "job_type": "restaurant", "payload": job}])
+    db.commit()
+
+    process_restaurant_jobs(db, FakeClient(gone={"/restaurantes/7-cerrado"}), run)
+
+    status, result = db.execute("SELECT status, result FROM scrape_jobs WHERE job_key = 'rest:7'").fetchone()
+    assert (status, result["reason"]) == ("skipped", "ya no existe en Rappi")
+
+
 def test_discover_restaurants_retries_failed_chains_and_skips_their_branches(db, monkeypatch):
     chain_url = "https://www.rappi.cl/restaurantes/delivery/1833-vapiano"
     sitemaps = {

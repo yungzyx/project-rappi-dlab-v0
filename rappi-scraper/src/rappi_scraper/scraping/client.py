@@ -20,6 +20,12 @@ class StoreUnavailable(Exception):
     """Rappi redirigió al listado de tiendas: la sucursal no despacha a la ubicación actual."""
 
 
+class RestaurantGone(Exception):
+    """Rappi redirigió a /restaurantes?restaurantNotFound=true: el restaurante ya no existe.
+
+    No es un error de lectura: el job queda omitido, no fallido."""
+
+
 class PageNotFound(Exception):
     """La página no existe (p. ej. un sub-pasillo cuyo slug no coincide)."""
 
@@ -75,11 +81,13 @@ class RappiClient:
     def get_next_data(self, path: str) -> dict:
         """Descarga una página de rappi.cl y devuelve su __NEXT_DATA__."""
         response = self._request(config.BASE_URL + path)
-        final_path = urlparse(response.url).path
-        if final_path.startswith(config.UNAVAILABLE_PATH_PREFIX) and not path.startswith(
+        final = urlparse(response.url)
+        if final.path.startswith(config.UNAVAILABLE_PATH_PREFIX) and not path.startswith(
             config.UNAVAILABLE_PATH_PREFIX
         ):
-            raise StoreUnavailable(f"{path} redirigió a {final_path}")
+            raise StoreUnavailable(f"{path} redirigió a {final.path}")
+        if config.RESTAURANT_NOT_FOUND_QUERY in final.query:
+            raise RestaurantGone(f"{path} ya no existe en Rappi")
         return extract_next_data(response.text)
 
     def _request(self, url: str) -> requests.Response:

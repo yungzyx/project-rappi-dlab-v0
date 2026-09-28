@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from rappi_scraper.scraping.client import StoreUnavailable
+from rappi_scraper.scraping.client import RestaurantGone, StoreUnavailable
 from rappi_scraper.scraping.next_data import ParseError, extract_next_data
 from rappi_scraper.storage.db import connect, database_url, migrate
 
@@ -17,9 +17,10 @@ def load_page(name: str) -> dict:
 class FakeClient:
     """Sirve fixtures según la ruta. `unavailable` y `failing_once` simulan tiendas caídas y errores."""
 
-    def __init__(self, pages: dict[str, str] | None = None, unavailable=(), failing_once=()):
+    def __init__(self, pages: dict[str, str] | None = None, unavailable=(), failing_once=(), gone=()):
         self.pages = pages or {}
         self.unavailable = set(unavailable)
+        self.gone = set(gone)
         self.failing_once = set(failing_once)
         self.requested: list[str] = []
 
@@ -33,6 +34,8 @@ class FakeClient:
         self.requested.append(path)
         if path in self.unavailable:
             raise StoreUnavailable(path)
+        if path in self.gone:
+            raise RestaurantGone(path)
         if path in self.failing_once:
             self.failing_once.discard(path)
             raise ParseError("respuesta incompleta")

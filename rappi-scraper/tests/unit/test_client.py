@@ -7,7 +7,7 @@ import requests
 
 from rappi_scraper import config
 from rappi_scraper.scraping import client as client_module
-from rappi_scraper.scraping.client import PageNotFound, RappiClient, StoreUnavailable, location_cookie
+from rappi_scraper.scraping.client import PageNotFound, RappiClient, RestaurantGone, StoreUnavailable, location_cookie
 
 NEXT_DATA_HTML = '<script id="__NEXT_DATA__" type="application/json">{"props": {"pageProps": {}}}</script>'
 
@@ -91,3 +91,10 @@ def test_redirect_to_store_listing_means_store_unavailable(client):
 def test_listing_pages_are_not_treated_as_unavailable(client):
     client.responses = [_Response(200, url=config.BASE_URL + "/tiendas/tipo/rappimall-parent")]
     assert client.get_next_data("/tiendas/tipo/super")
+
+
+def test_redirect_to_restaurant_not_found_means_restaurant_gone(client):
+    """Visto en la corrida del 27-09: 91 restaurantes cerrados salían como "página sin fallback"."""
+    client.responses = [_Response(200, url=config.BASE_URL + "/restaurantes?restaurantNotFound=true")]
+    with pytest.raises(RestaurantGone):
+        client.get_next_data("/restaurantes/900057334-papas-truck-talca")

@@ -5,7 +5,7 @@ import logging
 from psycopg import Connection
 
 from .. import config
-from ..scraping.client import PAGE_ERRORS, RappiClient
+from ..scraping.client import PAGE_ERRORS, RappiClient, RestaurantGone
 from ..scraping.restaurant_parser import parse_restaurant
 from ..storage import repository
 from .queue import process_with_retry
@@ -34,9 +34,14 @@ def _run_restaurant_job(
     """Guarda la primera sucursal con menú. Si la marca ya se guardó en la corrida, se salta
     (pasa con sucursales de cadenas cuya página de cadena no se pudo leer al descubrir)."""
     error = "ninguna sucursal con menú"
-    for cand in payload["candidates"][: config.MAX_BRANCH_ATTEMPTS]:
+    candidates = payload["candidates"][: config.MAX_BRANCH_ATTEMPTS]
+    gone = 0
+    for cand in candidates:
         try:
             parsed = parse_restaurant(client.get_next_data(cand["path"]))
+        except RestaurantGone:
+            gone += 1
+            continue
         except PAGE_ERRORS as exc:
             log.warning("  %s falló: %s", cand["path"], exc)
             error = str(exc)
@@ -51,4 +56,6 @@ def _run_restaurant_job(
         if brand_id:
             done_brands.add(brand_id)
         return "done", {"store_id": parsed["store"]["store_id"], "brand_id": brand_id, "items": saved}, None
+    if candidates and gone == len(candidates):  # no hay nada que bajar: no es una falla del scraper
+        return "skipped", {"reason": "ya no existe en Rappi"}, None
     return "failed", None, error
