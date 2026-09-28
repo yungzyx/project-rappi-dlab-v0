@@ -128,7 +128,10 @@ def _matcher():
     return _MATCHER
 
 
-_PRICE = "coalesce((metadata->>'precio_min')::numeric, (metadata->>'precio')::numeric)"
+_PRICE = "price_min"  # columna generada desde metadata (migración 013), con índice (vertical, price_min)
+# Con tope de precio, si califican hasta esta cantidad de documentos se revisan todos (búsqueda exacta): el HNSW
+# filtrado corta en hnsw.max_scan_tuples y con un tope muy bajo en un vertical grande devolvería de menos.
+EXACT_SEARCH_MAX = 5000
 
 
 def _lexical(conn: Connection, vertical: str, query: str, filters: Filters) -> list[tuple[tuple[str, str], float]]:
@@ -190,24 +193,47 @@ def _vector(
 ) -> list[tuple[tuple[str, str], float]]:
     dim = int(embedder.dim)
     model = embedder.model_name.replace("'", "''")  # literal: el índice parcial exige conocer el modelo al planificar
+    params = {
+        "v": to_pgvector(query_vector),
+        "vertical": vertical,
+        "types": list(filters.entity_types),
+        "price_max": filters.price_max,
+        "k": CANDIDATES,
+        "cap": EXACT_SEARCH_MAX + 1,
+    }
+    where = f"""vertical = %(vertical)s AND embedding_model = '{model}' AND entity_type = ANY(%(types)s)
+                AND (%(price_max)s::numeric IS NULL OR {_PRICE} <= %(price_max)s::numeric)"""
+    distance = f"(embedding::vector({dim})) <=> %(v)s::vector({dim})"
+    if filters.price_max is not None and _few_within_price(conn, where, params):
+        rows = conn.execute(
+            f"""WITH pool AS MATERIALIZED (SELECT entity_type, entity_id, embedding FROM search_documents WHERE {where})
+                SELECT entity_type, entity_id, 1 - ({distance}) AS cosine FROM pool
+                ORDER BY {distance}
+                LIMIT %(k)s""",
+            params,
+        ).fetchall()
+        return [((t, i), float(c)) for t, i, c in rows]
     conn.execute(f"SET hnsw.ef_search = {CANDIDATES}")
     conn.execute("SET hnsw.iterative_scan = relaxed_order")
     rows = conn.execute(
-        f"""SELECT entity_type, entity_id, 1 - ((embedding::vector({dim})) <=> %(v)s::vector({dim})) AS cosine
+        f"""SELECT entity_type, entity_id, 1 - ({distance}) AS cosine
             FROM search_documents
-            WHERE vertical = %(vertical)s AND embedding_model = '{model}' AND entity_type = ANY(%(types)s)
-              AND (%(price_max)s::numeric IS NULL OR {_PRICE} <= %(price_max)s::numeric)
-            ORDER BY (embedding::vector({dim})) <=> %(v)s::vector({dim})
+            WHERE {where}
+            ORDER BY {distance}
             LIMIT %(k)s""",
-        {
-            "v": to_pgvector(query_vector),
-            "vertical": vertical,
-            "types": list(filters.entity_types),
-            "price_max": filters.price_max,
-            "k": CANDIDATES,
-        },
+        params,
     ).fetchall()
     return [((t, i), float(c)) for t, i, c in rows]
+
+
+def _few_within_price(conn: Connection, where: str, params: dict) -> bool:
+    """¿Califican a lo más EXACT_SEARCH_MAX documentos? Usa el índice (vertical, price_min) y corta al pasarse."""
+    return (
+        conn.execute(
+            f"SELECT count(*) FROM (SELECT 1 FROM search_documents WHERE {where} LIMIT %(cap)s) s", params
+        ).fetchone()[0]
+        <= EXACT_SEARCH_MAX
+    )
 
 
 def _concepts_of(conn: Connection, keys: list[tuple[str, str]]) -> dict[tuple[str, str], str]:

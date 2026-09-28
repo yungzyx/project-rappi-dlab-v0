@@ -9,6 +9,7 @@ from rappi_ia.db import connect, database_url
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.images import ScrapeRunning
 from rappi_ia.embeddings.text_store import embed_search_documents, hnsw_index_name
+from rappi_ia.retrieval import hybrid
 from rappi_ia.retrieval.hybrid import Filters, retrieve
 
 
@@ -92,6 +93,23 @@ def test_price_filter_applies_inside_each_retriever(catalog):
     result = retrieve(catalog, "licores", "cerveza", embedder, filters=Filters(price_max=2000))
 
     assert [h.entity_id for h in result.hits if h.concept_id == "cerveza"] == ["101"]
+
+
+def test_price_filter_gives_the_same_hits_with_exact_search_and_with_hnsw(catalog, monkeypatch):
+    """Con pocos documentos bajo el tope se revisan todos (no corta en hnsw.max_scan_tuples); el resultado es el
+    mismo que por el índice."""
+    embedder = HashEmbedder()
+    embed_search_documents(catalog, embedder)
+    price = catalog.execute(
+        "SELECT price_min FROM search_documents WHERE vertical = 'licores' AND entity_id = '101'"
+    ).fetchone()[0]
+    assert price == 1290  # columna generada desde metadata (migración 013)
+
+    query_vector = embedder.embed_queries(["cerveza"])[0]
+    exact = hybrid._vector(catalog, "licores", query_vector, embedder, Filters(price_max=2000))
+    monkeypatch.setattr(hybrid, "EXACT_SEARCH_MAX", 0)  # obliga el camino por HNSW
+    by_index = hybrid._vector(catalog, "licores", query_vector, embedder, Filters(price_max=2000))
+    assert [key for key, _ in exact] == [key for key, _ in by_index] == [("catalog_item", "101")]
 
 
 def test_unmet_demand_rules(catalog):
