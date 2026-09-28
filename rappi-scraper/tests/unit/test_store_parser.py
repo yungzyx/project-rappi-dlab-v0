@@ -59,6 +59,21 @@ def test_parse_products_on_aisle_page(page):
     assert len(parse_products(page("aisle"))) == 45
 
 
+def test_missing_storefront_error_names_the_page_received(page):
+    # listing_market: Rappi devolvió el listado del vertical en vez del pasillo (como en farmacia/primeros-auxilios)
+    with pytest.raises(ParseError) as exc:
+        parse_aisles(page("listing_market"))
+    assert str(exc.value) == "No se encontró fallback['storefront/...'] (claves: cpgs-catalog)"
+
+
+def test_missing_storefront_error_lists_key_prefixes_without_ids():
+    # sin ids ni repetidos: el reporte agrupa los errores por texto
+    fallback = {"store_information/900025946": {}, "store_information/1": {}, '@"cpgs-catalog","market",0,': {}}
+    with pytest.raises(ParseError) as exc:
+        parse_products({"props": {"pageProps": {"fallback": fallback}}})
+    assert str(exc.value).endswith("(claves: cpgs-catalog, store_information)")
+
+
 @pytest.mark.parametrize(
     ("text", "expected"),
     [

@@ -12,7 +12,10 @@ def _storefront_entry(next_data: dict) -> tuple[str, dict]:
     for key, value in fallback.items():
         if key.startswith("storefront/"):
             return key, value
-    raise ParseError("No se encontró fallback['storefront/...']")
+    # Qué página llegó en su lugar, solo por el nombre de cada clave ('store_information/<id>' o
+    # '@"cpgs-catalog","market",0,'): sin ids, para que el reporte agrupe el error por texto.
+    names = sorted({re.split(r'[/",]', key.lstrip('@"/'))[0] for key in fallback})
+    raise ParseError(f"No se encontró fallback['storefront/...'] (claves: {', '.join(names) or 'ninguna'})")
 
 
 def _storefront(next_data: dict) -> dict:
