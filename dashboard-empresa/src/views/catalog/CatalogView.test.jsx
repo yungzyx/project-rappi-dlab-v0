@@ -16,7 +16,7 @@ describe('CatalogView', () => {
     serveFixtures()
     await renderWithData(<CatalogView source="synthetic" />)
 
-    expect(screen.getAllByText('Real · rappi.cl')).toHaveLength(3)
+    expect(screen.getAllByText('Real · rappi.cl')).toHaveLength(1)
     expect(screen.getByText('Demanda simulada')).toBeTruthy()
     const mismatched = saved.data.cobertura.filter((row) => row.declarados > 0 && row.obtenidos > row.declarados)
     expect(screen.queryAllByText('No calza')).toHaveLength(mismatched.length)

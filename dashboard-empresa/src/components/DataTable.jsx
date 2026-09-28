@@ -6,7 +6,7 @@
 const cellClass = ({ numeric, primary, wide }) =>
   [numeric && 'is-num', primary && 'is-primary', wide && 'is-wide'].filter(Boolean).join(' ') || undefined
 
-export function DataTable({ caption, columns, rows, rowKey }) {
+export function DataTable({ caption, columns, rows, rowKey, rowClassName }) {
   return (
     <div className="table-wrap">
       <table className="data-table">
@@ -22,7 +22,7 @@ export function DataTable({ caption, columns, rows, rowKey }) {
         </thead>
         <tbody>
           {rows.map((row, index) => (
-            <tr key={rowKey(row, index)}>
+            <tr key={rowKey(row, index)} className={rowClassName?.(row, index)}>
               {columns.map((column) => (
                 <td
                   key={column.key}

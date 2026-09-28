@@ -1,8 +1,13 @@
 /* ---------- Embudo: un pequeño múltiplo por vertical ---------- */
 .funnel-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-  gap: var(--space-5) var(--space-6);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-6) var(--space-6);
+}
+
+/* Un vertical sin sesiones se ve, pero no compite */
+.funnel.is-empty {
+  opacity: 0.55;
 }
 
 .funnel {
@@ -16,20 +21,28 @@
   display: grid;
   gap: 2px;
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 2px solid var(--ink);
 }
 
-.funnel h4 {
+.funnel h3 {
   font-size: var(--text-md);
+  font-weight: 700;
 }
 
 .funnel header p {
   font-size: var(--text-sm);
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 
+/* La conversión de cada vertical es la cifra del tile */
 .funnel header strong {
+  display: block;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
   color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .funnel-stages {
@@ -69,6 +82,16 @@
   margin-top: 3px;
 }
 
+/* Mapa de calor (necesita ancho) | ritmo: 7/5 en escritorio, apilado antes */
 .retention-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6) var(--space-7);
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .retention-grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
 }

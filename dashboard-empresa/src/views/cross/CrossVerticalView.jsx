@@ -1,5 +1,4 @@
 import { Async } from '../../components/Async.jsx'
-import { Card } from '../../components/Card.jsx'
 import { Headline } from '../../components/Headline.jsx'
 import { Icon } from '../../components/Icon.jsx'
 import { ProvenanceBadge } from '../../components/ProvenanceBadge.jsx'
@@ -18,7 +17,7 @@ const EDGE_NOTES = {
 
 const sum = (rows, key) => rows.reduce((total, row) => total + (row[key] ?? 0), 0)
 
-/** Titular: aceptación global de las sugerencias cruzadas. */
+/** Titular de la vista: aceptación global de las sugerencias cruzadas. */
 function SuggestionHeadline({ source }) {
   const rows = useAnalytics('suggestions', source)
   const shown = sum(rows, 'mostradas')
@@ -34,7 +33,7 @@ function SuggestionHeadline({ source }) {
   )
 }
 
-/** Titular: la arista con más confianza (de quienes compran A, qué parte compra B). */
+/** Titular menor: la arista con más confianza (de quienes compran A, qué parte compra B). */
 function AffinityHeadline({ source }) {
   const rows = useAnalytics('affinity', source)
   if (!rows.length) return null
@@ -44,11 +43,12 @@ function AffinityHeadline({ source }) {
       value={formatPct(top.confianza * 100, 0)}
       unit={`${top.desde_nombre} → ${top.hacia_nombre}`}
       context="la relación con más confianza"
+      size="minor"
     />
   )
 }
 
-/** Titular: la diferencia de retención multi-vertical vs un vertical en el estrato donde se puede comparar. */
+/** Titular menor: la diferencia de retención multi-vertical vs un vertical donde se puede comparar. */
 function RetentionHeadline({ source }) {
   const rows = useAnalytics('multi-vertical', source)
   if (!rows.length) return null
@@ -59,6 +59,7 @@ function RetentionHeadline({ source }) {
         value={formatPoints(comparable.gap)}
         unit="de retención a favor de quien usa dos verticales"
         context={`a igual número de pedidos (${comparable.stratum})`}
+        size="minor"
       />
     )
   }
@@ -68,6 +69,7 @@ function RetentionHeadline({ source }) {
       value={formatPct(best.retencion_pct)}
       unit={`retención, ${best.grupo}, ${best.estrato}`}
       context="sin grupo de un vertical contra qué comparar"
+      size="minor"
     />
   )
 }
@@ -85,7 +87,6 @@ function MultiVertical({ source }) {
 }
 
 export function CrossVerticalView({ source }) {
-  const badge = <ProvenanceBadge kind={source} />
   return (
     <div className="view">
       <section className="section" aria-labelledby="sugerencias">
@@ -93,20 +94,18 @@ export function CrossVerticalView({ source }) {
           <h2 id="sugerencias">Bigotes entre verticales</h2>
           <p>
             Aceptada: el producto sugerido (en el chat o en «Para ti») se agregó al carro. Convertida: llegó a un pedido.
+            Por concepto sugerido y vertical donde está el producto; barras anidadas sobre la misma escala.
           </p>
+          <ProvenanceBadge kind={source} />
           <Async fallback={null}>
             <SuggestionHeadline source={source} />
           </Async>
         </div>
-        <Card
-          title="Mostradas, aceptadas y convertidas"
-          subtitle="Por concepto sugerido y vertical donde está el producto. Barras anidadas sobre la misma escala."
-          badge={badge}
-        >
+        <div className="block enter">
           <Async>
             <Suggestions source={source} />
           </Async>
-        </Card>
+        </div>
       </section>
 
       <section className="section" aria-labelledby="afinidad">
@@ -114,43 +113,37 @@ export function CrossVerticalView({ source }) {
           <h2 id="afinidad">Qué va con qué</h2>
           <p>
             Confianza = P(B | A): de quienes compran A, qué parte compra B. El lift mayor que 1 solo filtra: es simétrico
-            y no da dirección.
+            y no da dirección. Mínimo 30 usuarios con A y B; no cuenta lo que se agregó desde una sugerencia de Bigotes;
+            nunca hacia conceptos sensibles.
           </p>
           <Async fallback={null}>
             <AffinityHeadline source={source} />
           </Async>
         </div>
-        <Card
-          title="Aristas por co-ocurrencia"
-          subtitle="Mínimo 30 usuarios con A y B; no cuenta lo que se agregó desde una sugerencia de Bigotes; nunca hacia conceptos sensibles."
-          badge={badge}
-        >
-          <p className="callout status status--warn">
+        <div className="block enter">
+          <p className="table-warning status status--warn">
             <Icon name="warn" />
             {EDGE_NOTES[source]}
           </p>
           <Async>
             <Affinity source={source} />
           </Async>
-        </Card>
+        </div>
       </section>
 
       <section className="section" aria-labelledby="multi-vertical">
         <div className="section-head">
           <h2 id="multi-vertical">¿Retiene más quien usa dos verticales?</h2>
           <p>
-            Quien pide más cae más en dos verticales y además retiene más; por eso se compara a igual número de pedidos,
-            y aun así no mide causa: eso solo lo da un A/B con holdout.
+            Retención (pidió entre los días 61 y 120) por número de pedidos en sus primeros 60 días, solo usuarios cuyo
+            primer pedido fue hace 120 días o más. Quien pide más cae más en dos verticales y además retiene más; por
+            eso se compara a igual número de pedidos, y aun así no mide causa: eso solo lo da un A/B con holdout.
           </p>
           <Async fallback={null}>
             <RetentionHeadline source={source} />
           </Async>
         </div>
-        <Card
-          title="Retención (pidió entre los días 61 y 120) por número de pedidos en sus primeros 60 días"
-          subtitle="Solo usuarios cuyo primer pedido fue hace 120 días o más."
-          badge={badge}
-        >
+        <div className="block enter">
           <Async>
             <MultiVertical source={source} />
           </Async>
@@ -160,7 +153,7 @@ export function CrossVerticalView({ source }) {
               que acá esa relación aparece por construcción. Con datos reales se mide y puede no cumplirse.
             </p>
           )}
-        </Card>
+        </div>
       </section>
     </div>
   )

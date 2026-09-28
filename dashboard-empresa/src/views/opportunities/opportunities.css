@@ -1,5 +1,8 @@
+/* Suben / Bajan a dos columnas iguales a propósito: mismo largo de barra = mismo cambio en ambas listas. */
 .trends {
-  gap: var(--space-5) var(--space-6);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: var(--space-5) var(--space-7);
 }
 
 .trend-group {
@@ -9,10 +12,26 @@
   min-width: 0;
 }
 
-.trend-group h4 {
+.trend-group h3 {
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--line-strong);
+  border-bottom: 2px solid var(--ink);
   font-size: var(--text-md);
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* En la tabla de demanda, lo que se lee primero (qué piden, cuántos) va en tinta; el resto en gris */
+.block .data-table td {
+  color: var(--ink-2);
+}
+
+.block .data-table .is-primary,
+.block .data-table .cell-bar {
   color: var(--ink);
+  font-weight: 600;
+}
+
+.cell-list {
+  color: var(--ink-2);
 }

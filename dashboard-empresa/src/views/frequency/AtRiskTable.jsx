@@ -9,7 +9,7 @@ const PREVIEW_ROWS = 12
 const COLUMNS = [
   { key: 'usuario', header: 'Usuario', primary: true, render: (row) => <span className="mono">{row.usuario}</span> },
   { key: 'estado', header: 'Estado', render: (row) => <StatusLabel status={row.estado} /> },
-  { key: 'persona', header: 'Perfil', render: (row) => (row.persona ? <span className="chip">{row.persona}</span> : '—') },
+  { key: 'persona', header: 'Perfil', render: (row) => row.persona ?? '—' },
   { key: 'ritmo', header: 'Ritmo (días)', numeric: true, render: (row) => formatNumber(row.ritmo_dias, 1) },
   { key: 'dias', header: 'Días sin pedir', numeric: true, render: (row) => formatNumber(row.dias_sin_pedir) },
   { key: 'concepto', header: 'Concepto top', render: (row) => row.concepto_top ?? '—' },
@@ -47,6 +47,7 @@ export function AtRiskTable({ rows, kpis }) {
         columns={COLUMNS}
         rows={expanded ? rows : rows.slice(0, PREVIEW_ROWS)}
         rowKey={(row) => row.usuario}
+        rowClassName={(row, index) => (index > 0 && rows[index - 1].estado !== row.estado ? 'is-group-start' : undefined)}
       />
       {rows.length > PREVIEW_ROWS && (
         <div className="view-switch">

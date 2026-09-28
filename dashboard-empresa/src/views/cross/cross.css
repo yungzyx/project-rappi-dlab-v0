@@ -1,24 +1,53 @@
 /* ---------- Totales de sugerencias ---------- */
+/* Totales como filas de informe: etiqueta | cifra, la primera (mostradas) manda */
+.suggestions {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: var(--space-5) var(--space-7);
+  align-items: start;
+}
+
+.suggestions-bars {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
 .totals {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
-  gap: var(--space-3) var(--space-5);
-  padding-bottom: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.totals > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
   border-bottom: 1px solid var(--line);
 }
 
+.totals > div:first-child {
+  border-top: 2px solid var(--ink);
+}
+
 .totals dt {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--ink-2);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--ink);
 }
 
 .totals dd {
-  font-size: clamp(1.5rem, 1.2rem + 0.8vw, 1.875rem);
+  font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
+  text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.totals > div:first-child dd {
+  font-size: clamp(2rem, 1.5rem + 1.2vw, 2.5rem);
 }
 
 .totals dd span {
@@ -27,6 +56,12 @@
   font-weight: 500;
   letter-spacing: 0;
   color: var(--ink-2);
+}
+
+@media (max-width: 900px) {
+  .suggestions {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ---------- Aristas ---------- */
@@ -42,18 +77,6 @@
   font-weight: 400;
 }
 
-.callout {
-  align-items: flex-start;
-  padding-left: var(--space-3);
-  border-left: 3px solid var(--warn);
-  font-size: var(--text-sm);
-  white-space: normal;
-}
-
-.callout svg {
-  margin-top: 2px;
-}
-
 /* ---------- Retención por estrato ---------- */
 .strata {
   display: grid;
@@ -67,15 +90,16 @@
   border-top: 1px solid var(--line);
 }
 
-.strata-row h4 {
+.strata-row h3 {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-2) var(--space-3);
-  font-size: var(--text-base);
+  font-size: var(--text-md);
+  font-weight: 700;
 }
 
-.strata-row h4 .delta {
+.strata-row h3 .delta {
   font-size: var(--text-sm);
 }
 
@@ -103,18 +127,9 @@
 
 .strata-missing {
   grid-column: 2 / -1;
-  padding: 3px 6px;
-  border-radius: var(--radius-s);
   font-size: var(--text-xs);
-  color: var(--ink-2);
-  background: repeating-linear-gradient(135deg, var(--line) 0 4px, transparent 4px 9px);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-
-.strata-missing span {
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--surface);
+  font-style: italic;
+  color: var(--ink-3);
 }
 
 @media (max-width: 560px) {

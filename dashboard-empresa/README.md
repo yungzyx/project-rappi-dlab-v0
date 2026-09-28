@@ -17,7 +17,7 @@ Las definiciones de cada métrica y la redacción vienen de [docs/diseno-ia.md �
 El panel lo dice siempre:
 
 - un aviso fijo arriba que nunca se oculta;
-- una insignia de procedencia en cada bloque («Simulado», «Prototipo», «Real · rappi.cl» o «Demanda simulada»).
+- una insignia de procedencia en la cabecera de cada sección («Simulado», «Prototipo», «Real · rappi.cl» o «Demanda simulada»).
 
 Las fuentes nunca se mezclan: cada respuesta se valida contra la fuente pedida.
 

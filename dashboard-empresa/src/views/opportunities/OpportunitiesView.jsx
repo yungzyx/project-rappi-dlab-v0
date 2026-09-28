@@ -1,5 +1,4 @@
 import { Async } from '../../components/Async.jsx'
-import { Card } from '../../components/Card.jsx'
 import { Headline } from '../../components/Headline.jsx'
 import { ProvenanceBadge } from '../../components/ProvenanceBadge.jsx'
 import { EmptyState } from '../../components/States.jsx'
@@ -11,7 +10,7 @@ import { TrendList } from './TrendList.jsx'
 import { UnmetDemand } from './UnmetDemand.jsx'
 import './opportunities.css'
 
-/** Titular: cuántos usuarios distintos pidieron algo sin resultado (suma de la demanda agrupada). */
+/** Titular de la vista: cuántos usuarios distintos pidieron algo sin resultado (suma de la demanda agrupada). */
 function UnmetHeadline({ source }) {
   const rows = useAnalytics('opportunities', source)
   if (!rows.length) return null
@@ -27,7 +26,7 @@ function UnmetHeadline({ source }) {
   )
 }
 
-/** Titular: el concepto que más sube en 4 semanas. */
+/** Titular menor: el concepto que más sube en 4 semanas. */
 function TrendHeadline({ source }) {
   const trends = useAnalytics('trends', source)
   const { rising } = splitTrends(trends)
@@ -37,11 +36,12 @@ function TrendHeadline({ source }) {
       value={formatSignedPct(rising[0].crecimiento_pct)}
       unit={rising[0].concepto}
       context="el concepto que más sube en 4 semanas"
+      size="minor"
     />
   )
 }
 
-function UnmetCard({ source }) {
+function Unmet({ source }) {
   const rows = useAnalytics('opportunities', source)
   return (
     <>
@@ -66,9 +66,9 @@ function Trends({ source }) {
     )
   }
   return (
-    <div className="grid-2 trends">
+    <div className="trends">
       <div className="trend-group">
-        <h4>Suben · {rising.length}</h4>
+        <h3>Suben · {rising.length}</h3>
         {rising.length ? (
           <TrendList rows={rising} max={max} direction="up" unmetConcepts={unmetConcepts} />
         ) : (
@@ -76,7 +76,7 @@ function Trends({ source }) {
         )}
       </div>
       <div className="trend-group">
-        <h4>Bajan · {falling.length}</h4>
+        <h3>Bajan · {falling.length}</h3>
         {falling.length ? (
           <TrendList rows={falling} max={max} direction="down" unmetConcepts={unmetConcepts} />
         ) : (
@@ -95,43 +95,38 @@ export function OpportunitiesView({ source }) {
           <h2 id="oportunidades">Lo que piden y no encuentran</h2>
           <p>
             Cada búsqueda o consulta a Bigotes sin resultado es una encuesta: qué falta, dónde y para cuántos usuarios.
+            Agrupada por concepto (o consulta, si no calza con ninguno) y vertical; ordenada por usuarios distintos.
+            Crecimiento: últimas 4 semanas contra las 4 anteriores.
           </p>
+          <ProvenanceBadge kind={source} />
           <Async fallback={null}>
             <UnmetHeadline source={source} />
           </Async>
         </div>
-        <Card
-          title="Demanda no satisfecha"
-          subtitle="Agrupada por concepto (o consulta, si no calza con ninguno) y vertical. Ordenada por usuarios distintos; crecimiento: últimas 4 semanas vs las 4 anteriores."
-          badge={<ProvenanceBadge kind={source} />}
-        >
+        <div className="block enter">
           <Async>
-            <UnmetCard source={source} />
+            <Unmet source={source} />
           </Async>
-        </Card>
+        </div>
       </section>
 
       <section className="section" aria-labelledby="tendencias">
         <div className="section-head">
           <h2 id="tendencias">Conceptos que suben y bajan</h2>
           <p>
-            Señales de interés (búsquedas, chat y agregados al carro): últimas 4 semanas contra las 4 anteriores. No
-            incluye conceptos sensibles.
+            Señales de interés (búsquedas, chat y agregados al carro): últimas 4 semanas contra las 4 anteriores, sin
+            conceptos sensibles. Mismo largo de barra = mismo cambio en ambas listas; «sin oferta» = además es demanda
+            no satisfecha.
           </p>
           <Async fallback={null}>
             <TrendHeadline source={source} />
           </Async>
         </div>
-        <Card
-          title="Cambio de interés en 4 semanas"
-          subtitle="Mismo largo de barra = mismo cambio en ambas listas. «Sin oferta»: además es demanda no satisfecha."
-          badge={<ProvenanceBadge kind={source} />}
-          index={1}
-        >
+        <div className="block enter" style={{ '--i': 1 }}>
           <Async>
             <Trends source={source} />
           </Async>
-        </Card>
+        </div>
       </section>
     </div>
   )

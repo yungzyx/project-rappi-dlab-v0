@@ -15,9 +15,20 @@
   font-size: var(--text-sm);
   font-weight: 600;
   text-align: left;
-  color: var(--ink-2);
-  border-bottom: 1px solid var(--line-strong);
+  color: var(--ink);
+  border-bottom: 2px solid var(--ink);
   white-space: nowrap;
+}
+
+/* Dentro de un sub-bloque con su propia regla de 2px, la tabla usa 1px para no doblarla */
+.card .data-table th {
+  border-bottom: 1px solid var(--ink);
+}
+
+/* Separador fuerte entre grupos de filas (p. ej. donde cambia el estado o se cruza un umbral) */
+.data-table tr.is-group-start td {
+  border-top: 1px solid var(--line-strong);
+  padding-top: 18px;
 }
 
 .data-table td {
@@ -275,12 +286,11 @@
 
 .table-warning {
   align-items: flex-start;
-  padding: 10px 12px;
-  border-radius: var(--radius-m);
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--warn);
   font-size: var(--text-sm);
   font-weight: 500;
   white-space: normal;
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
 }
 
 .table-warning svg {

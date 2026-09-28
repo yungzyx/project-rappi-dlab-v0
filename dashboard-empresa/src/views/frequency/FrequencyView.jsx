@@ -12,37 +12,26 @@ import { FunnelChart } from './FunnelChart.jsx'
 import { RhythmChart } from './RhythmChart.jsx'
 import './frequency.css'
 
-/** Titular: conversión global buscan → piden (todas las sesiones, todos los verticales). */
+/** Titular menor: conversión global buscan → piden (todas las sesiones, todos los verticales). */
 function FunnelHeadline({ source }) {
   const data = useAnalytics('funnel', source)
   const searched = data.reduce((total, row) => total + (row.buscan ?? 0), 0)
   const ordered = data.reduce((total, row) => total + (row.piden ?? 0), 0)
   if (!searched) return null
-  const rows = funnelRows(data)
-  const worst = [...rows].filter((row) => row.overallPct !== null).sort((a, b) => a.overallPct - b.overallPct)[0]
+  const worst = funnelRows(data)
+    .filter((row) => row.overallPct !== null)
+    .sort((a, b) => a.overallPct - b.overallPct)[0]
   return (
     <Headline
       value={formatPct((ordered * 100) / searched)}
       unit="de las sesiones que buscan terminan en pedido"
       context={worst ? `la conversión más baja: ${verticalLabel(worst.vertical)}, ${formatPct(worst.overallPct)}` : undefined}
+      size="minor"
     />
   )
 }
 
-/** Titular: el ritmo típico (mediana de días entre pedidos). */
-function RhythmHeadline({ source }) {
-  const kpis = useAnalytics('kpis', source)
-  if (kpis.mediana_dias_entre_pedidos === null || kpis.mediana_dias_entre_pedidos === undefined) return null
-  return (
-    <Headline
-      value={formatNumber(kpis.mediana_dias_entre_pedidos, 1)}
-      unit="días entre pedidos, mediana"
-      context="el ritmo contra el que se mide el riesgo"
-    />
-  )
-}
-
-/** Titular: usuarios en riesgo (los que todavía se pueden recuperar). */
+/** Titular de la vista: usuarios en riesgo (los que todavía se pueden recuperar). */
 function RiskHeadline({ source }) {
   const kpis = useAnalytics('kpis', source)
   if (!(kpis.en_riesgo > 0)) return null
@@ -76,37 +65,36 @@ function AtRisk({ source }) {
 }
 
 export function FrequencyView({ source }) {
-  const badge = <ProvenanceBadge kind={source} />
   return (
     <div className="view">
       <section className="section" aria-labelledby="embudo">
         <div className="section-head">
           <h2 id="embudo">Dónde se pierden</h2>
-          <p>Sesiones que buscan → agregan al carro → inician pago → piden. El largo de cada barra es el % de las que buscan.</p>
+          <p>
+            Sesiones que buscan → agregan al carro → inician pago → piden. El largo de cada barra es el % de las que
+            buscan; una sesión cuenta en una etapa solo si pasó por las anteriores.
+          </p>
+          <ProvenanceBadge kind={source} />
           <Async fallback={null}>
             <FunnelHeadline source={source} />
           </Async>
         </div>
-        <Card title="Conversión por etapa" subtitle="Una sesión cuenta en una etapa solo si pasó por las anteriores." badge={badge}>
+        <div className="block enter">
           <Async>
             <Funnel source={source} />
           </Async>
-        </Card>
+        </div>
       </section>
 
       <section className="section" aria-labelledby="retencion">
         <div className="section-head">
           <h2 id="retencion">Cuánto vuelven</h2>
           <p>Frecuencia es volver a tiempo: cada usuario tiene su propio ritmo, y el riesgo se mide contra ese ritmo.</p>
-          <Async fallback={null}>
-            <RhythmHeadline source={source} />
-          </Async>
         </div>
-        <div className="grid-2 retention-grid">
+        <div className="retention-grid">
           <Card
             title="Retención por cohorte semanal"
             subtitle="Cohorte = semana del primer pedido. Cada celda: % de la cohorte que vuelve a pedir en la semana k."
-            badge={badge}
           >
             <Async>
               <Cohorts source={source} />
@@ -115,7 +103,6 @@ export function FrequencyView({ source }) {
           <Card
             title="Días entre pedidos"
             subtitle="Ritmo de cada usuario: mediana de días entre sus pedidos de los últimos 180 días."
-            badge={badge}
             index={1}
           >
             <Async>
@@ -129,18 +116,19 @@ export function FrequencyView({ source }) {
         <div className="section-head">
           <h2 id="riesgo">A quién rescatar</h2>
           <p>
-            Id seudónimo; el concepto top nunca es sensible. Los avisos fuera de la app solo van a quien dio su
-            consentimiento.
+            Lista para reactivación, ordenada por estado y por días sin pedir. Id seudónimo; el concepto top nunca es
+            sensible. Los avisos fuera de la app solo van a quien dio su consentimiento.
           </p>
+          <ProvenanceBadge kind={source} />
           <Async fallback={null}>
             <RiskHeadline source={source} />
           </Async>
         </div>
-        <Card title="Lista para reactivación" subtitle="Ordenada por estado y por días sin pedir." badge={badge}>
+        <div className="block enter">
           <Async>
             <AtRisk source={source} />
           </Async>
-        </Card>
+        </div>
       </section>
     </div>
   )

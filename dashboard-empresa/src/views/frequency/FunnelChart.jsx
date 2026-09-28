@@ -9,9 +9,9 @@ import { FUNNEL_STAGES, funnelRows } from './funnel.js'
 
 function Funnel({ row }) {
   return (
-    <article className="funnel">
+    <article className={row.overallPct === null ? 'funnel is-empty' : 'funnel'}>
       <header>
-        <h4>{verticalLabel(row.vertical)}</h4>
+        <h3>{verticalLabel(row.vertical)}</h3>
         <p>
           <strong className="num">{formatPct(row.overallPct)}</strong> de las sesiones que buscan terminan en pedido
         </p>

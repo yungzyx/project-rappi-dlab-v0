@@ -44,6 +44,10 @@ export function AssortmentTable({ rows }) {
       columns={columns}
       rows={rows}
       rowKey={(row) => `${row.concepto}-${row.vertical}`}
+      // Separador donde la razón baja de 1: arriba, más gente buscando que ítems (la historia de la sección)
+      rowClassName={(row, index) =>
+        index > 0 && rows[index - 1].usuarios_por_item >= 1 && row.usuarios_por_item < 1 ? 'is-group-start' : undefined
+      }
     />
   )
 }

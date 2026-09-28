@@ -97,12 +97,19 @@ abbr {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
+    'title badge'
     'title headline'
     'lede headline';
   align-items: end;
   gap: var(--space-1) var(--space-7);
   padding-bottom: var(--space-4);
   border-bottom: 2px solid var(--ink);
+}
+
+.section-head .badge {
+  grid-area: badge;
+  justify-self: end;
+  align-self: start;
 }
 
 .section-head h2 {
@@ -145,6 +152,12 @@ abbr {
   color: var(--brand);
 }
 
+/* Titular menor: acompaña, no manda (misma escala que los indicadores del Resumen) */
+.headline--minor strong {
+  font-size: clamp(1.5rem, 1.2rem + 0.8vw, 1.875rem);
+  letter-spacing: -0.03em;
+}
+
 .headline-unit {
   font-size: var(--text-sm);
   font-weight: 600;
@@ -154,7 +167,7 @@ abbr {
 .headline-context {
   font-size: var(--text-xs);
   color: var(--ink-3);
-  max-width: 28ch;
+  max-width: 32ch;
 }
 
 @media (max-width: 760px) {
@@ -162,9 +175,14 @@ abbr {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       'title'
+      'badge'
       'headline'
       'lede';
     align-items: start;
+  }
+
+  .section-head .badge {
+    justify-self: start;
   }
 
   .headline {
@@ -189,6 +207,13 @@ abbr {
   align-items: start;
 }
 
+/* Bloque único de una sección (sin título propio: el de la sección basta) */
+.block {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
 /* Bloque de informe: título con línea, contenido debajo. Sin fondo, sin borde redondeado, sin sombra. */
 .card {
   position: relative;
@@ -205,12 +230,12 @@ abbr {
   justify-content: space-between;
   gap: var(--space-2) var(--space-4);
   padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--line-strong);
+  border-bottom: 2px solid var(--ink);
 }
 
 .card-head h3 {
-  font-size: var(--text-lg);
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -325,9 +350,9 @@ abbr {
   display: grid;
   gap: var(--space-2);
   justify-items: start;
-  padding: var(--space-5);
-  border-radius: var(--radius-m);
-  background: var(--surface-sunken);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   color: var(--ink-2);
   font-size: var(--text-sm);
 }
@@ -358,7 +383,8 @@ abbr {
 }
 
 .state--error {
-  background: var(--bad-wash);
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--bad);
 }
 
 .link-button {

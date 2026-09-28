@@ -6,22 +6,14 @@ import { formatNumber, formatSignedPct } from '../../lib/format.js'
 import { demandLabel, verticalLabel } from '../../lib/labels.js'
 
 function Growth({ value }) {
-  if (value === null || value === undefined) return <span className="chip">nueva</span>
+  if (value === null || value === undefined) return <span className="cell-sub">nueva</span>
   // Neutro a propósito: que crezca la demanda sin oferta es urgencia, no un resultado bueno ni malo.
   return <Delta value={value} format={formatSignedPct} goodWhen={null} />
 }
 
 function WhereItExists({ value }) {
   if (!value) return <span className="cell-sub">En ningún otro vertical</span>
-  return (
-    <span className="chip-list">
-      {value.split(', ').map((vertical) => (
-        <span key={vertical} className="chip">
-          {verticalLabel(vertical)}
-        </span>
-      ))}
-    </span>
-  )
+  return <span className="cell-list">{value.split(', ').map(verticalLabel).join(', ')}</span>
 }
 
 export function UnmetDemand({ rows }) {
@@ -34,7 +26,6 @@ export function UnmetDemand({ rows }) {
   }
   const maxUsers = Math.max(...rows.map((row) => row.usuarios))
   const columns = [
-    { key: 'rank', header: '#', render: (_, index) => <span className="rank num">{index + 1}</span> },
     {
       key: 'que',
       header: 'Qué piden',

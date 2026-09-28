@@ -18,13 +18,15 @@ const DEMAND_NOTES = {
   prototype: 'Los ítems son reales (muestra pública); los usuarios que buscan vienen de pruebas en el prototipo.',
 }
 
-/** Titular: productos obtenidos en la muestra y cobertura global frente a lo declarado. */
+/** Titular de la vista: productos obtenidos en la muestra y cobertura global frente a lo declarado. */
 function CoverageHeadline() {
   const rows = coverageRows(useAnalytics(CATALOG).cobertura)
   const obtained = rows.reduce((total, row) => total + row.obtenidos, 0)
   const declared = rows.reduce((total, row) => total + row.declarados, 0)
   if (!obtained) return null
-  const lowest = rows.filter((row) => row.coveragePct !== null && !row.overCount).sort((a, b) => a.coveragePct - b.coveragePct)[0]
+  const lowest = rows
+    .filter((row) => row.coveragePct !== null && !row.overCount)
+    .sort((a, b) => a.coveragePct - b.coveragePct)[0]
   return (
     <Headline
       value={formatNumber(obtained)}
@@ -35,7 +37,7 @@ function CoverageHeadline() {
   )
 }
 
-/** Titular: el concepto con más usuarios por ítem (mucha búsqueda, poco surtido). */
+/** Titular menor: el concepto con más usuarios por ítem (mucha búsqueda, poco surtido). */
 function AssortmentHeadline({ source }) {
   const rows = useAnalytics('assortment', source)
   if (!rows.length) return null
@@ -45,6 +47,7 @@ function AssortmentHeadline({ source }) {
       value={formatNumber(top.usuarios_por_item, 1)}
       unit={`usuarios por ítem en ${top.concepto}, ${verticalLabel(top.vertical)}`}
       context={`${formatNumber(top.usuarios_que_buscan)} usuarios buscan y hay ${formatNumber(top.items_en_catalogo)} ítems`}
+      size="minor"
     />
   )
 }
@@ -67,36 +70,33 @@ function Assortment({ source }) {
 }
 
 export function CatalogView({ source }) {
-  const real = <ProvenanceBadge kind="real" />
   return (
     <div className="view">
       <section className="section" aria-labelledby="catalogo-real">
         <div className="section-head">
           <h2 id="catalogo-real">Salud del catálogo</h2>
           <p>
-            Datos reales del scraper: la muestra trae hasta 24 productos por sub-pasillo, así que «no está» no significa
-            «Rappi no lo vende».
+            Datos reales del scraper: productos obtenidos en la muestra frente a los que declaran los pasillos de las
+            tiendas. La muestra trae hasta 24 productos por sub-pasillo, así que «no está» no significa «Rappi no lo
+            vende».
           </p>
+          <ProvenanceBadge kind="real" />
           <Async fallback={null}>
             <CoverageHeadline />
           </Async>
         </div>
-        <Card
-          title="Cobertura por vertical"
-          subtitle="Productos obtenidos en la muestra frente a los que declaran los pasillos de las tiendas."
-          badge={real}
-        >
+        <div className="block coverage enter">
           <Async>
             <Coverage />
           </Async>
-        </Card>
-        <div className="grid-2 catalog-pair">
-          <Card title="Calidad de los datos" subtitle="% de productos de cada vertical con el dato faltante." badge={real} index={1}>
+        </div>
+        <div className="catalog-pair">
+          <Card title="Calidad de los datos" subtitle="% de productos de cada vertical con el dato faltante." index={1}>
             <Async>
               <Quality />
             </Async>
           </Card>
-          <Card title="Productos en varios verticales" subtitle="El mismo producto a la venta en 2 o más verticales." badge={real} index={2}>
+          <Card title="Productos en varios verticales" subtitle="El mismo producto a la venta en 2 o más verticales." index={2}>
             <Async>
               <Cross />
             </Async>
@@ -107,20 +107,19 @@ export function CatalogView({ source }) {
       <section className="section" aria-labelledby="surtido">
         <div className="section-head">
           <h2 id="surtido">Dónde hay más interés que oferta</h2>
-          <p>Ordenado por usuarios por ítem: arriba, conceptos con mucha búsqueda y poco surtido real.</p>
+          <p>
+            Ordenado por usuarios por ítem: arriba, conceptos con mucha búsqueda y poco surtido real. {DEMAND_NOTES[source]}
+          </p>
+          <ProvenanceBadge kind={`demand-${source}`} />
           <Async fallback={null}>
             <AssortmentHeadline source={source} />
           </Async>
         </div>
-        <Card
-          title="Surtido real frente a demanda"
-          subtitle={DEMAND_NOTES[source]}
-          badge={<ProvenanceBadge kind={`demand-${source}`} />}
-        >
+        <div className="block enter">
           <Async>
             <Assortment source={source} />
           </Async>
-        </Card>
+        </div>
       </section>
     </div>
   )

@@ -9,9 +9,7 @@ function GroupBar({ group, value }) {
     return (
       <div className="strata-bar">
         <span className="strata-group">{group.label}</span>
-        <span className="strata-missing">
-          <span>Sin grupo: menos de {MIN_GROUP_USERS} usuarios</span>
-        </span>
+        <span className="strata-missing">Sin grupo: menos de {MIN_GROUP_USERS} usuarios</span>
       </div>
     )
   }
@@ -48,10 +46,10 @@ export function MultiVerticalRetention({ rows }) {
       <div className="strata">
         {strataRows(rows).map((row) => (
           <section key={row.stratum} className="strata-row" aria-label={row.stratum}>
-            <h4>
+            <h3>
               {row.stratum}
               {row.gap !== null && <Delta value={row.gap} format={formatPoints} goodWhen={null} suffix="multi − un vertical" />}
-            </h4>
+            </h3>
             {GROUPS.map((group, index) => (
               <GroupBar key={group.key} group={group} value={row.groups[index]} />
             ))}

@@ -118,14 +118,16 @@ export function SuggestionPerformance({ rows }) {
   }
   const top = [...rows].sort((a, b) => b.mostradas - a.mostradas).slice(0, TOP)
   return (
-    <>
+    <div className="suggestions">
       <Totals rows={rows} />
-      <ChartTableSwitch chart={<SuggestionBars rows={top} />} table={<SuggestionTable rows={rows} />} />
-      {rows.length > TOP && (
-        <p className="card-note">
-          El gráfico muestra las {TOP} sugerencias más mostradas; la tabla trae las {rows.length}.
-        </p>
-      )}
-    </>
+      <div className="suggestions-bars">
+        <ChartTableSwitch chart={<SuggestionBars rows={top} />} table={<SuggestionTable rows={rows} />} />
+        {rows.length > TOP && (
+          <p className="card-note">
+            El gráfico muestra las {TOP} sugerencias más mostradas; la tabla trae las {rows.length}.
+          </p>
+        )}
+      </div>
+    </div>
   )
 }
