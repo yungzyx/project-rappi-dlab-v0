@@ -235,3 +235,59 @@ def test_long_audio_is_rejected_before_whisper():
     with pytest.raises(HTTPException) as too_long:
         api._check_audio_length(long_audio.getvalue())
     assert too_long.value.status_code == 413
+
+
+def _streamed_webm(seconds: float) -> bytes:
+    """Opus en WebM escrito sin retroceder, como MediaRecorder: la cabecera no trae la duración."""
+    import io
+
+    av = pytest.importorskip("av")
+    import numpy as np
+
+    class Stream(io.RawIOBase):
+        def __init__(self):
+            self.data = bytearray()
+
+        def writable(self):
+            return True
+
+        def seekable(self):
+            return False
+
+        def write(self, chunk):
+            self.data += chunk
+            return len(chunk)
+
+    out, frame = Stream(), 960
+    with av.open(out, "w", format="webm") as container:
+        stream = container.add_stream("libopus", rate=48000)
+        stream.layout = "mono"
+        for i in range(int(seconds * 48000 / frame)):
+            silence = av.AudioFrame.from_ndarray(np.zeros((1, frame), dtype=np.int16), format="s16", layout="mono")
+            silence.sample_rate, silence.pts = 48000, i * frame
+            for packet in stream.encode(silence):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
+    return bytes(out.data)
+
+
+def test_long_webm_without_duration_is_rejected_before_whisper():
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as too_long:
+        api._check_audio_length(_streamed_webm(25))
+    assert too_long.value.status_code == 413
+    api._check_audio_length(_streamed_webm(5))  # una frase normal pasa
+
+
+def test_voice_only_accepts_audio_types(client):
+    class Transcriber:
+        def transcribe(self, audio):
+            raise AssertionError("no debería llegar a Whisper")
+
+    embedder = HashEmbedder()
+    services = Services(Bigotes(embedder, TemplateComposer()), embedder, transcriber=Transcriber())
+    api.app.dependency_overrides[api.get_services] = lambda: services
+    response = client.post("/chat/voice", files={"audio": ("a.bin", b"123", "application/octet-stream")})
+    assert response.status_code == 415

@@ -63,7 +63,7 @@ MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
 MAX_AUDIO_SECONDS = 20  # el prototipo graba hasta 7 s; esto protege a Whisper de audios de horas
 MAX_IMAGE_PIXELS = 40_000_000  # evita "bombas" de descompresión (un PNG de 17 KB puede pesar 500 MB en memoria)
 IMAGE_FORMATS = ["JPEG", "PNG", "WEBP"]  # nunca EPS/PS (Pillow llamaría a Ghostscript)
-AUDIO_TYPES = ("audio/", "video/webm", "video/mp4", "application/octet-stream")
+AUDIO_TYPES = ("audio/", "video/webm", "video/mp4")
 MODES_LITERAL = ("propuesta", "actual")
 
 
@@ -466,11 +466,17 @@ def _open_image(data: bytes):
 
 
 def _check_audio_length(data: bytes) -> None:
+    """Suma la duración decodificando, hasta pasar el tope: el WebM de MediaRecorder no la trae en la cabecera, y
+    la cabecera de otro cliente podría mentir."""
     try:
         import av
 
+        seconds = 0.0
         with av.open(io.BytesIO(data)) as container:
-            seconds = (container.duration or 0) / 1_000_000
+            for frame in container.decode(audio=0):
+                seconds += frame.samples / frame.sample_rate
+                if seconds > MAX_AUDIO_SECONDS:
+                    break
     except Exception as exc:  # formato ilegible
         raise HTTPException(400, "El audio no es válido") from exc
     if seconds > MAX_AUDIO_SECONDS:
