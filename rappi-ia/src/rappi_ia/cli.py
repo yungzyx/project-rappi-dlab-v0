@@ -108,7 +108,8 @@ def cmd_eval_search(conn, args) -> None:
         search_eval.save_thresholds(proposed)
     unmet = search_eval.unmet_quality(runs, proposed if saved else current)
     model = embedder.model_name if embedder else None
-    report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model)
+    comparisons = search_eval.compare_modes(runs)
+    report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model, comparisons)
     out = config.DATA_DIR / "eval" / "busqueda.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")

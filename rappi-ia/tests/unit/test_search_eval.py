@@ -1,8 +1,14 @@
+from types import SimpleNamespace
+
+from rappi_ia.eval import search_eval
 from rappi_ia.eval.search_eval import (
+    ABLATION,
     QueryRun,
     calibrate_tau,
     negative_diagnosis,
+    paired_comparison,
     render_markdown,
+    run_queries,
     summarize,
     unmet_quality,
 )
@@ -86,3 +92,47 @@ def test_report_lists_the_cause_of_each_negative():
     taus = {"licores": 0.8}
     report = render_markdown(summarize(runs), unmet_quality(runs, taus), taus, {}, saved=False, model="e5")
     assert "| licores | neumáticos | no | coseno 0.830 ≥ τ 0.8 |" in report
+
+
+def test_ablation_runs_hybrid_without_the_concept_bonus(monkeypatch):
+    """El refuerzo reordena con la misma etiqueta con que se juzga: la ablación mide la búsqueda sin él."""
+    calls = []
+
+    def fake_retrieve(conn, vertical, query, embedder, k, mode, concepts=None):
+        calls.append((mode, concepts))
+        return SimpleNamespace(
+            hits=[], strict_lexical_matches=0, max_cosine=0.9, concept_in_vertical=True, query_concepts=[]
+        )
+
+    monkeypatch.setattr(search_eval, "retrieve", fake_retrieve)
+    query = {"vertical": "licores", "query": "pisco", "concepts": ["pisco"], "tipo": "exacta"}
+
+    runs = run_queries(None, object(), [query])
+
+    assert [r.mode for r in runs] == ["lexico", "vector", "hibrido", ABLATION]
+    assert calls[-1] == ("hibrido", [])
+
+
+def _mode_run(query, mode, relevant):
+    return QueryRun("licores", query, "exacta", mode, [1] * relevant + [0] * (10 - relevant), 0, 0.9, True)
+
+
+def test_paired_comparison_counts_wins_ties_and_losses_per_query():
+    runs = [
+        *(_mode_run(q, "hibrido", n) for q, n in [("a", 10), ("b", 8), ("c", 5), ("d", 2)]),
+        *(_mode_run(q, "vector", n) for q, n in [("a", 5), ("b", 3), ("c", 5), ("d", 6)]),
+    ]
+
+    result = paired_comparison(runs, "hibrido", "vector")
+
+    assert (result["gana"], result["empata"], result["pierde"], result["n"]) == (2, 1, 1, 4)
+    low, high = result["ic95"]
+    assert low <= result["diferencia"] <= high
+    assert result == paired_comparison(runs, "hibrido", "vector")  # misma semilla, mismo intervalo
+
+
+def test_report_shows_the_paired_comparison():
+    runs = [_mode_run("a", "hibrido", 10), _mode_run("a", "vector", 5)]
+    comparisons = [paired_comparison(runs, "hibrido", "vector")]
+    report = render_markdown(summarize(runs), unmet_quality(runs, {}), {}, {}, False, "e5", comparisons)
+    assert "| hibrido vs vector | 1 | 0 | 0 |" in report

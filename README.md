@@ -83,7 +83,7 @@ Cifras verificadas el 28-09-2026 sobre la base completa. Cada una indica qué ti
 | Capa 2 | Taxonomía | 132 conceptos · 101 complementos curados · 824 categorías mapeadas | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 28-09-2026 |
 | Capa 2 | Ítems con concepto | 96,7% a 100% según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 28-09-2026 |
 | Capa 2 | Precisión de la asignación | ≈88% por categoría · ≈81% platos · 55% reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
-| Búsqueda | nDCG@10 | híbrido 0,889 · vectorial 0,825 · léxico 0,744 | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 28-09) |
+| Búsqueda | nDCG@10 | híbrido 0,889 · sin refuerzo por concepto 0,837 · vectorial 0,825 · léxico 0,744 | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 29-09) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,33 (5 de 15) | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 28-09) |
 | Calidad | Tests (pytest / Vitest) | scraper 92 · rappi-ia 152 · prototipo 108 · panel 80 | Verificación local, 29-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) |
 | Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); nueva revisión de los cambios del 28-09 | Proceso | — |
@@ -117,7 +117,10 @@ Primera descarga completa del 24 al 27-09-2026 y recuperación de fallidos el 28
 |---|---:|---:|---:|
 | Léxico | 0,735 | 0,842 | 0,744 |
 | Vectorial | 0,818 | 0,887 | 0,825 |
-| **Híbrido** | **0,884** | **0,922** | **0,889** |
+| **Híbrido** | **0,884** | **0,926** | **0,889** |
+| Híbrido sin refuerzo por concepto | 0,836 | 0,885 | 0,837 |
+
+El refuerzo por concepto reordena con la misma etiqueta con que se juzga la relevancia; la fila «sin refuerzo» es la medida justa de la fusión léxico + vectorial. Consulta por consulta, sin refuerzo el híbrido gana 28, empata 47 y pierde 21 contra el vectorial: diferencia media 0,012, con un intervalo de confianza del 95 % de −0,019 a 0,044 (no concluyente). La fusión sí ayuda sola en las consultas sin tildes (0,90 frente a 0,742).
 
 P@10: proporción de resultados relevantes entre los 10 primeros. MRR: qué tan arriba aparece el primer resultado relevante (1 = el primero). nDCG@10: calidad del orden de los 10 primeros (1 = orden ideal).
 
@@ -132,7 +135,7 @@ P@10: proporción de resultados relevantes entre los 10 primeros. MRR: qué tan 
 > **Qué no es evidencia**
 >
 > - **El panel de negocio.** Usuarios, eventos y pedidos son simulados (`source = 'synthetic'`). Muestran la mecánica, no un resultado. Por ejemplo, el simulador asume que quien usa más verticales se va menos, así que esa relación aparece por construcción. Solo la pestaña Catálogo usa datos reales.
-> - **La ventaja del híbrido.** La relevancia se juzga por concepto y el híbrido recibe un refuerzo por ese mismo concepto: su ventaja sobre léxico y vectorial está sobreestimada. Falta un juicio humano.
+> - **La ventaja del híbrido.** La relevancia se juzga por concepto y el híbrido recibe un refuerzo por ese mismo concepto. Sin el refuerzo, el híbrido no se distingue del vectorial (0,837 frente a 0,825): con este set no se puede saber si el refuerzo mejora de verdad. Falta un juicio humano.
 > - **La precisión de la capa 2.** Es una estimación con jueces LLM sobre datos parciales, con una muestra no versionada.
 > - **«No está en el catálogo».** No significa «Rappi no lo vende»: en tiendas el catálogo es una muestra.
 
@@ -253,7 +256,7 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 
 1. Evaluar farmacia y Turbo, y renovar las consultas negativas del set.
 2. Mejorar la regla de «sin resultado».
-3. Medir cuánto aporta el refuerzo por concepto (comparando con y sin él) y sumar juicio humano.
+3. Sumar juicio humano, para saber si el refuerzo por concepto mejora de verdad (sin él, el híbrido empata con el vectorial).
 4. Etiquetar los ítems de baja confianza de la capa 2.
 5. Revisar las cadenas de restaurantes sin menú.
 
