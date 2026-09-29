@@ -68,7 +68,8 @@ MODES_LITERAL = ("propuesta", "actual")
 
 
 def get_conn() -> Iterator[Connection]:
-    with connect() as conn:
+    """Falla rápido si Postgres no responde o una consulta se atasca (el prototipo tiene su cerebro local)."""
+    with connect(connect_timeout=3, options="-c statement_timeout=20s") as conn:
         yield conn
 
 

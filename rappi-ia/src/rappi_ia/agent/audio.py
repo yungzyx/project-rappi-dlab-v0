@@ -5,6 +5,7 @@ en silencios; si la confianza es baja, Bigotes pregunta "¿Dijiste…?" antes de
 """
 
 import math
+import threading
 from dataclasses import dataclass
 from functools import cache
 from typing import BinaryIO
@@ -59,17 +60,19 @@ class Transcriber:
         self._model = WhisperModel(model_size, device="cpu", compute_type="int8")
         self.model_name = f"faster-whisper/{model_size}"
         self.prompt = vocabulary_prompt()
+        self._lock = threading.Lock()  # la API atiende en un pool de hilos: una transcripción a la vez
 
     def transcribe(self, audio: str | BinaryIO) -> Transcript:
-        segments, _ = self._model.transcribe(
-            audio,
-            language="es",
-            vad_filter=True,
-            condition_on_previous_text=False,
-            beam_size=5,
-            initial_prompt=self.prompt,
-        )
-        segments = list(segments)
+        with self._lock:
+            segments, _ = self._model.transcribe(
+                audio,
+                language="es",
+                vad_filter=True,
+                condition_on_previous_text=False,
+                beam_size=5,
+                initial_prompt=self.prompt,
+            )
+            segments = list(segments)  # faster-whisper decodifica al iterar: también dentro del candado
         return assess(segments, " ".join(s.text.strip() for s in segments))
 
 
