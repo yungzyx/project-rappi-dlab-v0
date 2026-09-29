@@ -104,7 +104,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 
 - **Qué corre:** `rappi-scraper/scripts/refresh-semanal.sh`.
   - Primero `rappi refresh`: tiendas, restaurantes, búsqueda, reportes y respaldo en `data/backups/` (quedan los últimos 4).
-  - Si termina bien, `make post-refresh` de rappi-ia: conceptos, embeddings, evaluación, datos simulados y purga.
+  - Si termina bien, `make post-refresh` de rappi-ia: purga (primero, para cumplir la retención aunque falle otro paso), conceptos, embeddings, evaluación, datos simulados y otra purga.
   - Nunca corren dos a la vez. El candado que lo impide se borra aunque la tarea se corte con una señal (Ctrl-C, cerrar la terminal).
 - **τ:** la evaluación semanal no guarda τ, porque `thresholds.json` está en el repositorio. Para recalibrar: `make eval` a mano en `rappi-ia/` y commit.
 - **Dormido o apagado:** si a esa hora el equipo estaba **dormido**, la tarea corre al despertar; si estaba **apagado**, esa semana se salta. Por eso conviene:
