@@ -151,6 +151,32 @@ describe('chat en orden', () => {
   })
 })
 
+describe('temas ya sugeridos', () => {
+  test('voz y foto saben qué sugirió el chat de texto (no repiten la sugerencia)', async () => {
+    mockMic(vi.fn(async () => fakeStream()))
+    api.health.mockResolvedValue({ voz: true, fotos: true })
+    api.chat.mockResolvedValueOnce(apiAnswer('Cervezas', 'snacks-salados'))
+    api.chatPhoto.mockResolvedValueOnce(apiAnswer('Parece cerveza'))
+    api.chatVoice.mockResolvedValueOnce(apiAnswer('Más cervezas'))
+    URL.createObjectURL = () => 'blob:foto'
+    await renderPanel()
+    say('cerveza')
+    await runUntilIdle()
+
+    const photo = new File(['x'], 'foto.jpg', { type: 'image/jpeg' })
+    fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [photo] } })
+    await runUntilIdle()
+    fireEvent.click(screen.getByLabelText('Hablar'))
+    await advance(10)
+    fireEvent.click(screen.getByText('Listo'))
+    await runUntilIdle()
+
+    expect(api.chatPhoto.mock.calls[0][1].shown_topics).toEqual(['snacks-salados'])
+    expect(api.chatVoice.mock.calls[0][1].shown_topics).toEqual(['snacks-salados'])
+    delete URL.createObjectURL
+  })
+})
+
 describe('voz', () => {
   test('un segundo toque no abre otra grabación, y cerrar antes de dar permiso no graba', async () => {
     const permission = deferred()

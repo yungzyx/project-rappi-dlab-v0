@@ -178,6 +178,7 @@ def chat_voice(
     user_id: str | None = Form(None, max_length=64),
     session_id: str | None = Form(None, max_length=64),
     mode: str = Form("propuesta"),
+    shown_topics: str = Form("", max_length=2000),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
 ) -> dict:
@@ -190,7 +191,7 @@ def chat_voice(
     data = _read_upload(audio)
     _check_audio_length(data)
     transcript = svc.transcriber.transcribe(io.BytesIO(data))  # el audio no se guarda
-    ctx = _context(conn, vertical, user_id, None, [], mode)
+    ctx = _context(conn, vertical, user_id, None, _topics(shown_topics), mode)
     response = svc.bigotes.reply_voice(conn, transcript, ctx)
     if not transcript.discarded:
         _log_chat(conn, user_id, session_id, transcript.text, response, "voz", mode)
@@ -204,6 +205,7 @@ def chat_photo(
     user_id: str | None = Form(None, max_length=64),
     session_id: str | None = Form(None, max_length=64),
     mode: str = Form("propuesta"),
+    shown_topics: str = Form("", max_length=2000),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
 ) -> dict:
@@ -213,7 +215,7 @@ def chat_photo(
     from ..agent.photo import similar_items
 
     picture = _open_image(_read_upload(image))  # la foto no se guarda
-    ctx = _context(conn, vertical, user_id, None, [], mode)
+    ctx = _context(conn, vertical, user_id, None, _topics(shown_topics), mode)
     reading = svc.photo_reader.read(picture)
     similar = similar_items(conn, reading.vector, svc.image_model, ctx.vertical)
     response = svc.bigotes.reply_photo(conn, reading, similar, ctx)
@@ -398,6 +400,11 @@ def analytics(
 
 
 # ── Auxiliares ───────────────────────────────────────────────────────────────
+def _topics(form_value: str) -> list[str]:
+    """`shown_topics` de un formulario (voz, foto): ids separados por coma, como mucho 50 (igual que /chat)."""
+    return [topic.strip() for topic in form_value.split(",") if topic.strip()][:50]
+
+
 def _context(conn, vertical, user_id, profile, shown_topics, mode) -> Context:
     if profile is None and user_id and mode == "propuesta":
         profile = events.profile(conn, user_id)

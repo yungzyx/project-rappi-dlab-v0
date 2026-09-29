@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { beaconEvents, chatVoice, health, resetHealthCache, toMessage, toPrototypeProduct } from './client'
+import { beaconEvents, chatPhoto, chatVoice, health, resetHealthCache, toMessage, toPrototypeProduct } from './client'
 
 const API_PRODUCT = {
   id: 'cat-200',
@@ -97,5 +97,12 @@ describe('envíos', () => {
     const pending = chatVoice(new Blob(['x']), { user_id: 'proto-1' }, { signal: controller.signal })
     controller.abort()
     await expect(pending).rejects.toThrow('abortado')
+  })
+
+  test('voz y foto mandan los temas ya sugeridos como ids separados por coma', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
+    vi.stubGlobal('fetch', fetchMock)
+    await chatPhoto(new Blob(['x']), { user_id: 'proto-1', shown_topics: ['snacks-salados', 'hielo'] })
+    expect(fetchMock.mock.calls[0][1].body.get('shown_topics')).toBe('snacks-salados,hielo')
   })
 })
