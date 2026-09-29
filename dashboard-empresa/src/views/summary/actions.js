@@ -6,7 +6,9 @@ const TREND_ACTION = 'Ocasiones y recompra: campaña con horario y «¿Repetimos
 const RISK_ACTION =
   'Reactivación por ritmo: mensaje con su concepto top y una novedad del vertical, solo con consentimiento; al resto, Bigotes en la app.'
 
-function growthText(pct) {
+function growthText(row) {
+  if (row.recientes === 0) return 'sin búsquedas en las últimas 4 semanas'
+  const pct = row.crecimiento_pct
   return pct === null || pct === undefined ? 'nueva: no aparecía en las 4 semanas anteriores' : `${formatSignedPct(pct)} vs las 4 semanas anteriores`
 }
 
@@ -19,7 +21,7 @@ function topOpportunity(opportunities) {
     figure: formatNumber(top.usuarios),
     unit: 'usuarios lo buscaron sin resultado',
     title: `${demandLabel(top)} en ${verticalLabel(top.vertical)}`,
-    detail: `${formatNumber(top.busquedas)} búsquedas · ${growthText(top.crecimiento_pct)}`,
+    detail: `${formatNumber(top.busquedas)} búsquedas · ${growthText(top)}`,
     action: top.accion,
     view: 'oportunidades',
     linkLabel: 'Ver oportunidades',
