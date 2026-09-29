@@ -5,7 +5,9 @@ make serve   →   http://localhost:8000/docs
 
 import io
 import logging
+import time
 from collections.abc import Iterator
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
@@ -27,7 +29,21 @@ from .services import Services, services
 
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="rappi-ia", version="0.1.0", description="Bigotes, búsqueda por vertical y panel empresa")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Carga los modelos antes de «startup complete»: si no, los paga la primera petición (el /health del prototipo,
+    que se rinde a los 1,5 s y deja a Bigotes con su cerebro local)."""
+    start = time.perf_counter()
+    await run_in_threadpool(services)
+    # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
+    logging.getLogger("uvicorn.error").info("Servicios cargados en %.1f s", time.perf_counter() - start)
+    yield
+
+
+app = FastAPI(
+    title="rappi-ia", version="0.1.0", description="Bigotes, búsqueda por vertical y panel empresa", lifespan=lifespan
+)
 # Solo este Mac por defecto. La red local (iPhone) se abre con API_ALLOW_LAN=1 (`make serve-lan`): la API no
 # tiene autenticación, así que solo en una red de confianza.
 _LOCAL = r"localhost|127\.0\.0\.1"

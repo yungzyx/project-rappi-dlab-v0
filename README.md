@@ -158,7 +158,7 @@ cd dashboard-empresa && npm ci && npm run dev   # http://localhost:5175
 Requiere la base `rappi` con el catálogo (se restaura desde un respaldo) y la capa de IA instalada: ver [docs/instalacion.md](docs/instalacion.md). Luego, desde la raíz, cada uno en su terminal:
 
 ```bash
-cd rappi-ia && make serve             # API en http://localhost:8000 (docs en /docs; la primera vez carga los modelos, ~30 s)
+cd rappi-ia && make serve             # API en http://localhost:8000 (docs en /docs; carga los modelos antes de aceptar peticiones: esperar a «Application startup complete»)
 cd prototipo-app && npm run dev       # http://localhost:5174
 cd dashboard-empresa && npm run dev   # http://localhost:5175
 ```
