@@ -114,3 +114,22 @@ def test_refresh_stops_on_a_block_and_leaves_the_run_open(db, tmp_path):
     assert repository.open_run(db, "stores") == run
     assert "posible bloqueo" in (tmp_path / f"run_{run}_stores.md").read_text(encoding="utf-8")
     assert backups == [] and repository.latest_run(db, "restaurants") is None
+
+
+def test_a_failed_backup_does_not_stop_the_weekly_update(db, tmp_path, caplog):
+    """Sin respaldo nuevo quedan los anteriores; la capa de IA (post-refresh) igual debe correr."""
+
+    def broken_backup():
+        raise RuntimeError("pg_dump: disco lleno")
+
+    reports = refresh(
+        db,
+        FakeClient({"/restaurantes/384": "restaurant"}),
+        _discoverer(STORE_JOB, []),
+        _discoverer(RESTAURANT_JOB, []),
+        backup=broken_backup,
+        reports_dir=tmp_path,
+    )
+
+    assert [r["status"] for r in reports] == ["done", "done"]
+    assert "Respaldo fallido" in caplog.text

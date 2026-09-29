@@ -76,7 +76,10 @@ def refresh(
 
     log.info("Documentos de búsqueda: %s", build_search_documents(conn))
     if backup is not None:
-        backup()
+        try:
+            backup()
+        except Exception:  # los respaldos anteriores siguen intactos; la capa de IA igual tiene que correr
+            log.exception("Respaldo fallido: se conservan los anteriores")
     return reports
 
 

@@ -38,12 +38,23 @@ def rotate_backups(backups_dir: Path, keep: int) -> list[Path]:
 
 
 def backup_database(database_url: str, backups_dir: Path = BACKUPS_DIR, keep: int = KEEP_BACKUPS) -> Path:
+    """Vuelca a `.part`, lo valida con `pg_restore --list` y recién entonces lo renombra y rota: un volcado cortado
+    (disco lleno, corte de luz) nunca pasa por el respaldo más nuevo ni expulsa uno sano."""
     backups_dir.mkdir(parents=True, exist_ok=True)
     target = backups_dir / f"rappi_{datetime.now():%Y%m%d-%H%M%S}.dump"
-    subprocess.run(
-        [find_pg_dump(), "--format=custom", "--no-owner", f"--file={target}", f"--dbname={database_url}"],
-        check=True,
-    )
+    partial = target.with_name(target.name + ".part")
+    pg_dump = find_pg_dump()
+    try:
+        subprocess.run(
+            [pg_dump, "--format=custom", "--no-owner", f"--file={partial}", f"--dbname={database_url}"],
+            check=True,
+        )
+        pg_restore = str(Path(pg_dump).with_name("pg_restore"))
+        subprocess.run([pg_restore, "--list", str(partial)], check=True, stdout=subprocess.DEVNULL)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+    partial.rename(target)
     removed = rotate_backups(backups_dir, keep)
     log.info("Respaldo en %s (%d antiguos borrados)", target, len(removed))
     return target
