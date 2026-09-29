@@ -18,6 +18,7 @@ from ..retrieval.hybrid import DEFAULT_TAU, MODES, THRESHOLDS_FILE, retrieve
 QUERIES_FILE = Path(__file__).resolve().parent / "queries.json"
 K = 10
 MIN_UNMET_PRECISION = 0.9  # "sin resultado" debe acertar al menos 9 de cada 10 veces (docs/diseno-ia.md §1)
+STALE_STRICT_MATCHES = 3  # una negativa con tantos productos que calzan todas sus palabras quizás ya no lo es
 
 
 @dataclass
@@ -143,6 +144,7 @@ def unmet_quality(runs: list[QueryRun], taus: dict[str, float]) -> dict:
         "falsas_alarmas_detalle": [
             f"{r.vertical}: {r.query}" for r, p, a in zip(hybrid, predicted, actual, strict=True) if p and not a
         ],
+        "negativas_detalle": negative_diagnosis(runs, taus),
     }
 
 
@@ -214,11 +216,52 @@ def render_markdown(
         f"Negativas: {unmet['negativas']} · detectadas: {unmet['detectadas']}"
         f" · falsas alarmas: {unmet['falsas_alarmas']} · precisión: {unmet['precision']} · recall: {unmet['recall']}",
     ]
-    if unmet["no_detectadas_detalle"]:
-        lines.append(f"- No detectadas: {', '.join(unmet['no_detectadas_detalle'])}")
     if unmet["falsas_alarmas_detalle"]:
         lines.append(f"- Falsas alarmas: {', '.join(unmet['falsas_alarmas_detalle'])}")
+    if unmet["negativas_detalle"]:
+        lines += [
+            "",
+            "### Por qué se detecta o no cada negativa",
+            "",
+            "| Vertical | Consulta | ¿Detectada? | Causa |",
+            "|---|---|---|---|",
+        ]
+        for row in unmet["negativas_detalle"]:
+            cause = row["causa"] + (" · ⚠ posiblemente desactualizada" if row["desactualizada"] else "")
+            lines.append(f"| {row['vertical']} | {row['consulta']} | {'sí' if row['detectada'] else 'no'} | {cause} |")
+        lines += [
+            "",
+            f"Posiblemente desactualizada: {STALE_STRICT_MATCHES} o más productos calzan todas las palabras; el"
+            " catálogo quizás ya lo tiene y la consulta dejó de ser negativa.",
+        ]
     return "\n".join(lines) + "\n"
+
+
+def negative_diagnosis(runs: list[QueryRun], taus: dict[str, float]) -> list[dict]:
+    """Por cada negativa (modo híbrido): si «sin resultado» la detecta y qué lo decidió, con la misma regla que
+    `_is_unmet`."""
+    rows = []
+    for r in (r for r in runs if r.mode == "hibrido" and r.tipo == "negativa"):
+        tau = taus.get(r.vertical, DEFAULT_TAU)
+        if r.strict_lexical > 0:
+            n = r.strict_lexical
+            cause = f"{n} {'coincidencia léxica estricta' if n == 1 else 'coincidencias léxicas estrictas'}"
+        elif r.names_concept:
+            cause = f"el concepto nombrado {'está' if r.concept_in_vertical else 'no está'} en el vertical"
+        elif r.max_cosine is None:
+            cause = "sin coseno (sin embeddings)"
+        else:
+            cause = f"coseno {r.max_cosine:.3f} {'<' if r.max_cosine < tau else '≥'} τ {tau}"
+        rows.append(
+            {
+                "vertical": r.vertical,
+                "consulta": r.query,
+                "detectada": _is_unmet(r, tau),
+                "causa": cause,
+                "desactualizada": r.strict_lexical >= STALE_STRICT_MATCHES,
+            }
+        )
+    return rows
 
 
 def _is_unmet(run: QueryRun, tau: float) -> bool:

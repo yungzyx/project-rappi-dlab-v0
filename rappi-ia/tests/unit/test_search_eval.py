@@ -1,4 +1,11 @@
-from rappi_ia.eval.search_eval import QueryRun, calibrate_tau, render_markdown, summarize, unmet_quality
+from rappi_ia.eval.search_eval import (
+    QueryRun,
+    calibrate_tau,
+    negative_diagnosis,
+    render_markdown,
+    summarize,
+    unmet_quality,
+)
 
 
 def run(query, tipo, cosine, vertical="licores", strict=0, names_concept=False, in_vertical=False):
@@ -42,3 +49,40 @@ def test_report_shows_current_and_proposed_tau_per_vertical():
     assert "| mall | 0.7 | sin propuesta |" in report
     assert "ningún τ entre 0,70 y 0,95" in report
     assert "con los τ vigentes" in report
+
+
+def test_each_negative_says_why_it_was_or_was_not_detected():
+    runs = [
+        run("iphone 15 pro max", "negativa", 0.84, vertical="supermercado", strict=4),
+        run("neumáticos", "negativa", 0.83),
+        run("sofá", "negativa", 0.79),
+        run("pizza familiar", "negativa", 0.90, vertical="mall", names_concept=True, in_vertical=True),
+        run("palta hass", "negativa", 0.90, vertical="mall", names_concept=True, in_vertical=False),
+        run("pisco", "exacta", 0.95),
+    ]
+
+    rows = {r["consulta"]: r for r in negative_diagnosis(runs, {"licores": 0.8})}
+
+    assert set(rows) == {"iphone 15 pro max", "neumáticos", "sofá", "pizza familiar", "palta hass"}
+    assert rows["iphone 15 pro max"] == {
+        "vertical": "supermercado",
+        "consulta": "iphone 15 pro max",
+        "detectada": False,
+        "causa": "4 coincidencias léxicas estrictas",
+        "desactualizada": True,  # con 3 o más, probablemente el catálogo ya lo tiene
+    }
+    assert (rows["neumáticos"]["detectada"], rows["neumáticos"]["causa"]) == (False, "coseno 0.830 ≥ τ 0.8")
+    assert (rows["sofá"]["detectada"], rows["sofá"]["causa"]) == (True, "coseno 0.790 < τ 0.8")
+    assert rows["pizza familiar"]["causa"] == "el concepto nombrado está en el vertical"
+    palta = rows["palta hass"]
+    assert (palta["detectada"], palta["causa"]) == (True, "el concepto nombrado no está en el vertical")
+    assert not rows["neumáticos"]["desactualizada"]
+    one = negative_diagnosis([run("leche en polvo", "negativa", 0.9, strict=1)], {})
+    assert one[0]["causa"] == "1 coincidencia léxica estricta"
+
+
+def test_report_lists_the_cause_of_each_negative():
+    runs = [run("neumáticos", "negativa", 0.83), run("pisco", "exacta", 0.95)]
+    taus = {"licores": 0.8}
+    report = render_markdown(summarize(runs), unmet_quality(runs, taus), taus, {}, saved=False, model="e5")
+    assert "| licores | neumáticos | no | coseno 0.830 ≥ τ 0.8 |" in report
