@@ -5,7 +5,7 @@
 # La evaluación no guarda τ (eval/thresholds.json está en git: recalibrar es a mano, con `make eval`).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-mkdir -p data
+mkdir -p data/logs
 # Una sola actualización a la vez. El candado es el PID de la tarea en curso: si ese proceso ya no existe
 # (corte de luz) o es otro programa con el mismo PID, no cuenta.
 LOCK=data/refresh-semanal.pid
@@ -14,7 +14,10 @@ if [[ -f $LOCK ]] && ps -p "$(<$LOCK)" -o command= 2>/dev/null | grep -q refresh
   exit 0
 fi
 echo $$ > $LOCK
-trap 'rm -f "$LOCK"' EXIT
+# Una línea por ejecución en data/logs/ultimo-estado.txt (la muestra `make schedule-status`): un fallo del domingo no
+# queda escondido en launchd.err.log.
+nota=""
+trap 'rc=$?; rm -f "$LOCK"; echo "$(date "+%F %T") exit=$rc${nota:+ ($nota)}" >> data/logs/ultimo-estado.txt' EXIT
 # zsh no corre el trap EXIT si el script muere por una señal (Ctrl-C, launchctl bootout, cerrar la terminal):
 # sin estos, el candado quedaba puesto.
 trap 'rm -f "$LOCK"; exit 130' INT
@@ -22,6 +25,7 @@ trap 'rm -f "$LOCK"; exit 143' TERM
 trap 'rm -f "$LOCK"; exit 129' HUP
 if pgrep -f "rappi(_scraper)? refresh|post-refresh" >/dev/null; then  # una descarga o actualización lanzada a mano
   echo "$(date '+%F %T') hay una descarga o una actualización de rappi-ia en curso; se omite"
+  nota="omitida: había una descarga o una actualización en curso"
   exit 0
 fi
 caffeinate -i .venv/bin/rappi refresh

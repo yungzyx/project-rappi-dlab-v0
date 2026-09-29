@@ -67,5 +67,9 @@ unschedule:  ## Quitar la programación semanal
 	-launchctl bootout gui/$$(id -u) $(PLIST)
 	rm -f $(PLIST)
 
-schedule-status:  ## Ver si la programación semanal está activa
-	@launchctl print gui/$$(id -u)/cl.rappi.refresh 2>/dev/null | grep -E "state =|last exit code" || echo "No programado en este Mac"
+schedule-status:  ## Ver si la programación semanal está activa y cómo terminaron las últimas ejecuciones
+	@launchctl print gui/$$(id -u)/cl.rappi.refresh 2>/dev/null | grep -E "state =|runs =|last exit code" || echo "No programado en este Mac"
+	@echo "Últimas ejecuciones (data/logs/ultimo-estado.txt):"
+	@tail -n 5 data/logs/ultimo-estado.txt 2>/dev/null || echo "  ninguna todavía"
+	@echo "Últimos errores (data/logs/launchd.err.log):"
+	@tail -n 20 data/logs/launchd.err.log 2>/dev/null || echo "  sin errores registrados"
