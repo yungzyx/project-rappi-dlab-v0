@@ -66,9 +66,12 @@ def refresh(
 ) -> list[dict]:
     """Corre la actualización completa y devuelve los reportes (tiendas, restaurantes)."""
     reports = []
-    run_id = ensure_run(conn, "stores", discover_stores)
-    _scrape(conn, run_id, "stores", lambda: process_store_jobs(conn, client, run_id), reports_dir)
-    reports.append(finish_and_report(conn, run_id, "stores", reports_dir)[0])
+    # Con restaurantes abiertos y tiendas cerradas, la actualización anterior se cortó después de terminar las tiendas
+    # (apagado, corte de luz): se retoma en los restaurantes, sin volver a bajar tiendas.
+    if repository.open_run(conn, "stores") is not None or repository.open_run(conn, "restaurants") is None:
+        run_id = ensure_run(conn, "stores", discover_stores)
+        _scrape(conn, run_id, "stores", lambda: process_store_jobs(conn, client, run_id), reports_dir)
+        reports.append(finish_and_report(conn, run_id, "stores", reports_dir)[0])
 
     run_id = ensure_run(conn, "restaurants", discover_restaurants)
     _scrape(conn, run_id, "restaurants", lambda: process_restaurant_jobs(conn, client, run_id), reports_dir)

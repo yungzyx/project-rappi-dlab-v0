@@ -13,6 +13,10 @@ if [[ -f $LOCK ]] && ps -p "$(<$LOCK)" -o command= 2>/dev/null | grep -q refresh
   echo "$(date '+%F %T') ya hay una actualización semanal en curso; se omite"
   exit 0
 fi
+if [[ -f $LOCK ]]; then  # candado de una ejecución que murió sin su trap (apagado, corte de luz)
+  echo "$(date '+%F %T') interrumpida: la ejecución anterior no terminó (apagado o corte de luz)" \
+    >> data/logs/ultimo-estado.txt
+fi
 echo $$ > $LOCK
 # Una línea por ejecución en data/logs/ultimo-estado.txt (la muestra `make schedule-status`): un fallo del domingo no
 # queda escondido en launchd.err.log.

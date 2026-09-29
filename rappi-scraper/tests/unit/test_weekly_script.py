@@ -60,3 +60,17 @@ def test_a_skipped_run_is_not_reported_as_a_success(tmp_path):
     assert result.returncode == 0
     [line] = _status_lines(project)
     assert line.endswith("exit=0 (omitida: había una descarga o una actualización en curso)")
+
+
+def test_a_run_cut_by_a_shutdown_is_recorded_on_the_next_run(tmp_path):
+    """Un apagado no deja correr el trap: la ejecución siguiente encuentra el candado huérfano y lo anota."""
+    project = _project(tmp_path, "exit 0")
+    (project / "data").mkdir()
+    (project / "data" / "refresh-semanal.pid").write_text("999999\n")  # un PID que no es la tarea semanal
+
+    result = _run(project)
+
+    assert result.returncode == 0
+    interrupted, finished = _status_lines(project)
+    assert interrupted.endswith("interrumpida: la ejecución anterior no terminó (apagado o corte de luz)")
+    assert finished.endswith("exit=0")
