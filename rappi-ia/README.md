@@ -90,44 +90,48 @@ Medidos el 28-09-2026 sobre el catálogo completo. Resumen del proyecto en [READ
 
 ### Búsqueda
 
-**Set:** 96 consultas positivas en 6 verticales (supermercado, conveniencia, Mall, licores, chocolatería y restaurantes) y 15 negativas, en [`src/rappi_ia/eval/queries.json`](src/rappi_ia/eval/queries.json). Farmacia y Turbo no están en el set. La relevancia se juzga automáticamente por concepto: un resultado es relevante si su concepto es uno de los esperados para la consulta. `make eval` regenera el reporte.
+**Set:** 124 consultas positivas en los 8 verticales y 41 negativas (al menos 5 por vertical, verificadas contra el catálogo completo el 29-09), en [`src/rappi_ia/eval/queries.json`](src/rappi_ia/eval/queries.json). La relevancia se juzga automáticamente por concepto: un resultado es relevante si su concepto es uno de los esperados para la consulta. `make eval` regenera el reporte.
 
 | Modo | P@10 | MRR | nDCG@10 |
 |---|---|---|---|
-| Léxico | 0,735 | 0,842 | 0,744 |
-| Vectorial | 0,818 | 0,887 | 0,825 |
-| **Híbrido** | **0,884** | **0,922** | **0,889** |
+| Léxico | 0,760 | 0,870 | 0,772 |
+| Vectorial | 0,837 | 0,904 | 0,845 |
+| **Híbrido** | **0,898** | **0,931** | **0,902** |
+| Híbrido sin refuerzo por concepto | 0,849 | 0,899 | 0,852 |
+
+Sin el refuerzo, el híbrido no se distingue del vectorial: consulta por consulta la diferencia media es 0,007 (IC 95 % por bootstrap: −0,018 a 0,033). El reporte trae la comparación pareada completa.
 
 | Tipo de consulta | n | nDCG@10 híbrido |
 |---|---|---|
-| Exactas (marca o producto) | 57 | 0,968 |
-| Sin tildes ni ñ | 12 | 0,993 |
-| Necesidades en lenguaje natural ("algo para el carrete") | 27 | 0,674 (léxico: 0,532) |
+| Exactas (marca o producto) | 77 | 0,976 |
+| Sin tildes ni ñ | 16 | 0,968 |
+| Necesidades en lenguaje natural ("algo para el carrete") | 31 | 0,684 (léxico: 0,546) |
 
 | Vertical | n | nDCG@10 híbrido |
 |---|---|---|
+| Farmacia | 14 | 0,974 |
 | Chocolatería | 7 | 0,959 |
 | Restaurantes | 11 | 0,944 |
-| Conveniencia | 12 | 0,897 |
+| Turbo | 14 | 0,915 |
+| Conveniencia | 12 | 0,903 |
 | Mall | 18 | 0,884 |
 | Supermercado | 30 | 0,883 |
 | Licores | 18 | 0,835 |
 
-**"Sin resultado"** (demanda no satisfecha), sobre las 15 consultas negativas: precisión 1,00 (0 falsas alarmas) y recall 0,33 (5 de 15).
+**"Sin resultado"** (demanda no satisfecha), sobre las 41 consultas negativas y con los τ vigentes: precisión 0,97 (1 falsa alarma: "para picar viendo el partido" en Turbo, que no tiene τ propio) y recall 0,68 (28 de 41). El reporte dice por qué se detecta o no cada una.
 
 - **Regla:** es un "sin resultado" cuando nada calza todas las palabras y, además, se cumple la condición que corresponda:
   - si la consulta nombra un concepto, ese concepto no tiene surtido real en el vertical;
   - si no nombra ninguno, el coseno queda bajo τ.
-- **Por qué bajó el recall:** con el catálogo completo, varias consultas "negativas" ya tienen coincidencias con todas sus palabras.
-  - Algunas son oferta real que no estaba en los datos parciales: "kebab mixto" (16 platos), "comida mexicana con tacos" (restaurantes mexicanos). El set de negativas quedó desactualizado.
-  - Otras son coincidencias casuales: "pizza familiar" encuentra un horno para pizza en Mall y "neumáticos" un renovador de neumáticos en conveniencia. Es un límite real de la regla léxica estricta.
+- **Set anterior (28-09):** recall 0,33 (5 de 15), porque parte de las negativas quedó desactualizada con el catálogo completo: "kebab mixto" (16 platos) y "comida mexicana con tacos" sí existen. Se reemplazaron el 29-09.
+- **Coincidencias casuales:** "pizza familiar" encuentra un horno para pizza en Mall y "neumáticos" un renovador de neumáticos en conveniencia. Es un límite real de la regla léxica estricta.
 - **Límite conocido:** un iPhone en el súper no cuenta como "sin resultado", porque hay accesorios del mismo concepto (celulares).
 
 **Salvedades:**
 
 - **Ventaja del híbrido sobreestimada:** el híbrido recibe un refuerzo por concepto, y la relevancia se juzga con ese mismo concepto.
 - **Juez automático:** la relevancia depende de la asignación de conceptos, cuya precisión es una estimación (ver abajo). No hay juicio humano.
-- **Set chico:** 96 consultas positivas, con pocas por vertical (7 en chocolatería); farmacia y Turbo sin evaluar.
+- **Set chico:** 124 consultas positivas, con pocas por vertical (7 en chocolatería).
 - **Antes (27-09, datos parciales):** híbrido nDCG@10 0,898; "sin resultado" con precisión 0,91 y recall 0,67.
 
 ### Conceptos (capa 2)

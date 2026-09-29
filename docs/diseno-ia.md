@@ -68,9 +68,9 @@ Decisiones:
   - **Límite conocido:** un iPhone en el súper no cuenta, porque hay accesorios del mismo concepto.
 - **Reranker:** no por ahora. Se agrega (p. ej. `bge-reranker-v2-m3`) solo si la evaluación lo justifica, porque suma latencia y otro modelo.
 - **Evaluación antes de elegir.**
-  - **Set:** 96 consultas positivas en 6 verticales (supermercado, conveniencia, Mall, licores, chocolatería y restaurantes; todavía sin farmacia ni Turbo) y 15 negativas, en `rappi-ia/src/rappi_ia/eval/queries.json`. Incluye consultas exactas, sin tildes y necesidades en lenguaje natural.
+  - **Set:** 124 consultas positivas en los 8 verticales y 41 negativas (al menos 5 por vertical, verificadas contra el catálogo completo), en `rappi-ia/src/rappi_ia/eval/queries.json`. Incluye consultas exactas, sin tildes y necesidades en lenguaje natural.
   - **Relevancia:** se juzga automáticamente por concepto (un resultado es relevante si su concepto está entre los esperados).
-  - **Métricas:** P@10, MRR y nDCG@10, comparando léxico, vectorial e híbrido. Recall@10 no se calcula.
+  - **Métricas:** P@10, MRR y nDCG@10, comparando léxico, vectorial, híbrido e híbrido sin refuerzo por concepto (ablación), con comparación pareada por consulta e intervalo de confianza por bootstrap. Recall@10 no se calcula.
   - **Resultado:** el híbrido quedó como modo por defecto. Cifras en [README → Resultados](../README.md#resultados); el reporte de cada corrida queda en `rappi-ia/data/eval/busqueda.md`.
   - **Salvedad:** el híbrido recibe un refuerzo por el mismo concepto con que se juzga la relevancia, así que su ventaja sobre léxico y vectorial está sobreestimada.
 - **Dos audiencias, un solo núcleo:**
