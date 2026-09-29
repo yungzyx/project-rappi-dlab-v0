@@ -108,24 +108,6 @@
       "crecimiento_pct": 129,
       "existe_en": "supermercado, conveniencia, turbo",
       "accion": "Existe en otro vertical: que Bigotes lo ofrezca ahí"
-    },
-    {
-      "vertical": "supermercado",
-      "concept_id": null,
-      "que": null,
-      "busquedas": 10,
-      "usuarios": 10,
-      "ciudades": [
-        "Antofagasta",
-        "Concepción",
-        "Santiago",
-        "Valparaíso"
-      ],
-      "recientes": 0,
-      "anteriores": 0,
-      "crecimiento_pct": null,
-      "existe_en": null,
-      "accion": "Revisar la consulta: sumar sinónimo o concepto nuevo"
     }
   ]
 }

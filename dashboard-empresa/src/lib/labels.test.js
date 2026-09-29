@@ -36,6 +36,10 @@ describe('etiquetas', () => {
     expect(demandLabel({ concept_id: null, que: 'kombucha' })).toBe('«kombucha»')
   })
 
+  test('demandLabel no pinta «null» si la consulta se borró por retención', () => {
+    expect(demandLabel({ concept_id: null, que: null })).toBe('Consulta borrada (más de 90 días)')
+  })
+
   test('plural', () => {
     expect(`1 ${plural(1, 'tienda')}`).toBe('1 tienda')
     expect(`8 ${plural(8, 'tienda')}`).toBe('8 tiendas')

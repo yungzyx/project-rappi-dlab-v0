@@ -176,6 +176,7 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
                 SELECT e.user_id, e.vertical, e.concept_id, lower(e.query) AS query, e.ts, u.city
                 FROM app_events e JOIN app_users u USING (user_id)
                 WHERE e.source = %(source)s AND e.unmet AND e.type IN ('search', 'chat')
+                  AND (e.concept_id IS NOT NULL OR e.query IS NOT NULL)  -- la purga de 90 días deja ambas vacías
             ),
             agg AS (
                 SELECT vertical, concept_id, CASE WHEN concept_id IS NULL THEN query END AS query,
