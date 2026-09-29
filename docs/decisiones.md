@@ -10,6 +10,7 @@
 | 26-09-2026 | Solo Rappi Chile. Otras apps de delivery (Uber Eats, PedidosYa) quedan fuera de alcance. | El proyecto se enfoca en conectar entre sí los verticales de Rappi. |
 | 26-09-2026 | Solo contenido público: páginas de rappi.cl sin barreras técnicas, sus sitemaps públicos y el JSON público de metadatos de tiendas. Sin APIs internas, login ni evasión de protecciones. | Leer solo lo que ve cualquier visitante del sitio. |
 | 26-09-2026 | Una descarga a la vez, con pausas de 1,5–3 s entre páginas, y actualización semanal. | Carga mínima sobre el sitio. |
+| 28-09-2026 | La descarga se detiene tras 10 jobs seguidos que fallan sin respuesta útil de rappi.cl (403, 429, red, página de desafío); la corrida queda abierta y se retoma la semana siguiente. | Ante un posible bloqueo, no insistir contra un sitio que dijo que no. |
 | 26-09-2026 | Sin datos personales: solo catálogo (tiendas, productos, platos y precios). | El proyecto no necesita datos de personas. |
 | 26-09-2026 | Los datos descargados no se versionan (`rappi-scraper/data/` está ignorado); se traspasan con un respaldo de la base. | Tamaño y uso responsable de los datos. |
 | 27-09-2026 | Sin datos internos de Rappi: lo que no tiene fuente pública se trabaja como supuesto y se marca como inferencia. | No se tiene acceso a datos internos. |

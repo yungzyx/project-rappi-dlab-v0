@@ -138,7 +138,7 @@ def _restaurant_section(conn: Connection, params: dict) -> tuple[dict, list[dict
     return totals, checks
 
 
-def build_run_report(conn: Connection, run_id: int) -> dict:
+def build_run_report(conn: Connection, run_id: int, alert: str | None = None) -> dict:
     kind, status, started_at, finished_at = conn.execute(
         "SELECT kind, status, started_at, finished_at FROM scrape_runs WHERE run_id = %s", (run_id,)
     ).fetchone()
@@ -151,6 +151,7 @@ def build_run_report(conn: Connection, run_id: int) -> dict:
         "started_at": started_at.isoformat(),
         "finished_at": finished_at.isoformat() if finished_at else None,
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "alert": alert,
         "jobs": jobs,
         "top_errors": top_errors,
         "verticals": [],
@@ -170,6 +171,8 @@ def build_run_report(conn: Connection, run_id: int) -> dict:
 def render_markdown(report: dict) -> str:
     warnings = [c for c in report["checks"] if not c["ok"]]
     lines = [f"# Reporte corrida {report['run_id']} ({report['kind']})", ""]
+    if report.get("alert"):
+        lines += [f"⛔ Corrida detenida: {report['alert']}. Quedó abierta: la próxima actualización la retoma.", ""]
     if warnings:
         names = ", ".join(c["label"] for c in warnings)
         lines.append(f"⚠ {len(warnings)} validaciones fuera de rango: {names}")
@@ -197,9 +200,11 @@ def render_markdown(report: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_run_report(conn: Connection, run_id: int, reports_dir: Path = REPORTS_DIR) -> tuple[dict, Path]:
+def write_run_report(
+    conn: Connection, run_id: int, reports_dir: Path = REPORTS_DIR, alert: str | None = None
+) -> tuple[dict, Path]:
     """Arma el reporte, lo guarda en `scrape_runs.report` y en `data/reports/run_<id>_<tipo>.md`."""
-    report = build_run_report(conn, run_id)
+    report = build_run_report(conn, run_id, alert)
     repository.save_run_report(conn, run_id, report)
     reports_dir.mkdir(parents=True, exist_ok=True)
     path = reports_dir / f"run_{run_id}_{report['kind']}.md"

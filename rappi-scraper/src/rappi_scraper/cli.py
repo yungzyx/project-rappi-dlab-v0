@@ -24,6 +24,7 @@ from .keep_awake import keep_awake
 from .legacy.csv_format import OUTPUT_DIR as LEGACY_CSV_DIR
 from .legacy.csv_io import export_catalog_csv, import_legacy_csv
 from .pipeline.discover import VERTICAL_LISTINGS, city_locations, discover_restaurants, discover_stores
+from .pipeline.queue import PossibleBlock
 from .pipeline.refresh import JOB_TYPES, finish_and_report, refresh
 from .pipeline.restaurants import process_restaurant_jobs
 from .pipeline.stores import process_store_jobs
@@ -87,13 +88,19 @@ def _finish_and_report(conn, run_id: int, kind: str) -> None:
 
 def cmd_refresh(conn, args) -> None:
     client = RappiClient()
-    reports = refresh(
-        conn,
-        client,
-        _store_discoverer(client, list(VERTICAL_LISTINGS)),
-        _restaurant_discoverer(client),
-        backup=None if args.no_backup else lambda: backup_database(database_url()),
-    )
+    try:
+        reports = refresh(
+            conn,
+            client,
+            _store_discoverer(client, list(VERTICAL_LISTINGS)),
+            _restaurant_discoverer(client),
+            backup=None if args.no_backup else lambda: backup_database(database_url()),
+        )
+    except PossibleBlock as exc:
+        raise SystemExit(
+            f"Descarga detenida: {exc}. El reporte está en data/reports/; la corrida quedó abierta y la próxima"
+            " actualización la retoma."
+        ) from exc
     for report in reports:
         print(render_markdown(report))
 
