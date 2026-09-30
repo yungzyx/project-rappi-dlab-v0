@@ -127,6 +127,17 @@ def cmd_eval_search(conn, args) -> None:
     print(f"Reporte en {out}")
 
 
+def cmd_eval_sample(conn, args) -> None:
+    from .embeddings.models import text_embedder
+    from .eval import judgments, search_eval
+
+    runs = search_eval.run_queries(conn, text_embedder(), search_eval.load_queries())
+    sample = judgments.build_sample(runs)
+    judgments.save_sample(sample)
+    diff = sum(p["origen"] == "diferencia" for p in sample)
+    print(f"{len(sample)} pares ({diff} donde el refuerzo cambia el top 10) en {judgments.SAMPLE_FILE}")
+
+
 def cmd_purge(conn, args) -> None:
     from .events.store import QUERY_RETENTION_DAYS, purge_old_queries
 
@@ -172,6 +183,7 @@ COMMANDS = {
     "embed-images": cmd_embed_images,
     "search": cmd_search,
     "eval-search": cmd_eval_search,
+    "eval-sample": cmd_eval_sample,
 }
 
 
@@ -205,6 +217,7 @@ def build_parser() -> argparse.ArgumentParser:
     ev = sub.add_parser("eval-search", help="evalúa la búsqueda con el set de src/rappi_ia/eval/queries.json")
     ev.add_argument("--solo-lexico", action="store_true", help="sin modelo de embeddings")
     ev.add_argument("--guardar-tau", action="store_true", help="guarda los τ calibrados en eval/thresholds.json")
+    sub.add_parser("eval-sample", help="muestra de ~200 pares (consulta, producto) para juzgar a mano")
     synth = sub.add_parser("synth", help="genera usuarios y eventos SIMULADOS (source = synthetic)")
     synth.add_argument("--usuarios", type=int, default=1500)
     synth.add_argument("--semanas", type=int, default=20)

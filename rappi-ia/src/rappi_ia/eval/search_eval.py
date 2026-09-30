@@ -8,7 +8,7 @@ modos, así que la comparación es justa. Métricas: P@10, MRR y nDCG@10 (gananc
 import json
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from psycopg import Connection
@@ -39,6 +39,7 @@ class QueryRun:
     max_cosine: float | None
     concept_in_vertical: bool
     names_concept: bool = False
+    items: list[dict] = field(default_factory=list)  # los resultados (tipo, id, texto, concepto): muestra de juicio
 
 
 def load_queries(path: Path = QUERIES_FILE) -> list[dict]:
@@ -68,6 +69,15 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                     result.max_cosine,
                     result.concept_in_vertical,
                     bool(result.query_concepts),
+                    [
+                        {
+                            "entity_type": h.entity_type,
+                            "entity_id": h.entity_id,
+                            "texto": h.content,
+                            "concepto": h.concept_id,
+                        }
+                        for h in result.hits
+                    ],
                 )
             )
     return runs
