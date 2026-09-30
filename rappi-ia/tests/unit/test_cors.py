@@ -1,0 +1,36 @@
+import re
+
+from rappi_ia.api.app import cors_origin_regex
+
+
+def allowed(origin: str, allow_lan: bool) -> bool:
+    return re.fullmatch(cors_origin_regex(allow_lan), origin) is not None
+
+
+def test_only_this_mac_by_default():
+    assert allowed("http://localhost:5174", False)
+    assert allowed("http://127.0.0.1:5175", False)
+    assert not allowed("http://192.168.1.20:5174", False)
+    assert not allowed("http://172.20.10.2:5174", False)
+
+
+def test_lan_mode_admits_the_iphone_hotspot_and_local_hostnames():
+    """Con el hotspot del iPhone el Mac queda en 172.20.10.x; en la red de casa también sirve `nombre.local`."""
+    for origin in (
+        "http://192.168.1.20:5174",
+        "http://10.0.0.7:5175",
+        "http://172.20.10.2:5174",
+        "http://172.16.0.9:5174",
+        "http://yungs-mac-mini.local:5174",
+    ):
+        assert allowed(origin, True), origin
+
+
+def test_lan_mode_still_rejects_other_hosts_and_ports():
+    for origin in (
+        "http://172.32.0.1:5174",  # fuera de 172.16.0.0/12
+        "http://evil.example.com:5174",
+        "http://192.168.1.20:8080",
+        "https://localhost:5174",
+    ):
+        assert not allowed(origin, True), origin

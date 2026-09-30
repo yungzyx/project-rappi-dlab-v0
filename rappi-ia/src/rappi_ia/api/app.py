@@ -44,14 +44,25 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="rappi-ia", version="0.1.0", description="Bigotes, búsqueda por vertical y panel empresa", lifespan=lifespan
 )
-# Solo este Mac por defecto. La red local (iPhone) se abre con API_ALLOW_LAN=1 (`make serve-lan`): la API no
-# tiene autenticación, así que solo en una red de confianza.
-_LOCAL = r"localhost|127\.0\.0\.1"
-_LAN = r"|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+" if config.API_ALLOW_LAN else ""
+
+
+def cors_origin_regex(allow_lan: bool) -> str:
+    """Solo este Mac por defecto. La red local (iPhone) se abre con API_ALLOW_LAN=1 (`make serve-lan`): la API no
+    tiene autenticación, así que solo en una red de confianza. Redes privadas: 192.168/16, 10/8 y 172.16/12 (el
+    hotspot del iPhone da 172.20.10.x), más nombres `.local` (Bonjour)."""
+    hosts = r"localhost|127\.0\.0\.1"
+    if allow_lan:
+        hosts += (
+            r"|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+"
+            r"|[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.local"
+        )
+    return rf"http://({hosts}):51\d\d"
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.API_CORS_ORIGINS,
-    allow_origin_regex=rf"http://({_LOCAL}{_LAN}):51\d\d",
+    allow_origin_regex=cors_origin_regex(config.API_ALLOW_LAN),
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["content-type"],
 )
