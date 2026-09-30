@@ -18,6 +18,7 @@ from psycopg import Connection
 
 from ..embeddings.base import TextEmbedder, to_pgvector
 from .assign import Assignment
+from .taxonomy import keeps_sensitive
 
 log = logging.getLogger(__name__)
 
@@ -152,6 +153,8 @@ def _decide(
 
     if current and current.concept_id == best:
         return replace(current, confidence=round(max(current.confidence, share), 3))
+    if current and keeps_sensitive(current.concept_id, best):  # los vecinos no sacan a nadie de un sensible
+        return current
     knn = Assignment(
         item.entity_type,
         item.entity_id,

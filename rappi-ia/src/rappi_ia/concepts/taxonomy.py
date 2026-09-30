@@ -75,6 +75,18 @@ def load_taxonomy(path: Path = DATA_DIR / "taxonomy.toml") -> Taxonomy:
 
 
 @cache
+def sensitive_concepts() -> frozenset[str]:
+    """Conceptos sensibles (salud, sexualidad, tabaco…): un producto que está en uno solo pasa a otro sensible."""
+    return frozenset(c.id for c in load_taxonomy().concepts.values() if c.sensitive)
+
+
+def keeps_sensitive(current: str | None, candidate: str) -> bool:
+    """True si reemplazar `current` por `candidate` sacaría un producto de un concepto sensible."""
+    sensitive = sensitive_concepts()
+    return current in sensitive and candidate not in sensitive
+
+
+@cache
 def load_complements(path: Path = DATA_DIR / "complements.toml") -> tuple[tuple[str, str, float], ...]:
     edges = tomllib.loads(path.read_text(encoding="utf-8"))["edges"]
     taxonomy = load_taxonomy()
