@@ -41,7 +41,7 @@ Se generan en cada equipo y no se versionan:
 
 | Reporte | Dónde | Cómo se genera |
 |---|---|---|
-| Evaluación de la búsqueda | `rappi-ia/data/eval/busqueda.md` | `make eval` en `rappi-ia/` |
+| Evaluación de la búsqueda | `rappi-ia/data/eval/busqueda.md` | `make eval` en `rappi-ia/` (también guarda τ; solo el reporte: `make eval EVAL_ARGS=`). La copia versionada que respalda las cifras del README está en [resultados/](resultados/) |
 | Calidad de cada corrida del scraper | `rappi-scraper/data/reports/` | Al terminar cada corrida, o con `rappi report` |
 | Logs de las corridas | `rappi-scraper/data/logs/` y `rappi-ia/data/logs/` | Automático |
 
@@ -52,5 +52,5 @@ Reflejan el estado a su fecha y no se actualizan con cada corrida.
 | Documento | Fecha | Qué conserva |
 |---|---|---|
 | [ecosistema-rappi.md](ecosistema-rappi.md) §1 y §2 | Research con fuentes públicas al 26-09-2026 | Los servicios de Rappi en Chile y cómo modelan sus datos otras super-apps comparables. El modelo de datos (§3) sigue vigente |
-| Resultados con datos parciales | 27-09-2026 | Búsqueda híbrida con nDCG@10 de 0,898 y «sin resultado» con precisión 0,91 y recall 0,67. Los reemplazan los del 28-09-2026 ([README.md#resultados](../README.md#resultados)) |
+| Resultados con datos parciales | 27-09-2026 | Búsqueda híbrida con nDCG@10 de 0,898 y «sin resultado» con precisión 0,91 y recall 0,67. Los reemplazan los vigentes, del 30-09-2026 ([README.md#resultados](../README.md#resultados)) |
 | Scraper original a CSV (`rappi-csv`) | Anterior a la base de datos | Sección [«Legado»](../rappi-scraper/README.md#legado-scraper-original-a-csv-rappi-csv) al final del README del scraper. Hoy lo cubren la base y `rappi export-csv` |

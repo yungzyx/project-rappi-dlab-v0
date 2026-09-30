@@ -1,7 +1,7 @@
 # Diseño: RAG, agente Bigotes y panel para la empresa
 
-> Cómo se conectan el catálogo (scraper), la búsqueda semántica, el agente, el prototipo y un panel de negocio. Las etapas 0–7 están construidas (§7); lo que el código todavía no cubre se marca como pendiente.
-> Última actualización: 28-09-2026. Contexto: [contexto-y-problema.md](contexto-y-problema.md) · Modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Resultados vigentes: [README → Resultados](../README.md#resultados).
+> Cómo se conectan el catálogo (scraper), la búsqueda semántica, el agente, el prototipo y un panel de negocio. Las etapas 0–8 están construidas (§7); lo que el código todavía no cubre se marca como pendiente.
+> Última actualización: 30-09-2026. Contexto: [contexto-y-problema.md](contexto-y-problema.md) · Modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Resultados vigentes: [README → Resultados](../README.md#resultados).
 > Diagramas: [flujo de datos por etapas](diagramas/rag-datos.png) y [vista por carriles](diagramas/arquitectura-ia.png). Sus versiones interactivas ([rag-datos.html](diagramas/rag-datos.html), [arquitectura-ia.html](diagramas/arquitectura-ia.html)) se descargan y se abren en el navegador.
 > Lo marcado "datos parciales" se midió el 27-09-2026, antes de terminar la descarga completa.
 
@@ -41,7 +41,7 @@ texto / voz→texto / foto ─► entender (intención, vertical, conceptos, fil
 
 Decisiones:
 
-- **Documentos.** Hay uno por producto, plato o tienda, y por vertical, en la tabla `search_documents`. La arma el SQL `build_search_documents` del scraper, con nombre, marca, presentación, categoría y descripción. Con el catálogo completo (28-09-2026) son 240.200 documentos: 83.108 productos, 153.136 platos y 3.956 tiendas, todos con embedding.
+- **Documentos.** Hay uno por producto, plato o tienda, y por vertical, en la tabla `search_documents`. La arma el SQL `build_search_documents` del scraper, con nombre, marca, presentación, categoría y descripción. Todos tienen embedding; los conteos vigentes están en [README → Resultados](../README.md#resultados).
 - **Sin dividir en trozos.** Son textos cortos. En los datos parciales, solo unos pocos documentos, casi todos de Mall, superaban los 2.000 caracteres; esos se truncan en 512 tokens. Por eso el nombre va primero.
 - **El precio no va en el texto que se embebe.** Cambia en cada corrida y obligaría a volver a embeber. Se lee por SQL (`price_snapshots`, `menu_price_snapshots`).
 - **Caché por `content_hash`.** Los vectores se guardan en una tabla propia `text_embeddings(content_hash, embedding_model, embedding)`. Así, un texto repetido en varios verticales se embebe una sola vez y se copia a `search_documents.embedding`, donde vive el HNSW de cada partición. Además, si el texto no cambió, el `refresh` conserva el vector de cada fila (`_UPSERT` en `rappi-scraper/src/rappi_scraper/storage/search.py`).
@@ -63,16 +63,16 @@ Decisiones:
   - **Si no nombra ninguno:** además, que el coseno máximo de e5 quede bajo τ del vertical.
   - **Por qué no se usa solo el coseno:** en la evaluación, los cosenos de e5 se concentran en un rango estrecho (datos parciales) y separan mal; la presencia del concepto es mejor señal.
   - **Calibración:** τ se calibra por vertical con las consultas negativas del set de evaluación, pidiendo precisión ≥ 0,9. Solo cuentan las negativas que dependen de τ (sin coincidencia léxica ni concepto nombrado); un vertical sin ellas no recibe propuesta y conserva su τ (o 0,82 si nunca tuvo): pasarlo a 0,82 metía una falsa alarma en Mall. El reporte muestra el τ vigente y el propuesto.
-  - **Resultado con el catálogo completo (28-09-2026):** precisión 1,00 (0 falsas alarmas) y recall 0,33 (5 de 15). Con datos parciales (27-09-2026) había sido 0,91 y 0,67.
-  - **Por qué bajó el recall:** varias consultas "negativas" ya tienen coincidencias con todas sus palabras. Algunas son oferta real que no estaba en los datos parciales ("kebab mixto": 16 platos), así que el set de negativas quedó desactualizado. Otras son coincidencias casuales ("neumáticos" → un renovador de neumáticos en conveniencia): es un límite real de la regla léxica estricta.
+  - **Resultado vigente:** precisión 1,00 y recall 0,71 (29 de 41), en [README → Resultados](../README.md#resultados). El set anterior (28-09) tenía negativas desactualizadas y se renovó el 29-09.
+  - **Por qué no se detecta todo:** de las negativas no detectadas, unas nombran un concepto que el vertical sí tiene, otras calzan por casualidad con la regla léxica estricta («neumáticos» → un renovador de neumáticos en conveniencia) y otras quedan sobre τ. El reporte explica cada una.
   - **Límite conocido:** un iPhone en el súper no cuenta, porque hay accesorios del mismo concepto.
 - **Reranker:** no por ahora. Se agrega (p. ej. `bge-reranker-v2-m3`) solo si la evaluación lo justifica, porque suma latencia y otro modelo.
 - **Evaluación antes de elegir.**
   - **Set:** 124 consultas positivas en los 8 verticales y 41 negativas (al menos 5 por vertical, verificadas contra el catálogo completo), en `rappi-ia/src/rappi_ia/eval/queries.json`. Incluye consultas exactas, sin tildes y necesidades en lenguaje natural.
   - **Relevancia:** se juzga automáticamente por concepto (un resultado es relevante si su concepto está entre los esperados).
   - **Métricas:** P@10, MRR y nDCG@10, comparando léxico, vectorial, híbrido e híbrido sin refuerzo por concepto (ablación), con comparación pareada por consulta e intervalo de confianza por bootstrap. Recall@10 no se calcula.
-  - **Resultado:** el híbrido quedó como modo por defecto. Cifras en [README → Resultados](../README.md#resultados); el reporte de cada corrida queda en `rappi-ia/data/eval/busqueda.md`.
-  - **Salvedad:** el híbrido recibe un refuerzo por el mismo concepto con que se juzga la relevancia, así que su ventaja sobre léxico y vectorial está sobreestimada.
+  - **Resultado:** el híbrido quedó como modo por defecto. Cifras en [README → Resultados](../README.md#resultados); el reporte de cada corrida queda en `rappi-ia/data/eval/busqueda.md` y la copia que respalda las cifras, en [resultados/](resultados/).
+  - **Salvedad:** el híbrido recibe un refuerzo por el mismo concepto con que se juzga la relevancia. Sin el refuerzo, 0,860 frente a 0,846 del vectorial: la diferencia no es concluyente (IC 95 % −0,012 a 0,042).
 - **Dos audiencias, un solo núcleo:**
   - Bigotes, para clientes, en el prototipo;
   - más adelante, preguntas del equipo interno (Marketing, Producto, BI), que usan las mismas herramientas más consultas SQL de análisis.
@@ -218,7 +218,7 @@ Decisiones:
 |---|---|---|---|
 | Recompra por ciclo | Días entre compras del mismo concepto (pañales, café, alimento de mascota) | "¿Repetimos?" en el momento justo | Frecuencia |
 | Rescate de carrito | Carro abandonado | Recordatorio con el carro y un complemento. Sin descuento automático | Abandono de carrito |
-| Reactivación por ritmo | Usuario en riesgo según su propio ritmo | Mensaje con su concepto top y una novedad del vertical (con consentimiento) | Churn |
+| Reactivación por ritmo | Usuario en riesgo según su propio ritmo | Mensaje con su concepto top y una novedad del vertical (con consentimiento) | Abandono (churn) |
 | Segunda vertical | Usuario de un solo vertical | Sugerencia cruzada de mayor confianza | % multi-vertical y retención |
 | Ocasiones | Picos por día u hora (viernes: carrete; domingo: asado) | Campañas con horario | Frecuencia |
 | Demanda no satisfecha | Consultas sin resultado | Captar comercios o categorías; avisar a quien lo pidió (con consentimiento) | Conversión y oportunidades |
@@ -272,6 +272,6 @@ Notas del modelo:
 | 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados | Hecha |
 | 6. Prototipo conectado | Cliente API con respaldo local, eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |
 | 7. Panel empresa | `dashboard-empresa/` | Vitest y chequeo visual | Hecha |
-| 8. Cierre | CI (4 jobs), docs y corrida completa post-refresh | CI en verde | En cierre: CI y corrida post-refresh sobre el catálogo completo hechas (28-09-2026); falta confirmar el CI en verde con los cambios del 28-09 |
+| 8. Cierre | CI (4 jobs), docs y corrida completa post-refresh | CI en verde | Hecha (30-09-2026) |
 
-**Revisión:** tres pasadas de revisión adversarial automatizada (agentes de IA) con 66 hallazgos corregidos (27-09-2026) y otra revisión adversarial de los cambios del 28-09-2026. Resultados de cobertura, precisión y búsqueda en [README → Resultados](../README.md#resultados).
+**Revisión:** tres pasadas de revisión adversarial automatizada (agentes de IA) con 66 hallazgos corregidos (27-09-2026) y una auditoría el 28-09-2026, cuyos 4 bloques de mejoras se aplicaron el 29 y 30-09. Resultados de cobertura, precisión y búsqueda en [README → Resultados](../README.md#resultados).

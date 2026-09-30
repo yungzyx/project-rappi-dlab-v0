@@ -12,7 +12,7 @@ Panel de demostración que muestra cómo la conducta de compra y lo que la gente
 
 Las definiciones de cada métrica y la redacción vienen de [docs/diseno-ia.md §5](../docs/diseno-ia.md#5-panel-para-la-empresa-vale-la-pena). Los datos salen de la API de [`rappi-ia`](../rappi-ia/).
 
-> **Usuarios, eventos y pedidos SIMULADOS.** Se generan con `rappi-ia/src/rappi_ia/events/synth.py` (1.500 usuarios × 20 semanas, semilla 7, `source=synthetic`) y supuestos explícitos. El panel **muestra la mecánica, no evidencia**. Por ejemplo, el simulador asume que quien usa más verticales se va menos, así que esa relación aparece por construcción. La pestaña Catálogo sí usa datos reales: la muestra pública de rappi.cl.
+> **Usuarios, eventos y pedidos SIMULADOS.** Se generan con `rappi-ia/src/rappi_ia/events/synth.py` (1.500 usuarios × 20 semanas, semilla 7, `source = 'synthetic'`) y supuestos explícitos. El panel **muestra la mecánica, no evidencia**. Por ejemplo, el simulador asume que quien usa más verticales se va menos, así que esa relación aparece por construcción. La pestaña Catálogo sí usa datos reales: la muestra pública de rappi.cl.
 
 El panel lo dice siempre:
 
@@ -21,13 +21,13 @@ El panel lo dice siempre:
 
 Las fuentes nunca se mezclan: cada respuesta se valida contra la fuente pedida.
 
-
 La carpeta trae además una página de presentación de la propuesta (`presentacion.html`, en la misma raíz de Vite): problema, propuesta, arquitectura y resultados, pensada para abrirla antes del panel. Con el servidor de desarrollo arriba está en `http://localhost:5175/presentacion.html`.
+
 ## Cómo correrlo
 
 Desde la raíz del repositorio:
 
-1. Levantar la API de `rappi-ia`. El panel la busca por defecto en `http://localhost:8000`:
+1. Levantar la API de `rappi-ia` y esperar a «Application startup complete» (carga los modelos al arrancar). El panel la busca por defecto en `http://localhost:8000`:
 
    ```bash
    cd rappi-ia
@@ -42,7 +42,7 @@ Desde la raíz del repositorio:
    npm run dev          # http://localhost:5175
    ```
 
-La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://localhost:8001 npm run dev`. La API ya acepta pedidos desde `localhost:51xx` (CORS).
+La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://localhost:8001 npm run dev` o en `.env.local`. La API ya acepta peticiones desde `localhost:51xx` (CORS). Para abrir el panel desde el iPhone hace falta `VITE_API_URL` con la dirección del Mac, porque por defecto busca la API en `localhost`.
 
 **Sin la API** el panel igual funciona. Cada consulta que falla, o que tarda más de 30 s, cae a la respuesta guardada en `src/fixtures/`. En ese caso aparece el aviso «Modo sin conexión (datos guardados)», que dice qué consultas fallaron y por qué, y trae un botón *Reintentar*.
 
@@ -55,7 +55,7 @@ La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://
 | `npm run fixtures` | Vuelve a guardar las respuestas de la API en `src/fixtures/` (correr tras `make synth` o una actualización del catálogo) |
 | `npm run screenshots` | Regenera `docs/screenshots/` con el Chrome instalado y un Vite propio en el 5198 |
 
-Tests: 76 (Vitest). CI en GitHub Actions: lint, tests y build.
+Tests: 80 (Vitest, 30-09-2026). CI en GitHub Actions: lint, tests y build.
 
 ## Vistas
 
@@ -69,7 +69,9 @@ Lo primero es **Qué hacer esta semana**, armado desde los datos:
 - el concepto que más sube *y que sí tiene oferta*;
 - los usuarios en riesgo, con la palanca de §5 que corresponde a cada uno.
 
-Después vienen los 8 indicadores, cada uno con su definición y la ventana que usa la API, y la serie semanal:
+Después vienen los 8 indicadores, cada uno con su definición y la ventana que usa la API: usuarios activos, frecuencia, días entre pedidos, % multi-vertical, abandono de carrito, búsquedas sin resultado, usuarios en riesgo y perdidos.
+
+La serie semanal muestra cuatro curvas:
 
 - usuarios activos;
 - pedidos;
@@ -86,7 +88,7 @@ Todo el panel se lee como un informe: cada sección abre con su titular numéric
 
 ### 2. Oportunidades
 
-**Demanda no satisfecha**, rankeada por usuarios. Cada fila trae qué se pide, en qué vertical, cuántos usuarios y búsquedas, el crecimiento, dónde existe y la acción sugerida. En la simulación, «comida peruana» aparece arriba porque el generador la plantó como antojo creciente. Con el catálogo completo (28-09-2026) el concepto sí existe en otros verticales, así que la acción sugerida pasa a «que Bigotes lo ofrezca ahí». En la operación real, cada fila sería una señal que hay que validar antes de actuar.
+**Demanda no satisfecha**, ordenada por usuarios. Cada fila trae qué se pide, en qué vertical, cuántos usuarios y búsquedas, el crecimiento, dónde existe y la acción sugerida. El titular suma **búsquedas**, no usuarios: una misma persona aparece en varias filas. El crecimiento dice «nueva» si la demanda solo aparece en las últimas 4 semanas, y «sin actividad en 4 semanas» si ya no se busca. En la simulación, «comida peruana» aparece arriba porque el generador la plantó como antojo creciente. Con el catálogo completo (28-09-2026) el concepto sí existe en otros verticales, así que la acción sugerida pasa a «que Bigotes lo ofrezca ahí». En la operación real, cada fila sería una señal que hay que validar antes de actuar.
 
 **Conceptos que suben y bajan**: las últimas 4 semanas contra las 4 anteriores. Se marcan los que suben pero no tienen oferta.
 
@@ -150,6 +152,7 @@ Todas las vistas tienen versión móvil (sin scroll horizontal; las tablas pasan
 ```text
 src/
 ├── App.jsx                 pestañas, fuente, aviso de procedencia
+├── presentacion.js         página de presentación de la propuesta (con presentacion.html y public/presentacion/)
 ├── lib/                    api.js (API + respaldo), format.js (es-CL), labels.js, hooks
 ├── components/             tarjeta, tabla, insignias, estados vacío/carga/error
 │   ├── charts/             SVG propios: línea, columnas, barras, mapa de calor (sin librerías)
@@ -168,7 +171,7 @@ docs/screenshots/           capturas (en git solo las 7 que usa este README, com
 
 **Catálogo como muestra.** El catálogo es la muestra pública: hasta 24 productos por sub-pasillo. Los números de cobertura cambian con cada corrida del scraper, y «no está» no significa «Rappi no lo vende».
 
-**Serie semanal lenta.** `/analytics/weekly` tardó varios segundos en las pruebas. Ese bloque puede quedar cargando un rato o, si pasa de 30 s, mostrarse con datos guardados (y el aviso lo dice).
+**Serie semanal.** `/analytics/weekly` llegó a tardar varios segundos en pruebas anteriores; el 29-09 respondió en menos de 1 s. Si alguna vez pasa de 30 s, el bloque se muestra con datos guardados (y el aviso lo dice).
 
 **La API no entrega todo lo que pide §5.** Falta:
 
@@ -176,4 +179,4 @@ docs/screenshots/           capturas (en git solo las 7 que usa este README, com
 - los cambios de precio del catálogo;
 - el abandono de búsqueda.
 
-Además, la lista de riesgo llega con máximo 50 filas y solo trae perdidos. El panel lo avisa en vez de esconderlo.
+Además, la lista de riesgo llega con máximo 100 filas, primero los usuarios en riesgo (los más fáciles de recuperar) y después los perdidos. Si en una respuesta no viniera ningún usuario en riesgo habiendo alguno, el panel lo avisa en vez de esconderlo.

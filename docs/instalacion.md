@@ -71,12 +71,12 @@ No cambia la configuración de Postgres. Si el equipo tiene poca memoria, usa un
 
 ```bash
 cd rappi-ia
-make install install-ml db-test migrate   # .venv, modelos locales (~1 GB de paquetes), base de tests
+make install install-ml db-test migrate   # .venv, paquetes de los modelos (~1 GB), base de tests
 make test
-caffeinate -i make post-refresh           # conceptos, embeddings, evaluación y datos simulados al día con la base
+caffeinate -i make post-refresh           # purga, conceptos, embeddings, evaluación y datos simulados al día con la base
 ```
 
-- **τ:** `make post-refresh` también recalibra τ en `src/rappi_ia/eval/thresholds.json`. Si cambia, revisar y hacer commit.
+- **τ:** `make post-refresh` también recalibra τ en `src/rappi_ia/eval/thresholds.json` (solo en verticales con negativas que dependen de τ; los demás conservan el suyo). Si cambia, revisar y hacer commit.
 - **Evaluación:** el reporte queda en `data/eval/busqueda.md` (dentro de `rappi-ia/`).
 - **Memoria de los índices:** `make embed` (parte de `post-refresh`) construye un índice HNSW por vertical con 1 GB de `maintenance_work_mem`, solo durante esa transacción. Se ajusta con `HNSW_MAINTENANCE_WORK_MEM` en `rappi-ia/.env` (ver `.env.example`); bájalo si el equipo tiene poca memoria.
 
@@ -91,8 +91,8 @@ Para correr la demo, ver el [README](../README.md). Para abrirla desde un iPhone
 
 - la API se levanta con `make serve-lan` en `rappi-ia/` (solo en una red de confianza: no tiene autenticación);
 - el prototipo y el panel se levantan con `npm run dev -- --host`, para que escuchen en la red y no solo en este Mac;
-- el prototipo apunta a la API con `VITE_API_URL` en `prototipo-app/.env.local`;
-- sirve en la WiFi de casa (192.168.x, 10.x), con el hotspot del iPhone (el Mac queda en 172.20.10.x) y con el nombre Bonjour del Mac (`http://nombre-del-mac.local:5174`).
+- el prototipo busca la API en el mismo host desde el que se abrió (puerto 8000), así que no hace falta configurarlo; el panel usa `localhost:8000` y, para abrirlo desde el iPhone, necesita `VITE_API_URL` en `dashboard-empresa/.env.local`;
+- sirve en la wifi de casa (192.168.x, 10.x), con el hotspot del iPhone (el Mac queda en 172.20.10.x) y con el nombre Bonjour del Mac (`http://nombre-del-mac.local:5174`).
 
 ## 6. Actualización semanal
 
@@ -107,16 +107,22 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 - **Qué corre:** `rappi-scraper/scripts/refresh-semanal.sh`.
   - Primero `rappi refresh`: tiendas, restaurantes, búsqueda, reportes y respaldo en `data/backups/` (quedan los últimos 4).
   - Si termina bien, `make post-refresh` de rappi-ia: purga (primero, para cumplir la retención aunque falle otro paso), conceptos, embeddings, evaluación, datos simulados y otra purga.
-  - Nunca corren dos a la vez. El candado que lo impide se borra aunque la tarea se corte con una señal (Ctrl-C, cerrar la terminal).
+  - Nunca corren dos descargas a la vez: los comandos que descargan (y `make images`) comparten el candado `rappi-scraper/data/scraper.lock`, que el sistema suelta aunque el proceso muera. Además, la tarea semanal tiene su propio candado, que se borra aunque la corten con una señal (Ctrl-C, cerrar la terminal).
 - **τ:** la evaluación semanal no guarda τ, porque `thresholds.json` está en el repositorio. Para recalibrar: `make eval` a mano en `rappi-ia/` y commit.
 - **Dormido o apagado:** si a esa hora el equipo estaba **dormido**, la tarea corre al despertar; si estaba **apagado**, esa semana se salta. Por eso conviene:
   - que no se duerma (Ajustes del Sistema → Energía → evitar el reposo automático);
   - que se encienda solo tras un corte de luz (misma pantalla); `sudo pmset -a autorestart 1 sleep 0` deja ambas cosas;
   - que quede con la sesión iniciada, porque launchd corre la tarea en la sesión del usuario.
-- **FileVault:** en el Mac mini se mantiene activo ([decisiones.md](decisiones.md#operación)). Tras un corte de luz el equipo se reenciende pero espera la clave: hasta escribirla no corren Postgres ni la tarea, y si pasa el domingo 03:00 esa semana se salta.
-- **Después de la primera semana:** `make schedule-status` debe mostrar `last exit code = 0` y, en «Últimas ejecuciones», una línea `exit=0` por semana (sale de `rappi-scraper/data/logs/ultimo-estado.txt`; «omitida» si otra descarga estaba en curso; «interrumpida» si la anterior se cortó por un apagado, y esa se retoma en la etapa donde quedó, sin volver a bajar tiendas ya terminadas). La salida completa queda en `rappi-scraper/data/logs/launchd.*.log` y el reporte de calidad en `rappi-scraper/data/reports/`.
+- **FileVault:** en el equipo de la tarea semanal se mantiene activo ([decisiones.md](decisiones.md#operación)). Tras un corte de luz el equipo se reenciende pero espera la clave: hasta escribirla no corren Postgres ni la tarea, y si pasa el domingo 03:00 esa semana se salta.
+- **Después de cada semana:** `make schedule-status` debe mostrar `last exit code = 0`. En «Últimas ejecuciones» (sale de `rappi-scraper/data/logs/ultimo-estado.txt`) hay una línea por ejecución:
+  - `exit=0`: terminó bien;
+  - «omitida»: otra descarga estaba en curso;
+  - «interrumpida»: la anterior se cortó (apagado, corte de luz) y se retoma en la etapa donde quedó, sin volver a bajar tiendas ya terminadas;
+  - un código distinto de 0: falló; el detalle está en `rappi-scraper/data/logs/launchd.err.log`.
+- **Posible bloqueo:** si 10 jobs seguidos fallan sin respuesta útil de rappi.cl (403, 429, red), la descarga se detiene, el reporte de la corrida lo marca con ⛔ y la corrida queda abierta: la próxima actualización la retoma. No hay que hacer nada salvo revisar el reporte.
+- **Reportes:** la salida completa queda en `rappi-scraper/data/logs/launchd.*.log` y el reporte de calidad en `rappi-scraper/data/reports/`.
 - **`rappi refresh` lanzado a mano:** `./scripts/despues-del-refresh.sh` en `rappi-ia/` espera a que termine y corre `make post-refresh`. A diferencia de la tarea semanal, recalibra τ en `thresholds.json`: si cambia, revisar y hacer commit.
-- **Fotos:** `make images` en `rappi-ia/`, a mano y sin una descarga en curso (son decenas de miles de descargas).
+- **Fotos:** `make images` en `rappi-ia/`, a mano (son decenas de miles de descargas). Toma el mismo candado que el scraper: si hay una descarga en curso, no arranca.
 
 ## Operación
 

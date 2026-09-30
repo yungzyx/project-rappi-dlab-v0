@@ -29,7 +29,7 @@ Con TablePlus, Beekeeper Studio o la extensión "PostgreSQL" de VS Code:
 | Restaurantes | `menu_items` (platos), `menu_sections`, `menu_price_snapshots`, `restaurant_details` (nota, reseñas), `restaurant_cuisines` |
 | Conceptos | `concepts` (taxonomía de Bigotes), `item_concepts` (concepto de cada producto o plato), `concept_edges` (complementos), `concept_assortment` (surtido por concepto y vertical) |
 | Búsqueda | `search_documents` (un documento por producto, plato o tienda, por vertical) |
-| Panel | `app_users`, `app_events`, `app_orders`: **simulados** (`source = 'synthetic'`) o del prototipo |
+| Panel | `app_users`, `app_events`, `app_orders`, `app_order_lines`: **simulados** (`source = 'synthetic'`) o del prototipo |
 
 ## Buenas costumbres
 

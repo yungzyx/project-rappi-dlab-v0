@@ -32,6 +32,9 @@
 | 28-09-2026 | Un pasillo que redirige al listado de tiendas se trata como sucursal no disponible: se prueba la siguiente sucursal candidata y, si no queda ninguna, el job falla. | La redirección indica que la sucursal dejó de despachar a esa ubicación; omitir sus páginas dejaría un catálogo a medias. |
 | 28-09-2026 | Los errores de lectura dicen qué página llegó en su lugar, sin ids. | Diagnóstico rápido, y el reporte sigue agrupando los errores por texto. |
 | 28-09-2026 | Los jobs fallidos de la primera descarga se reintentan con el arreglo (`rappi retry-failed`). | Recuperar lo que se perdió por el error anterior: farmacia pasó de 5 a 13 tiendas descargadas. |
+| 29-09-2026 | La descarga se detiene tras 10 jobs seguidos sin respuesta útil de rappi.cl; también `scrape-stores` y `scrape-restaurants` lanzados a mano. | No insistir contra un sitio que respondió que no. |
+| 29-09-2026 | Tras un apagado, la actualización se retoma en la etapa donde quedó, sin volver a bajar tiendas ya terminadas. | Una corrida de tiendas son ~16 h de peticiones. |
+| 30-09-2026 | Los documentos de búsqueda limpian el HTML de nombres y descripciones con `clean_html()` (migraciones 014 y 015); el texto sin HTML queda intacto. | El HTML ensuciaba el índice, los vectores y lo que lee Bigotes; tocar solo lo necesario evita volver a embeber miles de documentos. |
 
 ## Modelo de datos
 
@@ -66,6 +69,12 @@
 | 28-09-2026 | Los textos por embeber se procesan ordenados por largo. | Lotes parejos y embeddings más rápidos, con el mismo resultado. |
 | 28-09-2026 | Los índices HNSW se construyen con `maintenance_work_mem` configurable (`HNSW_MAINTENANCE_WORK_MEM`, 1 GB por defecto). | Con el valor por defecto de Postgres, el grafo de restaurantes no cabe en memoria y el índice tarda mucho más. |
 | 28-09-2026 | El kNN de conceptos lee los vectores en binario y por bloques, no como texto. | Mucho menos memoria con el catálogo completo. |
+| 29-09-2026 | La evaluación incluye una ablación (híbrido sin refuerzo por concepto) y una comparación pareada por consulta con intervalo de confianza por bootstrap. | El refuerzo usa la misma etiqueta con que se juzga la relevancia: hay que medir la búsqueda sin él. |
+| 29-09-2026 | Set de evaluación renovado: farmacia y Turbo, al menos 5 negativas por vertical y cada negativa verificada contra la base. | El set anterior tenía negativas que el catálogo completo sí tenía. |
+| 29-09-2026 | Muestra de 200 pares (consulta, producto) para juzgar a mano, a ciegas (`eval-sample` / `eval-human`). | Es el único juez independiente del concepto. |
+| 29-09-2026 | Keywords ambiguas de la taxonomía llevan su contexto («aceite de oliva», «plumón de cama») y ninguna keyword puede estar en dos conceptos (test). | Las palabras sueltas mandaban productos al concepto equivocado. |
+| 29-09-2026 | Un producto en un concepto sensible solo pasa a otro concepto sensible (ni el kNN ni una regla por nombre lo sacan). | Proteger salud, sexualidad y tabaco de reasignaciones por vecinos. |
+| 29-09-2026 | Las categorías nuevas de cada semana se listan en el reporte de cobertura y se exportan con concepto sugerido (`rappi-ia map-categories`) para revisarlas. | Antes caían a reglas o quedaban sin concepto sin que nadie lo viera. |
 
 ## Agente Bigotes
 
@@ -97,6 +106,12 @@
 | 28-09-2026 | La tarea semanal borra su candado aunque la corten con una señal (por ejemplo, Ctrl-C). | No dejar candados huérfanos. |
 | 29-09-2026 | El equipo de la tarea semanal no se duerme y se reenciende solo tras un corte de luz (`pmset autorestart 1 sleep 0`), pero mantiene FileVault: después de un corte espera la clave, y hasta escribirla no corren Postgres ni la tarea. | Es un equipo personal con cuentas propias; los cortes son raros y perder una semana de descarga es aceptable. |
 | 29-09-2026 | Por ahora los respaldos quedan solo en el equipo de la tarea semanal (los últimos 4, en el mismo disco que la base). | Riesgo aceptado: si falla el disco se pierde el historial de precios, que no se recupera de rappi.cl. Revisar cuando haya un disco externo. |
+| 29-09-2026 | Un candado de archivo (`flock` en `rappi-scraper/data/scraper.lock`) lo toman todos los comandos que descargan y `make images`. | El `pgrep` de la tarea semanal no veía los comandos lanzados a mano. |
+| 29-09-2026 | El respaldo se escribe a `.part`, se valida con `pg_restore --list` y recién entonces rota; si falla, la actualización sigue. | Un volcado cortado no debe expulsar un respaldo sano. |
+| 29-09-2026 | En `post-refresh` la purga de 90 días va primero (y otra vez al final). | La retención se cumple aunque falle otro paso. |
+| 29-09-2026 | Cada ejecución semanal deja una línea en `data/logs/ultimo-estado.txt` (`exit=N`, «omitida», «interrumpida») que muestra `make schedule-status`. | Un fallo del domingo no queda escondido en el log de launchd. |
+| 29-09-2026 | Versiones de Python fijadas en `rappi-ia/requirements.lock.txt` (en `make install` y en CI) y un job semanal que instala los modelos. | Una versión nueva de torch o sentence-transformers no entra sola. |
+| 29-09-2026 | Con Postgres caído la API responde 503; el chat del prototipo espera 8 s y marca «Respuesta local» si contestan sus reglas. | En una demo se tiene que saber qué Bigotes contestó. |
 
 ## Repositorio y documentación
 
@@ -107,10 +122,12 @@
 | 28-09-2026 | Sin licencia open source. | Hay assets de terceros en el repositorio. |
 | 28-09-2026 | Las decisiones viven en este documento; `CLAUDE.md` solo tiene las convenciones para asistentes de IA. | Un lugar para cada cosa. |
 | 28-09-2026 | El scraper CSV original (`rappi-csv`, módulo `legacy`) se conserva y se documenta como "Legado" al final del README del scraper. | La base + `rappi export-csv` lo reemplazan, pero sigue sirviendo para `rappi import-csv`. |
-| 28-09-2026 | Las métricas se publican con sus salvedades: relevancia juzgada automáticamente por concepto, ventaja del híbrido sobreestimada por el refuerzo de concepto y set de consultas negativas desactualizado con el catálogo completo. | No sobrestimar los resultados. Detalle en [README.md#resultados](../README.md#resultados). |
+| 28-09-2026 | Las métricas se publican con sus salvedades: relevancia juzgada automáticamente por concepto, ventaja del híbrido atribuible al refuerzo por concepto (ablación: sin refuerzo 0,860 frente a 0,846 del vectorial, IC 95 % −0,012 a 0,042). | No sobrestimar los resultados. Detalle en [README.md#resultados](../README.md#resultados). |
 
 ## Abiertas
 
 - **Quién usaría el agente y dónde** (equipo interno, usuarios finales o análisis de mercado). Define la interfaz y el nivel de revisión que haría falta.
-- **Historial de precios:** `price_snapshots` y `menu_price_snapshots` crecen unos 40 MB por semana (112 MB tras 3 corridas, 30-09-2026) y `v_price_changes` tarda 0,4 s por reporte. Sin poda por ahora: revisar al pasar de 1 GB (unos 6 meses).
-- **Fallidos que quedan tras la recuperación** (49 grupos de tiendas y 408 restaurantes): revisar el reporte de calidad para separar cambios del sitio de sucursales dadas de baja.
+- **Historial de precios:** `price_snapshots` y `menu_price_snapshots` crecen unos 40 MB por semana (112 MB tras 3 corridas de precios de cada tipo, 30-09-2026) y `v_price_changes` tarda 0,4 s por reporte. Sin poda por ahora: revisar al pasar de 1 GB (unos 6 meses).
+- **Fallidos de cada descarga** (26 grupos de tiendas y 301 restaurantes el 29 y 30-09): revisar el reporte de calidad para separar cambios del sitio de sucursales dadas de baja.
+- **Turbo sin actualizar:** en la descarga del 29-09 ningún listado público recorrido traía sus tiendas como Turbo; sus precios son del 27-09. Revisar dónde las lista hoy Rappi.
+- **τ de Rappi Mall:** conserva 0,70; el reporte del 30-09 propone 0,82. Revisar antes de guardarlo que no vuelva la falsa alarma de «regalo para mi polola».
