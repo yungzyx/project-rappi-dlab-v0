@@ -5,9 +5,14 @@ on:
     branches: [main]
   pull_request:
 
+# Solo lee el repo: ningún job publica ni escribe en GitHub.
+permissions:
+  contents: read
+
 jobs:
   rappi-scraper:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: rappi-scraper
@@ -51,6 +56,7 @@ jobs:
 
   rappi-ia:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: rappi-ia
@@ -82,10 +88,11 @@ jobs:
           cache: pip
           cache-dependency-path: |
             rappi-ia/pyproject.toml
+            rappi-ia/requirements.lock.txt
             rappi-scraper/pyproject.toml
 
       - name: Instalar (sin extras de modelos)
-        run: python -m pip install -e ../rappi-scraper -e ".[api,dev]"
+        run: python -m pip install -c requirements.lock.txt -e ../rappi-scraper -e ".[api,dev]"  # mismas versiones que en el Mac
 
       - name: Lint
         run: |
@@ -97,6 +104,7 @@ jobs:
 
   prototipo-app:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: prototipo-app
@@ -117,6 +125,7 @@ jobs:
 
   dashboard-empresa:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: dashboard-empresa

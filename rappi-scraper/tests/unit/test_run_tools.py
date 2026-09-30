@@ -91,3 +91,34 @@ def test_refresh_command_exits_with_a_clear_message_on_a_block(monkeypatch):
     with pytest.raises(SystemExit, match="Descarga detenida: posible bloqueo") as exit_info:
         cli.cmd_refresh(None, Namespace(no_backup=True))
     assert exit_info.value.code != 0
+
+
+@pytest.mark.parametrize(
+    ("command", "kind", "processor"),
+    [
+        ("cmd_scrape_stores", "stores", "process_store_jobs"),
+        ("cmd_scrape_restaurants", "restaurants", "process_restaurant_jobs"),
+    ],
+)
+def test_manual_scrape_commands_leave_the_report_and_a_clear_message_on_a_block(monkeypatch, command, kind, processor):
+    """Lanzadas a mano, terminaban con una traza y sin el reporte con la alerta (refresh sí lo hacía)."""
+    reports = []
+
+    def blocked(*args, **kwargs):
+        raise PossibleBlock("posible bloqueo: 10 fallos consecutivos (último: 403)")
+
+    monkeypatch.setattr(cli, processor, blocked)
+    monkeypatch.setattr(cli, "RappiClient", lambda: None)
+    monkeypatch.setattr(cli.repository, "open_run", lambda conn, k: 7)
+
+    def finish_and_report(conn, run_id, kind, alert=None):
+        reports.append((run_id, kind, alert))
+        return {}, None
+
+    monkeypatch.setattr(cli, "finish_and_report", finish_and_report)
+    monkeypatch.setattr(cli, "render_markdown", lambda report: "")
+
+    args = Namespace(vertical=None, limit=None, max_aisles=None)
+    with pytest.raises(SystemExit, match="Descarga detenida: posible bloqueo"):
+        getattr(cli, command)(None, args)
+    assert reports == [(7, kind, "posible bloqueo: 10 fallos consecutivos (último: 403)")]

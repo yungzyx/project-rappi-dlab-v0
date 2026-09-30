@@ -87,6 +87,19 @@ def _finish_and_report(conn, run_id: int, kind: str) -> None:
     print(render_markdown(report))
 
 
+def _scrape_or_stop(conn, run_id: int, kind: str, process) -> None:
+    """Como `refresh`: ante un posible bloqueo deja el reporte con la alerta y un mensaje claro, no una traza."""
+    try:
+        process()
+    except PossibleBlock as exc:
+        report, _ = finish_and_report(conn, run_id, kind, alert=str(exc))
+        print(render_markdown(report))
+        raise SystemExit(
+            f"Descarga detenida: {exc}. La corrida quedó abierta: retómala con el mismo comando más tarde."
+        ) from exc
+    _finish_and_report(conn, run_id, kind)
+
+
 def cmd_refresh(conn, args) -> None:
     client = RappiClient()
     try:
@@ -114,16 +127,21 @@ def cmd_scrape_stores(conn, args) -> None:
     run_id = repository.open_run(conn, "stores")
     if run_id is None:
         raise SystemExit("No hay corrida de tiendas abierta: ejecuta primero `discover`.")
-    process_store_jobs(conn, RappiClient(), run_id, args.vertical, args.limit, args.max_aisles)
-    _finish_and_report(conn, run_id, "stores")
+    client = RappiClient()
+    _scrape_or_stop(
+        conn,
+        run_id,
+        "stores",
+        lambda: process_store_jobs(conn, client, run_id, args.vertical, args.limit, args.max_aisles),
+    )
 
 
 def cmd_scrape_restaurants(conn, args) -> None:
     run_id = repository.open_run(conn, "restaurants")
     if run_id is None:
         raise SystemExit("No hay corrida de restaurantes abierta: ejecuta `discover --verticals restaurantes`.")
-    process_restaurant_jobs(conn, RappiClient(), run_id, args.limit)
-    _finish_and_report(conn, run_id, "restaurants")
+    client = RappiClient()
+    _scrape_or_stop(conn, run_id, "restaurants", lambda: process_restaurant_jobs(conn, client, run_id, args.limit))
 
 
 def cmd_retry_failed(conn, args) -> None:
