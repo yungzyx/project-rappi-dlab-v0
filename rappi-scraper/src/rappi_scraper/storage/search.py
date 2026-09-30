@@ -77,7 +77,7 @@ JOIN catalog_items ci USING (master_product_id)
 LEFT JOIN categories c USING (category_id)
 CROSS JOIN LATERAL (SELECT concat_ws('. ', ci.name, 'Marca: ' || NULLIF(ci.trademark, ''),
                                      NULLIF(ci.presentation, ''), 'Categoría: ' || c.name,
-                                     NULLIF(NULLIF(ci.description, ''), ci.name)) AS content) d
+                                     NULLIF(NULLIF(clean_html(ci.description), ''), ci.name)) AS content) d
 LEFT JOIN prices p ON p.master_product_id = iv.master_product_id AND p.vertical = iv.vertical
 """
 
@@ -101,7 +101,8 @@ LEFT JOIN menu_sections ms ON ms.store_id = mi.store_id AND ms.section_id = mi.s
 LEFT JOIN LATERAL (SELECT string_agg(cuisine, ', ' ORDER BY cuisine) AS cocinas
                    FROM restaurant_cuisines rc WHERE rc.store_id = s.store_id) cu ON true
 LEFT JOIN latest mp ON mp.item_id = mi.item_id
-CROSS JOIN LATERAL (SELECT concat_ws('. ', mi.name, NULLIF(NULLIF(mi.description, ''), mi.name), 'Sección: ' || ms.name,
+CROSS JOIN LATERAL (SELECT concat_ws('. ', mi.name, NULLIF(NULLIF(clean_html(mi.description), ''), mi.name),
+                                     'Sección: ' || ms.name,
                                      'Restaurante: ' || s.name, 'Cocina: ' || cu.cocinas) AS content) d
 """
 

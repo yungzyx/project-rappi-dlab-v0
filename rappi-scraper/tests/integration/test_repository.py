@@ -270,3 +270,29 @@ def test_rebuilding_search_takes_the_documents_lock(db):
         db.rollback()
         other.rollback()
     assert build_search_documents(db)["catalog_item"] == 1
+
+
+def test_search_documents_carry_no_html_from_descriptions(db):
+    """~430 descripciones traen <p> y entidades (&iacute;, &nbsp;): entraban al índice, al vector y a Bigotes."""
+    _store(db, 1, "lider", "supermercado")
+    run = repository.start_run(db, "stores", {})
+    html = "<p>Prote&iacute;na neutra&nbsp;Nutri &amp; Co &#8211; 1&nbsp;kg</p><br/>"
+    repository.save_products(db, run, 1, [_product("a", 100, "Proteína Nutri", 9990, description=html)])
+    db.commit()
+    build_search_documents(db)
+
+    content = db.execute("SELECT content FROM search_documents WHERE entity_id = '100'").fetchone()[0]
+    assert content.endswith("Proteína neutra Nutri & Co – 1 kg")
+    assert "<" not in content and "&iacute;" not in content and "&nbsp;" not in content
+    assert search(db, "supermercado", "neutra")
+
+
+def test_clean_html_leaves_plain_text_untouched(db):
+    """Solo cambian las descripciones con HTML: si normalizara todo, miles de documentos cambiarían de hash y se
+    volverían a embeber sin motivo."""
+    plain = "Arroz grado 1.\nIdeal  para  guisos"
+    assert db.execute("SELECT clean_html(%s)", (plain,)).fetchone()[0] == plain
+    assert db.execute("SELECT clean_html('Salsa &amp;lt; picante')").fetchone()[0] == "Salsa &lt; picante"
+    assert db.execute("SELECT clean_html(%s)", ("un sueño <b>profundo</b>, sin ruido",)).fetchone()[0] == (
+        "un sueño profundo, sin ruido"
+    )
