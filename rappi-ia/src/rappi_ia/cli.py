@@ -138,6 +138,26 @@ def cmd_eval_sample(conn, args) -> None:
     print(f"{len(sample)} pares ({diff} donde el refuerzo cambia el top 10) en {judgments.SAMPLE_FILE}")
 
 
+def cmd_eval_human(conn, args) -> None:
+    import json
+
+    from .eval import judgments
+
+    if not judgments.JUDGMENTS_FILE.exists():
+        raise SystemExit(f"Todavía no hay juicios a mano ({judgments.JUDGMENTS_FILE} no existe).")
+    sample = json.loads(judgments.SAMPLE_FILE.read_text(encoding="utf-8"))["pares"]
+    given = json.loads(judgments.JUDGMENTS_FILE.read_text(encoding="utf-8"))["juicios"]
+    report = judgments.human_report(sample, given)
+    auto, bonus = report["juez_auto"], report["refuerzo"]
+    print(f"Pares juzgados: {report['juzgados']} de {len(sample)} (más {report['no_se']} «no sé»)")
+    print(
+        f"Juez automático vs juicio a mano: precisión {auto['precision']} · recall {auto['recall']}"
+        f" · acuerdo {auto['acuerdo']}"
+    )
+    for side, label in (("solo_con_refuerzo", "solo con refuerzo"), ("solo_sin_refuerzo", "solo sin refuerzo")):
+        print(f"Ítems que aparecen {label}: {bonus[side]['n']}, relevantes {bonus[side]['relevantes']}")
+
+
 def cmd_purge(conn, args) -> None:
     from .events.store import QUERY_RETENTION_DAYS, purge_old_queries
 
@@ -184,6 +204,7 @@ COMMANDS = {
     "search": cmd_search,
     "eval-search": cmd_eval_search,
     "eval-sample": cmd_eval_sample,
+    "eval-human": cmd_eval_human,
 }
 
 
@@ -218,6 +239,7 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--solo-lexico", action="store_true", help="sin modelo de embeddings")
     ev.add_argument("--guardar-tau", action="store_true", help="guarda los τ calibrados en eval/thresholds.json")
     sub.add_parser("eval-sample", help="muestra de ~200 pares (consulta, producto) para juzgar a mano")
+    sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano")
     synth = sub.add_parser("synth", help="genera usuarios y eventos SIMULADOS (source = synthetic)")
     synth.add_argument("--usuarios", type=int, default=1500)
     synth.add_argument("--semanas", type=int, default=20)

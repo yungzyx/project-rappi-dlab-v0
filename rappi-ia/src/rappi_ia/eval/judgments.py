@@ -13,6 +13,8 @@ from pathlib import Path
 from .search_eval import ABLATION, QueryRun
 
 SAMPLE_FILE = Path(__file__).resolve().parent / "judgments-sample.json"
+# Juicios a mano: {"juicios": {id de par: "relevante" | "no" | "nose"}}, copiados de la página de juicio.
+JUDGMENTS_FILE = Path(__file__).resolve().parent / "judgments.json"
 DIFF_PAIRS = 120
 RANDOM_PAIRS = 80
 
@@ -54,6 +56,32 @@ def build_sample(
     extra = rng.sample(rest, min(n_random, len(rest)))
     sample = [{**pairs[k], "origen": "diferencia"} for k in chosen] + [{**pairs[k], "origen": "al_azar"} for k in extra]
     return sorted(sample, key=lambda p: (p["vertical"], p["consulta"], p["id"]))
+
+
+def human_report(sample: list[dict], judgments: dict[str, str]) -> dict:
+    """Con los juicios a mano (`relevante`, `no`, `nose` por id de par): cuánto acierta el juez automático y si los
+    ítems que solo trae el refuerzo por concepto son relevantes más o menos seguido que los que solo trae sin él."""
+    judged = [(p, judgments[p["id"]] == "relevante") for p in sample if judgments.get(p["id"]) in ("relevante", "no")]
+    tp = sum(p["relevante_auto"] and human for p, human in judged)
+    fp = sum(p["relevante_auto"] and not human for p, human in judged)
+    fn = sum(not p["relevante_auto"] and human for p, human in judged)
+    tn = sum(not p["relevante_auto"] and not human for p, human in judged)
+
+    def share(rows: list[bool]) -> dict:
+        return {"n": len(rows), "relevantes": round(sum(rows) / len(rows), 3) if rows else None}
+
+    with_bonus = [human for p, human in judged if "hibrido" in p["modos"] and ABLATION not in p["modos"]]
+    without_bonus = [human for p, human in judged if ABLATION in p["modos"] and "hibrido" not in p["modos"]]
+    return {
+        "juzgados": len(judged),
+        "no_se": sum(judgments.get(p["id"]) == "nose" for p in sample),
+        "juez_auto": {
+            "precision": round(tp / (tp + fp), 3) if tp + fp else None,
+            "recall": round(tp / (tp + fn), 3) if tp + fn else None,
+            "acuerdo": round((tp + tn) / len(judged), 3) if judged else None,
+        },
+        "refuerzo": {"solo_con_refuerzo": share(with_bonus), "solo_sin_refuerzo": share(without_bonus)},
+    }
 
 
 def save_sample(sample: list[dict], path: Path = SAMPLE_FILE) -> None:

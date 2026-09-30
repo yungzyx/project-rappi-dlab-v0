@@ -85,7 +85,7 @@ Cifras verificadas el 28-09-2026 sobre la base completa. Cada una indica qué ti
 | Capa 2 | Precisión de la asignación | ≈88% por categoría · ≈81% platos · 55% reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
 | Búsqueda | nDCG@10 | híbrido 0,902 · sin refuerzo por concepto 0,852 · vectorial 0,845 · léxico 0,772 | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 29-09) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,76 (31 de 41) | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 29-09) |
-| Calidad | Tests (pytest / Vitest) | scraper 94 · rappi-ia 162 · prototipo 108 · panel 80 | Verificación local, 29-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) |
+| Calidad | Tests (pytest / Vitest) | scraper 94 · rappi-ia 169 · prototipo 108 · panel 80 | Verificación local, 29-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) |
 | Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); nueva revisión de los cambios del 28-09 | Proceso | — |
 | Panel | Usuarios, eventos y pedidos | 1.500 usuarios × 20 semanas (semilla 7) | **Simulado** | `rappi-ia/src/rappi_ia/events/synth.py` |
 
@@ -254,7 +254,7 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 **Siguiente**
 
 1. Mejorar la regla de «sin resultado» (las 10 negativas no detectadas nombran un concepto que el vertical sí tiene o calzan por casualidad).
-2. Sumar juicio humano, para saber si el refuerzo por concepto mejora de verdad (sin él, el híbrido empata con el vectorial).
+2. Juzgar a mano la muestra de 200 pares (`rappi-ia eval-sample`, ya armada), para saber si el refuerzo por concepto mejora de verdad (sin él, el híbrido empata con el vectorial) y cuánto se equivoca el juez automático (`rappi-ia eval-human`).
 3. Etiquetar los ítems de baja confianza de la capa 2.
 4. Revisar las cadenas de restaurantes sin menú.
 

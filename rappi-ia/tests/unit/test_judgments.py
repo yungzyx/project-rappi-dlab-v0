@@ -1,4 +1,4 @@
-from rappi_ia.eval.judgments import build_sample
+from rappi_ia.eval.judgments import build_sample, human_report
 from rappi_ia.eval.search_eval import ABLATION, QueryRun
 
 
@@ -53,3 +53,34 @@ def test_sample_is_reproducible_and_grouped_by_query():
     assert first == build_sample(RUNS, n_diff=1, n_random=2, seed=3)
     queries = [p["consulta"] for p in first]
     assert queries == sorted(queries)  # juzgar una consulta de corrido es más rápido
+
+
+def _pair(pid, auto, modes):
+    return {"id": pid, "relevante_auto": auto, "modos": modes, "origen": "diferencia"}
+
+
+def test_human_report_measures_the_automatic_judge_and_the_concept_bonus():
+    sample = [
+        _pair("a", True, ["hibrido"]),  # solo con refuerzo
+        _pair("b", True, ["hibrido"]),
+        _pair("c", False, [ABLATION]),  # solo sin refuerzo
+        _pair("d", False, [ABLATION]),
+        _pair("e", True, ["hibrido", ABLATION, "vector"]),
+    ]
+    judgments = {"a": "relevante", "b": "no", "c": "relevante", "d": "relevante", "e": "nose"}
+
+    report = human_report(sample, judgments)
+
+    assert report["juzgados"] == 4 and report["no_se"] == 1
+    # Juez automático: marcó a y b relevantes (acertó 1 de 2) y se perdió c y d.
+    assert report["juez_auto"] == {"precision": 0.5, "recall": 0.333, "acuerdo": 0.25}
+    assert report["refuerzo"] == {
+        "solo_con_refuerzo": {"n": 2, "relevantes": 0.5},
+        "solo_sin_refuerzo": {"n": 2, "relevantes": 1.0},
+    }
+
+
+def test_human_report_without_judgments_is_empty_not_an_error():
+    report = human_report([_pair("a", True, ["hibrido"])], {})
+    assert report["juzgados"] == 0
+    assert report["juez_auto"] == {"precision": None, "recall": None, "acuerdo": None}
