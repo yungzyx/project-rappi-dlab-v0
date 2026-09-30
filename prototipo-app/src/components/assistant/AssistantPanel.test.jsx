@@ -103,6 +103,7 @@ async function renderPanel() {
       </ProfileProvider>
     </DemoProvider>,
   )
+  screen.getByText('abrir').focus() // como al tocarlo: el foco queda en quien abrió el asistente
   fireEvent.click(screen.getByText('abrir'))
   await runUntilIdle()
 }
@@ -148,6 +149,39 @@ describe('chat en orden', () => {
     const texts = bubbles()
     expect(texts).toContain('Respuesta A')
     expect(texts.indexOf('Respuesta A')).toBeLessThan(texts.indexOf('Respuesta B'))
+  })
+})
+
+describe('teclado y lector de pantalla', () => {
+  test('al abrir, el foco entra al chat; Escape lo cierra y el foco vuelve a quien lo abrió', async () => {
+    await renderPanel()
+    expect(document.activeElement).toBe(screen.getByPlaceholderText('Escríbele a Bigotes…'))
+
+    fireEvent.keyDown(document.activeElement, { key: 'Escape' })
+    await runUntilIdle()
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByText('abrir'))
+  })
+
+  test('Tab no se sale del asistente', async () => {
+    await renderPanel()
+    const dialog = screen.getByRole('dialog')
+    const focusable = dialog.querySelectorAll('button:not([disabled]), input:not([disabled]):not([hidden])')
+    focusable[focusable.length - 1].focus()
+
+    fireEvent.keyDown(document.activeElement, { key: 'Tab' })
+
+    expect(document.activeElement).toBe(focusable[0])
+  })
+
+  test('cada respuesta completa se anuncia una vez al lector de pantalla', async () => {
+    api.health.mockResolvedValue(null)
+    await renderPanel()
+    say('cerveza')
+    await runUntilIdle()
+
+    expect(screen.getByTestId('assistant-announcer').textContent).toMatch(/cerveza/i)
   })
 })
 
