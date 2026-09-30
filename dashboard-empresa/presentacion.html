@@ -152,7 +152,7 @@
           <img
             src="/presentacion/flujo-de-datos.png"
             width="2000"
-            height="1073"
+            height="1037"
             alt="Flujo de datos: rappi.cl, rappi refresh, catálogo y documentos de búsqueda en Postgres, conceptos, embeddings y evaluación, búsqueda híbrida y agente Bigotes, API, prototipo y panel"
             loading="lazy"
           />
@@ -161,33 +161,34 @@
 
       <!-- Resultados: números como titulares, cada uno con su tipo de dato -->
       <section id="resultados" class="container">
-        <h2 class="section-title">Resultados al 28 de septiembre de 2026</h2>
+        <h2 class="section-title">Resultados al 30 de septiembre de 2026</h2>
         <dl class="figures">
           <div>
             <dt>Documentos de búsqueda</dt>
-            <dd>240.200</dd>
-            <p>83.108 productos, 153.136 platos y 3.956 tiendas, todos con embedding. Catálogo público real.</p>
+            <dd>270.607</dd>
+            <p>93.823 productos, 172.278 platos y 4.506 tiendas, todos con embedding. Catálogo público real, actualizado cada semana.</p>
           </div>
           <div>
             <dt>Calidad del orden de resultados (nDCG@10)</dt>
-            <dd>0,889</dd>
-            <p>Búsqueda híbrida, frente a 0,825 solo vectorial y 0,744 solo por palabras. 96 consultas en 6 verticales.</p>
+            <dd>0,910</dd>
+            <p>Búsqueda híbrida, frente a 0,846 solo vectorial y 0,778 solo por palabras. 124 consultas en los 8 verticales.</p>
           </div>
           <div>
             <dt>Ítems con concepto asignado</dt>
-            <dd>97 a 100%</dd>
-            <p>Según el vertical. La precisión de la asignación se estima en 88% por categoría, con jueces automáticos.</p>
+            <dd>97 a 100 %</dd>
+            <p>Según el vertical. La precisión de la asignación se estima en 88 % por categoría, con jueces automáticos.</p>
           </div>
           <div>
             <dt>Tests automáticos</dt>
-            <dd>402</dd>
-            <p>Scraper 83, capa de IA 137, prototipo 106 y panel 76, con integración continua en cada cambio.</p>
+            <dd>490</dd>
+            <p>Scraper 104, capa de IA 189, prototipo 117 y panel 80, con integración continua en cada cambio.</p>
           </div>
         </dl>
         <p class="figures-note">
           Lo que no es evidencia: los indicadores del panel salen de usuarios simulados y muestran la mecánica. La
-          evaluación de búsqueda juzga la relevancia automáticamente por concepto, así que la ventaja del modo
-          híbrido está sobreestimada. Farmacia y Turbo aún no entran en la evaluación.
+          evaluación de búsqueda juzga la relevancia automáticamente por concepto, y el modo híbrido refuerza ese mismo
+          concepto: sin el refuerzo obtiene 0,860, una diferencia con el vectorial que no es concluyente. Falta un juicio
+          humano.
         </p>
       </section>
 

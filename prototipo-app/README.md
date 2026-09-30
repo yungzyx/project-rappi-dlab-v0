@@ -7,7 +7,7 @@ Maqueta navegable de la app de Rappi Chile, hecha a partir de capturas y videos 
 Hecho con Vite + React 19. Funciona de dos maneras:
 
 - **Sin backend (modo local):** todo corre en el navegador. Bigotes responde con reglas locales sobre los datos del prototipo; la voz y el análisis de la foto son simulados.
-- **Con la API de [`rappi-ia`](../rappi-ia/):** Bigotes busca en el catálogo real, transcribe la voz con Whisper y reconoce fotos con CLIP. Si la API no responde, la app vuelve sola al modo local, sin avisos ni errores.
+- **Con la API de [`rappi-ia`](../rappi-ia/):** Bigotes busca en el catálogo real, transcribe la voz con Whisper y reconoce fotos con CLIP. Si la API no responde o tarda más de 8 s, contestan las reglas locales y la burbuja lo marca con «Respuesta local».
 
 ![Modo demo: la misma app en «Propuesta» y en «Rappi hoy» (modo local)](docs/screenshots/00-modo-demo.jpg)
 
@@ -15,20 +15,20 @@ Hecho con Vite + React 19. Funciona de dos maneras:
 
 ## Cómo correrlo
 
-Desde la raíz del repositorio:
+Requiere Node 22.22+ o 24.15+ (ver `.nvmrc` en la raíz). Desde la raíz del repositorio:
 
 ```bash
 cd prototipo-app
 npm ci
 npm run dev              # http://localhost:5174
-npm run dev -- --host    # para abrirlo en el iPhone (misma red WiFi)
+npm run dev -- --host    # para abrirlo en el iPhone (misma red wifi o su hotspot)
 ```
 
 En el iPhone, desde Safari: **Compartir → Agregar a pantalla de inicio**. Se abre a pantalla completa con el ícono de Bigotes y el gesto "volver" funciona.
 
 ### Con la API de `rappi-ia`
 
-Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000), Bigotes deja de ser un conjunto de reglas:
+Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000; carga los modelos antes de aceptar peticiones, así que conviene abrir el prototipo después de «Application startup complete»), Bigotes deja de ser un conjunto de reglas:
 
 - busca en el **catálogo real** con búsqueda híbrida por vertical, con precios vigentes;
 - sugiere un complemento **de otra tienda** en un bloque aparte;
@@ -41,21 +41,24 @@ Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000), Bigotes de
 
 *Con la API de rappi-ia: cervezas del catálogo real bajo $3.000 y, en un bloque aparte, snacks de otra tienda.*
 
-- **Otra dirección:** para apuntar a otra API, crea `.env.local` con `VITE_API_URL=http://localhost:8001`.
-- **Desde el iPhone:** en la red local, arranca la API con `make serve-lan` (abre la API a la red; solo en una red de confianza). macOS pedirá permiso de red la primera vez.
+- **Dónde busca la API:** en el mismo host desde el que se abrió la página, puerto 8000; desde el iPhone no hace falta configurar nada. Para apuntar a otra API, crea `.env.local` con `VITE_API_URL=http://localhost:8001`.
+- **Desde el iPhone:** arranca la API con `make serve-lan` (abre la API a la red; solo en una red de confianza). Sirve en la wifi de casa, con el hotspot del iPhone y con `http://nombre-del-mac.local:5174`. macOS pedirá permiso de red la primera vez.
 
 ### Comandos
 
 | Comando | Para qué |
 |---|---|
-| `npm run test` | Tests (Vitest): Bigotes, buscador, carrito, perfil, navegación, precios, seguimiento, cliente de la API |
-| `npm run lint` | ESLint (reglas de hooks de React) |
+| `npm test` | Tests (Vitest): Bigotes, buscador, carrito, perfil, navegación, precios, seguimiento, cliente de la API, accesibilidad del asistente |
+| `npm run lint` | ESLint (reglas de React Hooks) |
+| `npm run format` | Formato con Prettier |
 | `npm run build` | Build de producción en `dist/` |
 | `npm run screenshots` | Regenera las capturas de este README en modo local (usa el Chrome instalado) |
 | `./scripts/export-menus.sh` | Exporta los menús reales desde Postgres a `src/data/generated/menus.json` (fuera de git) |
 | `./scripts/make-icons.sh` | Regenera los íconos de pantalla de inicio desde `scripts/icon.svg` |
 
-Tests: 106 (Vitest). CI en GitHub Actions: lint, tests y build.
+Tests: 117 (Vitest, 30-09-2026). CI en GitHub Actions: lint, tests y build.
+
+**Accesibilidad:** el asistente y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), y cada respuesta de Bigotes se anuncia completa al lector de pantalla.
 
 ## Modo demo: Rappi hoy vs. Propuesta
 

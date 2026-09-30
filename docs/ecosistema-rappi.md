@@ -27,7 +27,7 @@
 | **Rappi Travel** | Vuelos, hoteles, autos, seguros, tours | Activo (travel.rappi.cl) | [chocale.cl, feb-2022](https://chocale.cl/2022/02/rappi-travel-venta-vuelos-hoteles/) |
 | **RappiFavor / Antojo** | "Compra o lleva lo que sea" | Probablemente activo; no confirmado para 2025–26 | rappi.cl/p/rappifavor |
 | **Retiro en tienda** | Pickup activable por el comercio | Activo | [merchants.rappi.com](https://merchants.rappi.com/es-cl/recoger-en-tienda) |
-| **Rappi Ads** | Retail media: anuncios en la app, audiencias, clean rooms; campañas desde el Portal Partners | Activo para comercios en Chile | [produ.com, oct-2025](https://www.produ.com); merchants.rappi.com/es-cl |
+| **Rappi Ads** | Retail media: anuncios en la app, audiencias, clean rooms; campañas desde el Portal Partners | Activo para comercios en Chile | produ.com, oct-2025; merchants.rappi.com/es-cl |
 | **Portal Partners / Rappi Aliados** | Gestión de menú/catálogo, promociones, Ads, reportes, "RappiScore" (calidad) y métricas operativas | Activo | merchants.rappi.com/es-cl |
 | **Promociones bancarias y de partners** | Descuentos mensuales con bancos (p. ej. Banco de Chile), cross-promo con Cabify | Activas 2025 | promos.rappi.com/chile |
 | **RappiCard (Itaú)** | Tarjeta de crédito con cashback | **Descontinuada** (sin nuevas tarjetas desde dic-2024; cashback terminó ene-2025) | T13, 27-dic-2024 |
@@ -96,7 +96,7 @@ erDiagram
 
 `verticals`, `brands`, `stores`, `store_verticals`, `aisles`, `categories`, `catalog_items`, `store_products`, `price_snapshots`, restaurantes y menús (`restaurant_details`, `cuisines`, `menu_sections`, `menu_items`, `menu_price_snapshots`), `search_documents` particionado por vertical.
 
-Con la primera descarga completa (24–27-09-2026, más la recuperación de fallidos del 28-09-2026): 83.108 productos únicos, 153.136 platos de 3.139 restaurantes y 240.200 documentos de búsqueda. Detalle por vertical en [README → Resultados](../README.md#resultados).
+Con el catálogo del 30-09-2026 (primera descarga semanal automática): 93.823 productos únicos, 172.278 platos y 4.506 tiendas, en 270.607 documentos de búsqueda. Detalle por vertical en [README → Resultados](../README.md#resultados).
 
 ### Capa 2: conceptos y trazabilidad (construida, `rappi-ia`)
 
@@ -105,13 +105,13 @@ Se llena solo con datos públicos.
 | Pieza | Qué agrega | Para qué |
 |---|---|---|
 | **`concepts`** (taxonomía común) | Árbol propio y estable de 132 conceptos ("lácteos > yogur", "comida > pizza"), enlazable después a Google Product Taxonomy | Análisis entre verticales que no dependa de cómo cada tienda nombra sus pasillos |
-| **`category_map`** | Categorías, secciones de menú y cocinas de Rappi → concepto, con fecha de vigencia (824 categorías mapeadas) | Las categorías de Rappi cambian; el concepto no |
+| **`category_map`** | Categorías, secciones de menú y cocinas de Rappi → concepto, con fecha de vigencia (las categorías nuevas de cada semana se exportan con `rappi-ia map-categories` para revisarlas) | Las categorías de Rappi cambian; el concepto no |
 | **`item_concepts`** | Un concepto principal por producto o plato | Un plato y un producto del súper se conectan al compartir concepto (pizza ↔ pizza congelada). Reemplaza a la idea inicial de una tabla de platos estándar |
 | **`concept_edges`** | Complementos entre conceptos: 101 curados, más los aprendidos por co-ocurrencia | La recomendación cruzada: cerveza → snacks |
 | **Trazabilidad** en todo dato inferido | `method` (`curado`, `llm`, `regla`, `embedding`; en complementos, `curado` o `coocurrencia`; ver [diseno-ia.md](diseno-ia.md#6-modelo-de-datos-nuevo)), `model_version`, `confidence` y fecha | Poder auditar y rehacer lo que generen modelos o reglas |
 | **Geografía H3** | `h3_cell` (y comuna) en `stores` | **Pendiente:** análisis por zona y, más adelante, cobertura de despacho |
 
-Las etiquetas se generan offline, siempre con trazabilidad: primero por categoría (mapa de categorías generado con LLM y versionado en el repositorio), luego por reglas sobre el nombre y por vecinos cercanos con embeddings (kNN). Es el "enriquecimiento del catálogo" del flujo del RAG. La cobertura con concepto va del 96,7% (farmacia) al 100% según el vertical; cobertura y precisión estimada en [README → Resultados](../README.md#resultados).
+Las etiquetas se generan offline, siempre con trazabilidad: primero por categoría (mapa de categorías generado con LLM y versionado en el repositorio), luego por reglas sobre el nombre y por vecinos cercanos con embeddings (kNN). Es el "enriquecimiento del catálogo" del flujo del RAG. Cobertura por vertical y precisión estimada en [README → Resultados](../README.md#resultados).
 
 ### Capa 3: datos internos (diseño; usuarios, eventos y pedidos con datos simulados)
 
@@ -149,7 +149,7 @@ Este proyecto trabaja solo con el contenido público de Rappi Chile. Otras apps 
 ## 5. Próximos pasos
 
 1. **Mejorar la capa 2:** etiquetar con un LLM (o con Jev, el modelo de juicios tipados de TypeSafe) los ítems de baja confianza, revisar a mano los de mayor tráfico y repetir la medición de precisión sobre el catálogo completo, con una muestra guardada en el repositorio.
-2. **Evaluación de búsqueda:** sumar farmacia y Turbo al set y renovar las consultas negativas.
+2. **Evaluación de búsqueda:** juzgar a mano la muestra de 200 pares, para saber si el refuerzo por concepto mejora de verdad.
 3. **Geografía H3** en `stores`, cuando una vista la necesite.
 4. **Con datos internos de Rappi:** medir el silo y validar las palancas del panel con un grupo de control.
 

@@ -10,7 +10,7 @@ Versión interactiva: [rag-datos.html](../docs/diagramas/rag-datos.html). Vista 
 
 | Pieza | Qué hace | Dónde |
 |---|---|---|
-| Conceptos (capa 2) | Cada producto y plato → un concepto, con procedencia: categoría (mapa de 824 categorías generado con LLM: dos etiquetadores trabajan por separado y un juez decide cuando no coinciden; 12 ajustes a mano; versionado en `category_map.csv`), reglas por palabra o vecinos cercanos (kNN) | `concepts/` |
+| Conceptos (capa 2) | Cada producto y plato → un concepto, con procedencia: categoría (mapa de 757 categorías revisadas, generado con LLM: dos etiquetadores trabajan por separado y un juez decide cuando no coinciden; 12 ajustes a mano; versionado en `category_map.csv`), reglas por palabra o vecinos cercanos (kNN) | `concepts/` |
 | Embeddings | Texto con `intfloat/multilingual-e5-base` (768 dim, caché por contenido, índice HNSW por vertical); imágenes con CLIP; voz con Whisper → texto | `embeddings/`, `agent/audio.py` |
 | Búsqueda híbrida | Léxico (sin tildes ni ñ, IDF) + vectorial → RRF → refuerzo por concepto, con filtros dentro de cada lista y regla de "sin resultado" | `retrieval/hybrid.py` |
 | Bigotes | Entender → buscar → sugerir un complemento de otro vertical → redactar (plantillas o Claude) → verificar | `agent/` |
@@ -28,7 +28,7 @@ make db-test      # base rappi_ia_test (los tests no tocan rappi ni rappi_test)
 make migrate
 ```
 
-Las versiones de las librerías están fijadas en `requirements.lock.txt` (las del equipo que calculó los embeddings de la base): `make install` e `install-ml` no instalan otras. Un job de CI semanal (`.github/workflows/modelos-semanal.yml`) instala los modelos con esas versiones y comprueba que e5 embebe. Los modelos (~2 GB) se descargan de Hugging Face la primera vez que se usan. Para que Claude redacte las respuestas, agrega `ANTHROPIC_API_KEY` en `.env`; sin clave, Bigotes responde con plantillas y las mismas reglas. Otras variables en `.env.example`.
+Las versiones de las librerías están fijadas en `requirements.lock.txt` (las del equipo que calculó los embeddings de la base): `make install` e `install-ml` no instalan otras. Un job de CI semanal (`.github/workflows/modelos-semanal.yml`) instala los modelos con esas versiones y comprueba que e5 embebe. Los modelos (~2 GB) se descargan de Hugging Face la primera vez que se usan. La API los carga al arrancar: hay que esperar a «Application startup complete» (con los modelos ya en caché, `make serve` arranca sin consultar Hugging Face; `RAPPI_IA_LIGHT=1` arranca sin modelos). Para que Claude redacte las respuestas, agrega `ANTHROPIC_API_KEY` en `.env`; sin clave, Bigotes responde con plantillas y las mismas reglas. Otras variables en `.env.example`.
 
 ## Correr
 
@@ -45,11 +45,11 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 |---|---|
 | `make concepts` | Capa 2: conceptos por producto y plato (con kNN si está el extra `ml`) |
 | `make embed` | Embeddings de texto (incrementales) + índices HNSW por vertical. No corre si hay una descarga del scraper en curso |
-| `make eval` | Evalúa la búsqueda (léxico vs vectorial vs híbrido), recalibra τ (`src/rappi_ia/eval/thresholds.json`) y deja el reporte en `data/eval/busqueda.md` |
+| `make eval` | Evalúa la búsqueda (léxico, vectorial, híbrido y ablación sin refuerzo), guarda τ en `src/rappi_ia/eval/thresholds.json` (solo en verticales con negativas que dependen de τ; los demás conservan el suyo; `make eval EVAL_ARGS=` no guarda) y deja el reporte en `data/eval/busqueda.md` |
 | `make synth` | Usuarios y eventos **simulados** para el panel (1.500 usuarios × 20 semanas, semilla 7; reemplaza los anteriores) |
 | `make purge` | Borra el texto de las consultas con más de 90 días |
 | `make analytics` | Resumen de métricas del panel en la terminal |
-| `make images` | Fotos del catálogo con CLIP (miles de descargas: correr con el scraper detenido) |
+| `make images` | Fotos del catálogo con CLIP (miles de descargas). Toma el candado del scraper: no arranca con una descarga en curso |
 | `make serve` / `make serve-lan` | API local / abierta a la red local (ver Seguridad) |
 | `make test`, `make lint`, `make format` | Tests, revisión de estilo y formato |
 
@@ -57,27 +57,31 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 
 - `rappi-ia search "algo para el carrete" --vertical licores`
 - `rappi-ia concepts --solo-reporte`: cobertura sin recalcular; también lista las categorías sin mapeo revisado (las nuevas de cada semana).
-- `rappi-ia eval-sample`: arma la muestra de 200 pares (consulta, producto) para juzgar a mano (`src/rappi_ia/eval/judgments-sample.json`, con semilla fija): 120 donde el híbrido con y sin refuerzo por concepto difieren en el top 10 y 80 al azar. Se juzga a ciegas en una página privada; los juicios se copian a `src/rappi_ia/eval/judgments.json`.
+- `rappi-ia map-categories`: exporta las categorías sin mapeo revisado a `data/concepts/categorias-sin-mapear.csv`, con el formato de `category_map.csv` y un concepto sugerido cuando al menos la mitad de sus productos ya lo tiene (reglas o kNN). Se revisa cada fila, se cambia el método a «curado» y se copia al mapa versionado.
+- `rappi-ia eval-sample`: arma la muestra de 200 pares (consulta, producto) para juzgar a mano (`src/rappi_ia/eval/judgments-sample.json`, con semilla fija): 120 donde el híbrido con y sin refuerzo por concepto difieren en el top 10 y 80 al azar. Se juzga a ciegas en una página privada del autor (sin mostrar el juez automático ni el modo); los juicios se copian a `src/rappi_ia/eval/judgments.json`, que todavía no existe.
 - `rappi-ia eval-human`: con esos juicios, cuánto acierta el juez automático (precisión, recall, acuerdo) y si los ítems que solo trae el refuerzo son relevantes más o menos seguido que los que solo trae sin él.
-- `rappi-ia map-categories`: exporta esas categorías a `data/concepts/categorias-sin-mapear.csv`, con el formato de `category_map.csv` y un concepto sugerido cuando al menos la mitad de sus productos ya lo tiene (reglas o kNN). Se revisa cada fila, se cambia el método a «curado» y se copia al mapa versionado.
-- `rappi-ia embed-images --limit 50 --forzar`: una tanda chica de imágenes. **No** correrlo en masa mientras el scraper descarga.
+- `rappi-ia embed-images --limit 50 --forzar`: una tanda chica de imágenes; `--forzar` se salta el candado del scraper y es solo para pruebas.
 
 ## API (`make serve` → http://localhost:8000/docs)
 
 | Endpoint | Para qué |
 |---|---|
-| `POST /chat` | Bigotes: `{message, vertical?, user_id?, session_id?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
-| `POST /chat/voice`, `POST /chat/photo` | Voz (Whisper, audio ≤ 20 s) y foto (JPEG/PNG/WebP). No se guardan |
+| `GET /health` | Capacidades disponibles (búsqueda semántica, voz, fotos, redacción) y documentos indexados |
+| `POST /chat` | Bigotes: `{message, vertical?, user_id?, session_id?, profile?, shown_topics?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
+| `POST /chat/voice`, `POST /chat/photo` | Voz (Whisper, audio ≤ 20 s medido al decodificar) y foto (JPEG/PNG/WebP), con `shown_topics` (ids separados por coma). No se guardan |
 | `GET /search` | Búsqueda híbrida en un vertical, con precios vigentes |
 | `GET /recommendations` | "Para ti, de otras tiendas": intereses → complementos → otro vertical |
 | `GET /profile/{id}` · `DELETE /profile/{id}` | Lo aprendido (sin sensibles) · "Olvidar" (todo o un concepto) |
 | `POST /events` · `POST /orders` | Eventos y pedidos del prototipo (`source = prototype`). Un pedido sin vertical del catálogo es un 400 |
 | `POST /events/beacon` | Lo que queda en cola al cerrar la pestaña (`sendBeacon`, text/plain: sin preflight de CORS) |
 | `GET /analytics/{kpis, weekly, opportunities, trends, funnel, cohorts, rhythm, at-risk, suggestions, multi-vertical, affinity, assortment, catalog}` | Métricas del panel |
+| `GET /concepts` | Taxonomía de conceptos (id, nombre, emoji, grupo y si es sensible) con su versión |
 
 **Seguridad.** Es una demo local y **no tiene autenticación**:
 - **Por defecto:** `make serve` escucha solo en el equipo local (`127.0.0.1`).
 - **Para el iPhone:** `make serve-lan` abre la API a la red local. Solo en una red de confianza.
+- **CORS:** por defecto solo acepta `localhost` y `127.0.0.1` en los puertos 51xx; con `serve-lan`, también 192.168/16, 10/8, 172.16/12 (el hotspot del iPhone) y nombres `.local`.
+- **Tiempos:** Claude tiene 6 s (si no, responde la plantilla); la conexión a Postgres, 3 s, y cada consulta, 20 s. Con la base caída, la API responde 503.
 
 **Privacidad:**
 - **Datos personales en consultas:** se redactan antes de guardarlas (RUT con dígito verificador, teléfonos, correos, direcciones y tarjetas) y el texto se borra a los 90 días (`make purge`).
@@ -87,9 +91,9 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 
 ## Resultados
 
-Medidos el 28-09-2026 sobre el catálogo completo. Resumen del proyecto en [README.md#resultados](../README.md#resultados).
+Con el catálogo del 30-09-2026 (primera descarga semanal automática). Resumen del proyecto en [README.md#resultados](../README.md#resultados) y reporte completo en [docs/resultados/](../docs/resultados/).
 
-**Catálogo indexado.** 240.200 documentos de búsqueda (83.108 productos, 153.136 platos y 3.956 tiendas), 100% con embedding.
+**Catálogo indexado.** 270.607 documentos de búsqueda (93.823 productos, 172.278 platos y 4.506 tiendas), 100 % con embedding.
 
 ### Búsqueda
 
@@ -126,47 +130,48 @@ Sin el refuerzo, el híbrido no se distingue del vectorial: consulta por consult
 - **Regla:** es un "sin resultado" cuando nada calza todas las palabras y, además, se cumple la condición que corresponda:
   - si la consulta nombra un concepto, ese concepto no tiene surtido real en el vertical;
   - si no nombra ninguno, el coseno queda bajo τ.
+- **Por qué no se detectan 12:** 5 nombran un concepto que el vertical sí tiene, 4 calzan por casualidad con la regla léxica estricta y 3 quedan sobre τ.
 - **Set anterior (28-09):** recall 0,33 (5 de 15), porque parte de las negativas quedó desactualizada con el catálogo completo: "kebab mixto" (16 platos) y "comida mexicana con tacos" sí existen. Se reemplazaron el 29-09.
 - **Coincidencias casuales:** "pizza familiar" encuentra un horno para pizza en Mall y "neumáticos" un renovador de neumáticos en conveniencia. Es un límite real de la regla léxica estricta.
 - **Límite conocido:** un iPhone en el súper no cuenta como "sin resultado", porque hay accesorios del mismo concepto (celulares).
 
 **Salvedades:**
 
-- **Ventaja del híbrido sobreestimada:** el híbrido recibe un refuerzo por concepto, y la relevancia se juzga con ese mismo concepto.
-- **Juez automático:** la relevancia depende de la asignación de conceptos, cuya precisión es una estimación (ver abajo). No hay juicio humano.
+- **Refuerzo por concepto:** el híbrido recibe un refuerzo por el mismo concepto con que se juzga la relevancia; sin él, empata con el vectorial (0,860 frente a 0,846).
+- **Juez automático:** la relevancia depende de la asignación de conceptos, cuya precisión es una estimación (ver abajo). No hay juicio humano todavía: la muestra ya está armada (`eval-sample`) y faltan los juicios.
 - **Set chico:** 124 consultas positivas, con pocas por vertical (7 en chocolatería).
 - **Antes (27-09, datos parciales):** híbrido nDCG@10 0,898; "sin resultado" con precisión 0,91 y recall 0,67.
 
 ### Conceptos (capa 2)
 
-Corrida del 28-09-2026: 132 conceptos, 101 complementos curados y 824 categorías mapeadas.
+Corrida del 30-09-2026: 132 conceptos, 101 complementos curados, 757 categorías con mapeo revisado y 131 nuevas por revisar (`map-categories`).
 
 | Vertical | Con concepto |
 |---|---|
-| Restaurantes | 97,9% |
-| Mall | 97,7% |
-| Supermercado | 99,1% |
-| Conveniencia | 99,8% |
-| Licores | 100% |
-| Farmacia | 96,7% |
-| Turbo | 100% |
-| Chocolatería | 100% |
+| Restaurantes | 97,9 % |
+| Mall | 98,1 % |
+| Supermercado | 99,1 % |
+| Conveniencia | 99,8 % |
+| Licores | 100 % |
+| Farmacia | 97,1 % |
+| Turbo | 100 % |
+| Chocolatería | 100 % |
 
 **Precisión de la asignación (estimación).** Se midió con jueces LLM sobre los datos parciales del 27-09; la muestra no está versionada, así que la cifra no se puede reproducir tal cual.
 
 | Tipo de asignación | Precisión estimada |
 |---|---|
-| Por categoría | ≈ 88% |
-| Platos | ≈ 81% |
-| Reglas por nombre | 55%: la parte más débil |
+| Por categoría | ≈ 88 % |
+| Platos | ≈ 81 % |
+| Reglas por nombre | 55 %: la parte más débil |
 
 - **kNN:** en esa medición corrigió ítems puntuales, pero no subió la precisión global.
 - **Siguiente mejora:** etiquetar con un LLM los ítems de baja confianza, revisar a mano los de mayor tráfico y versionar la muestra.
 
 ### Calidad
 
-- **Revisión:** 3 rondas de revisión adversarial automatizada (agentes de IA especializados en lógica, seguridad y privacidad, frontend, rendimiento y contratos entre piezas) el 27-09-2026: 66 hallazgos confirmados y corregidos, con tests de regresión. El 28-09 hubo otra revisión adversarial de los cambios del día.
-- **Tests:** 137 (pytest), contra la base `rappi_ia_test`. CI en GitHub Actions (`.github/workflows/ci.yml`) con Postgres + pgvector.
+- **Revisión:** 3 rondas de revisión adversarial automatizada (agentes de IA especializados en lógica, seguridad y privacidad, frontend, rendimiento y contratos entre piezas) el 27-09-2026: 66 hallazgos confirmados y corregidos, con tests de regresión. El 28-09 hubo una auditoría, cuyos 4 bloques de mejoras se aplicaron el 29 y 30-09 (ver [docs/decisiones.md](../docs/decisiones.md)).
+- **Tests:** 189 (pytest, 30-09-2026), contra la base `rappi_ia_test`. CI en GitHub Actions (`.github/workflows/ci.yml`) con Postgres + pgvector y las versiones de `requirements.lock.txt`; un job semanal (`modelos-semanal.yml`) instala los modelos.
 - **Optimizaciones del 28-09-2026:** textos por embeber ordenados por largo, índices HNSW con `maintenance_work_mem` de 1 GB (`HNSW_MAINTENANCE_WORK_MEM`) y kNN de conceptos que lee los vectores del caché en binario y por bloques.
 
 ## Límites
@@ -179,7 +184,7 @@ Corrida del 28-09-2026: 132 conceptos, 101 complementos curados y 824 categoría
 
 ```text
 rappi-ia/
-├── Makefile, pyproject.toml, .env.example
+├── Makefile, pyproject.toml, requirements.lock.txt, .env.example
 ├── scripts/despues-del-refresh.sh   espera a que termine una descarga y corre make post-refresh
 ├── src/rappi_ia/
 │   ├── cli.py         comandos de `rappi-ia`
@@ -192,12 +197,12 @@ rappi-ia/
 │   ├── agent/         Bigotes: entender, herramientas, redactar, voz, foto
 │   ├── events/        eventos, perfil con decaimiento, "olvidar", generador simulado
 │   ├── analytics/     métricas del panel
-│   ├── eval/          set de evaluación (queries.json) y calibración de τ (thresholds.json)
+│   ├── eval/          set de evaluación (queries.json), τ (thresholds.json) y muestra de juicio a mano (judgments-sample.json)
 │   └── api/           FastAPI
 ├── tests/
 │   ├── unit/          sin base de datos
 │   └── integration/   contra rappi_ia_test
-└── data/              fuera de git: reporte de evaluación, logs
+└── data/              fuera de git: reporte de evaluación, categorías sin mapear, logs
 ```
 
 **Migraciones.** Viven en [`rappi-scraper/src/rappi_scraper/storage/migrations/`](../rappi-scraper/src/rappi_scraper/storage/migrations/), para que haya un solo historial. Las de esta capa:
@@ -209,3 +214,5 @@ rappi-ia/
 | `011_app_events.sql` | Usuarios, eventos y pedidos de la app (`synthetic` o `prototype`, nunca mezclados), con ids seudónimos |
 | `012_concept_assortment.sql` | Surtido materializado por concepto, índice de eventos por fuente y aristas aprendidas por fuente |
 | `013_search_price.sql` | Precio de cada documento como columna indexada: el filtro de precio de la búsqueda vectorial revisa todos los documentos cuando el tope deja pocos |
+
+`014_clean_html.sql` y `015_clean_html_more_entities.sql` (limpieza del HTML de los documentos de búsqueda) son del scraper.

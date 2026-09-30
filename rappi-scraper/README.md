@@ -19,7 +19,7 @@ make install   # .venv + proyecto en modo editable + herramientas de desarrollo;
 make migrate   # aplica el esquema
 ```
 
-Queda disponible el comando `rappi` (también `.venv/bin/rappi` o `.venv/bin/python -m rappi_scraper`). Para instalar en otro equipo o partir desde un respaldo de la base: [docs/instalacion.md](../docs/instalacion.md).
+Queda disponible el comando `rappi` con el entorno activado (`source .venv/bin/activate`); sin activarlo, `.venv/bin/rappi` o `.venv/bin/python -m rappi_scraper`. Para instalar en otro equipo o partir desde un respaldo de la base: [docs/instalacion.md](../docs/instalacion.md).
 
 ## Uso
 
@@ -33,8 +33,8 @@ rappi scrape-restaurants                # 3. una sucursal por cadena + independi
 rappi build-search                      # 4. documentos de búsqueda por vertical
 rappi search "pañales" --vertical supermercado
 rappi status                            # avance de las corridas y resumen por vertical
-rappi report                            # reporte de calidad de la última corrida
-rappi refresh                           # todo de una vez: tiendas, restaurantes, búsqueda, reportes y respaldo
+rappi report                            # reporte de calidad de la última corrida de tiendas (--kind restaurants)
+rappi refresh                           # todo de una vez: tiendas, restaurantes, búsqueda, reportes y respaldo (--no-backup)
 rappi backup                            # respaldo de la base en data/backups/ (conserva los últimos 4)
 rappi retry-failed --kind stores        # reencola los jobs fallidos (o --kind restaurants)
 rappi export-csv                        # catálogo por vertical -> data/exports/
@@ -59,11 +59,12 @@ La primera descarga completa (24–27-09-2026) tomó **unos 3 días para las tie
 - **Progreso:** cada línea muestra `[i/N · transcurrido · faltan ~X]`.
 - **Errores transitorios:** cada job fallido se reintenta una vez, automáticamente, al final de la corrida.
 - **Ctrl+C:** detiene sin perder nada; se retoma con el mismo comando.
+- **Posible bloqueo:** si 10 jobs seguidos fallan sin respuesta útil de rappi.cl (403, 429, red, página de desafío), la corrida se detiene: el reporte queda con la alerta ⛔ y la corrida abierta, para retomarla más tarde con el mismo comando (o en la próxima actualización semanal). `refresh` no sigue con restaurantes, búsqueda ni respaldo.
 - **Reporte:** al terminar se imprime y se guarda en `data/reports/run_<id>_<tipo>.md` (y en `scrape_runs.report`): jobs por estado, errores frecuentes, productos por vertical, páginas omitidas y validaciones de calidad. Un `⚠` indica un posible cambio en el sitio o una respuesta anómala. Los jobs fallidos se cuentan sobre los intentados (hechos + fallidos), y los totales clave (ofertas; restaurantes y platos) se comparan con la última corrida terminada del mismo tipo: una caída de más del 25 % se marca.
 - **Reintentar a mano:** `rappi retry-failed --kind stores` (o `restaurants`) y volver a correr el comando.
 - **Ver el reporte de nuevo:** `rappi report` (o `rappi report --run N`).
 
-Resultado de esa descarga, con la recuperación de fallidos del 28-09-2026: 797 grupos de tiendas descargados (49 fallidos, 51 omitidos por marca ya descargada) y 3.149 restaurantes descargados (408 fallidos, 1.298 omitidos por cadena ya descargada o restaurante que ya no existe). Detalle por vertical en [README.md#resultados](../README.md#resultados).
+Resultados de cada descarga y detalle por vertical en [README.md#resultados](../README.md#resultados).
 
 ## Páginas ilegibles y sucursales no disponibles
 
@@ -77,18 +78,22 @@ Una tienda se recorre así: portada → pasillos → sub-pasillos. Cuando algo f
 
 ## Actualización semanal automática
 
-`rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4). La tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si `../rappi-ia` está instalado, sigue con la capa de IA (`make -C ../rappi-ia post-refresh`: conceptos, embeddings, evaluación, datos simulados y purga).
+`rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4).
+
+- **Retomar:** si una actualización se cortó con las tiendas ya terminadas, retoma en los restaurantes sin volver a bajar tiendas.
+- **Respaldo:** se escribe a un `.part`, se valida con `pg_restore --list` y recién entonces rota. Si falla, se conservan los anteriores y la actualización sigue.
+- **Capa de IA:** la tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si la descarga terminó bien y `../rappi-ia` está instalado, sigue con `make -C ../rappi-ia post-refresh` (purga, conceptos, embeddings, evaluación, datos simulados y otra purga).
 
 ```bash
 make schedule          # instala la tarea en launchd (~/Library/LaunchAgents/cl.rappi.refresh.plist)
-make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
+make schedule-status   # ¿está activa? ¿cómo terminaron las últimas semanas?
 make unschedule        # quitarla
 ```
 
 - **Mac dormido o apagado:** si está dormido a esa hora, corre al despertar; si está apagado, esa semana se salta.
-- **Una sola a la vez:** los comandos que descargan (`discover`, `scrape-stores`, `scrape-restaurants`, `refresh`) y `rappi-ia embed-images` toman el mismo candado de archivo (`data/scraper.lock`, con `flock`: el sistema lo suelta aunque el proceso muera) y se niegan a empezar si otra descarga lo tiene. Además, un candado (`data/refresh-semanal.pid`) impide que corran dos actualizaciones semanales; se borra aunque la tarea se corte con Ctrl+C o una señal. Si hay un `rappi refresh` o un `make post-refresh` lanzado a mano, la tarea se omite. No detecta `scrape-stores` ni `scrape-restaurants` sueltos: no los lances cerca de la hora programada.
+- **Una sola a la vez:** los comandos que descargan (`discover`, `scrape-stores`, `scrape-restaurants`, `refresh`) y `rappi-ia embed-images` toman el mismo candado de archivo (`data/scraper.lock`, con `flock`: el sistema lo suelta aunque el proceso muera) y se niegan a empezar si otra descarga lo tiene. Además, un candado (`data/refresh-semanal.pid`) impide que corran dos actualizaciones semanales; se borra aunque la tarea se corte con Ctrl+C o una señal. Si hay otra descarga (`discover`, `scrape-*`, `refresh`), un `make post-refresh` o `embed-images` en curso, la tarea se omite y lo anota.
 - **Ubicación del proyecto:** debe estar fuera de Documentos, Escritorio y Descargas: macOS no deja que launchd lea esas carpetas (detalle en [docs/instalacion.md](../docs/instalacion.md)).
-- **Logs:** la salida de launchd queda en `data/logs/launchd.*.log`; el log detallado y el reporte, como en cualquier corrida.
+- **Logs:** cada ejecución deja una línea en `data/logs/ultimo-estado.txt` (`exit=N`, «omitida» o «interrumpida»), que muestra `make schedule-status`; la salida de launchd queda en `data/logs/launchd.*.log`, y el log detallado y el reporte, como en cualquier corrida.
 - Programarla en **un solo** equipo.
 
 ## Objetivos del Makefile
@@ -106,11 +111,11 @@ make unschedule        # quitarla
 | `make lint` | ruff: errores comunes + formato |
 | `make format` | Aplica el formato |
 | `make status` | Estado de las corridas y resumen por vertical |
-| `make report` | Reporte de calidad de la última corrida |
+| `make report` | Reporte de calidad de la última corrida de tiendas |
 | `make refresh` | Actualización completa (`rappi refresh`) |
 | `make backup` | Respaldo de la base en `data/backups/` |
 | `make schedule` | Programa la tarea semanal (launchd, domingos 03:00) |
-| `make schedule-status` | Muestra si la tarea semanal está activa y cómo terminó |
+| `make schedule-status` | Muestra si la tarea semanal está activa y las últimas ejecuciones |
 | `make unschedule` | Quita la tarea semanal |
 
 ## Estructura
@@ -127,8 +132,9 @@ rappi-scraper/
 ├── src/rappi_scraper/
 │   ├── __main__.py               `python -m rappi_scraper`
 │   ├── cli.py                    comandos de `rappi`
-│   ├── config.py                 URLs, ritmo de requests (configurable por entorno) y rutas
+│   ├── config.py                 URLs, ritmo de peticiones (configurable por entorno) y rutas
 │   ├── keep_awake.py             evita que el Mac se duerma durante una corrida (`caffeinate`)
+│   ├── lock.py                   candado de «una descarga a la vez» (`flock` sobre `data/scraper.lock`)
 │   ├── pricing.py                cálculo de descuentos
 │   ├── reporting.py              reporte de cada corrida: conteos, errores frecuentes y validaciones de calidad
 │   ├── scraping/                 todo lo que habla con rappi.cl
@@ -149,8 +155,8 @@ rappi-scraper/
 │   │   ├── db.py                   conexión y migraciones
 │   │   ├── repository.py           escrituras idempotentes y consultas de estado
 │   │   ├── search.py               documentos y búsqueda por vertical
-│   │   ├── backup.py               respaldo con pg_dump y rotación
-│   │   └── migrations/             esquema SQL versionado (001–008 del scraper; 009–013 de rappi-ia)
+│   │   ├── backup.py               respaldo con pg_dump, validación y rotación
+│   │   └── migrations/             esquema SQL versionado (001–008 y 014–015 del scraper; 009–013 de rappi-ia)
 │   └── legacy/                   scraper original a CSV (ver Legado)
 │       ├── csv_scraper.py          comando `rappi-csv`
 │       ├── csv_format.py           columnas y escritura de CSV
@@ -197,7 +203,7 @@ make lint         # ruff: errores comunes + formato
 make format       # aplica el formato
 ```
 
-- **Tests:** 83 (pytest). Los de integración usan la base `rappi_test`, nunca `rappi`.
+- **Tests:** 104 (pytest, 30-09-2026). Los de integración usan la base `rappi_test`, nunca `rappi`.
 - **CI:** GitHub Actions (`.github/workflows/ci.yml`) corre lint y tests contra Postgres + pgvector.
 - **Convención:** el código (funciones, variables, módulos) va en inglés; lo que ve el usuario (logs, CLI, columnas de CSV, valores de verticales) en español.
 
@@ -206,7 +212,7 @@ make format       # aplica el formato
 - **Cobertura parcial en tiendas:** las páginas públicas muestran como máximo 24 productos por sub-pasillo (el resto lo carga el navegador por otra vía). La cobertura real (obtenidos vs declarados) se ve en `v_coverage` y en la pestaña Catálogo del [panel](../dashboard-empresa/). Los restaurantes sí traen el menú completo.
 - **`ean` casi siempre vacío:** Rappi no lo publica. Para comparar el mismo producto entre cadenas se usa `master_product_id`.
 - **Jumbo y Tottus:** en septiembre de 2026 sus sucursales redirigían (inactivas en Rappi).
-- **Cambios en el sitio:** si cambia el frontend de rappi.cl hay que ajustar `scraping/*_parser.py`. Los tests usan páginas reales guardadas en `tests/fixtures/`: si fallan con páginas nuevas, la estructura cambió.
+- **Cambios en el sitio:** si cambia el frontend de rappi.cl hay que ajustar `scraping/*_parser.py`. Los tests usan páginas reales guardadas en `tests/fixtures/`: si los tests pasan pero el scraper falla con las páginas actuales, la estructura cambió; guarda una página nueva y los tests muestran qué.
 
 ## Uso responsable
 

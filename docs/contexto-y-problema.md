@@ -1,7 +1,7 @@
 # Contexto y problema
 
 > Por qué existe este proyecto, qué queremos responder y qué decisiones salen de eso.
-> Última actualización: 28-09-2026. Ecosistema y modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Diseño del RAG, el agente y el panel: [diseno-ia.md](diseno-ia.md) · Registro de decisiones: [decisiones.md](decisiones.md) · Resultados: [README → Resultados](../README.md#resultados).
+> Última actualización: 30-09-2026. Ecosistema y modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Diseño del RAG, el agente y el panel: [diseno-ia.md](diseno-ia.md) · Registro de decisiones: [decisiones.md](decisiones.md) · Resultados: [README → Resultados](../README.md#resultados).
 
 ## 1. El problema
 
@@ -72,27 +72,27 @@ Registro completo, con fechas: [decisiones.md](decisiones.md).
 
 ## 6. Fases
 
-Estado al 28-09-2026:
+Estado al 30-09-2026:
 
 | Fase | Qué es | Estado |
 |---|---|---|
-| **1. Datos** | Scraper → Postgres: catálogo, menús, precios e historial por vertical (`rappi-scraper/`) | **Hecha.** Primera descarga completa del 24 al 27-09-2026 y recuperación de fallidos el 28-09-2026: 83.108 productos únicos y 153.136 platos de 3.139 restaurantes. Actualización semanal con `make schedule` |
+| **1. Datos** | Scraper → Postgres: catálogo, menús, precios e historial por vertical (`rappi-scraper/`) | **Hecha.** Primera descarga completa del 24 al 27-09-2026, recuperación de fallidos el 28-09 y primera descarga semanal automática el 29 y 30-09 (`make schedule`). Cifras en [README → Resultados](../README.md#resultados) |
 | **Prototipo** | App navegable con el asistente Bigotes y recomendaciones entre verticales (`prototipo-app/`) | **Listo para demo.** Con la API usa el catálogo real, voz y foto; sin ella, reglas locales |
-| **2. RAG** | Conceptos (capa 2), embeddings de texto e imagen, búsqueda híbrida por vertical y evaluación (`rappi-ia/`) | **Construido.** 240.200 documentos de búsqueda, todos con embedding de texto. Evaluación en [README → Resultados](../README.md#resultados) |
+| **2. RAG** | Conceptos (capa 2), embeddings de texto e imagen, búsqueda híbrida por vertical y evaluación (`rappi-ia/`) | **Construido.** Todos los documentos de búsqueda con embedding de texto. Evaluación en [README → Resultados](../README.md#resultados) |
 | **3. Agente** | Bigotes en el backend y API: herramientas de búsqueda, reglas de conducta, voz y foto; LLM opcional | **Construido** |
 | **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono (`dashboard-empresa/`) | **Construido.** Usuarios, eventos y pedidos **simulados**; la pestaña Catálogo usa datos reales |
-| **Cierre** | CI, documentación y validación final (etapa 8 de [diseno-ia.md](diseno-ia.md#7-etapas)) | **En cierre.** CI y corrida post-refresh sobre el catálogo completo hechas el 28-09-2026; falta confirmar el CI en verde con los cambios del 28-09 |
+| **Cierre** | CI, documentación y validación final (etapa 8 de [diseno-ia.md](diseno-ia.md#7-etapas)) | **Hecha.** CI en verde y corrida post-refresh sobre el catálogo completo (30-09-2026) |
 
 ## 7. Límites y riesgos
 
 - **Cobertura parcial en tiendas:** las páginas públicas muestran hasta 24 productos por sub-pasillo. Por eso "no está en el catálogo" no significa "Rappi no lo vende".
 - **Uso responsable de los datos:**
   - **Fuentes:** solo páginas públicas sin barreras técnicas, los sitemaps públicos y el JSON público de metadatos de tiendas. Sin APIs internas, sin login y sin evadir protecciones.
-  - **Ritmo:** una descarga a la vez, con pausas de 1,5–3 s entre páginas, y actualización semanal.
+  - **Ritmo:** una descarga a la vez, con pausas de 1,5 a 3 s entre solicitudes, y actualización semanal.
   - **Sin datos personales.**
   - **Fines:** investigación y demostración. Las descripciones, imágenes y marcas pertenecen a Rappi y a los comercios; un uso comercial requeriría autorización.
   - **Proyecto independiente:** no está afiliado a Rappi ni cuenta con su respaldo. Las marcas pertenecen a sus dueños.
-- **Métricas con salvedades:** la relevancia de la búsqueda se juzga automáticamente por concepto, la evaluación no incluye farmacia ni Turbo y la ventaja del modo híbrido está sobreestimada. La precisión de los conceptos es una estimación con jueces LLM sobre datos parciales. Detalle en [README → Resultados](../README.md#resultados).
+- **Métricas con salvedades:** la relevancia de la búsqueda se juzga automáticamente por concepto, y sin el refuerzo por concepto el híbrido no se distingue del vectorial (0,860 frente a 0,846). Falta el juicio humano. La precisión de los conceptos es una estimación con jueces LLM sobre datos parciales. Detalle en [README → Resultados](../README.md#resultados).
 - **Datos simulados:** el panel usa usuarios, eventos y pedidos simulados. Muestra la mecánica, no es evidencia.
 - **Cambios del sitio:** si rappi.cl cambia su frontend, hay que ajustar los parsers. El reporte de calidad de cada corrida marca con ⚠ las respuestas anómalas; con una página nueva guardada, los tests muestran qué cambió.
 
@@ -100,6 +100,6 @@ Estado al 28-09-2026:
 
 - **¿Quién lo usaría y dónde?** (equipos internos de Rappi, usuarios finales, análisis de mercado). Define la interfaz y las condiciones de uso de los datos.
 - **¿Se confirma el silo con datos internos?** Con eventos reales se puede medir qué hace un mismo usuario en distintos verticales y si las sugerencias cruzadas suben la frecuencia. Eso se valida con un grupo de control ([diseno-ia.md §5](diseno-ia.md#5-panel-para-la-empresa-vale-la-pena)).
-- **Set de evaluación más amplio:** desde el 29-09 son 124 consultas positivas en los 8 verticales y 41 negativas renovadas con el catálogo completo. Falta el juicio humano.
+- **¿Mejora de verdad el refuerzo por concepto?** Hay que juzgar a mano la muestra de 200 pares (`rappi-ia eval-sample`) y medirlo con `rappi-ia eval-human`.
 
 Las preguntas ya resueltas (modelos, áreas iniciales, taxonomía, datos simulados) están en [decisiones.md](decisiones.md).

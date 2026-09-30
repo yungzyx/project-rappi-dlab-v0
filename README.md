@@ -72,41 +72,40 @@ Diseño completo del RAG, el agente y el panel: [docs/diseno-ia.md](docs/diseno-
 
 ## Resultados
 
-Cifras verificadas el 28-09-2026 sobre la base completa. Cada una indica qué tipo de dato es: real, evaluación automática, estimación o simulación.
+Cifras al 30-09-2026, tras la primera descarga semanal automática, salvo donde se indica otra fecha. Cada una indica qué tipo de dato es: real, evaluación automática, estimación o simulación.
 
 | Ámbito | Métrica | Valor | Tipo de dato | Fuente |
 |---|---|---|---|---|
-| Catálogo | Documentos de búsqueda | 240.200: 83.108 productos, 153.136 platos y 3.956 tiendas | Real (catálogo público) | Base `rappi`, 28-09-2026 |
-| Catálogo | Documentos con embedding | 100% (`intfloat/multilingual-e5-base`, 768 dim, HNSW por vertical) | Real | Base `rappi`, 28-09-2026 |
-| Catálogo | Grupos de tiendas (uno por marca y formato) | 797 descargados · 49 fallidos · 51 omitidos (marca ya descargada) | Real | Corrida 1 (tiendas) + recuperación del 28-09 |
-| Catálogo | Restaurantes | 3.149 descargados · 408 fallidos · 1.298 omitidos | Real | Corrida 4 (restaurantes) + recuperación del 28-09 |
-| Capa 2 | Taxonomía | 132 conceptos · 101 complementos curados · 824 categorías mapeadas | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 28-09-2026 |
-| Capa 2 | Ítems con concepto | 96,7% a 100% según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 28-09-2026 |
-| Capa 2 | Precisión de la asignación | ≈88% por categoría · ≈81% platos · 55% reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
-| Búsqueda | nDCG@10 | híbrido 0,910 · sin refuerzo por concepto 0,860 · vectorial 0,846 · léxico 0,778 | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 30-09) |
-| Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 30-09) |
-| Calidad | Tests (pytest / Vitest) | scraper 100 · rappi-ia 189 · prototipo 117 · panel 80 | Verificación local, 29-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) |
-| Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); nueva revisión de los cambios del 28-09 | Proceso | — |
+| Catálogo | Documentos de búsqueda | 270.607: 93.823 productos, 172.278 platos y 4.506 tiendas | Real (catálogo público) | Base `rappi`, 30-09-2026 |
+| Catálogo | Documentos con embedding | 100 % (`intfloat/multilingual-e5-base`, 768 dim, HNSW por vertical) | Real | Base `rappi`, 30-09-2026 |
+| Catálogo | Grupos de tiendas (uno por marca y formato) | 753 descargados · 26 fallidos · 49 omitidos (marca ya descargada) | Real | Corrida 5 (tiendas), 29-09 |
+| Catálogo | Restaurantes | 3.259 descargados · 301 fallidos · 1.295 omitidos | Real | Corrida 6 (restaurantes), 29 y 30-09 |
+| Capa 2 | Taxonomía | 132 conceptos · 101 complementos curados · 757 categorías con mapeo revisado (131 nuevas sin mapear, con sugerencia en `rappi-ia map-categories`) | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 30-09-2026 |
+| Capa 2 | Ítems con concepto | 97,1 % a 100 % según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 30-09-2026 |
+| Capa 2 | Precisión de la asignación | ≈88 % por categoría · ≈81 % platos · 55 % reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
+| Búsqueda | nDCG@10 | híbrido 0,910 · sin refuerzo por concepto 0,860 · vectorial 0,846 · léxico 0,778 | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
+| Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
+| Calidad | Tests (pytest / Vitest) | scraper 104 · rappi-ia 189 · prototipo 117 · panel 80 | Verificación local, 30-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) y un job semanal que instala los modelos con las versiones fijadas |
+| Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); auditoría del 28-09 con 4 bloques de mejoras (29 y 30-09) | Proceso | — |
 | Panel | Usuarios, eventos y pedidos | 1.500 usuarios × 20 semanas (semilla 7) | **Simulado** | `rappi-ia/src/rappi_ia/events/synth.py` |
 
 ### Catálogo por vertical
 
-Primera descarga completa del 24 al 27-09-2026 y recuperación de fallidos el 28-09-2026, con el arreglo del scraper.
+Documentos de búsqueda al 30-09-2026, tras la primera descarga semanal automática (corridas 5 y 6).
 
-| Vertical | Tiendas descargadas | Productos únicos | Con concepto |
+| Vertical | Tiendas | Productos | Con concepto |
 |---|---:|---:|---:|
-| Supermercado | 315 | 29.563 | 99,1% |
-| Conveniencia | 45 | 8.501 | 99,8% |
-| Turbo | 16 | 2.562 | 100% |
-| Rappi Mall | 338 | 31.246 | 97,7% |
-| Farmacia | 13 | 5.028 | 96,7% |
-| Licores | 66 | 5.190 | 100% |
-| Chocolatería | 24 | 1.018 | 100% |
-| Restaurantes | 3.139 restaurantes con platos en la búsqueda | 153.136 platos | 97,9% |
+| Supermercado | 367 | 32.730 | 99,1 % |
+| Conveniencia | 59 | 9.240 | 99,8 % |
+| Turbo | 16 | 2.562 | 100 % |
+| Rappi Mall | 384 | 36.089 | 98,1 % |
+| Farmacia | 20 | 6.323 | 97,1 % |
+| Licores | 84 | 5.734 | 100 % |
+| Chocolatería | 27 | 1.145 | 100 % |
+| Restaurantes | 3.549 | 172.278 platos | 97,9 % |
 
-- Una misma tienda puede figurar en más de un vertical.
-- Los 3.149 restaurantes descargados son jobs de la corrida; los 3.139 son restaurantes distintos con platos en la base. Las dos cifras se cuentan distinto.
-- Farmacia pasó de 5 tiendas y 550 productos a 13 y 5.028 con la recuperación.
+- «Tiendas» cuenta las tiendas del vertical en la búsqueda; de cada marca y formato se descarga una sucursal. Una misma tienda puede figurar en más de un vertical.
+- **Turbo quedó con los precios del 27-09:** en la descarga semanal, los listados públicos que recorre el scraper ya no traen sus tiendas como Turbo, así que no se descargaron (ver [Límites](#límites)).
 - En tiendas es una muestra: la página pública muestra hasta 24 productos por sub-pasillo. Los restaurantes traen el menú completo.
 
 ### Búsqueda
@@ -120,13 +119,16 @@ Primera descarga completa del 24 al 27-09-2026 y recuperación de fallidos el 28
 | **Híbrido** | **0,905** | **0,939** | **0,910** |
 | Híbrido sin refuerzo por concepto | 0,856 | 0,913 | 0,860 |
 
-El refuerzo por concepto reordena con la misma etiqueta con que se juzga la relevancia; la fila «sin refuerzo» es la medida justa de la fusión léxico + vectorial. Consulta por consulta, sin refuerzo el híbrido gana 30, empata 67 y pierde 27 contra el vectorial: diferencia media 0,014, con un intervalo de confianza del 95 % de −0,012 a 0,042 (no concluyente). La fusión sí ayuda sola en las consultas sin tildes (0,884 frente a 0,769).
+El refuerzo por concepto reordena con la misma etiqueta con que se juzga la relevancia; la fila «sin refuerzo» es la medida justa de la fusión léxico + vectorial. Consulta por consulta, sin refuerzo el híbrido gana 30, empata 67 y pierde 27 contra el vectorial: diferencia media 0,014, con un intervalo de confianza del 95 % de −0,012 a 0,042 (no concluyente). La fusión sí ayuda sola en las consultas sin tildes (0,884 frente a 0,769). Reporte completo: [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md).
 
 P@10: proporción de resultados relevantes entre los 10 primeros. MRR: qué tan arriba aparece el primer resultado relevante (1 = el primero). nDCG@10: calidad del orden de los 10 primeros (1 = orden ideal).
 
 - **Por tipo de consulta** (nDCG@10 del híbrido): exactas 0,979; sin tildes 0,965; necesidades en lenguaje natural («algo para el carrete») 0,711, frente a 0,570 del léxico.
 - **Por vertical** (nDCG@10 del híbrido): farmacia 0,979; chocolatería 0,956; restaurantes 0,942; Turbo 0,915; Rappi Mall 0,907; conveniencia 0,903; supermercado 0,896; licores 0,847.
-- **«Sin resultado»** (demanda no satisfecha), con los τ recalibrados el 29-09: detectó 29 de las 41 negativas (recall 0,71) sin falsas alarmas (precisión 1,00); con el catálogo del 28-09 eran 31. El catálogo cambia cada semana: en la descarga del 30-09 conveniencia ya tiene televisores y un local de restaurantes vende pañales, así que dos negativas dejaron de serlo. Farmacia, Turbo, conveniencia y licores estrenan τ calibrado; chocolatería, Rappi Mall y restaurantes no tienen negativas que dependan de τ y conservan el suyo. El reporte explica cada negativa no detectada: el vertical tiene el concepto nombrado (un iPhone en supermercado, que sí vende celulares) o hay coincidencias casuales («pizza familiar» → un horno para pizza en Rappi Mall). Es un límite real de la regla.
+- **«Sin resultado»** (demanda no satisfecha), con los τ recalibrados el 29-09: detectó 29 de las 41 negativas (recall 0,71) sin falsas alarmas (precisión 1,00).
+  - Con el catálogo del 28-09 eran 31: en la descarga del 30-09 conveniencia ya tiene televisores y un local de restaurantes vende pañales, así que dos negativas dejaron de serlo.
+  - Las 12 no detectadas tienen tres causas, que el reporte explica una por una: 5 nombran un concepto que el vertical sí tiene (un iPhone en supermercado, que vende celulares), 4 calzan por casualidad con la regla léxica estricta («pizza familiar» → un horno para pizza en Rappi Mall) y 3 quedan sobre τ por coseno. Es un límite real de la regla.
+  - τ por vertical: farmacia, Turbo, conveniencia y licores tienen τ calibrado; chocolatería y restaurantes no tienen negativas que dependan de τ y conservan el suyo; Rappi Mall conserva 0,70 y el reporte del 30-09 propone 0,82, pendiente de revisar.
 - **Antes (28-09, set anterior sin farmacia ni Turbo):** híbrido 0,889; «sin resultado» con recall 0,33 (5 de 15). Tres de esas negativas estaban desactualizadas («kebab mixto» y «comida mexicana con tacos» sí existen en restaurantes).
 - **Antes (27-09, datos parciales):** híbrido 0,898; «sin resultado» con precisión 0,91 y recall 0,67. No es comparable directamente: cambió el catálogo.
 
@@ -152,7 +154,7 @@ cd prototipo-app && npm ci && npm run dev       # http://localhost:5174
 cd dashboard-empresa && npm ci && npm run dev   # http://localhost:5175
 ```
 
-- **Prototipo:** la tecla **D** (o Account → Modo demo en el celular) alterna «Rappi hoy» y «Propuesta». Sin la API, Bigotes responde con reglas locales sobre los datos de las capturas.
+- **Prototipo:** la tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Rappi hoy» y «Propuesta». Sin la API, Bigotes responde con reglas locales sobre los datos de las capturas y lo marca con «Respuesta local».
 - **Panel:** sin la API usa respuestas guardadas (`src/fixtures/`) y lo avisa («Modo sin conexión (datos guardados)»). Cada bloque indica si su dato es simulado o real.
 
 ### Correr la demo completa (catálogo real)
@@ -169,7 +171,7 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 
 ### Actualización semanal
 
-`make schedule` en `rappi-scraper/` programa la tarea (con launchd, el programador de tareas de macOS; domingos 03:00): primero la descarga y después `make post-refresh` de rappi-ia (conceptos, embeddings, evaluación, datos simulados y purga). Nunca corren dos a la vez. Si hay un `rappi refresh` lanzado a mano, `cd rappi-ia && ./scripts/despues-del-refresh.sh` espera a que termine y corre `make post-refresh` (este sí recalibra τ). Detalle en [docs/instalacion.md](docs/instalacion.md).
+`make schedule` en `rappi-scraper/` programa la tarea (con launchd, el programador de tareas de macOS; domingos 03:00): primero la descarga y después `make post-refresh` de rappi-ia (purga, conceptos, embeddings, evaluación y datos simulados). Nunca corren dos descargas a la vez: todos los comandos que descargan comparten un candado. `make schedule-status` muestra cómo terminó cada semana. Si hay un `rappi refresh` lanzado a mano, `cd rappi-ia && ./scripts/despues-del-refresh.sh` espera a que termine y corre `make post-refresh` (este sí recalibra τ). Detalle en [docs/instalacion.md](docs/instalacion.md).
 
 ## Stack
 
@@ -180,7 +182,7 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 | IA (modelos locales) | `intfloat/multilingual-e5-base` (texto), CLIP ViT-B/32 con codificador multilingüe (imágenes), Whisper con `faster-whisper` (voz). Claude es opcional y solo redacta |
 | API | FastAPI + Uvicorn |
 | Apps | React 19 + Vite; el panel dibuja sus gráficos en SVG, sin librerías |
-| Calidad | pytest, Ruff, Vitest, ESLint; GitHub Actions con 4 jobs: Python contra Postgres + pgvector; lint, tests y build de las apps |
+| Calidad | pytest, Ruff, Vitest, ESLint; GitHub Actions con 4 jobs (Python contra Postgres + pgvector; lint, tests y build de las apps) y un job semanal con los modelos |
 
 ## Estructura del repositorio
 
@@ -198,10 +200,11 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 │   ├── src/
 │   ├── design/             ficha del personaje Bigotes
 │   └── docs/screenshots/
-├── dashboard-empresa/      panel de negocio (Vite + React)
+├── dashboard-empresa/      panel de negocio (Vite + React) y la página de presentación de la propuesta
 │   ├── src/
 │   └── docs/screenshots/
 ├── docs/                   contexto, diseño, decisiones, instalación, diagramas y SQL
+│   ├── resultados/         reportes de evaluación versionados (fuente de las cifras)
 │   ├── diagramas/          PNG y versiones interactivas (HTML)
 │   ├── diagramas-fuente/   fuentes JSON de los diagramas
 │   └── sql/                cómo conectarse y consultas de ejemplo
@@ -221,17 +224,18 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 - **Sin accesos especiales:** no usa APIs internas, no inicia sesión y no evade protecciones.
 - **Ritmo:** una descarga a la vez, con pausas de 1,5 a 3 s entre solicitudes, y una actualización por semana.
 - **Sin datos personales:** el catálogo no los contiene. Los usuarios del panel son simulados o del prototipo (id seudónimo), y las consultas se guardan con los datos personales redactados.
-- **Fines:** investigación y demostración. Los datos descargados no se publican ni están en el repositorio. Un uso comercial requeriría autorización de Rappi.
+- **Fines:** investigación y demostración. Los datos descargados no se publican ni están en el repositorio, salvo muestras mínimas para tests y evaluación (páginas guardadas y textos de productos de la muestra de juicio). Un uso comercial requeriría autorización de Rappi.
 - **Contenido de terceros:** fotos, descripciones y marcas pertenecen a Rappi y a los comercios.
 - **Alcance:** solo Rappi. Otras apps de delivery (Uber Eats, PedidosYa) están fuera de alcance.
 
 ## Límites
 
 - **Cobertura parcial en tiendas:** hasta 24 productos por sub-pasillo en la página pública, y una sucursal por marca o formato. Sirve para saber qué hay, no para comparar todas las sucursales.
-- **Fallidos:** tras la recuperación, 49 grupos de tiendas y 408 restaurantes siguen sin descargarse.
+- **Fallidos:** en la descarga del 29 y 30-09 quedaron 26 grupos de tiendas («ninguna sucursal disponible») y 301 restaurantes («ninguna sucursal con menú») sin descargar.
+- **Turbo sin actualizar:** sus tiendas ya no aparecen como Turbo en los listados públicos que recorre el scraper; sus precios son del 27-09 hasta revisar dónde las lista hoy Rappi.
 - **Evaluación automática:** no hay juicio humano, y el refuerzo por concepto favorece al híbrido (sin él, empata con el vectorial).
-- **«Sin resultado»:** detecta 29 de 41 negativas. Las que no, las explica el reporte: el vertical tiene el concepto nombrado o hay coincidencias casuales con la regla léxica estricta.
-- **Capa 2:** la asignación por reglas de nombre es la parte más débil (55% estimado).
+- **«Sin resultado»:** detecta 29 de 41 negativas. Las que no, las explica el reporte: el vertical tiene el concepto nombrado, hay coincidencias casuales con la regla léxica estricta o el coseno queda sobre τ.
+- **Capa 2:** la asignación por reglas de nombre es la parte más débil (55 % estimado).
 - **Panel simulado:** muestra cómo se mediría, no el efecto.
 - **Demo local:** la API no tiene autenticación. La instalación está pensada para macOS (Homebrew, launchd).
 - **Cambios del sitio:** si rappi.cl cambia su frontend, hay que ajustar los parsers. El reporte de calidad de cada corrida marca con ⚠ las respuestas anómalas; con una página nueva guardada, los tests muestran qué cambió.
@@ -240,23 +244,29 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 
 **Hecho**
 
-- Catálogo público completo (24 al 27-09-2026) y recuperación de fallidos (28-09-2026).
-- Capa 2 de conceptos, embeddings al 100% y búsqueda híbrida evaluada.
+- Catálogo público completo (24 al 27-09-2026), recuperación de fallidos (28-09) y primera descarga semanal automática (29 y 30-09).
+- Capa 2 de conceptos, embeddings al 100 % y búsqueda híbrida evaluada.
 - Bigotes con API (texto, voz y foto) y prototipo con modo «Rappi hoy» / «Propuesta».
 - Panel de negocio con datos simulados rotulados y la pestaña Catálogo real.
-- Actualización semanal automática y CI con 4 jobs.
+- Actualización semanal automática y CI con 4 jobs más uno semanal de modelos.
 - Mejoras del 28-09-2026:
   - una página de pasillo sin datos ya no bota la tienda entera;
   - la tarea semanal libera su candado aunque la corten con una señal;
   - embeddings e índices vectoriales que se calculan más rápido.
-- Revisión adversarial automatizada, con agentes de IA: 3 pasadas con 66 hallazgos corregidos (27-09) y una revisión de los cambios del 28-09.
+- Mejoras del 29 y 30-09-2026 (auditoría en 4 bloques):
+  - evaluación honesta: set renovado con farmacia y Turbo, ablación sin refuerzo, comparación pareada con bootstrap, causa de cada negativa y τ recalibrado;
+  - operación: freno ante un posible bloqueo, candado único de descarga, respaldo atómico, retoma tras un apagado y registro de cada ejecución semanal;
+  - búsqueda sin HTML en las descripciones, keywords de la taxonomía con contexto y guardia de conceptos sensibles;
+  - demo: funciona con el hotspot del iPhone, marca «Respuesta local», accesibilidad del asistente y versiones de Python fijadas.
+- Revisión adversarial automatizada, con agentes de IA: 3 pasadas con 66 hallazgos corregidos (27-09), la auditoría del 28-09 y una revisión de textos y organización (30-09).
 
 **Siguiente**
 
-1. Mejorar la regla de «sin resultado» (las 10 negativas no detectadas nombran un concepto que el vertical sí tiene o calzan por casualidad).
-2. Juzgar a mano la muestra de 200 pares (`rappi-ia eval-sample`, ya armada), para saber si el refuerzo por concepto mejora de verdad (sin él, el híbrido empata con el vectorial) y cuánto se equivoca el juez automático (`rappi-ia eval-human`).
-3. Etiquetar los ítems de baja confianza de la capa 2.
-4. Revisar las cadenas de restaurantes sin menú.
+1. Volver a descargar Turbo: revisar dónde lista hoy Rappi esas tiendas.
+2. Mejorar la regla de «sin resultado» (de las 12 negativas no detectadas, 5 nombran un concepto que el vertical sí tiene, 4 calzan por casualidad y 3 quedan sobre τ).
+3. Juzgar a mano la muestra de 200 pares (`rappi-ia eval-sample`, ya armada), para saber si el refuerzo por concepto mejora de verdad (sin él, el híbrido empata con el vectorial) y cuánto se equivoca el juez automático (`rappi-ia eval-human`).
+4. Etiquetar los ítems de baja confianza de la capa 2.
+5. Revisar las cadenas de restaurantes sin menú.
 
 ## Autor
 

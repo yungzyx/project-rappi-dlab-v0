@@ -38,7 +38,7 @@ export function AtRiskTable({ rows, kpis }) {
       </p>
       {missingAtRisk && (
         <p className="table-warning status status--warn">
-          La API entrega como máximo {rows.length} filas y ordena primero a los perdidos: los{' '}
+          La API entregó {rows.length} filas y ninguna es de un usuario en riesgo: los{' '}
           {formatNumber(kpis.en_riesgo)} usuarios en riesgo, los más fáciles de recuperar, no alcanzan a aparecer.
         </p>
       )}
