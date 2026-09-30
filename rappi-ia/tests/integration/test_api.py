@@ -335,3 +335,20 @@ def test_voice_and_photo_respect_topics_already_shown(client):
         again = client.post(path, files=files, data={"vertical": "liquor", "shown_topics": "snacks-salados"}).json()
         assert first["suggestion"]["vertical"] == "supermercado", path
         assert "suggestion" not in again, path
+
+
+def test_beacon_rejects_huge_or_broken_bodies(client):
+    """Al cerrar la pestaña llega lo que quedó en cola: un cuerpo enorme o roto no se guarda a medias."""
+    headers = {"content-type": "text/plain"}
+    huge = client.post("/events/beacon", content=b"x" * (api.MAX_BEACON_BYTES + 1), headers=headers)
+    broken = client.post("/events/beacon", content=b'{"user_id": "u1", "events": [', headers=headers)
+    assert (huge.status_code, broken.status_code) == (413, 422)
+
+
+def test_database_down_is_a_clear_503_not_a_500(monkeypatch):
+    """Con Postgres caído la API responde enseguida y claro; el prototipo cae a su cerebro local."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://127.0.0.1:1/rappi")  # nadie escucha en el puerto 1
+    api.app.dependency_overrides.clear()
+    response = TestClient(api.app, raise_server_exceptions=False).get("/profile/u1")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Base de datos no disponible"}

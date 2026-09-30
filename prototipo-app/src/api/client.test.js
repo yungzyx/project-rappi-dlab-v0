@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { beaconEvents, chatPhoto, chatVoice, health, resetHealthCache, toMessage, toPrototypeProduct } from './client'
+import { beaconEvents, chat, chatPhoto, chatVoice, health, resetHealthCache, toMessage, toPrototypeProduct } from './client'
 
 const API_PRODUCT = {
   id: 'cat-200',
@@ -70,6 +70,40 @@ describe('health', () => {
   test('con API devuelve sus capacidades', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, capacidades: { voz: true, fotos: false } }) }))
     expect(await health({ force: true })).toEqual({ voz: true, fotos: false })
+  })
+
+  test('si el chat falla, la siguiente pregunta vuelve a revisar la API en vez de fiarse del caché', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ capacidades: { voz: true } }) })
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ capacidades: { voz: true } }) })
+    vi.stubGlobal('fetch', fetchMock)
+    await health()
+    await expect(chat({ message: 'cerveza' })).rejects.toThrow()
+
+    await health()
+
+    expect(fetchMock).toHaveBeenCalledTimes(3) // health, chat y health de nuevo (sin esperar los 30 s del caché)
+  })
+})
+
+describe('chat', () => {
+  test('se rinde a los 8 s: el cerebro local contesta antes de que el público note la espera', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((_url, { signal }) => new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('abortado'))))),
+      )
+      const pending = chat({ message: 'cerveza' })
+      const outcome = expect(pending).rejects.toThrow('abortado')
+      await vi.advanceTimersByTimeAsync(7999)
+      await vi.advanceTimersByTimeAsync(1)
+      await outcome
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

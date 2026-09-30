@@ -11,7 +11,7 @@ en los productos manda la categoría porque el nombre trae marcas y ruido ("Fant
 from dataclasses import dataclass
 
 from .matcher import KeywordMatcher
-from .taxonomy import Taxonomy
+from .taxonomy import Taxonomy, keeps_sensitive
 
 MIN_MAP_CONFIDENCE = 0.6  # bajo esto, el mapeo de categoría se considera dudoso y se prueban las reglas
 RULE_CONFIDENCE = 0.7  # confianza de una regla por palabra clave sobre el nombre
@@ -46,9 +46,10 @@ def assign_catalog_item(
     mapped = category_map.get(_key(category)) if category else None
     if mapped and mapped.confidence >= MIN_MAP_CONFIDENCE:
         return _from_map("catalog_item", item_id, mapped, f"categoria:{category}")
-    return _from_rule("catalog_item", item_id, name, matcher) or (
-        _from_map("catalog_item", item_id, mapped, f"categoria:{category}") if mapped else None
-    )
+    rule = _from_rule("catalog_item", item_id, name, matcher)
+    if rule and not (mapped and keeps_sensitive(mapped.concept_id, rule.concept_id)):
+        return rule
+    return _from_map("catalog_item", item_id, mapped, f"categoria:{category}") if mapped else None
 
 
 def assign_menu_item(

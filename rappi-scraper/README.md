@@ -59,7 +59,7 @@ La primera descarga completa (24–27-09-2026) tomó **unos 3 días para las tie
 - **Progreso:** cada línea muestra `[i/N · transcurrido · faltan ~X]`.
 - **Errores transitorios:** cada job fallido se reintenta una vez, automáticamente, al final de la corrida.
 - **Ctrl+C:** detiene sin perder nada; se retoma con el mismo comando.
-- **Reporte:** al terminar se imprime y se guarda en `data/reports/run_<id>_<tipo>.md` (y en `scrape_runs.report`): jobs por estado, errores frecuentes, productos por vertical, páginas omitidas y validaciones de calidad. Un `⚠` indica un posible cambio en el sitio o una respuesta anómala.
+- **Reporte:** al terminar se imprime y se guarda en `data/reports/run_<id>_<tipo>.md` (y en `scrape_runs.report`): jobs por estado, errores frecuentes, productos por vertical, páginas omitidas y validaciones de calidad. Un `⚠` indica un posible cambio en el sitio o una respuesta anómala. Los jobs fallidos se cuentan sobre los intentados (hechos + fallidos), y los totales clave (ofertas; restaurantes y platos) se comparan con la última corrida terminada del mismo tipo: una caída de más del 25 % se marca.
 - **Reintentar a mano:** `rappi retry-failed --kind stores` (o `restaurants`) y volver a correr el comando.
 - **Ver el reporte de nuevo:** `rappi report` (o `rappi report --run N`).
 
@@ -86,7 +86,7 @@ make unschedule        # quitarla
 ```
 
 - **Mac dormido o apagado:** si está dormido a esa hora, corre al despertar; si está apagado, esa semana se salta.
-- **Una sola a la vez:** un candado (`data/refresh-semanal.pid`) impide que corran dos actualizaciones; se borra aunque la tarea se corte con Ctrl+C o una señal. Si hay un `rappi refresh` o un `make post-refresh` lanzado a mano, la tarea se omite. No detecta `scrape-stores` ni `scrape-restaurants` sueltos: no los lances cerca de la hora programada.
+- **Una sola a la vez:** los comandos que descargan (`discover`, `scrape-stores`, `scrape-restaurants`, `refresh`) y `rappi-ia embed-images` toman el mismo candado de archivo (`data/scraper.lock`, con `flock`: el sistema lo suelta aunque el proceso muera) y se niegan a empezar si otra descarga lo tiene. Además, un candado (`data/refresh-semanal.pid`) impide que corran dos actualizaciones semanales; se borra aunque la tarea se corte con Ctrl+C o una señal. Si hay un `rappi refresh` o un `make post-refresh` lanzado a mano, la tarea se omite. No detecta `scrape-stores` ni `scrape-restaurants` sueltos: no los lances cerca de la hora programada.
 - **Ubicación del proyecto:** debe estar fuera de Documentos, Escritorio y Descargas: macOS no deja que launchd lea esas carpetas (detalle en [docs/instalacion.md](../docs/instalacion.md)).
 - **Logs:** la salida de launchd queda en `data/logs/launchd.*.log`; el log detallado y el reporte, como en cualquier corrida.
 - Programarla en **un solo** equipo.

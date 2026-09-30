@@ -7,7 +7,7 @@
 # - `sensitive = true`: Bigotes nunca lo sugiere por iniciativa propia (solo responde si se lo piden).
 # - `age_restricted = true`: +18; la respuesta lleva el recordatorio.
 
-version = "2026-09-27"
+version = "2026-09-30"
 
 # ─── Grupos ───────────────────────────────────────────────────────────────────
 [[group]]
@@ -342,7 +342,7 @@ id = "aceites-condimentos"
 parent = "despensa"
 name = "Aceites y condimentos"
 emoji = "🧂"
-keywords = ["aceite", "aceite de oliva", "vinagre", "sal de mar", "pimienta", "especias", "orégano", "comino", "merkén", "merken", "aliño", "condimento", "ajo en polvo", "paprika", "canela molida"]
+keywords = ["aceite de oliva", "aceite vegetal", "aceite de maravilla", "aceite de girasol", "aceite de canola", "vinagre", "sal de mar", "pimienta", "especias", "orégano", "comino", "merkén", "merken", "aliño", "condimento", "ajo en polvo", "paprika", "canela molida"]
 
 [[concept]]
 id = "salsas"
@@ -594,7 +594,7 @@ emoji = "💊"
 sensitive = true
 # Solo nombres de medicamentos o tipos de producto: los síntomas NO llevan aquí (regla 6d: no se sugieren
 # medicamentos a partir de síntomas; los síntomas activan el aviso de farmacia en agent/understand.py).
-keywords = ["paracetamol", "ibuprofeno", "aspirina", "antigripal", "jarabe", "analgésico", "antiácido", "antiacido", "descongestionante", "suero oral", "antialérgico", "tapsin", "zolben", "kitadol"]
+keywords = ["paracetamol", "ibuprofeno", "aspirina", "antigripal", "jarabe para la tos", "analgésico", "antiácido", "antiacido", "descongestionante", "suero oral", "antialérgico", "tapsin", "zolben", "kitadol"]
 
 [[concept]]
 id = "vitaminas"
@@ -652,7 +652,7 @@ id = "maquillaje"
 parent = "belleza"
 name = "Maquillaje y uñas"
 emoji = "💄"
-keywords = ["maquillaje", "labial", "base de maquillaje", "máscara de pestañas", "rímel", "rimel", "sombra de ojos", "delineador", "rubor", "blush", "corrector", "polvo compacto", "iluminador", "esmalte", "brochas", "manicure", "pestañas postizas"]
+keywords = ["maquillaje", "labial", "base de maquillaje", "máscara de pestañas", "rímel", "rimel", "sombra de ojos", "delineador", "rubor", "blush", "corrector de ojeras", "corrector facial", "polvo compacto", "iluminador", "esmalte", "brochas", "manicure", "pestañas postizas"]
 
 [[concept]]
 id = "fragancias"
@@ -702,7 +702,7 @@ id = "textil-hogar"
 parent = "hogar"
 name = "Textiles del hogar"
 emoji = "🛏️"
-keywords = ["ropa de cama", "sábanas", "plumón", "cobija", "manta", "almohada", "cortina", "cojín", "alfombra", "toalla de baño", "mantel"]
+keywords = ["ropa de cama", "sábanas", "plumón de cama", "plumón nórdico", "cobija", "manta", "almohada", "cortina", "cojín", "alfombra", "toalla de baño", "mantel"]
 
 [[concept]]
 id = "decoracion"
@@ -914,7 +914,7 @@ id = "utiles"
 parent = "libreria"
 name = "Útiles y oficina"
 emoji = "✏️"
-keywords = ["cuaderno", "lápiz", "lapiz", "bolígrafo", "destacador", "plumón", "cartulina", "tijeras", "corrector", "agenda", "carpeta", "archivador", "resma", "block de dibujo", "estuche escolar", "témpera", "acuarela"]
+keywords = ["cuaderno", "lápiz", "lapiz", "bolígrafo", "destacador", "plumones", "plumón permanente", "plumón de pizarra", "cartulina", "tijeras", "corrector líquido", "cinta correctora", "agenda", "carpeta", "archivador", "resma", "block de dibujo", "estuche escolar", "témpera", "acuarela"]
 
 [[concept]]
 id = "libros"

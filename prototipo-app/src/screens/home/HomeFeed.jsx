@@ -13,7 +13,7 @@ import { useAddress } from '../../state/AddressContext'
 import { useDemo } from '../../state/DemoContext'
 import { useProfile } from '../../state/ProfileContext'
 import { forYou } from '../../assistant/brain'
-import { useRemoteForYou } from '../../api/useRemoteForYou'
+import { firstShowing, useRemoteForYou } from '../../api/useRemoteForYou'
 import { useEvents } from '../../state/EventsContext'
 import turboRestaurantesTitle from '../../assets/turbo-restaurantes-title.webp'
 import CreditsBanner from './CreditsBanner'
@@ -44,7 +44,7 @@ export default function HomeFeed({ push }) {
   const remote = useRemoteForYou(demo.isProposal, profile.resets)
   const picks = remote ?? forYou(profile)
   useEffect(() => {
-    if (remote)
+    if (remote && firstShowing(remote))
       events.track('suggestion_shown', { concept_id: remote.concept, vertical: remote.vertical, payload: { origen: 'para-ti' } })
   }, [remote, events])
   const openSearch = () => push('search')

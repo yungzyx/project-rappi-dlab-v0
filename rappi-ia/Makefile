@@ -12,11 +12,11 @@ help:  ## Muestra esta ayuda
 install:  ## Crea .venv con rappi-scraper (esquema) + API + dev (sin modelos)
 	$(PYTHON) -m venv .venv
 	$(PY) -m pip install -q --upgrade pip
-	$(PY) -m pip install -q -e ../rappi-scraper -e ".[api,dev]"
+	$(PY) -m pip install -q -c requirements.lock.txt -e ../rappi-scraper -e ".[api,dev]"
 	@test -f .env || cp .env.example .env
 
 install-ml:  ## Agrega modelos locales: e5 y CLIP (torch), Whisper y Claude opcional (~1 GB de paquetes)
-	$(PY) -m pip install -q -e ".[ml,audio,llm]"
+	$(PY) -m pip install -q -c requirements.lock.txt -e ".[ml,audio,llm]"
 
 db-test:  ## Crea la base de tests propia (rappi_ia_test)
 	-$(PG_BIN)/createdb rappi_ia_test

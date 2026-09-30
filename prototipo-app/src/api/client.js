@@ -4,7 +4,7 @@
 const DEFAULT_PORT = 8000
 const HEALTH_TTL_MS = 30_000
 const HEALTH_TIMEOUT_MS = 1500
-const CHAT_TIMEOUT_MS = 15_000
+const CHAT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: contesta el cerebro local
 const UPLOAD_TIMEOUT_MS = 45_000
 
 export const API_URL =
@@ -50,7 +50,15 @@ export function resetHealthCache() {
   healthCache = { at: 0, value: null }
 }
 
-export const chat = (payload) => request('/chat', { method: 'POST', body: payload })
+/** Si falla, la próxima pregunta vuelve a revisar /health en vez de fiarse del caché de 30 s. */
+export async function chat(payload) {
+  try {
+    return await request('/chat', { method: 'POST', body: payload })
+  } catch (error) {
+    resetHealthCache()
+    throw error
+  }
+}
 
 function upload(path, field, file, context, { signal } = {}) {
   const form = new FormData()

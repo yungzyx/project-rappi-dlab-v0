@@ -95,6 +95,41 @@ def test_store_report_counts_jobs_and_flags_missing_prices(db):
     assert checks["Productos sin categoría (%)"]["ok"]
 
 
+def _report_with_skips(db, previous_offers=None):
+    """1 tienda hecha (1 oferta), 1 fallida y 8 omitidas (marca ya descargada)."""
+    if previous_offers is not None:
+        prev = repository.start_run(db, "stores", {})
+        repository.finish_run(db, prev)
+        repository.save_run_report(db, prev, {"totals": {"ofertas": previous_offers}})
+    run = repository.start_run(db, "stores", {})
+    repository.upsert_store(db, {"store_id": 1, "name": "Lider", "store_type": "lider"})
+    repository.upsert_store_vertical(db, 1, "supermercado")
+    one = {"product_id": "1", "master_product_id": 101, "name": "P1", "category_id": 76, "category_name": "Arroz",
+           "image_url": "x.png", "price": 990}  # fmt: skip
+    repository.save_products(db, run, 1, [one])
+    keys = ["ok", "mal", *(f"omitida-{i}" for i in range(8))]
+    repository.add_jobs(db, run, [_job(k) for k in keys])
+    repository.mark_job(db, run, "ok", "done", {"store_id": 1, "store_type": "lider", "products": 1})
+    repository.mark_job(db, run, "mal", "failed", error="HTTP 502")
+    for k in keys[2:]:
+        repository.mark_job(db, run, k, "skipped", {"reason": "marca ya scrapeada"})
+    db.commit()
+    return {c["label"]: c for c in build_run_report(db, run)["checks"]}
+
+
+def test_failed_jobs_are_counted_over_attempted_jobs_not_skipped_ones(db):
+    """Corrida 4: 8,4 % «ok» con los omitidos en el denominador; sobre los intentados era 11,5 % (> 10 %)."""
+    checks = _report_with_skips(db)
+    assert checks["Jobs fallidos (%)"]["value"] == 50.0
+
+
+def test_a_big_drop_versus_the_previous_run_is_flagged(db):
+    """Las validaciones eran absolutas: una corrida con la mitad de ofertas pasaba sin aviso."""
+    checks = _report_with_skips(db, previous_offers=100)
+    drop = next(c for label, c in checks.items() if label.startswith("Ofertas vs corrida"))
+    assert drop["value"] == -99.0 and not drop["ok"]
+
+
 def test_store_report_sums_skipped_pages(db):
     run = repository.start_run(db, "stores", {})
     repository.add_jobs(db, run, [_job("a"), _job("b"), _job("c")])

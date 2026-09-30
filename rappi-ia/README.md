@@ -28,7 +28,7 @@ make db-test      # base rappi_ia_test (los tests no tocan rappi ni rappi_test)
 make migrate
 ```
 
-Los modelos (~2 GB) se descargan de Hugging Face la primera vez que se usan. Para que Claude redacte las respuestas, agrega `ANTHROPIC_API_KEY` en `.env`; sin clave, Bigotes responde con plantillas y las mismas reglas. Otras variables en `.env.example`.
+Las versiones de las librerías están fijadas en `requirements.lock.txt` (las del equipo que calculó los embeddings de la base): `make install` e `install-ml` no instalan otras. Un job de CI semanal (`.github/workflows/modelos-semanal.yml`) instala los modelos con esas versiones y comprueba que e5 embebe. Los modelos (~2 GB) se descargan de Hugging Face la primera vez que se usan. Para que Claude redacte las respuestas, agrega `ANTHROPIC_API_KEY` en `.env`; sin clave, Bigotes responde con plantillas y las mismas reglas. Otras variables en `.env.example`.
 
 ## Correr
 

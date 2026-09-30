@@ -90,7 +90,9 @@ caffeinate -i make post-refresh           # conceptos, embeddings, evaluación y
 Para correr la demo, ver el [README](../README.md). Para abrirla desde un iPhone:
 
 - la API se levanta con `make serve-lan` en `rappi-ia/` (solo en una red de confianza: no tiene autenticación);
-- el prototipo apunta a ella con `VITE_API_URL` en `prototipo-app/.env.local`.
+- el prototipo y el panel se levantan con `npm run dev -- --host`, para que escuchen en la red y no solo en este Mac;
+- el prototipo apunta a la API con `VITE_API_URL` en `prototipo-app/.env.local`;
+- sirve en la WiFi de casa (192.168.x, 10.x), con el hotspot del iPhone (el Mac queda en 172.20.10.x) y con el nombre Bonjour del Mac (`http://nombre-del-mac.local:5174`).
 
 ## 6. Actualización semanal
 

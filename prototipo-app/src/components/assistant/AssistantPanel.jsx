@@ -6,6 +6,7 @@ import { useDemo } from '../../state/DemoContext'
 import { sessionId, useEvents, userId } from '../../state/EventsContext'
 import { findStore } from '../../data/catalog'
 import { useAssistant } from '../../state/AssistantContext'
+import { useDialog } from '../../hooks/useDialog'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
 import { ChevronDown } from '../Icons'
 import ChatMessage from './ChatMessage'
@@ -123,6 +124,9 @@ export default function AssistantPanel({ push, vertical }) {
     return message
   }
 
+  /** Respuesta de las reglas del prototipo: queda marcada en pantalla para que se sepa qué Bigotes contestó. */
+  const localReply = (message) => ({ ...message, source: 'local' })
+
   /** Respuesta de la API; si no está o falla, el cerebro local de siempre. */
   const answer = async (text, askVertical) => {
     if (await health()) {
@@ -136,7 +140,7 @@ export default function AssistantPanel({ push, vertical }) {
         // cae al cerebro local
       }
     }
-    return reply(text, profile)
+    return localReply(reply(text, profile))
   }
 
   // En orden: la pregunta N+1 sale cuando la respuesta N ya está en pantalla, así sus shown_topics incluyen
@@ -148,7 +152,7 @@ export default function AssistantPanel({ push, vertical }) {
     addMessage({ from: 'user', text: clean })
     profile.track(clean, WEIGHTS.query)
     chatQueue.current = chatQueue.current.then(() =>
-      botSays(local ? reply(clean, profile) : answer(clean, askVertical)),
+      botSays(local ? localReply(reply(clean, profile)) : answer(clean, askVertical)),
     )
   }
 
@@ -164,7 +168,7 @@ export default function AssistantPanel({ push, vertical }) {
           // cae a la respuesta simulada
         }
       }
-      return photoReply(profile)
+      return localReply(photoReply(profile))
     }
     // En la misma fila que las preguntas: "Olvidar" la espera (el servidor registra la foto al responder).
     chatQueue.current = chatQueue.current.then(() => botSays(run()))
@@ -359,6 +363,9 @@ export default function AssistantPanel({ push, vertical }) {
     return () => window.removeEventListener('popstate', onPopState)
   }, [assistant.isOpen])
 
+  // Teclado y VoiceOver: foco adentro al abrir, Escape cierra, Tab no sale, el foco vuelve al cerrar.
+  useDialog(rootRef, assistant.isOpen, () => closeRef.current())
+
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
@@ -370,6 +377,10 @@ export default function AssistantPanel({ push, vertical }) {
   }, [])
 
   if (phase === 'closed' && !assistant.isOpen) return null
+
+  // Cada respuesta se anuncia completa y una vez: la burbuja la escribe letra por letra, el lector de pantalla no.
+  const lastAnswer = messages.findLast((m) => m.from === 'bot' && !m.typing)
+  const announcement = lastAnswer ? `${lastAnswer.text}${lastAnswer.source === 'local' ? ' (respuesta local)' : ''}` : ''
 
   const expanded = phase === 'open'
   const style = {
@@ -422,6 +433,9 @@ export default function AssistantPanel({ push, vertical }) {
       aria-label={`Asistente ${ASSISTANT_NAME}`}
     >
       <div className="assistant-glow" />
+      <p className="sr-only" aria-live="polite" data-testid="assistant-announcer">
+        {announcement}
+      </p>
 
       <header className="assistant-header">
         <button type="button" className="assistant-close tap" aria-label="Cerrar" onClick={() => close()}>
@@ -491,7 +505,7 @@ export default function AssistantPanel({ push, vertical }) {
                 <span key={i} style={{ animationDelay: `${i * 90}ms` }} />
               ))}
             </div>
-            <p>{voice.transcript || 'Te escucho…'}</p>
+            <p role="status">{voice.transcript || 'Te escucho…'}</p>
             {voice.recording && (
               <button type="button" className="assistant-voice-cancel" onClick={stopRecording}>
                 Listo
@@ -518,6 +532,8 @@ export default function AssistantPanel({ push, vertical }) {
               <CameraIcon />
             </button>
             <input
+              data-autofocus
+              aria-label={`Mensaje para ${ASSISTANT_NAME}`}
               value={draft}
               disabled={forgetting}
               onChange={(e) => setDraft(e.target.value)}

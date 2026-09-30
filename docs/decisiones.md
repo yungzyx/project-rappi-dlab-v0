@@ -112,5 +112,5 @@
 ## Abiertas
 
 - **Quién usaría el agente y dónde** (equipo interno, usuarios finales o análisis de mercado). Define la interfaz y el nivel de revisión que haría falta.
-- **Set de consultas negativas:** varias ya tienen oferta real en el catálogo completo; hay que decidir cómo renovarlo.
+- **Historial de precios:** `price_snapshots` y `menu_price_snapshots` crecen unos 40 MB por semana (112 MB tras 3 corridas, 30-09-2026) y `v_price_changes` tarda 0,4 s por reporte. Sin poda por ahora: revisar al pasar de 1 GB (unos 6 meses).
 - **Fallidos que quedan tras la recuperación** (49 grupos de tiendas y 408 restaurantes): revisar el reporte de calidad para separar cambios del sitio de sucursales dadas de baja.

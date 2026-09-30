@@ -68,15 +68,21 @@ def cmd_embed_text(conn, args) -> None:
 
 
 def cmd_embed_images(conn, args) -> None:
+    from contextlib import nullcontext
+
+    from rappi_scraper.lock import DownloadInProgress, download_lock
+
     from .embeddings.images import ScrapeRunning, embed_images, scrape_running
     from .embeddings.models import clip_embedder
 
-    if scrape_running(conn) and not args.forzar:  # antes de cargar modelos
-        log.error("Hay una corrida del scraper en curso: espera a que termine (o usa --forzar con --limit chico)")
-        sys.exit(1)
+    # El mismo candado que el scraper: nunca dos descargas a la vez (--forzar: una tanda chica, a sabiendas).
     try:
-        print(embed_images(conn, clip_embedder(), limit=args.limit, vertical=args.vertical, force=args.forzar))
-    except ScrapeRunning as exc:
+        with nullcontext() if args.forzar else download_lock():
+            if scrape_running(conn) and not args.forzar:  # antes de cargar modelos
+                log.error("Hay una corrida del scraper en curso: espera a que termine (o --forzar con --limit chico)")
+                sys.exit(1)
+            print(embed_images(conn, clip_embedder(), limit=args.limit, vertical=args.vertical, force=args.forzar))
+    except (DownloadInProgress, ScrapeRunning) as exc:
         log.error("%s", exc)
         sys.exit(1)
 
