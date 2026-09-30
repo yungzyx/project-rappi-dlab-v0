@@ -56,7 +56,8 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 `make help` lista todos los objetivos. Otros comandos:
 
 - `rappi-ia search "algo para el carrete" --vertical licores`
-- `rappi-ia concepts --solo-reporte`: cobertura sin recalcular.
+- `rappi-ia concepts --solo-reporte`: cobertura sin recalcular; también lista las categorías sin mapeo revisado (las nuevas de cada semana).
+- `rappi-ia map-categories`: exporta esas categorías a `data/concepts/categorias-sin-mapear.csv`, con el formato de `category_map.csv` y un concepto sugerido cuando al menos la mitad de sus productos ya lo tiene (reglas o kNN). Se revisa cada fila, se cambia el método a «curado» y se copia al mapa versionado.
 - `rappi-ia embed-images --limit 50 --forzar`: una tanda chica de imágenes. **No** correrlo en masa mientras el scraper descarga.
 
 ## API (`make serve` → http://localhost:8000/docs)

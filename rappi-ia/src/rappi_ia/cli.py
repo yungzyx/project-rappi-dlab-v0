@@ -4,6 +4,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia migrate
     rappi-ia concepts                # capa 2: taxonomía, complementos, mapeos y conceptos por ítem
     rappi-ia concepts --solo-reporte # cobertura sin recalcular
+    rappi-ia map-categories          # categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar
     rappi-ia embed-text              # embeddings e5 de search_documents (incremental) + HNSW por vertical
     rappi-ia search "algo para el carrete" --vertical licores
     rappi-ia eval-search             # léxico vs vectorial vs híbrido + calibración de τ ("sin resultado")
@@ -17,7 +18,7 @@ import sys
 
 from . import config
 from .concepts.pipeline import build_concepts
-from .concepts.report import coverage_report, render_text
+from .concepts.report import coverage_report, render_text, write_category_proposals
 from .db import connect, migrate
 from .retrieval.hybrid import MODES, Filters, retrieve
 
@@ -41,6 +42,14 @@ def cmd_concepts(conn, args) -> None:
                 log.warning("Sin el extra `ml` (sentence-transformers): conceptos solo por categoría y reglas")
         build_concepts(conn, embedder)
     print(render_text(coverage_report(conn)))
+
+
+def cmd_map_categories(conn, args) -> None:
+    rows = coverage_report(conn)["categorias_sin_mapear"]
+    out = config.DATA_DIR / "concepts" / "categorias-sin-mapear.csv"
+    write_category_proposals(rows, out)
+    print(f"{len(rows)} categorías sin mapeo revisado en {out}")
+    print("Revisar cada fila, cambiar el método a «curado» y copiarla a src/rappi_ia/concepts/category_map.csv.")
 
 
 def cmd_embed_text(conn, args) -> None:
@@ -158,6 +167,7 @@ COMMANDS = {
     "analytics": cmd_analytics,
     "migrate": cmd_migrate,
     "concepts": cmd_concepts,
+    "map-categories": cmd_map_categories,
     "embed-text": cmd_embed_text,
     "embed-images": cmd_embed_images,
     "search": cmd_search,
@@ -175,6 +185,9 @@ def build_parser() -> argparse.ArgumentParser:
     concepts = sub.add_parser("concepts", help="capa 2: conceptos, complementos y mapeo de productos y platos")
     concepts.add_argument("--solo-reporte", action="store_true", help="solo muestra la cobertura actual")
     concepts.add_argument("--sin-knn", action="store_true", help="sin refinar con vecinos cercanos (embeddings)")
+    sub.add_parser(
+        "map-categories", help="exporta las categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar"
+    )
     embed = sub.add_parser("embed-text", help="embeddings de texto de search_documents (incremental)")
     embed.add_argument("--limit", type=int, help="máximo de textos nuevos (para probar)")
     images = sub.add_parser("embed-images", help="embeddings CLIP de fotos de productos y platos")
