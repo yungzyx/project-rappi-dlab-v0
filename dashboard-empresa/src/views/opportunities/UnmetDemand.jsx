@@ -5,10 +5,11 @@ import { EmptyState } from '../../components/States.jsx'
 import { formatNumber, formatSignedPct } from '../../lib/format.js'
 import { demandLabel, verticalLabel } from '../../lib/labels.js'
 
-function Growth({ value }) {
-  if (value === null || value === undefined) return <span className="cell-sub">nueva</span>
+function Growth({ row }) {
+  if (row.recientes === 0) return <span className="cell-sub">sin actividad en 4 semanas</span>
+  if (row.crecimiento_pct === null || row.crecimiento_pct === undefined) return <span className="cell-sub">nueva</span>
   // Neutro a propósito: que crezca la demanda sin oferta es urgencia, no un resultado bueno ni malo.
-  return <Delta value={value} format={formatSignedPct} goodWhen={null} />
+  return <Delta value={row.crecimiento_pct} format={formatSignedPct} goodWhen={null} />
 }
 
 function WhereItExists({ value }) {
@@ -50,7 +51,7 @@ export function UnmetDemand({ rows }) {
       ),
     },
     { key: 'busquedas', header: 'Búsquedas', numeric: true, render: (row) => formatNumber(row.busquedas) },
-    { key: 'crecimiento', header: 'Crecimiento', numeric: true, render: (row) => <Growth value={row.crecimiento_pct} /> },
+    { key: 'crecimiento', header: 'Crecimiento', numeric: true, render: (row) => <Growth row={row} /> },
     { key: 'existe_en', header: 'Dónde existe', render: (row) => <WhereItExists value={row.existe_en} /> },
     { key: 'accion', header: 'Acción sugerida', wide: true, render: (row) => <span className="action-cell">{row.accion}</span> },
   ]

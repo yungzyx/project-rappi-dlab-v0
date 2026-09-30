@@ -235,3 +235,103 @@ def test_long_audio_is_rejected_before_whisper():
     with pytest.raises(HTTPException) as too_long:
         api._check_audio_length(long_audio.getvalue())
     assert too_long.value.status_code == 413
+
+
+def _streamed_webm(seconds: float) -> bytes:
+    """Opus en WebM escrito sin retroceder, como MediaRecorder: la cabecera no trae la duración."""
+    import io
+
+    av = pytest.importorskip("av")
+    import numpy as np
+
+    class Stream(io.RawIOBase):
+        def __init__(self):
+            self.data = bytearray()
+
+        def writable(self):
+            return True
+
+        def seekable(self):
+            return False
+
+        def write(self, chunk):
+            self.data += chunk
+            return len(chunk)
+
+    out, frame = Stream(), 960
+    with av.open(out, "w", format="webm") as container:
+        stream = container.add_stream("libopus", rate=48000)
+        stream.layout = "mono"
+        for i in range(int(seconds * 48000 / frame)):
+            silence = av.AudioFrame.from_ndarray(np.zeros((1, frame), dtype=np.int16), format="s16", layout="mono")
+            silence.sample_rate, silence.pts = 48000, i * frame
+            for packet in stream.encode(silence):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
+    return bytes(out.data)
+
+
+def test_long_webm_without_duration_is_rejected_before_whisper():
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as too_long:
+        api._check_audio_length(_streamed_webm(25))
+    assert too_long.value.status_code == 413
+    api._check_audio_length(_streamed_webm(5))  # una frase normal pasa
+
+
+def test_voice_only_accepts_audio_types(client):
+    class Transcriber:
+        def transcribe(self, audio):
+            raise AssertionError("no debería llegar a Whisper")
+
+    embedder = HashEmbedder()
+    services = Services(Bigotes(embedder, TemplateComposer()), embedder, transcriber=Transcriber())
+    api.app.dependency_overrides[api.get_services] = lambda: services
+    response = client.post("/chat/voice", files={"audio": ("a.bin", b"123", "application/octet-stream")})
+    assert response.status_code == 415
+
+
+def test_voice_and_photo_respect_topics_already_shown(client):
+    """Texto → voz o foto en la misma sesión: la sugerencia de snacks no se repite (regla 3 de diseno-ia.md §4)."""
+    import io
+    import wave
+
+    import numpy as np
+    from PIL import Image
+
+    from rappi_ia.agent.audio import Transcript
+    from rappi_ia.agent.photo import PhotoReading
+
+    pytest.importorskip("av")
+
+    class Transcriber:
+        def transcribe(self, audio):
+            return Transcript("cerveza", 0.9, False, False)
+
+    class PhotoReader:
+        def read(self, picture):
+            return PhotoReading("cerveza", 0.9, None, np.zeros(512, dtype=np.float32))
+
+    embedder = HashEmbedder()
+    services = Services(
+        Bigotes(embedder, TemplateComposer()), embedder, PhotoReader(), "clip-test", transcriber=Transcriber()
+    )
+    api.app.dependency_overrides[api.get_services] = lambda: services
+    speech = io.BytesIO()
+    with wave.open(speech, "wb") as w:
+        w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000)
+        w.writeframes(b"\x00\x00" * 8000)
+    photo = io.BytesIO()
+    Image.new("RGB", (64, 64), "yellow").save(photo, format="JPEG")
+    uploads = {
+        "/chat/voice": {"audio": ("voz.wav", speech.getvalue(), "audio/wav")},
+        "/chat/photo": {"image": ("foto.jpg", photo.getvalue(), "image/jpeg")},
+    }
+
+    for path, files in uploads.items():
+        first = client.post(path, files=files, data={"vertical": "liquor"}).json()
+        again = client.post(path, files=files, data={"vertical": "liquor", "shown_topics": "snacks-salados"}).json()
+        assert first["suggestion"]["vertical"] == "supermercado", path
+        assert "suggestion" not in again, path

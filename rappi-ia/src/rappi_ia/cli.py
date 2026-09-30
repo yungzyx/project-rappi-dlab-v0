@@ -92,6 +92,7 @@ def cmd_search(conn, args) -> None:
 
 def cmd_eval_search(conn, args) -> None:
     from .eval import search_eval
+    from .retrieval.hybrid import thresholds
 
     embedder = None
     if not args.solo_lexico:
@@ -100,11 +101,14 @@ def cmd_eval_search(conn, args) -> None:
         embedder = text_embedder()
     runs = search_eval.run_queries(conn, embedder, search_eval.load_queries())
     summary = search_eval.summarize(runs)
-    taus = search_eval.calibrate_tau(runs) if embedder else {}
-    if args.guardar_tau and taus:
-        search_eval.save_thresholds(taus)
-    unmet = search_eval.unmet_quality(runs, taus)
-    report = search_eval.render_markdown(summary, unmet, taus, embedder.model_name if embedder else None)
+    current = thresholds()
+    proposed = search_eval.calibrate_tau(runs) if embedder else {}
+    saved = bool(args.guardar_tau and proposed)
+    if saved:
+        search_eval.save_thresholds(proposed)
+    unmet = search_eval.unmet_quality(runs, proposed if saved else current)
+    model = embedder.model_name if embedder else None
+    report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model)
     out = config.DATA_DIR / "eval" / "busqueda.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")

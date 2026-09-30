@@ -11,6 +11,8 @@ const opportunity = (overrides) => ({
   que: '🇵🇪 Comida peruana',
   busquedas: 10,
   usuarios: 8,
+  recientes: 6,
+  anteriores: 5,
   crecimiento_pct: 20,
   accion: 'Oportunidad: sumar comercios o categoría',
   ...overrides,
@@ -54,12 +56,23 @@ describe('pickActions', () => {
   })
 
   test('una consulta sin concepto va entre comillas y el crecimiento nulo se lee como demanda nueva', () => {
-    const rows = [opportunity({ concept_id: null, que: 'kombucha', vertical: 'supermercado', crecimiento_pct: null })]
+    const rows = [
+      opportunity({ concept_id: null, que: 'kombucha', vertical: 'supermercado', anteriores: 0, crecimiento_pct: null }),
+    ]
 
     const [top] = pickActions({ opportunities: rows })
 
     expect(top.title).toBe('«kombucha» en Supermercado')
     expect(top.detail).toContain('nueva')
+  })
+
+  test('una demanda sin búsquedas en 4 semanas no se presenta como nueva', () => {
+    const rows = [opportunity({ recientes: 0, anteriores: 0, crecimiento_pct: null })]
+
+    const [top] = pickActions({ opportunities: rows })
+
+    expect(top.detail).toContain('sin búsquedas en las últimas 4 semanas')
+    expect(top.detail).not.toContain('nueva')
   })
 
   test('si todos los conceptos que suben son demanda no satisfecha, no repite la oportunidad top', () => {

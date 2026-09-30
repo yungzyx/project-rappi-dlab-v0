@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import requests
 
 from rappi_scraper.scraping.client import RestaurantGone, StoreUnavailable
 from rappi_scraper.scraping.next_data import ParseError, extract_next_data
@@ -15,10 +16,12 @@ def load_page(name: str) -> dict:
 
 
 class FakeClient:
-    """Sirve fixtures según la ruta. `unavailable` y `failing_once` simulan tiendas caídas y errores."""
+    """Sirve fixtures según la ruta. `unavailable` y `failing_once` simulan tiendas caídas y errores; `blocked`, un
+    rappi.cl que responde 403 a todo."""
 
-    def __init__(self, pages: dict[str, str] | None = None, unavailable=(), failing_once=(), gone=()):
+    def __init__(self, pages: dict[str, str] | None = None, unavailable=(), failing_once=(), gone=(), blocked=False):
         self.pages = pages or {}
+        self.blocked = blocked
         self.unavailable = set(unavailable)
         self.gone = set(gone)
         self.failing_once = set(failing_once)
@@ -32,6 +35,8 @@ class FakeClient:
 
     def get_next_data(self, path: str) -> dict:
         self.requested.append(path)
+        if self.blocked:
+            raise requests.HTTPError(f"403 Client Error: Forbidden for url: https://www.rappi.cl{path}")
         if path in self.unavailable:
             raise StoreUnavailable(path)
         if path in self.gone:

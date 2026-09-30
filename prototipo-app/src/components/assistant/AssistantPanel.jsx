@@ -107,6 +107,7 @@ export default function AssistantPanel({ push, vertical }) {
     user_id: userId(),
     session_id: sessionId(),
     mode: demo.isProposal ? 'propuesta' : 'actual',
+    shown_topics: [...shownTopics.current], // texto, voz y foto: una sugerencia por tema en la sesión
     ...extra,
   })
 
@@ -129,7 +130,6 @@ export default function AssistantPanel({ push, vertical }) {
         const response = await chat({
           message: text,
           ...apiContext({ vertical: askVertical ?? vertical }),
-          shown_topics: [...shownTopics.current],
         })
         return noteSuggestion(toMessage(response))
       } catch {

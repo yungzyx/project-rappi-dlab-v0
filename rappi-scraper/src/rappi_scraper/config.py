@@ -42,6 +42,8 @@ MAX_BRANCH_ATTEMPTS = 3
 # Intentos por job: 1 + una pasada automática de reintento al final de la corrida
 # (cubre errores transitorios de Rappi como 502 o páginas incompletas).
 MAX_JOB_ATTEMPTS = 2
+# Jobs seguidos que fallan sin respuesta útil de rappi.cl (403, 429, red, página de desafío): la corrida se detiene.
+MAX_CONSECUTIVE_FAILURES = 10
 
 # Rappi redirige aquí cuando la tienda no despacha a la ubicación configurada.
 UNAVAILABLE_PATH_PREFIX = "/tiendas/tipo/"

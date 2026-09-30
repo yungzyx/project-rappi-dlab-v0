@@ -95,28 +95,31 @@ def summarize(runs: list[QueryRun]) -> dict:
 
 
 def calibrate_tau(runs: list[QueryRun], candidates=None) -> dict[str, float]:
-    """τ por vertical: el mayor umbral cuya regla 'sin resultado' tenga precisión ≥ 0,9, maximizando recall.
+    """τ por vertical: el que maximiza el recall de 'sin resultado' con precisión ≥ 0,9 (modo híbrido).
 
-    Usa los datos del modo híbrido. Si un vertical no tiene negativas, conserva el τ por defecto.
+    Solo cuentan las negativas que dependen de τ (sin coincidencia léxica estricta ni concepto nombrado): las demás
+    dan el mismo recall con cualquier τ. Un vertical sin esas negativas, o donde ningún τ detecta alguna, no recibe
+    propuesta. Ante un empate gana el τ más bajo: el más prudente con las consultas que no están en el set.
     """
     candidates = candidates or [round(0.70 + 0.01 * i, 2) for i in range(26)]
     hybrid = [r for r in runs if r.mode == "hibrido"]
     taus = {}
     for vertical in sorted({r.vertical for r in hybrid}):
-        rows = [r for r in hybrid if r.vertical == vertical]
-        if not any(r.tipo == "negativa" for r in rows):
+        rows = [r for r in hybrid if r.vertical == vertical and r.strict_lexical == 0 and not r.names_concept]
+        actual = [r.tipo == "negativa" for r in rows]
+        if not any(actual):
             continue
-        best = (DEFAULT_TAU, -1.0)
+        best = (None, 0.0)
         for tau in candidates:
             predicted = [_is_unmet(r, tau) for r in rows]
-            actual = [r.tipo == "negativa" for r in rows]
             tp = sum(p and a for p, a in zip(predicted, actual, strict=True))
             fp = sum(p and not a for p, a in zip(predicted, actual, strict=True))
             precision = tp / (tp + fp) if tp + fp else 1.0
             recall = tp / sum(actual)
             if precision >= MIN_UNMET_PRECISION and recall > best[1]:
                 best = (tau, recall)
-        taus[vertical] = best[0]
+        if best[0] is not None:
+            taus[vertical] = best[0]
     return taus
 
 
@@ -147,7 +150,15 @@ def save_thresholds(taus: dict[str, float], path: Path = THRESHOLDS_FILE) -> Non
     path.write_text(json.dumps(taus, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def render_markdown(summary: dict, unmet: dict, taus: dict[str, float], model: str | None) -> str:
+def render_markdown(
+    summary: dict,
+    unmet: dict,
+    current: dict[str, float],
+    proposed: dict[str, float],
+    saved: bool,
+    model: str | None,
+) -> str:
+    """`current`: τ vigentes antes de esta evaluación; `unmet` se mide con los propuestos solo si se guardaron."""
     lines = [
         f"# Evaluación de búsqueda ({model or 'solo léxico'})",
         "",
@@ -183,7 +194,22 @@ def render_markdown(summary: dict, unmet: dict, taus: dict[str, float], model: s
         "",
         "## Sin resultado (demanda no satisfecha)",
         "",
-        f"τ calibrado por vertical: {json.dumps(taus, ensure_ascii=False)}",
+        f"Umbral τ por vertical (sin τ propio rige {DEFAULT_TAU}):",
+        "",
+        "| Vertical | τ vigente | τ propuesto |",
+        "|---|---|---|",
+    ]
+    for vertical in sorted(current.keys() | proposed.keys()):
+        suggestion = proposed.get(vertical, "sin propuesta")
+        lines.append(f"| {vertical} | {current.get(vertical, '-')} | {suggestion} |")
+    lines += [
+        "",
+        "Sin propuesta: el vertical no tiene negativas que dependan de τ (todas cortan por coincidencia léxica o por"
+        " concepto nombrado), o ningún τ entre 0,70 y 0,95 las detecta con precisión ≥ 0,9.",
+        "",
+        "Calidad medida con los τ propuestos (guardados en eval/thresholds.json):"
+        if saved
+        else "Calidad medida con los τ vigentes (los propuestos no se guardaron):",
         "",
         f"Negativas: {unmet['negativas']} · detectadas: {unmet['detectadas']}"
         f" · falsas alarmas: {unmet['falsas_alarmas']} · precisión: {unmet['precision']} · recall: {unmet['recall']}",

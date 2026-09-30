@@ -68,6 +68,22 @@ def test_kpis_rhythm_risk_and_cart_abandonment_are_exact(db):
     assert queries.kpis(db, "synthetic")["usuarios_activos"] == 0  # las fuentes no se mezclan
 
 
+def test_purged_searches_without_concept_do_not_become_a_null_opportunity(db):
+    """La purga de 90 días borra el texto: sin concepto ni consulta no hay nada que mostrar (antes, fila «null»)."""
+    seed_taxonomy(db, load_taxonomy())
+    events.record(
+        db,
+        [
+            events.Event(f"u{i}", f"s{i}", "search", ts=T0, vertical="licores", unmet=True, query="kombucha")
+            for i in range(5)
+        ],
+    )
+    events.purge_old_queries(db, days=1)
+    db.commit()
+
+    assert queries.opportunities(db, "prototype") == []
+
+
 def test_cart_abandonment_follows_the_definition(db):
     """§5: carros con productos; abandonado si su último evento de carro (agregar, quitar, pagar) fue hace > 24 h
     y no tiene pedido; una vez por carro, en la semana de su último evento."""

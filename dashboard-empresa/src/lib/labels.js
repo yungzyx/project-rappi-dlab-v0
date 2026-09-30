@@ -15,7 +15,10 @@ export const verticalLabel = (code) => VERTICALS[code] ?? code
 export const SOURCE_LABELS = { synthetic: 'Simulados', prototype: 'Prototipo' }
 
 /** Nombre de una demanda no satisfecha: el concepto (con emoji) o, si no hay concepto, la consulta literal. */
-export const demandLabel = (row) => (row.concept_id ? row.que : `«${row.que}»`)
+export function demandLabel(row) {
+  if (row.concept_id) return row.que
+  return row.que == null ? 'Consulta borrada (más de 90 días)' : `«${row.que}»`
+}
 
 /** Nombre visible de cada consulta de /analytics (para el aviso de modo sin conexión). */
 const ENDPOINTS = {

@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from rappi_ia.agent.audio import assess
 from rappi_ia.agent.bigotes import Bigotes
@@ -59,6 +60,15 @@ def test_llm_text_verifier():
     assert verify_llm_text("¡Te recomiendo {p1}!", refs) == "¡Te recomiendo Cerveza Escudo 470 cc!"
     assert verify_llm_text("{p1} a solo $990", refs) is None  # cifras propias
     assert verify_llm_text("Prueba {p2}", refs) is None  # marcador desconocido
+
+
+def test_claude_composer_gives_up_quickly():
+    """Si Claude no responde, la plantilla contesta en segundos (por defecto el SDK espera 10 min × 3 intentos)."""
+    pytest.importorskip("anthropic")
+    composer = ClaudeComposer(api_key="sin-clave")
+
+    assert composer._client.timeout == 6
+    assert composer._client.max_retries == 1
 
 
 def test_claude_composer_falls_back_to_template_on_any_failure():

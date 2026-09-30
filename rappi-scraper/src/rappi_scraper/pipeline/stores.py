@@ -9,7 +9,7 @@ from ..scraping.client import PAGE_ERRORS, RappiClient, StoreUnavailable
 from ..scraping.next_data import ParseError
 from ..scraping.store_parser import parse_aisles, parse_products, parse_store, parse_sub_aisles
 from ..storage import repository
-from .queue import process_with_retry
+from .queue import GONE_MID_CRAWL, NO_BRANCH_AVAILABLE, process_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ def _run_store_job(
     conn: Connection, client: RappiClient, run_id: int, payload: dict, done_types: set[str], max_aisles: int | None
 ) -> tuple[str, dict | None, str | None]:
     """Prueba las sucursales candidatas hasta scrapear una. Devuelve (status, result, error)."""
-    error = "ninguna sucursal disponible"
+    error = NO_BRANCH_AVAILABLE
     for cand in payload["candidates"][: config.MAX_BRANCH_ATTEMPTS]:
         client.set_location(cand["lat"], cand["lng"], cand["city"], cand["city"])
         try:
@@ -125,7 +125,7 @@ def _run_store_job(
             crawl = crawl_store(client, store_data, max_aisles)
         except StoreUnavailable as exc:  # un pasillo redirigió al listado: no guardar un catálogo a medias
             log.info("  %s dejó de estar disponible (%s), probando otra", cand["store_id"], exc)
-            error = "sucursal no disponible a mitad del recorrido"
+            error = GONE_MID_CRAWL
             continue
         saved = save_crawl(conn, run_id, crawl, payload["verticals"])
         done_types.add(store_type)

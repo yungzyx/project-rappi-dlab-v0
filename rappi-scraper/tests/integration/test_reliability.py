@@ -56,6 +56,17 @@ def test_transient_failure_is_retried_automatically(db):
     assert _status(db, "type:lider") == ("done", 2)
 
 
+def test_failures_where_rappi_answered_do_not_stop_the_run(db):
+    """«Ninguna sucursal disponible» es una respuesta de rappi.cl, no una señal de bloqueo."""
+    path = "/tiendas/900025946-lider"
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_job(f"type:{i:02}", path) for i in range(12)])
+
+    process_store_jobs(db, FakeClient(unavailable={path}), run, max_aisles=1)
+
+    assert db.execute("SELECT status, count(*) FROM scrape_jobs GROUP BY 1").fetchall() == [("failed", 12)]
+
+
 def test_store_report_counts_jobs_and_flags_missing_prices(db):
     run = repository.start_run(db, "stores", {})
     repository.upsert_store(db, {"store_id": 1, "name": "Lider", "store_type": "lider"})

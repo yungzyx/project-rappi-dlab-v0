@@ -4,6 +4,7 @@ Se cargan una sola vez por proceso. En un Mac con Apple Silicon usan la GPU (MPS
 """
 
 import logging
+import threading
 from functools import cache
 
 import numpy as np
@@ -31,15 +32,22 @@ class E5Embedder:
         log.info("Cargando %s en %s", model_name, device)
         self._model = SentenceTransformer(model_name, device=device)
         self._model.max_seq_length = 512
+        self._lock = threading.Lock()  # la API atiende en un pool de hilos: una inferencia a la vez por modelo
         dimension = (
             getattr(self._model, "get_embedding_dimension", None) or self._model.get_sentence_embedding_dimension
         )
         self.dim = dimension()
 
     def _encode(self, texts: list[str]) -> np.ndarray:
-        return self._model.encode(
-            texts, batch_size=self.batch_size, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False
-        ).astype(np.float32)
+        with self._lock:
+            vectors = self._model.encode(
+                texts,
+                batch_size=self.batch_size,
+                normalize_embeddings=True,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+            )
+        return vectors.astype(np.float32)
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
         return self._encode([f"passage: {t}" for t in texts])
@@ -68,17 +76,22 @@ class ClipEmbedder:
         self._image_model = SentenceTransformer(image_model, device=device)
         self._text_model = SentenceTransformer(text_model, device=device)
         self.dim = 512
+        self._lock = threading.Lock()  # imagen y texto: una inferencia a la vez (misma GPU)
 
     def embed_images(self, images: list) -> np.ndarray:
         """`images`: objetos PIL.Image en RGB."""
-        return self._image_model.encode(
-            images, batch_size=32, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False
-        ).astype(np.float32)
+        with self._lock:
+            vectors = self._image_model.encode(
+                images, batch_size=32, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False
+            )
+        return vectors.astype(np.float32)
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
-        return self._text_model.encode(
-            texts, batch_size=64, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False
-        ).astype(np.float32)
+        with self._lock:
+            vectors = self._text_model.encode(
+                texts, batch_size=64, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False
+            )
+        return vectors.astype(np.float32)
 
 
 @cache

@@ -3,6 +3,7 @@
 import pytest
 
 from conftest import FakeClient
+from rappi_scraper.pipeline.queue import PossibleBlock
 from rappi_scraper.pipeline.refresh import refresh
 from rappi_scraper.storage import repository
 
@@ -95,3 +96,21 @@ def test_failed_discovery_closes_the_run_so_the_next_refresh_discovers_again(db,
         reports_dir=tmp_path,
     )
     assert len(calls) == 1  # corrida nueva, con descubrimiento
+
+
+def test_refresh_stops_on_a_block_and_leaves_the_run_open(db, tmp_path):
+    """Ante un 403 permanente no sigue job por job: para, deja el reporte y la corrida abierta para retomarla."""
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [{**STORE_JOB, "job_key": f"type:{i:02}"} for i in range(15)])
+    client = FakeClient(blocked=True)
+    backups = []
+
+    with pytest.raises(PossibleBlock, match="10 fallos consecutivos"):
+        refresh(db, client, _no_discovery, _no_discovery, backup=lambda: backups.append("ok"), reports_dir=tmp_path)
+
+    assert len(client.requested) == 10
+    # Los 10 que fallaron por el bloqueo vuelven a la cola: la próxima actualización los intenta de nuevo.
+    assert db.execute("SELECT status, count(*) FROM scrape_jobs GROUP BY 1").fetchall() == [("pending", 15)]
+    assert repository.open_run(db, "stores") == run
+    assert "posible bloqueo" in (tmp_path / f"run_{run}_stores.md").read_text(encoding="utf-8")
+    assert backups == [] and repository.latest_run(db, "restaurants") is None

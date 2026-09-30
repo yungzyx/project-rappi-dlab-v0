@@ -94,7 +94,8 @@ class ClaudeComposer:
     def __init__(self, model: str = config.BIGOTES_LLM_MODEL, api_key: str | None = config.ANTHROPIC_API_KEY):
         import anthropic
 
-        self._client = anthropic.Anthropic(api_key=api_key)
+        # La plantilla responde si Claude tarda: el SDK, por defecto, espera 10 min y reintenta 2 veces.
+        self._client = anthropic.Anthropic(api_key=api_key, timeout=6, max_retries=1)
         self.model = model
         self._fallback = TemplateComposer()
 

@@ -1,6 +1,12 @@
+from argparse import Namespace
+
+import pytest
+
+from rappi_scraper import cli
 from rappi_scraper import keep_awake as keep_awake_module
 from rappi_scraper.keep_awake import keep_awake
 from rappi_scraper.pipeline.progress import Progress
+from rappi_scraper.pipeline.queue import PossibleBlock
 from rappi_scraper.reporting import render_markdown
 
 
@@ -75,3 +81,13 @@ def test_render_markdown_flags_out_of_range_checks():
 def test_render_markdown_all_ok():
     ok = [{"label": "Jobs fallidos (%)", "value": 1.0, "limit": 10, "minimum": False, "ok": True}]
     assert "✓ Todas las validaciones dentro de rango" in render_markdown(_report(ok))
+
+
+def test_refresh_command_exits_with_a_clear_message_on_a_block(monkeypatch):
+    def blocked(*args, **kwargs):
+        raise PossibleBlock("posible bloqueo: 10 fallos consecutivos (último: 403)")
+
+    monkeypatch.setattr(cli, "refresh", blocked)
+    with pytest.raises(SystemExit, match="Descarga detenida: posible bloqueo") as exit_info:
+        cli.cmd_refresh(None, Namespace(no_backup=True))
+    assert exit_info.value.code != 0

@@ -8,7 +8,7 @@ from .. import config
 from ..scraping.client import PAGE_ERRORS, RappiClient, RestaurantGone
 from ..scraping.restaurant_parser import parse_restaurant
 from ..storage import repository
-from .queue import process_with_retry
+from .queue import NO_BRANCH_WITH_MENU, process_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def _run_restaurant_job(
 ) -> tuple[str, dict | None, str | None]:
     """Guarda la primera sucursal con menú. Si la marca ya se guardó en la corrida, se salta
     (pasa con sucursales de cadenas cuya página de cadena no se pudo leer al descubrir)."""
-    error = "ninguna sucursal con menú"
+    error = NO_BRANCH_WITH_MENU
     candidates = payload["candidates"][: config.MAX_BRANCH_ATTEMPTS]
     gone = 0
     for cand in candidates:

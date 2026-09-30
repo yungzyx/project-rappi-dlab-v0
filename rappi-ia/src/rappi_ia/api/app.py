@@ -5,7 +5,9 @@ make serve   →   http://localhost:8000/docs
 
 import io
 import logging
+import time
 from collections.abc import Iterator
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
@@ -27,7 +29,21 @@ from .services import Services, services
 
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="rappi-ia", version="0.1.0", description="Bigotes, búsqueda por vertical y panel empresa")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Carga los modelos antes de «startup complete»: si no, los paga la primera petición (el /health del prototipo,
+    que se rinde a los 1,5 s y deja a Bigotes con su cerebro local)."""
+    start = time.perf_counter()
+    await run_in_threadpool(services)
+    # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
+    logging.getLogger("uvicorn.error").info("Servicios cargados en %.1f s", time.perf_counter() - start)
+    yield
+
+
+app = FastAPI(
+    title="rappi-ia", version="0.1.0", description="Bigotes, búsqueda por vertical y panel empresa", lifespan=lifespan
+)
 # Solo este Mac por defecto. La red local (iPhone) se abre con API_ALLOW_LAN=1 (`make serve-lan`): la API no
 # tiene autenticación, así que solo en una red de confianza.
 _LOCAL = r"localhost|127\.0\.0\.1"
@@ -47,12 +63,13 @@ MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
 MAX_AUDIO_SECONDS = 20  # el prototipo graba hasta 7 s; esto protege a Whisper de audios de horas
 MAX_IMAGE_PIXELS = 40_000_000  # evita "bombas" de descompresión (un PNG de 17 KB puede pesar 500 MB en memoria)
 IMAGE_FORMATS = ["JPEG", "PNG", "WEBP"]  # nunca EPS/PS (Pillow llamaría a Ghostscript)
-AUDIO_TYPES = ("audio/", "video/webm", "video/mp4", "application/octet-stream")
+AUDIO_TYPES = ("audio/", "video/webm", "video/mp4")
 MODES_LITERAL = ("propuesta", "actual")
 
 
 def get_conn() -> Iterator[Connection]:
-    with connect() as conn:
+    """Falla rápido si Postgres no responde o una consulta se atasca (el prototipo tiene su cerebro local)."""
+    with connect(connect_timeout=3, options="-c statement_timeout=20s") as conn:
         yield conn
 
 
@@ -161,6 +178,7 @@ def chat_voice(
     user_id: str | None = Form(None, max_length=64),
     session_id: str | None = Form(None, max_length=64),
     mode: str = Form("propuesta"),
+    shown_topics: str = Form("", max_length=2000),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
 ) -> dict:
@@ -173,7 +191,7 @@ def chat_voice(
     data = _read_upload(audio)
     _check_audio_length(data)
     transcript = svc.transcriber.transcribe(io.BytesIO(data))  # el audio no se guarda
-    ctx = _context(conn, vertical, user_id, None, [], mode)
+    ctx = _context(conn, vertical, user_id, None, _topics(shown_topics), mode)
     response = svc.bigotes.reply_voice(conn, transcript, ctx)
     if not transcript.discarded:
         _log_chat(conn, user_id, session_id, transcript.text, response, "voz", mode)
@@ -187,6 +205,7 @@ def chat_photo(
     user_id: str | None = Form(None, max_length=64),
     session_id: str | None = Form(None, max_length=64),
     mode: str = Form("propuesta"),
+    shown_topics: str = Form("", max_length=2000),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
 ) -> dict:
@@ -196,7 +215,7 @@ def chat_photo(
     from ..agent.photo import similar_items
 
     picture = _open_image(_read_upload(image))  # la foto no se guarda
-    ctx = _context(conn, vertical, user_id, None, [], mode)
+    ctx = _context(conn, vertical, user_id, None, _topics(shown_topics), mode)
     reading = svc.photo_reader.read(picture)
     similar = similar_items(conn, reading.vector, svc.image_model, ctx.vertical)
     response = svc.bigotes.reply_photo(conn, reading, similar, ctx)
@@ -381,6 +400,11 @@ def analytics(
 
 
 # ── Auxiliares ───────────────────────────────────────────────────────────────
+def _topics(form_value: str) -> list[str]:
+    """`shown_topics` de un formulario (voz, foto): ids separados por coma, como mucho 50 (igual que /chat)."""
+    return [topic.strip() for topic in form_value.split(",") if topic.strip()][:50]
+
+
 def _context(conn, vertical, user_id, profile, shown_topics, mode) -> Context:
     if profile is None and user_id and mode == "propuesta":
         profile = events.profile(conn, user_id)
@@ -449,11 +473,17 @@ def _open_image(data: bytes):
 
 
 def _check_audio_length(data: bytes) -> None:
+    """Suma la duración decodificando, hasta pasar el tope: el WebM de MediaRecorder no la trae en la cabecera, y
+    la cabecera de otro cliente podría mentir."""
     try:
         import av
 
+        seconds = 0.0
         with av.open(io.BytesIO(data)) as container:
-            seconds = (container.duration or 0) / 1_000_000
+            for frame in container.decode(audio=0):
+                seconds += frame.samples / frame.sample_rate
+                if seconds > MAX_AUDIO_SECONDS:
+                    break
     except Exception as exc:  # formato ilegible
         raise HTTPException(400, "El audio no es válido") from exc
     if seconds > MAX_AUDIO_SECONDS:

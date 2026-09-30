@@ -10,17 +10,18 @@ import { TrendList } from './TrendList.jsx'
 import { UnmetDemand } from './UnmetDemand.jsx'
 import './opportunities.css'
 
-/** Titular de la vista: cuántos usuarios distintos pidieron algo sin resultado (suma de la demanda agrupada). */
+/** Titular de la vista: búsquedas sin resultado de la demanda agrupada. Se suman búsquedas y no usuarios: la misma
+ * persona aparece en varias filas (con los datos simulados, la suma de usuarios daba 1.204 contra 824 distintos). */
 function UnmetHeadline({ source }) {
   const rows = useAnalytics('opportunities', source)
   if (!rows.length) return null
-  const users = rows.reduce((total, row) => total + row.usuarios, 0)
+  const searches = rows.reduce((total, row) => total + row.busquedas, 0)
   const [top] = [...rows].sort((a, b) => b.usuarios - a.usuarios)
   return (
     <Headline
-      value={formatNumber(users)}
-      unit="usuarios pidieron algo que no encontraron"
-      context={`${rows.length} demandas agrupadas · la mayor: ${demandLabel(top)}`}
+      value={formatNumber(searches)}
+      unit="búsquedas sin resultado"
+      context={`${rows.length} demandas agrupadas · la mayor: ${demandLabel(top)} (${formatNumber(top.usuarios)} usuarios)`}
       tone="brand"
     />
   )

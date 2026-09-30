@@ -18,8 +18,9 @@ def database_url(env_var: str = "DATABASE_URL") -> str:
     return url
 
 
-def connect(url: str | None = None) -> psycopg.Connection:
-    return psycopg.connect(url or database_url())
+def connect(url: str | None = None, **options) -> psycopg.Connection:
+    """`options` van a psycopg.connect (p. ej. `connect_timeout`)."""
+    return psycopg.connect(url or database_url(), **options)
 
 
 def set_index_build_memory(conn: psycopg.Connection) -> None:
