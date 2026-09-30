@@ -23,6 +23,8 @@ MAX_ZERO_PRODUCT_STORES_PCT = 5  # una tienda "hecha" sin productos = página va
 MIN_COVERAGE_PCT = 5  # lo normal es 8–58% (tope de 24 por sub-pasillo); menos = parser roto
 MAX_MISSING_DISH_PRICE_PCT = 2  # los platos siempre tienen precio
 MIN_DISHES_PER_RESTAURANT = 5  # menos indica menús que no se leyeron completos
+MAX_DROP_VS_PREVIOUS_PCT = 25  # caer más que esto frente a la corrida anterior suele ser bloqueo parcial o parser roto
+COMPARED_TOTALS = {"stores": ("ofertas",), "restaurants": ("restaurantes", "platos")}
 
 STORE_QUALITY_SQL = """
 SELECT count(*),
@@ -161,11 +163,33 @@ def build_run_report(conn: Connection, run_id: int, alert: str | None = None) ->
         report["totals"], checks = _restaurant_section(conn, params)
     else:
         report["verticals"], report["totals"], checks = _store_section(conn, params, jobs)
-    processed = sum(n for s, n in jobs.items() if s != "pending")
+    # Sobre los intentados: los omitidos (marca ya descargada, ya no existe) diluían la tasa de fallas.
+    attempted = jobs.get("done", 0) + jobs.get("failed", 0)
     if jobs:
-        checks.insert(0, _check("Jobs fallidos (%)", _pct(jobs.get("failed", 0), processed), MAX_FAILED_JOBS_PCT))
+        checks.insert(0, _check("Jobs fallidos (%)", _pct(jobs.get("failed", 0), attempted), MAX_FAILED_JOBS_PCT))
+    checks += _versus_previous(conn, kind, run_id, report["totals"])
     report["checks"] = checks
     return report
+
+
+def _versus_previous(conn: Connection, kind: str, run_id: int, totals: dict) -> list[dict]:
+    """Variación (%) de los totales clave frente a la última corrida terminada del mismo tipo."""
+    row = conn.execute(
+        "SELECT run_id, report FROM scrape_runs WHERE kind = %s AND run_id < %s AND status = 'done' "
+        "AND report IS NOT NULL ORDER BY run_id DESC LIMIT 1",
+        (kind, run_id),
+    ).fetchone()
+    if row is None:
+        return []
+    previous_id, previous = row
+    checks = []
+    for key in COMPARED_TOTALS.get(kind, ()):
+        before, now = previous.get("totals", {}).get(key), totals.get(key)
+        if before and now is not None:
+            change = round(100 * (now - before) / before, 1)
+            label = f"{key.capitalize()} vs corrida {previous_id} (%)"
+            checks.append(_check(label, change, -MAX_DROP_VS_PREVIOUS_PCT, minimum=True))
+    return checks
 
 
 def render_markdown(report: dict) -> str:

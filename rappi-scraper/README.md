@@ -59,7 +59,7 @@ La primera descarga completa (24–27-09-2026) tomó **unos 3 días para las tie
 - **Progreso:** cada línea muestra `[i/N · transcurrido · faltan ~X]`.
 - **Errores transitorios:** cada job fallido se reintenta una vez, automáticamente, al final de la corrida.
 - **Ctrl+C:** detiene sin perder nada; se retoma con el mismo comando.
-- **Reporte:** al terminar se imprime y se guarda en `data/reports/run_<id>_<tipo>.md` (y en `scrape_runs.report`): jobs por estado, errores frecuentes, productos por vertical, páginas omitidas y validaciones de calidad. Un `⚠` indica un posible cambio en el sitio o una respuesta anómala.
+- **Reporte:** al terminar se imprime y se guarda en `data/reports/run_<id>_<tipo>.md` (y en `scrape_runs.report`): jobs por estado, errores frecuentes, productos por vertical, páginas omitidas y validaciones de calidad. Un `⚠` indica un posible cambio en el sitio o una respuesta anómala. Los jobs fallidos se cuentan sobre los intentados (hechos + fallidos), y los totales clave (ofertas; restaurantes y platos) se comparan con la última corrida terminada del mismo tipo: una caída de más del 25 % se marca.
 - **Reintentar a mano:** `rappi retry-failed --kind stores` (o `restaurants`) y volver a correr el comando.
 - **Ver el reporte de nuevo:** `rappi report` (o `rappi report --run N`).
 
