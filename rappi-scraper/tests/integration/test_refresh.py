@@ -114,3 +114,39 @@ def test_refresh_stops_on_a_block_and_leaves_the_run_open(db, tmp_path):
     assert repository.open_run(db, "stores") == run
     assert "posible bloqueo" in (tmp_path / f"run_{run}_stores.md").read_text(encoding="utf-8")
     assert backups == [] and repository.latest_run(db, "restaurants") is None
+
+
+def test_a_failed_backup_does_not_stop_the_weekly_update(db, tmp_path, caplog):
+    """Sin respaldo nuevo quedan los anteriores; la capa de IA (post-refresh) igual debe correr."""
+
+    def broken_backup():
+        raise RuntimeError("pg_dump: disco lleno")
+
+    reports = refresh(
+        db,
+        FakeClient({"/restaurantes/384": "restaurant"}),
+        _discoverer(STORE_JOB, []),
+        _discoverer(RESTAURANT_JOB, []),
+        backup=broken_backup,
+        reports_dir=tmp_path,
+    )
+
+    assert [r["status"] for r in reports] == ["done", "done"]
+    assert "Respaldo fallido" in caplog.text
+
+
+def test_an_interrupted_refresh_resumes_restaurants_without_scraping_stores_again(db, tmp_path):
+    """Un apagado a mitad de los restaurantes: las tiendas de ese ciclo ya terminaron y no se vuelven a bajar."""
+    stores_run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, stores_run, [STORE_JOB])
+    repository.mark_job(db, stores_run, STORE_JOB["job_key"], "done", {"store_type": "lider"})
+    repository.finish_run(db, stores_run)
+    restaurants_run = repository.start_run(db, "restaurants", {})
+    repository.add_jobs(db, restaurants_run, [RESTAURANT_JOB])
+    client = FakeClient({"/restaurantes/384": "restaurant"})
+
+    reports = refresh(db, client, _no_discovery, _no_discovery, reports_dir=tmp_path)
+
+    assert [(r["kind"], r["run_id"], r["status"]) for r in reports] == [("restaurants", restaurants_run, "done")]
+    assert client.requested == ["/restaurantes/384"]
+    assert repository.latest_run(db, "stores") == stores_run  # ninguna corrida de tiendas nueva

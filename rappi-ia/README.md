@@ -35,7 +35,7 @@ Los modelos (~2 GB) se descargan de Hugging Face la primera vez que se usan. Par
 Después de cada `rappi refresh` del scraper:
 
 ```bash
-make post-refresh                 # migrate + concepts + embed + eval + synth + purge
+make post-refresh                 # migrate + purge + concepts + embed + eval + synth + purge
 ./scripts/despues-del-refresh.sh  # lo mismo, pero espera a que termine un `rappi refresh` lanzado a mano
 ```
 

@@ -71,5 +71,9 @@ images:  ## Fotos del catálogo con CLIP (miles de descargas: correr con el scra
 purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/diseno-ia.md §2)
 	$(PY) -m rappi_ia purge
 
-post-refresh: migrate concepts embed eval synth purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
+# purge va primero, para que la retención de 90 días se cumpla aunque falle un paso posterior, y otra vez al final
+# para los eventos simulados que synth acaba de generar.
+post-refresh: migrate purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
+	$(MAKE) concepts embed eval synth
+	$(MAKE) purge
 	@echo "Listo: conceptos, embeddings, evaluación y datos simulados al día."

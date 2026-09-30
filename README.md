@@ -85,7 +85,7 @@ Cifras verificadas el 28-09-2026 sobre la base completa. Cada una indica qué ti
 | Capa 2 | Precisión de la asignación | ≈88% por categoría · ≈81% platos · 55% reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
 | Búsqueda | nDCG@10 | híbrido 0,889 · vectorial 0,825 · léxico 0,744 | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 28-09) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,33 (5 de 15) | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 28-09) |
-| Calidad | Tests (pytest / Vitest) | scraper 86 · rappi-ia 152 · prototipo 108 · panel 80 | Verificación local, 28-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) |
+| Calidad | Tests (pytest / Vitest) | scraper 92 · rappi-ia 152 · prototipo 108 · panel 80 | Verificación local, 29-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) |
 | Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); nueva revisión de los cambios del 28-09 | Proceso | — |
 | Panel | Usuarios, eventos y pedidos | 1.500 usuarios × 20 semanas (semilla 7) | **Simulado** | `rappi-ia/src/rappi_ia/events/synth.py` |
 

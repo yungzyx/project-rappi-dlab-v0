@@ -94,6 +94,8 @@
 | 27-09-2026 | La descarga masiva de imágenes (`make images`) se corre a mano y nunca junto a una descarga. | Son decenas de miles de descargas. |
 | 27-09-2026 | En el equipo que corre la tarea semanal, el proyecto va fuera de Documentos, Escritorio y Descargas. | macOS no deja que launchd lea esas carpetas. |
 | 28-09-2026 | La tarea semanal borra su candado aunque la corten con una señal (por ejemplo, Ctrl-C). | No dejar candados huérfanos. |
+| 29-09-2026 | El equipo de la tarea semanal no se duerme y se reenciende solo tras un corte de luz (`pmset autorestart 1 sleep 0`), pero mantiene FileVault: después de un corte espera la clave, y hasta escribirla no corren Postgres ni la tarea. | Es un equipo personal con cuentas propias; los cortes son raros y perder una semana de descarga es aceptable. |
+| 29-09-2026 | Por ahora los respaldos quedan solo en el equipo de la tarea semanal (los últimos 4, en el mismo disco que la base). | Riesgo aceptado: si falla el disco se pierde el historial de precios, que no se recupera de rappi.cl. Revisar cuando haya un disco externo. |
 
 ## Repositorio y documentación
 

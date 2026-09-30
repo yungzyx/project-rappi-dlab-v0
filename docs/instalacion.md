@@ -104,15 +104,17 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 
 - **Qué corre:** `rappi-scraper/scripts/refresh-semanal.sh`.
   - Primero `rappi refresh`: tiendas, restaurantes, búsqueda, reportes y respaldo en `data/backups/` (quedan los últimos 4).
-  - Si termina bien, `make post-refresh` de rappi-ia: conceptos, embeddings, evaluación, datos simulados y purga.
+  - Si termina bien, `make post-refresh` de rappi-ia: purga (primero, para cumplir la retención aunque falle otro paso), conceptos, embeddings, evaluación, datos simulados y otra purga.
   - Nunca corren dos a la vez. El candado que lo impide se borra aunque la tarea se corte con una señal (Ctrl-C, cerrar la terminal).
 - **τ:** la evaluación semanal no guarda τ, porque `thresholds.json` está en el repositorio. Para recalibrar: `make eval` a mano en `rappi-ia/` y commit.
 - **Dormido o apagado:** si a esa hora el equipo estaba **dormido**, la tarea corre al despertar; si estaba **apagado**, esa semana se salta. Por eso conviene:
   - que no se duerma (Ajustes del Sistema → Energía → evitar el reposo automático);
-  - que se encienda solo tras un corte de luz (misma pantalla);
+  - que se encienda solo tras un corte de luz (misma pantalla); `sudo pmset -a autorestart 1 sleep 0` deja ambas cosas;
   - que quede con la sesión iniciada, porque launchd corre la tarea en la sesión del usuario.
-- **Después de la primera semana:** `make schedule-status` debe mostrar `last exit code = 0`. La salida queda en `rappi-scraper/data/logs/launchd.*.log` y el reporte de calidad en `rappi-scraper/data/reports/`.
-- **`rappi refresh` lanzado a mano:** `./scripts/despues-del-refresh.sh` en `rappi-ia/` espera a que termine y corre `make post-refresh`. A diferencia de la tarea semanal, recalibra τ en `thresholds.json`: si cambia, revisar y hacer commit.- **Fotos:** `make images` en `rappi-ia/`, a mano y sin una descarga en curso (son decenas de miles de descargas).
+- **FileVault:** en el Mac mini se mantiene activo ([decisiones.md](decisiones.md#operación)). Tras un corte de luz el equipo se reenciende pero espera la clave: hasta escribirla no corren Postgres ni la tarea, y si pasa el domingo 03:00 esa semana se salta.
+- **Después de la primera semana:** `make schedule-status` debe mostrar `last exit code = 0` y, en «Últimas ejecuciones», una línea `exit=0` por semana (sale de `rappi-scraper/data/logs/ultimo-estado.txt`; «omitida» si otra descarga estaba en curso; «interrumpida» si la anterior se cortó por un apagado, y esa se retoma en la etapa donde quedó, sin volver a bajar tiendas ya terminadas). La salida completa queda en `rappi-scraper/data/logs/launchd.*.log` y el reporte de calidad en `rappi-scraper/data/reports/`.
+- **`rappi refresh` lanzado a mano:** `./scripts/despues-del-refresh.sh` en `rappi-ia/` espera a que termine y corre `make post-refresh`. A diferencia de la tarea semanal, recalibra τ en `thresholds.json`: si cambia, revisar y hacer commit.
+- **Fotos:** `make images` en `rappi-ia/`, a mano y sin una descarga en curso (son decenas de miles de descargas).
 
 ## Operación
 
