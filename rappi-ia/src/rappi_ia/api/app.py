@@ -13,7 +13,8 @@ from typing import Literal
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from psycopg import Connection
+from fastapi.responses import JSONResponse
+from psycopg import Connection, OperationalError
 from pydantic import BaseModel, Field, ValidationError, model_validator
 from rappi_scraper.storage.search import VERTICALS
 
@@ -66,6 +67,14 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["content-type"],
 )
+
+
+@app.exception_handler(OperationalError)
+async def database_unavailable(request: Request, exc: OperationalError) -> JSONResponse:
+    """Postgres caído o sin respuesta: un 503 claro y rápido (el prototipo cae a su cerebro local), no un 500."""
+    log.error("Base de datos no disponible: %s", exc)
+    return JSONResponse(status_code=503, content={"detail": "Base de datos no disponible"})
+
 
 FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 EMPTY_VERTICAL_FALLBACK = {"turbo": "conveniencia"}  # mismo tipo de tienda (minimarket con entrega rápida)
