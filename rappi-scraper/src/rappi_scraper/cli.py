@@ -23,6 +23,7 @@ from . import config
 from .keep_awake import keep_awake
 from .legacy.csv_format import OUTPUT_DIR as LEGACY_CSV_DIR
 from .legacy.csv_io import export_catalog_csv, import_legacy_csv
+from .lock import DownloadInProgress, download_lock
 from .pipeline.discover import VERTICAL_LISTINGS, city_locations, discover_restaurants, discover_stores
 from .pipeline.queue import PossibleBlock
 from .pipeline.refresh import JOB_TYPES, finish_and_report, refresh
@@ -239,13 +240,17 @@ def _setup_logging(command: str) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    _setup_logging(args.command)
     try:
-        if args.command in LONG_COMMANDS:
-            with keep_awake(), connect() as conn:
-                COMMANDS[args.command](conn, args)
+        if args.command in LONG_COMMANDS:  # todas descargan de rappi.cl: una a la vez (sin candado, ni log)
+            with download_lock():
+                _setup_logging(args.command)
+                with keep_awake(), connect() as conn:
+                    COMMANDS[args.command](conn, args)
         else:
+            _setup_logging(args.command)
             _run_simple(args)
+    except DownloadInProgress as exc:
+        raise SystemExit(str(exc)) from exc
     except KeyboardInterrupt:
         log.warning("Interrumpido. Lo avanzado quedó guardado: retoma con el mismo comando.")
         sys.exit(130)
