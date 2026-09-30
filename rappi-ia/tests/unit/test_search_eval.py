@@ -10,6 +10,7 @@ from rappi_ia.eval.search_eval import (
     render_markdown,
     run_queries,
     summarize,
+    thresholds_after_saving,
     unmet_quality,
 )
 
@@ -136,3 +137,19 @@ def test_report_shows_the_paired_comparison():
     comparisons = [paired_comparison(runs, "hibrido", "vector")]
     report = render_markdown(summarize(runs), unmet_quality(runs, {}), {}, {}, False, "e5", comparisons)
     assert "| hibrido vs vector | 1 | 0 | 0 |" in report
+
+
+def test_saving_keeps_the_current_tau_where_there_is_no_proposal():
+    """«Sin propuesta» es «sin evidencia para cambiarlo»: pasar al τ por defecto metió una falsa alarma en Mall."""
+    current = {"mall": 0.7, "licores": 0.7}
+    assert thresholds_after_saving(current, {"licores": 0.82, "turbo": 0.79}) == {
+        "mall": 0.7,
+        "licores": 0.82,
+        "turbo": 0.79,
+    }
+
+
+def test_report_says_verticals_without_proposal_keep_their_tau():
+    runs = [run("neumáticos", "negativa", 0.75), run("pisco", "exacta", 0.90)]
+    report = render_markdown(summarize(runs), unmet_quality(runs, {}), {"mall": 0.7}, {}, saved=False, model="e5")
+    assert "al guardar, conserva su τ vigente" in report

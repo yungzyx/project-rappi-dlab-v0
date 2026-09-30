@@ -118,7 +118,7 @@ Sin el refuerzo, el híbrido no se distingue del vectorial: consulta por consult
 | Supermercado | 30 | 0,883 |
 | Licores | 18 | 0,835 |
 
-**"Sin resultado"** (demanda no satisfecha), sobre las 41 consultas negativas y con los τ vigentes: precisión 0,97 (1 falsa alarma: "para picar viendo el partido" en Turbo, que no tiene τ propio) y recall 0,68 (28 de 41). El reporte dice por qué se detecta o no cada una.
+**"Sin resultado"** (demanda no satisfecha), sobre las 41 consultas negativas y con los τ recalibrados el 29-09 (`src/rappi_ia/eval/thresholds.json`): precisión 1,00 (0 falsas alarmas) y recall 0,76 (31 de 41). El reporte dice por qué se detecta o no cada una.
 
 - **Regla:** es un "sin resultado" cuando nada calza todas las palabras y, además, se cumple la condición que corresponda:
   - si la consulta nombra un concepto, ese concepto no tiene surtido real en el vertical;

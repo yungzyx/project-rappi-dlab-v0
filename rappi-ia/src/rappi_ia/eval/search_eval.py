@@ -190,6 +190,12 @@ def unmet_quality(runs: list[QueryRun], taus: dict[str, float]) -> dict:
     }
 
 
+def thresholds_after_saving(current: dict[str, float], proposed: dict[str, float]) -> dict[str, float]:
+    """Los propuestos reemplazan a los vigentes; un vertical sin propuesta no tiene evidencia para cambiar y conserva
+    el suyo (pasarlo al τ por defecto metía falsas alarmas, p. ej. «regalo para mi polola» en Mall)."""
+    return {**current, **proposed}
+
+
 def save_thresholds(taus: dict[str, float], path: Path = THRESHOLDS_FILE) -> None:
     path.write_text(json.dumps(taus, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -269,9 +275,10 @@ def render_markdown(
     lines += [
         "",
         "Sin propuesta: el vertical no tiene negativas que dependan de τ (todas cortan por coincidencia léxica o por"
-        " concepto nombrado), o ningún τ entre 0,70 y 0,95 las detecta con precisión ≥ 0,9.",
+        " concepto nombrado), o ningún τ entre 0,70 y 0,95 las detecta con precisión ≥ 0,9. Un vertical sin propuesta,"
+        " al guardar, conserva su τ vigente.",
         "",
-        "Calidad medida con los τ propuestos (guardados en eval/thresholds.json):"
+        "Calidad medida con los τ guardados en eval/thresholds.json (propuestos, y vigentes donde no hay propuesta):"
         if saved
         else "Calidad medida con los τ vigentes (los propuestos no se guardaron):",
         "",
