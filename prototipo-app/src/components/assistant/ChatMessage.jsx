@@ -105,6 +105,11 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
         <div className="chat-bubble">
           <StreamText text={message.text} animate={message.animate} onDone={done} />
         </div>
+        {message.source === 'local' && (
+          <span className="chat-source" title="La API no respondió: contestaron las reglas del prototipo">
+            Respuesta local
+          </span>
+        )}
         {revealed && (
           <div className="chat-extras">
             {message.reason && <p className="chat-reason">{message.reason}</p>}

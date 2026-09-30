@@ -151,6 +151,19 @@ describe('chat en orden', () => {
   })
 })
 
+describe('qué Bigotes contestó', () => {
+  test('si la API falla, la respuesta del cerebro local se marca en pantalla', async () => {
+    api.chat.mockRejectedValueOnce(new Error('API 500')).mockResolvedValueOnce(apiAnswer('Desde la API'))
+    await renderPanel()
+    say('cerveza')
+    await runUntilIdle()
+    say('pisco')
+    await runUntilIdle()
+
+    expect(screen.getAllByText('Respuesta local')).toHaveLength(1) // solo la primera; la segunda vino de la API
+  })
+})
+
 describe('temas ya sugeridos', () => {
   test('voz y foto saben qué sugirió el chat de texto (no repiten la sugerencia)', async () => {
     mockMic(vi.fn(async () => fakeStream()))

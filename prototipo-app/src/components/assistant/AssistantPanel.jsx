@@ -123,6 +123,9 @@ export default function AssistantPanel({ push, vertical }) {
     return message
   }
 
+  /** Respuesta de las reglas del prototipo: queda marcada en pantalla para que se sepa qué Bigotes contestó. */
+  const localReply = (message) => ({ ...message, source: 'local' })
+
   /** Respuesta de la API; si no está o falla, el cerebro local de siempre. */
   const answer = async (text, askVertical) => {
     if (await health()) {
@@ -136,7 +139,7 @@ export default function AssistantPanel({ push, vertical }) {
         // cae al cerebro local
       }
     }
-    return reply(text, profile)
+    return localReply(reply(text, profile))
   }
 
   // En orden: la pregunta N+1 sale cuando la respuesta N ya está en pantalla, así sus shown_topics incluyen
@@ -148,7 +151,7 @@ export default function AssistantPanel({ push, vertical }) {
     addMessage({ from: 'user', text: clean })
     profile.track(clean, WEIGHTS.query)
     chatQueue.current = chatQueue.current.then(() =>
-      botSays(local ? reply(clean, profile) : answer(clean, askVertical)),
+      botSays(local ? localReply(reply(clean, profile)) : answer(clean, askVertical)),
     )
   }
 
@@ -164,7 +167,7 @@ export default function AssistantPanel({ push, vertical }) {
           // cae a la respuesta simulada
         }
       }
-      return photoReply(profile)
+      return localReply(photoReply(profile))
     }
     // En la misma fila que las preguntas: "Olvidar" la espera (el servidor registra la foto al responder).
     chatQueue.current = chatQueue.current.then(() => botSays(run()))
