@@ -296,3 +296,20 @@ def test_clean_html_leaves_plain_text_untouched(db):
     assert db.execute("SELECT clean_html(%s)", ("un sueño <b>profundo</b>, sin ruido",)).fetchone()[0] == (
         "un sueño profundo, sin ruido"
     )
+
+
+def test_clean_html_knows_the_entities_found_after_the_first_run(db):
+    """Tras la primera limpieza (30-09) quedaban &ccedil; («Açaí») y &ordm; en el catálogo real."""
+    assert db.execute("SELECT clean_html('A&ccedil;aí 1&ordm; calidad')").fetchone()[0] == "Açaí 1º calidad"
+
+
+def test_product_names_are_cleaned_too(db):
+    """Un nombre real: «Basurero de Metal Con Pedal <ul> <li>tie» (el HTML también llega al nombre)."""
+    _store(db, 1, "lider", "supermercado")
+    run = repository.start_run(db, "stores", {})
+    repository.save_products(db, run, 1, [_product("a", 100, "Basurero de Metal Con Pedal <ul> <li>tie", 9990)])
+    db.commit()
+    build_search_documents(db)
+
+    content = db.execute("SELECT content FROM search_documents WHERE entity_id = '100'").fetchone()[0]
+    assert content.startswith("Basurero de Metal Con Pedal tie. Marca:")
