@@ -97,31 +97,31 @@ Medidos el 28-09-2026 sobre el catálogo completo. Resumen del proyecto en [READ
 
 | Modo | P@10 | MRR | nDCG@10 |
 |---|---|---|---|
-| Léxico | 0,760 | 0,870 | 0,772 |
-| Vectorial | 0,837 | 0,904 | 0,845 |
-| **Híbrido** | **0,898** | **0,931** | **0,902** |
-| Híbrido sin refuerzo por concepto | 0,849 | 0,899 | 0,852 |
+| Léxico | 0,769 | 0,868 | 0,778 |
+| Vectorial | 0,838 | 0,907 | 0,846 |
+| **Híbrido** | **0,905** | **0,939** | **0,910** |
+| Híbrido sin refuerzo por concepto | 0,856 | 0,913 | 0,860 |
 
-Sin el refuerzo, el híbrido no se distingue del vectorial: consulta por consulta la diferencia media es 0,007 (IC 95 % por bootstrap: −0,018 a 0,033). El reporte trae la comparación pareada completa.
+Sin el refuerzo, el híbrido no se distingue del vectorial: consulta por consulta la diferencia media es 0,014 (IC 95 % por bootstrap: −0,012 a 0,042). Cifras con el catálogo del 30-09. El reporte trae la comparación pareada completa.
 
 | Tipo de consulta | n | nDCG@10 híbrido |
 |---|---|---|
-| Exactas (marca o producto) | 77 | 0,976 |
-| Sin tildes ni ñ | 16 | 0,968 |
-| Necesidades en lenguaje natural ("algo para el carrete") | 31 | 0,684 (léxico: 0,546) |
+| Exactas (marca o producto) | 77 | 0,979 |
+| Sin tildes ni ñ | 16 | 0,965 |
+| Necesidades en lenguaje natural ("algo para el carrete") | 31 | 0,711 (léxico: 0,570) |
 
 | Vertical | n | nDCG@10 híbrido |
 |---|---|---|
-| Farmacia | 14 | 0,974 |
-| Chocolatería | 7 | 0,959 |
-| Restaurantes | 11 | 0,944 |
+| Farmacia | 14 | 0,979 |
+| Chocolatería | 7 | 0,956 |
+| Restaurantes | 11 | 0,942 |
 | Turbo | 14 | 0,915 |
+| Mall | 18 | 0,907 |
 | Conveniencia | 12 | 0,903 |
-| Mall | 18 | 0,884 |
-| Supermercado | 30 | 0,883 |
-| Licores | 18 | 0,835 |
+| Supermercado | 30 | 0,896 |
+| Licores | 18 | 0,847 |
 
-**"Sin resultado"** (demanda no satisfecha), sobre las 41 consultas negativas y con los τ recalibrados el 29-09 (`src/rappi_ia/eval/thresholds.json`): precisión 1,00 (0 falsas alarmas) y recall 0,76 (31 de 41). El reporte dice por qué se detecta o no cada una.
+**"Sin resultado"** (demanda no satisfecha), sobre las 41 consultas negativas y con los τ recalibrados el 29-09 (`src/rappi_ia/eval/thresholds.json`): precisión 1,00 (0 falsas alarmas) y recall 0,71 (29 de 41) con el catálogo del 30-09 (31 de 41 con el del 28-09: el catálogo cambia y dos negativas dejaron de serlo). El reporte dice por qué se detecta o no cada una.
 
 - **Regla:** es un "sin resultado" cuando nada calza todas las palabras y, además, se cumple la condición que corresponda:
   - si la consulta nombra un concepto, ese concepto no tiene surtido real en el vertical;
