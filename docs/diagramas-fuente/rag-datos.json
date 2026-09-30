@@ -170,7 +170,7 @@
       "id": "eval",
       "type": "backend",
       "label": "Evaluación",
-      "sublabel": "111 consultas",
+      "sublabel": "165 consultas",
       "stage": 2,
       "row": 2,
       "tag": "nDCG · τ"

@@ -100,6 +100,6 @@ Estado al 28-09-2026:
 
 - **¿Quién lo usaría y dónde?** (equipos internos de Rappi, usuarios finales, análisis de mercado). Define la interfaz y las condiciones de uso de los datos.
 - **¿Se confirma el silo con datos internos?** Con eventos reales se puede medir qué hace un mismo usuario en distintos verticales y si las sugerencias cruzadas suben la frecuencia. Eso se valida con un grupo de control ([diseno-ia.md §5](diseno-ia.md#5-panel-para-la-empresa-vale-la-pena)).
-- **Set de evaluación más amplio:** hoy son 96 consultas positivas en 6 verticales y 15 negativas. Faltan farmacia y Turbo. También hay que renovar las negativas: con el catálogo completo, varias ya tienen oferta real.
+- **Set de evaluación más amplio:** desde el 29-09 son 124 consultas positivas en los 8 verticales y 41 negativas renovadas con el catálogo completo. Falta el juicio humano.
 
 Las preguntas ya resueltas (modelos, áreas iniciales, taxonomía, datos simulados) están en [decisiones.md](decisiones.md).

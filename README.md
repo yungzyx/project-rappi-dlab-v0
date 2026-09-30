@@ -83,9 +83,9 @@ Cifras verificadas el 28-09-2026 sobre la base completa. Cada una indica qué ti
 | Capa 2 | Taxonomía | 132 conceptos · 101 complementos curados · 824 categorías mapeadas | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 28-09-2026 |
 | Capa 2 | Ítems con concepto | 96,7% a 100% según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 28-09-2026 |
 | Capa 2 | Precisión de la asignación | ≈88% por categoría · ≈81% platos · 55% reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
-| Búsqueda | nDCG@10 | híbrido 0,889 · vectorial 0,825 · léxico 0,744 | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 28-09) |
-| Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,33 (5 de 15) | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 28-09) |
-| Calidad | Tests (pytest / Vitest) | scraper 92 · rappi-ia 152 · prototipo 108 · panel 80 | Verificación local, 29-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) |
+| Búsqueda | nDCG@10 | híbrido 0,902 · sin refuerzo por concepto 0,852 · vectorial 0,845 · léxico 0,772 | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 29-09) |
+| Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,76 (31 de 41) | Evaluación automática | `rappi-ia/data/eval/busqueda.md` (`make eval`, 29-09) |
+| Calidad | Tests (pytest / Vitest) | scraper 94 · rappi-ia 169 · prototipo 108 · panel 80 | Verificación local, 29-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) |
 | Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); nueva revisión de los cambios del 28-09 | Proceso | — |
 | Panel | Usuarios, eventos y pedidos | 1.500 usuarios × 20 semanas (semilla 7) | **Simulado** | `rappi-ia/src/rappi_ia/events/synth.py` |
 
@@ -111,28 +111,30 @@ Primera descarga completa del 24 al 27-09-2026 y recuperación de fallidos el 28
 
 ### Búsqueda
 
-96 consultas positivas en 6 verticales (supermercado, conveniencia, Rappi Mall, licores, chocolatería y restaurantes) y 15 negativas. Farmacia y Turbo todavía no se evalúan. La relevancia se juzga automáticamente por concepto. Set: [`queries.json`](rappi-ia/src/rappi_ia/eval/queries.json).
+124 consultas positivas en los 8 verticales y 41 negativas (al menos 5 por vertical). La relevancia se juzga automáticamente por concepto. Set: [`queries.json`](rappi-ia/src/rappi_ia/eval/queries.json), renovado el 29-09 con el catálogo completo: suma farmacia y Turbo, y cada negativa se verificó contra la base (ninguna calza todas sus palabras ni nombra un concepto con surtido en su vertical).
 
 | Modo | P@10 | MRR | nDCG@10 |
 |---|---:|---:|---:|
-| Léxico | 0,735 | 0,842 | 0,744 |
-| Vectorial | 0,818 | 0,887 | 0,825 |
-| **Híbrido** | **0,884** | **0,922** | **0,889** |
+| Léxico | 0,760 | 0,870 | 0,772 |
+| Vectorial | 0,837 | 0,904 | 0,845 |
+| **Híbrido** | **0,898** | **0,931** | **0,902** |
+| Híbrido sin refuerzo por concepto | 0,849 | 0,899 | 0,852 |
+
+El refuerzo por concepto reordena con la misma etiqueta con que se juzga la relevancia; la fila «sin refuerzo» es la medida justa de la fusión léxico + vectorial. Consulta por consulta, sin refuerzo el híbrido gana 33, empata 63 y pierde 28 contra el vectorial: diferencia media 0,007, con un intervalo de confianza del 95 % de −0,018 a 0,033 (no concluyente). La fusión sí ayuda sola en las consultas sin tildes (0,878 frente a 0,775).
 
 P@10: proporción de resultados relevantes entre los 10 primeros. MRR: qué tan arriba aparece el primer resultado relevante (1 = el primero). nDCG@10: calidad del orden de los 10 primeros (1 = orden ideal).
 
-- **Por tipo de consulta** (nDCG@10 del híbrido): exactas 0,968; sin tildes 0,993; necesidades en lenguaje natural («algo para el carrete») 0,674, frente a 0,532 del léxico.
-- **Por vertical** (nDCG@10 del híbrido): chocolatería 0,959; restaurantes 0,944; conveniencia 0,897; Rappi Mall 0,884; supermercado 0,883; licores 0,835.
-- **«Sin resultado»** (demanda no satisfecha): no dio falsas alarmas, pero detectó solo 5 de las 15 negativas. Con el catálogo completo, varias consultas «negativas» ya coinciden con todas sus palabras:
-  - algunas son oferta real que no estaba en los datos parciales («kebab mixto»: 16 platos; «comida mexicana con tacos»: restaurantes mexicanos). Esa parte del set quedó desactualizada;
-  - otras son coincidencias casuales («pizza familiar» → un horno para pizza en Rappi Mall; «neumáticos» → un renovador de neumáticos en conveniencia). Es un límite real de la regla léxica estricta.
+- **Por tipo de consulta** (nDCG@10 del híbrido): exactas 0,976; sin tildes 0,968; necesidades en lenguaje natural («algo para el carrete») 0,684, frente a 0,546 del léxico.
+- **Por vertical** (nDCG@10 del híbrido): farmacia 0,974; chocolatería 0,959; restaurantes 0,944; Turbo 0,915; conveniencia 0,903; Rappi Mall 0,884; supermercado 0,883; licores 0,835.
+- **«Sin resultado»** (demanda no satisfecha), con los τ recalibrados el 29-09: detectó 31 de las 41 negativas (recall 0,76) sin falsas alarmas (precisión 1,00). Farmacia, Turbo, conveniencia y licores estrenan τ calibrado; chocolatería, Rappi Mall y restaurantes no tienen negativas que dependan de τ y conservan el suyo. El reporte explica cada negativa no detectada: el vertical tiene el concepto nombrado (un iPhone en supermercado, que sí vende celulares) o hay coincidencias casuales («pizza familiar» → un horno para pizza en Rappi Mall). Es un límite real de la regla.
+- **Antes (28-09, set anterior sin farmacia ni Turbo):** híbrido 0,889; «sin resultado» con recall 0,33 (5 de 15). Tres de esas negativas estaban desactualizadas («kebab mixto» y «comida mexicana con tacos» sí existen en restaurantes).
 - **Antes (27-09, datos parciales):** híbrido 0,898; «sin resultado» con precisión 0,91 y recall 0,67. No es comparable directamente: cambió el catálogo.
 
 > [!IMPORTANT]
 > **Qué no es evidencia**
 >
 > - **El panel de negocio.** Usuarios, eventos y pedidos son simulados (`source = 'synthetic'`). Muestran la mecánica, no un resultado. Por ejemplo, el simulador asume que quien usa más verticales se va menos, así que esa relación aparece por construcción. Solo la pestaña Catálogo usa datos reales.
-> - **La ventaja del híbrido.** La relevancia se juzga por concepto y el híbrido recibe un refuerzo por ese mismo concepto: su ventaja sobre léxico y vectorial está sobreestimada. Falta un juicio humano.
+> - **La ventaja del híbrido.** La relevancia se juzga por concepto y el híbrido recibe un refuerzo por ese mismo concepto. Sin el refuerzo, el híbrido no se distingue del vectorial (0,852 frente a 0,845): con este set no se puede saber si el refuerzo mejora de verdad. Falta un juicio humano.
 > - **La precisión de la capa 2.** Es una estimación con jueces LLM sobre datos parciales, con una muestra no versionada.
 > - **«No está en el catálogo».** No significa «Rappi no lo vende»: en tiendas el catálogo es una muestra.
 
@@ -227,8 +229,8 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 
 - **Cobertura parcial en tiendas:** hasta 24 productos por sub-pasillo en la página pública, y una sucursal por marca o formato. Sirve para saber qué hay, no para comparar todas las sucursales.
 - **Fallidos:** tras la recuperación, 49 grupos de tiendas y 408 restaurantes siguen sin descargarse.
-- **Evaluación automática y parcial:** no hay juicio humano y no cubre farmacia ni Turbo. Además, el refuerzo por concepto favorece al híbrido.
-- **«Sin resultado»:** detecta 5 de 15 negativas. Parte del set quedó desactualizado y la regla léxica estricta acepta coincidencias casuales.
+- **Evaluación automática:** no hay juicio humano, y el refuerzo por concepto favorece al híbrido (sin él, empata con el vectorial).
+- **«Sin resultado»:** detecta 31 de 41 negativas. Las que no, las explica el reporte: el vertical tiene el concepto nombrado o hay coincidencias casuales con la regla léxica estricta.
 - **Capa 2:** la asignación por reglas de nombre es la parte más débil (55% estimado).
 - **Panel simulado:** muestra cómo se mediría, no el efecto.
 - **Demo local:** la API no tiene autenticación. La instalación está pensada para macOS (Homebrew, launchd).
@@ -251,11 +253,10 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 
 **Siguiente**
 
-1. Evaluar farmacia y Turbo, y renovar las consultas negativas del set.
-2. Mejorar la regla de «sin resultado».
-3. Medir cuánto aporta el refuerzo por concepto (comparando con y sin él) y sumar juicio humano.
-4. Etiquetar los ítems de baja confianza de la capa 2.
-5. Revisar las cadenas de restaurantes sin menú.
+1. Mejorar la regla de «sin resultado» (las 10 negativas no detectadas nombran un concepto que el vertical sí tiene o calzan por casualidad).
+2. Juzgar a mano la muestra de 200 pares (`rappi-ia eval-sample`, ya armada), para saber si el refuerzo por concepto mejora de verdad (sin él, el híbrido empata con el vectorial) y cuánto se equivoca el juez automático (`rappi-ia eval-human`).
+3. Etiquetar los ítems de baja confianza de la capa 2.
+4. Revisar las cadenas de restaurantes sin menú.
 
 ## Autor
 

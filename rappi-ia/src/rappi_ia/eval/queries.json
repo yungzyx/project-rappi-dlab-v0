@@ -1,6 +1,6 @@
 {
-  "version": "2026-09-27",
-  "nota": "Set de evaluación de búsqueda por vertical. Un resultado es relevante si su concepto está en `concepts` (depende de la calidad de item_concepts; ver README). `tipo`: exacta (marca o producto), necesidad (lenguaje natural), sin_tildes (escrita sin tildes ni ñ), negativa (no existe en el vertical: debe marcarse 'sin resultado').",
+  "version": "2026-09-29",
+  "nota": "Set de evaluación de búsqueda por vertical. Un resultado es relevante si su concepto está en `concepts` (depende de la calidad de item_concepts; ver README). `tipo`: exacta (marca o producto), necesidad (lenguaje natural), sin_tildes (escrita sin tildes ni ñ), negativa (no existe en el vertical: debe marcarse 'sin resultado'). Las negativas se eligen con el catálogo completo: ninguna calza todas sus palabras ni nombra un concepto con surtido en su vertical (29-09; las desactualizadas se reemplazaron).",
   "queries": [
     {"vertical": "supermercado", "query": "pañales talla g", "concepts": ["panales"], "tipo": "exacta"},
     {"vertical": "supermercado", "query": "panales para guagua", "concepts": ["panales"], "tipo": "sin_tildes"},
@@ -115,8 +115,70 @@
     {"vertical": "restaurantes", "query": "hamburguesa con papas", "concepts": ["hamburguesa"], "tipo": "exacta"},
     {"vertical": "restaurantes", "query": "pescado frito", "concepts": ["pescados-mariscos"], "tipo": "exacta"},
     {"vertical": "restaurantes", "query": "arepas venezolanas", "concepts": ["latina"], "tipo": "exacta"},
-    {"vertical": "restaurantes", "query": "comida mexicana con tacos", "concepts": [], "tipo": "negativa"},
     {"vertical": "restaurantes", "query": "pañales", "concepts": [], "tipo": "negativa"},
-    {"vertical": "restaurantes", "query": "kebab mixto", "concepts": [], "tipo": "negativa"}
+
+    {"vertical": "farmacia", "query": "shampoo anticaspa", "concepts": ["cuidado-cabello"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "protector solar factor 50", "concepts": ["dermocosmetica"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "pasta dental blanqueadora", "concepts": ["cuidado-oral"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "vitamina c efervescente", "concepts": ["vitaminas"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "pañales etapa 3", "concepts": ["panales"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "toallas higiénicas nocturnas", "concepts": ["higiene-femenina"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "desodorante en barra", "concepts": ["higiene-personal"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "base de maquillaje líquida", "concepts": ["maquillaje"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "parches curita", "concepts": ["primeros-auxilios"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "perfume de mujer", "concepts": ["fragancias"], "tipo": "exacta"},
+    {"vertical": "farmacia", "query": "algo para la piel seca", "concepts": ["dermocosmetica"], "tipo": "necesidad"},
+    {"vertical": "farmacia", "query": "cosas para el bebé recién nacido", "concepts": ["articulos-bebe", "panales", "alimentacion-bebe"], "tipo": "necesidad"},
+    {"vertical": "farmacia", "query": "cepillo de dientes electrico", "concepts": ["cuidado-oral"], "tipo": "sin_tildes"},
+    {"vertical": "farmacia", "query": "acondicionador para pelo tenido", "concepts": ["cuidado-cabello"], "tipo": "sin_tildes"},
+    {"vertical": "farmacia", "query": "neumáticos aro 15", "concepts": [], "tipo": "negativa"},
+    {"vertical": "farmacia", "query": "sushi acevichado", "concepts": [], "tipo": "negativa"},
+    {"vertical": "farmacia", "query": "televisor 55 pulgadas", "concepts": [], "tipo": "negativa"},
+    {"vertical": "farmacia", "query": "sofá de tres cuerpos", "concepts": [], "tipo": "negativa"},
+    {"vertical": "farmacia", "query": "cerveza en lata", "concepts": [], "tipo": "negativa"},
+
+    {"vertical": "turbo", "query": "leche descremada", "concepts": ["lacteos"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "detergente líquido", "concepts": ["limpieza"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "jamón de pavo", "concepts": ["fiambres"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "queso gauda laminado", "concepts": ["quesos"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "jugo de naranja", "concepts": ["jugos"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "vino tinto cabernet", "concepts": ["vino"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "coca cola 3 litros", "concepts": ["gaseosas"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "papas fritas", "concepts": ["snacks-salados"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "cerveza en lata", "concepts": ["cerveza"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "arroz grado 1", "concepts": ["arroz-legumbres"], "tipo": "exacta"},
+    {"vertical": "turbo", "query": "algo para limpiar el baño", "concepts": ["limpieza"], "tipo": "necesidad"},
+    {"vertical": "turbo", "query": "para picar viendo el partido", "concepts": ["snacks-salados", "cerveza", "gaseosas"], "tipo": "necesidad"},
+    {"vertical": "turbo", "query": "te verde", "concepts": ["te"], "tipo": "sin_tildes"},
+    {"vertical": "turbo", "query": "jamon serrano", "concepts": ["fiambres"], "tipo": "sin_tildes"},
+    {"vertical": "turbo", "query": "televisor 55 pulgadas", "concepts": [], "tipo": "negativa"},
+    {"vertical": "turbo", "query": "sofá de tres cuerpos", "concepts": [], "tipo": "negativa"},
+    {"vertical": "turbo", "query": "sushi acevichado", "concepts": [], "tipo": "negativa"},
+    {"vertical": "turbo", "query": "pasaje de avión a punta arenas", "concepts": [], "tipo": "negativa"},
+    {"vertical": "turbo", "query": "zapatillas de running", "concepts": [], "tipo": "negativa"},
+
+    {"vertical": "supermercado", "query": "clases de guitarra", "concepts": [], "tipo": "negativa"},
+
+    {"vertical": "licores", "query": "televisor 55 pulgadas", "concepts": [], "tipo": "negativa"},
+    {"vertical": "licores", "query": "sofá de tres cuerpos", "concepts": [], "tipo": "negativa"},
+    {"vertical": "licores", "query": "zapatillas de running", "concepts": [], "tipo": "negativa"},
+
+    {"vertical": "conveniencia", "query": "sushi acevichado", "concepts": [], "tipo": "negativa"},
+    {"vertical": "conveniencia", "query": "sofá de tres cuerpos", "concepts": [], "tipo": "negativa"},
+    {"vertical": "conveniencia", "query": "televisor 55 pulgadas", "concepts": [], "tipo": "negativa"},
+
+    {"vertical": "mall", "query": "sushi acevichado", "concepts": [], "tipo": "negativa"},
+    {"vertical": "mall", "query": "cerveza en lata", "concepts": [], "tipo": "negativa"},
+    {"vertical": "mall", "query": "pasaje de avión a punta arenas", "concepts": [], "tipo": "negativa"},
+
+    {"vertical": "chocolateria", "query": "detergente para ropa", "concepts": [], "tipo": "negativa"},
+    {"vertical": "chocolateria", "query": "pañales", "concepts": [], "tipo": "negativa"},
+    {"vertical": "chocolateria", "query": "neumáticos aro 15", "concepts": [], "tipo": "negativa"},
+    {"vertical": "chocolateria", "query": "carbón para asado", "concepts": [], "tipo": "negativa"},
+
+    {"vertical": "restaurantes", "query": "detergente para ropa", "concepts": [], "tipo": "negativa"},
+    {"vertical": "restaurantes", "query": "neumáticos aro 15", "concepts": [], "tipo": "negativa"},
+    {"vertical": "restaurantes", "query": "televisor 55 pulgadas", "concepts": [], "tipo": "negativa"},
+    {"vertical": "restaurantes", "query": "shampoo anticaspa", "concepts": [], "tipo": "negativa"}
   ]
 }

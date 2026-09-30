@@ -4,6 +4,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia migrate
     rappi-ia concepts                # capa 2: taxonomía, complementos, mapeos y conceptos por ítem
     rappi-ia concepts --solo-reporte # cobertura sin recalcular
+    rappi-ia map-categories          # categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar
     rappi-ia embed-text              # embeddings e5 de search_documents (incremental) + HNSW por vertical
     rappi-ia search "algo para el carrete" --vertical licores
     rappi-ia eval-search             # léxico vs vectorial vs híbrido + calibración de τ ("sin resultado")
@@ -17,7 +18,7 @@ import sys
 
 from . import config
 from .concepts.pipeline import build_concepts
-from .concepts.report import coverage_report, render_text
+from .concepts.report import coverage_report, render_text, write_category_proposals
 from .db import connect, migrate
 from .retrieval.hybrid import MODES, Filters, retrieve
 
@@ -41,6 +42,14 @@ def cmd_concepts(conn, args) -> None:
                 log.warning("Sin el extra `ml` (sentence-transformers): conceptos solo por categoría y reglas")
         build_concepts(conn, embedder)
     print(render_text(coverage_report(conn)))
+
+
+def cmd_map_categories(conn, args) -> None:
+    rows = coverage_report(conn)["categorias_sin_mapear"]
+    out = config.DATA_DIR / "concepts" / "categorias-sin-mapear.csv"
+    write_category_proposals(rows, out)
+    print(f"{len(rows)} categorías sin mapeo revisado en {out}")
+    print("Revisar cada fila, cambiar el método a «curado» y copiarla a src/rappi_ia/concepts/category_map.csv.")
 
 
 def cmd_embed_text(conn, args) -> None:
@@ -104,16 +113,49 @@ def cmd_eval_search(conn, args) -> None:
     current = thresholds()
     proposed = search_eval.calibrate_tau(runs) if embedder else {}
     saved = bool(args.guardar_tau and proposed)
+    in_use = search_eval.thresholds_after_saving(current, proposed) if saved else current
     if saved:
-        search_eval.save_thresholds(proposed)
-    unmet = search_eval.unmet_quality(runs, proposed if saved else current)
+        search_eval.save_thresholds(in_use)
+    unmet = search_eval.unmet_quality(runs, in_use)
     model = embedder.model_name if embedder else None
-    report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model)
+    comparisons = search_eval.compare_modes(runs)
+    report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model, comparisons)
     out = config.DATA_DIR / "eval" / "busqueda.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
     print(report)
     print(f"Reporte en {out}")
+
+
+def cmd_eval_sample(conn, args) -> None:
+    from .embeddings.models import text_embedder
+    from .eval import judgments, search_eval
+
+    runs = search_eval.run_queries(conn, text_embedder(), search_eval.load_queries())
+    sample = judgments.build_sample(runs)
+    judgments.save_sample(sample)
+    diff = sum(p["origen"] == "diferencia" for p in sample)
+    print(f"{len(sample)} pares ({diff} donde el refuerzo cambia el top 10) en {judgments.SAMPLE_FILE}")
+
+
+def cmd_eval_human(conn, args) -> None:
+    import json
+
+    from .eval import judgments
+
+    if not judgments.JUDGMENTS_FILE.exists():
+        raise SystemExit(f"Todavía no hay juicios a mano ({judgments.JUDGMENTS_FILE} no existe).")
+    sample = json.loads(judgments.SAMPLE_FILE.read_text(encoding="utf-8"))["pares"]
+    given = json.loads(judgments.JUDGMENTS_FILE.read_text(encoding="utf-8"))["juicios"]
+    report = judgments.human_report(sample, given)
+    auto, bonus = report["juez_auto"], report["refuerzo"]
+    print(f"Pares juzgados: {report['juzgados']} de {len(sample)} (más {report['no_se']} «no sé»)")
+    print(
+        f"Juez automático vs juicio a mano: precisión {auto['precision']} · recall {auto['recall']}"
+        f" · acuerdo {auto['acuerdo']}"
+    )
+    for side, label in (("solo_con_refuerzo", "solo con refuerzo"), ("solo_sin_refuerzo", "solo sin refuerzo")):
+        print(f"Ítems que aparecen {label}: {bonus[side]['n']}, relevantes {bonus[side]['relevantes']}")
 
 
 def cmd_purge(conn, args) -> None:
@@ -156,10 +198,13 @@ COMMANDS = {
     "analytics": cmd_analytics,
     "migrate": cmd_migrate,
     "concepts": cmd_concepts,
+    "map-categories": cmd_map_categories,
     "embed-text": cmd_embed_text,
     "embed-images": cmd_embed_images,
     "search": cmd_search,
     "eval-search": cmd_eval_search,
+    "eval-sample": cmd_eval_sample,
+    "eval-human": cmd_eval_human,
 }
 
 
@@ -173,6 +218,9 @@ def build_parser() -> argparse.ArgumentParser:
     concepts = sub.add_parser("concepts", help="capa 2: conceptos, complementos y mapeo de productos y platos")
     concepts.add_argument("--solo-reporte", action="store_true", help="solo muestra la cobertura actual")
     concepts.add_argument("--sin-knn", action="store_true", help="sin refinar con vecinos cercanos (embeddings)")
+    sub.add_parser(
+        "map-categories", help="exporta las categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar"
+    )
     embed = sub.add_parser("embed-text", help="embeddings de texto de search_documents (incremental)")
     embed.add_argument("--limit", type=int, help="máximo de textos nuevos (para probar)")
     images = sub.add_parser("embed-images", help="embeddings CLIP de fotos de productos y platos")
@@ -190,6 +238,8 @@ def build_parser() -> argparse.ArgumentParser:
     ev = sub.add_parser("eval-search", help="evalúa la búsqueda con el set de src/rappi_ia/eval/queries.json")
     ev.add_argument("--solo-lexico", action="store_true", help="sin modelo de embeddings")
     ev.add_argument("--guardar-tau", action="store_true", help="guarda los τ calibrados en eval/thresholds.json")
+    sub.add_parser("eval-sample", help="muestra de ~200 pares (consulta, producto) para juzgar a mano")
+    sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano")
     synth = sub.add_parser("synth", help="genera usuarios y eventos SIMULADOS (source = synthetic)")
     synth.add_argument("--usuarios", type=int, default=1500)
     synth.add_argument("--semanas", type=int, default=20)

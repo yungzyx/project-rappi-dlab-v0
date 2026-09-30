@@ -1,8 +1,41 @@
 """Reporte de cobertura de la capa 2: cuánto del catálogo y de los menús tiene concepto, y cómo se asignó."""
 
+import csv
+from pathlib import Path
+
 from psycopg import Connection
 
 MIN_COVERAGE_PCT = 85  # meta de la etapa 1 (docs/diseno-ia.md §7)
+LISTED_UNMAPPED = 10
+MIN_SUGGESTION_SHARE = 0.5  # se sugiere un concepto si lo tiene al menos la mitad de los productos de la categoría
+CATEGORY_MAP_COLUMNS = ["tipo", "nombre", "concept_id", "confianza", "metodo", "revision", "nota", "productos"]
+
+# Categorías del catálogo sin mapeo revisado (curado o LLM, los de category_map.csv): sus productos quedan en manos de
+# las reglas por nombre o del kNN. El concepto sugerido es el más común entre los productos que ya lo tienen.
+UNMAPPED_CATEGORIES = """
+WITH products AS (
+    SELECT c.name, i.master_product_id::text AS id
+    FROM catalog_items i JOIN categories c USING (category_id)
+    WHERE NOT EXISTS (SELECT 1 FROM category_map m
+                      WHERE m.source_kind = 'categoria' AND m.source_key = lower(trim(c.name))
+                        AND m.method IN ('curado', 'llm'))
+),
+tagged AS (
+    SELECT p.name, p.id, ic.concept_id
+    FROM products p
+    LEFT JOIN item_concepts ic ON ic.entity_type = 'catalog_item' AND ic.entity_id = p.id
+),
+top AS (
+    SELECT DISTINCT ON (name) name, concept_id, count(*) AS n
+    FROM tagged WHERE concept_id IS NOT NULL
+    GROUP BY name, concept_id
+    ORDER BY name, count(*) DESC, concept_id
+)
+SELECT t.name, count(*), count(*) FILTER (WHERE t.concept_id IS NULL), top.concept_id, coalesce(top.n, 0)
+FROM tagged t LEFT JOIN top USING (name)
+GROUP BY t.name, top.concept_id, top.n
+ORDER BY 2 DESC, 1
+"""
 
 
 def coverage_report(conn: Connection) -> dict:
@@ -37,7 +70,12 @@ def coverage_report(conn: Connection) -> dict:
              AND NOT EXISTS (SELECT 1 FROM item_concepts ic WHERE ic.concept_id = c.concept_id)
            ORDER BY 1"""
     ).fetchall()
+    unmapped = [
+        {"nombre": name, "productos": n, "sin_concepto": missing, "sugerido": concept, "con_sugerido": with_concept}
+        for name, n, missing, concept, with_concept in conn.execute(UNMAPPED_CATEGORIES)
+    ]
     return {
+        "categorias_sin_mapear": unmapped,
         "totales": {kind: _pct_row(total, mapped) for kind, total, mapped in totals},
         "por_vertical": {vertical: _pct_row(total, mapped) for vertical, total, mapped in by_vertical},
         "por_metodo": [{"tipo": t, "metodo": m, "n": n} for t, m, n in by_method],
@@ -71,7 +109,42 @@ def render_text(report: dict) -> str:
     lines.append(f"Conceptos con más ítems: {top}")
     if report["conceptos_sin_items"]:
         lines.append("Conceptos sin ítems todavía: " + ", ".join(report["conceptos_sin_items"]))
+    unmapped = report["categorias_sin_mapear"]
+    if unmapped:
+        products = sum(row["productos"] for row in unmapped)
+        missing = sum(row["sin_concepto"] for row in unmapped)
+        lines.append("")
+        lines.append(
+            f"⚠ {len(unmapped)} categorías sin mapeo revisado ({products} productos, {missing} sin concepto);"
+            " `rappi-ia map-categories` las exporta con un concepto sugerido. Las más grandes:"
+        )
+        for row in unmapped[:LISTED_UNMAPPED]:
+            lines.append(f"  {row['nombre']} ({row['productos']} productos, {row['sin_concepto']} sin concepto)")
     return "\n".join(lines)
+
+
+def write_category_proposals(rows: list[dict], path: Path) -> None:
+    """CSV con el formato de category_map.csv (método «sugerido», revisión «pendiente»): se revisa, se cambia el
+    método a «curado» y se copia al mapa versionado."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CATEGORY_MAP_COLUMNS)
+        writer.writeheader()
+        for row in rows:
+            share = row["con_sugerido"] / row["productos"] if row["productos"] else 0.0
+            suggested = row["sugerido"] if row["sugerido"] and share >= MIN_SUGGESTION_SHARE else "ninguno"
+            writer.writerow(
+                {
+                    "tipo": "categoria",
+                    "nombre": row["nombre"],
+                    "concept_id": suggested,
+                    "confianza": f"{share:.2f}",
+                    "metodo": "sugerido",
+                    "revision": "pendiente",
+                    "nota": f"{row['con_sugerido']} de {row['productos']} productos ya tienen ese concepto",
+                    "productos": row["productos"],
+                }
+            )
 
 
 def _pct_row(total: int, mapped: int) -> dict:

@@ -1,8 +1,10 @@
 """`build_concepts` contra `rappi_ia_test`: carga la taxonomía y asigna conceptos con procedencia."""
 
+import csv
+
 from conftest import add_dish, add_product, add_store
 from rappi_ia.concepts.pipeline import build_concepts
-from rappi_ia.concepts.report import coverage_report
+from rappi_ia.concepts.report import CATEGORY_MAP_COLUMNS, coverage_report, render_text, write_category_proposals
 
 
 def _seed(db):
@@ -55,3 +57,46 @@ def test_coverage_report_by_vertical(db):
     assert report["totales"]["catalog_item"] == {"total": 3, "mapped": 2, "pct": 66.7}
     assert report["por_vertical"]["licores"]["mapped"] == 2
     assert report["por_vertical"]["restaurantes"] == {"total": 2, "mapped": 2, "pct": 100.0}
+
+
+def test_categories_without_a_reviewed_mapping_are_reported_with_a_suggestion(db, tmp_path):
+    """Las categorías nuevas de cada domingo no están en category_map.csv: el reporte las muestra y propone concepto."""
+    _seed(db)
+    add_product(db, 200, "Cerveza Kunstmann Torobayo 330 cc", 1, "Novedades de temporada")
+    add_product(db, 201, "Cerveza Austral Calafate 330 cc", 1, "Novedades de temporada")
+    add_product(db, 202, "Producto misterioso", 1, "Novedades de temporada")
+    db.commit()
+    build_concepts(db)
+
+    report = coverage_report(db)
+
+    assert report["categorias_sin_mapear"] == [
+        {
+            "nombre": "Novedades de temporada",
+            "productos": 3,
+            "sin_concepto": 1,
+            "sugerido": "cerveza",
+            "con_sugerido": 2,
+        }
+    ]  # Cervezas y Snacks salados ya están en category_map.csv
+    assert "Novedades de temporada (3 productos, 1 sin concepto)" in render_text(report)
+
+    path = tmp_path / "categorias-sin-mapear.csv"
+    write_category_proposals(report["categorias_sin_mapear"], path)
+    [row] = list(csv.DictReader(path.open(encoding="utf-8")))
+    assert list(row) == CATEGORY_MAP_COLUMNS  # mismo formato que category_map.csv, para revisar y copiar
+    assert (row["nombre"], row["concept_id"], row["confianza"], row["metodo"]) == (
+        "Novedades de temporada",
+        "cerveza",
+        "0.67",
+        "sugerido",
+    )
+
+
+def test_a_weak_suggestion_is_not_proposed(tmp_path):
+    """1 de 67 productos con un concepto (p. ej. «Pesca deportiva» → carbón) es ruido, no una sugerencia."""
+    path = tmp_path / "categorias-sin-mapear.csv"
+    rows = [{"nombre": "Pesca Deportiva", "productos": 46, "sin_concepto": 45, "sugerido": "carbon", "con_sugerido": 1}]
+    write_category_proposals(rows, path)
+    [row] = list(csv.DictReader(path.open(encoding="utf-8")))
+    assert (row["concept_id"], row["confianza"]) == ("ninguno", "0.02")

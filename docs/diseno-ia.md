@@ -62,15 +62,15 @@ Decisiones:
   - **Si la consulta nombra un concepto:** además, que el concepto no tenga surtido real en el vertical, es decir, menos de 3 ítems o del 0,05% del vertical.
   - **Si no nombra ninguno:** además, que el coseno máximo de e5 quede bajo τ del vertical.
   - **Por qué no se usa solo el coseno:** en la evaluación, los cosenos de e5 se concentran en un rango estrecho (datos parciales) y separan mal; la presencia del concepto es mejor señal.
-  - **Calibración:** τ se calibra por vertical con las consultas negativas del set de evaluación, pidiendo precisión ≥ 0,9. Solo cuentan las negativas que dependen de τ (sin coincidencia léxica ni concepto nombrado); un vertical sin ellas no recibe τ propio y usa 0,82. El reporte muestra el τ vigente y el propuesto.
+  - **Calibración:** τ se calibra por vertical con las consultas negativas del set de evaluación, pidiendo precisión ≥ 0,9. Solo cuentan las negativas que dependen de τ (sin coincidencia léxica ni concepto nombrado); un vertical sin ellas no recibe propuesta y conserva su τ (o 0,82 si nunca tuvo): pasarlo a 0,82 metía una falsa alarma en Mall. El reporte muestra el τ vigente y el propuesto.
   - **Resultado con el catálogo completo (28-09-2026):** precisión 1,00 (0 falsas alarmas) y recall 0,33 (5 de 15). Con datos parciales (27-09-2026) había sido 0,91 y 0,67.
   - **Por qué bajó el recall:** varias consultas "negativas" ya tienen coincidencias con todas sus palabras. Algunas son oferta real que no estaba en los datos parciales ("kebab mixto": 16 platos), así que el set de negativas quedó desactualizado. Otras son coincidencias casuales ("neumáticos" → un renovador de neumáticos en conveniencia): es un límite real de la regla léxica estricta.
   - **Límite conocido:** un iPhone en el súper no cuenta, porque hay accesorios del mismo concepto.
 - **Reranker:** no por ahora. Se agrega (p. ej. `bge-reranker-v2-m3`) solo si la evaluación lo justifica, porque suma latencia y otro modelo.
 - **Evaluación antes de elegir.**
-  - **Set:** 96 consultas positivas en 6 verticales (supermercado, conveniencia, Mall, licores, chocolatería y restaurantes; todavía sin farmacia ni Turbo) y 15 negativas, en `rappi-ia/src/rappi_ia/eval/queries.json`. Incluye consultas exactas, sin tildes y necesidades en lenguaje natural.
+  - **Set:** 124 consultas positivas en los 8 verticales y 41 negativas (al menos 5 por vertical, verificadas contra el catálogo completo), en `rappi-ia/src/rappi_ia/eval/queries.json`. Incluye consultas exactas, sin tildes y necesidades en lenguaje natural.
   - **Relevancia:** se juzga automáticamente por concepto (un resultado es relevante si su concepto está entre los esperados).
-  - **Métricas:** P@10, MRR y nDCG@10, comparando léxico, vectorial e híbrido. Recall@10 no se calcula.
+  - **Métricas:** P@10, MRR y nDCG@10, comparando léxico, vectorial, híbrido e híbrido sin refuerzo por concepto (ablación), con comparación pareada por consulta e intervalo de confianza por bootstrap. Recall@10 no se calcula.
   - **Resultado:** el híbrido quedó como modo por defecto. Cifras en [README → Resultados](../README.md#resultados); el reporte de cada corrida queda en `rappi-ia/data/eval/busqueda.md`.
   - **Salvedad:** el híbrido recibe un refuerzo por el mismo concepto con que se juzga la relevancia, así que su ventaja sobre léxico y vectorial está sobreestimada.
 - **Dos audiencias, un solo núcleo:**

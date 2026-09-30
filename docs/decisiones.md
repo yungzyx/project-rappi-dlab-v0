@@ -60,6 +60,7 @@
 | 27-09-2026 | Caché de embeddings por `content_hash`. | Un texto repetido se embebe una vez y solo se vuelve a embeber lo que cambia. |
 | 27-09-2026 | "Sin resultado" con regla explícita: nada calza todas las palabras y, además, el concepto no tiene surtido en el vertical o el coseno queda bajo τ. | La búsqueda vectorial siempre devuelve vecinos. |
 | 27-09-2026 | τ se calibra con el set de evaluación y queda versionado en `eval/thresholds.json`; la tarea semanal no lo sobrescribe. | Que un cambio de umbral se revise antes de aplicarse. |
+| 29-09-2026 | τ recalibrado con el set renovado: farmacia 0,84, conveniencia 0,83, licores 0,82, supermercado 0,81 y Turbo 0,79. Un vertical sin negativas que dependan de τ conserva el suyo. | Con el τ por defecto, Mall marcaba «regalo para mi polola» como «sin resultado». |
 | 27-09-2026 | Evaluar antes de elegir: set de consultas por vertical (positivas, negativas y sin tildes), comparando léxico, vectorial e híbrido. | El modo por defecto sale de la evaluación, no de una suposición. |
 | 27-09-2026 | El precio mínimo es una columna indexada; con un tope de precio que deja pocos documentos, la búsqueda vectorial los revisa todos. | El índice HNSW con filtro cortaba antes y devolvía menos resultados sin avisar. |
 | 28-09-2026 | Los textos por embeber se procesan ordenados por largo. | Lotes parejos y embeddings más rápidos, con el mismo resultado. |
