@@ -17,4 +17,3 @@ Páginas públicas de rappi.cl guardadas el 26-09-2026 **solo para probar los pa
 | `listing_mall.html` | Listado de tiendas de Rappi Mall (`/tiendas/tipo/rappimall-parent`) | `/store/tipo/[parent_store_friendly_url]` |
 | `restaurant.html` | Página de un restaurante, con su menú | `/restaurantes/ssg/[id]` |
 | `brand_chain.html` | Página de una cadena de restaurantes, con sus sucursales | `/brands/[brand]` |
-| `restaurants_list.html` | Listado general de restaurantes (`/restaurantes`); hoy ningún test la usa | `/restaurantes` |

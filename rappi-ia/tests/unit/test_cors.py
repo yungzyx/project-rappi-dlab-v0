@@ -21,7 +21,7 @@ def test_lan_mode_admits_the_iphone_hotspot_and_local_hostnames():
         "http://10.0.0.7:5175",
         "http://172.20.10.2:5174",
         "http://172.16.0.9:5174",
-        "http://yungs-mac-mini.local:5174",
+        "http://mi-mac.local:5174",
     ):
         assert allowed(origin, True), origin
 

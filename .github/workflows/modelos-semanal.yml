@@ -1,12 +1,16 @@
 name: Modelos (semanal)
 
-# El CI de cada push corre sin modelos (RAPPI_IA_LIGHT=1). Este job instala el extra ml con las versiones fijadas
-# en rappi-ia/requirements.lock.txt y comprueba que e5 carga y embebe: una instalación rota se ve el sábado, no en
-# la tarea del domingo 03:00.
+# El CI de cada push corre sin modelos (RAPPI_IA_LIGHT=1). Este job comprueba cada semana que las versiones fijadas en
+# rappi-ia/requirements.lock.txt se siguen instalando (en Linux, con torch para CPU) y que e5 carga desde Hugging Face
+# y embebe. No prueba el .venv del Mac que corre la tarea del domingo: ese se instala con `make install-ml` y las
+# mismas versiones fijadas.
 on:
   schedule:
     - cron: "0 12 * * 6"  # sábados 12:00 UTC
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   rappi-ia-modelos:
