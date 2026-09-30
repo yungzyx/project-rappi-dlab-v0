@@ -1,6 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { useRemoteForYou } from './useRemoteForYou'
+
+let useRemoteForYou
+let firstShowing
 
 const api = vi.hoisted(() => ({ health: vi.fn(), recommendations: vi.fn() }))
 vi.mock('./client', async (importOriginal) => ({ ...(await importOriginal()), ...api }))
@@ -22,7 +24,9 @@ const ROW = {
 }
 
 describe('"Para ti" desde rappi-ia', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.resetModules() // la fila y lo ya mostrado viven en el módulo (lo que dura la pestaña)
+    ;({ useRemoteForYou, firstShowing } = await import('./useRemoteForYou'))
     vi.clearAllMocks()
     api.health.mockResolvedValue({ voz: true })
     api.recommendations.mockResolvedValue({ rows: [ROW] })
@@ -65,5 +69,24 @@ describe('"Para ti" desde rappi-ia', () => {
     api.health.mockClear()
     renderHook(() => useRemoteForYou(false))
     expect(api.health).not.toHaveBeenCalled()
+  })
+
+  test('volver a la Home no vuelve a pedir la fila: se reusa la de esta pestaña', async () => {
+    const first = renderHook(() => useRemoteForYou(true))
+    await waitFor(() => expect(first.result.current).not.toBeNull())
+    first.unmount() // abrir una tienda desmonta la Home
+
+    const again = renderHook(() => useRemoteForYou(true))
+
+    expect(again.result.current?.concept).toBe('snacks-salados')
+    expect(api.recommendations).toHaveBeenCalledTimes(1)
+  })
+
+  test('cada sugerencia «para ti» cuenta como mostrada una vez por pestaña, no en cada visita a la Home', () => {
+    const row = { concept: 'snacks-salados', vertical: 'supermercado', generation: 0 }
+
+    expect(firstShowing(row)).toBe(true)
+    expect(firstShowing(row)).toBe(false) // cinco visitas y una compra no son 20 % de aceptación
+    expect(firstShowing({ ...row, generation: 1 })).toBe(true) // tras «Olvidar» es otra sugerencia
   })
 })

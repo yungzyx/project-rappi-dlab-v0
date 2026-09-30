@@ -7,17 +7,30 @@ import { userId } from '../state/EventsContext'
  * Devuelve null mientras carga, sin API, si todavía no aprendió nada o si el perfil se borró después de pedirla
  * (`generation` = profile.resets): la pantalla usa el cerebro local.
  */
+// Lo que dura la pestaña: la Home se desmonta al abrir una tienda o cambiar de pestaña, y al volver no hay que pedir
+// la fila otra vez ni contarla de nuevo como mostrada.
+let cachedRow = null
+const shown = new Set()
+
+/** true la primera vez que se muestra esta sugerencia en la pestaña (concepto, vertical y generación del perfil). */
+export function firstShowing(row) {
+  const key = `${row.concept}|${row.vertical}|${row.generation}`
+  if (shown.has(key)) return false
+  shown.add(key)
+  return true
+}
+
 export function useRemoteForYou(enabled, generation = 0) {
-  const [row, setRow] = useState(null)
+  const [row, setRow] = useState(() => (cachedRow?.generation === generation ? cachedRow : null))
   useEffect(() => {
-    if (!enabled) return undefined
+    if (!enabled || row) return undefined
     let alive = true
     ;(async () => {
       if (!(await health())) return
       try {
         const [first] = (await recommendations(userId())).rows
         if (!alive || !first?.products.length) return
-        setRow({
+        cachedRow = {
           generation,
           reason: first.reason,
           concept: first.concept,
@@ -28,7 +41,8 @@ export function useRemoteForYou(enabled, generation = 0) {
             fromSuggestion: true,
             suggestionOrigin: 'para-ti',
           })),
-        })
+        }
+        setRow(cachedRow)
       } catch {
         // Sin recomendaciones: queda la fila local.
       }
