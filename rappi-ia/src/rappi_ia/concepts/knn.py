@@ -18,7 +18,7 @@ from psycopg import Connection
 
 from ..embeddings.base import TextEmbedder, to_pgvector
 from .assign import Assignment
-from .taxonomy import keeps_sensitive
+from .taxonomy import keeps_sensitive, sensitive_concepts
 
 log = logging.getLogger(__name__)
 
@@ -166,7 +166,10 @@ def _decide(
     )
     if current is None:
         return knn if share >= FALLBACK_SHARE else None
-    if current.method == "regla":
+    # Meter en un sensible lo que una regla dejó en un concepto común exige el mismo acuerdo que contradecir a la
+    # categoría: con mayoría simple, «Hand Rolls» o «Wrap» se parecían a papelillos y quedaban ocultos.
+    enters_sensitive = best in sensitive_concepts() and current.concept_id not in sensitive_concepts()
+    if current.method == "regla" and not enters_sensitive:
         return knn if share >= FALLBACK_SHARE else current
     return knn if share >= OVERRIDE_SHARE and len(sims) >= NEIGHBORS - 5 else current
 
