@@ -4,6 +4,7 @@ import pytest
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_dish, add_price, add_product, add_store
+from rappi_ia.agent import verticals
 from rappi_ia.agent.bigotes import Bigotes, Context
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.embeddings.base import HashEmbedder
@@ -206,3 +207,50 @@ def test_prepared_food_still_goes_to_restaurants(volume_bigotes):
     r = agent.reply(db, "una hamburguesa", Context())
     assert r["vertical"] == "restaurantes"
     assert {p["concept"] for p in r["products"]} == {"hamburguesa"}
+
+
+def test_answer_shows_other_verticals_with_offer_and_real_stores(volume_bigotes, monkeypatch):
+    """Multiverticalidad visible: la cerveza también está en el súper (y no se ofrece el restaurante, donde es
+    un acompañamiento). Cada vertical trae sus tiendas: nombre y logo si el scraper lo guardó."""
+    agent, db = volume_bigotes
+    monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)  # el catálogo de prueba es chico
+    add_product(db, 300, "Cerveza Cristal Lata 470 cc", 1, "Cervezas")
+    add_price(db, 1, 300, 990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+
+    r = agent.reply(db, "cerveza", Context(vertical="licores"))
+    also = r["also_in"]
+    assert also["concept"] == "cerveza"
+    assert [v["vertical"] for v in also["verticals"]] == ["supermercado"]
+    [super_] = also["verticals"]
+    assert super_["prototype_vertical"] == "grocery" and super_["items"] == 1
+    assert super_["stores"] == [{"name": "Súper", "logo": None}]
+
+
+def test_no_other_verticals_for_sensitive_or_in_rappi_hoy(volume_bigotes):
+    agent, db = volume_bigotes
+    assert "also_in" not in agent.reply(db, "cigarrillos marlboro", Context(vertical="licores"))
+    assert "also_in" not in agent.reply(db, "una hamburguesa", Context(mode="actual"))
+
+
+def test_other_verticals_do_not_repeat_a_chain(volume_bigotes, monkeypatch):
+    agent, db = volume_bigotes
+    monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)
+    add_store(db, 5, "conveniencia", "Súper")  # la misma cadena también en Express
+    add_store(db, 6, "conveniencia", "Minimarket")
+    add_store(db, 7, "supermercado", "Almacén")
+    for pid, store in [(300, 1), (301, 5), (302, 5), (303, 6), (304, 7)]:
+        add_product(db, pid, f"Cerveza Cristal Lata {pid}", store, "Cervezas")
+        add_price(db, store, pid, 990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+
+    also = {
+        v["vertical"]: [s["name"] for s in v["stores"]]
+        for v in agent.reply(db, "cerveza", Context(vertical="licores"))["also_in"]["verticals"]
+    }
+    assert also["conveniencia"] == ["Súper", "Minimarket"]
+    assert also["supermercado"] == ["Almacén"]  # "Súper" ya salió en Express

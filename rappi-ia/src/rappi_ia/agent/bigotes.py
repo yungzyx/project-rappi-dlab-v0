@@ -19,6 +19,7 @@ from ..embeddings.base import TextEmbedder
 from .compose import AGE_NOTICE, Draft, TemplateComposer
 from .tools import VERTICAL_LABELS, Suggestion, clp, products_for_keys, search_products, suggest_complement
 from .understand import Intent, Understander
+from .verticals import available_elsewhere
 
 PROTOTYPE_VERTICALS = {  # ids del prototipo (prototipo-app/src/screens/vertical/data.js)
     "supermercado": "grocery",
@@ -70,8 +71,14 @@ class Bigotes:
         # Con tope de precio también es demanda no satisfecha si no existe a ningún precio.
         unmet = not products and outcome.result.unmet and outcome.cheapest_without_filter is None
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
+        also_in = self._also_in(conn, ctx, products, vertical)
         text = self.composer.compose(draft)
-        return self._response(intent, vertical, text, products, suggestion, unmet, outcome.result.unmet_reason, draft)
+        response = self._response(
+            intent, vertical, text, products, suggestion, unmet, outcome.result.unmet_reason, draft
+        )
+        if also_in:
+            response["also_in"] = also_in
+        return response
 
     def reply_voice(self, conn: Connection, transcript, ctx: Context | None = None) -> dict:
         """`transcript`: resultado de audio.Transcriber. Si es dudoso, confirma antes de buscar."""
@@ -198,6 +205,20 @@ class Bigotes:
             }
             response["reason"] = suggestion.reason  # el prototipo muestra `reason` en el primer nivel
         return response
+
+    def _also_in(self, conn, ctx: Context, products, vertical) -> dict | None:
+        """Multiverticalidad visible: en qué otras verticales también hay lo que pidió (no es una sugerencia:
+        no se registra ni cuenta para la regla 3). Nunca para conceptos sensibles ni en "Rappi hoy"."""
+        concept_id = next((p.concept for p in products if p.concept), None)
+        concept = self.taxonomy.concepts.get(concept_id) if concept_id else None
+        if ctx.mode != "propuesta" or concept is None or concept.sensitive:
+            return None
+        verticals = available_elsewhere(conn, concept.id, {vertical})
+        if not verticals:
+            return None
+        for v in verticals:
+            v["prototype_vertical"] = PROTOTYPE_VERTICALS.get(v["vertical"])
+        return {"concept": concept.id, "label": concept.label, "verticals": verticals}
 
     def _top_interest(self, profile: dict[str, float]) -> str | None:
         concepts = self.taxonomy.concepts
