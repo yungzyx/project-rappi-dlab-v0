@@ -44,8 +44,13 @@ export default function CheckoutScreen({ back, push }) {
 
   const placeOrder = () => {
     const pending = buildOrders(cart.items, { userId: userId(), sessionId: sessionId(), cartId: cart.id })
-    // Registro para el panel (si la API está arriba). No bloquea el pedido de la demo.
-    health().then((online) => online && pending.forEach((order) => sendOrder(order).catch(() => {})))
+    // Registro para el panel (si la API está arriba). No bloquea el pedido de la demo. Antes salen los eventos en cola
+    // (y se esperan los lotes en camino): el servidor les pone la hora al recibirlos, y checkout_start va primero.
+    events
+      .flush()
+      .then(() => events.settled())
+      .then(() => health())
+      .then((online) => online && pending.forEach((order) => sendOrder(order).catch(() => {})))
     const id = orders.place({
       stores,
       items: cart.items.map(({ product, qty }) => ({

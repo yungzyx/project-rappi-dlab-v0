@@ -14,7 +14,12 @@ import CheckoutScreen from './CheckoutScreen'
 
 const api = vi.hoisted(() => ({ health: vi.fn(), sendOrder: vi.fn() }))
 vi.mock('../../api/client', async (importOriginal) => ({ ...(await importOriginal()), ...api }))
-const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
+const events = vi.hoisted(() => ({
+  track: vi.fn(),
+  flush: vi.fn(async () => {}),
+  clear: () => {},
+  settled: vi.fn(async () => {}),
+}))
 vi.mock('../../state/EventsContext', async (importOriginal) => ({
   ...(await importOriginal()),
   useEvents: () => events,
@@ -68,6 +73,13 @@ function renderCheckout() {
   fireEvent.click(screen.getByText('ir a pagar'))
 }
 
+function deferred() {
+  let resolve
+  const promise = new Promise((res) => (resolve = res))
+  return { promise, resolve }
+}
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
 const checkoutStarts = () =>
   events.track.mock.calls.filter(([type]) => type === 'checkout_start').map(([, fields]) => fields)
 
@@ -101,5 +113,23 @@ describe('inicio de pago', () => {
     fireEvent.click(screen.getByText(/Place order/))
     await vi.waitFor(() => expect(api.sendOrder).toHaveBeenCalledTimes(2))
     expect(checkoutStarts()).toHaveLength(2)
+  })
+
+  test('el inicio de pago llega al servidor antes que el pedido (la hora la pone el servidor al recibir)', async () => {
+    const queued = deferred() // la cola, con los checkout_start
+    const inFlight = deferred() // un lote que ya había salido
+    events.flush.mockReturnValueOnce(queued.promise)
+    events.settled.mockReturnValueOnce(inFlight.promise)
+    renderCheckout()
+    fireEvent.click(screen.getByText(/Place order/))
+    await tick()
+    expect(api.sendOrder).not.toHaveBeenCalled()
+
+    queued.resolve()
+    await tick()
+    expect(api.sendOrder).not.toHaveBeenCalled()
+
+    inFlight.resolve()
+    await vi.waitFor(() => expect(api.sendOrder).toHaveBeenCalledTimes(2))
   })
 })
