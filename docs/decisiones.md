@@ -74,6 +74,7 @@
 | 29-09-2026 | Muestra de 200 pares (consulta, producto) para juzgar a mano, a ciegas (`eval-sample` / `eval-human`). | Es el único juez independiente del concepto. |
 | 29-09-2026 | Keywords ambiguas de la taxonomía llevan su contexto («aceite de oliva», «plumón de cama») y ninguna keyword puede estar en dos conceptos (test). | Las palabras sueltas mandaban productos al concepto equivocado. |
 | 29-09-2026 | Un producto en un concepto sensible solo pasa a otro concepto sensible (ni el kNN ni una regla por nombre lo sacan). | Proteger salud, sexualidad y tabaco de reasignaciones por vecinos. |
+| 03-10-2026 | Los conceptos sensibles no tienen keywords de uso común («puro», «pipa», «moledor», «lubricante»; test) y su nombre de una sola palabra («Medicamentos») no cuenta como keyword. Pedir «medicamentos» a secas ya no activa ese concepto: se muestran los que se nombran («paracetamol»). Los lubricantes se piden con contexto («lubricante íntimo») y van a bienestar sexual, donde está su categoría. | «Puro Llano» y «Risotto el Puro» desaparecían de la búsqueda y «aceite de coco puro» llevaba a Licores con papelillos y el aviso +18. |
 | 29-09-2026 | Las categorías nuevas de cada semana se listan en el reporte de cobertura y se exportan con concepto sugerido (`rappi-ia map-categories`) para revisarlas. | Antes caían a reglas o quedaban sin concepto sin que nadie lo viera. |
 
 ## Agente Bigotes

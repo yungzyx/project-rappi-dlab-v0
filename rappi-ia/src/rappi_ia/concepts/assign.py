@@ -10,8 +10,9 @@ en los productos manda la categoría porque el nombre trae marcas y ruido ("Fant
 
 from dataclasses import dataclass
 
+from ..text import tokens
 from .matcher import KeywordMatcher
-from .taxonomy import Taxonomy, keeps_sensitive
+from .taxonomy import Concept, Taxonomy, keeps_sensitive
 
 MIN_MAP_CONFIDENCE = 0.6  # bajo esto, el mapeo de categoría se considera dudoso y se prueban las reglas
 RULE_CONFIDENCE = 0.7  # confianza de una regla por palabra clave sobre el nombre
@@ -37,7 +38,15 @@ class Assignment:
 
 
 def concept_matcher(taxonomy: Taxonomy) -> KeywordMatcher:
-    return KeywordMatcher((c.id, kw) for c in taxonomy.concepts.values() for kw in (c.name, *c.keywords))
+    return KeywordMatcher((c.id, kw) for c in taxonomy.concepts.values() for kw in (*_name_keyword(c), *c.keywords))
+
+
+def _name_keyword(concept: Concept) -> tuple[str, ...]:
+    """El nombre del concepto también es keyword, salvo el de un sensible de una sola palabra: «Dosificador de
+    medicamentos» no es un medicamento. Lo que sirve para pedirlo va en sus keywords («vapeo»)."""
+    if concept.sensitive and len(tokens(concept.name)) == 1:
+        return ()
+    return (concept.name,)
 
 
 def assign_catalog_item(

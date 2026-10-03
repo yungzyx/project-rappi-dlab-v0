@@ -4,7 +4,9 @@
 # - `keywords` se usan para reglas sobre nombres de productos, platos y consultas. Se escriben con tildes
 #   y se normalizan al cargar (sin tildes ni ñ, minúsculas). Una palabra suelta también calza su plural
 #   (s/es); las frases calzan completas. Evitar palabras ambiguas (collar, arnés, papel, filtro, tenis).
-# - `sensitive = true`: Bigotes nunca lo sugiere por iniciativa propia (solo responde si se lo piden).
+# - `sensitive = true`: Bigotes nunca lo sugiere por iniciativa propia (solo responde si se lo piden). Sus keywords no
+#   pueden ser palabras de uso común («puro», «pipa», «lubricante»): el plato o el utensilio quedaría oculto como sensible.
+#   Su nombre de una sola palabra («Medicamentos») tampoco cuenta como keyword (concepts/assign.py).
 # - `age_restricted = true`: +18; la respuesta lleva el recordatorio.
 # - `prepared = true` (en el grupo o en el concepto): se pide hecho, así que también se busca en restaurantes.
 #   El resto nunca compite en restaurantes aunque sus locales lo tengan (gaseosas, papas fritas en combos).
@@ -623,7 +625,7 @@ parent = "salud"
 name = "Salud sexual"
 emoji = "🩺"
 sensitive = true
-keywords = ["preservativo", "condón", "condon", "lubricante", "prueba de embarazo", "test de embarazo", "anticonceptivo"]
+keywords = ["preservativo", "condón", "condon", "prueba de embarazo", "test de embarazo", "anticonceptivo"]
 
 [[concept]]
 id = "higiene-femenina"
@@ -783,7 +785,7 @@ name = "Cigarrillos"
 emoji = "🚬"
 sensitive = true
 age_restricted = true
-keywords = ["cigarrillo", "cigarrillos", "cajetilla", "marlboro", "lucky strike", "pall mall", "kent", "belmont", "philip morris", "habano", "puro", "tabaco"]
+keywords = ["cigarrillo", "cigarrillos", "cigarro", "pucho", "cajetilla", "marlboro", "lucky strike", "pall mall", "kent", "belmont", "philip morris", "habano", "tabaco"]
 
 [[concept]]
 id = "vapeo"
@@ -792,7 +794,7 @@ name = "Vapeo"
 emoji = "💨"
 sensitive = true
 age_restricted = true
-keywords = ["vape", "vaporizador", "pod", "e-liquid", "sales de nicotina", "desechable vape", "elf bar", "ignite", "nicotina"]
+keywords = ["vape", "vapeo", "vaporizador", "pod", "e-liquid", "sales de nicotina", "desechable vape", "elf bar", "ignite", "nicotina", "cigarro electrónico", "cigarrillo electrónico"]
 
 [[concept]]
 id = "accesorios-fumador"
@@ -801,7 +803,7 @@ name = "Accesorios para fumar"
 emoji = "🔥"
 sensitive = true
 age_restricted = true
-keywords = ["papelillo", "papel para armar", "ocb", "raw papel", "encendedor", "grinder", "moledor", "pipa", "boquilla", "filtros para armar", "cenicero"]
+keywords = ["papelillo", "papel para armar", "ocb", "raw papel", "encendedor", "grinder", "pipa para fumar", "pipa de agua", "boquilla", "filtros para armar", "cenicero"]
 
 # Adultos
 [[concept]]
@@ -811,7 +813,7 @@ name = "Bienestar sexual"
 emoji = "🔞"
 sensitive = true
 age_restricted = true
-keywords = ["vibrador", "dildo", "succionador", "masajeador íntimo", "juguete sexual", "juguetes sexuales", "lencería erótica", "bondage", "kit erótico", "feromonas", "estimulante sexual", "anillo vibrador", "plug anal"]
+keywords = ["vibrador", "dildo", "succionador", "masajeador íntimo", "juguete sexual", "juguetes sexuales", "lencería erótica", "bondage", "kit erótico", "feromonas", "estimulante sexual", "anillo vibrador", "plug anal", "lubricante íntimo", "lubricante personal", "kama sutra", "shunga"]
 
 # Moda
 [[concept]]
