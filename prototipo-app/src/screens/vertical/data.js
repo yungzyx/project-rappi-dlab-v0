@@ -185,9 +185,10 @@ export const VERTICALS = {
   },
 }
 
-/** Tienda de una vertical en el formato que usan la página de tienda y el buscador. */
-export function toStore(store) {
+/** Tienda de una vertical (`vertical`: su id) en el formato que usan la página de tienda y el buscador. */
+export function toStore(store, vertical) {
   return {
+    vertical,
     name: store.name,
     img: store.logo,
     logo: true,
@@ -201,6 +202,8 @@ export const VERTICAL_PRODUCTS = Object.values(VERTICALS).flatMap((vertical) =>
   vertical.sections.filter((section) => section.type === 'products').flatMap((section) => section.products),
 )
 
-export const VERTICAL_STORES = Object.values(VERTICALS).flatMap((vertical) =>
-  vertical.sections.filter((section) => section.type === 'stores').flatMap((section) => section.stores.map(toStore)),
+export const VERTICAL_STORES = Object.entries(VERTICALS).flatMap(([id, vertical]) =>
+  vertical.sections
+    .filter((section) => section.type === 'stores')
+    .flatMap((section) => section.stores.map((store) => toStore(store, id))),
 )

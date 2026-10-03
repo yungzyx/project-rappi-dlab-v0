@@ -25,7 +25,12 @@ export default function VerticalScreen({ back, push, params }) {
   const openCategory = (category) =>
     push('list', { title: category.label, products: allProducts, stores: allStores })
   const openStore = (store) => push('store', { store })
-  const openProductStore = (item) => openStore({ name: item.store, img: item.storeLogo ?? item.img, logo: true, eta: item.eta, etaIcon: item.etaIcon })
+  // Con el producto tocado: la tienda registra que se vio.
+  const openProductStore = (item) =>
+    push('store', {
+      store: { name: item.store, img: item.storeLogo ?? item.img, logo: true, eta: item.eta, etaIcon: item.etaIcon },
+      item,
+    })
   const openBanner = (banner) => (banner.store ? openStore(banner.store) : toast(banner.toast))
 
   return (
@@ -41,7 +46,7 @@ export default function VerticalScreen({ back, push, params }) {
       </header>
 
       <div className="vertical-search-wrap">
-        <button type="button" className="search-bar tap" onClick={() => push('search')}>
+        <button type="button" className="search-bar tap" onClick={() => push('search', { vertical: params.id })}>
           <SearchIcon size={21} />
           <span className="vertical-search-hint">Search stores or products</span>
         </button>

@@ -21,7 +21,9 @@ import './deals.css'
 export default function DealsScreen({ push }) {
   const toast = useToast()
   const openStore = (store) => push('store', { store })
-  const openStoreByName = (item) => openStore(findStore(item.store) ?? { name: item.store, img: item.img })
+  // Con el producto tocado: la tienda registra que se vio.
+  const openStoreByName = (item) =>
+    push('store', { store: findStore(item.store) ?? { name: item.store, img: item.img }, item })
 
   return (
     <TabPage

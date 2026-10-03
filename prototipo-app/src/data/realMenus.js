@@ -55,6 +55,7 @@ function toRestaurant(restaurant) {
     deliveryLabel: restaurant.deliveryCost > 0 ? undefined : 'FREE DELIVERY',
     fee: restaurant.deliveryCost > 0 ? formatPrice(restaurant.deliveryCost) : undefined,
     distance: area,
+    vertical: 'restaurants',
   }
   return {
     ...store,

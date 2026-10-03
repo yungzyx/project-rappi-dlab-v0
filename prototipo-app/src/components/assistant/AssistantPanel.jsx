@@ -475,6 +475,7 @@ export default function AssistantPanel({ push, vertical }) {
             onOpenProduct={(product) =>
               go('store', {
                 store: findStore(product.store) ?? { name: product.store, img: product.img, eta: product.eta },
+                item: product,
               })
             }
             onOpenStore={(store) => go('store', { store })}

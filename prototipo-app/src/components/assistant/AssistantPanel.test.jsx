@@ -187,6 +187,37 @@ describe('sugerencia cruzada', () => {
     await runUntilIdle()
     expect(push).toHaveBeenCalledWith('vertical', { id: 'liquor' }, expect.anything())
   })
+
+  test('tocar un producto abre su tienda con ese producto: la página registra que lo vio', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      ...apiAnswer('Mira estas hamburguesas', 'gaseosas'),
+      suggestion: {
+        ...apiAnswer('', 'gaseosas').suggestion,
+        products: [
+          {
+            id: 'cat-1',
+            entity_type: 'catalog_item',
+            entity_id: '1',
+            name: 'Bebida Pepsi 1,5 L',
+            store: 'Botillería',
+            vertical: 'licores',
+          },
+        ],
+      },
+    })
+    await renderPanel({ push })
+    say('una hamburguesa')
+    await runUntilIdle()
+
+    fireEvent.click(screen.getByText('Bebida Pepsi 1,5 L'))
+    await runUntilIdle()
+    expect(push).toHaveBeenCalledWith(
+      'store',
+      expect.objectContaining({ item: expect.objectContaining({ entityId: '1', vertical: 'licores' }) }),
+      expect.anything(),
+    )
+  })
 })
 
 describe('también en otras verticales', () => {

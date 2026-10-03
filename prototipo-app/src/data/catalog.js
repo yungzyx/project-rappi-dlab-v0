@@ -15,12 +15,17 @@ function uniqueByName(items) {
   })
 }
 
+// Los restaurantes de las capturas no tienen productos con vertical que la delaten: se marcan aquí.
+const restaurants = (stores) => stores.map((store) => ({ vertical: 'restaurants', ...store }))
+
 export const ALL_STORES = uniqueByName([
-  ...TURBO_RESTAURANTS,
-  ...LOWER_FEES,
-  ...MOST_ORDERED,
-  ...NEW_IN_RAPPI.filter((store) => !store.partial),
-  ...BEST_RESTAURANTS,
+  ...restaurants([
+    ...TURBO_RESTAURANTS,
+    ...LOWER_FEES,
+    ...MOST_ORDERED,
+    ...NEW_IN_RAPPI.filter((store) => !store.partial),
+    ...BEST_RESTAURANTS,
+  ]),
   ...BEST_GROCERY,
   ...VERTICAL_STORES,
   ...REAL_RESTAURANTS,
@@ -47,6 +52,11 @@ export function findStore(name) {
 
 export function productsOfStore(name) {
   return ALL_PRODUCTS.filter((product) => normalize(product.store) === normalize(name))
+}
+
+/** Vertical de una tienda (id del prototipo): la suya o, si no la trae, la de sus productos. */
+export function storeVertical(store) {
+  return store.vertical ?? productsOfStore(store.name).find((product) => product.vertical)?.vertical
 }
 
 /** Búsqueda simple por palabras (sin tildes): todas las palabras deben aparecer en el nombre o la tienda. */
