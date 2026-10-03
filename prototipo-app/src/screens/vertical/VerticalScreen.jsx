@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
 import { ProductCard } from '../../components/ProductCard'
 import ForYouRow from '../../components/assistant/ForYouRow'
 import { forVertical } from '../../assistant/brain'
+import { conceptOf } from '../../api/orders'
+import { firstShowing } from '../../api/useRemoteForYou'
 import { useToast } from '../../components/Toast'
 import { BoltIcon, ChevronDown, ChevronLeft, ClockIcon, CrownIcon, SearchIcon } from '../../components/Icons'
 import { useAddress } from '../../state/AddressContext'
 import { useDemo } from '../../state/DemoContext'
+import { useEvents } from '../../state/EventsContext'
 import { useProfile } from '../../state/ProfileContext'
 import { VERTICALS, toStore } from './data'
 import './vertical.css'
@@ -19,8 +22,26 @@ export default function VerticalScreen({ back, push, params }) {
   const address = useAddress()
   const demo = useDemo()
   const profile = useProfile()
+  const events = useEvents()
 
   const allProducts = vertical.sections.filter((s) => s.type === 'products').flatMap((s) => s.products)
+  const forYouRow = demo.isProposal
+    ? forVertical(params.id, profile, new Set(allProducts.map((item) => item.id)))
+    : null
+  // La fila es una sugerencia de Bigotes: cuenta como mostrada una vez por pestaña, por concepto y vertical.
+  const pairs = (forYouRow?.products ?? []).map((item) => `${conceptOf(item)}|${item.vertical}`)
+  const shownPairs = [...new Set(pairs)].join(',')
+  useEffect(() => {
+    for (const pair of shownPairs ? shownPairs.split(',') : []) {
+      const [concept, verticalId] = pair.split('|')
+      if (firstShowing({ concept, vertical: verticalId, generation: profile.resets }))
+        events.track('suggestion_shown', {
+          concept_id: concept,
+          vertical: verticalId,
+          payload: { origen: 'vertical-para-ti' },
+        })
+    }
+  }, [shownPairs, profile.resets, events])
   const allStores = vertical.sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(toStore))
   const openCategory = (category) =>
     push('list', { title: category.label, products: allProducts, stores: allStores })
@@ -56,13 +77,7 @@ export default function VerticalScreen({ back, push, params }) {
         <CategoryGrid rows={vertical.categoryRows} scrollable={vertical.scrollCategories} onOpen={openCategory} />
       )}
 
-      {demo.isProposal && (
-        <ForYouRow
-          title="Para ti, de otras tiendas"
-          {...forVertical(params.id, profile, new Set(allProducts.map((item) => item.id)))}
-          push={push}
-        />
-      )}
+      {forYouRow && <ForYouRow title="Para ti, de otras tiendas" {...forYouRow} push={push} />}
 
       {vertical.banners && <BannerCarousel banners={vertical.banners} onOpen={openBanner} />}
 

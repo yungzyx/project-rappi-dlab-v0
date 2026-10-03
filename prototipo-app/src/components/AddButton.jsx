@@ -1,4 +1,4 @@
-import { cartEventFields } from '../api/orders'
+import { cartEventFields, conceptOf } from '../api/orders'
 import { productTags } from '../assistant/tags'
 import { useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
@@ -29,11 +29,12 @@ export default function AddButton({ product, className = '' }) {
     // Aceptar una sugerencia es agregarla por primera vez en el carro: los "+" siguientes son solo cantidad, y
     // quitarla y volver a agregarla tampoco es otra aceptación.
     const origin = item.suggestionOrigin ?? 'chat'
-    const key = `${cart.id}|${item.concept}|${item.vertical}|${origin}`
+    const concept = conceptOf(item) // los del cerebro local no traen concepto: sale de sus temas
+    const key = `${cart.id}|${concept}|${item.vertical}|${origin}`
     if (item.fromSuggestion && !accepted.has(key)) {
       accepted.add(key)
       events.track('suggestion_accepted', {
-        concept_id: item.concept,
+        concept_id: concept,
         vertical: item.vertical,
         payload: { origen: origin },
       })
