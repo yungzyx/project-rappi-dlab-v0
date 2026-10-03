@@ -17,6 +17,7 @@ Las cifras vigentes están en [README.md#resultados](../README.md#resultados). S
 | Saber qué se decidió y por qué | [decisiones.md](decisiones.md) | 5 min |
 | Usar o modificar el scraper | [rappi-scraper/README.md](../rappi-scraper/README.md) | 10 min |
 | Conocer la capa de IA, su API y cómo se evalúa | [rappi-ia/README.md](../rappi-ia/README.md) | 10 min |
+| Mostrar el MVP a alguien del negocio (guion de 10 minutos) | [demo.md](demo.md) | 3 min |
 | Probar el prototipo de la app | [prototipo-app/README.md](../prototipo-app/README.md) | 5 min |
 | Entender el panel de negocio | [dashboard-empresa/README.md](../dashboard-empresa/README.md) | 5 min |
 | Trabajar en el código con un asistente de IA | [CLAUDE.md](../CLAUDE.md) | 2 min |

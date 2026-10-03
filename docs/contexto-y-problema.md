@@ -30,7 +30,7 @@ Sin ese mapa de contenido no se puede:
 
 - La búsqueda sigue aislada por vertical: quien está en Licores quiere resultados de Licores.
 - Los intereses del usuario se guardan como **conceptos** comunes a todos los verticales (cerveza, snacks, pañales).
-- La recomendación cruzada va de concepto → complemento → búsqueda en el índice del otro vertical. Por ejemplo, quien lleva cerveza en Licores ve snacks del supermercado, marcados "De otra tienda" y con su razón visible.
+- La recomendación cruzada va de concepto → complemento → búsqueda en el índice del otro vertical. Por ejemplo, quien lleva cerveza en Licores ve snacks de Turbo, marcados "De Turbo" y con su razón visible.
 
 Detalle en [diseno-ia.md](diseno-ia.md#0-la-regla-que-ordena-todo).
 
