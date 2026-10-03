@@ -322,7 +322,7 @@ parent = "dulces"
 name = "Tortas y pastelería"
 emoji = "🎂"
 prepared = true
-keywords = ["torta", "pastel", "kuchen", "queque", "cupcake", "muffin", "dona", "donut", "croissant", "medialuna", "berlín", "berlin", "pie de limón", "tarta dulce", "cinnamon roll", "rollo de canela", "macarons", "pastelito"]
+keywords = ["torta", "pastel", "kuchen", "queque", "cupcake", "muffin", "dona", "donut", "croissant", "medialuna", "berlín", "berlin", "pie de limón", "tarta dulce", "cinnamon roll", "rollo de canela", "macarons", "pastelito", "calzones rotos"]
 
 [[concept]]
 id = "untables-dulces"
@@ -500,7 +500,7 @@ id = "sandwiches"
 parent = "comida"
 name = "Sándwiches y completos"
 emoji = "🥪"
-keywords = ["sándwich", "sandwich", "churrasco", "barros luco", "barros jarpa", "chacarero", "completos", "completo italiano", "hot dog", "lomito", "wrap", "chacarera", "ave palta", "ave mayo"]
+keywords = ["sándwich", "sandwich", "churrasco", "barros luco", "barros jarpa", "chacarero", "completos", "completo italiano", "hot dog", "perro caliente", "perros calientes", "lomito", "wrap", "chacarera", "ave palta", "ave mayo"]
 
 [[concept]]
 id = "empanadas"
@@ -556,7 +556,7 @@ id = "picoteo"
 parent = "comida"
 name = "Picoteo y tablas"
 emoji = "🍟"
-keywords = ["chorrillana", "picoteo", "tabla", "papas rústicas", "aros de cebolla", "fritos", "papas con queso", "salchipapa"]
+keywords = ["chorrillana", "picoteo", "tabla", "papas rústicas", "aros de cebolla", "aros de cebollas", "fritos", "papas con queso", "salchipapa"]
 
 [[concept]]
 id = "platos-listos"

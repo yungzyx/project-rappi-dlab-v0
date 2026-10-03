@@ -108,3 +108,18 @@ def test_neighbors_never_take_an_item_out_of_a_sensitive_concept():
     sims = np.full(15, 0.9, dtype=np.float32)
     assert _decide(medicine, item, sims, np.array(["vitaminas"] * 15), "knn/test") == medicine
     assert _decide(medicine, item, sims, np.array(["salud-sexual"] * 15), "knn/test").concept_id == "salud-sexual"
+
+
+@pytest.mark.parametrize(
+    ("text", "concept"),
+    [
+        ("Perro Caliente Especial", "sandwiches"),
+        ("perros calientes", "sandwiches"),
+        ("Calzones Rotos 3 Unidades", "pasteleria"),
+        ("Aros de Cebolla", "picoteo"),
+        ("Aros de Cebollas 10 Unds", "picoteo"),
+    ],
+)
+def test_dish_names_are_food_not_pets_or_clothes(matcher, text, concept):
+    """«perro», «calzones» y «aros» sueltos son mascotas, ropa interior y joyería; estos platos llevan su frase."""
+    assert matcher.best(text).target == concept

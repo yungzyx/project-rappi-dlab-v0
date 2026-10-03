@@ -4,18 +4,21 @@ Prioridad (la primera que responda gana):
 - Producto del catálogo: categoría de Rappi mapeada → reglas sobre el nombre.
 - Plato: reglas sobre el nombre del plato → sección del menú mapeada → cocina del restaurante mapeada.
 
-En los platos manda el nombre porque las secciones suelen ser genéricas ("Promociones", "Combos");
-en los productos manda la categoría porque el nombre trae marcas y ruido ("Fanta Naranja 1,5 L").
+En los platos manda el nombre porque las secciones suelen ser genéricas ("Promociones", "Combos"), salvo que la
+regla caiga fuera de lo que vende un restaurante ("Perro caliente" no es alimento para perros): ahí gana la sección
+o la cocina mapeada. En los productos manda la categoría porque el nombre trae marcas y ruido ("Fanta Naranja 1,5 L").
 """
 
 from dataclasses import dataclass
+from functools import cache
 
 from ..text import tokens
 from .matcher import KeywordMatcher
-from .taxonomy import Concept, Taxonomy, keeps_sensitive
+from .taxonomy import Concept, Taxonomy, keeps_sensitive, load_taxonomy
 
 MIN_MAP_CONFIDENCE = 0.6  # bajo esto, el mapeo de categoría se considera dudoso y se prueban las reglas
 RULE_CONFIDENCE = 0.7  # confianza de una regla por palabra clave sobre el nombre
+MENU_GROUPS = frozenset({"alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida"})  # lo de un menú
 
 
 @dataclass(frozen=True)
@@ -71,8 +74,25 @@ def assign_menu_item(
     matcher: KeywordMatcher,
 ) -> Assignment | None:
     by_name = _from_rule("menu_item", item_id, name, matcher)
-    if by_name:
+    if by_name and by_name.concept_id in _name_wins_in_menus():
         return by_name
+    return _from_menu_maps(item_id, section, cuisines, section_map, cuisine_map) or by_name
+
+
+@cache
+def _name_wins_in_menus() -> frozenset[str]:
+    """Conceptos que el nombre de un plato impone sobre la sección: lo que vende un restaurante y los sensibles
+    (un cigarrillo en la sección «Bebidas» no pasa a gaseosas). «Perro», «calzones» o «aros» sueltos ceden."""
+    return frozenset(c.id for c in load_taxonomy().concepts.values() if c.parent in MENU_GROUPS or c.sensitive)
+
+
+def _from_menu_maps(
+    item_id: str,
+    section: str | None,
+    cuisines: list[str],
+    section_map: dict[str, MappedName],
+    cuisine_map: dict[str, MappedName],
+) -> Assignment | None:
     mapped = section_map.get(_key(section)) if section else None
     if mapped and mapped.confidence >= MIN_MAP_CONFIDENCE:
         return _from_map("menu_item", item_id, mapped, f"seccion:{section}")

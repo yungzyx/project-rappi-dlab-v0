@@ -50,3 +50,30 @@ def test_menu_item_uses_section_then_cuisine(matcher):
     assert (by_section.concept_id, by_section.source) == ("gaseosas", "seccion:Bebidas")
     by_cuisine = assign_menu_item("13", "Especial de la casa", "Promos", ["Italiana"], SECTIONS, CUISINES, matcher)
     assert (by_cuisine.concept_id, by_cuisine.confidence) == ("pizza", 0.64)  # 0.8 × 0.8: la cocina es pista débil
+
+
+DISH_SECTIONS = {
+    "perros calientes": MappedName("sandwiches", "llm", 0.9),
+    "bebidas": MappedName("gaseosas", "llm", 0.9),
+}
+DISH_CUISINES = {"pescados y mariscos": MappedName("pescados-mariscos", "llm", 0.8)}
+
+
+def test_menu_item_section_wins_over_a_non_food_name_rule(matcher):
+    """En un menú, «Perro», «Aros» o «Proteína» sueltos no son comida de perro, joyas ni suplementos."""
+    by_section = assign_menu_item("20", "Perro Italiano XL", "Perros Calientes", [], DISH_SECTIONS, {}, matcher)
+    assert (by_section.concept_id, by_section.source) == ("sandwiches", "seccion:Perros Calientes")
+    seafood = ["Pescados y Mariscos"]
+    by_cuisine = assign_menu_item("21", "Aros de Calamar", "Piqueos", seafood, {}, DISH_CUISINES, matcher)
+    assert (by_cuisine.concept_id, by_cuisine.source) == ("pescados-mariscos", "cocina:Pescados y Mariscos")
+
+
+def test_menu_item_keeps_a_non_food_name_rule_without_a_confident_mapping(matcher):
+    a = assign_menu_item("22", "Perro Italiano XL", "Promos", [], DISH_SECTIONS, {}, matcher)
+    assert (a.concept_id, a.method) == ("alimento-perro", "regla")
+
+
+def test_menu_item_sensitive_name_rule_still_wins_over_the_section(matcher):
+    """Un local que vende cigarrillos en «Bebidas»: el nombre sensible manda (no se ofrecen como gaseosa)."""
+    a = assign_menu_item("23", "Cigarrillos Marlboro Rojo", "Bebidas", [], DISH_SECTIONS, {}, matcher)
+    assert (a.concept_id, a.method) == ("cigarrillos", "regla")
