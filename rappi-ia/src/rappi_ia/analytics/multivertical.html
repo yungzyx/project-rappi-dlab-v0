@@ -171,8 +171,10 @@ const DATA = /*__DATA__*/null;
 if (location.hash === '#figura') document.body.classList.add('figura');
 const NS = 'http://www.w3.org/2000/svg';
 const fmt = (n) => Math.round(n).toLocaleString('es-CL');
+// Los nombres vienen del catálogo (rappi.cl): siempre como texto, nunca como HTML.
+const esc = (text) => String(text).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 const color = (v) => `var(--v-${v})`;
-const label = (v) => DATA.labels[v];
+const label = (v) => esc(DATA.labels[v]);
 const el = (tag, attrs = {}, parent) => {
   const node = document.createElementNS(NS, tag);
   for (const [k, val] of Object.entries(attrs)) if (val != null) node.setAttribute(k, val);
@@ -244,7 +246,7 @@ document.getElementById('minItems').textContent = DATA.minItems;
     const out = R + r + 16;
     const lx = cx + out * Math.cos(pos[v].a), ly = cy + out * Math.sin(pos[v].a);
     const anchor = Math.abs(Math.cos(pos[v].a)) < 0.3 ? 'middle' : Math.cos(pos[v].a) > 0 ? 'start' : 'end';
-    const t = el('text', { x: lx, y: ly, 'text-anchor': anchor, class: 'vlabel' }, g); t.textContent = label(v);
+    const t = el('text', { x: lx, y: ly, 'text-anchor': anchor, class: 'vlabel' }, g); t.textContent = DATA.labels[v];
     const s = el('text', { x: lx, y: ly + 15, 'text-anchor': anchor, class: 'vsub num' }, g);
     s.textContent = fmt(DATA.products[v] || 0) + ' productos';
     const focus = () => selectVertical(v);
@@ -320,7 +322,7 @@ document.getElementById('minItems').textContent = DATA.minItems;
   for (const v of DATA.order) {
     el('circle', { cx: vpos[v].x, cy: vpos[v].y, r: 16, fill: color(v), stroke: 'var(--surface)', 'stroke-width': 2 }, svg);
     const t = el('text', { x: vpos[v].x, y: vpos[v].y + 32, 'text-anchor': 'middle', class: 'vlabel' }, svg);
-    t.textContent = label(v);
+    t.textContent = DATA.labels[v];
   }
   const nodes = el('g', {}, svg);
   for (const c of concepts) {
@@ -354,10 +356,10 @@ document.getElementById('minItems').textContent = DATA.minItems;
     svg.querySelectorAll('.cnode, .clabel').forEach((n) => n.classList.toggle('on', near.has(n.dataset.c)));
     const rows = Object.entries(c.items).sort((x, y) => y[1] - x[1]);
     const max = rows[0][1];
-    panel.innerHTML = `<h3>${c.emoji} ${c.name}</h3><p class="sub">${c.group}${c.sensitive ? ' · sensible: Bigotes no lo sugiere solo' : ''}</p>
+    panel.innerHTML = `<h3>${esc(c.emoji)} ${esc(c.name)}</h3><p class="sub">${esc(c.group)}${c.sensitive ? ' · sensible: Bigotes no lo sugiere solo' : ''}</p>
       <p class="sub">Más típico en <b style="color:var(--ink)">${label(c.home)}</b> · productos por vertical:</p>
       <div class="bars">${rows.map(([v, n]) => `<div class="bar"><span>${label(v)}</span><span class="track"><span class="fill" style="width:${(n * 100) / max}%;background:${color(v)}"></span></span><span class="v num">${fmt(n)}</span></div>`).join('')}</div>
-      ${comp.length ? `<p class="sub" style="margin-top:14px">Complementos curados:</p><div class="chips">${comp.map((o) => byId[o] ? `<span class="chip" data-go="${o}">${byId[o].emoji} ${byId[o].name}</span>` : '').join('')}</div>` : ''}`;
+      ${comp.length ? `<p class="sub" style="margin-top:14px">Complementos curados:</p><div class="chips">${comp.map((o) => byId[o] ? `<span class="chip" data-go="${esc(o)}">${esc(byId[o].emoji)} ${esc(byId[o].name)}</span>` : '').join('')}</div>` : ''}`;
     panel.querySelectorAll('[data-go]').forEach((chip) => chip.addEventListener('click', () => select(chip.dataset.go, true)));
   }
   function clear() {
@@ -377,15 +379,15 @@ document.getElementById('minItems').textContent = DATA.minItems;
   });
   document.getElementById('legend').innerHTML = DATA.order.map((v) => `<span><i style="background:${color(v)}"></i>${label(v)}</span>`).join('');
   document.getElementById('conceptTable').innerHTML = `<table><thead><tr><th>Concepto</th><th>Grupo</th><th>Más típico en</th><th class="r">Verticales con oferta</th><th class="r">Productos</th></tr></thead><tbody>${
-    concepts.map((c) => `<tr><td>${c.emoji} ${c.name}</td><td>${c.group}</td><td>${label(c.home)}</td><td class="r num">${Object.keys(c.items).length}</td><td class="r num">${fmt(total(c))}</td></tr>`).join('')}</tbody></table>`;
+    concepts.map((c) => `<tr><td>${esc(c.emoji)} ${esc(c.name)}</td><td>${esc(c.group)}</td><td>${label(c.home)}</td><td class="r num">${Object.keys(c.items).length}</td><td class="r num">${fmt(total(c))}</td></tr>`).join('')}</tbody></table>`;
 })();
 
 // 3. Listas
 const dots = (vs) => `<span class="dots">${vs.map((v) => `<i title="${label(v)}" style="background:${color(v)}"></i>`).join('')}</span>`;
 document.getElementById('bridges').innerHTML = `<table><thead><tr><th>Producto</th><th>Verticales</th><th class="r">Tiendas</th></tr></thead><tbody>${
-  DATA.bridges.map(([n, vs, s]) => `<tr><td>${n}</td><td>${dots(vs)} ${vs.map(label).join(', ')}</td><td class="r num">${fmt(s)}</td></tr>`).join('')}</tbody></table>`;
+  DATA.bridges.map(([n, vs, s]) => `<tr><td>${esc(n)}</td><td>${dots(vs)} ${vs.map(label).join(', ')}</td><td class="r num">${fmt(s)}</td></tr>`).join('')}</tbody></table>`;
 document.getElementById('chains').innerHTML = `<table><thead><tr><th>Cadena</th><th>Verticales</th><th class="r">Sucursales</th></tr></thead><tbody>${
-  DATA.chains.map(([n, vs, s]) => `<tr><td>${n}</td><td>${dots(vs)} ${vs.map(label).join(', ')}</td><td class="r num">${fmt(s)}</td></tr>`).join('')}</tbody></table>`;
+  DATA.chains.map(([n, vs, s]) => `<tr><td>${esc(n)}</td><td>${dots(vs)} ${vs.map(label).join(', ')}</td><td class="r num">${fmt(s)}</td></tr>`).join('')}</tbody></table>`;
 </script>
 </body>
 </html>

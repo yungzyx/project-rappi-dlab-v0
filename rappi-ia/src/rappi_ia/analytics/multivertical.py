@@ -10,12 +10,11 @@ from pathlib import Path
 
 from psycopg import Connection
 
-from ..agent.verticals import ranked_verticals
+from .. import config
+from ..agent.verticals import typical_verticals
 
 TEMPLATE = Path(__file__).resolve().parent / "multivertical.html"
-OUTPUT = (
-    Path(__file__).resolve().parents[4] / "dashboard-empresa" / "public" / "presentacion" / "mapa-multivertical.html"
-)
+OUTPUT = config.PROJECT_ROOT.parent / "dashboard-empresa" / "public" / "presentacion" / "mapa-multivertical.html"
 ORDER = ["supermercado", "conveniencia", "turbo", "licores", "chocolateria", "restaurantes", "farmacia", "mall"]
 LABELS = {
     "supermercado": "Súper",
@@ -54,6 +53,7 @@ def collect(conn: Connection) -> dict:
         "SELECT concept_id, vertical, items FROM concept_assortment WHERE items > 0"
     ):
         items_by_concept.setdefault(cid, {})[vertical] = items
+    homes = typical_verticals(conn)
     concepts = []
     for cid, name, emoji, parent, sensitive in conn.execute(
         "SELECT concept_id, name, emoji, parent_id, sensitive FROM concepts WHERE parent_id IS NOT NULL ORDER BY 1"
@@ -61,8 +61,7 @@ def collect(conn: Connection) -> dict:
         items = items_by_concept.get(cid)
         if not items:
             continue
-        ranked = ranked_verticals(conn, [cid])
-        home = ranked[0] if ranked else max(items, key=items.get)
+        home = homes.get(cid) or max(items, key=items.get)
         concepts.append(
             {
                 "id": cid,
@@ -110,10 +109,13 @@ def collect(conn: Connection) -> dict:
 
 
 def render(data: dict) -> str:
-    return TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False))
+    # «</» escapado: un nombre del catálogo con «</script>» no puede cerrar el script (JSON lo lee igual).
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    return TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", payload)
 
 
 def write(conn: Connection, path: Path = OUTPUT) -> dict:
     data = collect(conn)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render(data), encoding="utf-8")
     return data

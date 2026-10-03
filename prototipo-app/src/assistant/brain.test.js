@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { forVertical, forYou, greeting, photoReply, reply, suggestions } from './brain'
+import { TAGS, productsForTags } from './tags'
 
 const EMPTY_PROFILE = { top: [] }
 const BEER_PROFILE = { top: ['cerveza'] }
@@ -39,6 +40,16 @@ describe('reply', () => {
     expect(suggestion.products.every((product) => product.vertical === 'liquor')).toBe(true)
     expect(suggestion).toMatchObject({ verticalLabel: 'Licores', route: ['vertical', { id: 'liquor' }] })
     expect(suggestion.reason).toMatch(/hamburguesa/i)
+  })
+
+  test('el complemento nunca viene de la vertical del tema pedido, aunque la respuesta solo traiga tiendas', () => {
+    for (const [tag, { words }] of Object.entries(TAGS)) {
+      const { suggestion } = reply(words[0], EMPTY_PROFILE)
+      if (!suggestion) continue
+      const own = new Set(productsForTags([tag], 100).map((product) => product.vertical))
+      const from = suggestion.products[0].vertical
+      expect(own.has(from), `${tag} sugiere desde su propia vertical (${from})`).toBe(false)
+    }
   })
 
   test('lo que no encuentra se compensa con ofertas de varias verticales, no solo restaurantes', () => {

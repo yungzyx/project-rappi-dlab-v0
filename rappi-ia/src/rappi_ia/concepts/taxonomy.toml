@@ -6,8 +6,10 @@
 #   (s/es); las frases calzan completas. Evitar palabras ambiguas (collar, arnés, papel, filtro, tenis).
 # - `sensitive = true`: Bigotes nunca lo sugiere por iniciativa propia (solo responde si se lo piden).
 # - `age_restricted = true`: +18; la respuesta lleva el recordatorio.
+# - `prepared = true` (en el grupo o en el concepto): se pide hecho, así que también se busca en restaurantes.
+#   El resto nunca compite en restaurantes aunque sus locales lo tengan (gaseosas, papas fritas en combos).
 
-version = "2026-09-30"
+version = "2026-10-03"
 
 # ─── Grupos ───────────────────────────────────────────────────────────────────
 [[group]]
@@ -44,6 +46,7 @@ emoji = "🥬"
 id = "comida"
 name = "Comida preparada"
 emoji = "🍱"
+prepared = true
 
 [[group]]
 id = "bebe"
@@ -234,6 +237,7 @@ id = "cafe"
 parent = "bebidas"
 name = "Café"
 emoji = "☕"
+prepared = true
 keywords = ["café", "cafe", "espresso", "cappuccino", "capuccino", "latte", "americano", "nescafé", "nescafe", "cápsulas de café", "moka", "frappé", "frappuccino", "mocaccino"]
 
 [[concept]]
@@ -299,6 +303,7 @@ id = "helados"
 parent = "dulces"
 name = "Helados"
 emoji = "🍦"
+prepared = true
 keywords = ["helado", "gelato", "paleta helada", "sorbete", "cassata", "sundae", "mcflurry", "barquillo"]
 
 [[concept]]
@@ -306,6 +311,7 @@ id = "postres"
 parent = "dulces"
 name = "Postres"
 emoji = "🍮"
+prepared = true
 keywords = ["postre", "flan", "mousse", "tiramisú", "tiramisu", "cheesecake", "leche asada", "suspiro limeño", "panqueque", "brownie", "gelatina", "arroz con leche", "tres leches", "crème brûlée", "creme brulee", "volcán de chocolate", "copa de helado"]
 
 [[concept]]
@@ -313,6 +319,7 @@ id = "pasteleria"
 parent = "dulces"
 name = "Tortas y pastelería"
 emoji = "🎂"
+prepared = true
 keywords = ["torta", "pastel", "kuchen", "queque", "cupcake", "muffin", "dona", "donut", "croissant", "medialuna", "berlín", "berlin", "pie de limón", "tarta dulce", "cinnamon roll", "rollo de canela", "macarons", "pastelito"]
 
 [[concept]]

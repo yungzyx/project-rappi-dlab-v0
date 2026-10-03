@@ -1,6 +1,8 @@
 // Cliente de la API de rappi-ia (Bigotes real: búsqueda híbrida, voz, foto y eventos).
 // Si la API no responde, todo sigue funcionando con el cerebro local (src/assistant/brain.js).
 
+import { VERTICAL_NAMES, routeForScreen, screenForBackend } from '../data/verticals'
+
 const DEFAULT_PORT = 8000
 const HEALTH_TTL_MS = 30_000
 const HEALTH_TIMEOUT_MS = 1500
@@ -117,23 +119,10 @@ export function toPrototypeProduct(p) {
   }
 }
 
-// Nombre visible y pantalla del prototipo de cada vertical del backend. Turbo tiene su propia pantalla
-// aunque la API lo agrupe con Express; restaurantes y Turbo no son una vertical genérica del prototipo.
-const SUGGESTION_VERTICALS = {
-  supermercado: 'Súper',
-  licores: 'Licores',
-  farmacia: 'Farmacia',
-  mall: 'Rappi Mall',
-  conveniencia: 'Express',
-  turbo: 'Turbo',
-  chocolateria: 'Chocolatería',
-  restaurantes: 'Restaurantes',
-}
-const OWN_SCREENS = { turbo: ['turbo'], restaurantes: ['restaurants'] }
-
-function suggestionRoute(vertical, prototypeVertical) {
-  if (OWN_SCREENS[vertical]) return OWN_SCREENS[vertical]
-  return prototypeVertical ? ['vertical', { id: prototypeVertical }] : null
+/** Nombre visible y ruta de una vertical de la API (null si el prototipo no la conoce). */
+function verticalView(vertical) {
+  const screen = screenForBackend(vertical)
+  return screen ? { label: VERTICAL_NAMES[screen], route: routeForScreen(screen) } : { label: null, route: null }
 }
 
 /** Respuesta de /chat → mensaje del chat del prototipo ({ text, products, reason, actions, suggestion… }). */
@@ -145,8 +134,8 @@ export function toMessage(response) {
         concept: response.suggestion.concept,
         // Código del backend para los eventos ('turbo' no es el 'express' del prototipo, que la API lee como conveniencia).
         vertical: response.suggestion.vertical,
-        verticalLabel: SUGGESTION_VERTICALS[response.suggestion.vertical] ?? null,
-        route: suggestionRoute(response.suggestion.vertical, response.suggestion.prototype_vertical),
+        verticalLabel: verticalView(response.suggestion.vertical).label,
+        route: verticalView(response.suggestion.vertical).route,
         products: response.suggestion.products.map((p) => ({ ...toPrototypeProduct(p), fromSuggestion: true })),
       }
     : null
@@ -154,8 +143,8 @@ export function toMessage(response) {
     ? {
         label: response.also_in.label,
         verticals: response.also_in.verticals.map((v) => ({
-          label: SUGGESTION_VERTICALS[v.vertical] ?? v.vertical,
-          route: suggestionRoute(v.vertical, v.prototype_vertical),
+          label: verticalView(v.vertical).label ?? v.vertical,
+          route: verticalView(v.vertical).route,
           items: v.items,
           stores: v.stores,
         })),

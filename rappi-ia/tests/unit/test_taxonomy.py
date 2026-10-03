@@ -41,3 +41,11 @@ def test_category_map_csv_uses_known_concepts():
 def test_hunger_occasion_is_always_restaurants():
     assert load_taxonomy().occasions["hambre"].vertical == "restaurantes"
     assert load_taxonomy().occasions["asado"].vertical is None  # las demás: el vertical con más surtido
+
+
+def test_prepared_flag_comes_from_the_concept_or_its_group():
+    """Lo que se pide hecho puede buscarse en restaurantes (agent/verticals.py); se declara en la taxonomía."""
+    concepts = load_taxonomy().concepts
+    assert concepts["hamburguesa"].prepared  # por su grupo, comida preparada
+    assert concepts["postres"].prepared and concepts["cafe"].prepared  # por el concepto
+    assert not concepts["chocolates"].prepared and not concepts["gaseosas"].prepared

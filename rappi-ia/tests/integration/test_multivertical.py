@@ -6,6 +6,7 @@ import re
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_dish, add_product, add_store
+from rappi_ia.agent import verticals
 from rappi_ia.analytics import multivertical
 from rappi_ia.concepts.pipeline import build_concepts
 
@@ -55,3 +56,26 @@ def test_render_embeds_the_data_in_a_self_contained_page(db):
     data = json.loads(re.search(r"const DATA = (\{.*?\});\n", page, re.S).group(1))
     assert data["catalogTotal"] == 4
     assert not re.search(r"""<(script|link)[^>]+(src|href)=["']https?://""", page)  # funciona sin internet
+
+
+def test_names_from_the_catalog_cannot_break_out_of_the_page(db, tmp_path):
+    """Los nombres vienen de rappi.cl: un «</script>» no puede cortar el script ni inyectar HTML."""
+    _catalog(db)
+    for store_id, vertical in ((6, "supermercado"), (7, "licores")):  # cadena en 2 verticales: sale en el mapa
+        add_store(db, store_id, vertical, "Botillería </script><img src=x onerror=alert(1)>")
+    db.commit()
+
+    path = tmp_path / "carpeta-nueva" / "mapa.html"  # la carpeta no existe todavía
+    multivertical.write(db, path)
+    page = path.read_text(encoding="utf-8")
+    assert "</script><img" not in page
+    data = json.loads(re.search(r"const DATA = (\{.*?\});\n", page, re.S).group(1))
+    assert data["chains"][0][0] == "Botillería </script><img src=x onerror=alert(1)>"  # el dato llega intacto
+
+
+def test_typical_vertical_is_the_first_ranked_one(db):
+    _catalog(db)
+    homes = verticals.typical_verticals(db)
+    for concept in {c for (c,) in db.execute("SELECT DISTINCT concept_id FROM concept_assortment WHERE items > 0")}:
+        ranked = verticals.ranked_verticals(db, [concept])
+        assert homes.get(concept) == (ranked[0] if ranked else None), concept

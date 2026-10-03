@@ -2,6 +2,7 @@
 // Una respuesta es { text, products?, stores?, actions?: [{ label, route }], reason?, suggestion?, tags? }.
 // `tags` son los temas que usó para responder; con ellos aprende el perfil.
 import { search } from '../data/catalog'
+import { VERTICAL_NAMES, routeForScreen } from '../data/verticals'
 import {
   COMPLEMENTS,
   TAGS,
@@ -91,18 +92,6 @@ const matches = (text, words) => words.some((word) => new RegExp(`(^|[^a-z0-9])$
 const GREETINGS = /^((buenas tardes|buenas noches|buenos dias|buenas|holi|hola|hey|wena|ola)\b[\s,!.]*)+/
 const GENERIC_OCCASIONS = new Set(['hambre'])
 
-// Nombre visible de cada vertical del prototipo, para "De Licores" y "Ver más en Licores".
-const VERTICAL_LABELS = {
-  grocery: 'Súper',
-  liquor: 'Licores',
-  pharmacy: 'Farmacia',
-  retail: 'Rappi Mall',
-  express: 'Express',
-  pet: 'Mascotas',
-  chocolates: 'Chocolatería',
-  restaurants: 'Restaurantes',
-}
-
 /** Complemento del tema con productos de UNA vertical distinta a la de la respuesta (como la API). */
 function complementFor(tag, ownProducts) {
   const extra = COMPLEMENTS[tag]?.[0]
@@ -115,8 +104,8 @@ function complementFor(tag, ownProducts) {
     concept: extra,
     question: `¿Te tinca sumar ${TAGS[extra].label.toLowerCase()}?`,
     reason: `Porque llevas ${TAGS[tag].emoji} ${TAGS[tag].label.toLowerCase()}`,
-    verticalLabel: VERTICAL_LABELS[vertical],
-    route: vertical === 'restaurants' ? ['restaurants'] : ['vertical', { id: vertical }],
+    verticalLabel: VERTICAL_NAMES[vertical],
+    route: routeForScreen(vertical),
     products: candidates.filter((product) => product.vertical === vertical).slice(0, 3),
   }
 }
