@@ -6,6 +6,7 @@ from rappi_scraper.storage.search import build_search_documents
 from conftest import add_dish, add_price, add_product, add_store
 from rappi_ia.agent import verticals
 from rappi_ia.agent.bigotes import Bigotes, Context
+from rappi_ia.agent.verticals import ranked_verticals
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
@@ -287,3 +288,17 @@ def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypa
     assert "also_in" in agent.reply(db, "jugo de naranja", Context(vertical="supermercado"))
     sick = agent.reply(db, "tengo fiebre, quiero jugo", Context(vertical="supermercado"))
     assert sick["products"] and "also_in" not in sick
+
+
+def test_packaged_sweets_are_not_offered_from_restaurants(bigotes):
+    agent, db = bigotes
+    add_store(db, 10, "chocolateria", "Chocolatería")
+    for pid, store in [(600, 10), (601, 10)]:
+        add_product(db, pid, f"Chocolate Sahne-Nuss {pid} g", store, "Chocolates")
+        add_price(db, store, pid, 1990)
+    for item_id in (610, 611, 612):
+        add_dish(db, item_id, f"Chocolate caliente con barra {item_id}", 3, "Postres", ["Café"])
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    assert ranked_verticals(db, ["chocolates"]) == ["chocolateria"]

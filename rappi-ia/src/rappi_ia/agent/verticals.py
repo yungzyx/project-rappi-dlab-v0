@@ -3,13 +3,13 @@
 Restaurantes tiene unas 5 veces más ítems que el súper y casi todos sus locales listan bebidas, papas fritas o
 schop; por cantidad ganaría casi cualquier concepto. Por eso se compara la participación del concepto en el
 catálogo de cada vertical (ítems del concepto / ítems del vertical), y restaurantes solo compite cuando el
-concepto se pide hecho: comida preparada, postres o café.
+concepto se pide hecho: comida preparada, postres, pastelería, helados o café.
 """
 
 from psycopg import Connection
 
-PREPARED_GROUPS = ("comida", "dulces")
-PREPARED_CONCEPTS = ("cafe",)
+PREPARED_GROUPS = ("comida",)
+PREPARED_CONCEPTS = ("postres", "pasteleria", "helados", "cafe")  # se piden hechos; los chocolates no
 
 
 def ranked_verticals(conn: Connection, concept_ids: list[str]) -> list[str]:
