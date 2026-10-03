@@ -50,6 +50,18 @@ export function findStore(name) {
   return ALL_STORES.find((store) => normalize(store.name) === normalize(name))
 }
 
+/**
+ * Tienda de una página de tienda. Un restaurante real se busca por su id (dos sucursales pueden quedar con el mismo
+ * nombre recortado) o por su nombre completo, que es como lo trae la API ("Délice - Las Condes"); el resto, por nombre.
+ */
+export function storeFor({ id, name }) {
+  return (
+    REAL_RESTAURANTS.find((store) => store.id === id) ??
+    findStore(name) ??
+    REAL_RESTAURANTS.find((store) => normalize(store.fullName) === normalize(name))
+  )
+}
+
 export function productsOfStore(name) {
   return ALL_PRODUCTS.filter((product) => normalize(product.store) === normalize(name))
 }

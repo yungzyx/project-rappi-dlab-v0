@@ -37,7 +37,7 @@ function toDish(item, store) {
   }
 }
 
-function toRestaurant(restaurant) {
+export function toRestaurant(restaurant) {
   const { name, area } = splitName(restaurant.name)
   const items = restaurant.sections.flatMap((section) => section.items)
   // Sin logo ni portada en la base: la foto del plato más popular hace de portada.
@@ -46,6 +46,7 @@ function toRestaurant(restaurant) {
     id: `real-${restaurant.id}`,
     name,
     area,
+    fullName: restaurant.name, // así lo nombra la API ("Vapiano - Las Condes")
     img: cover,
     real: true,
     rating: restaurant.rating ? Number(restaurant.rating).toFixed(1) : undefined,

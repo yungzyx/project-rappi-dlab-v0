@@ -170,7 +170,10 @@ export default function RestaurantsScreen({ back, push }) {
                 key={store.id}
                 store={store}
                 onClick={() =>
-                  push('store', { store: { name: store.name, img: store.img, eta: store.eta, rating: store.rating } })
+                  // Con el id: dos sucursales pueden tener el mismo nombre y cada una tiene su menú.
+                  push('store', {
+                    store: { id: store.id, name: store.name, img: store.img, eta: store.eta, rating: store.rating },
+                  })
                 }
               />
             ))}

@@ -3,7 +3,7 @@ import ProductRow from '../../components/ProductRow'
 import { useToast } from '../../components/Toast'
 import { ChevronLeft, HeartIcon } from '../../components/Icons'
 import { cartEventFields } from '../../api/orders'
-import { findStore, productsOfStore, storeVertical } from '../../data/catalog'
+import { productsOfStore, storeFor, storeVertical } from '../../data/catalog'
 import { useEvents } from '../../state/EventsContext'
 import { useFavorites } from '../../state/FavoritesContext'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
@@ -24,14 +24,15 @@ const SKELETON_ROWS = 5
 export default function StoreScreen({ back, params }) {
   // Lo que llega por parámetro manda (p. ej. la foto de un banner); el catálogo completa lo que falte o venga vacío.
   const given = Object.fromEntries(Object.entries(params.store).filter(([, value]) => value !== '' && value != null))
-  const store = { ...findStore(params.store.name), ...given }
+  const known = storeFor(params.store)
+  const store = { ...known, ...given }
   const toast = useToast()
   const favorites = useFavorites()
   const [mode, setMode] = useState(MODES[0])
   const isFavorite = favorites.isFavorite(store.name)
   const products = productsOfStore(store.name)
   // Los restaurantes del scraper traen su menú real (se busca en el catálogo: el historial guarda una copia liviana).
-  const menu = findStore(store.name)?.sections
+  const menu = known?.sections
   const scrollRef = useRef(null)
   const [menuReady, setMenuReady] = useState(!menu)
   const { track } = useProfile()

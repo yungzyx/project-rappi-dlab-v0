@@ -1,0 +1,108 @@
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+import { ToastProvider } from '../../components/Toast'
+import { AddressProvider } from '../../state/AddressContext'
+import { AssistantProvider } from '../../state/AssistantContext'
+import { CartProvider } from '../../state/CartContext'
+import { DemoProvider } from '../../state/DemoContext'
+import { FavoritesProvider } from '../../state/FavoritesContext'
+import { NudgeProvider } from '../../state/NudgeContext'
+import { ProfileProvider } from '../../state/ProfileContext'
+import RestaurantsScreen from '../restaurants/RestaurantsScreen'
+import StoreScreen from './StoreScreen'
+
+// menus.json exportado (fuera de git) con dos sucursales que quedan con el mismo nombre recortado.
+const RAW = vi.hoisted(() => {
+  const branch = (id, name, dish) => ({
+    id,
+    name,
+    rating: 4.5,
+    eta: '30 min',
+    deliveryCost: 0,
+    sections: [{ name: 'Tortas', items: [{ id: id * 10, name: dish, price: 9990, realPrice: 9990, discount: 0 }] }],
+  })
+  return [
+    branch(1, 'Délice - Divina Providencia', 'Torta de Providencia'),
+    branch(2, 'Délice - Las Condes', 'Torta de Las Condes'),
+  ]
+})
+vi.mock('../../data/realMenus', async (importOriginal) => {
+  const actual = await importOriginal()
+  const REAL_RESTAURANTS = RAW.map(actual.toRestaurant)
+  const REAL_DISHES = REAL_RESTAURANTS.flatMap((restaurant) => restaurant.sections.flatMap((section) => section.items))
+  return { ...actual, REAL_RESTAURANTS, REAL_DISHES }
+})
+const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
+vi.mock('../../state/EventsContext', async (importOriginal) => ({
+  ...(await importOriginal()),
+  useEvents: () => events,
+}))
+
+function Providers({ children }) {
+  return (
+    <DemoProvider>
+      <ProfileProvider>
+        <AssistantProvider>
+          <CartProvider>
+            <FavoritesProvider>
+              <AddressProvider>
+                <ToastProvider>
+                  <NudgeProvider>{children}</NudgeProvider>
+                </ToastProvider>
+              </AddressProvider>
+            </FavoritesProvider>
+          </CartProvider>
+        </AssistantProvider>
+      </ProfileProvider>
+    </DemoProvider>
+  )
+}
+
+/** Abre la página de tienda con esos parámetros y espera el menú (tiene una pausa con esqueleto). */
+async function openStore(params) {
+  render(<StoreScreen back={() => {}} push={() => {}} params={params} />, { wrapper: Providers })
+  await act(() => vi.advanceTimersByTimeAsync(1000))
+}
+
+beforeAll(() => {
+  Element.prototype.scrollTo = () => {} // jsdom no lo implementa (carrusel de banners)
+  Element.prototype.scrollIntoView = () => {} // ni este (pestañas del menú)
+})
+afterAll(() => {
+  delete Element.prototype.scrollTo
+  delete Element.prototype.scrollIntoView
+})
+beforeEach(() => vi.useFakeTimers())
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+  events.track.mockClear()
+  localStorage.clear()
+})
+
+describe('sucursales con el mismo nombre (menús reales)', () => {
+  test('en «Cerca de ti», abrir la segunda muestra sus propios platos', async () => {
+    const push = vi.fn()
+    render(<RestaurantsScreen back={() => {}} push={push} />, { wrapper: Providers })
+    fireEvent.click(screen.getByText('Las Condes').closest('button'))
+    const [name, params] = push.mock.calls.at(-1)
+    expect(name).toBe('store')
+    cleanup()
+
+    await openStore(JSON.parse(JSON.stringify(params))) // como queda en el historial
+    expect(screen.getByText('Torta de Las Condes')).toBeTruthy()
+    expect(screen.queryByText('Torta de Providencia')).toBeNull()
+  })
+
+  test('un plato que trae Bigotes (tienda con su nombre completo) abre el menú de esa sucursal', async () => {
+    await openStore({ store: { name: 'Délice - Las Condes' } })
+    expect(screen.getByText('Torta de Las Condes')).toBeTruthy()
+    expect(screen.queryByText('El menú completo de esta tienda todavía no está en el prototipo.')).toBeNull()
+  })
+
+  test('la visita va a restaurantes, con el id de esa sucursal', async () => {
+    await openStore({ store: { id: 'real-2', name: 'Délice' } })
+    const [visit] = events.track.mock.calls.filter(([type]) => type === 'view_store').map(([, fields]) => fields)
+    expect(visit).toMatchObject({ vertical: 'restaurants', entity_id: 'real-2' })
+  })
+})
