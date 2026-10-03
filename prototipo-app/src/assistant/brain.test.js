@@ -30,7 +30,21 @@ describe('reply', () => {
   test('un tema suelto sugiere su complemento de otra vertical', () => {
     const response = reply('cerveza', EMPTY_PROFILE)
     expect(response.tags).toEqual(['cerveza'])
-    expect(response.reason).toMatch(/snacks/i)
+    expect(response.suggestion?.question ?? response.reason).toMatch(/snacks/i)
+  })
+
+  test('el complemento trae productos de otra vertical, con su nombre y su pantalla', () => {
+    const { suggestion } = reply('una hamburguesa', EMPTY_PROFILE)
+    expect(suggestion.products.length).toBeGreaterThan(0)
+    expect(suggestion.products.every((product) => product.vertical === 'liquor')).toBe(true)
+    expect(suggestion).toMatchObject({ verticalLabel: 'Licores', route: ['vertical', { id: 'liquor' }] })
+    expect(suggestion.reason).toMatch(/hamburguesa/i)
+  })
+
+  test('lo que no encuentra se compensa con ofertas de varias verticales, no solo restaurantes', () => {
+    const response = reply('protector solar', EMPTY_PROFILE)
+    const verticals = response.products.map((product) => product.vertical)
+    expect(new Set(verticals).size).toBe(verticals.length) // una oferta por vertical (hoy: 3 de 6 eran restaurantes)
   })
 
   test('si no reconoce nada, busca por nombre en el catálogo', () => {

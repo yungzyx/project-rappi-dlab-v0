@@ -117,10 +117,21 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
             {message.suggestion?.products?.length > 0 && (
               <div className="chat-suggestion">
                 <p className="chat-reason">
-                  <span className="chat-suggestion-tag">De otra tienda</span> {message.suggestion.question}{' '}
-                  {message.suggestion.reason}
+                  <span className="chat-suggestion-tag">
+                    {message.suggestion.verticalLabel ? `De ${message.suggestion.verticalLabel}` : 'De otra tienda'}
+                  </span>{' '}
+                  {message.suggestion.question} {message.suggestion.reason}
                 </p>
                 <ProductCards products={message.suggestion.products} onOpenProduct={onOpenProduct} delay={180} />
+                {message.suggestion.route && message.suggestion.verticalLabel && (
+                  <button
+                    type="button"
+                    className="chat-action tap"
+                    onClick={() => onAction({ route: message.suggestion.route })}
+                  >
+                    Ver más en {message.suggestion.verticalLabel} →
+                  </button>
+                )}
               </div>
             )}
             {message.stores?.length > 0 && (

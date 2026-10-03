@@ -88,7 +88,7 @@ function OpenButton() {
   )
 }
 
-async function renderPanel() {
+async function renderPanel({ push = () => {} } = {}) {
   render(
     <DemoProvider>
       <ProfileProvider>
@@ -96,7 +96,7 @@ async function renderPanel() {
           <CartProvider>
             <NudgeProvider>
               <OpenButton />
-              <AssistantPanel push={() => {}} />
+              <AssistantPanel push={push} />
             </NudgeProvider>
           </CartProvider>
         </AssistantProvider>
@@ -149,6 +149,43 @@ describe('chat en orden', () => {
     const texts = bubbles()
     expect(texts).toContain('Respuesta A')
     expect(texts.indexOf('Respuesta A')).toBeLessThan(texts.indexOf('Respuesta B'))
+  })
+})
+
+describe('sugerencia cruzada', () => {
+  test('dice de qué vertical viene y su botón abre esa vertical', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      text: 'Mira estas hamburguesas',
+      products: [],
+      suggestion: {
+        concept: 'gaseosas',
+        vertical: 'licores',
+        prototype_vertical: 'liquor',
+        reason: 'Porque llevas 🍔 hamburguesa',
+        question: '¿Te tinca sumar gaseosas?',
+        products: [
+          {
+            id: 'cat-1',
+            entity_type: 'catalog_item',
+            entity_id: '1',
+            name: 'Bebida Pepsi 1,5 L',
+            price: '$1.990',
+            store: 'Botillería',
+            vertical: 'licores',
+            concept: 'gaseosas',
+          },
+        ],
+      },
+    })
+    await renderPanel({ push })
+    say('una hamburguesa')
+    await runUntilIdle()
+
+    expect(screen.getByText('De Licores')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Ver más en Licores/ }))
+    await runUntilIdle()
+    expect(push).toHaveBeenCalledWith('vertical', { id: 'liquor' }, expect.anything())
   })
 })
 

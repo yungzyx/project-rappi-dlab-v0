@@ -46,6 +46,15 @@ describe('de la API al prototipo', () => {
     expect(message.actions[0]).toEqual({ label: 'Pedir de un restaurante', ask: { text: 'pizza', vertical: 'restaurantes' } })
   })
 
+  test('la sugerencia dice de qué vertical viene y a qué pantalla lleva', () => {
+    const from = (vertical, prototypeVertical) =>
+      toMessage({ text: 'Mira', suggestion: { concept: 'x', vertical, prototype_vertical: prototypeVertical, products: [] } }).suggestion
+    expect(from('licores', 'liquor')).toMatchObject({ verticalLabel: 'Licores', route: ['vertical', { id: 'liquor' }] })
+    expect(from('turbo', 'express')).toMatchObject({ verticalLabel: 'Turbo', route: ['turbo'] })
+    expect(from('restaurantes', 'restaurants')).toMatchObject({ verticalLabel: 'Restaurantes', route: ['restaurants'] })
+    expect(from('chocolateria', 'chocolates')).toMatchObject({ verticalLabel: 'Chocolatería', route: ['vertical', { id: 'chocolates' }] })
+  })
+
   test('la sugerencia se registra con el código del backend: Turbo no se confunde con conveniencia', () => {
     const message = toMessage({ text: 'Mira', suggestion: { concept: 'snacks-salados', vertical: 'turbo', prototype_vertical: 'express', products: [] } })
     expect(message.suggestion.vertical).toBe('turbo')
