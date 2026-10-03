@@ -583,7 +583,7 @@ categoria,Otros Depilación y afeitado,higiene-personal,0.75,llm,acuerdo,Afeitad
 categoria,Libros Guía,libros,0.75,llm,acuerdo,Libros para colorear y guías,3
 categoria,Lámparas,decoracion,0.6,llm,juez,Lámparas decorativas/recargables; ampolletas LED alternativa ferretería,3
 categoria,Implementos de jardinería,jardin,0.6,llm,acuerdo,Herramientas de jardín,3
-categoria,Otros medicamentos,accesorios-mascota,0.8,llm,juez,"Productos para acuario/pecera, no medicamentos humanos",3
+categoria,Otros medicamentos,accesorios-mascota,0.8,llm,juez,"Productos para acuario/pecera y remedios veterinarios, no medicamentos humanos (une «Otros Medicamentos»)",12
 categoria,Otros Protección femenina,higiene-femenina,0.9,llm,acuerdo,"Protectores diarios, jabón íntimo",3
 categoria,Otros seguridad infantil,articulos-bebe,0.6,llm,acuerdo,Artículos para bebé y niños,3
 categoria,Otros Televisión y video,tv-video,0.45,llm,juez,Ejemplos incoherentes; se mapea por nombre según regla Otros X,3
@@ -752,7 +752,6 @@ categoria,Otros Pañales y toallitas,panales,0.95,llm,acuerdo,Toallitas húmedas
 categoria,"Sombrillas, Paraguas e Impermeables",accesorios-moda,0.75,llm,acuerdo,Paraguas como accesorio,1
 categoria,Hornos y asadores,electrohogar,0.6,llm,juez,Hornos eléctricos; ejemplo brochetas sería menaje,1
 categoria,Idiomas,libros,0.85,llm,acuerdo,Libros de idiomas,1
-categoria,Otros Medicamentos,medicamentos,0.75,llm,juez,Otros X mapea a X; ejemplo difusor mal asignado,1
 categoria,Otros Maquillaje Para Ojos,maquillaje,0.9,llm,acuerdo,Maquillaje de ojos,1
 categoria,Spray anti-marcas para Mascotas,accesorios-mascota,0.8,llm,acuerdo,Eliminador de olores mascotas,1
 categoria,Jarabe,untables-dulces,0.65,llm,acuerdo,"Jarabe de maple, endulzante",1

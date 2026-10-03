@@ -62,7 +62,20 @@ def seed_curated_edges(conn: Connection, edges: Iterable[tuple[str, str, float]]
 
 def read_category_map_csv(path: Path = CATEGORY_MAP_CSV) -> list[dict]:
     with path.open(encoding="utf-8") as f:
-        return [row for row in csv.DictReader(f) if row["concept_id"] != NO_CONCEPT]
+        rows = list(csv.DictReader(f))
+    _check_one_concept_per_key(rows)
+    return [row for row in rows if row["concept_id"] != NO_CONCEPT]
+
+
+def _check_one_concept_per_key(rows: list[dict]) -> None:
+    """La clave de category_map es el nombre en minúsculas: dos filas con la misma clave y distinto concepto se
+    pisarían en silencio (gana la última del archivo)."""
+    seen: dict[tuple[str, str], str] = {}
+    for row in rows:
+        kind, key = row["tipo"], row["nombre"].strip().lower()
+        first = seen.setdefault((kind, key), row["concept_id"])
+        if first != row["concept_id"]:
+            raise ValueError(f"category_map.csv: «{key}» ({kind}) tiene dos conceptos: {first} y {row['concept_id']}")
 
 
 def load_category_map(conn: Connection, rows: list[dict]) -> int:
