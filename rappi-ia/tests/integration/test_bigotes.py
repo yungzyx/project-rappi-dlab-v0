@@ -254,3 +254,36 @@ def test_other_verticals_do_not_repeat_a_chain(volume_bigotes, monkeypatch):
     }
     assert also["conveniencia"] == ["Súper", "Minimarket"]
     assert also["supermercado"] == ["Almacén"]  # "Súper" ya salió en Express
+
+
+def test_other_verticals_are_ordered_by_how_much_offer_they_have(volume_bigotes, monkeypatch):
+    """Para "¿dónde más lo encuentro?" pesa la cantidad: una chocolatería con 1 cerveza (el 100% de su catálogo
+    chico) no va antes que un súper con 2."""
+    agent, db = volume_bigotes
+    monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)
+    add_store(db, 8, "chocolateria", "Chocolatería")
+    for pid, store in [(300, 1), (301, 1), (305, 8)]:
+        add_product(db, pid, f"Cerveza Cristal Lata {pid}", store, "Cervezas")
+        add_price(db, store, pid, 990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+
+    r = agent.reply(db, "cerveza", Context(vertical="licores"))
+    assert [v["vertical"] for v in r["also_in"]["verticals"]] == ["supermercado", "chocolateria"]
+
+
+def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypatch):
+    agent, db = volume_bigotes
+    monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)
+    add_store(db, 9, "conveniencia", "Express")
+    for pid, store in [(400, 1), (401, 9)]:
+        add_product(db, pid, f"Jugo Watts Naranja {pid}", store, "Jugos")
+        add_price(db, store, pid, 1290)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+
+    assert "also_in" in agent.reply(db, "jugo de naranja", Context(vertical="supermercado"))
+    sick = agent.reply(db, "tengo fiebre, quiero jugo", Context(vertical="supermercado"))
+    assert sick["products"] and "also_in" not in sick

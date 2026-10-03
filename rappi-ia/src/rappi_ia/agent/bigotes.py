@@ -71,7 +71,7 @@ class Bigotes:
         # Con tope de precio también es demanda no satisfecha si no existe a ningún precio.
         unmet = not products and outcome.result.unmet and outcome.cheapest_without_filter is None
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
-        also_in = self._also_in(conn, ctx, products, vertical)
+        also_in = None if intent.symptom else self._also_in(conn, ctx, products, vertical)
         text = self.composer.compose(draft)
         response = self._response(
             intent, vertical, text, products, suggestion, unmet, outcome.result.unmet_reason, draft
@@ -208,7 +208,8 @@ class Bigotes:
 
     def _also_in(self, conn, ctx: Context, products, vertical) -> dict | None:
         """Multiverticalidad visible: en qué otras verticales también hay lo que pidió (no es una sugerencia:
-        no se registra ni cuenta para la regla 3). Nunca para conceptos sensibles ni en "Rappi hoy"."""
+        no se registra ni cuenta para la regla 3). Nunca para conceptos sensibles, en "Rappi hoy" ni cuando habla de
+        síntomas (quien dice que está enfermo no necesita ver dónde más venden jugo)."""
         concept_id = next((p.concept for p in products if p.concept), None)
         concept = self.taxonomy.concepts.get(concept_id) if concept_id else None
         if ctx.mode != "propuesta" or concept is None or concept.sensitive:

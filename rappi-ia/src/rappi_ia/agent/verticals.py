@@ -31,17 +31,21 @@ def ranked_verticals(conn: Connection, concept_ids: list[str]) -> list[str]:
 
 LOGO_BASE_URL = "https://images.rappi.cl/marketplace/"  # el scraper guarda solo el archivo del logo
 STORES_PER_VERTICAL = 2
-MIN_ITEMS_ELSEWHERE = 5  # con 1 o 2 productos (p. ej. hamburguesas congeladas en el mall) no vale la pena mostrarla
+MIN_ITEMS_ELSEWHERE = 20  # con pocos productos (p. ej. 10 pizzas en chocolaterías) no vale la pena mostrarla
 
 
 def available_elsewhere(conn: Connection, concept_id: str, exclude: set[str], limit: int = 3) -> list[dict]:
-    """Otras verticales con oferta del concepto (las más típicas primero), con sus tiendas de más surtido."""
+    """Otras verticales con oferta del concepto, las de más oferta primero, con sus tiendas de más surtido.
+
+    Aquí manda la cantidad ("¿dónde más lo encuentro?"), no la participación: una vertical chica donde el concepto
+    pesa mucho no va antes que una grande con más productos. La elegibilidad (restaurantes solo para lo que se
+    pide hecho) es la misma de `ranked_verticals`.
+    """
     items = dict(
         conn.execute("SELECT vertical, items FROM concept_assortment WHERE concept_id = %s", (concept_id,)).fetchall()
     )
-    verticals = [
-        v for v in ranked_verticals(conn, [concept_id]) if v not in exclude and items[v] >= MIN_ITEMS_ELSEWHERE
-    ][:limit]
+    eligible = [v for v in ranked_verticals(conn, [concept_id]) if v not in exclude and items[v] >= MIN_ITEMS_ELSEWHERE]
+    verticals = sorted(eligible, key=lambda v: -items[v])[:limit]
     if not verticals:
         return []
     stores: dict[str, list[dict]] = {v: [] for v in verticals}
