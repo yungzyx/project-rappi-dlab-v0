@@ -51,11 +51,11 @@ describe('visita a una tienda (embudo del panel)', () => {
   test('view_store lleva la vertical de la tienda: la de sus productos, la de su vertical o restaurantes', () => {
     openStore({ store: { name: 'Unimarc' } })
     openStore({ store: { name: 'Copetexpress' } }) // tienda de la pantalla Liquor, sin productos
-    openStore({ store: { name: 'Kfc Turbo' } })
+    openStore({ store: { name: 'Just Burger' } }) // restaurante de las capturas, sin productos
     expect(tracked('view_store').map((fields) => [fields.payload.name, fields.vertical])).toEqual([
       ['Unimarc', 'grocery'],
       ['Copetexpress', 'liquor'],
-      ['Kfc Turbo', 'restaurants'],
+      ['Just Burger', 'restaurants'],
     ])
   })
 
