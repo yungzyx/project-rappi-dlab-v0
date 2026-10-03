@@ -587,6 +587,36 @@
   letter-spacing: 0.01em;
 }
 
+/* "También en": otras verticales con oferta de lo pedido, con logos (o iniciales) de sus tiendas. */
+.chat-also {
+  margin-top: 12px;
+}
+.chat-also-logos {
+  display: flex;
+  flex: none;
+  flex-direction: row !important;
+}
+.chat-also-logos > * + * {
+  margin-left: -10px;
+}
+.chat-also-vertical .chat-also-logos img,
+.chat-also-initial {
+  width: 30px;
+  height: 30px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  object-fit: contain;
+  background: #fff;
+}
+.chat-also-initial {
+  display: grid;
+  place-items: center;
+  background: #fff1e8;
+  color: #b8300d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 /* Productos solo para mayores de edad: marca visible en la tarjeta. */
 .chat-product-media {
   position: relative;

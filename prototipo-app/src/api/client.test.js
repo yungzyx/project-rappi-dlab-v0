@@ -55,6 +55,26 @@ describe('de la API al prototipo', () => {
     expect(from('chocolateria', 'chocolates')).toMatchObject({ verticalLabel: 'Chocolatería', route: ['vertical', { id: 'chocolates' }] })
   })
 
+  test('"también en": otras verticales con su nombre, su pantalla y sus tiendas', () => {
+    const message = toMessage({
+      text: 'Mira',
+      also_in: {
+        concept: 'cerveza',
+        label: '🍺 Cerveza',
+        verticals: [
+          { vertical: 'supermercado', prototype_vertical: 'grocery', items: 262, stores: [{ name: 'Unimarc', logo: 'https://x/u.png' }] },
+          { vertical: 'turbo', prototype_vertical: 'express', items: 50, stores: [{ name: 'Rappi Drinks', logo: null }] },
+        ],
+      },
+    })
+    expect(message.alsoIn.label).toBe('🍺 Cerveza')
+    expect(message.alsoIn.verticals).toEqual([
+      { label: 'Súper', route: ['vertical', { id: 'grocery' }], items: 262, stores: [{ name: 'Unimarc', logo: 'https://x/u.png' }] },
+      { label: 'Turbo', route: ['turbo'], items: 50, stores: [{ name: 'Rappi Drinks', logo: null }] },
+    ])
+    expect(toMessage({ text: 'Mira' }).alsoIn).toBeNull()
+  })
+
   test('la sugerencia se registra con el código del backend: Turbo no se confunde con conveniencia', () => {
     const message = toMessage({ text: 'Mira', suggestion: { concept: 'snacks-salados', vertical: 'turbo', prototype_vertical: 'express', products: [] } })
     expect(message.suggestion.vertical).toBe('turbo')

@@ -150,9 +150,21 @@ export function toMessage(response) {
         products: response.suggestion.products.map((p) => ({ ...toPrototypeProduct(p), fromSuggestion: true })),
       }
     : null
+  const alsoIn = response.also_in
+    ? {
+        label: response.also_in.label,
+        verticals: response.also_in.verticals.map((v) => ({
+          label: SUGGESTION_VERTICALS[v.vertical] ?? v.vertical,
+          route: suggestionRoute(v.vertical, v.prototype_vertical),
+          items: v.items,
+          stores: v.stores,
+        })),
+      }
+    : null
   return {
     text: response.text,
     products: (response.products ?? []).map(toPrototypeProduct),
+    alsoIn,
     // La razón visible va con la sugerencia cruzada; aquí no se repite.
     reason: suggestion ? null : response.reason,
     suggestion,

@@ -189,6 +189,42 @@ describe('sugerencia cruzada', () => {
   })
 })
 
+describe('también en otras verticales', () => {
+  test('muestra las verticales con sus tiendas (logo o inicial) y cada una abre su vertical', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      text: 'Mira estas cervezas',
+      products: [],
+      also_in: {
+        concept: 'cerveza',
+        label: '🍺 Cerveza',
+        verticals: [
+          {
+            vertical: 'supermercado',
+            prototype_vertical: 'grocery',
+            items: 262,
+            stores: [
+              { name: 'Unimarc', logo: 'https://x/u.png' },
+              { name: 'Lider', logo: null },
+            ],
+          },
+        ],
+      },
+    })
+    await renderPanel({ push })
+    say('cerveza')
+    await runUntilIdle()
+
+    expect(screen.getByText('También en')).toBeTruthy()
+    const button = screen.getByRole('button', { name: /Súper.*Unimarc · Lider.*262 productos/ })
+    expect(button.querySelector('img').getAttribute('src')).toBe('https://x/u.png')
+    expect(button.textContent).toContain('L') // Lider sin logo: su inicial
+    fireEvent.click(button)
+    await runUntilIdle()
+    expect(push).toHaveBeenCalledWith('vertical', { id: 'grocery' }, expect.anything())
+  })
+})
+
 describe('teclado y lector de pantalla', () => {
   test('al abrir, el foco entra al chat; Escape lo cierra y el foco vuelve a quien lo abrió', async () => {
     await renderPanel()
