@@ -144,3 +144,65 @@ def test_concept_without_assortment_goes_to_its_group_vertical(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "quiero sushi", Context())  # no hay sushi en ningún vertical
     assert r["vertical"] == "restaurantes" and r["unmet"]
+
+
+@pytest.fixture
+def volume_bigotes(bigotes):
+    """Como en la base real: restaurantes tiene muchos más ítems de casi todo que las tiendas (cada local lista sus
+    papas fritas y su schop), aunque en su catálogo esos conceptos pesen poco."""
+    agent, db = bigotes
+    add_store(db, 4, "restaurantes", "Sanguchería")
+    dishes = [
+        (501, "Papas fritas medianas"),
+        (502, "Papas fritas grandes"),
+        (503, "Papas fritas con queso"),
+        (504, "Schop cerveza Escudo"),
+        (505, "Cerveza Kunstmann lager"),
+        (506, "Cerveza Austral calafate"),
+        (507, "Hamburguesa clásica"),
+        (508, "Hamburguesa doble queso"),
+        (509, "Hamburguesa italiana"),
+        (510, "Hamburguesa vegana"),
+        (511, "Hamburguesa BBQ"),
+        (512, "Hamburguesa con palta"),
+        (513, "Hamburguesa con huevo"),
+        (514, "Hamburguesa de pollo"),
+        (515, "Hamburguesa de queso"),
+        (516, "Hamburguesa americana"),
+        (517, "Hamburguesa chilena"),
+        (518, "Hamburguesa mexicana"),
+        (519, "Hamburguesa ranchera"),
+        (520, "Hamburguesa XL"),
+    ]
+    for item_id, name in dishes:
+        add_dish(db, item_id, name, 4, "Carta", ["Hamburguesas"])
+        db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, %s, 4990)", (item_id,))
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    return agent, db
+
+
+def test_cross_suggestion_goes_where_the_concept_is_typical_not_where_there_are_more_items(volume_bigotes):
+    """Restaurantes tiene 3 papas fritas y el súper 1, pero en el súper los snacks son su catálogo y en el
+    restaurante un acompañamiento: la sugerencia para la cerveza viene del súper."""
+    agent, db = volume_bigotes
+    r = agent.reply(db, "cerveza", Context(vertical="licores"))
+    assert r["suggestion"]["concept"] == "snacks-salados"
+    assert r["suggestion"]["vertical"] == "supermercado"
+
+
+def test_store_products_asked_from_home_go_to_a_store_without_asking(volume_bigotes):
+    """Hay más cervezas en restaurantes (3) que en Licores (2): antes preguntaba "¿restaurante o Licores?"."""
+    agent, db = volume_bigotes
+    r = agent.reply(db, "quiero cerveza", Context())
+    assert r["intent"]["kind"] == "buscar"
+    assert r["vertical"] == "licores"
+
+
+def test_prepared_food_still_goes_to_restaurants(volume_bigotes):
+    agent, db = volume_bigotes
+    r = agent.reply(db, "una hamburguesa", Context())
+    assert r["vertical"] == "restaurantes"
+    assert {p["concept"] for p in r["products"]} == {"hamburguesa"}
