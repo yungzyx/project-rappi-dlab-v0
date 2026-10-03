@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { health, sendOrder } from '../../api/client'
 import { buildOrders } from '../../api/orders'
 import ProductRow from '../../components/ProductRow'
@@ -27,10 +27,23 @@ export default function CheckoutScreen({ back, push }) {
   const price = priceBreakdown({ subtotal: cart.total, tip, pickup })
   const stores = [...new Set(cart.items.map(({ product }) => product.store).filter(Boolean))]
 
+  // Abrir el checkout es iniciar el pago (quien vuelve atrás sin pagar es el abandono de esa etapa). Uno por carro
+  // y vertical, porque el embudo del panel se mide por sesión y vertical; el ref evita contarlo dos veces en StrictMode.
+  const started = useRef(new Set())
+  const verticals = buildOrders(cart.items, {})
+    .map((order) => order.vertical)
+    .join(',')
+  useEffect(() => {
+    for (const vertical of verticals ? verticals.split(',') : []) {
+      const key = `${cart.id}|${vertical}`
+      if (started.current.has(key)) continue
+      started.current.add(key)
+      events.track('checkout_start', { cart_id: cart.id, vertical })
+    }
+  }, [cart.id, verticals, events])
+
   const placeOrder = () => {
     const pending = buildOrders(cart.items, { userId: userId(), sessionId: sessionId(), cartId: cart.id })
-    // Un inicio de pago por vertical (el embudo del panel se mide por sesión y vertical).
-    pending.forEach((order) => events.track('checkout_start', { cart_id: cart.id, vertical: order.vertical }))
     // Registro para el panel (si la API está arriba). No bloquea el pedido de la demo.
     health().then((online) => online && pending.forEach((order) => sendOrder(order).catch(() => {})))
     const id = orders.place({
