@@ -123,3 +123,26 @@ def test_neighbors_never_take_an_item_out_of_a_sensitive_concept():
 def test_dish_names_are_food_not_pets_or_clothes(matcher, text, concept):
     """«perro», «calzones» y «aros» sueltos son mascotas, ropa interior y joyería; estos platos llevan su frase."""
     assert matcher.best(text).target == concept
+
+
+@pytest.mark.parametrize(
+    ("text", "concept"),
+    [
+        ("pasta de dientes", "cuidado-oral"),  # «pasta» suelta es fideos
+        ("acondicionador", "cuidado-cabello"),
+        ("shampoo", "cuidado-cabello"),
+        ("alfajores", "galletas"),
+        ("pechuga de pollo", "pollo"),
+    ],
+)
+def test_query_words_name_the_concept_their_products_have(matcher, text, concept):
+    """La consulta toma su concepto de las keywords y el producto de su categoría: tienen que coincidir. Medido en la
+    base: los productos con «acondicionador» están 94 % en cuidado del cabello y los alfajores, en galletas."""
+    assert matcher.best(text).target == concept
+
+
+@pytest.mark.parametrize("text", ["kfc", "pollo frito", "pollo asado", "nuggets", "alitas"])
+def test_fried_chicken_is_prepared_food(matcher, text):
+    """El pollo fresco no compite en restaurantes: «kfc» llevaba a pollo congelado del minimarket."""
+    concept = load_taxonomy().concepts[matcher.best(text).target]
+    assert concept.parent == "comida" and concept.prepared, concept

@@ -94,6 +94,8 @@ edges = [
   ["desayuno", "cafe", 0.7],
   ["desayuno", "jugos", 0.5],
   ["platos-listos", "postres", 0.4],
+  ["pollo-preparado", "gaseosas", 0.6],
+  ["pollo-preparado", "cerveza", 0.5],
 
   # Bebé, salud y hogar (entre verticales: súper ↔ farmacia)
   ["panales", "dermocosmetica", 0.6],

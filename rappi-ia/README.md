@@ -2,7 +2,7 @@
 
 Conecta el catálogo que descarga [`rappi-scraper`](../rappi-scraper/) con el asistente **Bigotes** del [prototipo](../prototipo-app/) y con el [panel de negocio](../dashboard-empresa/). Diseño completo en [docs/diseno-ia.md](../docs/diseno-ia.md).
 
-**Regla:** *buscar dentro del vertical, entender al usuario a través de los verticales*. La búsqueda nunca mezcla verticales. El puente entre ellos son los **conceptos**: una taxonomía propia de 132 conceptos, con 101 complementos curados entre sí. Una recomendación cruzada va del concepto que le interesa al usuario a su complemento, y de ahí a una búsqueda en el otro vertical (p. ej., cerveza en licores → snacks salados de otra tienda).
+**Regla:** *buscar dentro del vertical, entender al usuario a través de los verticales*. La búsqueda nunca mezcla verticales. El puente entre ellos son los **conceptos**: una taxonomía propia de 133 conceptos, con 103 complementos curados entre sí. Una recomendación cruzada va del concepto que le interesa al usuario a su complemento, y de ahí a una búsqueda en el otro vertical (p. ej., cerveza en licores → snacks salados de otra tienda).
 
 ![Flujo de datos por etapas: Descarga → Postgres → IA offline → Consulta → Apps](../docs/diagramas/rag-datos.png)
 

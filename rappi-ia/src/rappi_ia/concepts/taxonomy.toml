@@ -276,7 +276,7 @@ id = "galletas"
 parent = "snacks"
 name = "Galletas"
 emoji = "🍪"
-keywords = ["galleta", "oreo", "tritón", "triton", "obsesión", "kuky", "vino galleta", "criollitas", "soda galleta", "alfajor mini"]
+keywords = ["galleta", "oreo", "tritón", "triton", "obsesión", "kuky", "vino galleta", "criollitas", "soda galleta", "alfajor", "alfajor mini"]
 
 [[concept]]
 id = "barras-cereal"
@@ -298,7 +298,7 @@ id = "golosinas"
 parent = "dulces"
 name = "Golosinas"
 emoji = "🍬"
-keywords = ["gomitas", "gomita", "caramelo", "chicle", "calugas", "marshmallow", "malvavisco", "chupete dulce", "mentitas", "alfajor", "dulces típicos", "turrón", "mazapán", "calugón"]
+keywords = ["gomitas", "gomita", "caramelo", "chicle", "calugas", "marshmallow", "malvavisco", "chupete dulce", "mentitas", "dulces típicos", "turrón", "mazapán", "calugón"]
 
 [[concept]]
 id = "helados"
@@ -422,7 +422,7 @@ id = "pollo"
 parent = "frescos"
 name = "Pollo"
 emoji = "🍗"
-keywords = ["pollo", "pechuga", "trutro", "alitas", "nuggets", "pavo", "chicken", "tenders", "pollo asado", "pollo frito", "broaster", "kfc"]
+keywords = ["pollo", "pechuga", "trutro", "pavo", "chicken"]
 
 [[concept]]
 id = "pescados-mariscos"
@@ -572,6 +572,14 @@ name = "Comida latina"
 emoji = "🫓"
 keywords = ["arepa", "arepas", "tequeños", "cachapa", "pupusa", "patacón", "pastelitos venezolanos", "reina pepiada", "empanada venezolana", "tamal"]
 
+[[concept]]
+id = "pollo-preparado"
+parent = "comida"
+name = "Pollo frito y asado"
+emoji = "🍗"
+# El pollo fresco (grupo frescos) no compite en restaurantes: lo que se pide hecho va aquí.
+keywords = ["pollo asado", "pollo frito", "broaster", "kfc", "nuggets", "tenders", "alitas"]
+
 # Bebé
 [[concept]]
 id = "panales"
@@ -639,14 +647,14 @@ id = "cuidado-oral"
 parent = "salud"
 name = "Cuidado oral"
 emoji = "🪥"
-keywords = ["pasta dental", "crema dental", "cepillo de dientes", "cepillo dental", "enjuague bucal", "hilo dental", "colgate", "listerine", "oral-b"]
+keywords = ["pasta dental", "pasta de dientes", "crema dental", "cepillo de dientes", "cepillo dental", "enjuague bucal", "hilo dental", "colgate", "listerine", "oral-b"]
 
 [[concept]]
 id = "higiene-personal"
 parent = "salud"
 name = "Higiene personal"
 emoji = "🧼"
-keywords = ["shampoo", "champú", "acondicionador", "jabón", "jabon", "desodorante", "gel de ducha", "afeitadora", "máquina de afeitar", "crema de afeitar", "talco", "antitranspirante", "body wash", "rexona", "dove", "gillette"]
+keywords = ["jabón", "jabon", "desodorante", "gel de ducha", "afeitadora", "máquina de afeitar", "crema de afeitar", "talco", "antitranspirante", "body wash", "rexona", "dove", "gillette"]
 
 [[concept]]
 id = "dermocosmetica"
@@ -675,7 +683,7 @@ id = "cuidado-cabello"
 parent = "belleza"
 name = "Cuidado del cabello"
 emoji = "💇"
-keywords = ["tinte", "coloración", "secador de pelo", "plancha de pelo", "rizador", "gel para el pelo", "cera para el pelo", "tratamiento capilar", "keratina", "mascarilla capilar", "peineta", "cepillo de pelo"]
+keywords = ["shampoo", "champú", "acondicionador", "tinte", "coloración", "secador de pelo", "plancha de pelo", "rizador", "gel para el pelo", "cera para el pelo", "tratamiento capilar", "keratina", "mascarilla capilar", "peineta", "cepillo de pelo"]
 
 # Hogar
 [[concept]]
