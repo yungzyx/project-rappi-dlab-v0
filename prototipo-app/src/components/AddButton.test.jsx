@@ -5,7 +5,7 @@ import { AssistantProvider } from '../state/AssistantContext'
 import { CartProvider, useCart } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
 import { NudgeProvider } from '../state/NudgeContext'
-import { ProfileProvider } from '../state/ProfileContext'
+import { ProfileProvider, useProfile } from '../state/ProfileContext'
 import AddButton from './AddButton'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
@@ -84,9 +84,43 @@ describe('AddButton', () => {
     fireEvent.click(screen.getByLabelText('Agregar Papas Lays'))
     expect(count('suggestion_accepted')).toBe(2)
   })
+
+  test('tras «Olvidar» (el servidor borra sus eventos), volver a aceptarla en el mismo carro sí cuenta', () => {
+    const suggested = {
+      id: 'cat-2',
+      name: 'Maní Salado',
+      price: '$1.490',
+      vertical: 'supermercado',
+      store: 'Unimarc',
+      concept: 'snacks-salados',
+      fromSuggestion: true,
+      suggestionOrigin: 'para-ti',
+    }
+    render(
+      <>
+        <AddButton product={suggested} />
+        <ForgetProfile />
+      </>,
+      { wrapper: Providers },
+    )
+    fireEvent.click(screen.getByLabelText('Agregar Maní Salado'))
+    fireEvent.click(screen.getByLabelText('Quitar uno'))
+    fireEvent.click(screen.getByText('olvidar'))
+    fireEvent.click(screen.getByLabelText('Agregar Maní Salado'))
+    expect(count('suggestion_accepted')).toBe(2)
+  })
 })
 
 const count = (type) => events.track.mock.calls.filter(([name]) => name === type).length
+
+function ForgetProfile() {
+  const profile = useProfile()
+  return (
+    <button type="button" onClick={profile.reset}>
+      olvidar
+    </button>
+  )
+}
 
 function ClearCart() {
   const cart = useCart()
