@@ -341,11 +341,15 @@ def at_risk(conn: Connection, source: str = "synthetic", limit: int = 100) -> li
     )
 
 
+MIN_SUGGESTIONS_SHOWN = 10  # mostradas para calcular (y, con datos simulados, mostrar) la aceptación
+
+
 def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
     """Rendimiento de las sugerencias cruzadas de Bigotes por concepto sugerido (en el chat y en "Para ti").
 
     Aceptada = el producto sugerido se agregó al carro; convertida = llegó a un pedido. El aviso sobre el carro no
-    entra: ahí "aceptar" es abrir el chat, otra cosa.
+    entra: ahí "aceptar" es abrir el chat, otra cosa. El % de aceptación necesita 10 mostradas; con la fuente
+    prototipo las filas aparecen desde la primera (una demo en vivo debe verse) y el % queda vacío hasta entonces.
     """
     _check(source)
     return _rows(
@@ -366,12 +370,17 @@ def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
            )
            SELECT c.emoji || ' ' || c.name AS concepto, s.vertical, s.mostradas, s.aceptadas, s.ignoradas,
                   coalesce(cv.convertidas, 0) AS convertidas,
-                  round(100.0 * s.aceptadas / nullif(s.mostradas, 0), 1) AS aceptacion_pct
+                  CASE WHEN s.mostradas >= %(min_rate)s
+                       THEN round(100.0 * s.aceptadas / s.mostradas, 1) END AS aceptacion_pct
            FROM s JOIN concepts c USING (concept_id)
            LEFT JOIN converted cv ON cv.concept_id = s.concept_id AND cv.vertical = s.vertical
-           WHERE s.mostradas >= 10
+           WHERE s.mostradas >= %(min_shown)s
            ORDER BY s.mostradas DESC""",
-        {"source": source},
+        {
+            "source": source,
+            "min_rate": MIN_SUGGESTIONS_SHOWN,
+            "min_shown": 1 if source == "prototype" else MIN_SUGGESTIONS_SHOWN,
+        },
     )
 
 

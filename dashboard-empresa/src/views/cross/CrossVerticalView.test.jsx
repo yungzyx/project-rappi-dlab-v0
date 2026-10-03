@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { renderWithData, resetApi, serveFixtures } from '../../test/fixtureApi.js'
 import { CrossVerticalView } from './CrossVerticalView.jsx'
 import { formatNumber } from '../../lib/format.js'
@@ -18,6 +18,24 @@ describe('CrossVerticalView', () => {
     expect(await screen.findByRole('table', { name: 'Afinidad dirigida entre conceptos' })).toBeTruthy()
     expect((await screen.findAllByText('Sin grupo: menos de 20 usuarios')).length).toBeGreaterThan(0)
     expect(screen.getByText(/Supuesto del simulador/)).toBeTruthy()
+  })
+
+  test('en una demo en vivo el titular cuenta las sugerencias sin inventar un porcentaje', async () => {
+    serveFixtures()
+    const fixtures = globalThis.fetch
+    const demo = [{ concepto: '🥤 Bebidas gaseosas', vertical: 'licores', mostradas: 2, aceptadas: 1, ignoradas: 0, convertidas: 1, aceptacion_pct: null }]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) =>
+        url.includes('/analytics/suggestions')
+          ? { ok: true, status: 200, json: async () => ({ source: 'prototype', data: demo }) }
+          : fixtures(url),
+      ),
+    )
+    await renderWithData(<CrossVerticalView source="prototype" />)
+
+    expect(await screen.findByText('sugerencias cruzadas mostradas')).toBeTruthy()
+    expect(screen.queryByText('de las sugerencias cruzadas se aceptan')).toBeNull()
   })
 
   test('sin datos del prototipo muestra estados vacíos', async () => {

@@ -16,33 +16,42 @@ const COUNTS = [...STAGES, { key: 'ignoradas', label: 'Ignoradas' }]
 
 const sum = (rows, key) => rows.reduce((total, row) => total + (row[key] ?? 0), 0)
 
+/** Con menos de 10 mostradas (una demo en vivo) un % no dice nada: se muestran solo los conteos. */
+export const MIN_SHOWN_FOR_RATE = 10
+
 function Totals({ rows }) {
   const shown = sum(rows, 'mostradas')
   const accepted = sum(rows, 'aceptadas')
   const converted = sum(rows, 'convertidas')
+  const rate = (part, whole) => (shown >= MIN_SHOWN_FOR_RATE && whole ? (part * 100) / whole : null)
   return (
-    <dl className="totals">
-      <div>
-        <dt>Mostradas</dt>
-        <dd className="num">{formatNumber(shown)}</dd>
-      </div>
-      <div>
-        <dt>Aceptadas</dt>
-        <dd className="num">
-          {formatNumber(accepted)} <span>{formatPct(shown ? (accepted * 100) / shown : null)} de las mostradas</span>
-        </dd>
-      </div>
-      <div>
-        <dt>Convertidas</dt>
-        <dd className="num">
-          {formatNumber(converted)} <span>{formatPct(accepted ? (converted * 100) / accepted : null)} de las aceptadas</span>
-        </dd>
-      </div>
-      <div>
-        <dt>Ignoradas</dt>
-        <dd className="num">{formatNumber(sum(rows, 'ignoradas'))}</dd>
-      </div>
-    </dl>
+    <>
+      <dl className="totals">
+        <div>
+          <dt>Mostradas</dt>
+          <dd className="num">{formatNumber(shown)}</dd>
+        </div>
+        <div>
+          <dt>Aceptadas</dt>
+          <dd className="num">
+            {formatNumber(accepted)} <span>{formatPct(rate(accepted, shown))} de las mostradas</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Convertidas</dt>
+          <dd className="num">
+            {formatNumber(converted)} <span>{formatPct(rate(converted, accepted))} de las aceptadas</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Ignoradas</dt>
+          <dd className="num">{formatNumber(sum(rows, 'ignoradas'))}</dd>
+        </div>
+      </dl>
+      {shown < MIN_SHOWN_FOR_RATE && (
+        <p className="card-note">Muestra chica: el % de aceptación aparece desde {MIN_SHOWN_FOR_RATE} mostradas.</p>
+      )}
+    </>
   )
 }
 
