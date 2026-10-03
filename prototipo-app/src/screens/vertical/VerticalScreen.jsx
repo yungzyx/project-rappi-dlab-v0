@@ -42,7 +42,9 @@ export default function VerticalScreen({ back, push, params }) {
         })
     }
   }, [shownPairs, profile.resets, events])
-  const allStores = vertical.sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(toStore))
+  // Con la vertical de la pantalla (no `map(toStore)`: map le pasaría el índice como vertical).
+  const asStore = (store) => toStore(store, params.id)
+  const allStores = vertical.sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(asStore))
   const openCategory = (category) =>
     push('list', { title: category.label, products: allProducts, stores: allStores })
   const openStore = (store) => push('store', { store })
@@ -104,8 +106,8 @@ export default function VerticalScreen({ back, push, params }) {
           <StoreSection
             key={section.title}
             section={section}
-            onOpen={(store) => openStore(toStore(store))}
-            onMore={() => push('list', { title: section.title, stores: section.stores.map(toStore) })}
+            onOpen={(store) => openStore(asStore(store))}
+            onMore={() => push('list', { title: section.title, stores: section.stores.map(asStore) })}
           />
         ),
       )}

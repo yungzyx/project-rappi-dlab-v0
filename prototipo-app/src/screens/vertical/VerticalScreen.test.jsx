@@ -7,8 +7,10 @@ import { AddressProvider } from '../../state/AddressContext'
 import { AssistantProvider } from '../../state/AssistantContext'
 import { CartProvider, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
+import { FavoritesProvider } from '../../state/FavoritesContext'
 import { NudgeProvider } from '../../state/NudgeContext'
 import { ProfileProvider } from '../../state/ProfileContext'
+import StoreScreen from '../store/StoreScreen'
 import VerticalScreen from './VerticalScreen'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
@@ -23,11 +25,13 @@ function Providers({ children }) {
       <ProfileProvider>
         <AssistantProvider>
           <CartProvider>
-            <AddressProvider>
-              <ToastProvider>
-                <NudgeProvider>{children}</NudgeProvider>
-              </ToastProvider>
-            </AddressProvider>
+            <FavoritesProvider>
+              <AddressProvider>
+                <ToastProvider>
+                  <NudgeProvider>{children}</NudgeProvider>
+                </ToastProvider>
+              </AddressProvider>
+            </FavoritesProvider>
           </CartProvider>
         </AssistantProvider>
       </ProfileProvider>
@@ -75,6 +79,22 @@ describe('entradas al embudo desde una vertical', () => {
     const push = renderVertical('liquor')
     fireEvent.click(screen.getByText('Search stores or products'))
     expect(push).toHaveBeenCalledWith('search', { vertical: 'liquor' })
+  })
+
+  test('las tiendas de una categoría o de «View more» llevan la vertical de la pantalla, como texto', () => {
+    const push = renderVertical('liquor')
+    fireEvent.click(screen.getByText('Beers and ciders'))
+    for (const button of screen.getAllByText('View more')) fireEvent.click(button)
+    const listed = push.mock.calls.filter(([name]) => name === 'list').flatMap(([, params]) => params.stores)
+    expect(listed.length).toBeGreaterThan(0)
+    expect(listed.map((store) => store.vertical)).toEqual(listed.map(() => 'liquor'))
+    cleanup()
+
+    // La primera de la lista abierta (lista → tienda): su visita va a Liquor y no se rechaza el lote en rappi-ia.
+    const [first] = listed
+    render(<StoreScreen back={() => {}} push={() => {}} params={{ store: first }} />, { wrapper: Providers })
+    const visits = events.track.mock.calls.filter(([type]) => type === 'view_store').map(([, fields]) => fields)
+    expect(visits).toEqual([expect.objectContaining({ vertical: 'liquor', payload: { name: first.name } })])
   })
 
   test('tocar un producto abre su tienda con ese producto (así se registra que lo vio)', () => {
