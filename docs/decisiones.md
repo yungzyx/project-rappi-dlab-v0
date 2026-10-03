@@ -82,6 +82,7 @@
 | 03-10-2026 | Una keyword va en el concepto que tienen los productos que la nombran (lo decide su categoría): «shampoo» y «acondicionador» en cuidado del cabello, «alfajor» en galletas y «pasta de dientes» en cuidado oral. | La consulta y el producto toman su concepto de fuentes distintas; si no coinciden, la búsqueda se queda con los equivocados («pasta de dientes» mostraba fideos). |
 | 03-10-2026 | `category_map.csv` no puede repetir una clave (el nombre en minúsculas) con distinto concepto: cargarlo falla (test). «Otros medicamentos» y «Otros Medicamentos» quedan en una sola fila, en accesorios para mascotas. | La última fila pisaba en silencio la decisión del juez: productos de acuario y remedios veterinarios quedaban como medicamentos, un concepto sensible del que la guardia no los deja salir. |
 | 29-09-2026 | Las categorías nuevas de cada semana se listan en el reporte de cobertura y se exportan con concepto sugerido (`rappi-ia map-categories`) para revisarlas. | Antes caían a reglas o quedaban sin concepto sin que nadie lo viera. |
+| 03-10-2026 | Una categoría revisada sin concepto (fila «ninguno» de `category_map.csv`) cuenta como revisada: el reporte y `map-categories` no la vuelven a listar. | «Accesorios», «Otros» y «Sistema Nervioso» volvían cada semana como «sin mapeo revisado» y encabezaban la lista. |
 
 ## Agente Bigotes
 

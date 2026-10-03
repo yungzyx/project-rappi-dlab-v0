@@ -67,6 +67,17 @@ def read_category_map_csv(path: Path = CATEGORY_MAP_CSV) -> list[dict]:
     return [row for row in rows if row["concept_id"] != NO_CONCEPT]
 
 
+def categories_reviewed_without_concept(path: Path = CATEGORY_MAP_CSV) -> list[str]:
+    """Claves de las categorías revisadas que a propósito no tienen concepto (filas «ninguno»). No se guardan en
+    category_map, así que el reporte las recibe aparte para no volver a proponerlas."""
+    with path.open(encoding="utf-8") as f:
+        return [
+            row["nombre"].strip().lower()
+            for row in csv.DictReader(f)
+            if row["tipo"] == "categoria" and row["concept_id"] == NO_CONCEPT
+        ]
+
+
 def _check_one_concept_per_key(rows: list[dict]) -> None:
     """La clave de category_map es el nombre en minúsculas: dos filas con la misma clave y distinto concepto se
     pisarían en silencio (gana la última del archivo)."""
