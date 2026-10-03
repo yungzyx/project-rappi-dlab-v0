@@ -50,7 +50,19 @@ def test_ambiguous_keywords_need_their_context(matcher, name, concept):
 
 
 # Palabras sueltas que también son comida, utensilios o cosmética: un concepto sensible no puede tenerlas a secas.
-AMBIGUOUS_FOR_SENSITIVE = {"puro", "puros", "pipa", "pipas", "moledor", "lubricante", "medicamento", "medicamentos"}
+AMBIGUOUS_FOR_SENSITIVE = {
+    "puro",
+    "puros",
+    "pipa",
+    "pipas",
+    "moledor",
+    "lubricante",
+    "medicamento",
+    "medicamentos",
+    "boquilla",
+    "encendedor",
+    "belmont",
+}
 
 
 def test_sensitive_concepts_avoid_ambiguous_single_words():
@@ -146,3 +158,42 @@ def test_fried_chicken_is_prepared_food(matcher, text):
     """El pollo fresco no compite en restaurantes: «kfc» llevaba a pollo congelado del minimarket."""
     concept = load_taxonomy().concepts[matcher.best(text).target]
     assert concept.parent == "comida" and concept.prepared, concept
+
+
+@pytest.mark.parametrize(
+    ("name", "category", "mapped"),
+    [
+        ("Kama Sutra Lubricante Con Sabor Néctar Divino Frutilla", "Agua saborizada", "agua"),
+        ("Satisfyer Succionador de Clítoris Pro Penguin", "Estuches y Fundas", "celulares"),
+        ("Heaven Hell E-liquid Mango 60 ml", "Cremas de licor", "licores"),
+        ("Tabaco Ross Maracuya", "Papas, yucas y tuberculos", "verduras"),
+    ],
+)
+def test_a_sensitive_name_wins_over_a_common_category(matcher, name, category, mapped):
+    """Guardia simétrica: un producto con nombre sensible mal categorizado no entra a un concepto común (el
+    lubricante era el primer resultado de «agua con sabor frutilla»)."""
+    categories = {category.lower(): MappedName(mapped, "llm", 0.85, "v1")}
+    a = assign_catalog_item("11", name, category, categories, matcher)
+    assert a.concept_id in sensitive_concepts() and a.method == "regla", a
+
+
+def test_a_sensitive_category_keeps_its_concept_over_another_sensitive_name(matcher):
+    categories = {"preservativos": MappedName("salud-sexual", "llm", 0.95, "v1")}
+    a = assign_catalog_item("12", "Preservativos Durex Con Lubricante íntimo", "Preservativos", categories, matcher)
+    assert (a.concept_id, a.method) == ("salud-sexual", "llm")
+
+
+@pytest.mark.parametrize(
+    ("name", "category", "mapped"),
+    [
+        ("Vaso Con Boquilla Desde 6 Meses Avent", "Vajillas de Bebe", "articulos-bebe"),
+        ("Wilton Set 4 Boquillas De Plástico Para Manga Pastelera", "Utensilios de repostería", "cocina-menaje"),
+        ("Aceite Belmont 250ml", "Aceite", "aceites-condimentos"),
+        ("Ronson Encendedor Recargable Electrolite", "Carbón, Leña y chispa", "carbon"),
+    ],
+)
+def test_the_symmetric_guard_does_not_hide_common_products(matcher, name, category, mapped):
+    """Con la guardia simétrica, una keyword sensible ambigua («boquilla», «belmont», «encendedor») escondería un
+    vaso de bebé, un aceite o un encendedor de parrilla: esas palabras no van en conceptos sensibles."""
+    categories = {category.lower(): MappedName(mapped, "llm", 0.9, "v1")}
+    assert assign_catalog_item("13", name, category, categories, matcher).concept_id == mapped

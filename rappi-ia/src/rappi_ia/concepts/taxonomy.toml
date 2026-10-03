@@ -793,7 +793,7 @@ name = "Cigarrillos"
 emoji = "🚬"
 sensitive = true
 age_restricted = true
-keywords = ["cigarrillo", "cigarrillos", "cigarro", "pucho", "cajetilla", "marlboro", "lucky strike", "pall mall", "kent", "belmont", "philip morris", "habano", "tabaco"]
+keywords = ["cigarrillo", "cigarrillos", "cigarro", "pucho", "cajetilla", "marlboro", "lucky strike", "pall mall", "kent", "philip morris", "habano", "tabaco"]
 
 [[concept]]
 id = "vapeo"
@@ -811,7 +811,7 @@ name = "Accesorios para fumar"
 emoji = "🔥"
 sensitive = true
 age_restricted = true
-keywords = ["papelillo", "papel para armar", "ocb", "raw papel", "encendedor", "grinder", "pipa para fumar", "pipa de agua", "boquilla", "filtros para armar", "cenicero"]
+keywords = ["papelillo", "papel para armar", "ocb", "raw papel", "grinder", "pipa para fumar", "pipa de agua", "filtros para armar", "cenicero"]
 
 # Adultos
 [[concept]]

@@ -6,7 +6,8 @@ Prioridad (la primera que responda gana):
 
 En los platos manda el nombre porque las secciones suelen ser genéricas ("Promociones", "Combos"), salvo que la
 regla caiga fuera de lo que vende un restaurante ("Perro caliente" no es alimento para perros): ahí gana la sección
-o la cocina mapeada. En los productos manda la categoría porque el nombre trae marcas y ruido ("Fanta Naranja 1,5 L").
+o la cocina mapeada. En los productos manda la categoría porque el nombre trae marcas y ruido ("Fanta Naranja 1,5 L"),
+salvo que el nombre calce un concepto sensible y la categoría no (un lubricante en "Agua saborizada").
 """
 
 from dataclasses import dataclass
@@ -56,9 +57,11 @@ def assign_catalog_item(
     item_id: str, name: str, category: str | None, category_map: dict[str, MappedName], matcher: KeywordMatcher
 ) -> Assignment | None:
     mapped = category_map.get(_key(category)) if category else None
-    if mapped and mapped.confidence >= MIN_MAP_CONFIDENCE:
-        return _from_map("catalog_item", item_id, mapped, f"categoria:{category}")
     rule = _from_rule("catalog_item", item_id, name, matcher)
+    # Guardia simétrica: un nombre sensible manda sobre una categoría común (un lubricante en «Agua saborizada»).
+    sensitive_name = rule is not None and mapped is not None and keeps_sensitive(rule.concept_id, mapped.concept_id)
+    if mapped and mapped.confidence >= MIN_MAP_CONFIDENCE and not sensitive_name:
+        return _from_map("catalog_item", item_id, mapped, f"categoria:{category}")
     if rule and not (mapped and keeps_sensitive(mapped.concept_id, rule.concept_id)):
         return rule
     return _from_map("catalog_item", item_id, mapped, f"categoria:{category}") if mapped else None
