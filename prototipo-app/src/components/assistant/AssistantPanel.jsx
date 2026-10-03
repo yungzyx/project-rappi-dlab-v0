@@ -3,7 +3,7 @@ import { chat, chatPhoto, chatVoice, forget, health, profile as remoteProfile, t
 import { forYou, greeting, photoReply, reply, suggestions, ASSISTANT_NAME, VOICE_SAMPLES } from '../../assistant/brain'
 import { TAGS } from '../../assistant/tags'
 import { useDemo } from '../../state/DemoContext'
-import { sessionId, useEvents, userId } from '../../state/EventsContext'
+import { clearShownTopics, noteShownTopic, sessionId, shownTopics, useEvents, userId } from '../../state/EventsContext'
 import { findStore } from '../../data/catalog'
 import { useAssistant } from '../../state/AssistantContext'
 import { useDialog } from '../../hooks/useDialog'
@@ -67,7 +67,6 @@ export default function AssistantPanel({ push, vertical }) {
   // Preguntas en fila: la siguiente sale cuando la respuesta anterior ya está en pantalla.
   const chatQueue = useRef(Promise.resolve())
   const profileGeneration = useRef(0) // sube al "Olvidar": un perfil remoto pedido antes ya no vale
-  const shownTopics = useRef(new Set())
   const [learnedRemote, setLearnedRemote] = useState(null)
   const [forgetting, setForgetting] = useState(false)
 
@@ -108,14 +107,14 @@ export default function AssistantPanel({ push, vertical }) {
     user_id: userId(),
     session_id: sessionId(),
     mode: demo.isProposal ? 'propuesta' : 'actual',
-    shown_topics: [...shownTopics.current], // texto, voz y foto: una sugerencia por tema en la sesión
+    shown_topics: shownTopics(), // texto, voz, foto y «Para ti»: una sugerencia por tema en la sesión
     ...extra,
   })
 
   /** Registra la sugerencia cruzada mostrada (para el panel) y no la repite en la sesión. */
   const noteSuggestion = (message) => {
     if (!message.suggestion) return message
-    shownTopics.current.add(message.suggestion.concept)
+    noteShownTopic(message.suggestion.concept)
     events.track('suggestion_shown', {
       concept_id: message.suggestion.concept,
       vertical: message.suggestion.vertical,
@@ -409,7 +408,7 @@ export default function AssistantPanel({ push, vertical }) {
     // servidor: se espera antes del DELETE, y lo que haya dejado en cola se descarta.
     await Promise.allSettled([chatQueue.current, voiceInFlight])
     events.clear()
-    shownTopics.current.clear()
+    clearShownTopics()
     await events.settled()
     // Siempre se intenta en el servidor (aunque el último chequeo de salud haya fallado).
     try {

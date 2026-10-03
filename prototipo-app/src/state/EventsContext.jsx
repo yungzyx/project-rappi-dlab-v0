@@ -51,8 +51,8 @@ export function userId() {
   return id
 }
 
-/** Sesión actual; se renueva tras 30 min sin actividad. */
-export function sessionId(now = Date.now()) {
+/** Sesión vigente (se renueva tras 30 min sin actividad), con `change` aplicado a lo que vive con ella. */
+function touchSession(now, change = (session) => session) {
   let stored
   try {
     stored = JSON.parse(readStore(sessionStorage, SESSION_KEY))
@@ -60,8 +60,30 @@ export function sessionId(now = Date.now()) {
     stored = null
   }
   const session = stored && now - stored.lastAt < SESSION_IDLE_MS ? stored : { id: randomId('s'), lastAt: now }
-  writeStore(sessionStorage, SESSION_KEY, JSON.stringify({ ...session, lastAt: now }))
-  return session.id
+  const next = change({ ...session, lastAt: now })
+  writeStore(sessionStorage, SESSION_KEY, JSON.stringify(next))
+  return next
+}
+
+/** Sesión actual; se renueva tras 30 min sin actividad. */
+export function sessionId(now = Date.now()) {
+  return touchSession(now).id
+}
+
+/**
+ * Temas que Bigotes ya sugirió en la sesión (chat y «Para ti»): una sugerencia por tema por sesión. Viven con la
+ * sesión, así que recargar la página no los olvida y una sesión nueva empieza sin ellos.
+ */
+export function shownTopics(now = Date.now()) {
+  return touchSession(now).topics ?? []
+}
+
+export function noteShownTopic(concept, now = Date.now()) {
+  touchSession(now, (session) => ({ ...session, topics: [...new Set([...(session.topics ?? []), concept])] }))
+}
+
+export function clearShownTopics(now = Date.now()) {
+  touchSession(now, (session) => ({ ...session, topics: [] }))
 }
 
 const EventsContext = createContext(null)

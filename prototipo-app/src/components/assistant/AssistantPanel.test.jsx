@@ -130,6 +130,7 @@ afterEach(() => {
   delete navigator.mediaDevices
   FakeRecorder.instances = []
   localStorage.clear()
+  sessionStorage.clear() // cada test es una pestaña nueva (otra sesión)
 })
 
 describe('chat en orden', () => {
@@ -303,6 +304,19 @@ describe('qué Bigotes contestó', () => {
 })
 
 describe('temas ya sugeridos', () => {
+  test('recargar la página no olvida lo ya sugerido en la sesión', async () => {
+    api.chat.mockResolvedValueOnce(apiAnswer('Mira estos jugos', 'jugos')).mockResolvedValueOnce(apiAnswer('Ok'))
+    await renderPanel()
+    say('algo para el desayuno')
+    await runUntilIdle()
+    cleanup() // recarga: el panel se monta de nuevo y la sesión sigue en sessionStorage
+    await renderPanel()
+    say('y algo más')
+    await runUntilIdle()
+
+    expect(api.chat.mock.calls[1][0].shown_topics).toEqual(['jugos'])
+  })
+
   test('voz y foto saben qué sugirió el chat de texto (no repiten la sugerencia)', async () => {
     mockMic(vi.fn(async () => fakeStream()))
     api.health.mockResolvedValue({ voz: true, fotos: true })

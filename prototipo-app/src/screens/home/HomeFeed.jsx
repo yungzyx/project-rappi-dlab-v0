@@ -14,7 +14,7 @@ import { useDemo } from '../../state/DemoContext'
 import { useProfile } from '../../state/ProfileContext'
 import { forYou } from '../../assistant/brain'
 import { firstShowing, useRemoteForYou } from '../../api/useRemoteForYou'
-import { useEvents } from '../../state/EventsContext'
+import { noteShownTopic, useEvents } from '../../state/EventsContext'
 import turboRestaurantesTitle from '../../assets/turbo-restaurantes-title.webp'
 import CreditsBanner from './CreditsBanner'
 import { RestaurantCard, StoreTile } from './StoreCards'
@@ -44,7 +44,9 @@ export default function HomeFeed({ push }) {
   const remote = useRemoteForYou(demo.isProposal, profile.resets)
   const picks = remote ?? forYou(profile)
   useEffect(() => {
-    if (remote && firstShowing(remote))
+    if (!remote) return
+    noteShownTopic(remote.concept) // el chat no vuelve a sugerir este tema en la sesión
+    if (firstShowing(remote))
       events.track('suggestion_shown', { concept_id: remote.concept, vertical: remote.vertical, payload: { origen: 'para-ti' } })
   }, [remote, events])
   const openSearch = () => push('search')

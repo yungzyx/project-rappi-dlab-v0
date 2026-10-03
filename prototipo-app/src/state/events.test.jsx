@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { DemoProvider } from './DemoContext'
-import { EventsProvider, sessionId, useEvents, userId } from './EventsContext'
+import { EventsProvider, noteShownTopic, sessionId, shownTopics, useEvents, userId } from './EventsContext'
 
 beforeEach(() => {
   localStorage.clear()
@@ -21,6 +21,14 @@ describe('identidad seudónima y sesiones', () => {
     const a = sessionId(t0)
     expect(sessionId(t0 + 10 * 60 * 1000)).toBe(a)
     expect(sessionId(t0 + 10 * 60 * 1000 + 31 * 60 * 1000)).not.toBe(a)
+  })
+
+  test('los temas ya sugeridos viven con la sesión: una recarga no los olvida, una sesión nueva empieza sin ellos', () => {
+    const t0 = 1_000_000
+    noteShownTopic('jugos', t0)
+    noteShownTopic('jugos', t0)
+    expect(shownTopics(t0 + 60 * 1000)).toEqual(['jugos'])
+    expect(shownTopics(t0 + 60 * 1000 + 31 * 60 * 1000)).toEqual([])
   })
 })
 
