@@ -31,7 +31,7 @@ describe('CatalogView', () => {
     await renderWithData(<CatalogView source="synthetic" />)
 
     const note = (await screen.findByText(/contando solo tiendas de un único vertical/)).textContent
-    // Con el catálogo del 30-09 y la misma base de verticales (v_store_verticals): 18.918 con esas tiendas y 16.505
+    // Con el catálogo del 30-09 y la misma base de verticales (v_store_verticals): 18.450 con esas tiendas y 16.041
     // sin ellas, +14,6% (no «casi se duplica»).
     expect(note).not.toMatch(/duplica/)
     expect(note).toMatch(/sube un 15%/)

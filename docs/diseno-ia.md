@@ -87,7 +87,7 @@ Decisiones:
 | Relación | Llave | Confianza | Uso |
 |---|---|---|---|
 | Producto ↔ oferta de tienda ↔ vertical | `master_product_id`, `store_id` | Exacta | Catálogo, precios y disponibilidad |
-| Mismo producto en varios verticales | `master_product_id` | Exacta, pero **inflada** por tiendas con doble etiqueta (Lider, Express Lider y Unimarc aparecen como conveniencia y como súper) | Contando solo tiendas de un único vertical son 16.505 productos cruzados; la doble etiqueta los sube un 15%, a 18.918 (catálogo del 30-09). La consulta está en el repo como vista (`v_cross_vertical_items_real`), y el panel y el mapa multivertical cuentan así |
+| Mismo producto en varios verticales | `master_product_id` | Exacta, pero **inflada** por tiendas con doble etiqueta (Lider, Express Lider y Unimarc aparecen como conveniencia y como súper) | Contando solo tiendas de un único vertical son 16.041 productos cruzados; la doble etiqueta los sube un 15%, a 18.450 (catálogo del 30-09). La consulta está en el repo como vista (`v_cross_vertical_items_real`), y el panel y el mapa multivertical cuentan así |
 | Producto o plato ↔ concepto | `item_concepts` (mapa de categorías hecho con LLM, ajustes curados, reglas o embeddings) | Probabilística: se guardan `method`, `confidence` y `model_version` | El puente entre verticales |
 | Plato de restaurante ↔ producto del súper | **Solo vía concepto** (pizza ↔ pizza congelada) | Probabilística | "Pizza hoy en restaurante o para el fin de semana del súper" |
 | Marca de producto entre verticales | `trademark` normalizado | Media: solo una minoría de los productos trae marca (datos parciales) | Análisis de surtido |
