@@ -92,3 +92,27 @@ def test_asking_for_a_recommendation_is_not_a_search():
 
 def test_asking_someone_to_buy_for_you_is_rappifavor():
     assert U.understand(None, "necesito que me compren algo en una ferretería", None).service == "rappifavor"
+
+
+# Ronda 3
+def test_misspelled_request_and_product():
+    intent = U.understand(None, "nesecito shampu", "supermercado")
+    assert intent.concepts[:1] == ["cuidado-cabello"] and intent.query == "shampu"
+
+
+@pytest.mark.parametrize(
+    ("text", "occasion"),
+    [("voy a ver el partido", "carrete"), ("cena romántica", "cita")],
+)
+def test_round_three_occasions(text, occasion):
+    assert U.understand(None, text, "supermercado").occasion == occasion
+
+
+def test_fried_chicken_with_fries_is_a_dish():
+    assert U.understand(None, "pollo con papas fritas", "supermercado").concepts[:1] == ["pollo-preparado"]
+
+
+@pytest.mark.parametrize("text", ["mcdonalds", "quiero un mc donalds", "burger king"])
+def test_restaurant_chains_go_to_restaurants(text):
+    intent = U.understand(None, text, None)
+    assert intent.vertical == "restaurantes" and intent.explicit_vertical, text

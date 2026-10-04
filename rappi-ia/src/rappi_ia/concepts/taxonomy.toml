@@ -586,6 +586,7 @@ name = "Pollo frito y asado"
 emoji = "🍗"
 # El pollo fresco (grupo frescos) no compite en restaurantes: lo que se pide hecho va aquí.
 keywords = ["pollo asado", "pollo frito", "broaster", "kfc", "nuggets", "tenders", "alitas"]
+query_keywords = ["pollo con papas", "pollo con papas fritas", "pollo asado con papas"]
 
 # Bebé
 [[concept]]
@@ -693,6 +694,7 @@ parent = "belleza"
 name = "Cuidado del cabello"
 emoji = "💇"
 keywords = ["shampoo", "champú", "acondicionador", "tinte", "coloración", "secador de pelo", "plancha de pelo", "rizador", "gel para el pelo", "cera para el pelo", "tratamiento capilar", "keratina", "mascarilla capilar", "peineta", "cepillo de pelo"]
+query_keywords = ["shampu", "shampo", "champu"]
 
 # Hogar
 [[concept]]
@@ -978,7 +980,7 @@ concepts = ["carnes", "carbon", "cerveza", "vino", "panaderia", "verduras", "sal
 id = "carrete"
 name = "Carrete"
 emoji = "🎉"
-keywords = ["carrete", "fiesta", "previa", "junta", "celebrar", "piscola", "after", "copete", "copetes", "copetear"]
+keywords = ["carrete", "fiesta", "previa", "junta", "celebrar", "piscola", "after", "copete", "copetes", "copetear", "partido", "ver el partido", "el clasico"]
 concepts = ["cerveza", "pisco", "ron", "vodka", "gaseosas", "hielo", "snacks-salados", "picoteo"]
 
 [[occasion]]
@@ -1040,6 +1042,13 @@ emoji = "🍿"
 keywords = ["aburrido", "aburrida", "no se que hacer", "panorama en casa", "maraton de series", "noche de peliculas", "noche de películas"]
 concepts = ["snacks-salados", "gaseosas", "juegos-mesa", "videojuegos", "helados"]
 vertical = "conveniencia"  # por surtido ganaba Licores (snacks) con aviso +18
+
+[[occasion]]
+id = "cita"
+name = "Cena romántica"
+emoji = "🕯️"
+keywords = ["cena romantica", "cena romántica", "noche romantica", "noche romántica", "una cita", "velada"]
+concepts = ["vino", "espumante", "chocolates", "quesos", "flores-regalos"]
 
 [[occasion]]
 id = "animo"

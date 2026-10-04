@@ -29,7 +29,28 @@ VERTICAL_MENTIONS = {
     "supermercado": ["supermercado", "en el super", "del super", "al super", "lider", "unimarc", "jumbo", "tottus"],
     "licores": ["botilleria", "licoreria", "en licores"],
     "farmacia": ["farmacia", "cruz verde", "salcobrand", "farmacias ahumada"],
-    "restaurantes": ["restaurante", "restaurant", "para pedir ya", "delivery de comida"],
+    "restaurantes": [
+        "restaurante",
+        "restaurant",
+        "para pedir ya",
+        "delivery de comida",
+        # Cadenas: «mcdonalds» se buscaba en el súper y quedaba sin resultado.
+        "mcdonalds",
+        "mc donalds",
+        "mcdonald",
+        "burger king",
+        "papa johns",
+        "dominos",
+        "domino s",
+        "pizza hut",
+        "juan maestro",
+        "doggis",
+        "telepizza",
+        "subway",
+        "little caesars",
+        "tarragona",
+        "wendys",
+    ],
     "mall": ["rappi mall", "en el mall", "tienda de ropa"],
     "conveniencia": ["oxxo", "minimarket", "almacen de barrio"],
     "chocolateria": ["chocolateria"],
@@ -66,6 +87,21 @@ APP_QUESTIONS = {
         "sugiereme",
         "sorprendeme",
     ],
+}
+PACKAGED_WORDS = {
+    "grano",
+    "molido",
+    "capsulas",
+    "instantaneo",
+    "kilo",
+    "kilos",
+    "kg",
+    "paquete",
+    "sobres",
+    "congelada",
+    "congelado",
+    "congeladas",
+    "congelados",
 }
 CHEAP_WORDS = {"barato", "barata", "baratos", "baratas", "economico", "economica", "economicos", "economicas"}
 
@@ -211,6 +247,8 @@ class Understander:
             options = _ranked(conn, concepts, symptom)
             return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
         options = _ranked(conn, concepts[:1], symptom)
+        if words & PACKAGED_WORDS:  # «café en grano», «2 kilos de»: se compra en tienda, no se pide hecho
+            options = [v for v in options if v != "restaurantes"]
         pair = [v for v in options[:2] if v in contending_verticals(conn, concepts[:1])]
         if len(pair) == 2 and "restaurantes" in pair and _comparable(conn, concepts[0], pair):
             return Intent("aclarar", text, None, concepts, options=pair, **common)
@@ -222,9 +260,11 @@ class Understander:
 
     def _mention(self, body: str, concept_matches) -> str | None:
         """Mención de vertical que no se solapa con un concepto nombrado (p. ej. "cigarros pall mall")."""
-        covered = {i for m in concept_matches for i in range(m.position, m.position + m.words)}
         for match in self.verticals.matches(body):
-            if not set(range(match.position, match.position + match.words)) & covered:
+            span = set(range(match.position, match.position + match.words))
+            overlapping = [m for m in concept_matches if span & set(range(m.position, m.position + m.words))]
+            # Una mención más larga que el concepto que pisa gana: «burger king» es la cadena, no «burger».
+            if all(match.words > m.words for m in overlapping):
                 return match.target
         return None
 
