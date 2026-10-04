@@ -79,7 +79,7 @@ class Bigotes:
         # medicamentos se ocultan por la regla 6d, no por falta de surtido.
         unmet = not intent.symptom and not products and outcome.result.unmet and outcome.cheapest_without_filter is None
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
-        also_in = None if intent.symptom else self._also_in(conn, ctx, products, vertical)
+        also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical)
         text = self.composer.compose(draft)
         response = self._response(
             intent, vertical, text, products, suggestion, unmet, outcome.result.unmet_reason, draft
@@ -214,11 +214,14 @@ class Bigotes:
             response["reason"] = suggestion.reason  # el prototipo muestra `reason` en el primer nivel
         return response
 
-    def _also_in(self, conn, ctx: Context, products, vertical) -> dict | None:
+    def _also_in(self, conn, ctx: Context, intent: Intent, products, vertical) -> dict | None:
         """Multiverticalidad visible: en qué otras verticales también hay lo que pidió (no es una sugerencia:
         no se registra ni cuenta para la regla 3). Nunca para conceptos sensibles, en "Rappi hoy" ni cuando habla de
-        síntomas (quien dice que está enfermo no necesita ver dónde más venden jugo)."""
+        síntomas (quien dice que está enfermo no necesita ver dónde más venden jugo). Si aquí no hay nada, el concepto
+        es el pedido: justo entonces importa decir dónde sí está ("vodka" en farmacia)."""
         concept_id = next((p.concept for p in products if p.concept), None)
+        if not products and intent.concepts:
+            concept_id = intent.concepts[0]
         concept = self.taxonomy.concepts.get(concept_id) if concept_id else None
         if ctx.mode != "propuesta" or concept is None or concept.sensitive:
             return None

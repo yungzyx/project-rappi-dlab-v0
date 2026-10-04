@@ -517,6 +517,30 @@ def test_answer_shows_other_verticals_with_offer_and_real_stores(volume_bigotes,
     assert super_["stores"] == [{"name": "Súper", "logo": None}]
 
 
+def test_other_verticals_also_when_the_current_one_has_nothing(bigotes, monkeypatch):
+    """«También en» tomaba el concepto de los productos mostrados: justo cuando la vertical actual no tiene lo pedido
+    («vodka» en farmacia) no decía dónde sí está."""
+    agent, db = bigotes
+    monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)  # el catálogo de prueba es chico
+    add_store(db, 11, "farmacia", "Farmacia")
+    for pid, name, store, category in [
+        (230, "Vodka Absolut Blue 750 ml", 2, "Vodka"),
+        (720, "Sal de Fruta Eno Limón 5 g", 11, "Antiácidos"),
+    ]:
+        add_product(db, pid, name, store, category)
+        add_price(db, store, pid, 9990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    r = agent.reply(db, "vodka", Context(vertical="farmacia"))
+
+    assert r["products"] == [] and r["intent"]["concepts"] == ["vodka"]
+    assert r["also_in"]["concept"] == "vodka"
+    assert [v["vertical"] for v in r["also_in"]["verticals"]] == ["licores"]
+
+
 def test_no_other_verticals_for_sensitive_or_in_rappi_hoy(volume_bigotes):
     agent, db = volume_bigotes
     assert "also_in" not in agent.reply(db, "cigarrillos marlboro", Context(vertical="licores"))
