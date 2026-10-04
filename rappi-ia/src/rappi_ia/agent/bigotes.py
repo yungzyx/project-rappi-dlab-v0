@@ -50,6 +50,7 @@ class Context:
     mode: str = "propuesta"  # propuesta | actual ("Rappi hoy")
 
 
+CHEAP_POOL = 24  # «barato»: reordenar solo los 6 más relevantes no daba lo más barato
 GENERAL_REMEDIES = "analgésico"  # si nada nombra el síntoma: paracetamol, aspirina y similares
 
 
@@ -63,7 +64,15 @@ class Bigotes:
     def reply(self, conn: Connection, message: str, ctx: Context | None = None) -> dict:
         ctx = ctx or Context()
         intent = self.understander.understand(conn, message, ctx.vertical)
-        if intent.kind in ("saludo", "gracias", "vacio"):
+        if intent.kind == "recomendar":  # «qué me recomiendas»: lo que le gusta; sin perfil, ejemplos
+            interest = self._top_interest(ctx.profile) if ctx.mode == "propuesta" else None
+            if interest is None:
+                return self._small_talk(replace(intent, kind="ayuda"), ctx)
+            concept = self.taxonomy.concepts[interest]
+            response = self.reply(conn, concept.name, ctx)
+            response["text"] = f"Como te gusta {concept.label.lower()} 😉 " + response["text"]
+            return response
+        if intent.kind in ("saludo", "gracias", "vacio", "ayuda", "envio", "ofertas"):
             return self._small_talk(intent, ctx)
         if intent.kind == "aclarar":
             return self._clarify(intent)
@@ -92,9 +101,12 @@ class Bigotes:
                 intent.concepts,
                 self.embedder,
                 intent.price_max,
+                k=CHEAP_POOL if intent.cheapest else 6,
                 symptom=intent.symptom,
             )
         products = outcome.products
+        if intent.cheapest:  # «barato»: lo más barato de un grupo más amplio (sin precio, al final)
+            products = sorted(products, key=lambda p: (p.price_value is None, p.price_value or 0))[:6]
 
         suggestion = None
         # «Porque llevas X»: X está en la respuesta (en una ocasión, no cualquiera de sus conceptos). Con síntomas no
@@ -218,7 +230,14 @@ class Bigotes:
         interest = self._top_interest(ctx.profile) if ctx.mode == "propuesta" else None
         label = self.taxonomy.concepts[interest].label.lower() if interest else None
         text = self.composer.compose(Draft(kind=intent.kind, interest_label=label))
-        return _base(intent, text)
+        response = _base(intent, text)
+        if intent.kind == "ayuda":  # ejemplos que se pueden tocar: nadie empieza frente a un campo vacío
+            response["actions"] = [
+                {"label": "🎉 Arma un carrete", "query": "algo para el carrete"},
+                {"label": "🍽️ ¿Qué almuerzo hoy?", "query": "tengo hambre"},
+                {"label": "🤒 Tengo fiebre", "query": "tengo fiebre"},
+            ]
+        return response
 
     def _clarify(self, intent: Intent) -> dict:
         concept = self.taxonomy.concepts[intent.concepts[0]]

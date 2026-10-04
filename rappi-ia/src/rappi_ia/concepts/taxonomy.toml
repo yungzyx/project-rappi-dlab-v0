@@ -127,6 +127,7 @@ name = "Cerveza"
 emoji = "🍺"
 age_restricted = true
 keywords = ["cerveza", "chela", "lager", "ipa", "stout", "pilsner", "pale ale", "heineken", "kunstmann", "cristal", "escudo", "royal guard", "corona extra", "stella artois", "austral", "becker", "budweiser", "michelob", "sidra"]
+query_keywords = ["serbesa", "serveza", "chelita", "chelitas"]
 
 [[concept]]
 id = "vino"
@@ -266,6 +267,7 @@ parent = "snacks"
 name = "Snacks salados"
 emoji = "🥨"
 keywords = ["papas fritas", "chips", "ramitas", "suflitos", "doritos", "pringles", "lays", "lay's", "nachos", "cheetos", "cabritas", "pochoclos", "popcorn", "pretzel", "tortilla chips", "snack", "maní salado", "papas lisas", "papas corrugadas"]
+query_keywords = ["para picar", "algo para picar"]
 
 [[concept]]
 id = "frutos-secos"
@@ -439,7 +441,7 @@ id = "lacteos"
 parent = "frescos"
 name = "Leche y yogur"
 emoji = "🥛"
-keywords = ["leche", "yogur", "yoghurt", "yogurt", "mantequilla", "margarina", "crema de leche", "leche vegetal", "leche de almendras", "bebida de avena", "kéfir", "leche en polvo", "leche cultivada", "quesillo"]
+keywords = ["leche", "yogur", "yoghurt", "yogurt", "mantequilla", "margarina", "crema de leche", "kéfir", "leche en polvo", "leche cultivada", "quesillo"]
 
 [[concept]]
 id = "quesos"
@@ -474,7 +476,8 @@ id = "vegano"
 parent = "frescos"
 name = "Alternativas vegetales"
 emoji = "🌱"
-keywords = ["vegano", "vegana", "vegetariano", "vegetariana", "veggie", "plant based", "tofu", "seitán", "seitan", "soya texturizada", "hamburguesa vegetal", "carne vegetal", "not burger", "notco"]
+keywords = ["vegano", "vegana", "leche vegetal", "leche de almendras", "bebida de avena", "vegetariano", "vegetariana", "veggie", "plant based", "tofu", "seitán", "seitan", "soya texturizada", "hamburguesa vegetal", "carne vegetal", "not burger", "notco"]
+query_keywords = ["leche de almendra", "leche de avena", "leche de soya", "bebida vegetal"]
 
 # Comida preparada
 [[concept]]
@@ -504,6 +507,7 @@ parent = "comida"
 name = "Sándwiches y completos"
 emoji = "🥪"
 keywords = ["sándwich", "sandwich", "churrasco", "barros luco", "barros jarpa", "chacarero", "completos", "completo italiano", "hot dog", "perro caliente", "perros calientes", "lomito", "wrap", "chacarera", "ave palta", "ave mayo"]
+query_keywords = ["completo"]
 
 [[concept]]
 id = "empanadas"
@@ -582,6 +586,7 @@ name = "Pollo frito y asado"
 emoji = "🍗"
 # El pollo fresco (grupo frescos) no compite en restaurantes: lo que se pide hecho va aquí.
 keywords = ["pollo asado", "pollo frito", "broaster", "kfc", "nuggets", "tenders", "alitas"]
+query_keywords = ["pollo con papas", "pollo con papas fritas", "pollo asado con papas"]
 
 # Bebé
 [[concept]]
@@ -597,6 +602,7 @@ parent = "bebe"
 name = "Alimentación infantil"
 emoji = "🍼"
 keywords = ["fórmula infantil", "leche infantil", "papilla", "compota", "colado", "nan", "similac", "nestum", "alimento infantil"]
+query_keywords = ["leche de formula", "leche de fórmula", "formula para bebe"]
 
 [[concept]]
 id = "articulos-bebe"
@@ -688,6 +694,7 @@ parent = "belleza"
 name = "Cuidado del cabello"
 emoji = "💇"
 keywords = ["shampoo", "champú", "acondicionador", "tinte", "coloración", "secador de pelo", "plancha de pelo", "rizador", "gel para el pelo", "cera para el pelo", "tratamiento capilar", "keratina", "mascarilla capilar", "peineta", "cepillo de pelo"]
+query_keywords = ["shampu", "shampo", "champu"]
 
 # Hogar
 [[concept]]
@@ -780,14 +787,15 @@ id = "alimento-gato"
 parent = "mascotas"
 name = "Alimento para gatos"
 emoji = "🐈"
-keywords = ["alimento para gato", "comida para gato", "gato", "gatos", "felino", "whiskas", "cat chow", "arena para gatos", "arena sanitaria", "gatito"]
+keywords = ["alimento para gato", "comida para gato", "gato", "gatos", "felino", "whiskas", "cat chow", "gatito"]
 
 [[concept]]
 id = "accesorios-mascota"
 parent = "mascotas"
 name = "Accesorios para mascotas"
 emoji = "🦴"
-keywords = ["mascota", "mascotas", "juguete para perro", "collar para perro", "correa para perro", "cama para perro", "rascador", "pipeta", "antipulgas", "comedero", "transportadora"]
+keywords = ["mascota", "mascotas", "juguete para gato", "juguete para el gato", "juguetes para gatos", "arena para gatos", "arena sanitaria", "juguete para perro", "collar para perro", "correa para perro", "cama para perro", "rascador", "pipeta", "antipulgas", "comedero", "transportadora"]
+query_keywords = ["arena para gato", "arena para el gato", "arena de gato"]
 
 # Tabaco
 [[concept]]
@@ -972,7 +980,7 @@ concepts = ["carnes", "carbon", "cerveza", "vino", "panaderia", "verduras", "sal
 id = "carrete"
 name = "Carrete"
 emoji = "🎉"
-keywords = ["carrete", "fiesta", "previa", "junta", "cumpleaños", "celebrar", "piscola", "after"]
+keywords = ["carrete", "fiesta", "previa", "junta", "celebrar", "piscola", "after", "copete", "copetes", "copetear", "partido", "ver el partido", "el clasico"]
 concepts = ["cerveza", "pisco", "ron", "vodka", "gaseosas", "hielo", "snacks-salados", "picoteo"]
 
 [[occasion]]
@@ -1012,6 +1020,53 @@ emoji = "☕"
 keywords = ["once", "onces", "tecito", "hora del té"]
 concepts = ["panaderia", "fiambres", "quesos", "cafe", "te", "pasteleria", "untables-dulces"]
 
+[[occasion]]
+id = "cumpleanos"
+name = "Cumpleaños"
+emoji = "🎂"
+# Sin alcohol: «cumpleaños de mi hijo» iba a Licores con ron y vodka (estaba en carrete).
+keywords = ["cumpleaños", "cumple", "fiesta infantil", "cumpleaños infantil", "piñata", "torta de cumpleaños"]
+concepts = ["pasteleria", "decoracion", "golosinas", "juguetes-infantiles", "gaseosas"]
+
+[[occasion]]
+id = "antojo"
+name = "Antojo dulce"
+emoji = "🍬"
+keywords = ["algo dulce", "antojo", "antojo dulce", "antojito", "algo para el antojo"]
+concepts = ["chocolates", "golosinas", "galletas", "helados", "pasteleria"]
+
+[[occasion]]
+id = "panorama"
+name = "Panorama en casa"
+emoji = "🍿"
+keywords = ["aburrido", "aburrida", "no se que hacer", "panorama en casa", "maraton de series", "noche de peliculas", "noche de películas"]
+concepts = ["snacks-salados", "gaseosas", "juegos-mesa", "videojuegos", "helados"]
+vertical = "conveniencia"  # por surtido ganaba Licores (snacks) con aviso +18
+
+[[occasion]]
+id = "cita"
+name = "Cena romántica"
+emoji = "🕯️"
+keywords = ["cena romantica", "cena romántica", "noche romantica", "noche romántica", "una cita", "velada"]
+concepts = ["vino", "espumante", "chocolates", "quesos", "flores-regalos"]
+
+[[occasion]]
+id = "animo"
+name = "Un mimo"
+emoji = "💛"
+keywords = ["triste", "estoy triste", "bajoneado", "bajoneada", "bajon", "necesito animo", "mal dia", "mal día"]
+concepts = ["chocolates", "helados", "golosinas", "snacks-salados"]
+vertical = "chocolateria"  # por surtido ganaba Licores
+
+[[occasion]]
+id = "regalo-nino"
+name = "Regalo para un niño"
+emoji = "🧸"
+# Antes caía en una búsqueda literal: «mi nieto viene… comprarle algo» traía pezoneras y pisco.
+keywords = ["mi nieto", "mi nieta", "mi sobrino", "mi sobrina", "regalo para un niño", "regalo para una niña", "regalo para niño", "regalo para niña", "para un niño", "para una niña"]
+concepts = ["juguetes-infantiles", "juegos-mesa", "golosinas", "chocolates"]
+vertical = "mall"
+
 # Servicios de Rappi sin catálogo de productos. Bigotes los reconoce por sus keywords (si la consulta no nombra un
 # producto), lleva a su pantalla del prototipo (`route`) y, si tiene ganchos, sugiere UN producto del catálogo que lo
 # acompaña. RappiFavor además se ofrece cuando algo no está en el catálogo (agent/bigotes.py).
@@ -1038,5 +1093,4 @@ name = "RappiFavor"
 emoji = "🛵"
 pitch = "un Rappitendero lleva lo que necesites de un punto a otro, te compra en cualquier tienda o hace tu trámite"
 route = "favor"
-keywords = ["rappifavor", "un favor", "mandado", "mandados", "encomienda", "enviar un paquete", "mandar un paquete", "enviar unas llaves", "llaves", "se me quedo", "se me quedaron", "olvide", "enviar un documento", "documentos", "tramite", "tramites", "retirar un paquete", "recoger un paquete", "correos de chile", "punto a punto", "de un lugar a otro", "llevar algo"]
-
+keywords = ["rappifavor", "un favor", "que me compren", "me compren", "comprar por mi", "comprame", "mandado", "mandados", "encomienda", "enviar un paquete", "mandar un paquete", "enviar unas llaves", "llaves", "se me quedo", "se me quedaron", "olvide", "enviar un documento", "documentos", "tramite", "tramites", "retirar un paquete", "recoger un paquete", "correos de chile", "punto a punto", "de un lugar a otro", "llevar algo"]

@@ -1,0 +1,31 @@
+# Pruebas como usuario del chat
+
+El chat de Bigotes falla sobre todo con frases que nadie escribió en la evaluación: chilenismos («un completo», «copete»,
+«pa»), faltas («serbesa», «nesecito shampu»), preguntas sobre la app («hacen delivery?»), estados de ánimo («estoy
+triste») o encargos («que me compren algo en una ferretería»). Este proceso las encuentra y las deja como regresión.
+
+## Una ronda
+
+1. Con la API arriba (`make serve` en `rappi-ia/`), escribe 40 a 60 frases como las escribiría alguien real, en
+   `rappi-ia/src/rappi_ia/eval/frases_usuarios/rondaN.txt`: perfiles distintos (mamá apurada, carrete, adulto mayor,
+   estudiante, fitness), mayúsculas, faltas, frases largas y combinaciones. `frase|vertical` la manda desde esa vertical.
+2. `make probar-chat FRASES=src/rappi_ia/eval/frases_usuarios/rondaN.txt` y lee cada respuesta buscando:
+   productos que no tienen que ver, una vertical rara, un aviso que sobra (+18 en un cumpleaños infantil), «Lo anoté»
+   para algo que sí existe, o una pregunta sobre la app tratada como búsqueda.
+3. Agrupa los fallos por causa (palabra que falta, ocasión, intención) y arréglalos donde corresponde: palabras y
+   ocasiones en `concepts/taxonomy.toml` (`query_keywords` si la palabra solo sirve para pedir y no para clasificar
+   productos, como «completo»), intenciones en `agent/understand.py`.
+4. Cada fallo queda como test en `rappi-ia/tests/unit/test_user_phrases.py` (o en `test_bigotes.py` si necesita la
+   base), escrito antes del arreglo.
+5. Repite la ronda completa (`make probar-chat` sin archivo corre todas) para ver que no se rompió lo anterior.
+
+## Rondas hechas
+
+| Ronda | Fecha | Frases | Qué se arregló |
+|---|---|---|---|
+| 1 | 04-10-2026 | 55 | chilenismos y faltas, cumpleaños sin alcohol, antojo dulce, panorama en casa, preguntas sobre la app, «barato» |
+| 2 | 04-10-2026 | 50 | «pa»/«pal», «sin X», «qué me recomiendas», un mimo («estoy triste»), regalo para un niño, leches vegetales |
+| 3 | 04-10-2026 | 46 | «nesecito», cadenas de restaurantes, «café en grano», «pollo con papas fritas», partido, cena romántica |
+
+Límite conocido: la muestra pública del catálogo no tiene algunas cosas (jarabes para la tos, tofu, bolsas de basura).
+Ahí Bigotes lo dice o muestra lo más cercano; no se arregla con palabras.

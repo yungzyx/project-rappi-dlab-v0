@@ -29,11 +29,82 @@ VERTICAL_MENTIONS = {
     "supermercado": ["supermercado", "en el super", "del super", "al super", "lider", "unimarc", "jumbo", "tottus"],
     "licores": ["botilleria", "licoreria", "en licores"],
     "farmacia": ["farmacia", "cruz verde", "salcobrand", "farmacias ahumada"],
-    "restaurantes": ["restaurante", "restaurant", "para pedir ya", "delivery de comida"],
+    "restaurantes": [
+        "restaurante",
+        "restaurant",
+        "para pedir ya",
+        "delivery de comida",
+        # Cadenas: «mcdonalds» se buscaba en el súper y quedaba sin resultado.
+        "mcdonalds",
+        "mc donalds",
+        "mcdonald",
+        "burger king",
+        "papa johns",
+        "dominos",
+        "domino s",
+        "pizza hut",
+        "juan maestro",
+        "doggis",
+        "telepizza",
+        "subway",
+        "little caesars",
+        "tarragona",
+        "wendys",
+    ],
     "mall": ["rappi mall", "en el mall", "tienda de ropa"],
     "conveniencia": ["oxxo", "minimarket", "almacen de barrio"],
     "chocolateria": ["chocolateria"],
 }
+# Preguntas sobre la app, no búsquedas (se buscaba la frase literal: «quien eres» traía ajos). Normalizadas.
+APP_QUESTIONS = {
+    "ayuda": [
+        "ayuda",
+        "ayudame",
+        "quien eres",
+        "que eres",
+        "que puedes hacer",
+        "que haces",
+        "como funciona",
+        "como te uso",
+    ],
+    "envio": [
+        "hacen delivery",
+        "hay delivery",
+        "hacen despacho",
+        "cuanto se demora",
+        "cuanto demora",
+        "cuanto tarda",
+        "cuanto cuesta el envio",
+        "costo de envio",
+        "cuando llega",
+    ],
+    "ofertas": ["ofertas", "tienen ofertas", "hay ofertas", "descuentos", "promociones", "promos"],
+    "recomendar": [
+        "me recomiendas",
+        "que me recomiendas",
+        "recomiendame",
+        "que me sugieres",
+        "sugiereme",
+        "sorprendeme",
+    ],
+}
+PACKAGED_WORDS = {
+    "grano",
+    "molido",
+    "capsulas",
+    "instantaneo",
+    "kilo",
+    "kilos",
+    "kg",
+    "paquete",
+    "sobres",
+    "congelada",
+    "congelado",
+    "congeladas",
+    "congelados",
+}
+CHEAP_WORDS = {"barato", "barata", "baratos", "baratas", "economico", "economica", "economicos", "economicas"}
+
 SYMPTOMS = [
     "fiebre",
     "resfrio",
@@ -84,7 +155,7 @@ PRICE = re.compile(
 
 @dataclass
 class Intent:
-    kind: str  # saludo | gracias | buscar | ocasion | aclarar | servicio | vacio
+    kind: str  # saludo | gracias | ayuda | envio | ofertas | buscar | ocasion | aclarar | servicio | vacio
     text: str
     vertical: str | None = None
     concepts: list[str] = field(default_factory=list)
@@ -97,6 +168,7 @@ class Intent:
     query: str = ""  # consulta limpia para buscar y para repetirle al usuario
     symptom: bool = False  # habló de síntomas: remedios de farmacia sin receta, sin venta cruzada
     service: str | None = None  # servicio sin catálogo (RappiTravel, RappiFavor)
+    cheapest: bool = False  # «barato»: lo más barato primero
 
 
 class Understander:
@@ -108,6 +180,7 @@ class Understander:
         self.verticals = KeywordMatcher((v, kw) for v, kws in VERTICAL_MENTIONS.items() for kw in kws)
         self.symptoms = KeywordMatcher(("sintoma", kw) for kw in SYMPTOMS)
         self.services = KeywordMatcher((s.id, kw) for s in taxonomy.services.values() for kw in s.keywords)
+        self.app_questions = KeywordMatcher((kind, kw) for kind, kws in APP_QUESTIONS.items() for kw in kws)
 
     def understand(self, conn: Connection, text: str, current_vertical: str | None = None) -> Intent:
         normalized = normalize(text)
@@ -120,11 +193,16 @@ class Understander:
             return Intent("gracias", text, current_vertical, confidence=1.0)
 
         price_max, without_price = _price(text)
-        said = normalize(without_price)
+        # Habla chilena: «pa» y «pal» son «para» y «para el» («algo pa comer», «juguete pal gato»).
+        said = re.sub(r"\bpal\b", "para el", re.sub(r"\bpa\b", "para", normalize(without_price)))
         body = _clean(said)
         # Ocasiones y síntomas, sobre el texto sin limpiar: «me siento mal» y «me duele» empiezan con «me».
         occasion = self.occasions.best(said)
-        concept_matches = self.concepts.matches(body)
+        # «sin azúcar» no pide azúcar: se descarta un concepto nombrado justo después de «sin».
+        body_words = body.split()
+        concept_matches = [
+            m for m in self.concepts.matches(body) if not (m.position and body_words[m.position - 1] == "sin")
+        ]
         concepts = [m.target for m in concept_matches]
         mention = self._mention(body, concept_matches)
         # La ocasión «Me siento mal» cuenta como síntoma («malestar», «cuidarme»): sin Licores, sin «También en» ni
@@ -134,6 +212,9 @@ class Understander:
         )
 
         explicit = bool(concepts)
+        question = None if explicit or occasion else self.app_questions.best(body or said)
+        if question:  # «hacen delivery?», «quien eres»: se contesta, no se busca
+            return Intent(question.target, text, current_vertical, confidence=1.0)
         # Un servicio sin catálogo, si no se nombra un producto («paquete de pañales» no es un envío) ni un síntoma.
         service = None if explicit or symptom else self.services.best(said)
         if service:
@@ -149,6 +230,7 @@ class Understander:
             explicit_concepts=explicit,
             query=body or normalized,
             symptom=symptom,
+            cheapest=bool(set(said.split()) & CHEAP_WORDS),
         )
 
         if mention:
@@ -165,6 +247,8 @@ class Understander:
             options = _ranked(conn, concepts, symptom)
             return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
         options = _ranked(conn, concepts[:1], symptom)
+        if words & PACKAGED_WORDS:  # «café en grano», «2 kilos de»: se compra en tienda, no se pide hecho
+            options = [v for v in options if v != "restaurantes"]
         pair = [v for v in options[:2] if v in contending_verticals(conn, concepts[:1])]
         if len(pair) == 2 and "restaurantes" in pair and _comparable(conn, concepts[0], pair):
             return Intent("aclarar", text, None, concepts, options=pair, **common)
@@ -176,9 +260,11 @@ class Understander:
 
     def _mention(self, body: str, concept_matches) -> str | None:
         """Mención de vertical que no se solapa con un concepto nombrado (p. ej. "cigarros pall mall")."""
-        covered = {i for m in concept_matches for i in range(m.position, m.position + m.words)}
         for match in self.verticals.matches(body):
-            if not set(range(match.position, match.position + match.words)) & covered:
+            span = set(range(match.position, match.position + match.words))
+            overlapping = [m for m in concept_matches if span & set(range(m.position, m.position + m.words))]
+            # Una mención más larga que el concepto que pisa gana: «burger king» es la cadena, no «burger».
+            if all(match.words > m.words for m in overlapping):
                 return match.target
         return None
 

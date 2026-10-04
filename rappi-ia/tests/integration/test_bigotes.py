@@ -1056,3 +1056,34 @@ def test_a_symptom_with_a_named_vertical_stays_there(pharmacy):
     agent, db = pharmacy
     r = agent.reply(db, "tengo fiebre, algo del supermercado", Context())
     assert r["intent"]["vertical"] == "supermercado" and r["vertical"] == "supermercado"
+
+
+def test_questions_about_the_app_get_an_answer_not_products(bigotes):
+    agent, db = bigotes
+    help_ = agent.reply(db, "quien eres", Context())
+    assert not help_["products"] and "Bigotes" in help_["text"]
+    assert [a["query"] for a in help_["actions"]] == ["algo para el carrete", "tengo hambre", "tengo fiebre"]
+    assert "envío" in agent.reply(db, "hacen delivery?", Context())["text"]
+    assert "Ofertas" in agent.reply(db, "tienen ofertas?", Context())["text"]
+
+
+def test_cheap_shows_the_cheapest_first(bigotes):
+    """Reordenar solo los 6 más relevantes no daba lo más barato: hay que mirar más candidatos."""
+    agent, db = bigotes
+    for pid in range(210, 225):  # 15 cervezas caras más relevantes por nombre, y la barata al final
+        add_product(db, pid, f"Cerveza Cerveza Cerveza premium {pid}", 2, "Cervezas")
+        add_price(db, 2, pid, 9990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    prices = [p["price_value"] for p in agent.reply(db, "cerveza barata", Context(vertical="licores"))["products"]]
+    assert prices == sorted(prices) and prices[0] == 1290
+
+
+def test_a_recommendation_uses_what_the_user_likes(bigotes):
+    agent, db = bigotes
+    liked = agent.reply(db, "qué me recomiendas", Context(profile={"cerveza": 3.0}))
+    assert liked["text"].startswith("Como te gusta 🍺 cerveza 😉 Mira") and liked["products"]
+    unknown = agent.reply(db, "qué me recomiendas", Context())
+    assert unknown["intent"]["kind"] == "ayuda" and unknown["actions"]
