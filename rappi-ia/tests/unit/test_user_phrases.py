@@ -299,3 +299,27 @@ def test_not_wanting_to_cook_is_hunger():
 def test_a_coffee_chain_is_a_restaurant():
     intent = U.understand(None, "algo de starbucks", None)
     assert intent.vertical == "restaurantes" and intent.explicit_vertical
+
+
+# Ronda 8
+@pytest.mark.parametrize(
+    ("text", "concept"),
+    [("útiles escolares", "utiles"), ("bebida isotónica", "energizantes")],
+)
+def test_round_eight_words(text, concept):
+    assert U.understand(None, text, "supermercado").concepts[:1] == [concept]
+
+
+@pytest.mark.parametrize("text", ["olvida lo que te dije", "qué sabes de mí", "no guardes lo que busco"])
+def test_memory_questions_are_answered_first(text):
+    """«olvida lo que te dije» traía joyas: «dije» es un colgante."""
+    assert U.understand(None, text, "supermercado").kind == "memoria"
+
+
+def test_kids_in_slang_are_an_occasion():
+    assert U.understand(None, "algo pa los cabros chicos", None).occasion == "regalo-nino"
+
+
+def test_none_of_them_asks_for_others():
+    intent = _then("completo", "no me gustó ninguno")
+    assert intent.follow_up and intent.exclude_previous
