@@ -35,6 +35,7 @@
 | 29-09-2026 | La descarga se detiene tras 10 jobs seguidos sin respuesta útil de rappi.cl; también `scrape-stores` y `scrape-restaurants` lanzados a mano. | No insistir contra un sitio que respondió que no. |
 | 29-09-2026 | Tras un apagado, la actualización se retoma en la etapa donde quedó, sin volver a bajar tiendas ya terminadas. | Una corrida de tiendas son ~16 h de peticiones. |
 | 30-09-2026 | Los documentos de búsqueda limpian el HTML de nombres y descripciones con `clean_html()` (migraciones 014 y 015); el texto sin HTML queda intacto. | El HTML ensuciaba el índice, los vectores y lo que lee Bigotes; tocar solo lo necesario evita volver a embeber miles de documentos. |
+| 04-10-2026 | La búsqueda usa solo lo vigente: una oferta o un plato cuenta si su último precio es de la última corrida que bajó su formato (`store_type`) o su cadena (`brand_id`), y un plato sale si una corrida posterior ya no encontró su local o su cadena. Un formato o una cadena que la última corrida no pudo bajar conserva su último dato; las tablas núcleo guardan todo el historial. | Cada corrida baja una sucursal por formato, y no siempre la misma: una sucursal vieja fijaba el precio mínimo (39.950 en Licores, cuando la vigente lo vende a 77.940), inflaban «tiendas» y dejaban buscables locales que ya no existen (94 platos de Kazoku). |
 
 ## Modelo de datos
 

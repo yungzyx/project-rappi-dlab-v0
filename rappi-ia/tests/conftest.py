@@ -73,9 +73,13 @@ def add_dish(conn, item_id: int, name: str, store_id: int, section: str, cuisine
 
 
 def add_price(conn, store_id: int, product_id: int, price: float) -> None:
-    run_id = conn.execute(
-        "INSERT INTO scrape_runs (kind, status) VALUES ('stores', 'done') RETURNING run_id"
-    ).fetchone()[0]
+    # Todos en una misma corrida, como una descarga real: con una corrida por precio, la búsqueda tomaría los
+    # productos con precio anterior como algo que la tienda ya no vende.
+    run_id = conn.execute("SELECT min(run_id) FROM scrape_runs WHERE kind = 'stores' AND status = 'done'").fetchone()[0]
+    if run_id is None:
+        run_id = conn.execute(
+            "INSERT INTO scrape_runs (kind, status) VALUES ('stores', 'done') RETURNING run_id"
+        ).fetchone()[0]
     conn.execute(
         "INSERT INTO price_snapshots (run_id, store_id, sku, price, in_stock) VALUES (%s, %s, %s, %s, true)",
         (run_id, store_id, f"sku-{product_id}", price),

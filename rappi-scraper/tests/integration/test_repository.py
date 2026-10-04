@@ -3,8 +3,10 @@ import csv
 import pytest
 from psycopg import errors
 
+from conftest import FakeClient
 from rappi_scraper.legacy.csv_format import CSV_COLUMNS, CSV_ENCODING
 from rappi_scraper.legacy.csv_io import export_catalog_csv, import_legacy_csv
+from rappi_scraper.pipeline.restaurants import process_restaurant_jobs
 from rappi_scraper.scraping.restaurant_parser import parse_restaurant
 from rappi_scraper.storage import repository
 from rappi_scraper.storage.db import connect, database_url
@@ -160,6 +162,96 @@ def test_rebuilding_search_writes_only_changes_and_drops_missing_entities(db):
     db.execute("DELETE FROM catalog_items WHERE master_product_id = 101")
     assert build_search_documents(db)["eliminados"] == 1
     assert _count(db, "SELECT count(*) FROM search_documents WHERE entity_type = 'catalog_item'") == 1
+
+
+DOCUMENTS = (
+    "SELECT entity_type, entity_id, (metadata->>'precio_min')::int, (metadata->>'tiendas')::int "
+    "FROM search_documents ORDER BY 1, 2"
+)
+
+
+def test_search_keeps_only_the_offers_seen_in_the_last_run_of_their_store_type(db):
+    """Cada corrida baja una sucursal por formato, y no siempre la misma: la sucursal vieja no pone el precio mínimo,
+    no suma tiendas y lo que solo ella vendía ya no se busca."""
+    _store(db, 1, "lider", "supermercado")  # sucursal A
+    _store(db, 2, "lider", "supermercado")  # sucursal B, mismo formato
+    run1 = repository.start_run(db, "stores", {})
+    repository.save_products(
+        db, run1, 1, [_product("s1", 100, "Arroz Tucapel", 100), _product("s2", 101, "Té Club", 900)]
+    )
+    run2 = repository.start_run(db, "stores", {})
+    repository.save_products(db, run2, 2, [_product("s1", 100, "Arroz Tucapel", 200)])
+    db.commit()
+
+    build_search_documents(db)
+
+    assert db.execute(DOCUMENTS).fetchall() == [("catalog_item", "100", 200, 1), ("store", "2", None, None)]
+
+
+def test_a_product_the_store_no_longer_sells_leaves_the_search(db):
+    _store(db, 1, "lider", "supermercado")
+    run1 = repository.start_run(db, "stores", {})
+    repository.save_products(
+        db, run1, 1, [_product("s1", 100, "Arroz Tucapel", 100), _product("s2", 101, "Té Club", 900)]
+    )
+    run2 = repository.start_run(db, "stores", {})
+    repository.save_products(db, run2, 1, [_product("s1", 100, "Arroz Tucapel", 120)])
+    db.commit()
+
+    build_search_documents(db)
+
+    assert db.execute(DOCUMENTS).fetchall() == [("catalog_item", "100", 120, 1), ("store", "1", None, None)]
+
+
+def test_a_store_type_missing_from_the_last_run_keeps_its_last_known_offers(db):
+    """Un formato que la última corrida no pudo bajar (falló, o no salió en los listados) conserva su último dato."""
+    _store(db, 1, "lider", "supermercado")
+    _store(db, 2, "jumbo", "supermercado", brand=("Jumbo", 1))
+    run1 = repository.start_run(db, "stores", {})
+    repository.save_products(db, run1, 2, [_product("j1", 200, "Fideos Carozzi", 900)])
+    run2 = repository.start_run(db, "stores", {})
+    repository.save_products(db, run2, 1, [_product("s1", 100, "Arroz Tucapel", 100)])
+    db.commit()
+
+    build_search_documents(db)
+
+    assert [r[:2] for r in db.execute(DOCUMENTS)] == [
+        ("catalog_item", "100"), ("catalog_item", "200"), ("store", "1"), ("store", "2")
+    ]  # fmt: skip
+
+
+def test_a_dish_the_restaurant_no_longer_offers_leaves_the_search(db, page):
+    parsed = parse_restaurant(page("restaurant"))
+    run1 = repository.start_run(db, "restaurants", {})
+    repository.save_restaurant(db, run1, parsed)
+    run2 = repository.start_run(db, "restaurants", {})
+    repository.save_restaurant(db, run2, {**parsed, "items": parsed["items"][1:]})
+    db.commit()
+
+    build_search_documents(db)
+
+    dishes = {r[0] for r in db.execute("SELECT entity_id FROM search_documents WHERE entity_type = 'menu_item'")}
+    assert len(dishes) == 60 and str(parsed["items"][0]["item_id"]) not in dishes
+
+
+def test_a_restaurant_that_no_longer_exists_leaves_the_search(db):
+    """chain:7386 («Kazoku Nh») quedó «ya no existe en Rappi» en la corrida 6 y sus 94 platos seguían buscables."""
+    candidate = {"store_id": 384, "path": "/restaurantes/384-rincon-venezolano"}
+    job = {
+        "job_key": "chain:3607",
+        "job_type": "restaurant",
+        "payload": {"verticals": ["restaurantes"], "brand_id": 3607, "candidates": [candidate]},
+    }
+    for client in (FakeClient({candidate["path"]: "restaurant"}), FakeClient(gone={candidate["path"]})):
+        run = repository.start_run(db, "restaurants", {})
+        repository.add_jobs(db, run, [job])
+        process_restaurant_jobs(db, client, run)
+        repository.finish_run(db, run)
+    assert [r[0] for r in db.execute("SELECT status FROM scrape_jobs ORDER BY run_id")] == ["done", "skipped"]
+
+    build_search_documents(db)
+
+    assert _count(db, "SELECT count(*) FROM search_documents WHERE vertical = 'restaurantes'") == 0
 
 
 def test_job_queue_resume_and_done_store_types(db):
