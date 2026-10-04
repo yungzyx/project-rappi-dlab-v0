@@ -106,6 +106,19 @@ def test_stores_without_store_type_do_not_share_verticals(db):
     assert rows == [(1, "mall"), (2, "licores")]
 
 
+def test_restaurants_do_not_share_verticals_through_their_store_type(db):
+    """Rappi manda storeType 'restaurant' para todos los restaurantes (tests/fixtures/restaurant.html): no es un
+    formato. El cruce armaba 13 millones de filas con 3.604 restaurantes y le pasaría a todos el vertical de uno."""
+    for store_id in (1, 2):
+        repository.upsert_store(db, {"store_id": store_id, "name": f"R{store_id}", "store_type": "restaurant"})
+        repository.upsert_store_vertical(db, store_id, "restaurantes")
+    repository.upsert_store_vertical(db, 1, "chocolateria")
+    db.commit()
+
+    rows = db.execute("SELECT store_id, vertical FROM v_store_verticals ORDER BY 1, 2").fetchall()
+    assert rows == [(1, "chocolateria"), (1, "restaurantes"), (2, "restaurantes")]
+
+
 def test_search_is_isolated_per_vertical(db, page):
     _store(db, 1, "lider", "supermercado")
     run = repository.start_run(db, "stores", {})
