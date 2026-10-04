@@ -70,7 +70,8 @@ GROUP_VERTICALS = {
     "juguetes": "mall",
     "libreria": "mall",
 }
-_UNITS = r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u|personas?|porciones|cm|mts?|metros?)"
+# «u» suelta es «unidades», salvo que sea la «o» antes de otra o («5 lucas u otro trago»).
+_UNITS = r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u(?!\s+o)|personas?|porciones|cm|mts?|metros?)"
 _DECIMAL = r"\d+[.,]\d{1,2}(?=\s*(?:mil|lucas|k)\b)"  # «1,5 lucas»: decimales solo con mil/lucas/k
 PRICE = re.compile(
     r"(?:bajo|menos de|hasta|maximo|max|no mas de|por menos de|que cueste menos de)\s*"

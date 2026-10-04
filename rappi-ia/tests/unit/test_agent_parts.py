@@ -116,6 +116,11 @@ def test_price_parsing_ignores_units_and_small_numbers():
         ("completo por menos de 1000 pesos", 1000, ["completo"]),
         ("cerveza bajo 5 mil pesos", 5000, ["cerveza"]),
         ("pisco hasta $8.000 clp", 8000, ["pisco"]),
+        # «u» es la «o» antes de otra o, no «unidades»: el tope se perdía.
+        ("pisco bajo 5,5 lucas u otro trago", 5500, ["pisco", "u", "otro", "trago"]),
+        ("vino bajo 2,5 lucas u otra cosa", 2500, ["vino", "u", "otra", "cosa"]),
+        ("vino bajo $2.5 lucas u otra cosa", 2500, ["vino", "u", "otra", "cosa"]),
+        ("vino bajo 10 mil u otra cosa", 10000, ["vino", "u", "otra", "cosa"]),
     ],
 )
 def test_price_parsing_accepts_decimal_thousands_and_drops_the_currency_word(text, value, rest):
@@ -133,12 +138,10 @@ def test_price_parsing_still_ignores_decimal_units():
 @pytest.mark.parametrize(
     "text",
     [
-        "pisco bajo 5,5 lucas u otro trago",
-        "vino bajo 2,5 lucas u otra cosa",
         "bebida hasta 1,5 mil ml",
         "cerveza hasta 1,5 mil cc",
         "bajo 1,5 k kg",
-        "vino bajo $2.5 lucas u otra cosa",
+        "pañales bajo $2.5 mil u",
     ],
 )
 def test_a_decimal_followed_by_a_unit_is_not_a_price_and_does_not_fail(text):
