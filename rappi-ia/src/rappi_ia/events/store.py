@@ -127,9 +127,15 @@ def ensure_user(conn: Connection, user_id: str, source: str = "prototype", **ext
     )
 
 
+def _known_concepts(conn: Connection) -> set[str]:
+    """Conceptos sembrados en la base: los que acepta la llave foránea. Uno nuevo de taxonomy.toml que aún no se
+    siembra (`rappi-ia concepts`) se guarda como desconocido en vez de tumbar el registro."""
+    return {row[0] for row in conn.execute("SELECT concept_id FROM concepts")}
+
+
 def record(conn: Connection, events: list[Event], source: str = "prototype") -> int:
     """Guarda eventos válidos (tipo conocido, concepto existente) y devuelve cuántos."""
-    known = set(load_taxonomy().concepts)
+    known = _known_concepts(conn)
     rows = []
     for e in events:
         if e.type not in EVENT_TYPES:
@@ -184,7 +190,7 @@ def record_order(
            VALUES (%s, %s, %s, %s, coalesce(%s, now()), %s, %s, %s)""",
         (order_id, user_id, session_id, cart_id, ts, vertical, total, source),
     )
-    known = set(load_taxonomy().concepts)
+    known = _known_concepts(conn)
     with conn.cursor() as cur:
         cur.executemany(
             """INSERT INTO app_order_lines (order_id, line_no, entity_type, entity_id, concept_id, qty, unit_price,

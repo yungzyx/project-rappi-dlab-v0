@@ -30,6 +30,24 @@ def _user_with_beer(db, user="u1"):
     )
 
 
+def test_a_concept_not_seeded_yet_is_saved_without_concept(db):
+    """Un concepto nuevo de taxonomy.toml aún no sembrado en la base (antes de `rappi-ia concepts`) no tumba el
+    registro: el evento y la línea se guardan sin concepto, como uno desconocido."""
+    seed_taxonomy(db, load_taxonomy())
+    db.execute("DELETE FROM concepts WHERE concept_id = 'pollo-preparado'")
+    events.record(db, [events.Event("u5", "s1", "chat", ts=NOW, concept_id="pollo-preparado", query="pollo frito")])
+    events.record_order(
+        db,
+        "u5",
+        "s1",
+        "c1",
+        "restaurantes",
+        [{"entity_type": "menu_item", "entity_id": "1", "concept_id": "pollo-preparado", "unit_price": 5000}],
+    )
+    assert db.execute("SELECT concept_id FROM app_events WHERE type = 'chat'").fetchone()[0] is None
+    assert db.execute("SELECT concept_id FROM app_order_lines").fetchone()[0] is None
+
+
 def test_forget_everything_deletes_user_events_and_orders(db):
     _user_with_beer(db)
     assert events.forget(db, "u1") > 0
