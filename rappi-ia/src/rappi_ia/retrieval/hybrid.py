@@ -44,7 +44,6 @@ class Hit:
     concept_id: str | None = None
     cosine: float | None = None
     ranks: dict[str, int] = field(default_factory=dict)
-    strict: bool = False  # calza todas las palabras de la consulta (la regla de _strict_lexical_count)
 
 
 @dataclass
@@ -106,7 +105,7 @@ def retrieve(
 
     top = sorted(scores, key=scores.get, reverse=True)[:k]
     cosines = dict(vector)
-    hits = _hydrate(conn, vertical, top, scores, item_concepts, cosines, ranks, query)
+    hits = _hydrate(conn, vertical, top, scores, item_concepts, cosines, ranks)
 
     strict = _strict_lexical_count(conn, vertical, query, filters)
     max_cosine = max(cosines.values()) if cosines else None
@@ -273,18 +272,17 @@ def _concept_in_vertical(conn: Connection, vertical: str, concepts: list[str]) -
     )
 
 
-def _hydrate(conn, vertical, keys, scores, item_concepts, cosines, ranks, query: str | None = None) -> list[Hit]:
+def _hydrate(conn, vertical, keys, scores, item_concepts, cosines, ranks) -> list[Hit]:
     if not keys:
         return []
     rows = conn.execute(
-        """SELECT d.entity_type, d.entity_id, d.content, d.metadata,
-                  coalesce(d.tsv_unaccent @@ plainto_tsquery('spanish', es_unaccent(%s::text)), false)
+        """SELECT d.entity_type, d.entity_id, d.content, d.metadata
            FROM search_documents d
            JOIN unnest(%s::text[], %s::text[]) AS k(entity_type, entity_id) USING (entity_type, entity_id)
            WHERE d.vertical = %s""",
-        (query, [t for t, _ in keys], [i for _, i in keys], vertical),
+        ([t for t, _ in keys], [i for _, i in keys], vertical),
     ).fetchall()
-    by_key = {(t, i): (content, metadata, strict) for t, i, content, metadata, strict in rows}
+    by_key = {(t, i): (content, metadata) for t, i, content, metadata in rows}
     return [
         Hit(
             vertical,
@@ -296,7 +294,6 @@ def _hydrate(conn, vertical, keys, scores, item_concepts, cosines, ranks, query:
             item_concepts.get(key),
             cosines.get(key),
             ranks.get(key, {}),
-            by_key[key][2],
         )
         for key in keys
         if key in by_key

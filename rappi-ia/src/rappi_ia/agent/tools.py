@@ -174,19 +174,13 @@ def _focus(hits, concepts: list[str], unmet: bool, capped: bool = False):
       de un coseno bajo τ, sería inventar una respuesta (y la demanda no se anotaría).
     - Con tope de precio (`capped`), si nada del concepto pedido cabe bajo el tope tampoco se muestra otra cosa:
       Bigotes dice cuánto cuesta lo más barato de lo pedido.
-    - El concepto de la consulta sale de las keywords y el de cada producto de su categoría, y pueden no coincidir
-      ("acondicionador" era keyword de higiene personal y devolvía jabones). Si ninguno del concepto pedido calza
-      todas las palabras de la consulta y los de otro concepto que sí calzan son más, mandan las palabras. Si alguno
-      del pedido calza, no ("té verde" no cambia por una crema de té verde); tampoco con tope: los resultados ya
-      vienen filtrados por precio y esa mayoría no dice nada de la consulta.
+    - El foco no cede ante productos de otro concepto que calzan las palabras: esa coincidencia mira todo el texto y
+      el stemming junta palabras («flores» calza con azúcar flor). Que el concepto de la consulta (keywords) y el de
+      los productos (categoría) coincidan se asegura en la taxonomía.
     """
     if not concepts:
         return [] if unmet else hits
     matching = [h for h in hits if h.concept_id in concepts]
-    strict_elsewhere = [h for h in hits if h.strict and h.concept_id not in concepts]
-    words_point_elsewhere = not any(h.strict for h in matching) and len(strict_elsewhere) > len(matching)
-    if matching and not capped and words_point_elsewhere:
-        return strict_elsewhere
     if matching:
         return matching
     return [] if unmet or capped else hits

@@ -111,10 +111,10 @@ def test_unmet_by_cosine_shows_nothing_and_is_recorded(bigotes, monkeypatch):
     assert "Lo anoté" in r["text"]
 
 
-def test_words_of_the_query_win_when_its_concept_is_a_minority(bigotes):
+def test_conditioner_finds_conditioners_and_soap_finds_soap(bigotes):
     """El concepto de la consulta sale de las keywords y el del producto de su categoría: si no coinciden
     («acondicionador» era keyword de higiene-personal y los acondicionadores están en cuidado-cabello), el foco se
-    quedaba con el jabón y descartaba lo que calza todas las palabras."""
+    quedaba con el jabón. Se arregla en la taxonomía, no cediendo el foco ante las palabras."""
     agent, db = bigotes
     for pid, name, category in [
         (800, "Acondicionador Sedal Ceramidas 340 ml", "Acondicionador"),
@@ -128,12 +128,43 @@ def test_words_of_the_query_win_when_its_concept_is_a_minority(bigotes):
     build_concepts(db)
     embed_search_documents(db, agent.embedder)
 
-    outcome = search_products(db, "supermercado", "acondicionador", ["higiene-personal"], agent.embedder)
+    outcome = search_products(db, "supermercado", "acondicionador", None, agent.embedder)
 
+    assert outcome.result.query_concepts == ["cuidado-cabello"]
     assert {p.entity_id for p in outcome.products} == {"800", "801"}
-    # Con el concepto bien detectado, el foco sigue siendo el concepto (pedir cigarrillos no trae cerveza).
-    soap = search_products(db, "supermercado", "jabón", ["higiene-personal"], agent.embedder)
+    soap = search_products(db, "supermercado", "jabón", None, agent.embedder)
     assert [p.entity_id for p in soap.products] == ["802"]
+
+
+def test_chance_word_matches_do_not_replace_the_concept_of_the_query(bigotes):
+    """La coincidencia estricta mira todo el texto (descripción y categoría incluidas) y el stemming junta palabras
+    (flores/flor, perfume/perfuma): si el foco cedía ante esa mayoría, «flores» mostraba azúcar flor y ron Flor de
+    Caña, y «perfume» un suavizante y un limpiapisos que «perfuman»."""
+    agent, db = bigotes
+    for pid, name, category, description in [
+        (810, "Ramo de Rosas Rojas 12 u", "Regalos", None),
+        (811, "Azúcar Flor Iansa 1 kg", "Azúcar y endulzantes", None),
+        (812, "Ron Flor de Caña 4 Años 750 ml", "Ron", None),
+        (813, "Body Mist Bfresh Vainilla 250 ml", "Fragancias", None),
+        (814, "Suavizante Downy Brisa 1 L", "Suavizantes", "Perfuma tu ropa por semanas"),
+        (815, "Limpiapisos Excell Lavanda 900 ml", "Limpiapisos", "Perfuma tu hogar"),
+    ]:
+        add_product(db, pid, name, 1, category)
+        add_price(db, 1, pid, 2990)
+        if description:
+            db.execute("UPDATE catalog_items SET description = %s WHERE master_product_id = %s", (description, pid))
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    flowers = search_products(db, "supermercado", "flores", None, agent.embedder)
+    perfume = search_products(db, "supermercado", "perfume", None, agent.embedder)
+
+    assert flowers.result.query_concepts == ["flores-regalos"]
+    assert [p.entity_id for p in flowers.products] == ["810"]
+    assert perfume.result.query_concepts == ["fragancias"]
+    assert [p.entity_id for p in perfume.products] == ["813"]
 
 
 def test_filler_prices_are_never_shown(bigotes):
