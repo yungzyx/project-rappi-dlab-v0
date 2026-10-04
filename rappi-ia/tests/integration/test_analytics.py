@@ -432,6 +432,63 @@ def test_the_multi_vertical_retention_compares_both_groups_with_the_default_hist
     assert any(g == {"multi-vertical", "un vertical"} for g in groups.values()), rows
 
 
+SERVICE_TS = datetime(2026, 9, 27, 12, tzinfo=UTC)
+
+
+def test_services_count_offers_openings_and_accepted_hooks(db):
+    """RappiTravel y RappiFavor no tienen catálogo: su enganche se mide por eventos propios (ofrecido y abierto) y por
+    los ganchos del catálogo que se aceptan con su origen."""
+    seed_taxonomy(db, load_taxonomy())
+    travel = {"servicio": "rappitravel"}
+    events.record(
+        db,
+        [
+            events.Event("u1", "s1", "service_shown", ts=SERVICE_TS, payload=travel),
+            events.Event("u1", "s1", "service_opened", ts=SERVICE_TS, payload=travel),
+            events.Event("u2", "s2", "service_shown", ts=SERVICE_TS, payload=travel),
+            events.Event(
+                "u1",
+                "s1",
+                "suggestion_shown",
+                ts=SERVICE_TS,
+                concept_id="dermocosmetica",
+                vertical="farmacia",
+                payload={"origen": "rappitravel"},
+            ),
+            events.Event(
+                "u1",
+                "s1",
+                "suggestion_accepted",
+                ts=SERVICE_TS,
+                concept_id="dermocosmetica",
+                vertical="farmacia",
+                payload={"origen": "rappitravel"},
+            ),
+            events.Event("u3", "s3", "service_shown", ts=SERVICE_TS, payload={"servicio": "rappifavor"}),
+        ],
+        source="prototype",
+    )
+    rows = {r["servicio"]: r for r in queries.services(db, "prototype")}
+    assert rows["rappitravel"] == {
+        "servicio": "rappitravel",
+        "nombre": "✈️ RappiTravel",
+        "ofrecido": 2,
+        "abierto": 1,
+        "ganchos_mostrados": 1,
+        "ganchos_aceptados": 1,
+    }
+    assert (rows["rappifavor"]["ofrecido"], rows["rappifavor"]["abierto"]) == (1, 0)
+
+
+def test_synthetic_sessions_also_use_the_services(simulated):
+    """Sin eventos de servicios, la fila de RappiTravel y RappiFavor del panel quedaba en cero con datos simulados."""
+    db, _ = simulated
+    rows = {r["servicio"]: r for r in queries.services(db, "synthetic")}
+    travel, favor = rows["rappitravel"], rows["rappifavor"]
+    assert travel["ofrecido"] > travel["abierto"] > 0 and travel["ganchos_mostrados"] >= travel["ganchos_aceptados"] > 0
+    assert favor["ofrecido"] > favor["abierto"] > 0  # se ofrece cuando no encuentran lo que buscan
+
+
 def test_synthetic_carts_are_also_abandoned_after_starting_payment(simulated):
     """El inicio de pago se emitía solo junto con el pedido, así que «pagan» era siempre igual a «piden». Ahora una
     parte de los carros abandonados alcanza a iniciar el pago, y el resto se va antes."""

@@ -29,6 +29,8 @@ EVENT_TYPES = {
     "suggestion_accepted",
     "suggestion_dismissed",
     "recommendation_click",
+    "service_shown",  # Bigotes ofreció un servicio sin catálogo (payload.servicio)
+    "service_opened",  # se tocó el botón que abre ese servicio
 }
 QUERY_RETENTION_DAYS = 90
 HALF_LIFE_DAYS = 14  # el interés se reduce a la mitad cada 2 semanas sin actividad

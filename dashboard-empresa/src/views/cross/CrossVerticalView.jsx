@@ -6,6 +6,7 @@ import { formatNumber, formatPct, formatPoints } from '../../lib/format.js'
 import { useAnalytics } from '../../lib/useAnalytics.js'
 import { AffinityTable } from './AffinityTable.jsx'
 import { MultiVerticalRetention } from './MultiVerticalRetention.jsx'
+import { ServiceEngagement } from './ServiceEngagement.jsx'
 import { strataRows } from './strata.js'
 import { MIN_SHOWN_FOR_RATE, SuggestionPerformance } from './SuggestionPerformance.jsx'
 import './cross.css'
@@ -88,6 +89,10 @@ function Suggestions({ source }) {
   return <SuggestionPerformance rows={useAnalytics('suggestions', source)} />
 }
 
+function Services({ source }) {
+  return <ServiceEngagement rows={useAnalytics('services', source)} />
+}
+
 function Affinity({ source }) {
   return <AffinityTable rows={useAnalytics('affinity', source)} />
 }
@@ -114,6 +119,22 @@ export function CrossVerticalView({ source }) {
         <div className="block enter">
           <Async>
             <Suggestions source={source} />
+          </Async>
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="servicios">
+        <div className="section-head">
+          <h2 id="servicios">Servicios sin catálogo</h2>
+          <p>
+            RappiTravel y RappiFavor no tienen productos: Bigotes los ofrece cuando alguien habla de un viaje o de un
+            envío, y RappiFavor también cuando no encuentra lo que busca. El gancho es lo que sugiere del catálogo junto
+            con el servicio (protector solar para un viaje).
+          </p>
+        </div>
+        <div className="block enter">
+          <Async>
+            <Services source={source} />
           </Async>
         </div>
       </section>

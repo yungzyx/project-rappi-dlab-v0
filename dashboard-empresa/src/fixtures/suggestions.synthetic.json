@@ -4,200 +4,200 @@
     {
       "concepto": "🥤 Bebidas gaseosas",
       "vertical": "licores",
-      "mostradas": 1956,
-      "aceptadas": 518,
-      "ignoradas": 1438,
-      "convertidas": 369,
-      "aceptacion_pct": 26.5
+      "mostradas": 1867,
+      "aceptadas": 479,
+      "ignoradas": 1388,
+      "convertidas": 331,
+      "aceptacion_pct": 25.7
     },
     {
       "concepto": "🍺 Cerveza",
       "vertical": "licores",
-      "mostradas": 1857,
-      "aceptadas": 480,
-      "ignoradas": 1377,
-      "convertidas": 329,
-      "aceptacion_pct": 25.8
+      "mostradas": 1829,
+      "aceptadas": 458,
+      "ignoradas": 1371,
+      "convertidas": 325,
+      "aceptacion_pct": 25
     },
     {
       "concepto": "🍮 Postres",
       "vertical": "conveniencia",
-      "mostradas": 1330,
-      "aceptadas": 261,
-      "ignoradas": 1069,
-      "convertidas": 166,
-      "aceptacion_pct": 19.6
+      "mostradas": 1190,
+      "aceptadas": 232,
+      "ignoradas": 958,
+      "convertidas": 167,
+      "aceptacion_pct": 19.5
     },
     {
       "concepto": "🥛 Leche y yogur",
       "vertical": "conveniencia",
-      "mostradas": 984,
-      "aceptadas": 227,
-      "ignoradas": 757,
-      "convertidas": 170,
-      "aceptacion_pct": 23.1
-    },
-    {
-      "concepto": "🧃 Jugos y néctares",
-      "vertical": "licores",
-      "mostradas": 747,
-      "aceptadas": 151,
-      "ignoradas": 596,
-      "convertidas": 104,
-      "aceptacion_pct": 20.2
-    },
-    {
-      "concepto": "🥫 Salsas y aderezos",
-      "vertical": "supermercado",
-      "mostradas": 607,
-      "aceptadas": 175,
-      "ignoradas": 432,
-      "convertidas": 122,
-      "aceptacion_pct": 28.8
-    },
-    {
-      "concepto": "🎂 Tortas y pastelería",
-      "vertical": "chocolateria",
-      "mostradas": 585,
-      "aceptadas": 161,
-      "ignoradas": 424,
-      "convertidas": 111,
-      "aceptacion_pct": 27.5
-    },
-    {
-      "concepto": "🥓 Fiambres y embutidos",
-      "vertical": "turbo",
-      "mostradas": 574,
-      "aceptadas": 129,
-      "ignoradas": 445,
-      "convertidas": 91,
-      "aceptacion_pct": 22.5
-    },
-    {
-      "concepto": "☕ Café",
-      "vertical": "supermercado",
-      "mostradas": 556,
-      "aceptadas": 139,
-      "ignoradas": 417,
-      "convertidas": 89,
-      "aceptacion_pct": 25
-    },
-    {
-      "concepto": "🥨 Snacks salados",
-      "vertical": "conveniencia",
-      "mostradas": 462,
-      "aceptadas": 135,
-      "ignoradas": 327,
-      "convertidas": 89,
-      "aceptacion_pct": 29.2
-    },
-    {
-      "concepto": "🔥 Carbón y leña",
-      "vertical": "licores",
-      "mostradas": 438,
-      "aceptadas": 134,
-      "ignoradas": 304,
-      "convertidas": 100,
-      "aceptacion_pct": 30.6
-    },
-    {
-      "concepto": "🥤 Bebidas gaseosas",
-      "vertical": "conveniencia",
-      "mostradas": 438,
-      "aceptadas": 129,
-      "ignoradas": 309,
-      "convertidas": 84,
-      "aceptacion_pct": 29.5
+      "mostradas": 1155,
+      "aceptadas": 247,
+      "ignoradas": 908,
+      "convertidas": 173,
+      "aceptacion_pct": 21.4
     },
     {
       "concepto": "🧴 Dermocosmética y cuidado de la piel",
       "vertical": "farmacia",
-      "mostradas": 408,
-      "aceptadas": 98,
-      "ignoradas": 310,
-      "convertidas": 71,
-      "aceptacion_pct": 24
+      "mostradas": 972,
+      "aceptadas": 210,
+      "ignoradas": 339,
+      "convertidas": 78,
+      "aceptacion_pct": 21.6
+    },
+    {
+      "concepto": "🥓 Fiambres y embutidos",
+      "vertical": "turbo",
+      "mostradas": 688,
+      "aceptadas": 152,
+      "ignoradas": 536,
+      "convertidas": 118,
+      "aceptacion_pct": 22.1
+    },
+    {
+      "concepto": "🧃 Jugos y néctares",
+      "vertical": "licores",
+      "mostradas": 688,
+      "aceptadas": 148,
+      "ignoradas": 540,
+      "convertidas": 97,
+      "aceptacion_pct": 21.5
+    },
+    {
+      "concepto": "🥫 Salsas y aderezos",
+      "vertical": "supermercado",
+      "mostradas": 572,
+      "aceptadas": 169,
+      "ignoradas": 403,
+      "convertidas": 116,
+      "aceptacion_pct": 29.5
+    },
+    {
+      "concepto": "☕ Café",
+      "vertical": "supermercado",
+      "mostradas": 564,
+      "aceptadas": 129,
+      "ignoradas": 435,
+      "convertidas": 99,
+      "aceptacion_pct": 22.9
+    },
+    {
+      "concepto": "🎂 Tortas y pastelería",
+      "vertical": "chocolateria",
+      "mostradas": 561,
+      "aceptadas": 159,
+      "ignoradas": 402,
+      "convertidas": 109,
+      "aceptacion_pct": 28.3
+    },
+    {
+      "concepto": "🔥 Carbón y leña",
+      "vertical": "licores",
+      "mostradas": 504,
+      "aceptadas": 133,
+      "ignoradas": 371,
+      "convertidas": 103,
+      "aceptacion_pct": 26.4
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "conveniencia",
+      "mostradas": 363,
+      "aceptadas": 116,
+      "ignoradas": 247,
+      "convertidas": 76,
+      "aceptacion_pct": 32
+    },
+    {
+      "concepto": "🥤 Bebidas gaseosas",
+      "vertical": "conveniencia",
+      "mostradas": 335,
+      "aceptadas": 100,
+      "ignoradas": 235,
+      "convertidas": 64,
+      "aceptacion_pct": 29.9
     },
     {
       "concepto": "🦴 Accesorios para mascotas",
       "vertical": "conveniencia",
-      "mostradas": 366,
-      "aceptadas": 73,
-      "ignoradas": 293,
-      "convertidas": 61,
-      "aceptacion_pct": 19.9
+      "mostradas": 334,
+      "aceptadas": 67,
+      "ignoradas": 267,
+      "convertidas": 49,
+      "aceptacion_pct": 20.1
     },
     {
       "concepto": "🧷 Pañales y toallitas",
       "vertical": "farmacia",
-      "mostradas": 204,
+      "mostradas": 215,
       "aceptadas": 36,
-      "ignoradas": 168,
-      "convertidas": 27,
-      "aceptacion_pct": 17.6
+      "ignoradas": 179,
+      "convertidas": 30,
+      "aceptacion_pct": 16.7
     },
     {
       "concepto": "🍺 Cerveza",
       "vertical": "conveniencia",
-      "mostradas": 199,
-      "aceptadas": 48,
-      "ignoradas": 151,
-      "convertidas": 35,
-      "aceptacion_pct": 24.1
-    },
-    {
-      "concepto": "🥨 Snacks salados",
-      "vertical": "licores",
-      "mostradas": 179,
-      "aceptadas": 59,
-      "ignoradas": 120,
-      "convertidas": 43,
-      "aceptacion_pct": 33
+      "mostradas": 174,
+      "aceptadas": 49,
+      "ignoradas": 125,
+      "convertidas": 38,
+      "aceptacion_pct": 28.2
     },
     {
       "concepto": "🧀 Quesos",
       "vertical": "supermercado",
-      "mostradas": 126,
-      "aceptadas": 41,
-      "ignoradas": 85,
-      "convertidas": 30,
-      "aceptacion_pct": 32.5
+      "mostradas": 140,
+      "aceptadas": 48,
+      "ignoradas": 92,
+      "convertidas": 31,
+      "aceptacion_pct": 34.3
+    },
+    {
+      "concepto": "🥨 Snacks salados",
+      "vertical": "licores",
+      "mostradas": 135,
+      "aceptadas": 31,
+      "ignoradas": 104,
+      "convertidas": 16,
+      "aceptacion_pct": 23
     },
     {
       "concepto": "🧃 Jugos y néctares",
       "vertical": "conveniencia",
-      "mostradas": 89,
-      "aceptadas": 20,
-      "ignoradas": 69,
+      "mostradas": 78,
+      "aceptadas": 23,
+      "ignoradas": 55,
       "convertidas": 12,
-      "aceptacion_pct": 22.5
+      "aceptacion_pct": 29.5
     },
     {
       "concepto": "🍫 Chocolates",
       "vertical": "chocolateria",
-      "mostradas": 83,
-      "aceptadas": 22,
-      "ignoradas": 61,
-      "convertidas": 13,
-      "aceptacion_pct": 26.5
-    },
-    {
-      "concepto": "🍬 Golosinas",
-      "vertical": "conveniencia",
-      "mostradas": 67,
-      "aceptadas": 18,
-      "ignoradas": 49,
-      "convertidas": 10,
-      "aceptacion_pct": 26.9
+      "mostradas": 54,
+      "aceptadas": 13,
+      "ignoradas": 41,
+      "convertidas": 9,
+      "aceptacion_pct": 24.1
     },
     {
       "concepto": "🦴 Accesorios para mascotas",
       "vertical": "supermercado",
-      "mostradas": 48,
-      "aceptadas": 12,
-      "ignoradas": 36,
-      "convertidas": 11,
-      "aceptacion_pct": 25
+      "mostradas": 53,
+      "aceptadas": 13,
+      "ignoradas": 40,
+      "convertidas": 9,
+      "aceptacion_pct": 24.5
+    },
+    {
+      "concepto": "🍬 Golosinas",
+      "vertical": "conveniencia",
+      "mostradas": 38,
+      "aceptadas": 8,
+      "ignoradas": 30,
+      "convertidas": 5,
+      "aceptacion_pct": 21.1
     }
   ]
 }

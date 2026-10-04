@@ -1,17 +1,17 @@
 {
   "source": "synthetic",
   "data": {
-    "as_of": "2026-10-03T23:49:19.706775-03:00",
-    "usuarios_activos": 993,
-    "pedidos_30d": 2456,
-    "frecuencia": 2.47,
-    "mediana_dias_entre_pedidos": 10,
-    "abandono_carrito_pct": 28.5,
-    "multi_vertical_pct": 66.5,
-    "en_riesgo": 206,
-    "perdidos": 299,
-    "busquedas_sin_resultado_pct": 22,
-    "conversion_sesiones_pct": 54,
+    "as_of": "2026-10-03T23:59:22.418171-03:00",
+    "usuarios_activos": 977,
+    "pedidos_30d": 2328,
+    "frecuencia": 2.38,
+    "mediana_dias_entre_pedidos": 9,
+    "abandono_carrito_pct": 28.7,
+    "multi_vertical_pct": 63,
+    "en_riesgo": 192,
+    "perdidos": 270,
+    "busquedas_sin_resultado_pct": 23.1,
+    "conversion_sesiones_pct": 53.6,
     "source": "synthetic"
   }
 }

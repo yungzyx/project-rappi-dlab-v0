@@ -4,32 +4,32 @@
     {
       "estrato": "1–2 compras",
       "grupo": "multi-vertical",
-      "usuarios": 54,
-      "retencion_pct": 38.9
+      "usuarios": 47,
+      "retencion_pct": 46.8
     },
     {
       "estrato": "1–2 compras",
       "grupo": "un vertical",
-      "usuarios": 89,
-      "retencion_pct": 38.2
+      "usuarios": 99,
+      "retencion_pct": 30.3
     },
     {
       "estrato": "3–5 compras",
       "grupo": "multi-vertical",
       "usuarios": 178,
-      "retencion_pct": 78.7
+      "retencion_pct": 82.6
     },
     {
       "estrato": "3–5 compras",
       "grupo": "un vertical",
-      "usuarios": 52,
-      "retencion_pct": 55.8
+      "usuarios": 67,
+      "retencion_pct": 76.1
     },
     {
       "estrato": "6+ compras",
       "grupo": "multi-vertical",
-      "usuarios": 212,
-      "retencion_pct": 86.3
+      "usuarios": 213,
+      "retencion_pct": 88.3
     }
   ]
 }

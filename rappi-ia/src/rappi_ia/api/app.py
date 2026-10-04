@@ -399,6 +399,7 @@ ANALYTICS = {
     "rhythm": queries.rhythm_histogram,
     "at-risk": queries.at_risk,
     "suggestions": queries.suggestions,
+    "services": queries.services,
     "multi-vertical": queries.multi_vertical_retention,
     "affinity": queries.affinity,
     "assortment": queries.assortment_vs_demand,

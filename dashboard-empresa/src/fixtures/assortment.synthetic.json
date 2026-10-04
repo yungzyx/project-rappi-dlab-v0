@@ -2,144 +2,144 @@
   "source": "synthetic",
   "data": [
     {
+      "concepto": "🚗 Auto",
+      "vertical": "mall",
+      "usuarios_que_buscan": 41,
+      "items_en_catalogo": 16,
+      "usuarios_por_item": 2.56
+    },
+    {
       "concepto": "☕ Café",
       "vertical": "conveniencia",
-      "usuarios_que_buscan": 186,
+      "usuarios_que_buscan": 188,
       "items_en_catalogo": 88,
-      "usuarios_por_item": 2.11
+      "usuarios_por_item": 2.14
     },
     {
       "concepto": "🥞 Desayunos y brunch",
       "vertical": "restaurantes",
-      "usuarios_que_buscan": 415,
+      "usuarios_que_buscan": 418,
       "items_en_catalogo": 214,
-      "usuarios_por_item": 1.94
+      "usuarios_por_item": 1.95
     },
     {
       "concepto": "⚡ Energéticas e isotónicas",
       "vertical": "conveniencia",
-      "usuarios_que_buscan": 223,
+      "usuarios_que_buscan": 216,
       "items_en_catalogo": 124,
-      "usuarios_por_item": 1.8
-    },
-    {
-      "concepto": "🚗 Auto",
-      "vertical": "mall",
-      "usuarios_que_buscan": 28,
-      "items_en_catalogo": 16,
-      "usuarios_por_item": 1.75
-    },
-    {
-      "concepto": "🧊 Hielo",
-      "vertical": "licores",
-      "usuarios_que_buscan": 54,
-      "items_en_catalogo": 47,
-      "usuarios_por_item": 1.15
-    },
-    {
-      "concepto": "🧷 Pañales y toallitas",
-      "vertical": "supermercado",
-      "usuarios_que_buscan": 224,
-      "items_en_catalogo": 219,
-      "usuarios_por_item": 1.02
+      "usuarios_por_item": 1.74
     },
     {
       "concepto": "🍎 Frutas",
       "vertical": "supermercado",
-      "usuarios_que_buscan": 354,
+      "usuarios_que_buscan": 390,
       "items_en_catalogo": 360,
-      "usuarios_por_item": 0.98
+      "usuarios_por_item": 1.08
     },
     {
-      "concepto": "🎂 Tortas y pastelería",
-      "vertical": "chocolateria",
-      "usuarios_que_buscan": 147,
-      "items_en_catalogo": 173,
-      "usuarios_por_item": 0.85
-    },
-    {
-      "concepto": "🥤 Bebidas gaseosas",
-      "vertical": "conveniencia",
-      "usuarios_que_buscan": 121,
-      "items_en_catalogo": 154,
-      "usuarios_por_item": 0.79
+      "concepto": "🧷 Pañales y toallitas",
+      "vertical": "supermercado",
+      "usuarios_que_buscan": 219,
+      "items_en_catalogo": 219,
+      "usuarios_por_item": 1
     },
     {
       "concepto": "🍼 Alimentación infantil",
       "vertical": "supermercado",
-      "usuarios_que_buscan": 144,
+      "usuarios_que_buscan": 163,
       "items_en_catalogo": 184,
-      "usuarios_por_item": 0.78
+      "usuarios_por_item": 0.89
     },
     {
-      "concepto": "🍪 Galletas",
-      "vertical": "conveniencia",
-      "usuarios_que_buscan": 148,
-      "items_en_catalogo": 203,
-      "usuarios_por_item": 0.73
+      "concepto": "🎂 Tortas y pastelería",
+      "vertical": "chocolateria",
+      "usuarios_que_buscan": 149,
+      "items_en_catalogo": 173,
+      "usuarios_por_item": 0.86
     },
     {
       "concepto": "🍞 Pan",
       "vertical": "supermercado",
-      "usuarios_que_buscan": 303,
+      "usuarios_que_buscan": 341,
       "items_en_catalogo": 423,
-      "usuarios_por_item": 0.72
+      "usuarios_por_item": 0.81
     },
     {
-      "concepto": "🥨 Snacks salados",
-      "vertical": "conveniencia",
-      "usuarios_que_buscan": 146,
-      "items_en_catalogo": 204,
-      "usuarios_por_item": 0.72
-    },
-    {
-      "concepto": "🍸 Pisco",
+      "concepto": "🧊 Hielo",
       "vertical": "licores",
-      "usuarios_que_buscan": 173,
-      "items_en_catalogo": 243,
-      "usuarios_por_item": 0.71
+      "usuarios_que_buscan": 35,
+      "items_en_catalogo": 47,
+      "usuarios_por_item": 0.74
     },
     {
       "concepto": "🥣 Cereales y avena",
       "vertical": "supermercado",
-      "usuarios_que_buscan": 151,
+      "usuarios_que_buscan": 167,
       "items_en_catalogo": 228,
-      "usuarios_por_item": 0.66
+      "usuarios_por_item": 0.73
     },
     {
-      "concepto": "🥃 Ron",
-      "vertical": "licores",
-      "usuarios_que_buscan": 104,
-      "items_en_catalogo": 159,
-      "usuarios_por_item": 0.65
-    },
-    {
-      "concepto": "🍺 Cerveza",
+      "concepto": "🍪 Galletas",
       "vertical": "conveniencia",
-      "usuarios_que_buscan": 135,
-      "items_en_catalogo": 218,
-      "usuarios_por_item": 0.62
+      "usuarios_que_buscan": 131,
+      "items_en_catalogo": 203,
+      "usuarios_por_item": 0.65
     },
     {
       "concepto": "🥛 Leche y yogur",
       "vertical": "supermercado",
-      "usuarios_que_buscan": 369,
+      "usuarios_que_buscan": 428,
       "items_en_catalogo": 709,
-      "usuarios_por_item": 0.52
+      "usuarios_por_item": 0.6
+    },
+    {
+      "concepto": "🥤 Bebidas gaseosas",
+      "vertical": "conveniencia",
+      "usuarios_que_buscan": 91,
+      "items_en_catalogo": 154,
+      "usuarios_por_item": 0.59
+    },
+    {
+      "concepto": "🍸 Pisco",
+      "vertical": "licores",
+      "usuarios_que_buscan": 132,
+      "items_en_catalogo": 243,
+      "usuarios_por_item": 0.54
     },
     {
       "concepto": "🥨 Snacks salados",
+      "vertical": "conveniencia",
+      "usuarios_que_buscan": 110,
+      "items_en_catalogo": 204,
+      "usuarios_por_item": 0.54
+    },
+    {
+      "concepto": "🥃 Ron",
       "vertical": "licores",
-      "usuarios_que_buscan": 135,
-      "items_en_catalogo": 262,
-      "usuarios_por_item": 0.52
+      "usuarios_que_buscan": 85,
+      "items_en_catalogo": 159,
+      "usuarios_por_item": 0.53
+    },
+    {
+      "concepto": "🧽 Limpieza",
+      "vertical": "supermercado",
+      "usuarios_que_buscan": 387,
+      "items_en_catalogo": 799,
+      "usuarios_por_item": 0.48
+    },
+    {
+      "concepto": "🍗 Pollo frito y asado",
+      "vertical": "restaurantes",
+      "usuarios_que_buscan": 264,
+      "items_en_catalogo": 554,
+      "usuarios_por_item": 0.48
     },
     {
       "concepto": "🍸 Vodka",
       "vertical": "licores",
-      "usuarios_que_buscan": 75,
+      "usuarios_que_buscan": 69,
       "items_en_catalogo": 145,
-      "usuarios_por_item": 0.52
+      "usuarios_por_item": 0.48
     }
   ]
 }

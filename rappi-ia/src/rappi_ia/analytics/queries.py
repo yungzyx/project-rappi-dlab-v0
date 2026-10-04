@@ -8,6 +8,7 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 
 from ..agent.verticals import _SHARES, MIN_ITEMS_ELSEWHERE
+from ..concepts.taxonomy import load_taxonomy
 
 SOURCES = ("synthetic", "prototype")
 ACTIVE_DAYS = 30
@@ -412,6 +413,33 @@ def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
             "min_shown": 1 if source == "prototype" else MIN_SUGGESTIONS_SHOWN,
         },
     )
+
+
+def services(conn: Connection, source: str = "synthetic") -> list[dict]:
+    """Servicios sin catálogo (RappiTravel, RappiFavor): cuántas veces Bigotes los ofreció, cuántas se abrieron y los
+    ganchos del catálogo (sugerencias con su origen) mostrados y aceptados. Una fila por servicio de la taxonomía."""
+    _check(source)
+    counts = {
+        (service, kind): n
+        for service, kind, n in conn.execute(
+            """SELECT coalesce(payload ->> 'servicio', payload ->> 'origen'), type, count(*) FROM app_events
+               WHERE source = %(source)s AND (type IN ('service_shown', 'service_opened')
+                     OR (type IN ('suggestion_shown', 'suggestion_accepted') AND payload ->> 'origen' = ANY(%(ids)s)))
+               GROUP BY 1, 2""",
+            {"source": source, "ids": list(load_taxonomy().services)},
+        )
+    }
+    return [
+        {
+            "servicio": s.id,
+            "nombre": s.label,
+            "ofrecido": counts.get((s.id, "service_shown"), 0),
+            "abierto": counts.get((s.id, "service_opened"), 0),
+            "ganchos_mostrados": counts.get((s.id, "suggestion_shown"), 0),
+            "ganchos_aceptados": counts.get((s.id, "suggestion_accepted"), 0),
+        }
+        for s in load_taxonomy().services.values()
+    ]
 
 
 def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> list[dict]:

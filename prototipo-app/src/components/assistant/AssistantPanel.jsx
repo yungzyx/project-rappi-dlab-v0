@@ -118,12 +118,20 @@ export default function AssistantPanel({ push, vertical }) {
    * pestaña (firstShowing): AddButton registra la mostrada que falte al aceptarla y no debe contarse dos veces.
    */
   const noteSuggestion = (message) => {
+    // Un servicio sin catálogo (RappiTravel, RappiFavor) ofrecido: cada vez que Bigotes lo ofrece.
+    if (message.service) events.track('service_shown', { payload: { servicio: message.service } })
     if (!message.suggestion) return message
-    const { concept, vertical } = message.suggestion
+    const { concept, vertical, origin = 'chat' } = message.suggestion
     noteShownTopic(concept)
-    if (firstShowing({ concept, vertical, origin: 'chat', generation: profile.resets }))
-      events.track('suggestion_shown', { concept_id: concept, vertical, payload: { origen: 'chat' } })
+    if (firstShowing({ concept, vertical, origin, generation: profile.resets }))
+      events.track('suggestion_shown', { concept_id: concept, vertical, payload: { origen: origin } })
     return message
+  }
+
+  const onAction = (action) => {
+    if (action.ask) return send(action.ask.text, action.ask.vertical)
+    if (action.service) events.track('service_opened', { payload: { servicio: action.service } })
+    go(...action.route)
   }
 
   /**
@@ -509,7 +517,7 @@ export default function AssistantPanel({ push, vertical }) {
               })
             }
             onOpenStore={(store) => go('store', { store })}
-            onAction={(action) => (action.ask ? send(action.ask.text, action.ask.vertical) : go(...action.route))}
+            onAction={onAction}
           />
         ))}
       </div>

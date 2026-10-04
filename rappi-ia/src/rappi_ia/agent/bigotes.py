@@ -118,7 +118,10 @@ class Bigotes:
         if unmet and ctx.mode == "propuesta":  # lo que no está en el catálogo, un Rappitendero lo compra donde esté
             favor = self.taxonomy.services["rappifavor"]
             response["text"] += f" Si lo venden en otra tienda, {favor.label} te lo compra y te lo lleva."
-            response["actions"].append({"label": f"Pedirlo con {favor.name}", "route": [favor.route]})
+            response["actions"].append(
+                {"label": f"Pedirlo con {favor.name}", "route": [favor.route], "service": favor.id}
+            )
+            response["service"] = favor.id
         return response
 
     def _service(self, conn: Connection, intent: Intent, ctx: Context) -> dict:
@@ -126,7 +129,8 @@ class Bigotes:
         con productos que no se haya mostrado en la sesión)."""
         service = self.taxonomy.services[intent.service]
         response = _base(intent, f"Para eso está {service.label}: {service.pitch}.")
-        response.update(service=service.id, actions=[{"label": f"Abrir {service.name}", "route": [service.route]}])
+        action = {"label": f"Abrir {service.name}", "route": [service.route], "service": service.id}
+        response.update(service=service.id, actions=[action])
         if ctx.mode != "propuesta":
             return response
         for hook in service.hooks:

@@ -136,7 +136,13 @@ export function toMessage(response) {
         vertical: response.suggestion.vertical,
         verticalLabel: verticalView(response.suggestion.vertical).label,
         route: verticalView(response.suggestion.vertical).route,
-        products: response.suggestion.products.map((p) => ({ ...toPrototypeProduct(p), fromSuggestion: true })),
+        // El gancho de un servicio (RappiTravel) se mide con su origen; las demás, como sugerencia del chat.
+        origin: response.service ?? 'chat',
+        products: response.suggestion.products.map((p) => ({
+          ...toPrototypeProduct(p),
+          fromSuggestion: true,
+          suggestionOrigin: response.service ?? 'chat',
+        })),
       }
     : null
   const alsoIn = response.also_in
@@ -152,6 +158,7 @@ export function toMessage(response) {
     : null
   return {
     text: response.text,
+    service: response.service ?? null,
     products: (response.products ?? []).map(toPrototypeProduct),
     alsoIn,
     // La razón visible va con la sugerencia cruzada; aquí no se repite.

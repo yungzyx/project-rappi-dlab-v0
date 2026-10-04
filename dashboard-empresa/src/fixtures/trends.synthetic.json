@@ -2,88 +2,88 @@
   "source": "synthetic",
   "data": [
     {
-      "concept_id": "hielo",
-      "concepto": "🧊 Hielo",
+      "concept_id": "carbon",
+      "concepto": "🔥 Carbón y leña",
       "recientes": 15,
-      "anteriores": 34,
-      "crecimiento_pct": -56
-    },
-    {
-      "concept_id": "fiambres",
-      "concepto": "🥓 Fiambres y embutidos",
-      "recientes": 19,
-      "anteriores": 37,
-      "crecimiento_pct": -49
-    },
-    {
-      "concept_id": "espumante",
-      "concepto": "🥂 Espumante",
-      "recientes": 34,
-      "anteriores": 61,
+      "anteriores": 27,
       "crecimiento_pct": -44
-    },
-    {
-      "concept_id": "alimentacion-bebe",
-      "concepto": "🍼 Alimentación infantil",
-      "recientes": 85,
-      "anteriores": 150,
-      "crecimiento_pct": -43
-    },
-    {
-      "concept_id": "pisco",
-      "concepto": "🍸 Pisco",
-      "recientes": 114,
-      "anteriores": 193,
-      "crecimiento_pct": -41
     },
     {
       "concept_id": "peruana",
       "concepto": "🇵🇪 Comida peruana",
-      "recientes": 450,
+      "recientes": 457,
       "anteriores": 320,
-      "crecimiento_pct": 41
+      "crecimiento_pct": 43
     },
     {
-      "concept_id": "pollo-preparado",
-      "concepto": "🍗 Pollo frito y asado",
-      "recientes": 250,
-      "anteriores": 410,
-      "crecimiento_pct": -39
+      "concept_id": "vodka",
+      "concepto": "🍸 Vodka",
+      "recientes": 19,
+      "anteriores": 32,
+      "crecimiento_pct": -41
     },
     {
-      "concept_id": "juguetes-infantiles",
-      "concepto": "🧸 Juguetes",
-      "recientes": 26,
-      "anteriores": 39,
-      "crecimiento_pct": -33
+      "concept_id": "fiambres",
+      "concepto": "🥓 Fiambres y embutidos",
+      "recientes": 20,
+      "anteriores": 32,
+      "crecimiento_pct": -38
     },
     {
-      "concept_id": "cocina-menaje",
-      "concepto": "🍳 Cocina y menaje",
-      "recientes": 34,
-      "anteriores": 49,
+      "concept_id": "ensaladas-bowls",
+      "concepto": "🥗 Ensaladas y bowls",
+      "recientes": 255,
+      "anteriores": 388,
+      "crecimiento_pct": -34
+    },
+    {
+      "concept_id": "alimento-gato",
+      "concepto": "🐈 Alimento para gatos",
+      "recientes": 84,
+      "anteriores": 123,
+      "crecimiento_pct": -32
+    },
+    {
+      "concept_id": "postres",
+      "concepto": "🍮 Postres",
+      "recientes": 98,
+      "anteriores": 142,
       "crecimiento_pct": -31
     },
     {
-      "concept_id": "carbon",
-      "concepto": "🔥 Carbón y leña",
-      "recientes": 35,
-      "anteriores": 27,
-      "crecimiento_pct": 30
+      "concept_id": "frutas",
+      "concepto": "🍎 Frutas",
+      "recientes": 409,
+      "anteriores": 559,
+      "crecimiento_pct": -27
     },
     {
-      "concept_id": "panaderia",
-      "concepto": "🍞 Pan",
-      "recientes": 265,
-      "anteriores": 371,
-      "crecimiento_pct": -29
+      "concept_id": "vino",
+      "concepto": "🍷 Vino",
+      "recientes": 77,
+      "anteriores": 102,
+      "crecimiento_pct": -25
     },
     {
-      "concept_id": "hamburguesa",
-      "concepto": "🍔 Hamburguesa",
-      "recientes": 273,
-      "anteriores": 378,
-      "crecimiento_pct": -28
+      "concept_id": "pisco",
+      "concepto": "🍸 Pisco",
+      "recientes": 103,
+      "anteriores": 136,
+      "crecimiento_pct": -24
+    },
+    {
+      "concept_id": "gaseosas",
+      "concepto": "🥤 Bebidas gaseosas",
+      "recientes": 141,
+      "anteriores": 186,
+      "crecimiento_pct": -24
+    },
+    {
+      "concept_id": "cereales",
+      "concepto": "🥣 Cereales y avena",
+      "recientes": 128,
+      "anteriores": 104,
+      "crecimiento_pct": 23
     }
   ]
 }

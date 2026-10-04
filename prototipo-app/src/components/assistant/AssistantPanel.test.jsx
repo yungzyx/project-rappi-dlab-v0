@@ -519,3 +519,38 @@ describe('lo aprendido y Olvidar', () => {
     expect(screen.queryByText('Aprendiendo de ti:')).toBeNull()
   })
 })
+
+describe('servicios sin catálogo', () => {
+  test('RappiTravel queda registrado como ofrecido y abierto, y su gancho con su origen', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      text: 'Para eso está ✈️ RappiTravel',
+      products: [],
+      service: 'rappitravel',
+      actions: [{ label: 'Abrir RappiTravel', route: ['travel'], service: 'rappitravel' }],
+      suggestion: {
+        concept: 'dermocosmetica',
+        vertical: 'farmacia',
+        reason: 'Para tu viaje ✈️',
+        question: '¿Llevas protector solar?',
+        products: [],
+      },
+    })
+    await renderPanel({ push })
+    say('me voy de vacaciones')
+    await runUntilIdle()
+
+    const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
+    expect(tracked('service_shown')).toEqual([{ payload: { servicio: 'rappitravel' } }])
+    expect(tracked('suggestion_shown')).toContainEqual({
+      concept_id: 'dermocosmetica',
+      vertical: 'farmacia',
+      payload: { origen: 'rappitravel' },
+    })
+
+    fireEvent.click(screen.getByText('Abrir RappiTravel →'))
+    await runUntilIdle()
+    expect(tracked('service_opened')).toEqual([{ payload: { servicio: 'rappitravel' } }])
+    expect(push).toHaveBeenCalledWith('travel', undefined, expect.anything())
+  })
+})

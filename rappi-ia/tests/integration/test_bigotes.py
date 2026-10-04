@@ -536,7 +536,7 @@ def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
 
     r = agent.reply(db, "me voy de vacaciones a la playa", Context())
     assert r["intent"]["kind"] == "servicio" and r["service"] == "rappitravel"
-    assert r["actions"] == [{"label": "Abrir RappiTravel", "route": ["travel"]}]
+    assert r["actions"] == [{"label": "Abrir RappiTravel", "route": ["travel"], "service": "rappitravel"}]
     assert "RappiTravel" in r["text"] and not r["products"]
     assert r["suggestion"]["concept"] == "dermocosmetica" and r["suggestion"]["reason"] == "Para tu viaje ✈️"
     assert [p["entity_id"] for p in r["suggestion"]["products"]] == ["900"]
@@ -550,7 +550,8 @@ def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
 def test_an_errand_opens_rappifavor(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "se me quedaron las llaves en la oficina", Context())
-    assert r["service"] == "rappifavor" and r["actions"] == [{"label": "Abrir RappiFavor", "route": ["favor"]}]
+    assert r["service"] == "rappifavor"
+    assert r["actions"] == [{"label": "Abrir RappiFavor", "route": ["favor"], "service": "rappifavor"}]
     assert "suggestion" not in r
 
 
@@ -559,7 +560,10 @@ def test_what_is_not_in_the_catalog_can_be_bought_with_rappifavor(bigotes, monke
     agent, db = bigotes
     monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
     r = agent.reply(db, "kombucha de jengibre", Context(vertical="supermercado"))
-    assert r["unmet"] and {"label": "Pedirlo con RappiFavor", "route": ["favor"]} in r["actions"]
+    assert (
+        r["unmet"] and {"label": "Pedirlo con RappiFavor", "route": ["favor"], "service": "rappifavor"} in r["actions"]
+    )
+    assert r["service"] == "rappifavor"  # el prototipo lo registra como ofrecido
     assert "RappiFavor" in r["text"]
     actual = agent.reply(db, "kombucha de jengibre", Context(vertical="supermercado", mode="actual"))
     assert actual["unmet"] and not actual["actions"]
