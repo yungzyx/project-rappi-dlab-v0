@@ -133,6 +133,7 @@
 | 29-09-2026 | Con Postgres caído la API responde 503; el chat del prototipo espera 8 s y marca «Respuesta local» si contestan sus reglas. | En una demo se tiene que saber qué Bigotes contestó. |
 | 04-10-2026 | Un respaldo fallido no detiene la tarea semanal, pero `rappi refresh` termina con código 3 y `ultimo-estado.txt` lo anota («respaldo fallido»); `make schedule-status` muestra el respaldo más nuevo. | Solo en el log quedaba escondido (`exit=0`), y con los respaldos en el mismo disco nadie notaría que el último tiene semanas. |
 | 04-10-2026 | La tarea semanal aplica las migraciones pendientes (`rappi migrate`) antes de descargar. | Una migración que trajo un `git pull` hacía fallar el refresh al final, tras un día de descarga, y el fallo se repetía cada domingo. |
+| 04-10-2026 | `make serve`, `make serve-lan` y `make refresh` migran antes (como `post-refresh`). `rappi refresh` y `rappi build-search` lanzados a mano fallan antes de empezar si hay migraciones pendientes. | Sin la 019 (vigencia), la API respondía 500 en todo lo que muestra productos mientras `/health` decía que estaba bien, y un `rappi refresh` a mano descargaba todo, cerraba las corridas y fallaba al armar la búsqueda, sin respaldo. |
 
 ## Repositorio y documentación
 

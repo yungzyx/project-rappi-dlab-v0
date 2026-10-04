@@ -13,6 +13,7 @@ from psycopg import Connection
 from ..reporting import REPORTS_DIR, write_run_report
 from ..scraping.client import RappiClient
 from ..storage import repository
+from ..storage.db import check_migrations
 from ..storage.search import build_search_documents
 from .queue import PossibleBlock
 from .restaurants import process_restaurant_jobs
@@ -69,6 +70,7 @@ def refresh(
 
     Con `resume_only` solo retoma las corridas abiertas (p. ej. las que reabrió `retry-failed`) y nunca empieza una
     nueva: sin él, una corrida de restaurantes cerrada se volvería a bajar entera."""
+    check_migrations(conn)  # antes de descargar: sin una migración nueva, fallaría recién al armar la búsqueda
     reports = []
     # Con restaurantes abiertos y tiendas cerradas, la actualización anterior se cortó después de terminar las tiendas
     # (apagado, corte de luz): se retoma en los restaurantes, sin volver a bajar tiendas.

@@ -137,7 +137,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
   ```
 
   Con `--resume-only` el script retoma solo las corridas que `retry-failed` reabrió, arma la búsqueda, respalda y actualiza la capa de IA. Sin esa opción, si uno de los dos `retry-failed` no reencoló nada (no había fallidos o ya llevan 4 intentos), esa corrida sigue cerrada y el script empezaría una nueva: por ejemplo, volvería a bajar todos los restaurantes (unas 5,5 h). Así se recuperaron el 28-09-2026 los fallidos de la primera descarga completa; farmacia, por ejemplo, pasó de 5 a 13 tiendas descargadas.
-- **Después de un `git pull`:** `make migrate` en `rappi-scraper/` (aplica las migraciones nuevas del scraper y de rappi-ia, que comparten historial). La tarea semanal también las aplica antes de descargar.
+- **Después de un `git pull`:** `make migrate` en `rappi-scraper/` (aplica las migraciones nuevas del scraper y de rappi-ia, que comparten historial). La tarea semanal también las aplica antes de descargar, y `make serve`, `make serve-lan` y `make refresh` también. `rappi refresh` y `rappi build-search` lanzados a mano no corren con migraciones pendientes: piden `rappi migrate`.
 - **Respaldo a mano:** `make backup` en `rappi-scraper/`.
 - **Mover la carpeta del proyecto** rompe los `.venv` (guardan rutas absolutas): recréalos con `make install` en `rappi-scraper/` y `make install install-ml` en `rappi-ia/`. No la muevas con una descarga en curso.
 - **Ver la base desde otro equipo**, sin abrir Postgres a la red:

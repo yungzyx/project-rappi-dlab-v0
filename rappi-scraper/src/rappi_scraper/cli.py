@@ -34,7 +34,7 @@ from .reporting import render_markdown, write_run_report
 from .scraping.client import RappiClient
 from .storage import repository
 from .storage.backup import backup_database
-from .storage.db import connect, database_url, migrate
+from .storage.db import PendingMigrations, check_migrations, connect, database_url, migrate
 from .storage.search import VERTICALS, build_search_documents, search
 
 log = logging.getLogger("rappi_scraper")
@@ -278,7 +278,7 @@ def main(argv: list[str] | None = None) -> None:
         else:
             _setup_logging(args.command)
             _run_simple(args)
-    except DownloadInProgress as exc:
+    except (DownloadInProgress, PendingMigrations) as exc:
         raise SystemExit(str(exc)) from exc
     except KeyboardInterrupt:
         log.warning("Interrumpido. Lo avanzado quedó guardado: retoma con el mismo comando.")
@@ -292,6 +292,7 @@ def _run_simple(args) -> None:
         elif args.command == "migrate":
             print("Aplicadas:", migrate(conn) or "ninguna (al día)")
         elif args.command == "build-search":
+            check_migrations(conn)
             print(build_search_documents(conn))
         elif args.command == "search":
             for hit in search(conn, args.vertical, args.query, args.limit):

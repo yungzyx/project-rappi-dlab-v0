@@ -1,12 +1,15 @@
 """`refresh`: retoma corridas abiertas o crea nuevas, y deja búsqueda, reportes y respaldo."""
 
+from contextlib import nullcontext
+
 import pytest
 
 from conftest import FakeClient
+from rappi_scraper import cli
 from rappi_scraper.pipeline.queue import PossibleBlock
 from rappi_scraper.pipeline.refresh import refresh
 from rappi_scraper.storage import repository
-from rappi_scraper.storage.db import connect, database_url
+from rappi_scraper.storage.db import PendingMigrations, connect, database_url
 
 STORE_JOB = {
     "job_key": "type:lider",
@@ -214,3 +217,28 @@ def test_resuming_with_nothing_open_rebuilds_search_and_backup_without_downloadi
 
     assert reports == [] and backups == ["ok"]
     assert db.execute("SELECT count(*) FROM scrape_runs").fetchone()[0] == 0
+
+
+def test_refresh_with_pending_migrations_stops_before_downloading(db, tmp_path):
+    """El código puede depender de una migración que trajo un `git pull` (la vista de vigencia de la 019): sin ella,
+    `refresh` bajaba todo (cerca de un día), cerraba las corridas y fallaba al armar la búsqueda, sin respaldo."""
+    db.execute("DELETE FROM schema_migrations WHERE name = '019_store_format_runs.sql'")
+    db.commit()
+    calls = []
+    client = FakeClient({"/restaurantes/384": "restaurant"})
+
+    with pytest.raises(PendingMigrations, match="019_store_format_runs.sql"):
+        refresh(db, client, _discoverer(STORE_JOB, calls), _discoverer(RESTAURANT_JOB, calls), reports_dir=tmp_path)
+
+    assert client.requested == [] and calls == []
+    assert db.execute("SELECT count(*) FROM scrape_runs").fetchone()[0] == 0
+
+
+def test_build_search_by_hand_with_pending_migrations_asks_to_migrate(db, monkeypatch):
+    db.execute("DELETE FROM schema_migrations WHERE name = '019_store_format_runs.sql'")
+    db.commit()
+    monkeypatch.setattr(cli, "connect", lambda: nullcontext(db))
+    monkeypatch.setattr(cli, "build_search_documents", lambda conn: pytest.fail("no debería armar la búsqueda"))
+
+    with pytest.raises(SystemExit, match="rappi migrate"):
+        cli.main(["build-search"])

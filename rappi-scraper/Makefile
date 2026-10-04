@@ -49,7 +49,7 @@ status:  ## Estado de las corridas y resumen por vertical
 report:  ## Reporte de calidad de la última corrida de tiendas
 	$(PY) -m rappi_scraper report
 
-refresh:  ## Actualización completa: tiendas, restaurantes, búsqueda, reportes y respaldo
+refresh: migrate  ## Actualización completa: tiendas, restaurantes, búsqueda, reportes y respaldo
 	$(PY) -m rappi_scraper refresh
 
 backup:  ## Respaldar la base en data/backups/

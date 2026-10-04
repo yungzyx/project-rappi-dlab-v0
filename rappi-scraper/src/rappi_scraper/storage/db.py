@@ -13,6 +13,10 @@ log = logging.getLogger(__name__)
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
+class PendingMigrations(RuntimeError):
+    """La base no tiene todas las migraciones del repositorio (p. ej. tras un `git pull`)."""
+
+
 def database_url(env_var: str = "DATABASE_URL") -> str:
     url = os.environ.get(env_var)
     if not url:
@@ -42,3 +46,14 @@ def migrate(conn: psycopg.Connection) -> list[str]:
         newly_applied.append(path.name)
     conn.commit()
     return newly_applied
+
+
+def check_migrations(conn: psycopg.Connection) -> None:
+    """Falla si la base no tiene todas las migraciones del repositorio: el código puede depender de ellas (la vista de
+    vigencia de la 019) y `refresh` descargaba todo antes de caerse al armar la búsqueda."""
+    applied = set()
+    if conn.execute("SELECT to_regclass('schema_migrations')").fetchone()[0] is not None:
+        applied = {row[0] for row in conn.execute("SELECT name FROM schema_migrations")}
+    pending = [path.name for path in sorted(MIGRATIONS_DIR.glob("*.sql")) if path.name not in applied]
+    if pending:
+        raise PendingMigrations(f"Hay migraciones pendientes ({', '.join(pending)}): corre `rappi migrate` antes.")
