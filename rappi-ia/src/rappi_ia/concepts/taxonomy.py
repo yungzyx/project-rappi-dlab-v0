@@ -1,7 +1,7 @@
 """Carga la taxonomía propia (`taxonomy.toml`) y los complementos curados (`complements.toml`)."""
 
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
 
@@ -38,11 +38,37 @@ class Occasion:
 
 
 @dataclass(frozen=True)
+class Hook:
+    concept: str
+    query: str
+    question: str
+
+
+@dataclass(frozen=True)
+class Service:
+    """Servicio sin catálogo (RappiTravel, RappiFavor): se reconoce por keywords y lleva a su pantalla."""
+
+    id: str
+    name: str
+    emoji: str
+    pitch: str
+    route: str
+    keywords: tuple[str, ...]
+    hooks: tuple[Hook, ...] = ()
+    reason: str | None = None  # «Porque…» de la sugerencia de un gancho
+
+    @property
+    def label(self) -> str:
+        return f"{self.emoji} {self.name}"
+
+
+@dataclass(frozen=True)
 class Taxonomy:
     version: str
     groups: dict[str, Concept]
     concepts: dict[str, Concept]  # solo hojas
     occasions: dict[str, Occasion]
+    services: dict[str, Service] = field(default_factory=dict)
 
     def get(self, concept_id: str) -> Concept:
         return self.concepts.get(concept_id) or self.groups[concept_id]
@@ -76,8 +102,21 @@ def load_taxonomy(path: Path = DATA_DIR / "taxonomy.toml") -> Taxonomy:
         o["id"]: Occasion(o["id"], o["name"], o["emoji"], tuple(o["keywords"]), tuple(o["concepts"]), o.get("vertical"))
         for o in raw.get("occasion", ())
     }
-    _validate(groups, concepts, occasions)
-    return Taxonomy(raw["version"], groups, concepts, occasions)
+    services = {
+        s["id"]: Service(
+            s["id"],
+            s["name"],
+            s["emoji"],
+            s["pitch"],
+            s["route"],
+            tuple(s["keywords"]),
+            tuple(Hook(h["concept"], h["query"], h["question"]) for h in s.get("hooks", ())),
+            s.get("reason"),
+        )
+        for s in raw.get("service", ())
+    }
+    _validate(groups, concepts, occasions, services)
+    return Taxonomy(raw["version"], groups, concepts, occasions, services)
 
 
 @cache
@@ -104,7 +143,7 @@ def load_complements(path: Path = DATA_DIR / "complements.toml") -> tuple[tuple[
     return tuple((s, t, float(w)) for s, t, w in edges)
 
 
-def _validate(groups: dict, concepts: dict, occasions: dict) -> None:
+def _validate(groups: dict, concepts: dict, occasions: dict, services: dict | None = None) -> None:
     clashes = groups.keys() & concepts.keys()
     if clashes:
         raise ValueError(f"Ids repetidos entre grupos y conceptos: {sorted(clashes)}")
@@ -117,3 +156,9 @@ def _validate(groups: dict, concepts: dict, occasions: dict) -> None:
             raise ValueError(f"Ocasión {occasion.id} con conceptos inexistentes: {unknown}")
         if occasion.vertical and occasion.vertical not in VERTICALS:
             raise ValueError(f"Ocasión {occasion.id} con vertical inexistente: {occasion.vertical}")
+    for service in (services or {}).values():
+        unknown = [h.concept for h in service.hooks if h.concept not in concepts]
+        if unknown:
+            raise ValueError(f"Servicio {service.id} con ganchos inexistentes: {unknown}")
+        if service.hooks and not service.reason:
+            raise ValueError(f"Servicio {service.id} con ganchos y sin `reason`")

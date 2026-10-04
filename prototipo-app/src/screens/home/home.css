@@ -204,6 +204,16 @@
   transform: translateX(-50%);
 }
 
+.home-shortcut-emoji {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 10px;
+  font-size: 34px;
+  font-style: normal;
+  line-height: 1;
+}
+
 .home-shortcut span {
   position: absolute;
   left: 0;

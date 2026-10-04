@@ -261,3 +261,20 @@ def test_off_topic_results_are_not_labelled_as_the_requested_concept():
     draft = Bigotes()._draft(intent, "supermercado", [pasta], no_cheapest, None, False)
     assert draft.concept_label is None
     assert "«lomo saltado»" in TemplateComposer().compose(draft) and "peruana" not in TemplateComposer().compose(draft)
+
+
+def test_services_are_recognized_when_no_product_is_named():
+    u = Understander()
+    for text, service in [
+        ("me voy de vacaciones a la playa", "rappitravel"),
+        ("busco un vuelo a buenos aires", "rappitravel"),
+        ("necesito un hotel en viña", "rappitravel"),
+        ("se me quedaron las llaves en la oficina", "rappifavor"),
+        ("necesito enviar un paquete a providencia", "rappifavor"),
+        ("quiero hacer un tramite en correos de chile", "rappifavor"),
+    ]:
+        intent = u.understand(None, text, None)
+        assert (intent.kind, intent.service) == ("servicio", service), text
+    # Si nombra un producto, manda el producto: «paquete de pañales» no es un envío.
+    assert u.understand(None, "un paquete de pañales", "supermercado").service is None
+    assert u.understand(None, "bloqueador para el viaje", "farmacia").concepts[:1] == ["dermocosmetica"]

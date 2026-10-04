@@ -27,7 +27,7 @@ from .tools import (
     suggest_complement,
 )
 from .understand import Intent, Understander
-from .verticals import available_elsewhere
+from .verticals import available_elsewhere, ranked_verticals
 
 PROTOTYPE_VERTICALS = {  # ids del prototipo (prototipo-app/src/screens/vertical/data.js)
     "supermercado": "grocery",
@@ -66,6 +66,8 @@ class Bigotes:
             return self._small_talk(intent, ctx)
         if intent.kind == "aclarar":
             return self._clarify(intent)
+        if intent.kind == "servicio":
+            return self._service(conn, intent, ctx)
         vertical = intent.vertical or ctx.vertical or "supermercado"
         outcome = None
         # Un síntoma sin producto ni vertical nombrados: remedios de farmacia (sin receta) para eso, o los analgésicos
@@ -113,6 +115,31 @@ class Bigotes:
         )
         if also_in:
             response["also_in"] = also_in
+        if unmet and ctx.mode == "propuesta":  # lo que no está en el catálogo, un Rappitendero lo compra donde esté
+            favor = self.taxonomy.services["rappifavor"]
+            response["text"] += f" Si lo venden en otra tienda, {favor.label} te lo compra y te lo lleva."
+            response["actions"].append({"label": f"Pedirlo con {favor.name}", "route": [favor.route]})
+        return response
+
+    def _service(self, conn: Connection, intent: Intent, ctx: Context) -> dict:
+        """Servicio sin catálogo: su pantalla y, en «Propuesta», UN gancho del catálogo que lo acompaña (el primero
+        con productos que no se haya mostrado en la sesión)."""
+        service = self.taxonomy.services[intent.service]
+        response = _base(intent, f"Para eso está {service.label}: {service.pitch}.")
+        response.update(service=service.id, actions=[{"label": f"Abrir {service.name}", "route": [service.route]}])
+        if ctx.mode != "propuesta":
+            return response
+        for hook in service.hooks:
+            if hook.concept in ctx.shown_topics:
+                continue
+            for vertical in ranked_verticals(conn, [hook.concept])[:2]:
+                outcome = search_products(conn, vertical, hook.query, [hook.concept], self.embedder, k=4)
+                products = [p for p in outcome.products if p.concept == hook.concept][:3]
+                if products:
+                    suggestion = Suggestion(hook.concept, service.id, vertical, service.reason, products)
+                    response["suggestion"] = self._suggestion(suggestion, question=hook.question)
+                    response["reason"] = suggestion.reason
+                    return response
         return response
 
     def reply_voice(self, conn: Connection, transcript, ctx: Context | None = None) -> dict:
@@ -228,17 +255,20 @@ class Bigotes:
             age_notice=draft.age_notice,
         )
         if suggestion:
-            label = self.taxonomy.concepts[suggestion.concept].label.lower()
-            response["suggestion"] = {
-                "reason": suggestion.reason,
-                "question": f"¿Te tinca sumar {label}?",
-                "vertical": suggestion.vertical,
-                "prototype_vertical": PROTOTYPE_VERTICALS.get(suggestion.vertical),
-                "concept": suggestion.concept,
-                "products": [p.to_dict() for p in suggestion.products],
-            }
+            response["suggestion"] = self._suggestion(suggestion)
             response["reason"] = suggestion.reason  # el prototipo muestra `reason` en el primer nivel
         return response
+
+    def _suggestion(self, suggestion: Suggestion, question: str | None = None) -> dict:
+        label = self.taxonomy.concepts[suggestion.concept].label.lower()
+        return {
+            "reason": suggestion.reason,
+            "question": question or f"¿Te tinca sumar {label}?",
+            "vertical": suggestion.vertical,
+            "prototype_vertical": PROTOTYPE_VERTICALS.get(suggestion.vertical),
+            "concept": suggestion.concept,
+            "products": [p.to_dict() for p in suggestion.products],
+        }
 
     def _also_in(self, conn, ctx: Context, intent: Intent, products, vertical) -> dict | None:
         """Multiverticalidad visible: en qué otras verticales también hay lo que pidió (no es una sugerencia:

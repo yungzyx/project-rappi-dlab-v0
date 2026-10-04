@@ -35,7 +35,8 @@ export const MAIN_TILES = [
   { id: 'turbo', label: 'Turbo', img: catTurbo, screen: 'turbo' },
 ]
 
-// RappiFavor aparece deshabilitado: la imagen ya trae el sello "Unavailable" y el texto en gris.
+// RappiFavor aparece deshabilitado como en la app (la imagen trae el sello "Unavailable"); en «Propuesta» se habilita
+// con su pantalla (`proposalRoute`).
 // `route` dice a qué pantalla lleva cada acceso (ver HomeFeed).
 export const SHORTCUTS = [
   { id: 'grocery', label: 'Grocery', img: chipGrocery, route: ['vertical', { id: 'grocery' }] },
@@ -48,7 +49,14 @@ export const SHORTCUTS = [
   { id: 'rappitravel', label: 'RappiTravel', img: chipRappiTravel, route: ['travel'] },
   { id: 'loyalty', label: 'Loyalty', img: chipLoyalty, route: ['loyalty'] },
   { id: 'benefitspro', label: 'Benefits Pro', img: chipBenefitsPro },
-  { id: 'rappifavor', label: 'RappiFavor', img: chipRappiFavorOff, unavailable: true },
+  {
+    id: 'rappifavor',
+    label: 'RappiFavor',
+    img: chipRappiFavorOff,
+    unavailable: true,
+    proposalRoute: ['favor'],
+    emoji: '🛵',
+  },
 ]
 
 // La app muestra 6 banners; en capturas y video solo se ven completos estos dos.

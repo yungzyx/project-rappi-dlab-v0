@@ -141,6 +141,8 @@ Decisiones:
 - `buscar_productos(vertical, consulta, conceptos, precio_max)`: `search_products` en `tools.py`
 - `buscar_por_foto(imagen, vertical?)`: `photo.py` (los productos parecidos requieren haber corrido `make images`)
 - `recomendar_complementos(conceptos, vertical_actual)`: `suggest_complement` en `tools.py`
+- `buscar_remedios(sintoma)`: `search_remedies` en `tools.py` (remedios sin receta que nombran el síntoma)
+- **Servicios sin catálogo** (`[[service]]` en `taxonomy.toml`): RappiTravel (viajes, vuelos, hoteles) y RappiFavor (envíos, compras en cualquier tienda, trámites). Si la consulta los nombra y no nombra un producto, Bigotes lleva a su pantalla y, en «Propuesta», sugiere un gancho del catálogo (RappiTravel: protector solar, traje de baño o maleta). Lo que no está en el catálogo se ofrece con RappiFavor.
 - `detalle(entidad)`: pendiente
 - `historial_precio(producto)`: pendiente
 

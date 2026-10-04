@@ -26,6 +26,8 @@ describe('reply', () => {
 
   test('los atajos llevan a pantallas', () => {
     expect(reply('quiero ir de viaje', EMPTY_PROFILE).actions[0].route).toEqual(['travel'])
+    expect(reply('se me quedaron las llaves', EMPTY_PROFILE).actions[0].route).toEqual(['favor'])
+    expect(reply('necesito enviar un paquete', EMPTY_PROFILE).actions[0].route).toEqual(['favor'])
     expect(reply('mis millas', EMPTY_PROFILE).actions[0].route).toEqual(['loyalty'])
   })
 

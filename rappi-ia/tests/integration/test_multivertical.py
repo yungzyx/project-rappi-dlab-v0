@@ -46,6 +46,10 @@ def test_collect_counts_products_shared_between_verticals(db):
     assert beer["home"] == "licores" and beer["items"]["supermercado"] == 1
     assert [name for name, *_ in data["bridges"]] == []  # ninguno llega a 5 verticales
     assert data["chains"] == [["Unimarc", ["supermercado", "conveniencia"], 2]]  # 2+ verticales, en orden del mapa
+    # Servicios sin catálogo, con sus ganchos: van al mapa aunque no tengan productos.
+    services = {s["id"]: s for s in data["services"]}
+    assert services["rappitravel"]["hooks"] == ["dermocosmetica", "ropa", "accesorios-moda"]
+    assert services["rappifavor"]["hooks"] == [] and services["rappifavor"]["name"] == "RappiFavor"
 
 
 def test_a_store_listed_in_two_verticals_does_not_make_its_products_shared(db, monkeypatch):

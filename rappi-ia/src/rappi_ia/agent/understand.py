@@ -84,7 +84,7 @@ PRICE = re.compile(
 
 @dataclass
 class Intent:
-    kind: str  # saludo | gracias | buscar | ocasion | aclarar | vacio
+    kind: str  # saludo | gracias | buscar | ocasion | aclarar | servicio | vacio
     text: str
     vertical: str | None = None
     concepts: list[str] = field(default_factory=list)
@@ -96,6 +96,7 @@ class Intent:
     explicit_concepts: bool = False  # los conceptos se nombraron (no vienen solo de la ocasión)
     query: str = ""  # consulta limpia para buscar y para repetirle al usuario
     symptom: bool = False  # habló de síntomas: remedios de farmacia sin receta, sin venta cruzada
+    service: str | None = None  # servicio sin catálogo (RappiTravel, RappiFavor)
 
 
 class Understander:
@@ -106,6 +107,7 @@ class Understander:
         self.occasions = KeywordMatcher((o.id, kw) for o in taxonomy.occasions.values() for kw in o.keywords)
         self.verticals = KeywordMatcher((v, kw) for v, kws in VERTICAL_MENTIONS.items() for kw in kws)
         self.symptoms = KeywordMatcher(("sintoma", kw) for kw in SYMPTOMS)
+        self.services = KeywordMatcher((s.id, kw) for s in taxonomy.services.values() for kw in s.keywords)
 
     def understand(self, conn: Connection, text: str, current_vertical: str | None = None) -> Intent:
         normalized = normalize(text)
@@ -132,6 +134,10 @@ class Understander:
         )
 
         explicit = bool(concepts)
+        # Un servicio sin catálogo, si no se nombra un producto («paquete de pañales» no es un envío) ni un síntoma.
+        service = None if explicit or symptom else self.services.best(said)
+        if service:
+            return Intent("servicio", text, None, [], confidence=0.8, query=body or normalized, service=service.target)
         if occasion and not concepts:
             concepts = list(self.taxonomy.occasions[occasion.target].concepts)
         kind = "ocasion" if occasion else "buscar"

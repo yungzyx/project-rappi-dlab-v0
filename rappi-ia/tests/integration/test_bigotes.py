@@ -121,11 +121,11 @@ def test_cheapest_without_the_cap_is_also_of_the_requested_concept(bigotes):
 
 def test_unmet_by_cosine_shows_nothing_and_is_recorded(bigotes, monkeypatch):
     """Sin concepto nombrado, «sin resultado» lo decide el coseno bajo τ: antes se mostraban sus vecinos igual
-    (arena para gato a quien pedía un pasaje de avión) y la demanda no se anotaba."""
+    (arena para gato a quien pedía un pasaje de avión, que hoy va a RappiTravel) y la demanda no se anotaba."""
     agent, db = bigotes
     monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
 
-    r = agent.reply(db, "pasaje de avión a punta arenas", Context(vertical="supermercado"))
+    r = agent.reply(db, "kombucha de jengibre artesanal", Context(vertical="supermercado"))
 
     assert r["intent"]["concepts"] == []
     assert r["products"] == [] and r["unmet"] and "τ" in r["unmet_reason"]
@@ -521,6 +521,48 @@ def test_a_symptom_without_remedies_for_it_gets_the_painkillers(remedies_bigotes
         ids = [p["entity_id"] for p in r["products"]]
         assert r["vertical"] == "farmacia" and {"800", "801"} <= set(ids) and "803" not in ids, text
         assert "me siento mal" not in r["text"].lower() and "químico farmacéutico" not in r["text"], text
+
+
+def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
+    """RappiTravel no tiene catálogo: Bigotes lleva a su pantalla y suma un gancho del catálogo para el viaje."""
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
+    add_price(db, 11, 900, 15990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    r = agent.reply(db, "me voy de vacaciones a la playa", Context())
+    assert r["intent"]["kind"] == "servicio" and r["service"] == "rappitravel"
+    assert r["actions"] == [{"label": "Abrir RappiTravel", "route": ["travel"]}]
+    assert "RappiTravel" in r["text"] and not r["products"]
+    assert r["suggestion"]["concept"] == "dermocosmetica" and r["suggestion"]["reason"] == "Para tu viaje ✈️"
+    assert [p["entity_id"] for p in r["suggestion"]["products"]] == ["900"]
+    # Una sola sugerencia por tema en la sesión: si ya se mostró, se pasa al siguiente gancho (o a ninguno).
+    again = agent.reply(db, "me voy de vacaciones", Context(shown_topics=["dermocosmetica"]))
+    assert again.get("suggestion", {}).get("concept") != "dermocosmetica"
+    # En «Rappi hoy» no hay ganchos.
+    assert "suggestion" not in agent.reply(db, "me voy de vacaciones", Context(mode="actual"))
+
+
+def test_an_errand_opens_rappifavor(bigotes):
+    agent, db = bigotes
+    r = agent.reply(db, "se me quedaron las llaves en la oficina", Context())
+    assert r["service"] == "rappifavor" and r["actions"] == [{"label": "Abrir RappiFavor", "route": ["favor"]}]
+    assert "suggestion" not in r
+
+
+def test_what_is_not_in_the_catalog_can_be_bought_with_rappifavor(bigotes, monkeypatch):
+    """«No está en el catálogo» era el final: ahora RappiFavor lo compra en otra tienda (solo en «Propuesta»)."""
+    agent, db = bigotes
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
+    r = agent.reply(db, "kombucha de jengibre", Context(vertical="supermercado"))
+    assert r["unmet"] and {"label": "Pedirlo con RappiFavor", "route": ["favor"]} in r["actions"]
+    assert "RappiFavor" in r["text"]
+    actual = agent.reply(db, "kombucha de jengibre", Context(vertical="supermercado", mode="actual"))
+    assert actual["unmet"] and not actual["actions"]
 
 
 def test_sensitive_concepts_are_found_when_asked_by_their_plain_name(pharmacy_bigotes):

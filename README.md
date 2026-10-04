@@ -54,7 +54,7 @@ El panel de negocio muestra cómo se mediría el efecto (frecuencia, abandono, s
 | [`prototipo-app/`](prototipo-app/) | Réplica navegable de la app (Vite + React) con modo «Rappi hoy» / «Propuesta». Funciona sin backend; con la API usa el catálogo real. | Capturas de la app; catálogo real opcional |
 | [`dashboard-empresa/`](dashboard-empresa/) | Panel de negocio: demanda no satisfecha, tendencias, frecuencia, abandono, cruce entre verticales y salud del catálogo. | Simulados, salvo la pestaña Catálogo (real) |
 
-**Bigotes** es el asistente del prototipo: la mochila de Rappi con bigote. Conversa por texto, voz o foto y busca en el vertical donde está la persona. Sugiere como máximo un complemento de otro vertical. Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó.
+**Bigotes** es el asistente del prototipo: la mochila de Rappi con bigote. Conversa por texto, voz o foto y busca en el vertical donde está la persona. Sugiere como máximo un complemento de otro vertical. También reconoce los servicios sin catálogo: un viaje lleva a **RappiTravel** (con protector solar o traje de baño de otra vertical), un envío o un trámite a **RappiFavor**, y lo que no está en el catálogo se puede pedir con RappiFavor. Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó.
 
 ## Arquitectura
 
