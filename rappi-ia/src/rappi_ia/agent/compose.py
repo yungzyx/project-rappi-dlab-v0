@@ -22,7 +22,7 @@ AGE_NOTICE = "Recuerda: estos productos se venden solo a mayores de 18."
 class Draft:
     """Los hechos de la respuesta, ya decididos por el código."""
 
-    # saludo | gracias | ayuda | envio | ofertas | fuera | pedido | resultados | sin_resultado | sin_precio
+    # saludo | gracias | ayuda | envio | ofertas | fuera | pedido | receta | resultados | sin_resultado | sin_precio
     # | aclarar | vacio
     kind: str
     query: str = ""
@@ -62,6 +62,11 @@ class TemplateComposer:
             return (
                 "El horario, el tiempo y el costo de envío los ves en cada tienda antes de pagar, y la app te muestra "
                 "las que están abiertas cerca de ti 🛵. ¿Qué te gustaría pedir?"
+            )
+        if d.kind == "receta":
+            return (
+                "Los remedios para la presión, la diabetes o el colesterol son con receta médica: en Farmacia te la "
+                "piden al comprar 💊. Si necesitas otra cosa de farmacia, dime qué."
             )
         if d.kind == "pedido":
             return (
