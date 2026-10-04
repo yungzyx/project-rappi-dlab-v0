@@ -16,7 +16,7 @@ from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
-from .compose import AGE_NOTICE, Draft, TemplateComposer
+from .compose import AGE_NOTICE, PHARMACY_NOTICE, Draft, TemplateComposer
 from .tools import VERTICAL_LABELS, Suggestion, clp, products_for_keys, search_products, suggest_complement
 from .understand import Intent, Understander
 from .verticals import available_elsewhere
@@ -117,6 +117,8 @@ class Bigotes:
             rows = [row for row in similar if row[0] == vertical]
             products = products_for_keys(conn, vertical, [(t, i) for _, t, i, _ in rows], [c for *_, c in rows])
             text = "No estoy seguro de qué es, pero encontré cosas parecidas a tu foto." if products else ""
+            if products and vertical == "farmacia":  # regla 6: farmacia con aviso, como al buscar por texto
+                text += f" {PHARMACY_NOTICE}"
             if any(p.age_restricted for p in products):
                 text += f" {AGE_NOTICE}"
             response = _base(

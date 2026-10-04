@@ -370,6 +370,7 @@ def test_a_photo_in_pharmacy_does_not_show_unlabeled_medicines(bigotes):
     similar = [("farmacia", "catalog_item", "711", 0.9), ("farmacia", "catalog_item", "712", 0.8)]
     r = agent.reply_photo(db, reading, similar, Context(vertical="farmacia"))
     assert [p["entity_id"] for p in r["products"]] == ["712"]
+    assert "químico farmacéutico" in r["text"]  # en farmacia, con aviso (regla 6), como al buscar por texto
 
 
 def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none(bigotes):
