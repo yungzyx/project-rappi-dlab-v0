@@ -69,8 +69,9 @@ rhythm AS (
                 ELSE percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM ts - prev) / 86400) END AS days
     FROM user_orders WHERE prev IS NOT NULL GROUP BY user_id
 ),
-last_order AS (
-    SELECT user_id, count(*) AS orders, max(ts) AS last_ts FROM app_orders WHERE source = %(source)s GROUP BY user_id
+last_order AS (  -- compras, no pedidos: un carro dividido en dos verticales es una sola compra
+    SELECT user_id, count(DISTINCT coalesce(cart_id, order_id)) AS orders, max(ts) AS last_ts
+    FROM app_orders WHERE source = %(source)s GROUP BY user_id
 ),
 risk AS (
     SELECT l.user_id, l.orders, r.days AS rhythm,
@@ -409,8 +410,9 @@ def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> lis
                 SELECT user_id, min(ts) AS first_ts FROM app_orders WHERE source = %(source)s GROUP BY 1
             ),
             eligible AS (SELECT * FROM firsts WHERE first_ts <= {_AS_OF} - interval '{RETENTION_TO} days'),
-            early AS (
-                SELECT e.user_id, count(*) AS pedidos, count(DISTINCT o.vertical) AS verticales
+            early AS (  -- compras (un carro dividido en dos verticales es una), como en el estado de riesgo
+                SELECT e.user_id, count(DISTINCT coalesce(o.cart_id, o.order_id)) AS pedidos,
+                       count(DISTINCT o.vertical) AS verticales
                 FROM eligible e JOIN app_orders o ON o.user_id = e.user_id AND o.source = %(source)s
                 WHERE o.ts < e.first_ts + interval '{MULTI_VERTICAL_DAYS} days'
                 GROUP BY e.user_id

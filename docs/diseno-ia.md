@@ -195,9 +195,9 @@ Decisiones:
 | Abandono de carrito | Carros (`cart_id`) con al menos un producto, cuyo último evento de carro fue hace más de 24 h y sin pedido, sobre todos los carros con productos. Se cuenta una vez por carro |
 | Abandono de búsqueda | Búsquedas sin clic ni agregado al carro y sin otra búsqueda con clic en 2 minutos, sobre el total de búsquedas |
 | Ritmo del usuario | Mediana de los intervalos entre pedidos en 180 días. Con solo 2 pedidos, el único intervalo, acotado entre 7 y 30 días |
-| En riesgo / perdido | En riesgo: días desde el último pedido > máx(2 × ritmo, 21). Perdido: > máx(3 × ritmo, 45). Los usuarios con 1 pedido van aparte ("sin segunda compra") |
+| En riesgo / perdido | En riesgo: días desde el último pedido > máx(2 × ritmo, 21). Perdido: > máx(3 × ritmo, 45). Los usuarios con 1 compra van aparte ("sin segunda compra"): un carro dividido en dos verticales son dos pedidos, pero una sola compra |
 | Retención | Hizo al menos un pedido entre los días 61 y 120 desde su primer pedido |
-| Usuarios multi-vertical | Pidieron en 2 o más verticales en 60 días. Su retención se compara **a igual número de pedidos y antigüedad**: quien pide más cae más en dos verticales y además retiene más, así que la comparación directa no mide el efecto |
+| Usuarios multi-vertical | Pidieron en 2 o más verticales en 60 días. Su retención se compara **a igual número de compras (carros) y antigüedad**: quien pide más cae más en dos verticales y además retiene más, así que la comparación directa no mide el efecto |
 | Sugerencia aceptada / convertida | Aceptada: el producto sugerido (en el chat o en "Para ti") se agregó al carro. Convertida: llegó a un pedido. El aviso sobre el carro se mide aparte: ahí aceptar es abrir el chat |
 | Embudo por vertical | Sesiones que buscan → agregan al carro → inician pago → piden. La búsqueda (o el chat, la navegación o una sugerencia aceptada) se mira en toda la sesión, porque la sugerencia cruzada lleva el pedido a otra vertical. Una sesión entra al embudo de una vertical si hizo algo ahí: ver una sugerencia sin aceptarla no cuenta |
 

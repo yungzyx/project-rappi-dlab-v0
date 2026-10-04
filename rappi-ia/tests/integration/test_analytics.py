@@ -68,6 +68,34 @@ def test_kpis_rhythm_risk_and_cart_abandonment_are_exact(db):
     assert queries.kpis(db, "synthetic")["usuarios_activos"] == 0  # las fuentes no se mezclan
 
 
+def test_a_cart_split_in_two_verticals_is_one_purchase(db, monkeypatch):
+    """Pizza más bebidas de Licores son dos pedidos de un mismo carro, pero una sola compra: quien no volvió en 50
+    días sigue «sin segunda compra», no «perdido». En la retención multi-vertical cuenta como 1 compra."""
+    seed_taxonomy(db, load_taxonomy())
+    _order(db, "u1", 0, "restaurantes", "pizza", cart="c-1")
+    _order(db, "u1", 0, "licores", "cerveza", cart="c-1")
+    _order(db, "u2", 0, "restaurantes", "pizza", cart="c-2")
+    _order(db, "u2", 0, "licores", "cerveza", cart="c-2")
+    _order(db, "u2", 10, "licores", "cerveza")  # 3 pedidos, 2 compras
+    events.record(db, [events.Event("u3", "s", "app_open", ts=T0 + timedelta(days=50))])
+    db.commit()
+
+    status = dict(
+        db.execute(
+            "WITH " + queries._RHYTHM.strip() + " SELECT user_id, status FROM risk", {"source": "prototype"}
+        ).fetchall()
+    )
+    assert status["u1"] == "sin_segunda_compra"
+    assert [r["estado"] for r in queries.at_risk(db, "prototype")] == ["en_riesgo"]  # solo u2 (ritmo 10 días)
+    k = queries.kpis(db, "prototype")
+    assert (k["en_riesgo"], k["perdidos"]) == (1, 0)
+
+    events.record(db, [events.Event("u3", "s", "app_open", ts=T0 + timedelta(days=130))])
+    monkeypatch.setattr(queries, "MIN_GROUP_USERS", 1)
+    strata = {r["estrato"] for r in queries.multi_vertical_retention(db, "prototype")}
+    assert strata == {"1–2 pedidos"}
+
+
 def test_purged_searches_without_concept_do_not_become_a_null_opportunity(db):
     """La purga de 90 días borra el texto: sin concepto ni consulta no hay nada que mostrar (antes, fila «null»)."""
     seed_taxonomy(db, load_taxonomy())
