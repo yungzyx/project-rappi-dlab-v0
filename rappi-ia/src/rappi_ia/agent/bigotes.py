@@ -64,6 +64,14 @@ class Bigotes:
     def reply(self, conn: Connection, message: str, ctx: Context | None = None) -> dict:
         ctx = ctx or Context()
         intent = self.understander.understand(conn, message, ctx.vertical)
+        if intent.kind == "recomendar":  # «qué me recomiendas»: lo que le gusta; sin perfil, ejemplos
+            interest = self._top_interest(ctx.profile) if ctx.mode == "propuesta" else None
+            if interest is None:
+                return self._small_talk(replace(intent, kind="ayuda"), ctx)
+            concept = self.taxonomy.concepts[interest]
+            response = self.reply(conn, concept.name, ctx)
+            response["text"] = f"Como te gusta {concept.label.lower()} 😉 " + response["text"]
+            return response
         if intent.kind in ("saludo", "gracias", "vacio", "ayuda", "envio", "ofertas"):
             return self._small_talk(intent, ctx)
         if intent.kind == "aclarar":

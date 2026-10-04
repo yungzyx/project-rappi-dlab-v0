@@ -54,3 +54,41 @@ def test_cheap_asks_for_the_cheapest_first():
     assert U.understand(None, "pizza barata", "restaurantes").cheapest
     assert U.understand(None, "cerveza mas barata", "licores").cheapest
     assert not U.understand(None, "cerveza", "licores").cheapest
+
+
+# Ronda 2
+@pytest.mark.parametrize(
+    ("text", "concept"),
+    [
+        ("juguete pal gato", "accesorios-mascota"),  # «pal» = «para el»
+        ("leche de almendras", "vegano"),  # «Alternativas vegetales»
+    ],
+)
+def test_round_two_words(text, concept):
+    assert U.understand(None, text, "supermercado").concepts[:1] == [concept]
+
+
+def test_without_is_not_asking_for_it():
+    """«algo sin azúcar» buscaba azúcar."""
+    assert "azucar" not in U.understand(None, "algo sin azúcar", "supermercado").concepts
+
+
+@pytest.mark.parametrize(
+    ("text", "occasion"),
+    [
+        ("algo barato pa comer", "hambre"),  # «pa» = «para»
+        ("estoy triste", "animo"),
+        ("mi nieto viene el domingo y quiero comprarle algo", "regalo-nino"),
+    ],
+)
+def test_round_two_occasions(text, occasion):
+    assert U.understand(None, text, "supermercado").occasion == occasion
+
+
+def test_asking_for_a_recommendation_is_not_a_search():
+    for text in ("qué me recomiendas", "oye bigotes me recomiendas algo?"):
+        assert U.understand(None, text, "supermercado").kind == "recomendar", text
+
+
+def test_asking_someone_to_buy_for_you_is_rappifavor():
+    assert U.understand(None, "necesito que me compren algo en una ferretería", None).service == "rappifavor"

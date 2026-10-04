@@ -1079,3 +1079,11 @@ def test_cheap_shows_the_cheapest_first(bigotes):
     embed_search_documents(db, agent.embedder)
     prices = [p["price_value"] for p in agent.reply(db, "cerveza barata", Context(vertical="licores"))["products"]]
     assert prices == sorted(prices) and prices[0] == 1290
+
+
+def test_a_recommendation_uses_what_the_user_likes(bigotes):
+    agent, db = bigotes
+    liked = agent.reply(db, "qué me recomiendas", Context(profile={"cerveza": 3.0}))
+    assert liked["text"].startswith("Como te gusta 🍺 cerveza 😉 Mira") and liked["products"]
+    unknown = agent.reply(db, "qué me recomiendas", Context())
+    assert unknown["intent"]["kind"] == "ayuda" and unknown["actions"]

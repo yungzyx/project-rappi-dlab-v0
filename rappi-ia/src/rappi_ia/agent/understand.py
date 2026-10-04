@@ -58,6 +58,14 @@ APP_QUESTIONS = {
         "cuando llega",
     ],
     "ofertas": ["ofertas", "tienen ofertas", "hay ofertas", "descuentos", "promociones", "promos"],
+    "recomendar": [
+        "me recomiendas",
+        "que me recomiendas",
+        "recomiendame",
+        "que me sugieres",
+        "sugiereme",
+        "sorprendeme",
+    ],
 }
 CHEAP_WORDS = {"barato", "barata", "baratos", "baratas", "economico", "economica", "economicos", "economicas"}
 
@@ -149,11 +157,16 @@ class Understander:
             return Intent("gracias", text, current_vertical, confidence=1.0)
 
         price_max, without_price = _price(text)
-        said = normalize(without_price)
+        # Habla chilena: «pa» y «pal» son «para» y «para el» («algo pa comer», «juguete pal gato»).
+        said = re.sub(r"\bpal\b", "para el", re.sub(r"\bpa\b", "para", normalize(without_price)))
         body = _clean(said)
         # Ocasiones y síntomas, sobre el texto sin limpiar: «me siento mal» y «me duele» empiezan con «me».
         occasion = self.occasions.best(said)
-        concept_matches = self.concepts.matches(body)
+        # «sin azúcar» no pide azúcar: se descarta un concepto nombrado justo después de «sin».
+        body_words = body.split()
+        concept_matches = [
+            m for m in self.concepts.matches(body) if not (m.position and body_words[m.position - 1] == "sin")
+        ]
         concepts = [m.target for m in concept_matches]
         mention = self._mention(body, concept_matches)
         # La ocasión «Me siento mal» cuenta como síntoma («malestar», «cuidarme»): sin Licores, sin «También en» ni

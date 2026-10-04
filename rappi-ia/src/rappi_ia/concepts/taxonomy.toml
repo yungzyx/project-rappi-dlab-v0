@@ -267,7 +267,7 @@ parent = "snacks"
 name = "Snacks salados"
 emoji = "🥨"
 keywords = ["papas fritas", "chips", "ramitas", "suflitos", "doritos", "pringles", "lays", "lay's", "nachos", "cheetos", "cabritas", "pochoclos", "popcorn", "pretzel", "tortilla chips", "snack", "maní salado", "papas lisas", "papas corrugadas"]
-query_keywords = ["para picar", "pa picar", "algo para picar"]
+query_keywords = ["para picar", "algo para picar"]
 
 [[concept]]
 id = "frutos-secos"
@@ -441,7 +441,7 @@ id = "lacteos"
 parent = "frescos"
 name = "Leche y yogur"
 emoji = "🥛"
-keywords = ["leche", "yogur", "yoghurt", "yogurt", "mantequilla", "margarina", "crema de leche", "leche vegetal", "leche de almendras", "bebida de avena", "kéfir", "leche en polvo", "leche cultivada", "quesillo"]
+keywords = ["leche", "yogur", "yoghurt", "yogurt", "mantequilla", "margarina", "crema de leche", "kéfir", "leche en polvo", "leche cultivada", "quesillo"]
 
 [[concept]]
 id = "quesos"
@@ -476,7 +476,8 @@ id = "vegano"
 parent = "frescos"
 name = "Alternativas vegetales"
 emoji = "🌱"
-keywords = ["vegano", "vegana", "vegetariano", "vegetariana", "veggie", "plant based", "tofu", "seitán", "seitan", "soya texturizada", "hamburguesa vegetal", "carne vegetal", "not burger", "notco"]
+keywords = ["vegano", "vegana", "leche vegetal", "leche de almendras", "bebida de avena", "vegetariano", "vegetariana", "veggie", "plant based", "tofu", "seitán", "seitan", "soya texturizada", "hamburguesa vegetal", "carne vegetal", "not burger", "notco"]
+query_keywords = ["leche de almendra", "leche de avena", "leche de soya", "bebida vegetal"]
 
 # Comida preparada
 [[concept]]
@@ -791,8 +792,8 @@ id = "accesorios-mascota"
 parent = "mascotas"
 name = "Accesorios para mascotas"
 emoji = "🦴"
-keywords = ["mascota", "mascotas", "arena para gatos", "arena sanitaria", "juguete para perro", "collar para perro", "correa para perro", "cama para perro", "rascador", "pipeta", "antipulgas", "comedero", "transportadora"]
-query_keywords = ["arena para gato", "arena pal gato", "arena de gato"]
+keywords = ["mascota", "mascotas", "juguete para gato", "juguete para el gato", "juguetes para gatos", "arena para gatos", "arena sanitaria", "juguete para perro", "collar para perro", "correa para perro", "cama para perro", "rascador", "pipeta", "antipulgas", "comedero", "transportadora"]
+query_keywords = ["arena para gato", "arena para el gato", "arena de gato"]
 
 # Tabaco
 [[concept]]
@@ -1040,6 +1041,23 @@ keywords = ["aburrido", "aburrida", "no se que hacer", "panorama en casa", "mara
 concepts = ["snacks-salados", "gaseosas", "juegos-mesa", "videojuegos", "helados"]
 vertical = "conveniencia"  # por surtido ganaba Licores (snacks) con aviso +18
 
+[[occasion]]
+id = "animo"
+name = "Un mimo"
+emoji = "💛"
+keywords = ["triste", "estoy triste", "bajoneado", "bajoneada", "bajon", "necesito animo", "mal dia", "mal día"]
+concepts = ["chocolates", "helados", "golosinas", "snacks-salados"]
+vertical = "chocolateria"  # por surtido ganaba Licores
+
+[[occasion]]
+id = "regalo-nino"
+name = "Regalo para un niño"
+emoji = "🧸"
+# Antes caía en una búsqueda literal: «mi nieto viene… comprarle algo» traía pezoneras y pisco.
+keywords = ["mi nieto", "mi nieta", "mi sobrino", "mi sobrina", "regalo para un niño", "regalo para una niña", "regalo para niño", "regalo para niña", "para un niño", "para una niña"]
+concepts = ["juguetes-infantiles", "juegos-mesa", "golosinas", "chocolates"]
+vertical = "mall"
+
 # Servicios de Rappi sin catálogo de productos. Bigotes los reconoce por sus keywords (si la consulta no nombra un
 # producto), lleva a su pantalla del prototipo (`route`) y, si tiene ganchos, sugiere UN producto del catálogo que lo
 # acompaña. RappiFavor además se ofrece cuando algo no está en el catálogo (agent/bigotes.py).
@@ -1066,4 +1084,4 @@ name = "RappiFavor"
 emoji = "🛵"
 pitch = "un Rappitendero lleva lo que necesites de un punto a otro, te compra en cualquier tienda o hace tu trámite"
 route = "favor"
-keywords = ["rappifavor", "un favor", "mandado", "mandados", "encomienda", "enviar un paquete", "mandar un paquete", "enviar unas llaves", "llaves", "se me quedo", "se me quedaron", "olvide", "enviar un documento", "documentos", "tramite", "tramites", "retirar un paquete", "recoger un paquete", "correos de chile", "punto a punto", "de un lugar a otro", "llevar algo"]
+keywords = ["rappifavor", "un favor", "que me compren", "me compren", "comprar por mi", "comprame", "mandado", "mandados", "encomienda", "enviar un paquete", "mandar un paquete", "enviar unas llaves", "llaves", "se me quedo", "se me quedaron", "olvide", "enviar un documento", "documentos", "tramite", "tramites", "retirar un paquete", "recoger un paquete", "correos de chile", "punto a punto", "de un lugar a otro", "llevar algo"]
