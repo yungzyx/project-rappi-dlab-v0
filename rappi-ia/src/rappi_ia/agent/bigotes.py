@@ -16,7 +16,7 @@ from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
-from ..text import normalize
+from ..text import normalize, tokens
 from .compose import AGE_NOTICE, Draft, TemplateComposer, notices
 from .tools import (
     VERTICAL_LABELS,
@@ -53,6 +53,20 @@ class Context:
 
 CHEAP_POOL = 24  # «barato»: reordenar solo los 6 más relevantes no daba lo más barato
 GENERAL_REMEDIES = "analgésico"  # si nada nombra el síntoma: paracetamol, aspirina y similares
+# Palabras de un pedido que no son un detalle que deba decir el nombre del producto («lúcuma» en «helado de lúcuma» sí).
+NOT_DETAIL = {
+    *("para", "algo", "unos", "unas", "como", "pero", "bien", "solo", "menos", "otra", "otro", "marca", "tipo"),
+    *("sabor", "talla", "grande", "grandes", "chico", "chica", "mediano", "mediana", "familiar", "unidades"),
+    *("litro", "litros", "kilo", "kilos", "helada", "heladas", "frias", "fria", "frio", "rico", "rica", "ricos"),
+    *("buena", "bueno", "buenos", "quiero", "tienen", "venden", "preparado", "preparada", "barato", "barata"),
+    *("baratos", "baratas", "caro", "cara", "caros", "caras", "premium", "mejor", "opcion", "segunda", "primera"),
+    *("pastilla", "pastillas", "capsulas", "comprimidos", "tabletas", "remedio", "remedios", "producto", "productos"),
+}
+# Detalles que el nombre del producto dice de otra forma: «para celíacos» es «sin gluten».
+DETAIL_ALIASES = {
+    **dict.fromkeys(("celiaco", "celiaca", "celiacos", "celiacas"), ("gluten", "sin gluten")),
+    **dict.fromkeys(("diabetico", "diabetica", "diabeticos", "diabeticas"), ("azucar", "sin azúcar")),
+}
 
 
 class Bigotes:
@@ -61,6 +75,11 @@ class Bigotes:
         self.composer = composer or TemplateComposer()
         self.understander = Understander()
         self.taxonomy = load_taxonomy()
+        # Las palabras con que se nombra cada concepto: no son un detalle del producto («helado» en «helado de…»).
+        self._concept_words = {
+            c.id: {w for kw in (c.name, *c.keywords, *c.query_keywords) for w in tokens(kw)}
+            for c in self.taxonomy.concepts.values()
+        }
 
     def reply(self, conn: Connection, message: str, ctx: Context | None = None) -> dict:
         ctx = ctx or Context()
@@ -73,7 +92,7 @@ class Bigotes:
             response = self.reply(conn, concept.name, ctx)
             response["text"] = f"Como te gusta {concept.label.lower()} 😉 " + response["text"]
             return response
-        if intent.kind in ("saludo", "gracias", "vacio", "ayuda", "envio", "ofertas", "fuera", "pedido"):
+        if intent.kind in ("saludo", "gracias", "vacio", "ayuda", "envio", "ofertas", "fuera", "pedido", "receta"):
             return self._small_talk(intent, ctx)
         if intent.kind == "aclarar":
             return self._clarify(intent)
@@ -117,6 +136,15 @@ class Bigotes:
             )
             if retry and any(p.concept in intent.concepts for p in retry.products):
                 outcome, products = retry, retry.products
+        # «helado de lúcuma»: si nada de lo mostrado dice «lúcuma», se busca entre más candidatos y, si aquí no hay,
+        # en la vertical que lo tenga (salvo que se haya nombrado una).
+        detail = self._detail(intent) if intent.explicit_concepts and not intent.symptom and products else None
+        moved_from = None
+        if detail and not any(detail[0] in normalize(p.name) for p in products):
+            found = self._with_detail(conn, intent, vertical, detail[0])
+            if found:
+                moved_from = vertical if found[0] != vertical else None
+                vertical, outcome, products = found
         if intent.exclude_previous and ctx.previous:  # «de otra marca»: sin lo que ya se mostró
             seen = set(ctx.previous.get("product_ids") or [])
             products = [p for p in products if p.entity_id not in seen][:6]
@@ -142,6 +170,11 @@ class Bigotes:
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
         also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical)
         text = self.composer.compose(draft)
+        if moved_from:
+            text = (
+                f"En {VERTICAL_LABELS[moved_from]} no hay «{detail[1]}», pero en {VERTICAL_LABELS[vertical]} sí. "
+                + text
+            )
         if generic_remedies:  # la muestra del catálogo no tiene algo para ese síntoma: no aparentar que sí
             text = "No encontré algo específico para eso en Farmacia. Estos son los analgésicos que hay."
             text += "".join(f" {n}" for n in notices(draft))
@@ -342,6 +375,53 @@ class Bigotes:
         for v in verticals:
             v["prototype_vertical"] = PROTOTYPE_VERTICALS.get(v["vertical"])
         return {"concept": concept.id, "label": concept.label, "verticals": verticals}
+
+    def _detail(self, intent: Intent) -> tuple[str, str] | None:
+        """(raíz para buscar en el nombre, cómo decirlo) de la primera palabra del pedido que no es el concepto ni
+        relleno: «lúcuma» en «helado de lúcuma», «sin gluten» en «galletas para celíacos»."""
+        concept_words = {w for c in intent.concepts for w in self._concept_words.get(c, ())}
+        said = {normalize(w): w.lower() for w in intent.text.split()}
+        words = tokens(intent.query)
+        for i, word in enumerate(words):
+            stem = word[:-1] if word.endswith("s") else word
+            if word in DETAIL_ALIASES:
+                return DETAIL_ALIASES[word]
+            if len(word) >= 4 and word.isalpha() and not {word, stem} & (NOT_DETAIL | concept_words):
+                label = said.get(word, word).strip("¿?¡!.,")
+                return stem, f"sin {label}" if i and words[i - 1] == "sin" else label
+        return None
+
+    def _with_detail(self, conn: Connection, intent: Intent, vertical: str, stem: str):
+        """(vertical, resultado, productos) con `stem` en el nombre: entre más candidatos de esta vertical y, si no se
+        nombró una, en las que más productos del concepto lo tienen. None si no hay en ninguna."""
+        candidates = [vertical]
+        if not intent.explicit_vertical:
+            candidates += [
+                v
+                for (v,) in conn.execute(
+                    """SELECT sv.vertical FROM catalog_items ci
+                       JOIN item_concepts ic ON ic.entity_type = 'catalog_item'
+                        AND ic.entity_id = ci.master_product_id::text
+                       JOIN store_products sp USING (master_product_id) JOIN store_verticals sv USING (store_id)
+                       WHERE ic.concept_id = %s AND unaccent(lower(ci.name)) LIKE %s AND sv.vertical <> %s
+                       GROUP BY 1 ORDER BY count(DISTINCT ci.master_product_id) DESC LIMIT 2""",
+                    (intent.concepts[0], f"%{stem}%", vertical),
+                )
+            ]
+        for candidate in candidates:
+            outcome = search_products(
+                conn,
+                candidate,
+                self._search_query(intent),
+                intent.concepts,
+                self.embedder,
+                intent.price_max,
+                CHEAP_POOL,
+            )
+            products = [p for p in outcome.products if stem in normalize(p.name)][:6]
+            if products:
+                return candidate, outcome, products
+        return None
 
     def _top_interest(self, profile: dict[str, float]) -> str | None:
         concepts = self.taxonomy.concepts

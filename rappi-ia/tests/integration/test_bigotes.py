@@ -1136,3 +1136,63 @@ def test_a_concept_named_with_generic_words_is_searched_by_its_name(bigotes, mon
     r = agent.reply(db, "algo más sano", Context(vertical="restaurantes"))
     assert r["intent"]["concepts"][:1] == ["ensaladas-bowls"]
     assert [p["entity_id"] for p in r["products"]] == ["520"]
+
+
+@pytest.fixture
+def ice_creams(bigotes):
+    agent, db = bigotes
+    add_store(db, 4, "turbo", "Turbo")
+    for pid, name, store in [
+        (300, "Helado de chocolate 1 L", 1),
+        (301, "Helado de frutilla 1 L", 1),
+        (302, "Helado Lúcuma Manjar 1 L", 4),
+    ]:
+        add_product(db, pid, name, store, "Helados")
+        add_price(db, store, pid, 3990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    return agent, db
+
+
+def test_a_flavor_missing_here_is_shown_where_it_is(ice_creams):
+    """«helado de lúcuma» en el súper mostraba helados de chocolate: en Turbo sí hay de lúcuma."""
+    agent, db = ice_creams
+    r = agent.reply(db, "helado de lúcuma", Context(vertical="supermercado"))
+    assert r["vertical"] == "turbo" and [p["name"] for p in r["products"]] == ["Helado Lúcuma Manjar 1 L"]
+    assert "Turbo" in r["text"] and "lúcuma" in r["text"]
+
+
+def test_a_missing_without_x_is_said_as_such(ice_creams):
+    agent, db = ice_creams
+    add_product(db, 303, "Helado sin azúcar vainilla", 4, "Helados")
+    add_price(db, 4, 303, 4990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    assert "no hay «sin azúcar»" in agent.reply(db, "helado sin azúcar", Context(vertical="supermercado"))["text"]
+
+
+def test_a_pill_form_is_not_a_detail(ice_creams):
+    """«pastillas para dormir» saltaba a Licores por unas «pastillas» para la resaca."""
+    agent, db = ice_creams
+    add_product(db, 304, "Pastillas de menta", 4, "Helados")
+    add_price(db, 4, 304, 990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    assert agent.reply(db, "helado en pastillas", Context(vertical="supermercado"))["vertical"] == "supermercado"
+
+
+def test_a_flavor_missing_everywhere_keeps_the_vertical(ice_creams):
+    agent, db = ice_creams
+    r = agent.reply(db, "helado de pistacho", Context(vertical="supermercado"))
+    assert r["vertical"] == "supermercado" and r["products"]
+
+
+def test_a_named_vertical_is_never_left(ice_creams):
+    agent, db = ice_creams
+    assert agent.reply(db, "helado de lúcuma en el súper", Context())["vertical"] == "supermercado"

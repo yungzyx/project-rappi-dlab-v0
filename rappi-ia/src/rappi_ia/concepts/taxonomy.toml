@@ -553,7 +553,7 @@ parent = "comida"
 name = "Ensaladas y bowls"
 emoji = "🥗"
 keywords = ["ensalada", "bowl", "poke", "poké", "ensaladas", "saludable", "buddha bowl", "acai", "açaí"]
-query_keywords = ["sano", "algo sano", "mas sano", "más sano", "liviano", "algo liviano"]
+query_keywords = ["sano", "algo sano", "mas sano", "más sano", "liviano", "algo liviano", "almuerzo saludable", "almuerzo sano", "comida saludable", "comida sana"]
 
 [[concept]]
 id = "desayuno"
@@ -641,6 +641,7 @@ parent = "salud"
 name = "Botiquín"
 emoji = "🩹"
 keywords = ["parche curita", "curitas", "venda", "gasa", "apósito", "alcohol gel", "termómetro", "algodón", "jeringa", "mascarilla", "tapabocas", "suero fisiológico", "agua oxigenada", "botiquín"]
+query_keywords = ["la presion", "presion alta", "presion arterial", "toma presion", "tensiometro"]
 
 [[concept]]
 id = "salud-sexual"
@@ -820,6 +821,7 @@ emoji = "💨"
 sensitive = true
 age_restricted = true
 keywords = ["vape", "vapeo", "vaporizador", "pod", "e-liquid", "sales de nicotina", "desechable vape", "elf bar", "ignite", "nicotina", "cigarro electrónico", "cigarrillo electrónico"]
+query_keywords = ["cigarro electronico", "cigarros electronicos", "cigarrillo electronico", "cigarrillos electronicos"]
 
 [[concept]]
 id = "accesorios-fumador"
@@ -1000,7 +1002,7 @@ vertical = "chocolateria"  # por masa mínima ganaba Licores: el piso lo ponían
 id = "hambre"
 name = "Hambre ya"
 emoji = "🍽️"
-keywords = ["hambre", "tengo hambre", "almorzar", "cenar", "comida rápida", "algo rico", "delivery de comida", "para comer"]
+keywords = ["hambre", "tengo hambre", "almorzar", "cenar", "comida rápida", "algo rico", "delivery de comida", "para comer", "no quiero cocinar", "sin ganas de cocinar", "flojera de cocinar"]
 concepts = ["pizza", "hamburguesa", "sushi", "pollo", "pollo-preparado", "sandwiches", "asiatica", "empanadas", "platos-listos"]
 vertical = "restaurantes"  # "hambre ya": pedir comida lista, no comprar una pizza congelada
 

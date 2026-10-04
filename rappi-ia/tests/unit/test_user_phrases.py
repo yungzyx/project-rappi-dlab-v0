@@ -262,3 +262,40 @@ def test_a_longer_follow_up_with_fillers_still_follows():
 def test_more_expensive_sorts_the_priciest_first():
     intent = _then("vino tinto", "uno más caro")
     assert intent.follow_up and intent.priciest and not intent.cheapest
+
+
+# Ronda 7
+@pytest.mark.parametrize(
+    ("text", "concept"),
+    [
+        ("venden cigarros electrónicos?", "vapeo"),
+        ("almuerzo saludable", "ensaladas-bowls"),
+    ],
+)
+def test_round_seven_words(text, concept):
+    assert U.understand(None, text, "supermercado").concepts[:1] == [concept]
+
+
+def test_people_are_not_searched():
+    """«para la presión de mi mamá» traía mamaderas; «para mi señora», lo que calzara con «señora»."""
+    assert "senora" not in U.understand(None, "vino y flores para mi señora", "licores").query
+    assert "mama" not in U.understand(None, "algo para mi mamá", "supermercado").query
+
+
+@pytest.mark.parametrize("text", ["remedio para la diabetes", "colesterol", "algo para la hipertensión"])
+def test_chronic_conditions_need_a_prescription(text):
+    assert U.understand(None, text, "supermercado").kind == "receta"
+
+
+def test_blood_pressure_is_a_monitor_not_baby_bottles():
+    """«algo para la presión de mi mamá» traía mamaderas: hay tensiómetros (y los remedios son con receta)."""
+    assert U.understand(None, "necesito algo para la presión de mi mamá", "farmacia").concepts == ["primeros-auxilios"]
+
+
+def test_not_wanting_to_cook_is_hunger():
+    assert U.understand(None, "llegué tarde del trabajo y no quiero cocinar", None).occasion == "hambre"
+
+
+def test_a_coffee_chain_is_a_restaurant():
+    intent = U.understand(None, "algo de starbucks", None)
+    assert intent.vertical == "restaurantes" and intent.explicit_vertical

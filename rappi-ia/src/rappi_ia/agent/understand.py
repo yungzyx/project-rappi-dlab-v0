@@ -50,6 +50,7 @@ VERTICAL_MENTIONS = {
         "little caesars",
         "tarragona",
         "wendys",
+        "starbucks",
     ],
     "mall": ["rappi mall", "en el mall", "tienda de ropa"],
     "conveniencia": ["oxxo", "minimarket", "almacen de barrio"],
@@ -89,6 +90,8 @@ APP_QUESTIONS = {
         "a que hora cierra",
     ],
     "ofertas": ["ofertas", "tienen ofertas", "hay ofertas", "descuentos", "promociones", "promos"],
+    # Remedios de enfermedades crónicas: son con receta, no se buscan. «La presión» sí: hay tensiómetros.
+    "receta": ["hipertension", "diabetes", "colesterol", "tiroides"],
     # Un pedido en curso (estado, cancelar, reclamo): se resuelve en «Mis pedidos», no es demanda no atendida.
     "pedido": [
         "mi pedido",
@@ -131,6 +134,7 @@ PACKAGED_WORDS = {
     "molido",
     "capsulas",
     "instantaneo",
+    "nescafe",
     "kilo",
     "kilos",
     "kg",
@@ -180,9 +184,11 @@ PRICEY_WORDS = {"caro", "cara", "caros", "caras", "premium"}
 # «no quiero pizza», «menos sushi»: el concepto que sigue se descarta y se saca de la consulta. «sin» también se
 # descarta, pero queda en la consulta («yogurt sin azúcar» busca eso).
 REFUSALS = [("no", "quiero"), ("no", "sea"), ("nada", "de"), ("menos",), ("excepto",), ("salvo",)]
-# «para mi papá» es una persona, no papas.
-POSSESSIVES = {"mi", "tu", "su"}
-PERSON_KEYWORDS = {"papa"}
+# «para mi papá», «de mi mamá»: una persona no se busca (traía papas y mamaderas).
+PEOPLE = re.compile(
+    r"\b(?:(?:de|para|a|al)\s+)?(?:mi|mis|tu|su)\s+(?:mama|papa|esposo|esposa|marido|senora|hijo|hija|hijos|"
+    r"polola|pololo|novia|novio|abuela|abuelo|amigo|amiga|amigos|jefe|jefa|hermano|hermana)\b"
+)
 
 SYMPTOMS = [
     "fiebre",
@@ -236,7 +242,8 @@ PRICE = re.compile(
 
 @dataclass
 class Intent:
-    # saludo | gracias | ayuda | envio | ofertas | fuera | pedido | buscar | ocasion | aclarar | servicio | vacio
+    # saludo | gracias | ayuda | envio | ofertas | fuera | pedido | receta | buscar | ocasion | aclarar | servicio
+    # | vacio
     kind: str
     text: str
     vertical: str | None = None
@@ -289,7 +296,7 @@ class Understander:
         price_max, without_price = _price(text)
         # Habla chilena: «pa» y «pal» son «para» y «para el» («algo pa comer», «juguete pal gato»).
         said = re.sub(r"\bpal\b", "para el", re.sub(r"\bpa\b", "para", normalize(without_price)))
-        body = _clean(said)
+        body = " ".join(PEOPLE.sub(" ", _clean(said)).split())
         # Ocasiones y síntomas, sobre el texto sin limpiar: «me siento mal» y «me duele» empiezan con «me».
         occasion = self.occasions.best(said)
         # «sin azúcar» no pide azúcar ni «no quiero pizza» pizza: se descarta el concepto nombrado después.
@@ -301,9 +308,7 @@ class Understander:
             if refusal:
                 refused.append(m)
                 body_words[m.position - len(refusal) : m.position + m.words] = [""] * (len(refusal) + m.words)
-            elif before[-1:] == ("sin",) or (
-                before[-1:] and before[-1] in POSSESSIVES and m.keyword in PERSON_KEYWORDS
-            ):
+            elif before[-1:] == ("sin",):
                 continue
             else:
                 concept_matches.append(m)
