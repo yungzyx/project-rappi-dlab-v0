@@ -328,6 +328,33 @@ def test_adding_from_a_list_without_searching_also_enters_the_funnel(db):
     assert sum(r["piden"] for r in funnel) == orders
 
 
+def test_session_conversion_counts_each_session_once(db):
+    """Quien acepta una sugerencia cruzada cuenta en dos verticales del embudo: sumar las filas da una tasa por
+    (sesión, vertical). El titular usa la de la API, que cuenta cada sesión una vez."""
+    seed_taxonomy(db, load_taxonomy())
+    line = [{"entity_type": "catalog_item", "entity_id": "1", "concept_id": "cerveza", "unit_price": 1000}]
+    events.record(
+        db,
+        [
+            events.Event("u1", "s1", "chat", ts=T0, vertical="restaurantes", query="pizza"),
+            events.Event("u1", "s1", "suggestion_accepted", ts=T0, vertical="licores", concept_id="cerveza"),
+            events.Event("u1", "s1", "cart_add", ts=T0, vertical="restaurantes", cart_id="c1"),
+            events.Event("u1", "s1", "cart_add", ts=T0, vertical="licores", cart_id="c1"),
+            events.Event("u1", "s1", "checkout_start", ts=T0, vertical="restaurantes", cart_id="c1"),
+            events.Event("u1", "s1", "checkout_start", ts=T0, vertical="licores", cart_id="c1"),
+            events.Event("u2", "s2", "chat", ts=T0, vertical="restaurantes", query="sushi"),
+        ],
+    )
+    events.record_order(db, "u1", "s1", "c1", "restaurantes", line, ts=T0)
+    events.record_order(db, "u1", "s1", "c1", "licores", line, ts=T0)
+    db.commit()
+
+    funnel = queries.funnel(db, "prototype")
+    assert (sum(r["piden"] for r in funnel), sum(r["buscan"] for r in funnel)) == (2, 3)  # 66,7 % por vertical
+    assert queries.kpis(db, "prototype")["conversion_sesiones_pct"] == 50.0  # 1 de 2 sesiones
+    assert queries.kpis(db, "synthetic")["conversion_sesiones_pct"] is None
+
+
 def test_invalid_source_is_rejected(db):
     with pytest.raises(ValueError):
         queries.kpis(db, "real")

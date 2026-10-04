@@ -1,5 +1,5 @@
 import { fireEvent, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { renderWithData, resetApi, serveFixtures } from '../../test/fixtureApi.js'
 import { FrequencyView } from './FrequencyView.jsx'
 import { formatNumber } from '../../lib/format.js'
@@ -33,5 +33,24 @@ describe('FrequencyView', () => {
 
     expect(await screen.findByText('Sin cohortes')).toBeTruthy()
     expect(await screen.findByText('Nadie en riesgo ni perdido')).toBeTruthy()
+  })
+
+  test('el titular del embudo cuenta cada sesión una vez, no la suma de las verticales', async () => {
+    // Con la sugerencia cruzada una sesión pasa por dos verticales: la API da la tasa por sesión.
+    serveFixtures()
+    const fixtures = globalThis.fetch
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const response = await fixtures(url)
+        if (!url.includes('/analytics/kpis')) return response
+        const body = await response.json()
+        return { ...response, json: async () => ({ ...body, data: { ...body.data, conversion_sesiones_pct: 61.2 } }) }
+      }),
+    )
+    await renderWithData(<FrequencyView source="synthetic" />)
+
+    const value = await screen.findByText('61,2%')
+    expect(value.closest('.headline').textContent).toMatch(/de las sesiones que buscan terminan en pedido/)
   })
 })

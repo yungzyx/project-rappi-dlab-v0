@@ -12,18 +12,20 @@ import { FunnelChart } from './FunnelChart.jsx'
 import { RhythmChart } from './RhythmChart.jsx'
 import './frequency.css'
 
-/** Titular menor: conversión global buscan → piden (todas las sesiones, todos los verticales). */
+/**
+ * Titular menor: conversión global buscan → piden, por sesión (la da la API). Sumar las filas no sirve: con la
+ * sugerencia cruzada una sesión cuenta en dos verticales.
+ */
 function FunnelHeadline({ source }) {
-  const data = useAnalytics('funnel', source)
-  const searched = data.reduce((total, row) => total + (row.buscan ?? 0), 0)
-  const ordered = data.reduce((total, row) => total + (row.piden ?? 0), 0)
-  if (!searched) return null
+  const [data, kpis] = useAnalyticsMany(['funnel', 'kpis'], source)
+  const conversion = kpis.conversion_sesiones_pct
+  if (conversion === null || conversion === undefined) return null
   const worst = funnelRows(data)
     .filter((row) => row.overallPct !== null)
     .sort((a, b) => a.overallPct - b.overallPct)[0]
   return (
     <Headline
-      value={formatPct((ordered * 100) / searched)}
+      value={formatPct(conversion)}
       unit="de las sesiones que buscan terminan en pedido"
       context={worst ? `la conversión más baja: ${verticalLabel(worst.vertical)}, ${formatPct(worst.overallPct)}` : undefined}
       size="minor"

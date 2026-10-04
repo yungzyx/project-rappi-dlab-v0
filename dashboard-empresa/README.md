@@ -98,7 +98,7 @@ Todo el panel se lee como un informe: cada sección abre con su titular numéric
 
 ### 3. Frecuencia y abandono
 
-- **Embudo por vertical** (buscan → agregan → inician pago → piden), con la conversión de cada paso y el paso donde más se pierde.
+- **Embudo por vertical** (buscan → agregan → inician pago → piden), con la conversión de cada paso y el paso donde más se pierde. El titular es la conversión por sesión, que da la API: con una sugerencia cruzada la misma sesión pasa por dos verticales, y sumar las filas la contaría dos veces.
 - **Retención por cohorte semanal**, como mapa de calor.
 - **Distribución del ritmo de compra.**
 - **Usuarios en riesgo y perdidos**: id seudónimo, estado, ritmo, días sin pedir, concepto top no sensible, consentimiento y acción.

@@ -85,6 +85,25 @@ risk AS (
     FROM last_order l LEFT JOIN rhythm r USING (user_id)
 )"""
 
+# Embudo (ver funnel()): una fila por sesión y vertical; la entrada se mira en toda la sesión.
+_FUNNEL = """
+entry AS (  -- buscó, chateó, navegó, aceptó una sugerencia o agregó desde una lista (el «+» solo manda cart_add),
+            -- en cualquier vertical (o sin vertical)
+    SELECT DISTINCT session_id FROM app_events
+    WHERE source = %(source)s
+      AND type IN ('search', 'chat', 'view_store', 'view_item', 'suggestion_accepted', 'cart_add')
+),
+funnel_steps AS (
+    SELECT session_id, vertical, session_id IN (SELECT session_id FROM entry) AS busca,
+           bool_or(type = 'cart_add') AS carro,
+           bool_or(type = 'checkout_start') AS pago,
+           bool_or(type = 'order_placed') AS pedido
+    FROM app_events
+    WHERE source = %(source)s AND vertical IS NOT NULL
+      AND type NOT IN ('suggestion_shown', 'suggestion_dismissed')
+    GROUP BY 1, 2
+)"""
+
 
 def kpis(conn: Connection, source: str = "synthetic") -> dict:
     _check(source)
@@ -112,7 +131,8 @@ def kpis(conn: Connection, source: str = "synthetic") -> dict:
                 FROM app_events
                 WHERE source = %(source)s AND type IN ('search', 'chat')
                   AND ts > {_AS_OF} - interval '{ACTIVE_DAYS} days'
-            )
+            ),
+            {_FUNNEL.strip()}
             SELECT {_AS_OF} AS as_of,
                    (SELECT count(*) FROM active) AS usuarios_activos,
                    (SELECT n FROM orders30) AS pedidos_30d,
@@ -126,7 +146,12 @@ def kpis(conn: Connection, source: str = "synthetic") -> dict:
                    (SELECT count(*) FROM risk WHERE status = 'en_riesgo') AS en_riesgo,
                    (SELECT count(*) FROM risk WHERE status = 'perdido') AS perdidos,
                    round(100.0 * (SELECT unmet FROM searches) / nullif((SELECT total FROM searches), 0), 1)
-                       AS busquedas_sin_resultado_pct""",
+                       AS busquedas_sin_resultado_pct,
+                   -- titular del embudo: cada sesión una vez, aunque la sugerencia cruzada la ponga en dos verticales
+                   round(100.0 * (SELECT count(DISTINCT session_id) FROM funnel_steps
+                                  WHERE busca AND carro AND pago AND pedido)
+                         / nullif((SELECT count(DISTINCT session_id) FROM funnel_steps WHERE busca), 0), 1)
+                       AS conversion_sesiones_pct""",
         {"source": source},
     )
     row["source"] = source
@@ -250,27 +275,12 @@ def funnel(conn: Connection, source: str = "synthetic") -> list[dict]:
     _check(source)
     return _rows(
         conn,
-        """WITH entry AS (  -- buscó, chateó, navegó, aceptó una sugerencia o agregó desde una lista (el «+» solo
-                            -- manda cart_add), en cualquier vertical (o sin vertical)
-               SELECT DISTINCT session_id FROM app_events
-               WHERE source = %(source)s
-                 AND type IN ('search', 'chat', 'view_store', 'view_item', 'suggestion_accepted', 'cart_add')
-           ),
-           s AS (
-               SELECT session_id, vertical, session_id IN (SELECT session_id FROM entry) AS busca,
-                      bool_or(type = 'cart_add') AS carro,
-                      bool_or(type = 'checkout_start') AS pago,
-                      bool_or(type = 'order_placed') AS pedido
-               FROM app_events
-               WHERE source = %(source)s AND vertical IS NOT NULL
-                 AND type NOT IN ('suggestion_shown', 'suggestion_dismissed')
-               GROUP BY 1, 2
-           )
+        f"""WITH {_FUNNEL.strip()}
            SELECT vertical, count(*) FILTER (WHERE busca) AS buscan,
                   count(*) FILTER (WHERE busca AND carro) AS agregan,
                   count(*) FILTER (WHERE busca AND carro AND pago) AS pagan,
                   count(*) FILTER (WHERE busca AND carro AND pago AND pedido) AS piden
-           FROM s GROUP BY 1 ORDER BY 2 DESC""",
+           FROM funnel_steps GROUP BY 1 ORDER BY 2 DESC""",
         {"source": source},
     )
 
