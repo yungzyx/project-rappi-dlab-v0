@@ -1,6 +1,7 @@
 """API contra `rappi_ia_test`, con el modelo falso de embeddings y sin modelos de voz ni foto."""
 
 import json
+import math
 
 import pytest
 from fastapi.testclient import TestClient
@@ -215,6 +216,11 @@ def test_uploads_reject_dangerous_or_huge_files():
     Image.new("1", (9000, 9000)).save(huge, format="PNG")  # pocos KB en disco, 81 MP en memoria
     with pytest.raises(HTTPException):
         api._open_image(huge.getvalue())
+    over = io.BytesIO()  # 49 MP: sobre el tope de 40, bajo el doble (donde Pillow recién corta)
+    Image.new("1", (7000, 7000)).save(over, format="PNG")
+    with pytest.raises(HTTPException) as too_big:
+        api._open_image(over.getvalue())
+    assert too_big.value.status_code == 400
     ok = io.BytesIO()
     Image.new("RGB", (800, 600), "red").save(ok, format="JPEG")
     assert api._open_image(ok.getvalue()).size[0] <= 336
@@ -413,3 +419,189 @@ def test_sensitive_suggestions_never_show_in_the_panel(client, db):
     db.commit()
     rows = client.get("/analytics/suggestions?source=prototype").json()["data"]
     assert not any("Salud sexual" in row["concepto"] for row in rows)
+
+
+# Entradas raras (revisión de robustez del 04-10): nunca un 500. Antes, NUL, NaN/Infinity, enteros enormes, surrogates
+# sueltos y JSON muy anidado tumbaban la petición.
+DEEP = '{"a":' * 3000 + "1" + "}" * 3000
+EV = {"type": "search", "session_id": "s1", "query": "vino"}
+
+
+def _post_raw(c, path, body=None, raw=None):
+    if raw is not None:
+        return c.post(path, content=raw, headers={"content-type": "application/json"})
+    return c.post(path, content=json.dumps(body, allow_nan=True), headers={"content-type": "application/json"})
+
+
+CASES = [
+    ("events vacío", "/events", {"user_id": "revision-u", "events": []}, None),
+    ("events 201", "/events", {"user_id": "revision-u", "events": [EV] * 201}, None),
+    ("events tipo raro", "/events", {"user_id": "revision-u", "events": [{**EV, "type": "hack"}]}, None),
+    ("events payload NaN", "/events", {"user_id": "revision-u", "events": [{**EV, "payload": {"x": math.nan}}]}, None),
+    ("events payload inf", "/events", {"user_id": "revision-u", "events": [{**EV, "payload": {"x": math.inf}}]}, None),
+    ("events value NaN", "/events", {"user_id": "revision-u", "events": [{**EV, "value": math.nan}]}, None),
+    ("events value inf", "/events", {"user_id": "revision-u", "events": [{**EV, "value": math.inf}]}, None),
+    ("events results 1e12", "/events", {"user_id": "revision-u", "events": [{**EV, "results": 10**12}]}, None),
+    ("events results 1e30", "/events", {"user_id": "revision-u", "events": [{**EV, "results": 10**30}]}, None),
+    ("events concepto raro", "/events", {"user_id": "revision-u", "events": [{**EV, "concept_id": "zzz"}]}, None),
+    ("events vertical rara", "/events", {"user_id": "revision-u", "events": [{**EV, "vertical": "marte"}]}, None),
+    ("events vertical larga", "/events", {"user_id": "revision-u", "events": [{**EV, "vertical": "x" * 10000}]}, None),
+    ("events concept largo", "/events", {"user_id": "revision-u", "events": [{**EV, "concept_id": "x" * 10000}]}, None),
+    ("events type largo", "/events", {"user_id": "revision-u", "events": [{**EV, "type": "x" * 10000}]}, None),
+    (
+        "events surrogate",
+        "/events",
+        None,
+        b'{"user_id":"revision-u","events":[{"type":"search","session_id":"s","query":"\\ud83d"}]}',
+    ),
+    (
+        "events payload surrogate key",
+        "/events",
+        None,
+        b'{"user_id":"revision-u","events":[{"type":"search","session_id":"s","payload":{"\\ud83d":1}}]}',
+    ),
+    (
+        "events payload profundo",
+        "/events",
+        None,
+        b'{"user_id":"revision-u","events":[{"type":"search","session_id":"s","payload":' + DEEP.encode() + b"}]}",
+    ),
+    (
+        "events payload grande",
+        "/events",
+        {"user_id": "revision-u", "events": [{**EV, "payload": {"x": "y" * 5_000_000}}]},
+        None,
+    ),
+    (
+        "events NUL",
+        "/events",
+        {"user_id": "revision-\x00", "events": [{**EV, "query": "\x00\x00", "payload": {"\x00": "\x00"}}]},
+        None,
+    ),
+    ("events JSON malo", "/events", None, b'{"user_id":'),
+    ("beacon malo", "/events/beacon", None, b"nope"),
+    (
+        "beacon surrogate",
+        "/events/beacon",
+        None,
+        b'{"user_id":"revision-u","events":[{"type":"search","session_id":"s","query":"\\ud83d"}]}',
+    ),
+    (
+        "beacon NaN",
+        "/events/beacon",
+        None,
+        b'{"user_id":"revision-u","events":[{"type":"search","session_id":"s","payload":{"x":NaN}}]}',
+    ),
+    (
+        "orders sin líneas",
+        "/orders",
+        {"user_id": "revision-u", "session_id": "s", "cart_id": "c", "vertical": "licores", "lines": []},
+        None,
+    ),
+    (
+        "orders vertical rara",
+        "/orders",
+        {
+            "user_id": "revision-u",
+            "session_id": "s",
+            "cart_id": "c",
+            "vertical": "marte",
+            "lines": [{"entity_type": "catalog_item", "entity_id": "1"}],
+        },
+        None,
+    ),
+    (
+        "orders precio NaN",
+        "/orders",
+        {
+            "user_id": "revision-u",
+            "session_id": "s",
+            "cart_id": "c",
+            "vertical": "licores",
+            "lines": [{"entity_type": "catalog_item", "entity_id": "1", "unit_price": math.nan}],
+        },
+        None,
+    ),
+    (
+        "orders precio inf",
+        "/orders",
+        {
+            "user_id": "revision-u",
+            "session_id": "s",
+            "cart_id": "c",
+            "vertical": "licores",
+            "lines": [{"entity_type": "catalog_item", "entity_id": "1", "unit_price": math.inf}],
+        },
+        None,
+    ),
+    (
+        "orders precio 1e20",
+        "/orders",
+        {
+            "user_id": "revision-u",
+            "session_id": "s",
+            "cart_id": "c",
+            "vertical": "licores",
+            "lines": [{"entity_type": "catalog_item", "entity_id": "1", "unit_price": 1e20}],
+        },
+        None,
+    ),
+    (
+        "orders precio negativo",
+        "/orders",
+        {
+            "user_id": "revision-u",
+            "session_id": "s",
+            "cart_id": "c",
+            "vertical": "liquor",
+            "lines": [{"entity_type": "catalog_item", "entity_id": "1", "unit_price": -5}],
+        },
+        None,
+    ),
+    (
+        "orders concept largo",
+        "/orders",
+        {
+            "user_id": "revision-u",
+            "session_id": "s",
+            "cart_id": "c",
+            "vertical": "licores",
+            "lines": [{"entity_type": "catalog_item", "entity_id": "1", "concept_id": "x" * 5000}],
+        },
+        None,
+    ),
+    (
+        "orders mismo cart 2 veces",
+        "/orders",
+        {
+            "user_id": "revision-u",
+            "session_id": "s",
+            "cart_id": "c",
+            "vertical": "licores",
+            "lines": [{"entity_type": "catalog_item", "entity_id": "1"}],
+        },
+        None,
+    ),
+    ("chat con log surrogate", "/chat", None, b'{"message":"cerveza \\ud83d","user_id":"revision-u","session_id":"s"}'),
+    (
+        "chat con log 500",
+        "/chat",
+        {"message": "cerveza " + "9" * 492, "user_id": "revision-u", "session_id": "s"},
+        None,
+    ),
+]
+
+
+GET_CASES = ["/search?q=vino%00&vertical=licores", "/profile/%00", "/recommendations?user_id=%00"]
+
+
+@pytest.mark.parametrize(("name", "path", "body", "raw"), CASES, ids=[c[0] for c in CASES])
+def test_odd_inputs_never_return_500(client, db, name, path, body, raw):
+    response = _post_raw(client, path, body, raw)
+    db.rollback()
+    assert response.status_code < 500, f"{name}: {response.status_code}"
+
+
+@pytest.mark.parametrize("path", GET_CASES)
+def test_odd_query_params_never_return_500(client, path):
+    assert client.get(path).status_code < 500

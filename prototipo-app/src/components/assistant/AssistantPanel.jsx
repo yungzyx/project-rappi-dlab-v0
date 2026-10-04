@@ -577,6 +577,7 @@ export default function AssistantPanel({ push, vertical }) {
               disabled={forgetting}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={`Escríbele a ${ASSISTANT_NAME}…`}
+              maxLength={500}
               enterKeyHint="send"
             />
             {draft.trim() ? (

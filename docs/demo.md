@@ -14,7 +14,8 @@ cd dashboard-empresa && npm run dev  # http://localhost:5175
 
 1. Abre el prototipo y deja el modo **Propuesta** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy»).
 2. Abre el panel en otra pestaña y elige la fuente **Prototipo**: ahí aparece lo que se haga en la demo.
-3. Para empezar sin rastros de pruebas anteriores, en el chat toca **Olvidar**: borra los eventos y pedidos del usuario de este navegador, y el chat lo confirma. Lo que se probó desde otros navegadores sigue en la fuente Prototipo.
+3. Justo antes de presentar, con la API arriba: `cd rappi-ia && make warm`. Pasa por las frases del guion sin registrarlas: en frío la primera respuesta tarda de 2 a 5 s; después, menos de medio segundo. Repetirlo si la API pasó un rato sin uso.
+4. Para empezar sin rastros de pruebas anteriores, en el chat toca **Olvidar**: borra los eventos y pedidos del usuario de este navegador, y el chat lo confirma. Lo que se probó desde otros navegadores sigue en la fuente Prototipo.
 
 ## Recorrido
 

@@ -520,6 +520,13 @@ describe('lo aprendido y Olvidar', () => {
   })
 })
 
+describe('mensaje', () => {
+  test('el campo corta en 500 caracteres, como la API (más largo, la API responde 422 y el chat caía al cerebro local)', async () => {
+    await renderPanel()
+    expect(screen.getByPlaceholderText('Escríbele a Bigotes…').maxLength).toBe(500)
+  })
+})
+
 describe('servicios sin catálogo', () => {
   test('RappiTravel queda registrado como ofrecido y abierto, y su gancho con su origen', async () => {
     const push = vi.fn()
