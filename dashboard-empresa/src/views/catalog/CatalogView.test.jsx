@@ -31,9 +31,10 @@ describe('CatalogView', () => {
     await renderWithData(<CatalogView source="synthetic" />)
 
     const note = (await screen.findByText(/contando solo tiendas de un único vertical/)).textContent
-    // Con el catálogo del 30-09: 18.839 con esas tiendas y 16.505 sin ellas (no «casi se duplica»).
+    // Con el catálogo del 30-09 y la misma base de verticales (v_store_verticals): 18.918 con esas tiendas y 16.505
+    // sin ellas, +14,6% (no «casi se duplica»).
     expect(note).not.toMatch(/duplica/)
-    expect(note).toMatch(/sube un 14%/)
+    expect(note).toMatch(/sube un 15%/)
   })
 
   test('con la fuente del prototipo la demanda se marca como del prototipo', async () => {
