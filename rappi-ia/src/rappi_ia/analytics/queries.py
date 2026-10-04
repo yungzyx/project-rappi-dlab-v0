@@ -234,17 +234,29 @@ def trends(conn: Connection, source: str = "synthetic", weeks: int = 4, limit: i
 
 
 def funnel(conn: Connection, source: str = "synthetic") -> list[dict]:
-    """Por vertical: sesiones que buscan → agregan al carro → inician pago → piden."""
+    """Por vertical: sesiones que buscan → agregan al carro → inician pago → piden.
+
+    La búsqueda se mira en toda la sesión: la sugerencia cruzada de Bigotes lleva la compra a otra vertical, y
+    exigirla en la misma dejaba fuera esos pedidos (Farmacia y Turbo quedaban en 0). Una sesión entra al embudo de
+    una vertical si hizo algo ahí; ver una sugerencia sin aceptarla no cuenta.
+    """
     _check(source)
     return _rows(
         conn,
-        """WITH s AS (
-               SELECT session_id, vertical,
-                      bool_or(type IN ('search', 'chat', 'view_item')) AS busca,
+        """WITH entry AS (  -- buscó, chateó, navegó o aceptó una sugerencia, en cualquier vertical (o sin vertical)
+               SELECT DISTINCT session_id FROM app_events
+               WHERE source = %(source)s
+                 AND type IN ('search', 'chat', 'view_store', 'view_item', 'suggestion_accepted')
+           ),
+           s AS (
+               SELECT session_id, vertical, session_id IN (SELECT session_id FROM entry) AS busca,
                       bool_or(type = 'cart_add') AS carro,
                       bool_or(type = 'checkout_start') AS pago,
                       bool_or(type = 'order_placed') AS pedido
-               FROM app_events WHERE source = %(source)s AND vertical IS NOT NULL GROUP BY 1, 2
+               FROM app_events
+               WHERE source = %(source)s AND vertical IS NOT NULL
+                 AND type NOT IN ('suggestion_shown', 'suggestion_dismissed')
+               GROUP BY 1, 2
            )
            SELECT vertical, count(*) FILTER (WHERE busca) AS buscan,
                   count(*) FILTER (WHERE busca AND carro) AS agregan,

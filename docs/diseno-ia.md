@@ -199,6 +199,7 @@ Decisiones:
 | Retención | Hizo al menos un pedido entre los días 61 y 120 desde su primer pedido |
 | Usuarios multi-vertical | Pidieron en 2 o más verticales en 60 días. Su retención se compara **a igual número de pedidos y antigüedad**: quien pide más cae más en dos verticales y además retiene más, así que la comparación directa no mide el efecto |
 | Sugerencia aceptada / convertida | Aceptada: el producto sugerido (en el chat o en "Para ti") se agregó al carro. Convertida: llegó a un pedido. El aviso sobre el carro se mide aparte: ahí aceptar es abrir el chat |
+| Embudo por vertical | Sesiones que buscan → agregan al carro → inician pago → piden. La búsqueda (o el chat, la navegación o una sugerencia aceptada) se mira en toda la sesión, porque la sugerencia cruzada lleva el pedido a otra vertical. Una sesión entra al embudo de una vertical si hizo algo ahí: ver una sugerencia sin aceptarla no cuenta |
 
 **Vistas** (además de una pestaña Resumen con los indicadores y las palancas):
 

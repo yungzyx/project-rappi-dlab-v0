@@ -208,6 +208,38 @@ def test_cohorts_stop_at_the_last_finished_week(db, monkeypatch):
     assert [(r["semana"], r["retencion_pct"]) for r in queries.cohorts(db, "prototype")] == [(0, 100.0)]
 
 
+def test_funnel_counts_orders_whose_search_was_in_another_vertical(db):
+    """La sugerencia cruzada lleva la compra a otra vertical: buscar en restaurantes y pedir en licores es un pedido
+    de licores. Navegar sin chatear (view_store, que el prototipo manda sin vertical) también es entrada; ver una
+    sugerencia sin aceptarla no mete a la sesión en el embudo de esa vertical."""
+    seed_taxonomy(db, load_taxonomy())
+    line = [{"entity_type": "catalog_item", "entity_id": "1", "concept_id": "cerveza", "unit_price": 1000}]
+    events.record(
+        db,
+        [
+            events.Event("u1", "s1", "chat", ts=T0, vertical="restaurantes", query="pizza"),
+            events.Event("u1", "s1", "suggestion_shown", ts=T0, vertical="turbo", concept_id="gaseosas"),
+            events.Event("u1", "s1", "cart_add", ts=T0, vertical="licores", cart_id="c1"),
+            events.Event("u1", "s1", "checkout_start", ts=T0, vertical="licores", cart_id="c1"),
+            events.Event("u2", "s2", "view_store", ts=T0),
+            events.Event("u2", "s2", "cart_add", ts=T0, vertical="supermercado", cart_id="c2"),
+            events.Event("u2", "s2", "checkout_start", ts=T0, vertical="supermercado", cart_id="c2"),
+        ],
+    )
+    events.record_order(db, "u1", "s1", "c1", "licores", line, ts=T0)
+    events.record_order(db, "u2", "s2", "c2", "supermercado", line, ts=T0)
+    db.commit()
+
+    funnel = {r["vertical"]: r for r in queries.funnel(db, "prototype")}
+
+    assert funnel["licores"] == {"vertical": "licores", "buscan": 1, "agregan": 1, "pagan": 1, "piden": 1}
+    assert funnel["supermercado"]["piden"] == 1
+    assert funnel["restaurantes"]["buscan"] == 1 and funnel["restaurantes"]["agregan"] == 0
+    assert "turbo" not in funnel
+    orders = db.execute("SELECT count(*) FROM app_orders WHERE source = 'prototype'").fetchone()[0]
+    assert sum(r["piden"] for r in funnel.values()) == orders
+
+
 def test_invalid_source_is_rejected(db):
     with pytest.raises(ValueError):
         queries.kpis(db, "real")
@@ -241,8 +273,12 @@ def test_synthetic_data_is_reproducible_and_marked(simulated):
 
 def test_funnel_is_monotonic_and_cohorts_are_percentages(simulated, monkeypatch):
     db, _ = simulated
-    for row in queries.funnel(db, "synthetic"):
+    funnel = queries.funnel(db, "synthetic")
+    for row in funnel:
         assert row["buscan"] >= row["agregan"] >= row["pagan"] >= row["piden"]
+    # Cada pedido simulado entra al embudo, también los de la vertical sugerida (antes se perdían).
+    orders = db.execute("SELECT count(*) FROM app_orders WHERE source = 'synthetic'").fetchone()[0]
+    assert sum(r["piden"] for r in funnel) == orders
     monkeypatch.setattr(queries, "MIN_GROUP_USERS", 1)  # los datos de prueba tienen cohortes chicas
     cohorts = queries.cohorts(db, "synthetic")
     assert all(0 <= r["retencion_pct"] <= 100 for r in cohorts)
