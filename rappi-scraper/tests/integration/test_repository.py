@@ -267,6 +267,37 @@ def test_a_dish_the_restaurant_no_longer_offers_leaves_the_search(db, page):
     assert len(dishes) == 60 and str(parsed["items"][0]["item_id"]) not in dishes
 
 
+def test_two_restaurants_sharing_a_rappi_dish_id_keep_their_own_dish_and_price(db, page):
+    """Rappi repite el id de un plato entre restaurantes distintos: con item_id como clave global, el segundo se lo
+    quitaba al primero (11 locales quedaron sin platos y se pisaron 1.717 precios, 30-09)."""
+    parsed = parse_restaurant(page("restaurant"))
+    first = parsed["store"]["store_id"]
+    other = {**parsed, "store": {**parsed["store"], "store_id": first + 1, "brand_id": None, "name": "Otro local"}}
+    other["items"] = [{**item, "price": item["price"] + 1000} for item in parsed["items"]]
+    run = repository.start_run(db, "restaurants", {})
+    repository.save_restaurant(db, run, parsed)
+    repository.save_restaurant(db, run, other)
+    db.commit()
+
+    counts = dict(db.execute("SELECT store_id, count(*) FROM menu_items GROUP BY 1").fetchall())
+    assert counts == {first: 61, first + 1: 61}
+    rappi_id = parsed["items"][0]["item_id"]
+    prices = dict(
+        db.execute(
+            """SELECT mi.store_id, mps.price FROM menu_items mi JOIN menu_price_snapshots mps USING (item_id)
+               WHERE mi.rappi_item_id = %s""",
+            (rappi_id,),
+        ).fetchall()
+    )
+    assert prices == {first: parsed["items"][0]["price"], first + 1: parsed["items"][0]["price"] + 1000}
+
+    # Volver a guardarlo no duplica: cada local conserva su plato.
+    repository.save_restaurant(db, run, other)
+    assert _count(db, "SELECT count(*) FROM menu_items") == 122
+    build_search_documents(db)
+    assert _count(db, "SELECT count(*) FROM search_documents WHERE entity_type = 'menu_item'") == 122
+
+
 def test_a_restaurant_that_no_longer_exists_leaves_the_search(db):
     """chain:7386 («Kazoku Nh») quedó «ya no existe en Rappi» en la corrida 6 y sus 94 platos seguían buscables."""
     candidate = {"store_id": 384, "path": "/restaurantes/384-rincon-venezolano"}
@@ -510,7 +541,10 @@ def test_filler_menu_prices_are_unknown_in_search(db):
         (2, "Elige Tu Bebida Favorita", 1),
         (3, "Completo", 2500),
     ]:
-        db.execute("INSERT INTO menu_items (item_id, store_id, name) VALUES (%s, 3, %s)", (item_id, name))
+        db.execute(
+            "INSERT INTO menu_items (item_id, rappi_item_id, store_id, name) VALUES (%s, %s, 3, %s)",
+            (item_id, item_id, name),
+        )
         db.execute(
             "INSERT INTO menu_price_snapshots (run_id, item_id, price, real_price) VALUES (%s, %s, %s, %s)",
             (run, item_id, price, price),

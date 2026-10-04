@@ -397,30 +397,41 @@ def save_restaurant(conn: Connection, run_id: int, parsed: dict) -> int:
             "ON CONFLICT (store_id, section_id) DO UPDATE SET name = EXCLUDED.name, position = EXCLUDED.position",
             [(store_id, s["section_id"], s["name"], s["position"]) for s in parsed["sections"]],
         )
+        # Un plato es único por (local, id de Rappi): Rappi repite ids entre restaurantes (migración 021).
         cur.executemany(
             """
-            INSERT INTO menu_items (item_id, store_id, section_id, name, description, image_url,
+            INSERT INTO menu_items (item_id, rappi_item_id, store_id, section_id, name, description, image_url,
                                     is_popular, has_toppings)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (item_id) DO UPDATE SET
-                store_id = EXCLUDED.store_id, section_id = EXCLUDED.section_id, name = EXCLUDED.name,
+            VALUES (CASE WHEN EXISTS (SELECT 1 FROM menu_items WHERE item_id = %(rappi_id)s)
+                         THEN -nextval('menu_items_shared_id_seq') ELSE %(rappi_id)s END,
+                    %(rappi_id)s, %(store_id)s, %(section_id)s, %(name)s, %(description)s, %(image_url)s,
+                    %(is_popular)s, %(has_toppings)s)
+            ON CONFLICT (store_id, rappi_item_id) DO UPDATE SET
+                section_id = EXCLUDED.section_id, name = EXCLUDED.name,
                 description = EXCLUDED.description, image_url = EXCLUDED.image_url,
                 is_popular = EXCLUDED.is_popular, has_toppings = EXCLUDED.has_toppings, last_seen = now()
+            RETURNING item_id
             """,
             [
-                (
-                    i["item_id"],
-                    store_id,
-                    i["section_id"],
-                    i["name"],
-                    i["description"],
-                    i["image_url"],
-                    i["is_popular"],
-                    i["has_toppings"],
-                )
+                {
+                    "rappi_id": i["item_id"],
+                    "store_id": store_id,
+                    "section_id": i["section_id"],
+                    "name": i["name"],
+                    "description": i["description"],
+                    "image_url": i["image_url"],
+                    "is_popular": i["is_popular"],
+                    "has_toppings": i["has_toppings"],
+                }
                 for i in parsed["items"]
             ],
+            returning=True,
         )
+        dish_ids = []
+        while True:
+            dish_ids.append(cur.fetchone()[0])
+            if not cur.nextset():
+                break
         cur.executemany(
             """
             INSERT INTO menu_price_snapshots (run_id, item_id, price, real_price, discount_pct, is_available)
@@ -429,8 +440,8 @@ def save_restaurant(conn: Connection, run_id: int, parsed: dict) -> int:
                 discount_pct = EXCLUDED.discount_pct, is_available = EXCLUDED.is_available, scraped_at = now()
             """,
             [
-                (run_id, i["item_id"], i["price"], i["real_price"], i["discount_pct"], i["is_available"])
-                for i in parsed["items"]
+                (run_id, dish_id, i["price"], i["real_price"], i["discount_pct"], i["is_available"])
+                for dish_id, i in zip(dish_ids, parsed["items"], strict=True)
             ],
         )
     return len(parsed["items"])

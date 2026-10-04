@@ -61,8 +61,8 @@ def add_dish(conn, item_id: int, name: str, store_id: int, section: str, cuisine
         (store_id, section_id, section),
     )
     conn.execute(
-        "INSERT INTO menu_items (item_id, store_id, section_id, name) VALUES (%s, %s, %s, %s)",
-        (item_id, store_id, section_id, name),
+        "INSERT INTO menu_items (item_id, rappi_item_id, store_id, section_id, name) VALUES (%s, %s, %s, %s, %s)",
+        (item_id, item_id, store_id, section_id, name),
     )
     for cuisine in cuisines:
         conn.execute("INSERT INTO cuisines (name) VALUES (%s) ON CONFLICT DO NOTHING", (cuisine,))
