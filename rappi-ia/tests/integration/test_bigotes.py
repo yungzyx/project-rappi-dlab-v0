@@ -990,3 +990,69 @@ def test_packaged_sweets_are_not_offered_from_restaurants(bigotes):
     build_search_documents(db)
     build_concepts(db)
     assert ranked_verticals(db, ["chocolates"]) == ["chocolateria"]
+
+
+@pytest.fixture
+def trip(bigotes):
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
+    add_price(db, 11, 900, 15990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    return agent, db
+
+
+def test_the_beach_hook_respects_rappi_hoy_and_topics_already_shown(trip):
+    """Con «playa» el gancho de protector solar SÍ aplica: así «Rappi hoy» y shown_topics se prueban de verdad."""
+    agent, db = trip
+    beach = "me voy de vacaciones a la playa"
+    r = agent.reply(db, beach, Context())
+    assert r["suggestion"]["question"] == "¿Llevas protector solar? 🧴"
+    assert r["reason"] == r["suggestion"]["reason"] == "Para tu viaje ✈️"
+    assert "suggestion" not in agent.reply(db, beach, Context(mode="actual"))
+    again = agent.reply(db, beach, Context(shown_topics=["dermocosmetica"]))
+    assert again.get("suggestion", {}).get("concept") != "dermocosmetica"
+
+
+@pytest.fixture
+def pharmacy(bigotes):
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    for pid, name, category, price in [
+        (800, "Paracetamol 500 mg para la fiebre y el dolor 16 comprimidos", "Analgésicos tópicos", 1490),
+        (801, "Tapsin Día fiebre y resfrío 18 comprimidos", "Analgésicos tópicos", 2990),
+        (804, "Jarabe Bisolvon para la tos 120 ml", "Analgésicos tópicos", 4990),
+        (805, "Termómetro digital para la fiebre", "Termómetros", 3990),
+    ]:
+        add_product(db, pid, name, 11, category)
+        add_price(db, 11, pid, price)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    return agent, db
+
+
+def test_one_remedy_is_not_enough_and_only_medicines_are_remedies(pharmacy):
+    agent, db = pharmacy
+    cough = agent.reply(db, "tengo tos", Context())
+    assert cough["text"].startswith("No encontré algo específico")  # un solo jarabe: los analgésicos
+    fever = agent.reply(db, "tengo fiebre", Context())
+    assert fever["intent"]["vertical"] == "farmacia" and fever["tags"] == ["medicamentos"]
+    assert "805" not in [p["entity_id"] for p in fever["products"]]  # un termómetro no es un remedio
+
+
+def test_remedies_respect_the_price_cap(pharmacy):
+    agent, db = pharmacy
+    r = agent.reply(db, "tengo fiebre, algo de menos de 2000", Context())
+    assert r["intent"]["price_max"] == 2000
+    assert all(p["price_value"] <= 2000 for p in r["products"])
+
+
+def test_a_symptom_with_a_named_vertical_stays_there(pharmacy):
+    agent, db = pharmacy
+    r = agent.reply(db, "tengo fiebre, algo del supermercado", Context())
+    assert r["intent"]["vertical"] == "supermercado" and r["vertical"] == "supermercado"

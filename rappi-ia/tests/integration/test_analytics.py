@@ -562,3 +562,56 @@ def test_opportunities_come_only_from_unmet_searches(simulated):
     for row in queries.opportunities(db, "synthetic"):
         assert row["usuarios"] >= 5 and row["busquedas"] >= row["usuarios"]
         assert row["accion"]
+
+
+RETENTION_T0 = datetime(2026, 1, 1, 12, tzinfo=UTC)
+
+
+def _retention_order(db, user, day, vertical, cart=None):
+    events.record_order(
+        db,
+        user,
+        f"s-{user}-{day}",
+        cart or f"c-{user}-{day}",
+        vertical,
+        [{"entity_type": "catalog_item", "entity_id": "1", "unit_price": 1000}],
+        ts=RETENTION_T0 + timedelta(days=day),
+    )
+
+
+def test_multi_vertical_retention_is_exact(db, monkeypatch):
+    """La hipótesis del proyecto, con números a mano: ventana de 60 días, retención entre los días 61 y 120,
+    solo usuarios con 120 días de historia, estratos por compras y el mínimo de usuarios por grupo."""
+    for user in ("m1", "m2"):  # dos verticales en los primeros 60 días, vuelven el día 70
+        (
+            _retention_order(db, user, 0, "supermercado"),
+            _retention_order(db, user, 10, "licores"),
+            _retention_order(db, user, 70, "supermercado"),
+        )
+    _retention_order(db, "s1", 0, "supermercado"), _retention_order(db, "s1", 10, "supermercado")
+    _retention_order(db, "s1", 70, "licores")  # la segunda vertical llega tarde: sigue siendo «un vertical»
+    _retention_order(db, "s2", 0, "supermercado"), _retention_order(db, "s2", 10, "supermercado")  # no vuelve
+    for user in ("x1", "x2"):  # 6 compras: estrato «6+»
+        for day in range(0, 60, 10):
+            _retention_order(db, user, day, "supermercado")
+    _retention_order(db, "n1", 150, "supermercado")  # sin 120 días de historia: fuera
+    events.record(db, [events.Event("z", "s", "app_open", ts=RETENTION_T0 + timedelta(days=200))])
+
+    assert queries.multi_vertical_retention(db, "prototype") == []  # grupos de 2 < MIN_GROUP_USERS (privacidad)
+    monkeypatch.setattr(queries, "MIN_GROUP_USERS", 2)
+    rows = {
+        (r["estrato"], r["grupo"]): (r["usuarios"], r["retencion_pct"])
+        for r in queries.multi_vertical_retention(db, "prototype")
+    }
+    assert rows == {
+        ("1–2 compras", "multi-vertical"): (2, 100.0),
+        ("1–2 compras", "un vertical"): (2, 50.0),
+        ("6+ compras", "un vertical"): (2, 0.0),
+    }
+
+
+def test_services_never_mix_simulated_and_prototype_events(db):
+    travel = {"servicio": "rappitravel"}
+    events.record(db, [events.Event("u1", "s1", "service_shown", payload=travel)], source="synthetic")
+    rows = {r["servicio"]: r for r in queries.services(db, "prototype")}
+    assert rows["rappitravel"]["ofrecido"] == 0

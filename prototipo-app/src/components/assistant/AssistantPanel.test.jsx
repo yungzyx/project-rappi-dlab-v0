@@ -561,3 +561,16 @@ describe('servicios sin catálogo', () => {
     expect(push).toHaveBeenCalledWith('travel', undefined, expect.anything())
   })
 })
+
+describe('sugerencias mostradas', () => {
+  test('la misma sugerencia mostrada dos veces en la pestaña cuenta una sola vez para el panel', async () => {
+    api.chat.mockResolvedValue(apiAnswer('Aquí tienes cervezas', 'helados'))
+    await renderPanel()
+    say('cerveza')
+    await runUntilIdle()
+    say('otra cerveza')
+    await runUntilIdle()
+    const shown = events.track.mock.calls.filter(([name, f]) => name === 'suggestion_shown' && f.concept_id === 'helados')
+    expect(shown).toHaveLength(1)
+  })
+})

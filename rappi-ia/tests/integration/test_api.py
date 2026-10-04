@@ -605,3 +605,77 @@ def test_odd_inputs_never_return_500(client, db, name, path, body, raw):
 @pytest.mark.parametrize("path", GET_CASES)
 def test_odd_query_params_never_return_500(client, path):
     assert client.get(path).status_code < 500
+
+
+def test_demo_chat_suggestion_order_reaches_the_panel(client):
+    """El camino de la demo: Bigotes sugiere algo de otra vertical, se acepta, se pide y el panel lo cuenta."""
+    chat = client.post(
+        "/chat", json={"message": "cerveza", "vertical": "liquor", "user_id": "u1", "session_id": "s1"}
+    ).json()
+    sug = chat["suggestion"]
+    assert sug["vertical"] == "supermercado" and sug["prototype_vertical"] == "grocery"
+    product = sug["products"][0]
+    concept, vertical = sug["concept"], sug["prototype_vertical"]
+    # Lo que manda el prototipo (AssistantPanel.noteSuggestion, AddButton, checkout).
+    shown = {"concept_id": concept, "vertical": vertical, "payload": {"origen": "chat"}}
+    sent = [
+        {"type": "suggestion_shown", "session_id": "s1", **shown},
+        {"type": "suggestion_accepted", "session_id": "s1", **shown},
+        {
+            "type": "cart_add",
+            "session_id": "s1",
+            "vertical": vertical,
+            "concept_id": concept,
+            "cart_id": "c1",
+            "entity_type": "catalog_item",
+            "entity_id": product["entity_id"],
+            "payload": {"from_suggestion": True},
+        },
+        {"type": "checkout_start", "session_id": "s1", "vertical": vertical, "cart_id": "c1"},
+    ]
+    assert client.post("/events", json={"user_id": "u1", "events": sent}).json() == {"guardados": 4}
+    client.post(
+        "/orders",
+        json={
+            "user_id": "u1",
+            "session_id": "s1",
+            "cart_id": "c1",
+            "vertical": vertical,
+            "lines": [
+                {
+                    "entity_type": "catalog_item",
+                    "entity_id": product["entity_id"],
+                    "concept_id": concept,
+                    "unit_price": product["price_value"],
+                    "from_suggestion": True,
+                }
+            ],
+        },
+    ).raise_for_status()
+
+    # Otro pedido del mismo concepto que NO vino de la sugerencia: no es una conversión.
+    client.post(
+        "/orders",
+        json={
+            "user_id": "u1",
+            "session_id": "s2",
+            "cart_id": "c2",
+            "vertical": vertical,
+            "lines": [
+                {
+                    "entity_type": "catalog_item",
+                    "entity_id": product["entity_id"],
+                    "concept_id": concept,
+                    "unit_price": product["price_value"],
+                    "from_suggestion": False,
+                }
+            ],
+        },
+    ).raise_for_status()
+
+    panel = lambda name: client.get(f"/analytics/{name}", params={"source": "prototype"}).json()["data"]  # noqa: E731
+    [row] = panel("suggestions")
+    assert (row["vertical"], row["mostradas"], row["aceptadas"], row["convertidas"]) == ("supermercado", 1, 1, 1)
+    funnel = {r["vertical"]: r for r in panel("funnel")}
+    assert funnel["supermercado"] == {"vertical": "supermercado", "buscan": 1, "agregan": 1, "pagan": 1, "piden": 1}
+    assert panel("kpis")["pedidos_30d"] == 2
