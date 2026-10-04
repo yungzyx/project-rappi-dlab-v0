@@ -16,7 +16,8 @@ from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
-from .compose import AGE_NOTICE, Draft, TemplateComposer
+from ..text import normalize
+from .compose import AGE_NOTICE, Draft, TemplateComposer, notices
 from .tools import (
     VERTICAL_LABELS,
     Suggestion,
@@ -70,6 +71,7 @@ class Bigotes:
             return self._service(conn, intent, ctx)
         vertical = intent.vertical or ctx.vertical or "supermercado"
         outcome = None
+        generic_remedies = False
         # Un síntoma sin producto ni vertical nombrados: remedios de farmacia (sin receta) para eso, o los analgésicos
         # si nada nombra el síntoma («me siento mal»). Sin farmacia, lo de siempre para cuidarse (sopas, jugos, té).
         if intent.symptom and not intent.explicit_concepts and not intent.explicit_vertical:
@@ -80,6 +82,7 @@ class Bigotes:
                     intent = replace(
                         intent, vertical="farmacia", concepts=["medicamentos"], kind="buscar", occasion=None
                     )
+                    generic_remedies = query == GENERAL_REMEDIES
                     break
         if outcome is None:
             outcome = search_products(
@@ -110,15 +113,27 @@ class Bigotes:
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
         also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical)
         text = self.composer.compose(draft)
+        if generic_remedies:  # la muestra del catálogo no tiene algo para ese síntoma: no aparentar que sí
+            text = "No encontré algo específico para eso en Farmacia. Estos son los analgésicos que hay."
+            text += "".join(f" {n}" for n in notices(draft))
         response = self._response(
             intent, vertical, text, products, suggestion, unmet, outcome.result.unmet_reason, draft
         )
         if also_in:
             response["also_in"] = also_in
+        if intent.occasion == "regalo" and ctx.mode == "propuesta":  # un regalo también se puede mandar
+            favor = self.taxonomy.services["rappifavor"]
+            response["actions"].append(
+                {"label": f"Mandarlo con {favor.name}", "route": [favor.route], "service": favor.id}
+            )
+            response["service"] = favor.id
         if unmet and ctx.mode == "propuesta":  # lo que no está en el catálogo, un Rappitendero lo compra donde esté
             favor = self.taxonomy.services["rappifavor"]
             response["text"] += f" Si lo venden en otra tienda, {favor.label} te lo compra y te lo lleva."
-            response["actions"].append({"label": f"Pedirlo con {favor.name}", "route": [favor.route]})
+            response["actions"].append(
+                {"label": f"Pedirlo con {favor.name}", "route": [favor.route], "service": favor.id}
+            )
+            response["service"] = favor.id
         return response
 
     def _service(self, conn: Connection, intent: Intent, ctx: Context) -> dict:
@@ -126,10 +141,14 @@ class Bigotes:
         con productos que no se haya mostrado en la sesión)."""
         service = self.taxonomy.services[intent.service]
         response = _base(intent, f"Para eso está {service.label}: {service.pitch}.")
-        response.update(service=service.id, actions=[{"label": f"Abrir {service.name}", "route": [service.route]}])
+        action = {"label": f"Abrir {service.name}", "route": [service.route], "service": service.id}
+        response.update(service=service.id, actions=[action])
         if ctx.mode != "propuesta":
             return response
-        for hook in service.hooks:
+        said = f" {normalize(intent.text)} "
+        # Primero los ganchos del contexto que se nombró («playa», «nieve»); los demás solo si no tienen contexto.
+        in_context = [h for h in service.hooks if any(f" {normalize(w)} " in said for w in h.when)]
+        for hook in in_context + [h for h in service.hooks if not h.when]:
             if hook.concept in ctx.shown_topics:
                 continue
             for vertical in ranked_verticals(conn, [hook.concept])[:2]:

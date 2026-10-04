@@ -15,6 +15,7 @@ const ANALYTICS = [
   'rhythm',
   'at-risk',
   'suggestions',
+  'services',
   'multi-vertical',
   'affinity',
   'assortment',

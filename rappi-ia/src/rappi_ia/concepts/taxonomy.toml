@@ -1023,10 +1023,13 @@ pitch = "vuelos, hoteles, autos, seguros y paquetes, pagando con tus RappiCrédi
 route = "travel"
 reason = "Para tu viaje ✈️"
 keywords = ["viaje", "viajar", "me voy de viaje", "vacaciones", "vuelo", "vuelos", "pasaje", "pasajes", "avion", "hotel", "hoteles", "hospedaje", "alojamiento", "arrendar un auto", "arriendo de auto", "rent a car", "seguro de viaje", "paquete turistico", "tour", "excursion", "escapada", "rappitravel"]
+# Un gancho con `when` solo aplica si la consulta nombra alguno de esos contextos; los demás, a cualquier viaje.
 hooks = [
-  { concept = "dermocosmetica", query = "protector solar", question = "¿Llevas protector solar? 🧴" },
-  { concept = "ropa", query = "traje de baño", question = "¿Te falta traje de baño? 👙" },
-  { concept = "accesorios-moda", query = "maleta", question = "¿Necesitas maleta? 🧳" },
+  { concept = "dermocosmetica", query = "protector solar", question = "¿Llevas protector solar? 🧴", when = ["playa", "sol", "verano", "piscina", "caribe", "brasil", "la serena"] },
+  { concept = "ropa", query = "traje de baño", question = "¿Te falta traje de baño? 👙", when = ["playa", "piscina", "verano", "caribe"] },
+  { concept = "ropa", query = "chaqueta", question = "¿Te falta una chaqueta para el frío? 🧥", when = ["nieve", "ski", "esquiar", "frio", "invierno", "sur", "patagonia", "torres del paine"] },
+  { concept = "accesorios-moda", query = "bufanda", question = "¿Llevas bufanda? 🧣", when = ["nieve", "frio", "invierno"] },
+  { concept = "accesorios-moda", query = "mochila de viaje", question = "¿Te falta una mochila de viaje? 🎒" },
 ]
 
 [[service]]

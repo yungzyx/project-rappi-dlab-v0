@@ -260,7 +260,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano")
     synth = sub.add_parser("synth", help="genera usuarios y eventos SIMULADOS (source = synthetic)")
     synth.add_argument("--usuarios", type=int, default=1500)
-    synth.add_argument("--semanas", type=int, default=20)
+    synth.add_argument("--semanas", type=int, default=26)
     synth.add_argument("--semilla", type=int, default=7)
     synth.add_argument("--hasta", help="fecha final AAAA-MM-DD (por defecto hoy)")
     purge = sub.add_parser("purge", help="borra el texto de consultas más antiguas que la retención (90 días)")
@@ -274,13 +274,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> None:
-    args = build_parser().parse_args(argv)
+def configure_logging(verbose: bool) -> None:
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%H:%M:%S",
     )
+    # Las peticiones a huggingface.co al cargar un modelo (~20 por carga) tapaban los errores del log semanal.
+    logging.getLogger("httpx").setLevel(logging.DEBUG if verbose else logging.WARNING)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    configure_logging(args.verbose)
     try:
         with connect() as conn:
             COMMANDS[args.command](conn, args)

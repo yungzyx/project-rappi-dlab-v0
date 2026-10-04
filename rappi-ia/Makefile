@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan images purge post-refresh
+.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan warm images purge post-refresh
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -68,6 +68,21 @@ serve: migrate  ## API en http://localhost:8000, solo este Mac (docs en /docs)
 
 serve-lan: migrate  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
 	$(HF_OFFLINE) API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --host 0.0.0.0 --port 8000
+
+# Las frases del guion (docs/demo.md) sin user_id: no se registran. Frío, «una hamburguesa» tarda 2 a 5 s; caliente, 0,3 s.
+API ?= http://localhost:8000
+DEMO_PHRASES := "una hamburguesa" "vino tinto" "algo para el carrete" "tengo fiebre" \
+	"me voy de vacaciones a la playa" "se me quedaron las llaves en la oficina"
+ANALYTICS := kpis weekly opportunities trends funnel cohorts rhythm at-risk suggestions services multi-vertical \
+	affinity assortment
+
+warm:  ## Calienta la API antes de una demo (con la API ya corriendo; repetirlo tras un rato sin uso)
+	@for q in $(DEMO_PHRASES); do \
+	  curl -s -o /dev/null -w "  %{time_total}s  $$q\n" -X POST $(API)/chat -H 'Content-Type: application/json' \
+	    -d "{\"message\": \"$$q\"}" || exit 1; done
+	@for m in $(ANALYTICS); do for s in synthetic prototype; do \
+	  curl -s -o /dev/null $(API)/analytics/$$m?source=$$s; done; done
+	@curl -s -o /dev/null $(API)/analytics/catalog && echo "Lista: API caliente."
 
 images:  ## Fotos del catálogo con CLIP (miles de descargas: correr con el scraper detenido)
 	$(PY) -m rappi_ia embed-images

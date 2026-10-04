@@ -519,3 +519,58 @@ describe('lo aprendido y Olvidar', () => {
     expect(screen.queryByText('Aprendiendo de ti:')).toBeNull()
   })
 })
+
+describe('mensaje', () => {
+  test('el campo corta en 500 caracteres, como la API (más largo, la API responde 422 y el chat caía al cerebro local)', async () => {
+    await renderPanel()
+    expect(screen.getByPlaceholderText('Escríbele a Bigotes…').maxLength).toBe(500)
+  })
+})
+
+describe('servicios sin catálogo', () => {
+  test('RappiTravel queda registrado como ofrecido y abierto, y su gancho con su origen', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      text: 'Para eso está ✈️ RappiTravel',
+      products: [],
+      service: 'rappitravel',
+      actions: [{ label: 'Abrir RappiTravel', route: ['travel'], service: 'rappitravel' }],
+      suggestion: {
+        concept: 'dermocosmetica',
+        vertical: 'farmacia',
+        reason: 'Para tu viaje ✈️',
+        question: '¿Llevas protector solar?',
+        products: [],
+      },
+    })
+    await renderPanel({ push })
+    say('me voy de vacaciones')
+    await runUntilIdle()
+
+    const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
+    expect(tracked('service_shown')).toEqual([{ payload: { servicio: 'rappitravel' } }])
+    expect(tracked('suggestion_shown')).toContainEqual({
+      concept_id: 'dermocosmetica',
+      vertical: 'farmacia',
+      payload: { origen: 'rappitravel' },
+    })
+
+    fireEvent.click(screen.getByText('Abrir RappiTravel →'))
+    await runUntilIdle()
+    expect(tracked('service_opened')).toEqual([{ payload: { servicio: 'rappitravel' } }])
+    expect(push).toHaveBeenCalledWith('travel', undefined, expect.anything())
+  })
+})
+
+describe('sugerencias mostradas', () => {
+  test('la misma sugerencia mostrada dos veces en la pestaña cuenta una sola vez para el panel', async () => {
+    api.chat.mockResolvedValue(apiAnswer('Aquí tienes cervezas', 'helados'))
+    await renderPanel()
+    say('cerveza')
+    await runUntilIdle()
+    say('otra cerveza')
+    await runUntilIdle()
+    const shown = events.track.mock.calls.filter(([name, f]) => name === 'suggestion_shown' && f.concept_id === 'helados')
+    expect(shown).toHaveLength(1)
+  })
+})

@@ -14,7 +14,8 @@ cd dashboard-empresa && npm run dev  # http://localhost:5175
 
 1. Abre el prototipo y deja el modo **Propuesta** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy»).
 2. Abre el panel en otra pestaña y elige la fuente **Prototipo**: ahí aparece lo que se haga en la demo.
-3. Para empezar sin rastros de pruebas anteriores, en el chat toca **Olvidar**: borra los eventos y pedidos del usuario de este navegador, y el chat lo confirma. Lo que se probó desde otros navegadores sigue en la fuente Prototipo.
+3. Justo antes de presentar, con la API arriba: `cd rappi-ia && make warm`. Pasa por las frases del guion sin registrarlas: en frío la primera respuesta tarda de 2 a 5 s; después, menos de medio segundo. Repetirlo si la API pasó un rato sin uso.
+4. Para empezar sin rastros de pruebas anteriores, en el chat toca **Olvidar**: borra los eventos y pedidos del usuario de este navegador, y el chat lo confirma. Lo que se probó desde otros navegadores sigue en la fuente Prototipo.
 
 ## Recorrido
 
@@ -24,7 +25,7 @@ cd dashboard-empresa && npm run dev  # http://localhost:5175
 | 2 | `vino tinto` | Vinos de Licores, quesos del súper y la fila **«También en»**: Express, Súper y Turbo con el logo y el nombre de tiendas reales. | El mismo concepto existe en varias verticales: hoy cada una lo muestra por separado. |
 | 3 | `algo para el carrete` | Va directo a Licores sin preguntar y sugiere desde Express. | Entiende ocasiones, no solo productos. |
 | 4 | `tengo fiebre` | Remedios de Farmacia para la fiebre (sin receta), sin venta cruzada. | Entiende la necesidad y lleva a la vertical que la resuelve; lo que pide receta nunca se ofrece. |
-| 4b | `me voy de vacaciones a la playa` | **RappiTravel** con su botón y, aparte, protector solar de Farmacia «Para tu viaje ✈️». | Rappi no es solo catálogo: los servicios (viajes, favores) también enganchan productos de otras verticales. |
+| 4b | `me voy de vacaciones a la playa` (o `a la nieve`) | **RappiTravel** con su botón y, aparte, protector solar de Farmacia «Para tu viaje ✈️» (con «nieve», una chaqueta del Mall). | Rappi no es solo catálogo: los servicios (viajes, favores) también enganchan productos de otras verticales. |
 | 4c | `se me quedaron las llaves en la oficina` | **RappiFavor** con su botón; en la Home el acceso a RappiFavor está habilitado (en «Rappi hoy» aparece no disponible, como en la app). | Lo que hoy está apagado puede ser la salida para lo que el catálogo no tiene. |
 | 5 | Agrega al carro un producto de la sugerencia (paso 1) y paga. | El pedido se confirma. | — |
 | 6 | En el panel: **Entre verticales**, fuente Prototipo. Si el panel ya estaba ahí, toca **Actualizar** (junto a la fecha de corte). | «Bigotes entre verticales»: suben las mostradas, aceptadas y convertidas. | Cada sugerencia queda medida: se ve si se acepta y si termina en compra. |

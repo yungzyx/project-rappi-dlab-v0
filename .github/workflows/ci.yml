@@ -46,6 +46,11 @@ jobs:
       - name: Instalar
         run: python -m pip install -e ".[dev]"
 
+      # La tarea semanal es un script de zsh: sin zsh sus 9 tests se saltaban en silencio.
+      - name: Instalar zsh
+        working-directory: .
+        run: sudo apt-get update -q && sudo apt-get install -y -q zsh
+
       - name: Lint
         run: |
           python -m ruff check src tests

@@ -521,6 +521,11 @@ def test_a_symptom_without_remedies_for_it_gets_the_painkillers(remedies_bigotes
         ids = [p["entity_id"] for p in r["products"]]
         assert r["vertical"] == "farmacia" and {"800", "801"} <= set(ids) and "803" not in ids, text
         assert "me siento mal" not in r["text"].lower() and "químico farmacéutico" not in r["text"], text
+    # Con los analgésicos genéricos lo dice: no aparenta que son para la tos.
+    assert agent.reply(db, "tengo tos", Context())["text"].startswith(
+        "No encontré algo específico para eso en Farmacia"
+    )
+    assert not agent.reply(db, "tengo fiebre", Context())["text"].startswith("No encontré")
 
 
 def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
@@ -536,7 +541,7 @@ def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
 
     r = agent.reply(db, "me voy de vacaciones a la playa", Context())
     assert r["intent"]["kind"] == "servicio" and r["service"] == "rappitravel"
-    assert r["actions"] == [{"label": "Abrir RappiTravel", "route": ["travel"]}]
+    assert r["actions"] == [{"label": "Abrir RappiTravel", "route": ["travel"], "service": "rappitravel"}]
     assert "RappiTravel" in r["text"] and not r["products"]
     assert r["suggestion"]["concept"] == "dermocosmetica" and r["suggestion"]["reason"] == "Para tu viaje ✈️"
     assert [p["entity_id"] for p in r["suggestion"]["products"]] == ["900"]
@@ -547,10 +552,41 @@ def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
     assert "suggestion" not in agent.reply(db, "me voy de vacaciones", Context(mode="actual"))
 
 
+def test_the_trip_hook_depends_on_where_you_go(bigotes):
+    """«playa» engancha protector solar; «nieve», una chaqueta; un viaje sin contexto, una mochila de viaje."""
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    add_store(db, 12, "mall", "Tienda")
+    for pid, name, store, category in [
+        (900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales"),
+        (901, "Chaqueta acolchada impermeable hombre", 12, "Abrigos, Chamarras, Chalecos"),
+        (902, "Mochila de viaje 40 litros", 12, "Maletas de viaje"),
+    ]:
+        add_product(db, pid, name, store, category)
+        add_price(db, store, pid, 19990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    hook = lambda text: [p["entity_id"] for p in agent.reply(db, text, Context())["suggestion"]["products"]]  # noqa: E731
+    assert hook("me voy de vacaciones a la playa") == ["900"]
+    assert hook("me voy de viaje a la nieve") == ["901"]
+    assert hook("busco un hotel en puerto varas") == ["902"]
+
+
+def test_a_gift_can_be_sent_with_rappifavor(bigotes):
+    agent, db = bigotes
+    r = agent.reply(db, "un regalo para mi mamá", Context())
+    assert {"label": "Mandarlo con RappiFavor", "route": ["favor"], "service": "rappifavor"} in r["actions"]
+    assert r["service"] == "rappifavor"
+    assert not agent.reply(db, "un regalo para mi mamá", Context(mode="actual"))["actions"]
+
+
 def test_an_errand_opens_rappifavor(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "se me quedaron las llaves en la oficina", Context())
-    assert r["service"] == "rappifavor" and r["actions"] == [{"label": "Abrir RappiFavor", "route": ["favor"]}]
+    assert r["service"] == "rappifavor"
+    assert r["actions"] == [{"label": "Abrir RappiFavor", "route": ["favor"], "service": "rappifavor"}]
     assert "suggestion" not in r
 
 
@@ -559,7 +595,10 @@ def test_what_is_not_in_the_catalog_can_be_bought_with_rappifavor(bigotes, monke
     agent, db = bigotes
     monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
     r = agent.reply(db, "kombucha de jengibre", Context(vertical="supermercado"))
-    assert r["unmet"] and {"label": "Pedirlo con RappiFavor", "route": ["favor"]} in r["actions"]
+    assert (
+        r["unmet"] and {"label": "Pedirlo con RappiFavor", "route": ["favor"], "service": "rappifavor"} in r["actions"]
+    )
+    assert r["service"] == "rappifavor"  # el prototipo lo registra como ofrecido
     assert "RappiFavor" in r["text"]
     actual = agent.reply(db, "kombucha de jengibre", Context(vertical="supermercado", mode="actual"))
     assert actual["unmet"] and not actual["actions"]
@@ -951,3 +990,69 @@ def test_packaged_sweets_are_not_offered_from_restaurants(bigotes):
     build_search_documents(db)
     build_concepts(db)
     assert ranked_verticals(db, ["chocolates"]) == ["chocolateria"]
+
+
+@pytest.fixture
+def trip(bigotes):
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
+    add_price(db, 11, 900, 15990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    return agent, db
+
+
+def test_the_beach_hook_respects_rappi_hoy_and_topics_already_shown(trip):
+    """Con «playa» el gancho de protector solar SÍ aplica: así «Rappi hoy» y shown_topics se prueban de verdad."""
+    agent, db = trip
+    beach = "me voy de vacaciones a la playa"
+    r = agent.reply(db, beach, Context())
+    assert r["suggestion"]["question"] == "¿Llevas protector solar? 🧴"
+    assert r["reason"] == r["suggestion"]["reason"] == "Para tu viaje ✈️"
+    assert "suggestion" not in agent.reply(db, beach, Context(mode="actual"))
+    again = agent.reply(db, beach, Context(shown_topics=["dermocosmetica"]))
+    assert again.get("suggestion", {}).get("concept") != "dermocosmetica"
+
+
+@pytest.fixture
+def pharmacy(bigotes):
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    for pid, name, category, price in [
+        (800, "Paracetamol 500 mg para la fiebre y el dolor 16 comprimidos", "Analgésicos tópicos", 1490),
+        (801, "Tapsin Día fiebre y resfrío 18 comprimidos", "Analgésicos tópicos", 2990),
+        (804, "Jarabe Bisolvon para la tos 120 ml", "Analgésicos tópicos", 4990),
+        (805, "Termómetro digital para la fiebre", "Termómetros", 3990),
+    ]:
+        add_product(db, pid, name, 11, category)
+        add_price(db, 11, pid, price)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    return agent, db
+
+
+def test_one_remedy_is_not_enough_and_only_medicines_are_remedies(pharmacy):
+    agent, db = pharmacy
+    cough = agent.reply(db, "tengo tos", Context())
+    assert cough["text"].startswith("No encontré algo específico")  # un solo jarabe: los analgésicos
+    fever = agent.reply(db, "tengo fiebre", Context())
+    assert fever["intent"]["vertical"] == "farmacia" and fever["tags"] == ["medicamentos"]
+    assert "805" not in [p["entity_id"] for p in fever["products"]]  # un termómetro no es un remedio
+
+
+def test_remedies_respect_the_price_cap(pharmacy):
+    agent, db = pharmacy
+    r = agent.reply(db, "tengo fiebre, algo de menos de 2000", Context())
+    assert r["intent"]["price_max"] == 2000
+    assert all(p["price_value"] <= 2000 for p in r["products"])
+
+
+def test_a_symptom_with_a_named_vertical_stays_there(pharmacy):
+    agent, db = pharmacy
+    r = agent.reply(db, "tengo fiebre, algo del supermercado", Context())
+    assert r["intent"]["vertical"] == "supermercado" and r["vertical"] == "supermercado"

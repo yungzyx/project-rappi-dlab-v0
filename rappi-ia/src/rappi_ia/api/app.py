@@ -4,18 +4,21 @@ make serve   →   http://localhost:8000/docs
 """
 
 import io
+import json
 import logging
+import re
 import time
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from psycopg import Connection, OperationalError
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from psycopg import Connection, DataError, OperationalError
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from rappi_scraper.storage.search import VERTICALS
 
 from .. import config
@@ -76,6 +79,20 @@ async def database_unavailable(request: Request, exc: OperationalError) -> JSONR
     return JSONResponse(status_code=503, content={"detail": "Base de datos no disponible"})
 
 
+@app.exception_handler(RequestValidationError)
+async def invalid_request(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 sin repetir la entrada: un NaN o un texto enorme en `input` no se puede volver a mandar como JSON (500)."""
+    errors = [{"type": e.get("type"), "loc": e.get("loc"), "msg": e.get("msg")} for e in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
+@app.exception_handler(DataError)
+async def invalid_data(request: Request, exc: DataError) -> JSONResponse:
+    """Un valor que Postgres no acepta (un \x00 en un parámetro de la URL): es un error de quien pide, no un 500."""
+    log.warning("Dato inválido en %s: %s", request.url.path, exc)
+    return JSONResponse(status_code=400, content={"detail": "Dato inválido"})
+
+
 FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 EMPTY_VERTICAL_FALLBACK = {"turbo": "conveniencia"}  # mismo tipo de tienda (minimarket con entrega rápida)
 MAX_UPLOAD_BYTES = 8_000_000
@@ -107,9 +124,10 @@ def backend_vertical(vertical: str | None) -> str | None:
 
 
 def _no_nul(value):
-    """Postgres no acepta \x00 en texto ni en JSON: se quita en vez de devolver un 500."""
+    """Postgres no acepta \x00 en texto ni en JSON, ni UTF-8 inválido (un surrogate suelto): se limpia en vez de
+    devolver un 500."""
     if isinstance(value, str):
-        return value.replace("\x00", "")
+        return value.replace("\x00", "").encode("utf-8", "replace").decode("utf-8")
     if isinstance(value, dict):
         return {_no_nul(k): _no_nul(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -121,7 +139,10 @@ class Clean(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def strip_nul(cls, data):
-        return _no_nul(data)
+        try:
+            return _no_nul(data)
+        except RecursionError as exc:  # JSON anidado miles de niveles
+            raise ValueError("JSON demasiado anidado") from exc
 
 
 # ── Modelos ──────────────────────────────────────────────────────────────────
@@ -130,25 +151,37 @@ class ChatIn(Clean):
     vertical: str | None = None
     user_id: str | None = Field(default=None, max_length=64)
     session_id: str | None = Field(default=None, max_length=64)
-    profile: dict[str, float] | None = None
-    shown_topics: list[str] = Field(default_factory=list, max_length=50)
+    profile: dict[str, float] | None = Field(default=None, max_length=200)
+    shown_topics: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=50)
     mode: Literal["propuesta", "actual"] = "propuesta"
 
 
+MAX_PAYLOAD_KEYS = 10
+MAX_PAYLOAD_BYTES = 2048
+
+
 class EventIn(Clean):
-    type: str
+    type: str = Field(max_length=64)
     session_id: str = Field(max_length=64)
-    vertical: str | None = None
-    concept_id: str | None = None
+    vertical: str | None = Field(default=None, max_length=64)
+    concept_id: str | None = Field(default=None, max_length=64)
     entity_type: Literal["catalog_item", "menu_item", "store"] | None = None
     entity_id: str | None = Field(default=None, max_length=64)
     cart_id: str | None = Field(default=None, max_length=64)
     query: str | None = Field(default=None, max_length=500)
     modality: Literal["texto", "voz", "foto"] | None = None
-    results: int | None = None
+    results: int | None = Field(default=None, ge=0, le=1_000_000)
     unmet: bool | None = None
-    value: float | None = None
+    value: float | None = Field(default=None, allow_inf_nan=False)
     payload: dict = Field(default_factory=dict)
+
+    @field_validator("payload")
+    @classmethod
+    def small_payload(cls, payload: dict) -> dict:
+        """El payload no pasa por la redacción ni la purga: solo datos chicos (origen, servicio, cantidad…)."""
+        if len(payload) > MAX_PAYLOAD_KEYS or len(json.dumps(payload, allow_nan=False)) > MAX_PAYLOAD_BYTES:
+            raise ValueError("payload demasiado grande")
+        return payload
 
 
 class EventsIn(Clean):
@@ -161,7 +194,7 @@ class OrderLineIn(Clean):
     entity_id: str = Field(max_length=64)
     concept_id: str | None = None
     qty: int = Field(default=1, ge=1, le=99)
-    unit_price: float | None = None
+    unit_price: float | None = Field(default=None, ge=0, le=100_000_000, allow_inf_nan=False)
     from_suggestion: bool = False
 
 
@@ -176,7 +209,15 @@ class OrderIn(Clean):
 # ── Bigotes ──────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
-    documents = conn.execute("SELECT count(*) FROM search_documents").fetchone()[0]
+    # Estimación de las estadísticas de Postgres: contar las ~250 mil filas leía ~390 MB en cada chequeo (el prototipo
+    # lo pide cada 30 s y se rinde a los 1,5 s). Sin estadísticas todavía (base recién creada), se cuenta.
+    documents = (
+        conn.execute(
+            """SELECT coalesce(sum(greatest(c.reltuples, 0)), 0)::bigint FROM pg_inherits i
+           JOIN pg_class c ON c.oid = i.inhrelid WHERE i.inhparent = 'search_documents'::regclass"""
+        ).fetchone()[0]
+        or conn.execute("SELECT count(*) FROM search_documents").fetchone()[0]
+    )
     return {"ok": True, "documentos": documents, "capacidades": svc.capabilities}
 
 
@@ -332,6 +373,13 @@ def post_events(body: EventsIn, conn: Connection = Depends(get_conn)) -> dict:
 async def post_events_beacon(request: Request, conn: Connection = Depends(get_conn)) -> None:
     """Lo que queda en cola al cerrar la pestaña (navigator.sendBeacon). Llega como text/plain, que no necesita
     preflight de CORS; el contenido es el mismo JSON de /events."""
+    origin = request.headers.get("origin")
+    if (
+        origin
+        and origin not in config.API_CORS_ORIGINS
+        and not re.fullmatch(cors_origin_regex(config.API_ALLOW_LAN), origin)
+    ):  # text/plain no tiene preflight: sin esto, cualquier página abierta podía escribir eventos
+        raise HTTPException(403, "Origen no permitido")
     raw = await request.body()
     if len(raw) > MAX_BEACON_BYTES:
         raise HTTPException(413, "Demasiados eventos")
@@ -363,15 +411,18 @@ def post_order(body: OrderIn, conn: Connection = Depends(get_conn)) -> dict:
     vertical = backend_vertical(body.vertical)
     if vertical is None:  # un pedido es de una tienda: sin vertical del catálogo no se puede guardar
         raise HTTPException(400, f"Vertical desconocido: {body.vertical}")
-    order_id = events.record_order(
-        conn,
-        body.user_id,
-        body.session_id,
-        body.cart_id,
-        vertical,
-        [line.model_dump() for line in body.lines],
-        source="prototype",
-    )
+    try:
+        order_id = events.record_order(
+            conn,
+            body.user_id,
+            body.session_id,
+            body.cart_id,
+            vertical,
+            [line.model_dump() for line in body.lines],
+            source="prototype",
+        )
+    except ValueError as exc:  # un usuario de otra fuente (simulado)
+        raise HTTPException(400, str(exc)) from exc
     conn.commit()
     return {"order_id": order_id}
 
@@ -399,6 +450,7 @@ ANALYTICS = {
     "rhythm": queries.rhythm_histogram,
     "at-risk": queries.at_risk,
     "suggestions": queries.suggestions,
+    "services": queries.services,
     "multi-vertical": queries.multi_vertical_retention,
     "affinity": queries.affinity,
     "assortment": queries.assortment_vs_demand,
@@ -462,7 +514,11 @@ def _log_chat(conn, user_id, session_id, text, response, modality, mode) -> None
         unmet=bool(response.get("unmet")),
         payload={"mode": mode, "intent": response.get("intent", {}).get("kind")},
     )
-    events.record(conn, [event], source="prototype")
+    try:
+        events.record(conn, [event], source="prototype")
+    except ValueError:  # un id de usuario simulado: la respuesta sale igual, no se registra
+        conn.rollback()
+        return
     conn.commit()
 
 
@@ -484,6 +540,8 @@ def _open_image(data: bytes):
     Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
     try:
         picture = Image.open(io.BytesIO(data), formats=IMAGE_FORMATS)
+        if picture.width * picture.height > MAX_IMAGE_PIXELS:  # Pillow solo corta sobre el doble del tope
+            raise ValueError("imagen demasiado grande")
         picture.draft("RGB", (672, 672))  # JPEG: decodifica ya reducido
         picture = picture.convert("RGB")
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError, SyntaxError, ValueError) as exc:

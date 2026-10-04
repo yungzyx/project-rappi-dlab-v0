@@ -29,6 +29,8 @@ EVENT_TYPES = {
     "suggestion_accepted",
     "suggestion_dismissed",
     "recommendation_click",
+    "service_shown",  # Bigotes ofreció un servicio sin catálogo (payload.servicio)
+    "service_opened",  # se tocó el botón que abre ese servicio
 }
 QUERY_RETENTION_DAYS = 90
 HALF_LIFE_DAYS = 14  # el interés se reduce a la mitad cada 2 semanas sin actividad
@@ -61,10 +63,13 @@ _ADDRESS = re.compile(
 )
 # Sin tipo de calle: solo con una frase que anuncia la dirección ("vivo en Los Leones 123").
 _ADDRESS_CONTEXT = re.compile(
-    r"(?P<intro>vivo en|mi direcci[oó]n(?: es)?|despacho a|entregar en|env[ií]a(?:lo)? a)\s+[^\d,;\n]{2,40}?\s*"
+    r"(?P<intro>vivo en|mi direcci[oó]n(?: es)?|despacho a|entregar en|env[ií]a(?:lo)? a|manda(?:lo)? a|estoy en"
+    r"|queda en)\s+[^\d,;\n]{2,40}?\s*"
     r"(?:n[°º]\.?\s*|#\s*)?\d{1,5}\b" + _TAIL,
     re.IGNORECASE,
 )
+# Un nombre propio tras «me llamo» o «mi nombre es» (con mayúscula: «me llamo la atención» no es un nombre).
+_NAME = re.compile(r"(?P<intro>me llamo|mi nombre es)\s+[A-ZÁÉÍÓÚÑ][\wáéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][\wáéíóúñ]+){0,2}")
 _NOT_A_STREET = {"para", "de", "la", "el", "los", "las", "con", "sin", "y", "a", "en", "por", "que", "un", "una"}
 
 
@@ -89,7 +94,8 @@ def _street(match: re.Match) -> str:
 
 
 def redact(text: str | None) -> str | None:
-    """Quita correo, RUT (válido), tarjetas (Luhn), teléfonos chilenos y direcciones antes de guardar una consulta."""
+    """Quita correo, RUT (válido), tarjetas (Luhn), teléfonos chilenos, nombres y direcciones antes de guardar una
+    consulta."""
     if text is None:
         return None
     text = _EMAIL.sub("[correo]", text)
@@ -97,6 +103,7 @@ def redact(text: str | None) -> str | None:
     text = _CARD.sub(lambda m: "[tarjeta]" if _luhn(m.group(0)) else m.group(0), text)
     text = _PHONE.sub("[teléfono]", text)
     text = _ADDRESS.sub(_street, text)
+    text = _NAME.sub(lambda m: f"{m.group('intro')} [nombre]", text)
     return _ADDRESS_CONTEXT.sub(lambda m: f"{m.group('intro')} [dirección]", text)
 
 
@@ -120,11 +127,17 @@ class Event:
 
 
 def ensure_user(conn: Connection, user_id: str, source: str = "prototype", **extra) -> None:
-    conn.execute(
+    """Crea el usuario si no existe. Un id de otra fuente no se puede usar: con la API abierta a la red, el prototipo
+    podía colgarles eventos a los usuarios simulados (ids correlativos)."""
+    row = conn.execute(
         """INSERT INTO app_users (user_id, source, segment, city, consent_notifications)
-           VALUES (%s, %s, %s, %s, %s) ON CONFLICT (user_id) DO NOTHING""",
+           VALUES (%s, %s, %s, %s, %s)
+           ON CONFLICT (user_id) DO UPDATE SET source = app_users.source
+           RETURNING source""",
         (user_id, source, extra.get("segment"), extra.get("city"), extra.get("consent", False)),
-    )
+    ).fetchone()
+    if row[0] != source:
+        raise ValueError(f"El usuario {user_id} es de otra fuente")
 
 
 def _known_concepts(conn: Connection) -> set[str]:
@@ -250,6 +263,10 @@ def forget(conn: Connection, user_id: str, concept_id: str | None = None) -> int
     """'Olvidar' (docs/diseno-ia.md §2). Sin concepto: borra al usuario entero (eventos, pedidos y líneas en
     cascada). Con concepto: borra sus eventos de ese concepto, lo quita de sus líneas de pedido y borra el texto de
     las consultas que lo nombran. Devuelve cuántos registros se borraron o anonimizaron."""
+    if conn.execute(
+        "SELECT 1 FROM app_users WHERE user_id = %s AND source <> 'prototype'", (user_id,)
+    ).fetchone():  # «Olvidar» es del prototipo: nunca borra usuarios simulados
+        return 0
     if concept_id is None:
         events = conn.execute("SELECT count(*) FROM app_events WHERE user_id = %s", (user_id,)).fetchone()[0]
         orders = conn.execute("SELECT count(*) FROM app_orders WHERE user_id = %s", (user_id,)).fetchone()[0]

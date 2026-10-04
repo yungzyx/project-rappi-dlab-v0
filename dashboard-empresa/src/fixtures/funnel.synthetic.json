@@ -3,59 +3,59 @@
   "data": [
     {
       "vertical": "restaurantes",
-      "buscan": 6093,
-      "agregan": 4358,
-      "pagan": 3605,
-      "piden": 3071
+      "buscan": 9132,
+      "agregan": 5997,
+      "pagan": 4883,
+      "piden": 4153
     },
     {
       "vertical": "supermercado",
-      "buscan": 4559,
-      "agregan": 3886,
-      "pagan": 3323,
-      "piden": 2954
+      "buscan": 6738,
+      "agregan": 5772,
+      "pagan": 4905,
+      "piden": 4291
     },
     {
       "vertical": "conveniencia",
-      "buscan": 2582,
-      "agregan": 2352,
-      "pagan": 1915,
-      "piden": 1612
+      "buscan": 2658,
+      "agregan": 2453,
+      "pagan": 1985,
+      "piden": 1663
     },
     {
       "vertical": "licores",
-      "buscan": 2445,
-      "agregan": 2258,
-      "pagan": 1782,
-      "piden": 1502
+      "buscan": 2588,
+      "agregan": 2432,
+      "pagan": 1964,
+      "piden": 1651
     },
     {
       "vertical": "chocolateria",
-      "buscan": 548,
-      "agregan": 491,
-      "pagan": 407,
-      "piden": 343
+      "buscan": 524,
+      "agregan": 483,
+      "pagan": 399,
+      "piden": 334
     },
     {
       "vertical": "mall",
-      "buscan": 343,
-      "agregan": 279,
-      "pagan": 208,
-      "piden": 161
+      "buscan": 279,
+      "agregan": 214,
+      "pagan": 168,
+      "piden": 131
     },
     {
       "vertical": "farmacia",
-      "buscan": 158,
-      "agregan": 158,
-      "pagan": 129,
-      "piden": 110
+      "buscan": 246,
+      "agregan": 136,
+      "pagan": 123,
+      "piden": 108
     },
     {
       "vertical": "turbo",
-      "buscan": 74,
-      "agregan": 74,
-      "pagan": 63,
-      "piden": 55
+      "buscan": 152,
+      "agregan": 152,
+      "pagan": 133,
+      "piden": 118
     }
   ]
 }

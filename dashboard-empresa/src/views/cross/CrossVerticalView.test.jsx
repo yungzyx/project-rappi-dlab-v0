@@ -1,9 +1,10 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { renderWithData, resetApi, serveFixtures } from '../../test/fixtureApi.js'
 import { CrossVerticalView } from './CrossVerticalView.jsx'
 import { formatNumber } from '../../lib/format.js'
 import suggestions from '../../fixtures/suggestions.synthetic.json'
+import services from '../../fixtures/services.synthetic.json'
 
 describe('CrossVerticalView', () => {
   afterEach(resetApi)
@@ -18,6 +19,10 @@ describe('CrossVerticalView', () => {
     expect(await screen.findByRole('table', { name: 'Afinidad dirigida entre conceptos' })).toBeTruthy()
     expect((await screen.findAllByText('Sin grupo: menos de 20 usuarios')).length).toBeGreaterThan(0)
     expect(screen.getByText(/Supuesto del simulador/)).toBeTruthy()
+    const servicesTable = await screen.findByRole('table', { name: 'Servicios sin catálogo' })
+    const travel = services.data.find((row) => row.servicio === 'rappitravel')
+    expect(within(servicesTable).getByText('✈️ RappiTravel')).toBeTruthy()
+    expect(within(servicesTable).getByText(`${formatNumber(travel.ganchos_aceptados)} de ${formatNumber(travel.ganchos_mostrados)}`)).toBeTruthy()
   })
 
   test('en una demo en vivo el titular cuenta las sugerencias sin inventar un porcentaje', async () => {

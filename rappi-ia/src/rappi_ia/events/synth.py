@@ -5,9 +5,12 @@ supuestos explícitos. El panel muestra la mecánica, no evidencia: por construc
 "confirman" en los gráficos.
 
 SUPUESTOS (editables aquí):
-- Personas con verticales, conceptos y ritmo de compra propios (PERSONAS).
+- Personas con verticales, conceptos y ritmo de compra propios (PERSONAS); dos compran en una sola vertical.
+- 26 semanas: la retención (días 61 a 120) necesita usuarios con 120 días de historia.
 - Quien no encuentra lo que busca (demanda no satisfecha) o abandona carros, se va antes (CHURN_*).
 - Parte de quienes encuentran productos se va sin agregar nada al carro (BROWSE_ONLY).
+- Algunas sesiones hablan de un viaje (TRIP: RappiTravel y su gancho) y a quien no encuentra lo que busca se le
+  ofrece RappiFavor (FAVOR_OFFER).
 - Parte de los carros abandonados alcanza a iniciar el pago (CHECKOUT_ABANDON_SHARE); el resto se va antes.
 - Quien compra en 2+ verticales se va menos (MULTI_VERTICAL_RETENTION): es la hipótesis del proyecto.
 - Aceptar una sugerencia cruzada acorta un poco el ritmo de compra (SUGGESTION_CADENCE_BOOST).
@@ -15,6 +18,7 @@ SUPUESTOS (editables aquí):
 """
 
 import io
+import json
 import logging
 import math
 import random
@@ -126,6 +130,26 @@ PERSONAS = [
         0.4,
         0.03,
     ),
+    # Compran en una sola vertical: sin ellas, «¿retiene más quien usa dos verticales?» no tenía contra qué comparar.
+    # Bigotes igual puede llevarlas a otra con una sugerencia aceptada.
+    Persona(
+        "rutina",
+        0.14,
+        8,
+        (9, 10, 19, 20),
+        {"supermercado": {"lacteos": 4, "frutas": 3, "panaderia": 2.5, "limpieza": 2, "snacks-salados": 1.5}},
+        0.25,
+        0.03,
+    ),
+    Persona(
+        "delivery",
+        0.12,
+        7,
+        (13, 20, 21),
+        {"restaurantes": {"pizza": 3, "hamburguesa": 3, "sushi": 2, "pollo-preparado": 2}},
+        0.3,
+        0.035,
+    ),
 ]
 
 # Antojos que el catálogo no tiene (o casi): (vertical, texto, concepto, peso inicial, crecimiento semanal)
@@ -142,6 +166,10 @@ CHURN_UNMET = 0.35  # +35% de riesgo por cada búsqueda sin resultado en las úl
 CHURN_ABANDON = 0.2  # +20% por cada carro abandonado en las últimas 4 semanas
 CHECKOUT_ABANDON_SHARE = 0.4  # de los carros abandonados, la parte que alcanza a iniciar el pago
 MULTI_VERTICAL_RETENTION = 0.55  # riesgo × 0,55 si compró en 2+ verticales en 60 días
+TRIP = 0.03  # sesiones que hablan de un viaje (RappiTravel)
+TRAVEL_OPEN = 0.35  # de ellas, las que abren RappiTravel
+FAVOR_OFFER = 0.6  # búsquedas sin resultado donde Bigotes ofrece RappiFavor (en «Propuesta»)
+FAVOR_OPEN = 0.2
 BROWSE_ONLY = 0.12  # encuentra productos y se va sin agregar nada al carro
 SUGGESTION_ACCEPT = 0.22  # probabilidad base de aceptar una sugerencia cruzada (× peso de la arista)
 SUGGESTION_CADENCE_BOOST = 0.93  # aceptar una sugerencia acorta el ritmo 7%
@@ -201,7 +229,7 @@ def load_catalog(conn: Connection, per_concept: int = 40) -> Catalog:
     return Catalog(items, edges, names, ranked)
 
 
-def generate(conn: Connection, users: int = 1500, weeks: int = 20, seed: int = 7, until: date | None = None) -> dict:
+def generate(conn: Connection, users: int = 1500, weeks: int = 26, seed: int = 7, until: date | None = None) -> dict:
     """Borra los datos simulados anteriores y genera nuevos (reproducible con la misma semilla y fecha)."""
     rng = random.Random(seed)
     catalog = load_catalog(conn)
@@ -277,7 +305,7 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
             kw.get("results"),
             _bool(kw.get("unmet")),
             kw.get("value"),
-            "{}",
+            json.dumps(kw.get("payload", {})),
             "synthetic",
         )
         counts["eventos"] += 1
@@ -300,6 +328,34 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
             unmet=True,
         )
         s.recent_unmet.append(ts)
+        if rng.random() < FAVOR_OFFER:  # Bigotes ofrece pedirlo con RappiFavor
+            favor = {"servicio": "rappifavor"}
+            emit("service_shown", clock + timedelta(seconds=2), payload=favor)
+            if rng.random() < FAVOR_OPEN:
+                emit("service_opened", clock + timedelta(seconds=9), payload=favor)
+        return
+
+    if rng.random() < TRIP:  # habla de un viaje: RappiTravel y su gancho del catálogo (protector solar)
+        travel, hook = {"servicio": "rappitravel"}, {"origen": "rappitravel"}
+        emit("chat", clock, query="me voy de vacaciones", modality=_modality(rng), results=0)
+        emit("service_shown", clock + timedelta(seconds=2), payload=travel)
+        if rng.random() < TRAVEL_OPEN:
+            emit("service_opened", clock + timedelta(seconds=12), payload=travel)
+        emit(
+            "suggestion_shown",
+            clock + timedelta(seconds=3),
+            vertical="farmacia",
+            concept="dermocosmetica",
+            payload=hook,
+        )
+        if rng.random() < SUGGESTION_ACCEPT:
+            emit(
+                "suggestion_accepted",
+                clock + timedelta(seconds=8),
+                vertical="farmacia",
+                concept="dermocosmetica",
+                payload=hook,
+            )
         return
 
     vertical = _weighted(rng, {v: sum(c.values()) for v, c in s.persona.interests.items()})

@@ -360,8 +360,7 @@ def test_invalid_source_is_rejected(db):
         queries.kpis(db, "real")
 
 
-@pytest.fixture
-def simulated(db):
+def _simulated_catalog(db):
     add_store(db, 1, "supermercado", "Súper")
     add_store(db, 2, "licores", "Botillería")
     add_store(db, 3, "conveniencia", "Express")
@@ -375,6 +374,12 @@ def simulated(db):
     db.commit()
     build_search_documents(db)
     build_concepts(db)
+    return db, None
+
+
+@pytest.fixture
+def simulated(db):
+    _simulated_catalog(db)
     counts = generate(db, users=120, weeks=20, seed=3, until=date(2026, 9, 27))
     return db, counts
 
@@ -412,6 +417,76 @@ def test_some_synthetic_sessions_find_products_and_leave_without_adding(simulate
            FROM app_events e WHERE e.type IN ('search', 'chat') AND e.results > 0"""
     ).fetchone()
     assert 0 < left < found * 0.3
+
+
+def test_the_multi_vertical_retention_compares_both_groups_with_the_default_history(db, monkeypatch):
+    """Es la hipótesis del proyecto y no se veía: con 20 semanas solo ~130 usuarios tenían 120 días de historia y
+    casi todos eran multi-vertical (todas las personas compraban en varias). Ningún estrato tenía los dos grupos."""
+    simulated_db, _ = _simulated_catalog(db)
+    monkeypatch.setattr(queries, "MIN_GROUP_USERS", 5)  # catálogo de prueba chico: grupos chicos
+    generate(simulated_db, seed=3, until=date(2026, 9, 27))  # usuarios y semanas por defecto
+    rows = queries.multi_vertical_retention(simulated_db, "synthetic")
+    groups = {}
+    for row in rows:
+        groups.setdefault(row["estrato"], set()).add(row["grupo"])
+    assert any(g == {"multi-vertical", "un vertical"} for g in groups.values()), rows
+
+
+SERVICE_TS = datetime(2026, 9, 27, 12, tzinfo=UTC)
+
+
+def test_services_count_offers_openings_and_accepted_hooks(db):
+    """RappiTravel y RappiFavor no tienen catálogo: su enganche se mide por eventos propios (ofrecido y abierto) y por
+    los ganchos del catálogo que se aceptan con su origen."""
+    seed_taxonomy(db, load_taxonomy())
+    travel = {"servicio": "rappitravel"}
+    events.record(
+        db,
+        [
+            events.Event("u1", "s1", "service_shown", ts=SERVICE_TS, payload=travel),
+            events.Event("u1", "s1", "service_opened", ts=SERVICE_TS, payload=travel),
+            events.Event("u2", "s2", "service_shown", ts=SERVICE_TS, payload=travel),
+            events.Event(
+                "u1",
+                "s1",
+                "suggestion_shown",
+                ts=SERVICE_TS,
+                concept_id="dermocosmetica",
+                vertical="farmacia",
+                payload={"origen": "rappitravel"},
+            ),
+            events.Event(
+                "u1",
+                "s1",
+                "suggestion_accepted",
+                ts=SERVICE_TS,
+                concept_id="dermocosmetica",
+                vertical="farmacia",
+                payload={"origen": "rappitravel"},
+            ),
+            events.Event("u3", "s3", "service_shown", ts=SERVICE_TS, payload={"servicio": "rappifavor"}),
+        ],
+        source="prototype",
+    )
+    rows = {r["servicio"]: r for r in queries.services(db, "prototype")}
+    assert rows["rappitravel"] == {
+        "servicio": "rappitravel",
+        "nombre": "✈️ RappiTravel",
+        "ofrecido": 2,
+        "abierto": 1,
+        "ganchos_mostrados": 1,
+        "ganchos_aceptados": 1,
+    }
+    assert (rows["rappifavor"]["ofrecido"], rows["rappifavor"]["abierto"]) == (1, 0)
+
+
+def test_synthetic_sessions_also_use_the_services(simulated):
+    """Sin eventos de servicios, la fila de RappiTravel y RappiFavor del panel quedaba en cero con datos simulados."""
+    db, _ = simulated
+    rows = {r["servicio"]: r for r in queries.services(db, "synthetic")}
+    travel, favor = rows["rappitravel"], rows["rappifavor"]
+    assert travel["ofrecido"] > travel["abierto"] > 0 and travel["ganchos_mostrados"] >= travel["ganchos_aceptados"] > 0
+    assert favor["ofrecido"] > favor["abierto"] > 0  # se ofrece cuando no encuentran lo que buscan
 
 
 def test_synthetic_carts_are_also_abandoned_after_starting_payment(simulated):
@@ -487,3 +562,56 @@ def test_opportunities_come_only_from_unmet_searches(simulated):
     for row in queries.opportunities(db, "synthetic"):
         assert row["usuarios"] >= 5 and row["busquedas"] >= row["usuarios"]
         assert row["accion"]
+
+
+RETENTION_T0 = datetime(2026, 1, 1, 12, tzinfo=UTC)
+
+
+def _retention_order(db, user, day, vertical, cart=None):
+    events.record_order(
+        db,
+        user,
+        f"s-{user}-{day}",
+        cart or f"c-{user}-{day}",
+        vertical,
+        [{"entity_type": "catalog_item", "entity_id": "1", "unit_price": 1000}],
+        ts=RETENTION_T0 + timedelta(days=day),
+    )
+
+
+def test_multi_vertical_retention_is_exact(db, monkeypatch):
+    """La hipótesis del proyecto, con números a mano: ventana de 60 días, retención entre los días 61 y 120,
+    solo usuarios con 120 días de historia, estratos por compras y el mínimo de usuarios por grupo."""
+    for user in ("m1", "m2"):  # dos verticales en los primeros 60 días, vuelven el día 70
+        (
+            _retention_order(db, user, 0, "supermercado"),
+            _retention_order(db, user, 10, "licores"),
+            _retention_order(db, user, 70, "supermercado"),
+        )
+    _retention_order(db, "s1", 0, "supermercado"), _retention_order(db, "s1", 10, "supermercado")
+    _retention_order(db, "s1", 70, "licores")  # la segunda vertical llega tarde: sigue siendo «un vertical»
+    _retention_order(db, "s2", 0, "supermercado"), _retention_order(db, "s2", 10, "supermercado")  # no vuelve
+    for user in ("x1", "x2"):  # 6 compras: estrato «6+»
+        for day in range(0, 60, 10):
+            _retention_order(db, user, day, "supermercado")
+    _retention_order(db, "n1", 150, "supermercado")  # sin 120 días de historia: fuera
+    events.record(db, [events.Event("z", "s", "app_open", ts=RETENTION_T0 + timedelta(days=200))])
+
+    assert queries.multi_vertical_retention(db, "prototype") == []  # grupos de 2 < MIN_GROUP_USERS (privacidad)
+    monkeypatch.setattr(queries, "MIN_GROUP_USERS", 2)
+    rows = {
+        (r["estrato"], r["grupo"]): (r["usuarios"], r["retencion_pct"])
+        for r in queries.multi_vertical_retention(db, "prototype")
+    }
+    assert rows == {
+        ("1–2 compras", "multi-vertical"): (2, 100.0),
+        ("1–2 compras", "un vertical"): (2, 50.0),
+        ("6+ compras", "un vertical"): (2, 0.0),
+    }
+
+
+def test_services_never_mix_simulated_and_prototype_events(db):
+    travel = {"servicio": "rappitravel"}
+    events.record(db, [events.Event("u1", "s1", "service_shown", payload=travel)], source="synthetic")
+    rows = {r["servicio"]: r for r in queries.services(db, "prototype")}
+    assert rows["rappitravel"]["ofrecido"] == 0

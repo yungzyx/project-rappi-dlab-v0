@@ -2,88 +2,88 @@
   "source": "synthetic",
   "data": [
     {
-      "concept_id": "textil-hogar",
-      "concepto": "🛏️ Textiles del hogar",
-      "recientes": 12,
-      "anteriores": 39,
-      "crecimiento_pct": -69
+      "concept_id": "carbon",
+      "concepto": "🔥 Carbón y leña",
+      "recientes": 15,
+      "anteriores": 27,
+      "crecimiento_pct": -44
     },
     {
       "concept_id": "peruana",
       "concepto": "🇵🇪 Comida peruana",
-      "recientes": 246,
-      "anteriores": 147,
-      "crecimiento_pct": 67
+      "recientes": 457,
+      "anteriores": 320,
+      "crecimiento_pct": 43
     },
     {
-      "concept_id": "audio",
-      "concepto": "🎧 Audio",
-      "recientes": 13,
-      "anteriores": 28,
-      "crecimiento_pct": -54
+      "concept_id": "vodka",
+      "concepto": "🍸 Vodka",
+      "recientes": 19,
+      "anteriores": 32,
+      "crecimiento_pct": -41
     },
     {
-      "concept_id": "ron",
-      "concepto": "🥃 Ron",
-      "recientes": 60,
-      "anteriores": 106,
-      "crecimiento_pct": -43
+      "concept_id": "fiambres",
+      "concepto": "🥓 Fiambres y embutidos",
+      "recientes": 20,
+      "anteriores": 32,
+      "crecimiento_pct": -38
     },
     {
-      "concept_id": "carbon",
-      "concepto": "🔥 Carbón y leña",
-      "recientes": 43,
-      "anteriores": 31,
-      "crecimiento_pct": 39
+      "concept_id": "ensaladas-bowls",
+      "concepto": "🥗 Ensaladas y bowls",
+      "recientes": 255,
+      "anteriores": 388,
+      "crecimiento_pct": -34
+    },
+    {
+      "concept_id": "alimento-gato",
+      "concepto": "🐈 Alimento para gatos",
+      "recientes": 84,
+      "anteriores": 123,
+      "crecimiento_pct": -32
+    },
+    {
+      "concept_id": "postres",
+      "concepto": "🍮 Postres",
+      "recientes": 98,
+      "anteriores": 142,
+      "crecimiento_pct": -31
+    },
+    {
+      "concept_id": "frutas",
+      "concepto": "🍎 Frutas",
+      "recientes": 409,
+      "anteriores": 559,
+      "crecimiento_pct": -27
+    },
+    {
+      "concept_id": "vino",
+      "concepto": "🍷 Vino",
+      "recientes": 77,
+      "anteriores": 102,
+      "crecimiento_pct": -25
+    },
+    {
+      "concept_id": "pisco",
+      "concepto": "🍸 Pisco",
+      "recientes": 103,
+      "anteriores": 136,
+      "crecimiento_pct": -24
+    },
+    {
+      "concept_id": "gaseosas",
+      "concepto": "🥤 Bebidas gaseosas",
+      "recientes": 141,
+      "anteriores": 186,
+      "crecimiento_pct": -24
     },
     {
       "concept_id": "cereales",
       "concepto": "🥣 Cereales y avena",
-      "recientes": 179,
-      "anteriores": 130,
-      "crecimiento_pct": 38
-    },
-    {
-      "concept_id": "cocina-menaje",
-      "concepto": "🍳 Cocina y menaje",
-      "recientes": 49,
-      "anteriores": 71,
-      "crecimiento_pct": -31
-    },
-    {
-      "concept_id": "hamburguesa",
-      "concepto": "🍔 Hamburguesa",
-      "recientes": 126,
-      "anteriores": 181,
-      "crecimiento_pct": -30
-    },
-    {
-      "concept_id": "helados",
-      "concepto": "🍦 Helados",
-      "recientes": 79,
-      "anteriores": 109,
-      "crecimiento_pct": -28
-    },
-    {
-      "concept_id": "juguetes-infantiles",
-      "concepto": "🧸 Juguetes",
-      "recientes": 51,
-      "anteriores": 40,
-      "crecimiento_pct": 28
-    },
-    {
-      "concept_id": "pastas",
-      "concepto": "🍝 Pastas",
-      "recientes": 378,
-      "anteriores": 506,
-      "crecimiento_pct": -25
-    },
-    {
-      "concept_id": "hielo",
-      "concepto": "🧊 Hielo",
-      "recientes": 43,
-      "anteriores": 57,
-      "crecimiento_pct": -25
+      "recientes": 128,
+      "anteriores": 104,
+      "crecimiento_pct": 23
     }
   ]
 }

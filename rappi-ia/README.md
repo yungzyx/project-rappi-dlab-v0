@@ -46,7 +46,7 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `make concepts` | Capa 2: conceptos por producto y plato (con kNN si está el extra `ml`) |
 | `make embed` | Embeddings de texto (incrementales) + índices HNSW por vertical. No corre si hay una descarga del scraper en curso |
 | `make eval` | Evalúa la búsqueda (léxico, vectorial, híbrido y ablación sin refuerzo), guarda τ en `src/rappi_ia/eval/thresholds.json` (solo en verticales con negativas que dependen de τ; los demás conservan el suyo; `make eval EVAL_ARGS=` no guarda) y deja el reporte en `data/eval/busqueda.md` |
-| `make synth` | Usuarios y eventos **simulados** para el panel (1.500 usuarios × 20 semanas, semilla 7; reemplaza los anteriores) |
+| `make synth` | Usuarios y eventos **simulados** para el panel (1.500 usuarios × 26 semanas, semilla 7; reemplaza los anteriores) |
 | `make purge` | Borra el texto de las consultas con más de 90 días |
 | `make analytics` | Resumen de métricas del panel en la terminal |
 | `make images` | Fotos del catálogo con CLIP (miles de descargas). Toma el candado del scraper: no arranca con una descarga en curso |

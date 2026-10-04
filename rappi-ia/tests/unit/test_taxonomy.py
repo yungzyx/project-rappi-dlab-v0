@@ -80,7 +80,14 @@ def test_services_without_catalog_are_loaded_with_their_hooks():
     services = load_taxonomy().services
     assert set(services) == {"rappitravel", "rappifavor"}
     assert services["rappitravel"].route == "travel" and services["rappifavor"].route == "favor"
-    assert [h.concept for h in services["rappitravel"].hooks] == ["dermocosmetica", "ropa", "accesorios-moda"]
+    assert [h.query for h in services["rappitravel"].hooks] == [
+        "protector solar",
+        "traje de baño",
+        "chaqueta",
+        "bufanda",
+        "mochila de viaje",
+    ]
+    assert services["rappitravel"].hooks[-1].when == ()  # la mochila va con cualquier viaje
 
 
 def test_a_service_hook_must_be_a_known_concept(tmp_path):
