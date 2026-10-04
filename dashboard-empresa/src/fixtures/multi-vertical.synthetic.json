@@ -2,16 +2,34 @@
   "source": "synthetic",
   "data": [
     {
+      "estrato": "1–2 compras",
+      "grupo": "multi-vertical",
+      "usuarios": 54,
+      "retencion_pct": 38.9
+    },
+    {
+      "estrato": "1–2 compras",
+      "grupo": "un vertical",
+      "usuarios": 89,
+      "retencion_pct": 38.2
+    },
+    {
       "estrato": "3–5 compras",
       "grupo": "multi-vertical",
-      "usuarios": 45,
-      "retencion_pct": 77.8
+      "usuarios": 178,
+      "retencion_pct": 78.7
+    },
+    {
+      "estrato": "3–5 compras",
+      "grupo": "un vertical",
+      "usuarios": 52,
+      "retencion_pct": 55.8
     },
     {
       "estrato": "6+ compras",
       "grupo": "multi-vertical",
-      "usuarios": 53,
-      "retencion_pct": 79.2
+      "usuarios": 212,
+      "retencion_pct": 86.3
     }
   ]
 }

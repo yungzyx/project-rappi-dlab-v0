@@ -3,23 +3,23 @@
   "data": [
     {
       "dias": "0–3",
-      "usuarios": 29
+      "usuarios": 23
     },
     {
       "dias": "3–7",
-      "usuarios": 310
+      "usuarios": 342
     },
     {
       "dias": "7–14",
-      "usuarios": 485
+      "usuarios": 520
     },
     {
       "dias": "14–30",
-      "usuarios": 289
+      "usuarios": 283
     },
     {
       "dias": "30+",
-      "usuarios": 96
+      "usuarios": 104
     }
   ]
 }

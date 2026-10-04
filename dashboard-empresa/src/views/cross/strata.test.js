@@ -22,12 +22,15 @@ describe('strataRows', () => {
     expect(rows[2].gap).toBeNull()
   })
 
-  test('con los datos guardados no hay grupo "un vertical" contra qué comparar', () => {
+  test('con los datos guardados, los estratos con los dos grupos se comparan', () => {
+    // El simulado tiene personas de una sola vertical (antes ningún estrato tenía contra qué comparar).
     const rows = strataRows(saved.data)
+    const both = rows.filter((item) => item.groups.every(Boolean))
 
-    const multi6 = saved.data.find((row) => row.estrato === '6+ compras' && row.grupo === 'multi-vertical')
-
-    expect(rows.every((item) => item.gap === null)).toBe(true)
-    expect(rows[2].groups[0].retencion_pct).toBe(multi6.retencion_pct)
+    expect(both.length).toBeGreaterThan(0)
+    for (const item of both) {
+      const [multi, single] = item.groups
+      expect(item.gap).toBeCloseTo(multi.retencion_pct - single.retencion_pct, 5)
+    }
   })
 })

@@ -6,225 +6,225 @@
       "hacia": "ensaladas-bowls",
       "desde_nombre": "🍪 Galletas",
       "hacia_nombre": "🥗 Ensaladas y bowls",
-      "usuarios": 86,
-      "confianza": 0.827,
-      "lift": 5.89
+      "usuarios": 96,
+      "confianza": 0.914,
+      "lift": 6.91
+    },
+    {
+      "desde": "cafe",
+      "hacia": "ensaladas-bowls",
+      "desde_nombre": "☕ Café",
+      "hacia_nombre": "🥗 Ensaladas y bowls",
+      "usuarios": 140,
+      "confianza": 0.886,
+      "lift": 6.7
+    },
+    {
+      "desde": "hielo",
+      "hacia": "cerveza",
+      "desde_nombre": "🧊 Hielo",
+      "hacia_nombre": "🍺 Cerveza",
+      "usuarios": 31,
+      "confianza": 0.886,
+      "lift": 6.32
     },
     {
       "desde": "asiatica",
       "hacia": "ensaladas-bowls",
       "desde_nombre": "🥡 Comida asiática",
       "hacia_nombre": "🥗 Ensaladas y bowls",
-      "usuarios": 108,
-      "confianza": 0.812,
-      "lift": 5.79
+      "usuarios": 125,
+      "confianza": 0.868,
+      "lift": 6.56
+    },
+    {
+      "desde": "galletas",
+      "hacia": "sandwiches",
+      "desde_nombre": "🍪 Galletas",
+      "hacia_nombre": "🥪 Sándwiches y completos",
+      "usuarios": 91,
+      "confianza": 0.867,
+      "lift": 7.08
+    },
+    {
+      "desde": "cafe",
+      "hacia": "sandwiches",
+      "desde_nombre": "☕ Café",
+      "hacia_nombre": "🥪 Sándwiches y completos",
+      "usuarios": 132,
+      "confianza": 0.835,
+      "lift": 6.82
     },
     {
       "desde": "alimento-gato",
       "hacia": "alimento-perro",
       "desde_nombre": "🐈 Alimento para gatos",
       "hacia_nombre": "🐕 Alimento para perros",
-      "usuarios": 79,
-      "confianza": 0.798,
-      "lift": 8.2
-    },
-    {
-      "desde": "cafe",
-      "hacia": "ensaladas-bowls",
-      "desde_nombre": "☕ Café",
-      "hacia_nombre": "🥗 Ensaladas y bowls",
-      "usuarios": 128,
-      "confianza": 0.795,
-      "lift": 5.67
+      "usuarios": 58,
+      "confianza": 0.829,
+      "lift": 13.08
     },
     {
       "desde": "sandwiches",
       "hacia": "ensaladas-bowls",
       "desde_nombre": "🥪 Sándwiches y completos",
       "hacia_nombre": "🥗 Ensaladas y bowls",
-      "usuarios": 139,
-      "confianza": 0.79,
-      "lift": 5.63
-    },
-    {
-      "desde": "accesorios-mascota",
-      "hacia": "alimento-perro",
-      "desde_nombre": "🦴 Accesorios para mascotas",
-      "hacia_nombre": "🐕 Alimento para perros",
-      "usuarios": 52,
-      "confianza": 0.788,
-      "lift": 8.09
+      "usuarios": 143,
+      "confianza": 0.822,
+      "lift": 6.21
     },
     {
       "desde": "galletas",
-      "hacia": "cafe",
+      "hacia": "sushi",
       "desde_nombre": "🍪 Galletas",
-      "hacia_nombre": "☕ Café",
-      "usuarios": 80,
-      "confianza": 0.769,
-      "lift": 6.67
+      "hacia_nombre": "🍣 Sushi",
+      "usuarios": 86,
+      "confianza": 0.819,
+      "lift": 2.83
+    },
+    {
+      "desde": "pisco",
+      "hacia": "cerveza",
+      "desde_nombre": "🍸 Pisco",
+      "hacia_nombre": "🍺 Cerveza",
+      "usuarios": 99,
+      "confianza": 0.805,
+      "lift": 5.75
     },
     {
       "desde": "cafe",
       "hacia": "sushi",
       "desde_nombre": "☕ Café",
       "hacia_nombre": "🍣 Sushi",
-      "usuarios": 119,
-      "confianza": 0.739,
-      "lift": 2.97
-    },
-    {
-      "desde": "sandwiches",
-      "hacia": "sushi",
-      "desde_nombre": "🥪 Sándwiches y completos",
-      "hacia_nombre": "🍣 Sushi",
-      "usuarios": 129,
-      "confianza": 0.733,
-      "lift": 2.94
-    },
-    {
-      "desde": "cafe",
-      "hacia": "sandwiches",
-      "desde_nombre": "☕ Café",
-      "hacia_nombre": "🥪 Sándwiches y completos",
-      "usuarios": 118,
-      "confianza": 0.733,
-      "lift": 5.82
-    },
-    {
-      "desde": "pollo-preparado",
-      "hacia": "lacteos",
-      "desde_nombre": "🍗 Pollo frito y asado",
-      "hacia_nombre": "🥛 Leche y yogur",
-      "usuarios": 98,
-      "confianza": 0.731,
-      "lift": 4.26
-    },
-    {
-      "desde": "galletas",
-      "hacia": "sandwiches",
-      "desde_nombre": "🍪 Galletas",
-      "hacia_nombre": "🥪 Sándwiches y completos",
-      "usuarios": 76,
-      "confianza": 0.731,
-      "lift": 5.8
+      "usuarios": 127,
+      "confianza": 0.804,
+      "lift": 2.78
     },
     {
       "desde": "asiatica",
-      "hacia": "sandwiches",
+      "hacia": "sushi",
       "desde_nombre": "🥡 Comida asiática",
-      "hacia_nombre": "🥪 Sándwiches y completos",
-      "usuarios": 97,
-      "confianza": 0.729,
-      "lift": 5.79
+      "hacia_nombre": "🍣 Sushi",
+      "usuarios": 115,
+      "confianza": 0.799,
+      "lift": 2.76
     },
     {
       "desde": "vodka",
       "hacia": "cerveza",
       "desde_nombre": "🍸 Vodka",
       "hacia_nombre": "🍺 Cerveza",
-      "usuarios": 40,
-      "confianza": 0.727,
-      "lift": 5.29
+      "usuarios": 35,
+      "confianza": 0.795,
+      "lift": 5.68
+    },
+    {
+      "desde": "asiatica",
+      "hacia": "sandwiches",
+      "desde_nombre": "🥡 Comida asiática",
+      "hacia_nombre": "🥪 Sándwiches y completos",
+      "usuarios": 114,
+      "confianza": 0.792,
+      "lift": 6.47
+    },
+    {
+      "desde": "asiatica",
+      "hacia": "cafe",
+      "desde_nombre": "🥡 Comida asiática",
+      "hacia_nombre": "☕ Café",
+      "usuarios": 114,
+      "confianza": 0.792,
+      "lift": 7.12
+    },
+    {
+      "desde": "accesorios-mascota",
+      "hacia": "alimento-perro",
+      "desde_nombre": "🦴 Accesorios para mascotas",
+      "hacia_nombre": "🐕 Alimento para perros",
+      "usuarios": 36,
+      "confianza": 0.783,
+      "lift": 12.36
+    },
+    {
+      "desde": "galletas",
+      "hacia": "cafe",
+      "desde_nombre": "🍪 Galletas",
+      "hacia_nombre": "☕ Café",
+      "usuarios": 81,
+      "confianza": 0.771,
+      "lift": 6.94
+    },
+    {
+      "desde": "ensaladas-bowls",
+      "hacia": "sushi",
+      "desde_nombre": "🥗 Ensaladas y bowls",
+      "hacia_nombre": "🍣 Sushi",
+      "usuarios": 145,
+      "confianza": 0.771,
+      "lift": 2.67
     },
     {
       "desde": "gaseosas",
       "hacia": "cerveza",
       "desde_nombre": "🥤 Bebidas gaseosas",
       "hacia_nombre": "🍺 Cerveza",
-      "usuarios": 58,
-      "confianza": 0.725,
-      "lift": 5.28
-    },
-    {
-      "desde": "asiatica",
-      "hacia": "sushi",
-      "desde_nombre": "🥡 Comida asiática",
-      "hacia_nombre": "🍣 Sushi",
-      "usuarios": 96,
-      "confianza": 0.722,
-      "lift": 2.9
-    },
-    {
-      "desde": "panaderia",
-      "hacia": "lacteos",
-      "desde_nombre": "🍞 Pan",
-      "hacia_nombre": "🥛 Leche y yogur",
-      "usuarios": 114,
-      "confianza": 0.717,
-      "lift": 4.17
-    },
-    {
-      "desde": "galletas",
-      "hacia": "pastas",
-      "desde_nombre": "🍪 Galletas",
-      "hacia_nombre": "🍝 Pastas",
-      "usuarios": 74,
-      "confianza": 0.712,
-      "lift": 3.99
+      "usuarios": 57,
+      "confianza": 0.77,
+      "lift": 5.5
     },
     {
       "desde": "ensaladas-bowls",
       "hacia": "sandwiches",
       "desde_nombre": "🥗 Ensaladas y bowls",
       "hacia_nombre": "🥪 Sándwiches y completos",
-      "usuarios": 139,
-      "confianza": 0.709,
-      "lift": 5.63
+      "usuarios": 143,
+      "confianza": 0.761,
+      "lift": 6.21
     },
     {
-      "desde": "ron",
-      "hacia": "cerveza",
-      "desde_nombre": "🥃 Ron",
-      "hacia_nombre": "🍺 Cerveza",
-      "usuarios": 46,
-      "confianza": 0.708,
-      "lift": 5.15
+      "desde": "sandwiches",
+      "hacia": "cafe",
+      "desde_nombre": "🥪 Sándwiches y completos",
+      "hacia_nombre": "☕ Café",
+      "usuarios": 132,
+      "confianza": 0.759,
+      "lift": 6.82
     },
     {
-      "desde": "galletas",
-      "hacia": "sushi",
-      "desde_nombre": "🍪 Galletas",
-      "hacia_nombre": "🍣 Sushi",
-      "usuarios": 73,
-      "confianza": 0.702,
-      "lift": 2.82
-    },
-    {
-      "desde": "snacks-salados",
-      "hacia": "cerveza",
-      "desde_nombre": "🥨 Snacks salados",
-      "hacia_nombre": "🍺 Cerveza",
-      "usuarios": 107,
-      "confianza": 0.695,
-      "lift": 5.06
+      "desde": "hamburguesa",
+      "hacia": "pizza",
+      "desde_nombre": "🍔 Hamburguesa",
+      "hacia_nombre": "🍕 Pizza",
+      "usuarios": 161,
+      "confianza": 0.756,
+      "lift": 2.62
     },
     {
       "desde": "cereales",
       "hacia": "lacteos",
       "desde_nombre": "🥣 Cereales y avena",
       "hacia_nombre": "🥛 Leche y yogur",
-      "usuarios": 84,
-      "confianza": 0.689,
-      "lift": 4.01
+      "usuarios": 90,
+      "confianza": 0.756,
+      "lift": 3.39
+    },
+    {
+      "desde": "pollo-preparado",
+      "hacia": "pizza",
+      "desde_nombre": "🍗 Pollo frito y asado",
+      "hacia_nombre": "🍕 Pizza",
+      "usuarios": 162,
+      "confianza": 0.75,
+      "lift": 2.6
     },
     {
       "desde": "ensaladas-bowls",
-      "hacia": "sushi",
+      "hacia": "cafe",
       "desde_nombre": "🥗 Ensaladas y bowls",
-      "hacia_nombre": "🍣 Sushi",
-      "usuarios": 135,
-      "confianza": 0.689,
-      "lift": 2.76
-    },
-    {
-      "desde": "hamburguesa",
-      "hacia": "cerveza",
-      "desde_nombre": "🍔 Hamburguesa",
-      "hacia_nombre": "🍺 Cerveza",
-      "usuarios": 74,
-      "confianza": 0.685,
-      "lift": 4.99
+      "hacia_nombre": "☕ Café",
+      "usuarios": 140,
+      "confianza": 0.745,
+      "lift": 6.7
     }
   ]
 }

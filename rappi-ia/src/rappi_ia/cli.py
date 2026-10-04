@@ -260,7 +260,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano")
     synth = sub.add_parser("synth", help="genera usuarios y eventos SIMULADOS (source = synthetic)")
     synth.add_argument("--usuarios", type=int, default=1500)
-    synth.add_argument("--semanas", type=int, default=20)
+    synth.add_argument("--semanas", type=int, default=26)
     synth.add_argument("--semilla", type=int, default=7)
     synth.add_argument("--hasta", help="fecha final AAAA-MM-DD (por defecto hoy)")
     purge = sub.add_parser("purge", help="borra el texto de consultas más antiguas que la retención (90 días)")

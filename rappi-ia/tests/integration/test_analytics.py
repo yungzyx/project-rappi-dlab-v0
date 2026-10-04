@@ -360,8 +360,7 @@ def test_invalid_source_is_rejected(db):
         queries.kpis(db, "real")
 
 
-@pytest.fixture
-def simulated(db):
+def _simulated_catalog(db):
     add_store(db, 1, "supermercado", "Súper")
     add_store(db, 2, "licores", "Botillería")
     add_store(db, 3, "conveniencia", "Express")
@@ -375,6 +374,12 @@ def simulated(db):
     db.commit()
     build_search_documents(db)
     build_concepts(db)
+    return db, None
+
+
+@pytest.fixture
+def simulated(db):
+    _simulated_catalog(db)
     counts = generate(db, users=120, weeks=20, seed=3, until=date(2026, 9, 27))
     return db, counts
 
@@ -412,6 +417,19 @@ def test_some_synthetic_sessions_find_products_and_leave_without_adding(simulate
            FROM app_events e WHERE e.type IN ('search', 'chat') AND e.results > 0"""
     ).fetchone()
     assert 0 < left < found * 0.3
+
+
+def test_the_multi_vertical_retention_compares_both_groups_with_the_default_history(db, monkeypatch):
+    """Es la hipótesis del proyecto y no se veía: con 20 semanas solo ~130 usuarios tenían 120 días de historia y
+    casi todos eran multi-vertical (todas las personas compraban en varias). Ningún estrato tenía los dos grupos."""
+    simulated_db, _ = _simulated_catalog(db)
+    monkeypatch.setattr(queries, "MIN_GROUP_USERS", 5)  # catálogo de prueba chico: grupos chicos
+    generate(simulated_db, seed=3, until=date(2026, 9, 27))  # usuarios y semanas por defecto
+    rows = queries.multi_vertical_retention(simulated_db, "synthetic")
+    groups = {}
+    for row in rows:
+        groups.setdefault(row["estrato"], set()).add(row["grupo"])
+    assert any(g == {"multi-vertical", "un vertical"} for g in groups.values()), rows
 
 
 def test_synthetic_carts_are_also_abandoned_after_starting_payment(simulated):

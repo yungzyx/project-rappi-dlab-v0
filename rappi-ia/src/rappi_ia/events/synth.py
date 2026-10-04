@@ -5,7 +5,8 @@ supuestos explícitos. El panel muestra la mecánica, no evidencia: por construc
 "confirman" en los gráficos.
 
 SUPUESTOS (editables aquí):
-- Personas con verticales, conceptos y ritmo de compra propios (PERSONAS).
+- Personas con verticales, conceptos y ritmo de compra propios (PERSONAS); dos compran en una sola vertical.
+- 26 semanas: la retención (días 61 a 120) necesita usuarios con 120 días de historia.
 - Quien no encuentra lo que busca (demanda no satisfecha) o abandona carros, se va antes (CHURN_*).
 - Parte de quienes encuentran productos se va sin agregar nada al carro (BROWSE_ONLY).
 - Parte de los carros abandonados alcanza a iniciar el pago (CHECKOUT_ABANDON_SHARE); el resto se va antes.
@@ -126,6 +127,26 @@ PERSONAS = [
         0.4,
         0.03,
     ),
+    # Compran en una sola vertical: sin ellas, «¿retiene más quien usa dos verticales?» no tenía contra qué comparar.
+    # Bigotes igual puede llevarlas a otra con una sugerencia aceptada.
+    Persona(
+        "rutina",
+        0.14,
+        8,
+        (9, 10, 19, 20),
+        {"supermercado": {"lacteos": 4, "frutas": 3, "panaderia": 2.5, "limpieza": 2, "snacks-salados": 1.5}},
+        0.25,
+        0.03,
+    ),
+    Persona(
+        "delivery",
+        0.12,
+        7,
+        (13, 20, 21),
+        {"restaurantes": {"pizza": 3, "hamburguesa": 3, "sushi": 2, "pollo-preparado": 2}},
+        0.3,
+        0.035,
+    ),
 ]
 
 # Antojos que el catálogo no tiene (o casi): (vertical, texto, concepto, peso inicial, crecimiento semanal)
@@ -201,7 +222,7 @@ def load_catalog(conn: Connection, per_concept: int = 40) -> Catalog:
     return Catalog(items, edges, names, ranked)
 
 
-def generate(conn: Connection, users: int = 1500, weeks: int = 20, seed: int = 7, until: date | None = None) -> dict:
+def generate(conn: Connection, users: int = 1500, weeks: int = 26, seed: int = 7, until: date | None = None) -> dict:
     """Borra los datos simulados anteriores y genera nuevos (reproducible con la misma semilla y fecha)."""
     rng = random.Random(seed)
     catalog = load_catalog(conn)

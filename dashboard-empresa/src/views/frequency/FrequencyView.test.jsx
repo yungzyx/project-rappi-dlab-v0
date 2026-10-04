@@ -5,6 +5,7 @@ import { FrequencyView } from './FrequencyView.jsx'
 import { formatNumber } from '../../lib/format.js'
 import atRisk from '../../fixtures/at-risk.synthetic.json'
 import cohorts from '../../fixtures/cohorts.synthetic.json'
+import funnel from '../../fixtures/funnel.synthetic.json'
 
 describe('FrequencyView', () => {
   afterEach(resetApi)
@@ -14,7 +15,12 @@ describe('FrequencyView', () => {
     await renderWithData(<FrequencyView source="synthetic" />)
 
     expect(await screen.findByText('Restaurantes')).toBeTruthy()
-    expect(screen.getAllByText(/Mayor pérdida del carro al pago/)).toHaveLength(6)
+    // Las verticales cuya mayor pérdida es del carro al pago, según los datos guardados.
+    const cartToPay = funnel.data.filter(({ buscan, agregan, pagan, piden }) => {
+      const losses = [1 - agregan / buscan, 1 - pagan / agregan, 1 - piden / pagan]
+      return Math.max(...losses) === losses[1]
+    })
+    expect(screen.getAllByText(/Mayor pérdida del carro al pago/)).toHaveLength(cartToPay.length)
     expect(await screen.findByRole('img', { name: /Retención por cohorte semanal/ })).toBeTruthy()
     expect(await screen.findByRole('group', { name: /ritmo de compra/ })).toBeTruthy()
 
