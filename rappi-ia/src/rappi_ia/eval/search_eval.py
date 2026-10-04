@@ -203,15 +203,23 @@ def calibrate_tau(runs: list[QueryRun], candidates=None) -> dict[str, float]:
     return taus
 
 
-def unmet_quality(runs: list[QueryRun], taus: dict[str, float]) -> dict:
+def unmet_quality(runs: list[QueryRun], taus: dict[str, float], run_taus: dict[str, float] | None = None) -> dict:
     """«Sin resultado» de la búsqueda (modo híbrido, con `taus`) y, si se corrió, el que registra Bigotes («mostrado»:
-    marcado y sin productos a la vista, con los τ vigentes al correr la evaluación)."""
+    marcado y sin productos a la vista, con los τ vigentes al correr la evaluación, `run_taus`; por defecto `taus`)."""
     hybrid = [r for r in runs if r.mode == "hibrido"]
     quality = _detection(hybrid, [_is_unmet(r, taus.get(r.vertical, DEFAULT_TAU)) for r in hybrid])
     quality["negativas_detalle"] = negative_diagnosis(runs, taus)
     shown = [r for r in runs if r.mode == SHOWN]
     if shown:
         quality["mostrado"] = _detection(shown, [bool(r.shown_unmet) for r in shown])
+        # Marcadas por la búsqueda con los mismos τ con que se calculó «mostrado» (no con los recién guardados).
+        at_run = taus if run_taus is None else run_taus
+        flagged = {(r.vertical, r.query) for r in hybrid if _is_unmet(r, at_run.get(r.vertical, DEFAULT_TAU))}
+        quality["mostrado"]["marcadas_con_productos"] = [
+            f"{r.vertical}: {r.query}"
+            for r in shown
+            if r.tipo == "negativa" and not r.shown_unmet and (r.vertical, r.query) in flagged
+        ]
     return quality
 
 
@@ -360,9 +368,9 @@ def render_markdown(
         ]
         if shown["falsas_alarmas_detalle"]:
             lines.append(f"- Falsas alarmas: {', '.join(shown['falsas_alarmas_detalle'])}")
-        lost = [q for q in shown["no_detectadas_detalle"] if q not in unmet["no_detectadas_detalle"]]
-        if lost:
-            lines.append(f"- La búsqueda las marca, pero se muestran productos: {', '.join(lost)}")
+        if shown["marcadas_con_productos"]:
+            lost = ", ".join(shown["marcadas_con_productos"])
+            lines.append(f"- La búsqueda las marca, pero se muestran productos: {lost}")
     if unmet["negativas_detalle"]:
         lines += [
             "",

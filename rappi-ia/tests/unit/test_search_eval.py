@@ -236,6 +236,24 @@ def test_report_measures_unmet_as_bigotes_records_it():
     assert "- La búsqueda las marca, pero se muestran productos: licores: pasaje de avión" in report
 
 
+def test_saving_tau_does_not_blame_the_shown_products_for_the_new_tau():
+    """Con --guardar-tau la calidad se mide con los τ guardados, pero «mostrado» se corrió con los vigentes: con 0,70
+    la búsqueda no marcaba «pasaje de avión» (coseno 0,81) y el reporte decía que la marcaba y se mostraban
+    productos, porque comparaba contra el 0,82 recién guardado."""
+    hybrid = [run("pasaje de avión", "negativa", 0.81, vertical="mall"), run("regalo", "exacta", 0.9, vertical="mall")]
+    shown = [
+        QueryRun("mall", "pasaje de avión", "negativa", SHOWN, [0] * 6, 0, 0.81, False, shown_unmet=False),
+        QueryRun("mall", "regalo", "exacta", SHOWN, [1] * 6, 0, 0.9, False, shown_unmet=False),
+    ]
+    current, saved = {"mall": 0.7}, {"mall": 0.82}
+
+    quality = unmet_quality([*hybrid, *shown], saved, run_taus=current)
+    report = render_markdown(summarize([*hybrid, *shown]), quality, current, saved, saved=True, model="e5")
+
+    assert quality["detectadas"] == 1  # con el τ guardado, la búsqueda sí la marca
+    assert "se muestran productos" not in report
+
+
 def test_report_warns_when_a_current_tau_sits_on_the_floor_of_the_grid():
     """Con τ = 0,70 (el mínimo de la grilla) la regla del coseno no se dispara: los cosenos e5 están sobre 0,76.
     Un vertical sin propuesta lo conserva, así que el reporte lo advierte (sin cambiarlo)."""

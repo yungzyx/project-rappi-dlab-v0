@@ -123,7 +123,7 @@ def cmd_eval_search(conn, args) -> None:
     in_use = search_eval.thresholds_after_saving(current, proposed) if saved else current
     if saved:
         search_eval.save_thresholds(in_use)
-    unmet = search_eval.unmet_quality(runs, in_use)
+    unmet = search_eval.unmet_quality(runs, in_use, run_taus=current)
     model = embedder.model_name if embedder else None
     comparisons = search_eval.compare_modes(runs)
     report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model, comparisons)
