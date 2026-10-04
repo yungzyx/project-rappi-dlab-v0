@@ -1,6 +1,7 @@
 import pytest
 
 from rappi_ia.concepts.assign import MappedName, assign_catalog_item, assign_menu_item, concept_matcher
+from rappi_ia.concepts.store import read_category_map_csv
 from rappi_ia.concepts.taxonomy import load_taxonomy
 
 
@@ -50,3 +51,64 @@ def test_menu_item_uses_section_then_cuisine(matcher):
     assert (by_section.concept_id, by_section.source) == ("gaseosas", "seccion:Bebidas")
     by_cuisine = assign_menu_item("13", "Especial de la casa", "Promos", ["Italiana"], SECTIONS, CUISINES, matcher)
     assert (by_cuisine.concept_id, by_cuisine.confidence) == ("pizza", 0.64)  # 0.8 × 0.8: la cocina es pista débil
+
+
+DISH_SECTIONS = {
+    "perros calientes": MappedName("sandwiches", "llm", 0.9),
+    "bebidas": MappedName("gaseosas", "llm", 0.9),
+}
+DISH_CUISINES = {"pescados y mariscos": MappedName("pescados-mariscos", "llm", 0.8)}
+
+
+def test_menu_item_section_wins_over_a_non_food_name_rule(matcher):
+    """En un menú, «Perro», «Aros» o «Proteína» sueltos no son comida de perro, joyas ni suplementos."""
+    by_section = assign_menu_item("20", "Perro Italiano XL", "Perros Calientes", [], DISH_SECTIONS, {}, matcher)
+    assert (by_section.concept_id, by_section.source) == ("sandwiches", "seccion:Perros Calientes")
+    seafood = ["Pescados y Mariscos"]
+    by_cuisine = assign_menu_item("21", "Aros de Calamar", "Piqueos", seafood, {}, DISH_CUISINES, matcher)
+    assert (by_cuisine.concept_id, by_cuisine.source) == ("pescados-mariscos", "cocina:Pescados y Mariscos")
+
+
+def test_menu_item_keeps_a_non_food_name_rule_without_a_confident_mapping(matcher):
+    a = assign_menu_item("22", "Perro Italiano XL", "Promos", [], DISH_SECTIONS, {}, matcher)
+    assert (a.concept_id, a.method) == ("alimento-perro", "regla")
+
+
+def test_menu_item_sensitive_name_rule_still_wins_over_the_section(matcher):
+    """Un local que vende cigarrillos en «Bebidas»: el nombre sensible manda (no se ofrecen como gaseosa)."""
+    a = assign_menu_item("23", "Cigarrillos Marlboro Rojo", "Bebidas", [], DISH_SECTIONS, {}, matcher)
+    assert (a.concept_id, a.method) == ("cigarrillos", "regla")
+
+
+@pytest.fixture(scope="module")
+def csv_maps():
+    """Los mapeos versionados en category_map.csv, con la clave en minúsculas como los carga `rappi-ia concepts`."""
+    maps = {"categoria": {}, "seccion_menu": {}, "cocina": {}}
+    for row in read_category_map_csv():
+        maps[row["tipo"]][row["nombre"].strip().lower()] = MappedName(
+            row["concept_id"], row["metodo"], float(row["confianza"])
+        )
+    return maps
+
+
+@pytest.mark.parametrize(
+    ("name", "section", "cuisines"),
+    [
+        ("Perro Italiano", "Perros Calientes", ["Hamburguesa"]),
+        ("Perro tradicional", "Perros Calientes", []),
+        ("Perro Jumbo Gigante", "PERROS CALIENTES", ["Americana"]),
+        ("Perro Especial", "Perro Caliente", ["Hamburguesa"]),
+        ("Perro chilango", "Perros", []),
+        ("Completo", "Completos", ["Americana"]),
+        ("Perro Sencillo", "Completos Venezolanos", []),
+        ("Perro Venezolano Xl", "Vienesas", []),
+        ("Completo Aleman", "Completos y Perros Calientes", ["Americana"]),
+        ("As Italiano", "Hot Dogs", ["Pastelería y Postres"]),
+        ("Italiano", "Hot Dog", []),
+    ],
+)
+def test_hot_dog_sections_of_the_real_map_make_the_dish_a_sandwich(matcher, csv_maps, name, section, cuisines):
+    """Sin la sección mapeada, un perro caliente sin esa frase en el nombre quedaba como alimento para perros o
+    tomaba la cocina del local (pizza, hamburguesa, pastelería)."""
+    a = assign_menu_item("24", name, section, cuisines, csv_maps["seccion_menu"], csv_maps["cocina"], matcher)
+    assert (a.concept_id, a.source) == ("sandwiches", f"seccion:{section}"), a

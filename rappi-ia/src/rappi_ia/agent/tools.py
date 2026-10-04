@@ -6,6 +6,7 @@ Todo producto que Bigotes muestra pasa por aquí: sale de la base, con su precio
 from dataclasses import dataclass, field
 
 from psycopg import Connection
+from rappi_scraper.storage.search import MIN_PRICE
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
@@ -93,19 +94,24 @@ def search_products(
     price_max: float | None = None,
     k: int = 6,
     mode: str = "hibrido",
+    symptom: bool = False,
 ) -> SearchOutcome:
-    """Con `concepts=None`, los conceptos los detecta la búsqueda en la consulta (endpoint /search)."""
+    """Con `concepts=None`, los conceptos los detecta la búsqueda en la consulta (endpoint /search). Con `symptom` (o
+    en farmacia) no se muestra lo que no tiene concepto: podría ser un medicamento sin categoría mapeada."""
     result = retrieve(
         conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), mode=mode, concepts=concepts
     )
     concepts = result.query_concepts
-    hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts)], concepts, result.unmet)
+    capped = price_max is not None
+    strict = symptom or vertical == "farmacia"
+    hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts, strict)], concepts, result.unmet, capped)
     products = _dedupe(_within_budget(_with_prices(conn, vertical, hits), price_max))[:k]
     cheapest = None
-    if not products and price_max is not None:
+    if not products and capped:
         unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, mode=mode, concepts=concepts)
-        allowed = [h for h in unfiltered.hits if _allowed(h.concept_id, concepts)]
-        candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet))
+        allowed = [h for h in unfiltered.hits if _allowed(h.concept_id, concepts, strict)]
+        # «El más barato» es de lo pedido: el mismo foco que con tope.
+        candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet, capped))
         priced = [p for p in candidates if p.price_value is not None]
         cheapest = min(priced, key=lambda p: p.price_value) if priced else None
     return SearchOutcome(result, products, cheapest)
@@ -164,23 +170,32 @@ def _dedupe(products: list[Product]) -> list[Product]:
     return unique
 
 
-def _focus(hits, concepts: list[str], unmet: bool):
+def _focus(hits, concepts: list[str], unmet: bool, capped: bool = False):
     """Si la consulta nombra conceptos, solo esos: pedir cigarrillos no debe traer cerveza.
 
-    Si ningún resultado es del concepto pedido y la búsqueda quedó "sin resultado", no se muestra nada
-    (mostrar una pizza a quien pidió kebab sería inventar una respuesta).
+    - "Sin resultado" no muestra nada, nombre o no un concepto: mostrar una pizza a quien pidió kebab, o los vecinos
+      de un coseno bajo τ, sería inventar una respuesta (y la demanda no se anotaría).
+    - Con tope de precio (`capped`), si nada del concepto pedido cabe bajo el tope tampoco se muestra otra cosa:
+      Bigotes dice cuánto cuesta lo más barato de lo pedido.
+    - El foco no cede ante productos de otro concepto que calzan las palabras: esa coincidencia mira todo el texto y
+      el stemming junta palabras («flores» calza con azúcar flor). Que el concepto de la consulta (keywords) y el de
+      los productos (categoría) coincidan se asegura en la taxonomía.
     """
     if not concepts:
-        return hits
+        return [] if unmet else hits
     matching = [h for h in hits if h.concept_id in concepts]
     if matching:
         return matching
-    return [] if unmet else hits
+    return [] if unmet or capped else hits
 
 
-def _allowed(concept_id: str | None, requested: list[str]) -> bool:
+def _allowed(concept_id: str | None, requested: list[str], strict: bool = False) -> bool:
     """Los conceptos sensibles (medicamentos, salud sexual, tabaco, vapeo, adultos) solo aparecen si se piden
-    por su nombre: nunca por un síntoma, una ocasión o la cercanía vectorial (regla 6, Ley 20.105)."""
+    por su nombre: nunca por un síntoma, una ocasión o la cercanía vectorial (regla 6, Ley 20.105). Con `strict`
+    (síntomas o farmacia), lo que no tiene concepto tampoco: ahí suele ser un medicamento sin categoría mapeada
+    (laxantes, analgésicos, antidiarreicos)."""
+    if concept_id is None:
+        return not strict
     return concept_id not in _sensitive() or concept_id in requested
 
 
@@ -195,18 +210,22 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
     menu_ids = [h.entity_id for h in hits if h.entity_type == "menu_item"]
     prices: dict[tuple[str, str], tuple] = {}
     if catalog_ids:
+        # Solo ofertas vigentes, con la misma regla que la búsqueda (v_store_format_runs): una sucursal que la última
+        # corrida de su formato ya no bajó no pone el precio, así el tope y el precio mostrado coinciden.
         for pid, name, price, real, store, age in conn.execute(
             """WITH latest AS (
-                   SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock
+                   SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock,
+                          ps.run_id
                    FROM price_snapshots ps
                    JOIN store_products sp USING (store_id, sku)
                    WHERE sp.master_product_id = ANY(%(ids)s::bigint[])
-                   ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC
+                   ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC, ps.run_id DESC  -- el desempate de la vista
                )
                SELECT DISTINCT ON (sp.master_product_id) sp.master_product_id::text, ci.name, l.price, l.real_price,
                       coalesce(b.name, s.name), ci.is_alcoholic OR ci.age_restricted
                FROM latest l
                JOIN store_products sp USING (store_id, sku)
+               JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
                JOIN stores s ON s.store_id = sp.store_id
                LEFT JOIN brands b ON b.brand_id = s.brand_id
                JOIN catalog_items ci ON ci.master_product_id = sp.master_product_id
@@ -244,7 +263,8 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                 name=name,
                 vertical=hit.vertical,
                 concept=hit.concept_id,
-                price_value=float(price) if price is not None else None,
+                # Un precio de relleno ($0, $1) cuenta como desconocido: el producto no se ofrece.
+                price_value=float(price) if price is not None and price >= MIN_PRICE else None,
                 before_value=float(real) if real is not None else None,
                 store=store or hit.metadata.get("restaurante"),
                 img=hit.metadata.get("imagen"),
@@ -257,7 +277,9 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
 def products_for_keys(
     conn: Connection, vertical: str, keys: list[tuple[str, str]], scores: list[float]
 ) -> list[Product]:
-    """Productos (con precio vigente) para ítems ya elegidos, p. ej. los de foto parecida."""
+    """Productos (con precio vigente) para ítems ya elegidos, p. ej. los de foto parecida. En farmacia, lo que no tiene
+    concepto tampoco (como en `search_products`)."""
     concepts = _concepts_of(conn, keys)
     hits = _hydrate(conn, vertical, keys, dict(zip(keys, scores, strict=True)), concepts, {}, {})
-    return _with_prices(conn, vertical, [h for h in hits if _allowed(h.concept_id, [])])
+    strict = vertical == "farmacia"
+    return _with_prices(conn, vertical, [h for h in hits if _allowed(h.concept_id, [], strict)])

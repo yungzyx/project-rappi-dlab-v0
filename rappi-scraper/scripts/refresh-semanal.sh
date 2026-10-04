@@ -1,8 +1,10 @@
 #!/bin/zsh
 # Tarea semanal (launchd, domingos 03:00; ver `make schedule`): descarga y capa de IA, en orden.
-#   1. rappi refresh: tiendas, restaurantes, búsqueda, reportes y respaldo.
+#   1. rappi migrate (migraciones pendientes, p. ej. tras un git pull) y rappi refresh: tiendas, restaurantes,
+#      búsqueda, reportes y respaldo.
 #   2. Si rappi-ia está instalado al lado: conceptos, embeddings, evaluación, datos simulados y purga.
 # La evaluación no guarda τ (eval/thresholds.json está en git: recalibrar es a mano, con `make eval`).
+# Las opciones pasan a `rappi refresh`: tras `retry-failed`, `refresh-semanal.sh --resume-only` retoma solo lo reencolado.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p data/logs
@@ -32,7 +34,17 @@ if pgrep -f "rappi(_scraper)? (refresh|discover|scrape-)|post-refresh|embed-imag
   nota="omitida: había una descarga o una actualización en curso"
   exit 0
 fi
-caffeinate -i .venv/bin/rappi refresh
+# Antes de descargar: una migración pendiente haría fallar el refresh al final (tras un día de descarga), y el
+# `migrate` de post-refresh nunca llegaría a correr.
+.venv/bin/rappi migrate
+# Código 3: todo terminó salvo el respaldo (quedan los anteriores). La capa de IA corre igual, pero queda anotado.
+refresh_rc=0
+caffeinate -i .venv/bin/rappi refresh "$@" || refresh_rc=$?
+if (( refresh_rc == 3 )); then
+  nota="respaldo fallido: se conservan los anteriores"
+elif (( refresh_rc != 0 )); then
+  exit $refresh_rc
+fi
 if [[ -x ../rappi-ia/.venv/bin/python ]]; then
   echo "$(date '+%F %T') refresh terminado: actualizando rappi-ia"
   caffeinate -i make -C ../rappi-ia post-refresh EVAL_ARGS=

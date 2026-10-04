@@ -16,6 +16,7 @@ from rappi_scraper.storage.search import VERTICALS
 from ..concepts.assign import concept_matcher
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder, to_pgvector
+from ..text import FILLER_WORDS, tokens
 
 RRF_K = 60  # constante estándar de Reciprocal Rank Fusion
 CANDIDATES = 200  # tamaño del pool de cada recuperador
@@ -57,6 +58,7 @@ class RetrievalResult:
     concept_in_vertical: bool
     unmet: bool
     unmet_reason: str | None
+    has_words: bool = True  # le queda alguna palabra sin las stopwords («té» no)
 
 
 def thresholds() -> dict[str, float]:
@@ -85,8 +87,10 @@ def retrieve(
 
     lexical = _lexical(conn, vertical, query, filters) if mode != "vector" else []
     vector: list[tuple[tuple[str, str], float]] = []
+    query_vector = None
     if mode != "lexico" and embedder is not None:
-        vector = _vector(conn, vertical, embedder.embed_queries([query])[0], embedder, filters)
+        query_vector = embedder.embed_queries([query])[0]
+        vector = _vector(conn, vertical, query_vector, embedder, filters)
 
     scores: dict[tuple[str, str], float] = {}
     ranks: dict[tuple[str, str], dict[str, int]] = {}
@@ -107,11 +111,25 @@ def retrieve(
 
     strict = _strict_lexical_count(conn, vertical, query, filters)
     max_cosine = max(cosines.values()) if cosines else None
+    if filters.price_max is not None and query_vector is not None:
+        # Como la coincidencia estricta, el coseno de "sin resultado" se mide sin el tope: lo que el vertical tiene a
+        # otro precio no es demanda no satisfecha (Bigotes dice cuánto cuesta lo más barato).
+        unfiltered = _vector(conn, vertical, query_vector, embedder, Filters(entity_types=filters.entity_types))
+        max_cosine = max((cosine for _, cosine in unfiltered), default=None)
     concept_here = _concept_in_vertical(conn, vertical, query_concepts)
+    words = _has_words(conn, query)
     unmet, reason = _unmet(
-        vertical, strict, max_cosine, concept_here, bool(query_concepts), has_vectors=embedder is not None
+        vertical,
+        strict,
+        max_cosine,
+        concept_here,
+        bool(query_concepts),
+        has_vectors=embedder is not None,
+        has_words=words,
     )
-    return RetrievalResult(vertical, query, hits, query_concepts, strict, max_cosine, concept_here, unmet, reason)
+    return RetrievalResult(
+        vertical, query, hits, query_concepts, strict, max_cosine, concept_here, unmet, reason, words
+    )
 
 
 def _query_concepts(query: str) -> list[str]:
@@ -124,7 +142,7 @@ _MATCHER = None
 def _matcher():
     global _MATCHER
     if _MATCHER is None:
-        _MATCHER = concept_matcher(load_taxonomy())
+        _MATCHER = concept_matcher(load_taxonomy(), for_queries=True)
     return _MATCHER
 
 
@@ -138,7 +156,9 @@ def _lexical(conn: Connection, vertical: str, query: str, filters: Filters) -> l
     """Cualquier palabra de la consulta (OR), puntuada por IDF dentro del vertical: las palabras raras pesan más.
 
     Sin IDF, una unidad como "g" (presente en miles de productos) tapaba a "pañales" en "pañales talla g".
-    ts_rank_cd solo desempata (palabras más juntas, más arriba).
+    ts_rank_cd solo desempata (palabras más juntas, más arriba). Cada lexema ya normalizado entra al tsquery tal
+    cual (`::tsquery`): `to_tsquery` lo volvía a separar ("coca-col" → 'coca-col' <-> 'coca' <-> 'col', y 'coca'
+    no existe en el índice), así que las palabras con guion perdían su peso.
     """
     rows = conn.execute(
         f"""WITH lexemes AS (
@@ -146,14 +166,14 @@ def _lexical(conn: Connection, vertical: str, query: str, filters: Filters) -> l
             ),
             docs AS MATERIALIZED (SELECT count(*)::float AS n FROM search_documents WHERE vertical = %(vertical)s),
             weights AS MATERIALIZED (
-                SELECT l.lexeme, to_tsquery('simple', quote_literal(l.lexeme)) AS q,
+                SELECT l.lexeme, quote_literal(l.lexeme)::tsquery AS q,
                        ln(1 + docs.n / (1 + (SELECT count(*) FROM search_documents d
                                              WHERE d.vertical = %(vertical)s
-                                               AND d.tsv_unaccent @@ to_tsquery('simple', quote_literal(l.lexeme)))))
+                                               AND d.tsv_unaccent @@ quote_literal(l.lexeme)::tsquery)))
                        AS idf
                 FROM lexemes l, docs
             ),
-            any_q AS (SELECT to_tsquery('simple', string_agg(quote_literal(lexeme), ' | ')) AS q FROM lexemes)
+            any_q AS (SELECT string_agg(quote_literal(lexeme), ' | ')::tsquery AS q FROM lexemes)
             SELECT d.entity_type, d.entity_id,
                    sum(w.idf) + max(ts_rank_cd(d.tsv_unaccent, any_q.q)) AS score
             FROM search_documents d
@@ -186,6 +206,13 @@ def _strict_lexical_count(conn: Connection, vertical: str, query: str, filters: 
                LIMIT 50) s""",
         (vertical, list(filters.entity_types), query),
     ).fetchone()[0]
+
+
+def _has_words(conn: Connection, query: str) -> bool:
+    """¿Le queda alguna palabra a la consulta sin las stopwords? «té» es stopword: no hay nada que calzar. Tampoco
+    cuentan las de saludo, cortesía o pedido en cualquier lugar: Bigotes solo las limpia al inicio («té porfa»)."""
+    words = " ".join(word for word in tokens(query) if word not in FILLER_WORDS)
+    return conn.execute("SELECT length(to_tsvector('spanish', es_unaccent(%s))) > 0", (words,)).fetchone()[0]
 
 
 def _vector(
@@ -298,12 +325,14 @@ def _unmet(
     concept_here: bool,
     names_concept: bool,
     has_vectors: bool,
+    has_words: bool = True,
 ) -> tuple[bool, str | None]:
     """Sin resultado = nada calza todas las palabras Y (el concepto nombrado no está en el vertical, o bien,
     si la consulta no nombra un concepto, el coseno máximo queda bajo τ).
 
     Con e5 los cosenos se concentran (0,78–0,90), así que cuando la consulta nombra un concepto, su presencia
     en el vertical es mejor señal que el coseno ("pizza" en Rappi Mall: no hay; aunque el coseno sea 0,82).
+    Sin palabras que buscar («té» es stopword), que nada calce no dice nada y el coseno solo no basta: no se marca.
     """
     if strict > 0:
         return False, None
@@ -314,6 +343,8 @@ def _unmet(
             True,
             f"sin coincidencia léxica; el concepto pedido no está en {vertical} (o es testimonial)",
         )
+    if not has_words:
+        return False, None
     tau = thresholds().get(vertical, DEFAULT_TAU)
     if not has_vectors or max_cosine is None or max_cosine < tau:
         cosine = f"{max_cosine:.3f}" if max_cosine is not None else "sin vectores"

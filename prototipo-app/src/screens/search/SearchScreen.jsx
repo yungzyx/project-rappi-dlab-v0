@@ -30,13 +30,15 @@ export default function SearchScreen({ back, push, params }) {
   }, [query, track])
 
   // Para el panel, solo búsquedas terminadas (Enter, salir del campo o una sugerencia), no palabras a medio
-  // escribir. Sin "unmet": este catálogo es solo lo de las capturas, no dice si Rappi lo tiene.
+  // escribir. Sin "unmet": este catálogo es solo lo de las capturas, no dice si Rappi lo tiene. Lleva la vertical
+  // de la pantalla desde la que se abrió el buscador (si la hay): el embudo del panel se mide por vertical.
   const logSearch = (term) => {
     const clean = term.trim()
     if (!clean || clean === logged.current) return
     logged.current = clean
     const found = search(clean)
-    events.track('search', { query: clean, modality: 'texto', results: found.stores.length + found.products.length })
+    const results = found.stores.length + found.products.length
+    events.track('search', { query: clean, modality: 'texto', results, vertical: params.vertical })
   }
 
   return (

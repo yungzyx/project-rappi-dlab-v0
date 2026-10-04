@@ -7,6 +7,7 @@ supuestos explícitos. El panel muestra la mecánica, no evidencia: por construc
 SUPUESTOS (editables aquí):
 - Personas con verticales, conceptos y ritmo de compra propios (PERSONAS).
 - Quien no encuentra lo que busca (demanda no satisfecha) o abandona carros, se va antes (CHURN_*).
+- Parte de los carros abandonados alcanza a iniciar el pago (CHECKOUT_ABANDON_SHARE); el resto se va antes.
 - Quien compra en 2+ verticales se va menos (MULTI_VERTICAL_RETENTION): es la hipótesis del proyecto.
 - Aceptar una sugerencia cruzada acorta un poco el ritmo de compra (SUGGESTION_CADENCE_BOOST).
 - Algunos antojos no existen en el catálogo y crecen con el tiempo (WISHES): alimentan "oportunidades".
@@ -21,6 +22,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 
 from psycopg import Connection
+
+from ..agent.verticals import ranked_verticals
 
 log = logging.getLogger(__name__)
 CHILE = timezone(timedelta(hours=-3))
@@ -67,7 +70,7 @@ PERSONAS = [
                 "cereales": 1.5,
                 "alimentacion-bebe": 1.5,
             },
-            "restaurantes": {"pizza": 2, "pollo": 1.5},
+            "restaurantes": {"pizza": 2, "pollo-preparado": 1.5},
             "chocolateria": {"pasteleria": 0.5},
         },
         0.25,
@@ -136,6 +139,7 @@ WISHES = [
 
 CHURN_UNMET = 0.35  # +35% de riesgo por cada búsqueda sin resultado en las últimas 4 semanas
 CHURN_ABANDON = 0.2  # +20% por cada carro abandonado en las últimas 4 semanas
+CHECKOUT_ABANDON_SHARE = 0.4  # de los carros abandonados, la parte que alcanza a iniciar el pago
 MULTI_VERTICAL_RETENTION = 0.55  # riesgo × 0,55 si compró en 2+ verticales en 60 días
 SUGGESTION_ACCEPT = 0.22  # probabilidad base de aceptar una sugerencia cruzada (× peso de la arista)
 SUGGESTION_CADENCE_BOOST = 0.93  # aceptar una sugerencia acorta el ritmo 7%
@@ -149,6 +153,7 @@ class Catalog:
     items: dict[tuple[str, str], list[tuple[str, str, float]]]
     edges: dict[str, list[tuple[str, float]]]
     names: dict[str, str]
+    ranked: dict[str, list[str]]  # concepto sugerible → verticales en el orden de Bigotes (`ranked_verticals`)
 
     def pick(self, rng: random.Random, vertical: str, concept: str):
         options = self.items.get((vertical, concept))
@@ -189,7 +194,9 @@ def load_catalog(conn: Connection, per_concept: int = 40) -> Catalog:
     ):
         edges.setdefault(source, []).append((target, float(weight)))
     names = dict(conn.execute("SELECT concept_id, name FROM concepts").fetchall())
-    return Catalog(items, edges, names)
+    targets = {target for options in edges.values() for target, _ in options}
+    ranked = {target: ranked_verticals(conn, [target]) for target in targets}
+    return Catalog(items, edges, names, ranked)
 
 
 def generate(conn: Connection, users: int = 1500, weeks: int = 20, seed: int = 7, until: date | None = None) -> dict:
@@ -328,7 +335,7 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
         )
         lines.append((item, concept, False))
 
-    suggestion = _suggestion(rng, catalog, concept, vertical)
+    suggestion = _suggestion(catalog, concept, vertical)
     if suggestion:
         target, sug_vertical, weight = suggestion
         clock += timedelta(seconds=rng.randint(5, 30))
@@ -353,15 +360,20 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
             emit("suggestion_dismissed", clock + timedelta(seconds=3), vertical=sug_vertical, concept=target)
 
     clock += timedelta(seconds=rng.randint(20, 120))
-    if rng.random() < s.persona.abandon:
+    abandon = rng.random() < s.persona.abandon
+    if abandon and rng.random() >= CHECKOUT_ABANDON_SHARE:  # se va antes de ir a pagar
         s.recent_abandon.append(ts)
         return
     by_vertical: dict[str, list] = {}
     for line in lines:
         line_vertical = vertical if not line[2] else suggestion[1]
         by_vertical.setdefault(line_vertical, []).append(line)
-    for order_vertical, order_lines in by_vertical.items():  # un pedido (y un pago) por tienda/vertical
+    for order_vertical in by_vertical:  # un pago por tienda/vertical, antes de saber si termina en pedido
         emit("checkout_start", clock, vertical=order_vertical, cart=cart_id)
+    if abandon:  # inició el pago y no lo terminó
+        s.recent_abandon.append(ts)
+        return
+    for order_vertical, order_lines in by_vertical.items():  # un pedido por tienda/vertical
         order_id = f"ord-syn-{uuid.UUID(int=rng.getrandbits(128)).hex[:12]}"
         total = 0.0
         for i, ((etype, eid, price), line_concept, from_suggestion) in enumerate(order_lines, start=1):
@@ -402,12 +414,13 @@ def _maybe_wish(rng, week: float):
     return None
 
 
-def _suggestion(rng, catalog: Catalog, concept: str, vertical: str):
-    """Complemento curado en OTRO vertical con ítems reales (como haría Bigotes)."""
+def _suggestion(catalog: Catalog, concept: str, vertical: str):
+    """Complemento curado en OTRO vertical con ítems reales: el primero en el orden de Bigotes (`ranked_verticals`,
+    donde el concepto es más típico y restaurantes solo para lo que se pide hecho), no uno al azar."""
     for target, weight in sorted(catalog.edges.get(concept, []), key=lambda e: -e[1]):
-        verticals = [v for (v, c) in catalog.items if c == target and v != vertical]
+        verticals = [v for v in catalog.ranked.get(target, []) if v != vertical and (v, target) in catalog.items]
         if verticals:
-            return target, rng.choice(verticals), weight
+            return target, verticals[0], weight
     return None
 
 

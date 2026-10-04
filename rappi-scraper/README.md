@@ -59,7 +59,7 @@ La primera descarga completa (24–27-09-2026) tomó **unos 3 días para las tie
 - **Progreso:** cada línea muestra `[i/N · transcurrido · faltan ~X]`.
 - **Errores transitorios:** cada job fallido se reintenta una vez, automáticamente, al final de la corrida.
 - **Ctrl+C:** detiene sin perder nada; se retoma con el mismo comando.
-- **Posible bloqueo:** si 10 jobs seguidos fallan sin respuesta útil de rappi.cl (403, 429, red, página de desafío), la corrida se detiene: el reporte queda con la alerta ⛔ y la corrida abierta, para retomarla más tarde con el mismo comando (o en la próxima actualización semanal). `refresh` no sigue con restaurantes, búsqueda ni respaldo.
+- **Posible bloqueo:** si 10 jobs seguidos fallan sin respuesta útil de rappi.cl (403, 429, red, página de desafío), la corrida se detiene: el reporte queda con la alerta ⛔ y la corrida abierta, para retomarla más tarde con el mismo comando (o en la próxima actualización semanal). `refresh` no sigue con restaurantes, búsqueda ni respaldo. Los jobs de la racha vuelven a la cola hasta su 4.º intento: si la misma racha se repite cada vez, es un error fijo de esos jobs (hay que revisarlo) y al 4.º intento quedan fallidos y la corrida sigue.
 - **Reporte:** al terminar se imprime y se guarda en `data/reports/run_<id>_<tipo>.md` (y en `scrape_runs.report`): jobs por estado, errores frecuentes, productos por vertical, páginas omitidas y validaciones de calidad. Un `⚠` indica un posible cambio en el sitio o una respuesta anómala. Los jobs fallidos se cuentan sobre los intentados (hechos + fallidos), y los totales clave (ofertas; restaurantes y platos) se comparan con la última corrida terminada del mismo tipo: una caída de más del 25 % se marca.
 - **Reintentar a mano:** `rappi retry-failed --kind stores` (o `restaurants`) y volver a correr el comando.
 - **Ver el reporte de nuevo:** `rappi report` (o `rappi report --run N`).
@@ -80,9 +80,10 @@ Una tienda se recorre así: portada → pasillos → sub-pasillos. Cuando algo f
 
 `rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4).
 
-- **Retomar:** si una actualización se cortó con las tiendas ya terminadas, retoma en los restaurantes sin volver a bajar tiendas.
-- **Respaldo:** se escribe a un `.part`, se valida con `pg_restore --list` y recién entonces rota. Si falla, se conservan los anteriores y la actualización sigue.
-- **Capa de IA:** la tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si la descarga terminó bien y `../rappi-ia` está instalado, sigue con `make -C ../rappi-ia post-refresh` (purga, conceptos, embeddings, evaluación, datos simulados y otra purga).
+- **Retomar:** si una actualización se cortó con las tiendas ya terminadas, retoma en los restaurantes sin volver a bajar tiendas. Con `--resume-only` solo retoma las corridas abiertas (las que reabrió `retry-failed`) y nunca empieza una nueva.
+- **Respaldo:** se escribe a un `.part`, se valida con `pg_restore --list` y recién entonces rota. Si falla, se conservan los anteriores y la actualización sigue, pero `rappi refresh` termina con código 3 (la tarea semanal lo anota como «respaldo fallido» y corre igual la capa de IA).
+- **Migraciones:** la tarea semanal aplica las pendientes (`rappi migrate`) antes de descargar, para que una migración que trajo un `git pull` no haga fallar la descarga al final.
+- **Capa de IA:** la tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si la descarga terminó bien (aunque haya fallado el respaldo) y `../rappi-ia` está instalado, sigue con `make -C ../rappi-ia post-refresh` (purga, conceptos, embeddings, evaluación, datos simulados y otra purga).
 
 ```bash
 make schedule          # instala la tarea en launchd (~/Library/LaunchAgents/cl.rappi.refresh.plist)
@@ -93,7 +94,7 @@ make unschedule        # quitarla
 - **Mac dormido o apagado:** si está dormido a esa hora, corre al despertar; si está apagado, esa semana se salta.
 - **Una sola a la vez:** los comandos que descargan (`discover`, `scrape-stores`, `scrape-restaurants`, `refresh`) y `rappi-ia embed-images` toman el mismo candado de archivo (`data/scraper.lock`, con `flock`: el sistema lo suelta aunque el proceso muera) y se niegan a empezar si otra descarga lo tiene. Además, un candado (`data/refresh-semanal.pid`) impide que corran dos actualizaciones semanales; se borra aunque la tarea se corte con Ctrl+C o una señal. Si hay otra descarga (`discover`, `scrape-*`, `refresh`), un `make post-refresh` o `embed-images` en curso, la tarea se omite y lo anota.
 - **Ubicación del proyecto:** debe estar fuera de Documentos, Escritorio y Descargas: macOS no deja que launchd lea esas carpetas (detalle en [docs/instalacion.md](../docs/instalacion.md)).
-- **Logs:** cada ejecución deja una línea en `data/logs/ultimo-estado.txt` (`exit=N`, «omitida» o «interrumpida»), que muestra `make schedule-status`; la salida de launchd queda en `data/logs/launchd.*.log`, y el log detallado y el reporte, como en cualquier corrida.
+- **Logs:** cada ejecución deja una línea en `data/logs/ultimo-estado.txt` (`exit=N`, «omitida», «interrumpida» o «respaldo fallido»), que muestra `make schedule-status` junto con el respaldo más nuevo; la salida de launchd queda en `data/logs/launchd.*.log`, y el log detallado y el reporte, como en cualquier corrida.
 - Programarla en **un solo** equipo.
 
 ## Objetivos del Makefile
@@ -187,10 +188,13 @@ rappi-scraper/
 | `v_item_verticals`, `v_cross_vertical_items` | En qué verticales está cada producto / productos en más de un vertical |
 | `v_price_compare`, `v_price_changes` | Mismo producto entre cadenas / cambios de precio entre corridas |
 | `v_coverage` | Productos declarados vs obtenidos por sub-pasillo |
+| `v_store_format_runs` | Última corrida que bajó el formato de cada tienda (qué ofertas están vigentes) |
 
 Consultas de ejemplo y cómo conectarse: [docs/sql/](../docs/sql/).
 
 **Aislamiento por vertical:** las búsquedas siempre llevan `vertical` y cada vertical es su propia partición, así que un índice vectorial nunca mezcla verticales. Los análisis cruzados se hacen sobre las tablas núcleo.
+
+**Vigencia:** `search_documents` usa solo lo vigente. Una oferta o un plato cuenta si su último precio es de la última corrida que bajó su formato (`store_type`) o su cadena (`brand_id`); así salen las sucursales viejas y lo que ya no se vende. Un plato también sale si una corrida posterior ya no encontró su local o su cadena. Un formato que la última corrida no pudo bajar conserva su último dato. La corrida de cada formato sale de `v_store_format_runs`, que también usa `rappi-ia` para el precio que muestra Bigotes: el tope de precio y el precio mostrado salen de las mismas sucursales. Las tablas núcleo y las demás vistas `v_*` guardan todo el historial.
 
 **Embeddings:** `search_documents.content` no incluye precios (un cambio de precio no obliga a regenerar el embedding) y `content_hash` invalida el embedding solo si cambia el texto. El modelo es `intfloat/multilingual-e5-base` (768 dimensiones): `rappi-ia` llena `embedding`/`embedding_model` y crea un índice HNSW por partición con `embedding::vector(768)`. El ejemplo con `vector(1536)` de `003_search.sql` es anterior a la elección del modelo. Diseño completo en [docs/diseno-ia.md](../docs/diseno-ia.md).
 
@@ -236,5 +240,7 @@ rappi import-csv                                                          # carg
 ```
 
 Columnas: `fecha_scraping, cadena, ciudad, store_id, tienda, direccion, pasillo, sub_pasillo, sku, master_product_id, ean, nombre, marca, descripcion, presentacion, cantidad, unidad, tipo_venta, precio, precio_normal, descuento_pct, tiene_descuento, precio_por_unidad, categoria, en_stock, imagen_url`.
+
+`rappi import-csv` guarda los precios con su `fecha_scraping` (así no pasan por más nuevos que una descarga posterior) y busca el id de `categoria` entre las categorías que ya vio una descarga; si no la encuentra, el producto queda sin categoría.
 
 Código en `src/rappi_scraper/legacy/`.

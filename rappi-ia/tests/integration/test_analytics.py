@@ -5,8 +5,9 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 from rappi_scraper.storage.search import build_search_documents
 
-from conftest import add_price, add_product, add_store
+from conftest import add_dish, add_price, add_product, add_store
 from rappi_ia.agent.tools import suggest_complement
+from rappi_ia.agent.verticals import ranked_verticals
 from rappi_ia.analytics import queries
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.concepts.store import seed_taxonomy
@@ -68,6 +69,34 @@ def test_kpis_rhythm_risk_and_cart_abandonment_are_exact(db):
     assert queries.kpis(db, "synthetic")["usuarios_activos"] == 0  # las fuentes no se mezclan
 
 
+def test_a_cart_split_in_two_verticals_is_one_purchase(db, monkeypatch):
+    """Pizza más bebidas de Licores son dos pedidos de un mismo carro, pero una sola compra: quien no volvió en 50
+    días sigue «sin segunda compra», no «perdido». En la retención multi-vertical cuenta como 1 compra."""
+    seed_taxonomy(db, load_taxonomy())
+    _order(db, "u1", 0, "restaurantes", "pizza", cart="c-1")
+    _order(db, "u1", 0, "licores", "cerveza", cart="c-1")
+    _order(db, "u2", 0, "restaurantes", "pizza", cart="c-2")
+    _order(db, "u2", 0, "licores", "cerveza", cart="c-2")
+    _order(db, "u2", 10, "licores", "cerveza")  # 3 pedidos, 2 compras
+    events.record(db, [events.Event("u3", "s", "app_open", ts=T0 + timedelta(days=50))])
+    db.commit()
+
+    status = dict(
+        db.execute(
+            "WITH " + queries._RHYTHM.strip() + " SELECT user_id, status FROM risk", {"source": "prototype"}
+        ).fetchall()
+    )
+    assert status["u1"] == "sin_segunda_compra"
+    assert [r["estado"] for r in queries.at_risk(db, "prototype")] == ["en_riesgo"]  # solo u2 (ritmo 10 días)
+    k = queries.kpis(db, "prototype")
+    assert (k["en_riesgo"], k["perdidos"]) == (1, 0)
+
+    events.record(db, [events.Event("u3", "s", "app_open", ts=T0 + timedelta(days=130))])
+    monkeypatch.setattr(queries, "MIN_GROUP_USERS", 1)
+    strata = {r["estrato"] for r in queries.multi_vertical_retention(db, "prototype")}
+    assert strata == {"1–2 compras"}  # u2 hizo 3 pedidos: el estrato dice lo que cuenta
+
+
 def test_purged_searches_without_concept_do_not_become_a_null_opportunity(db):
     """La purga de 90 días borra el texto: sin concepto ni consulta no hay nada que mostrar (antes, fila «null»)."""
     seed_taxonomy(db, load_taxonomy())
@@ -82,6 +111,42 @@ def test_purged_searches_without_concept_do_not_become_a_null_opportunity(db):
     db.commit()
 
     assert queries.opportunities(db, "prototype") == []
+
+
+def test_where_it_exists_follows_the_rule_bigotes_uses(db):
+    """El panel no pide que Bigotes ofrezca algo donde Bigotes no lo haría: 3 «comidas peruanas» en farmacia (un
+    laxante mal etiquetado) no son oferta, y la cerveza no se busca en restaurantes porque no se pide hecha."""
+    seed_taxonomy(db, load_taxonomy())
+    db.execute("DROP MATERIALIZED VIEW concept_assortment")
+    db.execute("CREATE TABLE concept_assortment (concept_id text, vertical text, items integer)")
+    with db.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO concept_assortment VALUES (%s, %s, %s)",
+            [
+                ("peruana", "restaurantes", 1727),
+                ("peruana", "farmacia", 3),
+                ("peruana", "supermercado", 3),
+                ("cerveza", "restaurantes", 931),
+                ("cerveza", "supermercado", 262),
+                ("cerveza", "farmacia", 1),
+            ],
+        )
+    events.record(
+        db,
+        [
+            events.Event(f"u{i}", f"s{i}", "search", ts=T0, vertical=vertical, concept_id=concept, unmet=True)
+            for i in range(5)
+            for vertical, concept in [("restaurantes", "peruana"), ("licores", "cerveza")]
+        ],
+    )
+    db.commit()
+
+    rows = {r["concept_id"]: r for r in queries.opportunities(db, "prototype")}
+
+    assert rows["peruana"]["existe_en"] is None
+    assert rows["peruana"]["accion"] == "Oportunidad: sumar comercios o categoría"
+    assert rows["cerveza"]["existe_en"] == "supermercado"
+    assert rows["cerveza"]["accion"] == "Existe en otro vertical: que Bigotes lo ofrezca ahí"
 
 
 def test_cart_abandonment_follows_the_definition(db):
@@ -208,6 +273,88 @@ def test_cohorts_stop_at_the_last_finished_week(db, monkeypatch):
     assert [(r["semana"], r["retencion_pct"]) for r in queries.cohorts(db, "prototype")] == [(0, 100.0)]
 
 
+def test_funnel_counts_orders_whose_search_was_in_another_vertical(db):
+    """La sugerencia cruzada lleva la compra a otra vertical: buscar en restaurantes y pedir en licores es un pedido
+    de licores. Navegar sin chatear (view_store, que el prototipo manda sin vertical) también es entrada; ver una
+    sugerencia sin aceptarla no mete a la sesión en el embudo de esa vertical."""
+    seed_taxonomy(db, load_taxonomy())
+    line = [{"entity_type": "catalog_item", "entity_id": "1", "concept_id": "cerveza", "unit_price": 1000}]
+    events.record(
+        db,
+        [
+            events.Event("u1", "s1", "chat", ts=T0, vertical="restaurantes", query="pizza"),
+            events.Event("u1", "s1", "suggestion_shown", ts=T0, vertical="turbo", concept_id="gaseosas"),
+            events.Event("u1", "s1", "cart_add", ts=T0, vertical="licores", cart_id="c1"),
+            events.Event("u1", "s1", "checkout_start", ts=T0, vertical="licores", cart_id="c1"),
+            events.Event("u2", "s2", "view_store", ts=T0),
+            events.Event("u2", "s2", "cart_add", ts=T0, vertical="supermercado", cart_id="c2"),
+            events.Event("u2", "s2", "checkout_start", ts=T0, vertical="supermercado", cart_id="c2"),
+        ],
+    )
+    events.record_order(db, "u1", "s1", "c1", "licores", line, ts=T0)
+    events.record_order(db, "u2", "s2", "c2", "supermercado", line, ts=T0)
+    db.commit()
+
+    funnel = {r["vertical"]: r for r in queries.funnel(db, "prototype")}
+
+    assert funnel["licores"] == {"vertical": "licores", "buscan": 1, "agregan": 1, "pagan": 1, "piden": 1}
+    assert funnel["supermercado"]["piden"] == 1
+    assert funnel["restaurantes"]["buscan"] == 1 and funnel["restaurantes"]["agregan"] == 0
+    assert "turbo" not in funnel
+    orders = db.execute("SELECT count(*) FROM app_orders WHERE source = 'prototype'").fetchone()[0]
+    assert sum(r["piden"] for r in funnel.values()) == orders
+
+
+def test_adding_from_a_list_without_searching_also_enters_the_funnel(db):
+    """El «+» de una lista (la pantalla de una vertical, Ofertas, «Para ti») solo manda cart_add: quien entra a
+    Súper desde la Home, agrega una cerveza y paga sin buscar ni chatear también llega a la vertical."""
+    seed_taxonomy(db, load_taxonomy())
+    line = [{"entity_type": "catalog_item", "entity_id": "1", "concept_id": "cerveza", "unit_price": 1000}]
+    events.record(
+        db,
+        [
+            events.Event("u1", "s1", "app_open", ts=T0),
+            events.Event("u1", "s1", "cart_add", ts=T0, vertical="supermercado", cart_id="c1"),
+            events.Event("u1", "s1", "checkout_start", ts=T0, vertical="supermercado", cart_id="c1"),
+        ],
+    )
+    events.record_order(db, "u1", "s1", "c1", "supermercado", line, ts=T0)
+    db.commit()
+
+    funnel = queries.funnel(db, "prototype")
+
+    assert funnel == [{"vertical": "supermercado", "buscan": 1, "agregan": 1, "pagan": 1, "piden": 1}]
+    orders = db.execute("SELECT count(*) FROM app_orders WHERE source = 'prototype'").fetchone()[0]
+    assert sum(r["piden"] for r in funnel) == orders
+
+
+def test_session_conversion_counts_each_session_once(db):
+    """Quien acepta una sugerencia cruzada cuenta en dos verticales del embudo: sumar las filas da una tasa por
+    (sesión, vertical). El titular usa la de la API, que cuenta cada sesión una vez."""
+    seed_taxonomy(db, load_taxonomy())
+    line = [{"entity_type": "catalog_item", "entity_id": "1", "concept_id": "cerveza", "unit_price": 1000}]
+    events.record(
+        db,
+        [
+            events.Event("u1", "s1", "chat", ts=T0, vertical="restaurantes", query="pizza"),
+            events.Event("u1", "s1", "suggestion_accepted", ts=T0, vertical="licores", concept_id="cerveza"),
+            events.Event("u1", "s1", "cart_add", ts=T0, vertical="restaurantes", cart_id="c1"),
+            events.Event("u1", "s1", "cart_add", ts=T0, vertical="licores", cart_id="c1"),
+            events.Event("u1", "s1", "checkout_start", ts=T0, vertical="restaurantes", cart_id="c1"),
+            events.Event("u1", "s1", "checkout_start", ts=T0, vertical="licores", cart_id="c1"),
+            events.Event("u2", "s2", "chat", ts=T0, vertical="restaurantes", query="sushi"),
+        ],
+    )
+    events.record_order(db, "u1", "s1", "c1", "restaurantes", line, ts=T0)
+    events.record_order(db, "u1", "s1", "c1", "licores", line, ts=T0)
+    db.commit()
+
+    funnel = queries.funnel(db, "prototype")
+    assert (sum(r["piden"] for r in funnel), sum(r["buscan"] for r in funnel)) == (2, 3)  # 66,7 % por vertical
+    assert queries.kpis(db, "prototype")["conversion_sesiones_pct"] == 50.0  # 1 de 2 sesiones
+    assert queries.kpis(db, "synthetic")["conversion_sesiones_pct"] is None
+
+
 def test_invalid_source_is_rejected(db):
     with pytest.raises(ValueError):
         queries.kpis(db, "real")
@@ -241,14 +388,68 @@ def test_synthetic_data_is_reproducible_and_marked(simulated):
 
 def test_funnel_is_monotonic_and_cohorts_are_percentages(simulated, monkeypatch):
     db, _ = simulated
-    for row in queries.funnel(db, "synthetic"):
+    funnel = queries.funnel(db, "synthetic")
+    for row in funnel:
         assert row["buscan"] >= row["agregan"] >= row["pagan"] >= row["piden"]
+    # Cada pedido simulado entra al embudo, también los de la vertical sugerida (antes se perdían).
+    orders = db.execute("SELECT count(*) FROM app_orders WHERE source = 'synthetic'").fetchone()[0]
+    assert sum(r["piden"] for r in funnel) == orders
     monkeypatch.setattr(queries, "MIN_GROUP_USERS", 1)  # los datos de prueba tienen cohortes chicas
     cohorts = queries.cohorts(db, "synthetic")
     assert all(0 <= r["retencion_pct"] <= 100 for r in cohorts)
     assert cohorts[0]["semana"] == 0 and cohorts[0]["retencion_pct"] == 100.0  # semana 0 = la del primer pedido
     first = [r["semana"] for r in cohorts if r["cohorte"] == cohorts[0]["cohorte"]]
     assert first == list(range(len(first)))  # semanas consecutivas: las de 0% también vienen
+
+
+def test_synthetic_carts_are_also_abandoned_after_starting_payment(simulated):
+    """El inicio de pago se emitía solo junto con el pedido, así que «pagan» era siempre igual a «piden». Ahora una
+    parte de los carros abandonados alcanza a iniciar el pago, y el resto se va antes."""
+    db, _ = simulated
+    carts = dict(
+        db.execute(
+            """SELECT type, count(DISTINCT cart_id) FROM app_events
+               WHERE type IN ('cart_add', 'checkout_start', 'order_placed') GROUP BY 1"""
+        ).fetchall()
+    )
+    assert carts["cart_add"] > carts["checkout_start"] > carts["order_placed"]
+
+
+def test_synthetic_suggestions_go_to_the_vertical_bigotes_would_choose(db):
+    """El generador sorteaba la vertical entre todas las que tienen 1 ítem del concepto: «Cerveza · Farmacia»
+    encabezaba la tabla de sugerencias. Ahora usa el orden de Bigotes (`ranked_verticals`)."""
+    for store_id, vertical in [(2, "licores"), (3, "conveniencia"), (4, "farmacia"), (5, "mall")]:
+        add_store(db, store_id, vertical, vertical.title())
+    add_store(db, 6, "restaurantes", "Pizzería")
+    rows = [(200 + i, f"Cerveza marca {i} lata 470 cc", 2, "Cervezas") for i in range(25)]
+    rows += [(300 + i, f"Cerveza marca {i} express", 3, "Cervezas") for i in range(5)]
+    rows += [(350 + i, f"Papas fritas marca {i} 180 g", 3, "Snacks salados") for i in range(5)]
+    rows += [(400, "Cerveza sin alcohol lata 350 cc", 4, "Cervezas")]
+    rows += [(500 + i, f"Cerveza artesanal de regalo {i}", 5, "Cervezas") for i in range(2)]
+    for pid, name, store, category in rows:
+        add_product(db, pid, name, store, category)
+        add_price(db, store, pid, 1990)
+    db.execute("INSERT INTO scrape_runs (run_id, kind, status) VALUES (999, 'restaurants', 'done')")
+    for item_id, name, section in [(600, "Pizza napolitana", "Pizzas"), (601, "Pizza pepperoni", "Pizzas")] + [
+        (610 + i, f"Cerveza Kunstmann schop {i}", "Bebidas") for i in range(3)
+    ]:
+        add_dish(db, item_id, name, 6, section)
+        db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, %s, 6990)", (item_id,))
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+
+    generate(db, users=150, weeks=20, seed=3, until=date(2026, 9, 27))
+
+    shown = dict(
+        db.execute(
+            """SELECT vertical, count(*) FROM app_events
+               WHERE type = 'suggestion_shown' AND concept_id = 'cerveza' GROUP BY 1"""
+        ).fetchall()
+    )
+    assert shown  # el escenario genera sugerencias de cerveza (desde snacks y pizza)
+    assert not set(shown) & {"farmacia", "mall", "restaurantes"}
+    assert max(shown, key=shown.get) == ranked_verticals(db, ["cerveza"])[0] == "licores"
 
 
 def test_at_risk_uses_pseudonyms_and_no_sensitive_concepts(simulated):

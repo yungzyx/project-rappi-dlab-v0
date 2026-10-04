@@ -66,6 +66,18 @@ describe('pedidos para el panel', () => {
     expect(conceptOf({ name: 'Producto sin temas' })).toBeUndefined()
   })
 
+  test('pollo, verduras y perfumes de las capturas van con su concepto de la taxonomía, no con el de su tema', () => {
+    const conceptOfId = (id) => conceptOf(ALL_PRODUCTS.find((product) => product.id === id))
+    // El tema "carne" incluye tuto, trutro y nuggets de pollo; "fresco" el zapallo, y "belleza" los perfumes.
+    expect(conceptOfId('p-superpollo')).toBe('pollo') // Super Pollo Tuto Corto
+    expect(conceptOfId('p-kingnuggets')).toBe('pollo')
+    expect(conceptOfId('p-sperpollo')).toBe('pollo')
+    expect(conceptOfId('deal-wow-bucket')).toBe('pollo-preparado') // el pollo frito de restaurante no es el del súper
+    expect(conceptOfId('p-zapallo')).toBe('verduras') // Zapallo en Cubo
+    expect(conceptOfId('ret-ck')).toBe('fragancias') // Ck In2u Edt
+    expect(conceptOfId('ret-abgold')).toBe('fragancias')
+  })
+
   test('todo producto local (capturas y menús reales) llega con una vertical que la API acepta', () => {
     const orders = buildOrders(
       ALL_PRODUCTS.map((product) => ({ product, qty: 1 })),

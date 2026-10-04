@@ -11,7 +11,7 @@ export const TAG_TO_CONCEPT = {
   dulce: 'chocolates',
   pizza: 'pizza',
   hamburguesa: 'hamburguesa',
-  pollo: 'pollo',
+  pollo: 'pollo-preparado',
   sushi: 'sushi',
   bebe: 'panales',
   farmacia: 'dermocosmetica',

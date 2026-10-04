@@ -6,6 +6,7 @@ import re
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_dish, add_product, add_store
+from rappi_ia.agent import verticals
 from rappi_ia.analytics import multivertical
 from rappi_ia.concepts.pipeline import build_concepts
 
@@ -47,6 +48,64 @@ def test_collect_counts_products_shared_between_verticals(db):
     assert data["chains"] == [["Unimarc", ["supermercado", "conveniencia"], 2]]  # 2+ verticales, en orden del mapa
 
 
+def test_a_store_listed_in_two_verticals_does_not_make_its_products_shared(db, monkeypatch):
+    """Como el panel (v_cross_vertical_items_real): la doble etiqueta de Lider o Unimarc no cruza verticales,
+    pero sus productos y sucursales sí cuentan (como en «Calidad del catálogo»)."""
+    _catalog(db)
+    add_store(db, 8, "supermercado", "Lider")
+    db.execute("INSERT INTO store_verticals (store_id, vertical) VALUES (8, 'conveniencia')")
+    add_product(db, 104, "Arroz grado 1 Tucapel 1 kg", 8, "Arroz")  # solo en la tienda con doble etiqueta
+    add_product(db, 105, "Hielo en bolsa 2 kg", 2, "Hielo")  # en Licores y en el Lider
+    for sku, product in (("b8", 100), ("h8", 105)):
+        db.execute("INSERT INTO store_products (store_id, sku, master_product_id) VALUES (8, %s, %s)", (sku, product))
+    db.commit()
+    monkeypatch.setattr(multivertical, "BRIDGE_MIN_VERTICALS", 3)
+    data = multivertical.collect(db)
+
+    assert {(a, b): n for a, b, n in data["shared"]} == {
+        ("conveniencia", "licores"): 1,
+        ("conveniencia", "supermercado"): 1,
+        ("licores", "supermercado"): 1,
+    }
+    assert dict(data["spread"]) == {1: 4, 3: 1}  # el arroz no cuenta como «en 2 verticales»; el hielo, solo en Licores
+    assert data["products"]["supermercado"] == 4  # cerveza y papas de la tienda 1, arroz y hielo del Lider
+    assert data["products"]["conveniencia"] == 4  # cerveza y agua de la tienda 3, arroz y hielo del Lider
+    # La cerveza está en 4 sucursales (también el Lider); el hielo llega a 3 verticales solo por la doble etiqueta.
+    assert data["bridges"] == [["Cerveza Escudo Lata 470 cc", ["supermercado", "conveniencia", "licores"], 4]]
+
+
+def test_a_chain_is_one_row_whatever_its_case_and_counts_each_branch_once(db):
+    _catalog(db)
+    add_store(db, 10, "supermercado", "Cadena")
+    add_store(db, 11, "supermercado", "Cadena")
+    db.execute("INSERT INTO store_verticals (store_id, vertical) VALUES (11, 'conveniencia')")  # doble etiqueta
+    add_store(db, 12, "farmacia", " CADENA ")
+    db.commit()
+    data = multivertical.collect(db)
+
+    assert data["chains"][0] == ["Cadena", ["supermercado", "conveniencia", "farmacia"], 3]  # 3 sucursales, no 4
+    assert [name for name, *_ in data["chains"]] == ["Cadena", "Unimarc"]
+
+
+def test_products_without_master_id_are_not_a_product(db):
+    _catalog(db)
+    for store in (1, 2):  # store_products sin master_product_id en Súper y en Licores
+        db.execute("INSERT INTO store_products (store_id, sku) VALUES (%s, 'sin-master')", (store,))
+    db.commit()
+    data = multivertical.collect(db)
+
+    assert dict(data["spread"]) == {1: 3, 3: 1}
+    assert data["products"]["supermercado"] == 2 and data["products"]["licores"] == 2
+
+
+def test_concept_total_counts_a_product_once_whatever_its_verticals(db):
+    _catalog(db)
+    beer = next(c for c in multivertical.collect(db)["concepts"] if c["id"] == "cerveza")
+
+    assert beer["items"] == {"supermercado": 1, "licores": 2, "conveniencia": 1}
+    assert beer["total"] == 2  # Escudo (en 3 verticales) y Kunstmann: 2 productos, no 4
+
+
 def test_render_embeds_the_data_in_a_self_contained_page(db):
     _catalog(db)
     page = multivertical.render(multivertical.collect(db))
@@ -55,3 +114,29 @@ def test_render_embeds_the_data_in_a_self_contained_page(db):
     data = json.loads(re.search(r"const DATA = (\{.*?\});\n", page, re.S).group(1))
     assert data["catalogTotal"] == 4
     assert not re.search(r"""<(script|link)[^>]+(src|href)=["']https?://""", page)  # funciona sin internet
+    # El radio de cada concepto y la columna «Productos» usan su total de productos distintos, no la suma por vertical.
+    assert "const total = (c) => c.total;" in page
+    assert "Object.values(c.items).reduce" not in page
+
+
+def test_names_from_the_catalog_cannot_break_out_of_the_page(db, tmp_path):
+    """Los nombres vienen de rappi.cl: un «</script>» no puede cortar el script ni inyectar HTML."""
+    _catalog(db)
+    for store_id, vertical in ((6, "supermercado"), (7, "licores")):  # cadena en 2 verticales: sale en el mapa
+        add_store(db, store_id, vertical, "Botillería </script><img src=x onerror=alert(1)>")
+    db.commit()
+
+    path = tmp_path / "carpeta-nueva" / "mapa.html"  # la carpeta no existe todavía
+    multivertical.write(db, path)
+    page = path.read_text(encoding="utf-8")
+    assert "</script><img" not in page
+    data = json.loads(re.search(r"const DATA = (\{.*?\});\n", page, re.S).group(1))
+    assert data["chains"][0][0] == "Botillería </script><img src=x onerror=alert(1)>"  # el dato llega intacto
+
+
+def test_typical_vertical_is_the_first_ranked_one(db):
+    _catalog(db)
+    homes = verticals.typical_verticals(db)
+    for concept in {c for (c,) in db.execute("SELECT DISTINCT concept_id FROM concept_assortment WHERE items > 0")}:
+        ranked = verticals.ranked_verticals(db, [concept])
+        assert homes.get(concept) == (ranked[0] if ranked else None), concept

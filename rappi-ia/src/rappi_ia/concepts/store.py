@@ -21,12 +21,13 @@ def seed_taxonomy(conn: Connection, taxonomy: Taxonomy) -> int:
     for node in taxonomy.all_nodes():
         conn.execute(
             """INSERT INTO concepts (concept_id, name, parent_id, emoji, keywords, sensitive, age_restricted,
-                                     taxonomy_version, updated_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now())
+                                     prepared, taxonomy_version, updated_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now())
                ON CONFLICT (concept_id) DO UPDATE SET
                  name = EXCLUDED.name, parent_id = EXCLUDED.parent_id, emoji = EXCLUDED.emoji,
                  keywords = EXCLUDED.keywords, sensitive = EXCLUDED.sensitive,
-                 age_restricted = EXCLUDED.age_restricted, taxonomy_version = EXCLUDED.taxonomy_version,
+                 age_restricted = EXCLUDED.age_restricted, prepared = EXCLUDED.prepared,
+                 taxonomy_version = EXCLUDED.taxonomy_version,
                  updated_at = now()""",
             (
                 node.id,
@@ -36,6 +37,7 @@ def seed_taxonomy(conn: Connection, taxonomy: Taxonomy) -> int:
                 list(node.keywords),
                 node.sensitive,
                 node.age_restricted,
+                node.prepared,
                 taxonomy.version,
             ),
         )
@@ -60,7 +62,31 @@ def seed_curated_edges(conn: Connection, edges: Iterable[tuple[str, str, float]]
 
 def read_category_map_csv(path: Path = CATEGORY_MAP_CSV) -> list[dict]:
     with path.open(encoding="utf-8") as f:
-        return [row for row in csv.DictReader(f) if row["concept_id"] != NO_CONCEPT]
+        rows = list(csv.DictReader(f))
+    _check_one_concept_per_key(rows)
+    return [row for row in rows if row["concept_id"] != NO_CONCEPT]
+
+
+def categories_reviewed_without_concept(path: Path = CATEGORY_MAP_CSV) -> list[str]:
+    """Claves de las categorías revisadas que a propósito no tienen concepto (filas «ninguno»). No se guardan en
+    category_map, así que el reporte las recibe aparte para no volver a proponerlas."""
+    with path.open(encoding="utf-8") as f:
+        return [
+            row["nombre"].strip().lower()
+            for row in csv.DictReader(f)
+            if row["tipo"] == "categoria" and row["concept_id"] == NO_CONCEPT
+        ]
+
+
+def _check_one_concept_per_key(rows: list[dict]) -> None:
+    """La clave de category_map es el nombre en minúsculas: dos filas con la misma clave y distinto concepto se
+    pisarían en silencio (gana la última del archivo)."""
+    seen: dict[tuple[str, str], str] = {}
+    for row in rows:
+        kind, key = row["tipo"], row["nombre"].strip().lower()
+        first = seen.setdefault((kind, key), row["concept_id"])
+        if first != row["concept_id"]:
+            raise ValueError(f"category_map.csv: «{key}» ({kind}) tiene dos conceptos: {first} y {row['concept_id']}")
 
 
 def load_category_map(conn: Connection, rows: list[dict]) -> int:
@@ -129,9 +155,11 @@ def menu_items_for_assignment(conn: Connection) -> list[tuple[str, str, str | No
 
 
 def refresh_assortment(conn: Connection) -> None:
-    """Surtido por concepto y vertical que leen Bigotes y el panel (vista materializada; ver migración 012).
-    CONCURRENTLY: la API sigue leyendo la versión anterior mientras se recalcula."""
+    """Surtido por concepto y vertical (y por tienda, para «También en») que leen Bigotes y el panel: vistas
+    materializadas de las migraciones 012 y 016. CONCURRENTLY: la API sigue leyendo la versión anterior mientras
+    se recalculan."""
     conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY concept_assortment")
+    conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY concept_store_assortment")
 
 
 def save_assignments(conn: Connection, assignments: list[Assignment]) -> int:

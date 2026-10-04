@@ -98,7 +98,7 @@ function AlsoIn({ alsoIn, onAction }) {
             <span>
               <strong>{vertical.label}</strong>
               <small>
-                {vertical.stores.map((store) => store.name).join(' · ')} · {vertical.items} productos
+                {vertical.stores.map((store) => store.name).join(' · ')} · {vertical.items.toLocaleString('es-CL')} productos
               </small>
             </span>
           </button>

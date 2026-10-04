@@ -34,9 +34,9 @@ describe('"Para ti" desde rappi-ia', () => {
 
   test('con API y algo aprendido, la fila viene de rappi-ia y sus productos cuentan como sugerencia', async () => {
     const { result } = renderHook(() => useRemoteForYou(true))
-    await waitFor(() => expect(result.current).not.toBeNull())
-    expect(result.current.reason).toBe('Porque te interesa 🍺 cerveza')
-    expect(result.current.products[0]).toMatchObject({
+    await waitFor(() => expect(result.current.row).not.toBeNull())
+    expect(result.current.row.reason).toBe('Porque te interesa 🍺 cerveza')
+    expect(result.current.row.products[0]).toMatchObject({
       entityId: '1',
       fromSuggestion: true,
       suggestionOrigin: 'para-ti',
@@ -47,38 +47,53 @@ describe('"Para ti" desde rappi-ia', () => {
     const { result, rerender } = renderHook(({ generation }) => useRemoteForYou(true, generation), {
       initialProps: { generation: 0 },
     })
-    await waitFor(() => expect(result.current).not.toBeNull())
+    await waitFor(() => expect(result.current.row).not.toBeNull())
     rerender({ generation: 1 })
-    expect(result.current).toBeNull()
-    expect(api.recommendations).toHaveBeenCalledTimes(1) // no se vuelve a pedir: el servidor quizá aún no borró
+    // Queda la fila local, y fija: no se vuelve a pedir (el servidor quizá aún no borró).
+    expect(result.current).toEqual({ row: null, pending: false })
+    expect(api.recommendations).toHaveBeenCalledTimes(1)
   })
 
-  test('sin API, sin nada aprendido o en modo "Rappi hoy" queda la fila local (null)', async () => {
+  test('sin API, sin nada aprendido o en modo "Rappi hoy" queda la fila local (row null, ya sin esperar)', async () => {
     api.recommendations.mockResolvedValue({ rows: [] })
     const empty = renderHook(() => useRemoteForYou(true))
-    await waitFor(() => expect(api.recommendations).toHaveBeenCalled())
-    expect(empty.result.current).toBeNull()
+    await waitFor(() => expect(empty.result.current.pending).toBe(false))
+    expect(empty.result.current.row).toBeNull()
 
     api.health.mockResolvedValue(null)
     api.recommendations.mockClear()
     const offline = renderHook(() => useRemoteForYou(true))
-    await waitFor(() => expect(api.health).toHaveBeenCalled())
-    expect(offline.result.current).toBeNull()
+    await waitFor(() => expect(offline.result.current.pending).toBe(false))
+    expect(offline.result.current.row).toBeNull()
     expect(api.recommendations).not.toHaveBeenCalled()
 
     api.health.mockClear()
-    renderHook(() => useRemoteForYou(false))
+    const off = renderHook(() => useRemoteForYou(false))
+    expect(off.result.current).toEqual({ row: null, pending: false })
     expect(api.health).not.toHaveBeenCalled()
+  })
+
+  test('mientras rappi-ia no contesta, la fila local es provisoria (pending)', async () => {
+    let answer
+    api.recommendations.mockReturnValue(new Promise((resolve) => (answer = resolve)))
+    const { result } = renderHook(() => useRemoteForYou(true))
+    expect(result.current).toEqual({ row: null, pending: true })
+    await waitFor(() => expect(api.recommendations).toHaveBeenCalled())
+    expect(result.current.pending).toBe(true)
+
+    answer({ rows: [] }) // usuario nuevo (o tras «Olvidar»): la fila local queda
+    await waitFor(() => expect(result.current.pending).toBe(false))
+    expect(result.current.row).toBeNull()
   })
 
   test('volver a la Home no vuelve a pedir la fila: se reusa la de esta pestaña', async () => {
     const first = renderHook(() => useRemoteForYou(true))
-    await waitFor(() => expect(first.result.current).not.toBeNull())
+    await waitFor(() => expect(first.result.current.row).not.toBeNull())
     first.unmount() // abrir una tienda desmonta la Home
 
     const again = renderHook(() => useRemoteForYou(true))
 
-    expect(again.result.current?.concept).toBe('snacks-salados')
+    expect(again.result.current).toMatchObject({ row: { concept: 'snacks-salados' }, pending: false })
     expect(api.recommendations).toHaveBeenCalledTimes(1)
   })
 

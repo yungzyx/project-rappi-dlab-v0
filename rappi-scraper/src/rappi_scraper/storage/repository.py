@@ -178,6 +178,13 @@ def upsert_store(conn: Connection, store: dict, raw: dict | None = None) -> None
     )
 
 
+def saved_store_format(conn: Connection, store_id: int) -> dict:
+    """`store_type` y `subvertical` (el sub_group de su página) ya guardados de una tienda; vacíos si no se conocen."""
+    row = conn.execute("SELECT store_type, sub_group FROM stores WHERE store_id = %s", (store_id,)).fetchone()
+    store_type, sub_group = row or (None, None)
+    return {"store_type": store_type or "", "subvertical": sub_group or ""}
+
+
 def upsert_store_vertical(
     conn: Connection,
     store_id: int,
@@ -199,6 +206,16 @@ def upsert_store_vertical(
         """,
         (store_id, vertical, subvertical, landing_classification, filters or []),
     )
+
+
+def move_store_vertical(conn: Connection, store_id: int, vertical: str, new_vertical: str) -> None:
+    """Pasa la fila de la tienda en `vertical` a `new_vertical`, con sus filtros (si ya la tenía, borra la otra)."""
+    conn.execute(
+        "UPDATE store_verticals SET vertical = %s WHERE store_id = %s AND vertical = %s "
+        "AND NOT EXISTS (SELECT 1 FROM store_verticals WHERE store_id = %s AND vertical = %s)",
+        (new_vertical, store_id, vertical, store_id, new_vertical),
+    )
+    conn.execute("DELETE FROM store_verticals WHERE store_id = %s AND vertical = %s", (store_id, vertical))
 
 
 def upsert_aisles(conn: Connection, store_id: int, aisles: list[dict]) -> None:
@@ -241,7 +258,8 @@ def _int_or_none(value) -> int | None:
 
 
 def save_products(conn: Connection, run_id: int, store_id: int, products: list[dict]) -> int:
-    """Guarda productos crudos de Rappi (con `_aisle_id` / `_sub_aisle_id` agregados).
+    """Guarda productos crudos de Rappi (con `_aisle_id` / `_sub_aisle_id` agregados y, desde un CSV legado, la fecha
+    en que se bajaron en `_scraped_at`; si no, el precio queda con la hora actual).
 
     Escribe categorías, catálogo único, oferta por tienda y un snapshot de precio.
     Devuelve cuántos productos se guardaron.
@@ -282,6 +300,7 @@ def save_products(conn: Connection, run_id: int, store_id: int, products: list[d
             p.get("pum") or "",
             bool(p.get("in_stock")),
             _int_or_none(p.get("stock")),
+            p.get("_scraped_at"),
         )
 
     with conn.cursor() as cur:
@@ -324,11 +343,13 @@ def save_products(conn: Connection, run_id: int, store_id: int, products: list[d
         )
         cur.executemany(
             """
-            INSERT INTO price_snapshots (run_id, store_id, sku, price, real_price, discount_pct, pum, in_stock, stock)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO price_snapshots (run_id, store_id, sku, price, real_price, discount_pct, pum, in_stock, stock,
+                                         scraped_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, COALESCE(%s::timestamptz, now()))
             ON CONFLICT (run_id, store_id, sku) DO UPDATE SET
                 price = EXCLUDED.price, real_price = EXCLUDED.real_price, discount_pct = EXCLUDED.discount_pct,
-                pum = EXCLUDED.pum, in_stock = EXCLUDED.in_stock, stock = EXCLUDED.stock, scraped_at = now()
+                pum = EXCLUDED.pum, in_stock = EXCLUDED.in_stock, stock = EXCLUDED.stock,
+                scraped_at = EXCLUDED.scraped_at
             """,
             list(prices.values()),
         )

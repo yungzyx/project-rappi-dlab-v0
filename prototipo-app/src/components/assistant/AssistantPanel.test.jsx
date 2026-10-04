@@ -130,6 +130,7 @@ afterEach(() => {
   delete navigator.mediaDevices
   FakeRecorder.instances = []
   localStorage.clear()
+  sessionStorage.clear() // cada test es una pestaña nueva (otra sesión)
 })
 
 describe('chat en orden', () => {
@@ -186,6 +187,37 @@ describe('sugerencia cruzada', () => {
     fireEvent.click(screen.getByRole('button', { name: /Ver más en Licores/ }))
     await runUntilIdle()
     expect(push).toHaveBeenCalledWith('vertical', { id: 'liquor' }, expect.anything())
+  })
+
+  test('tocar un producto abre su tienda con ese producto: la página registra que lo vio', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      ...apiAnswer('Mira estas hamburguesas', 'gaseosas'),
+      suggestion: {
+        ...apiAnswer('', 'gaseosas').suggestion,
+        products: [
+          {
+            id: 'cat-1',
+            entity_type: 'catalog_item',
+            entity_id: '1',
+            name: 'Bebida Pepsi 1,5 L',
+            store: 'Botillería',
+            vertical: 'licores',
+          },
+        ],
+      },
+    })
+    await renderPanel({ push })
+    say('una hamburguesa')
+    await runUntilIdle()
+
+    fireEvent.click(screen.getByText('Bebida Pepsi 1,5 L'))
+    await runUntilIdle()
+    expect(push).toHaveBeenCalledWith(
+      'store',
+      expect.objectContaining({ item: expect.objectContaining({ entityId: '1', vertical: 'licores' }) }),
+      expect.anything(),
+    )
   })
 })
 
@@ -272,6 +304,19 @@ describe('qué Bigotes contestó', () => {
 })
 
 describe('temas ya sugeridos', () => {
+  test('recargar la página no olvida lo ya sugerido en la sesión', async () => {
+    api.chat.mockResolvedValueOnce(apiAnswer('Mira estos jugos', 'jugos')).mockResolvedValueOnce(apiAnswer('Ok'))
+    await renderPanel()
+    say('algo para el desayuno')
+    await runUntilIdle()
+    cleanup() // recarga: el panel se monta de nuevo y la sesión sigue en sessionStorage
+    await renderPanel()
+    say('y algo más')
+    await runUntilIdle()
+
+    expect(api.chat.mock.calls[1][0].shown_topics).toEqual(['jugos'])
+  })
+
   test('voz y foto saben qué sugirió el chat de texto (no repiten la sugerencia)', async () => {
     mockMic(vi.fn(async () => fakeStream()))
     api.health.mockResolvedValue({ voz: true, fotos: true })

@@ -1,11 +1,15 @@
 """`refresh`: retoma corridas abiertas o crea nuevas, y deja búsqueda, reportes y respaldo."""
 
+from contextlib import nullcontext
+
 import pytest
 
 from conftest import FakeClient
+from rappi_scraper import cli
 from rappi_scraper.pipeline.queue import PossibleBlock
 from rappi_scraper.pipeline.refresh import refresh
 from rappi_scraper.storage import repository
+from rappi_scraper.storage.db import PendingMigrations, connect, database_url
 
 STORE_JOB = {
     "job_key": "type:lider",
@@ -45,7 +49,7 @@ def test_refresh_resumes_open_runs_without_rediscovering(db, tmp_path):
     client = FakeClient({"/restaurantes/384": "restaurant"})
     backups = []
 
-    reports = refresh(
+    reports, backup_failed = refresh(
         db, client, _no_discovery, _no_discovery, backup=lambda: backups.append("ok"), reports_dir=tmp_path
     )
 
@@ -56,14 +60,14 @@ def test_refresh_resumes_open_runs_without_rediscovering(db, tmp_path):
         f"run_{restaurants_run}_restaurants.md",
     }
     assert db.execute("SELECT count(*) FROM search_documents").fetchone()[0] > 0
-    assert backups == ["ok"]
+    assert backups == ["ok"] and not backup_failed
 
 
 def test_refresh_starts_new_runs_and_discovers_when_none_open(db, tmp_path):
     store_calls, restaurant_calls = [], []
     client = FakeClient({"/restaurantes/384": "restaurant"})
 
-    reports = refresh(
+    reports, _ = refresh(
         db,
         client,
         _discoverer(STORE_JOB, store_calls),
@@ -117,12 +121,13 @@ def test_refresh_stops_on_a_block_and_leaves_the_run_open(db, tmp_path):
 
 
 def test_a_failed_backup_does_not_stop_the_weekly_update(db, tmp_path, caplog):
-    """Sin respaldo nuevo quedan los anteriores; la capa de IA (post-refresh) igual debe correr."""
+    """Sin respaldo nuevo quedan los anteriores; la capa de IA (post-refresh) igual debe correr. Pero el fallo se
+    informa: si solo quedara en el log, la tarea semanal anotaría «exit=0» semana tras semana."""
 
     def broken_backup():
         raise RuntimeError("pg_dump: disco lleno")
 
-    reports = refresh(
+    reports, backup_failed = refresh(
         db,
         FakeClient({"/restaurantes/384": "restaurant"}),
         _discoverer(STORE_JOB, []),
@@ -132,6 +137,8 @@ def test_a_failed_backup_does_not_stop_the_weekly_update(db, tmp_path, caplog):
     )
 
     assert [r["status"] for r in reports] == ["done", "done"]
+    assert db.execute("SELECT count(*) FROM search_documents").fetchone()[0] > 0
+    assert backup_failed
     assert "Respaldo fallido" in caplog.text
 
 
@@ -145,8 +152,93 @@ def test_an_interrupted_refresh_resumes_restaurants_without_scraping_stores_agai
     repository.add_jobs(db, restaurants_run, [RESTAURANT_JOB])
     client = FakeClient({"/restaurantes/384": "restaurant"})
 
-    reports = refresh(db, client, _no_discovery, _no_discovery, reports_dir=tmp_path)
+    reports, _ = refresh(db, client, _no_discovery, _no_discovery, reports_dir=tmp_path)
 
     assert [(r["kind"], r["run_id"], r["status"]) for r in reports] == [("restaurants", restaurants_run, "done")]
     assert client.requested == ["/restaurantes/384"]
     assert repository.latest_run(db, "stores") == stores_run  # ninguna corrida de tiendas nueva
+
+
+def test_resuming_after_retry_failed_does_not_start_new_runs(db, tmp_path):
+    """`retry-failed` reabrió las tiendas y no los restaurantes (reencoló 0): retomar no vuelve a bajar los ~4.900
+    restaurantes (unas 5,5 h) en una corrida nueva."""
+    stores_run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, stores_run, [STORE_JOB])
+    restaurants_run = repository.start_run(db, "restaurants", {})
+    repository.add_jobs(db, restaurants_run, [RESTAURANT_JOB])
+    repository.mark_job(db, restaurants_run, RESTAURANT_JOB["job_key"], "done", {})
+    repository.finish_run(db, restaurants_run)
+    client = FakeClient()
+
+    reports, _ = refresh(db, client, _no_discovery, _no_discovery, reports_dir=tmp_path, resume_only=True)
+
+    assert [(r["kind"], r["run_id"], r["status"]) for r in reports] == [("stores", stores_run, "done")]
+    assert all(path.startswith("/tiendas/") for path in client.requested)
+    assert repository.latest_run(db, "restaurants") == restaurants_run
+
+
+def test_resuming_commits_the_search_documents_before_the_backup(db, tmp_path):
+    """`pg_dump` corre en otra conexión: tiene que ver los documentos nuevos. Y si el respaldo falla (exit 3, que
+    deshace lo pendiente de la conexión), los documentos ya quedaron guardados."""
+    stores_run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, stores_run, [STORE_JOB])
+    restaurants_run = repository.start_run(db, "restaurants", {})
+    repository.finish_run(db, restaurants_run)
+    seen_by_backup = []
+
+    def backup():
+        with connect(database_url("DATABASE_URL_TEST")) as other:
+            seen_by_backup.append(other.execute("SELECT count(*) FROM search_documents").fetchone()[0])
+        raise RuntimeError("pg_dump: disco lleno")
+
+    _, backup_failed = refresh(
+        db, FakeClient(), _no_discovery, _no_discovery, backup=backup, reports_dir=tmp_path, resume_only=True
+    )
+    db.rollback()  # como al salir de `with connect()` con SystemExit(3)
+
+    assert backup_failed
+    assert seen_by_backup[0] > 0
+    assert db.execute("SELECT count(*) FROM search_documents").fetchone()[0] == seen_by_backup[0]
+
+
+def test_resuming_with_nothing_open_rebuilds_search_and_backup_without_downloading(db, tmp_path):
+    """Un corte cuando las dos corridas ya cerraron (durante la búsqueda o el respaldo) no empieza otra descarga."""
+    backups = []
+
+    reports, _ = refresh(
+        db,
+        FakeClient(),
+        _no_discovery,
+        _no_discovery,
+        backup=lambda: backups.append("ok"),
+        reports_dir=tmp_path,
+        resume_only=True,
+    )
+
+    assert reports == [] and backups == ["ok"]
+    assert db.execute("SELECT count(*) FROM scrape_runs").fetchone()[0] == 0
+
+
+def test_refresh_with_pending_migrations_stops_before_downloading(db, tmp_path):
+    """El código puede depender de una migración que trajo un `git pull` (la vista de vigencia de la 019): sin ella,
+    `refresh` bajaba todo (cerca de un día), cerraba las corridas y fallaba al armar la búsqueda, sin respaldo."""
+    db.execute("DELETE FROM schema_migrations WHERE name = '019_store_format_runs.sql'")
+    db.commit()
+    calls = []
+    client = FakeClient({"/restaurantes/384": "restaurant"})
+
+    with pytest.raises(PendingMigrations, match="019_store_format_runs.sql"):
+        refresh(db, client, _discoverer(STORE_JOB, calls), _discoverer(RESTAURANT_JOB, calls), reports_dir=tmp_path)
+
+    assert client.requested == [] and calls == []
+    assert db.execute("SELECT count(*) FROM scrape_runs").fetchone()[0] == 0
+
+
+def test_build_search_by_hand_with_pending_migrations_asks_to_migrate(db, monkeypatch):
+    db.execute("DELETE FROM schema_migrations WHERE name = '019_store_format_runs.sql'")
+    db.commit()
+    monkeypatch.setattr(cli, "connect", lambda: nullcontext(db))
+    monkeypatch.setattr(cli, "build_search_documents", lambda conn: pytest.fail("no debería armar la búsqueda"))
+
+    with pytest.raises(SystemExit, match="rappi migrate"):
+        cli.main(["build-search"])

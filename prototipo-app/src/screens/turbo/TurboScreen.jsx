@@ -55,7 +55,7 @@ export default function TurboScreen({ back, push }) {
   return (
     <>
       {tab === 'turbo' ? (
-        <TurboFeed back={back} toast={toast} onSearch={() => push('search')} />
+        <TurboFeed back={back} toast={toast} onSearch={() => push('search', { vertical: 'turbo' })} />
       ) : (
         <NotReplicated title={tabLabel} />
       )}
@@ -63,7 +63,7 @@ export default function TurboScreen({ back, push }) {
         items={NAV_ITEMS}
         active={tab}
         onSelect={setTab}
-        onSearch={() => push('search')}
+        onSearch={() => push('search', { vertical: 'turbo' })}
         className="bottom-nav--turbo"
       />
     </>

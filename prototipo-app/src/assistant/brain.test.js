@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { forVertical, forYou, greeting, photoReply, reply, suggestions } from './brain'
+import { TAGS, productsForTags } from './tags'
+import { ALL_PRODUCTS } from '../data/catalog'
 
 const EMPTY_PROFILE = { top: [] }
 const BEER_PROFILE = { top: ['cerveza'] }
@@ -39,6 +41,16 @@ describe('reply', () => {
     expect(suggestion.products.every((product) => product.vertical === 'liquor')).toBe(true)
     expect(suggestion).toMatchObject({ verticalLabel: 'Licores', route: ['vertical', { id: 'liquor' }] })
     expect(suggestion.reason).toMatch(/hamburguesa/i)
+  })
+
+  test('el complemento nunca viene de la vertical del tema pedido, aunque la respuesta solo traiga tiendas', () => {
+    for (const [tag, { words }] of Object.entries(TAGS)) {
+      const { suggestion } = reply(words[0], EMPTY_PROFILE)
+      if (!suggestion) continue
+      const own = new Set(productsForTags([tag], 100).map((product) => product.vertical))
+      const from = suggestion.products[0].vertical
+      expect(own.has(from), `${tag} sugiere desde su propia vertical (${from})`).toBe(false)
+    }
   })
 
   test('lo que no encuentra se compensa con ofertas de varias verticales, no solo restaurantes', () => {
@@ -107,6 +119,23 @@ describe('forVertical', () => {
 
   test('una vertical desconocida sin perfil no recomienda nada', () => {
     expect(forVertical('nada', EMPTY_PROFILE).products).toEqual([])
+  })
+})
+
+describe('sugerencias del cerebro local', () => {
+  test('van marcadas como sugerencia, con su origen: sus pedidos no cuentan como compra orgánica', () => {
+    const origins = {
+      'vertical-para-ti': forVertical('liquor', EMPTY_PROFILE).products,
+      'para-ti-local': [...forYou(BEER_PROFILE).products, ...forYou(EMPTY_PROFILE).products],
+      'chat-local': reply('una hamburguesa', EMPTY_PROFILE).suggestion.products,
+    }
+    for (const [origin, products] of Object.entries(origins)) {
+      expect(products.length).toBeGreaterThan(0)
+      products.forEach((product) => expect(product).toMatchObject({ fromSuggestion: true, suggestionOrigin: origin }))
+    }
+    // Se marcan copias: el mismo producto en su vertical (o en una respuesta a lo pedido) no es una sugerencia.
+    expect(ALL_PRODUCTS.some((product) => product.fromSuggestion)).toBe(false)
+    expect(reply('cerveza', EMPTY_PROFILE).products.some((product) => product.fromSuggestion)).toBe(false)
   })
 })
 

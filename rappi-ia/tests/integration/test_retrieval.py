@@ -128,6 +128,51 @@ def test_unmet_demand_rules(catalog):
     assert "τ" in (retrieve(catalog, "licores", "xyzzy qwerty", embedder).unmet_reason or "")
 
 
+def test_unmet_does_not_depend_on_the_price_cap(catalog, monkeypatch):
+    """«Sin resultado» es «no existe», no «no cabe en el tope»: el coseno, igual que la coincidencia estricta, se
+    mide sin el filtro de precio. Antes, con tope, lo que el vertical sí tiene a otro precio quedaba «sin resultado»."""
+    embedder = HashEmbedder()
+    embed_search_documents(catalog, embedder)
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"licores": 0.2})
+    query = "torobayo xyz"  # sin concepto ni coincidencia estricta: decide el coseno
+
+    free = retrieve(catalog, "licores", query, embedder)
+    capped = retrieve(catalog, "licores", query, embedder, filters=Filters(price_max=2000))
+
+    assert free.query_concepts == [] and free.strict_lexical_matches == 0 and not free.unmet
+    assert not capped.unmet and capped.max_cosine == free.max_cosine
+    assert "102" not in [h.entity_id for h in capped.hits]  # el ranking sí respeta el tope (la Torobayo vale 2.990)
+
+
+def test_a_query_without_words_to_search_is_not_unmet_by_cosine(catalog, monkeypatch):
+    """«té» es stopword: sin palabras que buscar, la primera condición de «sin resultado» (que nada calce todas las
+    palabras) no se puede evaluar, y el coseno solo no basta para marcarla."""
+    embedder = HashEmbedder()
+    embed_search_documents(catalog, embedder)
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"licores": 0.99})
+
+    tea = retrieve(catalog, "licores", "té", embedder)
+
+    assert tea.query_concepts == [] and tea.strict_lexical_matches == 0 and tea.max_cosine < 0.99
+    assert not tea.unmet and not tea.has_words
+    assert retrieve(catalog, "licores", "xyzzy", embedder).unmet  # con palabras, el coseno sí decide
+
+
+def test_hyphenated_words_keep_their_weight(db):
+    """`to_tsquery` volvía a separar el lexema «coca-col» en 'coca-col' <-> 'coca' <-> 'col' ('coca' no existe en el
+    índice): la palabra más rara y específica de la consulta no sumaba su IDF."""
+    add_store(db, 5, "conveniencia", "Express")
+    add_product(db, 300, "Coca-Cola Zero 1,5 L", 5, "Bebidas")
+    add_product(db, 301, "Pack Coca Cola Original + Coca Cola Light", 5, "Bebidas")
+    add_product(db, 302, "Agua Mineral Cachantun Sin Gas 1,6 L", 5, "Aguas")
+    db.commit()
+    build_search_documents(db)
+
+    scores = dict(hybrid._lexical(db, "conveniencia", "coca-cola", Filters()))
+
+    assert scores[("catalog_item", "300")] > scores[("catalog_item", "301")]
+
+
 def test_unknown_vertical_is_rejected(catalog):
     with pytest.raises(ValueError):
         retrieve(catalog, "aerolineas", "algo")

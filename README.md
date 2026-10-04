@@ -29,7 +29,7 @@ El proyecto no tiene acceso a datos internos: con ellos, Rappi puede confirmarlo
 
 | Lo que hace la persona | Concepto | Complemento | Dónde se busca | Qué ve |
 |---|---|---|---|---|
-| Pide cerveza bajo $3.000 en Licores | cerveza | snacks salados | otro vertical, donde el concepto es más típico (Turbo) | «De Turbo · ¿Te tinca sumar snacks salados? Porque llevas cerveza», con un botón «Ver más en Turbo» |
+| Pide cerveza bajo $3.000 en Licores | cerveza | snacks salados | otro vertical, donde el concepto es más típico entre los que tienen oferta suficiente (Express) | «De Express · ¿Te tinca sumar snacks salados? Porque llevas cerveza», con un botón «Ver más en Express» |
 | Compra pañales en el supermercado | pañales | alimentación de bebé | el vertical donde ese concepto es más típico (farmacia), no el de más ítems | «De Farmacia · ¿Te tinca sumar alimentación de bebé? Porque llevas pañales» |
 
 Ejemplos ilustrativos: el complemento y el vertical se eligen según el peso de la relación entre conceptos y el surtido real de cada vertical.
@@ -128,7 +128,8 @@ P@10: proporción de resultados relevantes entre los 10 primeros. MRR: qué tan 
 - **«Sin resultado»** (demanda no satisfecha), con los τ recalibrados el 29-09: detectó 29 de las 41 negativas (recall 0,71) sin falsas alarmas (precisión 1,00).
   - Con el catálogo del 28-09 eran 31: en la descarga del 30-09 conveniencia ya tiene televisores y un local de restaurantes vende pañales, así que dos negativas dejaron de serlo.
   - Las 12 no detectadas tienen tres causas, que el reporte explica una por una: 5 nombran un concepto que el vertical sí tiene (un iPhone en supermercado, que vende celulares), 4 calzan por casualidad con la regla léxica estricta («pizza familiar» → un horno para pizza en Rappi Mall) y 3 quedan sobre τ por coseno. Es un límite real de la regla.
-  - τ por vertical: farmacia, Turbo, conveniencia y licores tienen τ calibrado; chocolatería y restaurantes no tienen negativas que dependan de τ y conservan el suyo; Rappi Mall conserva 0,70 y el reporte del 30-09 propone 0,82, pendiente de revisar.
+  - τ por vertical: farmacia, Turbo, conveniencia y licores tienen τ calibrado; chocolatería y restaurantes no tienen negativas que dependan de τ y conservan el suyo; Rappi Mall conserva 0,70 y el reporte del 30-09 propone 0,82, pendiente de revisar. El 0,70 de chocolatería y Mall es el piso de la grilla, no una calibración: con él la regla del coseno casi no se dispara, y el reporte lo advierte.
+  - Esas cifras son de la búsqueda (`retrieve`). Desde el 03-10 el reporte también mide lo que ve el usuario: la fila «híbrido mostrado» y el «sin resultado» que registra Bigotes (marcado, sin productos a la vista y sin síntomas). Hasta entonces, una consulta marcada por coseno bajo τ igual mostraba productos y la demanda no se anotaba.
 - **Antes (28-09, set anterior sin farmacia ni Turbo):** híbrido 0,889; «sin resultado» con recall 0,33 (5 de 15). Tres de esas negativas estaban desactualizadas («kebab mixto» y «comida mexicana con tacos» sí existen en restaurantes).
 - **Antes (27-09, datos parciales):** híbrido 0,898; «sin resultado» con precisión 0,91 y recall 0,67. No es comparable directamente: cambió el catálogo.
 

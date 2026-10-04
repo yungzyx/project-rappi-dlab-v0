@@ -1,4 +1,5 @@
-import { cartEventFields } from '../api/orders'
+import { cartEventFields, conceptOf } from '../api/orders'
+import { firstShowing } from '../api/useRemoteForYou'
 import { productTags } from '../assistant/tags'
 import { useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
@@ -8,6 +9,11 @@ import { useDemo } from '../state/DemoContext'
 import { useNudge } from '../state/NudgeContext'
 import { pressable } from './pressable'
 import './add-button.css'
+
+// Sugerencias ya aceptadas, por generación del perfil (generación|concepto|vertical|origen): una vez por pestaña, como
+// se cuenta la mostrada (firstShowing), así las aceptadas nunca superan a las mostradas, ni con un carro nuevo tras un
+// pedido. «Olvidar» borra los eventos en el servidor, y lo que se acepte después vuelve a contar.
+const accepted = new Set()
 
 /** Botón verde "+" de los productos. Con unidades en el carrito se abre como contador "− 2 +". */
 export default function AddButton({ product, className = '' }) {
@@ -20,17 +26,23 @@ export default function AddButton({ product, className = '' }) {
   const qty = cart.qtyOf(product)
   const cartEvent = (type, item) => events.track(type, cartEventFields(item, cart.id))
   const add = (item) => {
-    const first = cart.qtyOf(item) === 0
     cart.add(item)
     profile.trackTags(productTags(item), WEIGHTS.cart)
     cartEvent('cart_add', item)
-    // Aceptar una sugerencia es agregarla por primera vez; los "+" siguientes son solo cantidad.
-    if (item.fromSuggestion && first)
-      events.track('suggestion_accepted', {
-        concept_id: item.concept,
-        vertical: item.vertical,
-        payload: { origen: item.suggestionOrigin ?? 'chat' },
-      })
+    // Aceptar una sugerencia es agregarla por primera vez: los "+" siguientes son solo cantidad, y quitarla y volver a
+    // agregarla tampoco es otra aceptación (salvo que entre medio se haya tocado «Olvidar»).
+    const origin = item.suggestionOrigin ?? 'chat'
+    const concept = conceptOf(item) // los del cerebro local no traen concepto: sale de sus temas
+    const key = `${profile.resets}|${concept}|${item.vertical}|${origin}`
+    if (item.fromSuggestion && !accepted.has(key)) {
+      accepted.add(key)
+      const fields = { concept_id: concept, vertical: item.vertical, payload: { origen: origin } }
+      // Lo aceptado siempre tiene su mostrada: la fila local de la Home no la registra mientras espera la de rappi-ia
+      // (es provisoria), pero su «+» ya funciona.
+      if (firstShowing({ concept, vertical: item.vertical, origin, generation: profile.resets }))
+        events.track('suggestion_shown', fields)
+      events.track('suggestion_accepted', fields)
+    }
     // Dentro del chat Bigotes ya está recomendando: el aviso solo sale fuera.
     if (demo.isProposal && !assistant.isOpen) nudge.offer(item)
   }

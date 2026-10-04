@@ -1,6 +1,11 @@
 """Reintentos de jobs y reporte de calidad de corridas, contra `rappi_test`."""
 
+from collections import Counter
+
+import pytest
+
 from conftest import FakeClient, load_page
+from rappi_scraper.pipeline.queue import PossibleBlock, process_with_retry
 from rappi_scraper.pipeline.stores import process_store_jobs
 from rappi_scraper.reporting import build_run_report, write_run_report
 from rappi_scraper.scraping.restaurant_parser import parse_restaurant
@@ -54,6 +59,92 @@ def test_transient_failure_is_retried_automatically(db):
     process_store_jobs(db, client, run, max_aisles=1)
 
     assert _status(db, "type:lider") == ("done", 2)
+
+
+BLOCKED = ("failed", None, "403 Client Error: Forbidden")
+
+
+def _job_states(db):
+    return dict(db.execute("SELECT status, count(*) FROM scrape_jobs GROUP BY 1").fetchall())
+
+
+def test_a_block_during_the_retry_pass_sends_the_streak_back_to_the_queue(db):
+    """Esos jobs ya llevaban un intento: con el tope de intentos quedaban 'failed' y nadie los volvía a tomar."""
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_job(f"type:{i:02}") for i in range(30)])
+    calls = Counter()
+
+    def handler(job):
+        calls[job["job_key"]] += 1
+        if calls[job["job_key"]] > 1:  # en la pasada de reintento rappi.cl ya bloquea todo
+            return BLOCKED
+        if int(job["job_key"][-2:]) % 2:  # en la primera pasada falla uno de cada dos (error transitorio)
+            return "failed", None, "HTTP 502"
+        return "done", {}, None
+
+    with pytest.raises(PossibleBlock):
+        process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), handler)
+
+    assert _job_states(db) == {"done": 15, "pending": 15}
+
+
+def test_a_block_two_weeks_in_a_row_leaves_the_jobs_pending(db):
+    """La corrida queda abierta y la semana siguiente se retoma: un segundo bloqueo tampoco los da por fallidos."""
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_job(f"type:{i:02}") for i in range(15)])
+
+    for _ in range(2):
+        with pytest.raises(PossibleBlock):
+            process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), lambda job: BLOCKED)
+
+    assert _job_states(db) == {"pending": 15}
+
+
+def test_a_streak_that_repeats_every_week_ends_up_failed_and_the_run_moves_on(db):
+    """Un error fijo (no un bloqueo) en 10 jobs seguidos arma la misma racha cada semana, porque la cola va por
+    job_key: sin tope, la corrida de tiendas quedaba detenida para siempre y los jobs sanos no corrían nunca."""
+    run = repository.start_run(db, "stores", {})
+    turbo = [_job(f"type:turbo_{i:02}") for i in range(10)]
+    repository.add_jobs(db, run, turbo + [_job(f"type:unimarc_{i}") for i in range(5)])
+
+    def handler(job):
+        if "turbo" in job["job_key"]:
+            return "failed", None, "ParseError: sin __NEXT_DATA__"
+        return "done", {}, None
+
+    blocked_weeks = 0
+    for _ in range(8):  # una actualización por semana, que retoma la corrida abierta
+        try:
+            process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), handler)
+            break
+        except PossibleBlock:
+            blocked_weeks += 1
+
+    assert _job_states(db) == {"failed": 10, "done": 5}
+    # Tres semanas de vuelta a la cola (cubren un bloqueo real); la cuarta quedan 'failed' y la corrida sigue esa misma
+    # semana: antes se detenía igual, sin reencolar nada, y los sanos esperaban una semana más.
+    assert blocked_weeks == 3
+
+
+def test_a_block_right_after_a_streak_of_exhausted_jobs_still_stops_the_run(db):
+    """Si la racha de jobs agotados no detiene la corrida, un bloqueo real justo después sí: al primer fallo más."""
+    run = repository.start_run(db, "stores", {})
+    turbo = [_job(f"type:turbo_{i:02}") for i in range(10)]
+    repository.add_jobs(db, run, turbo + [_job(f"type:unimarc_{i}") for i in range(5)])
+    for _ in range(3):  # tres semanas de la misma racha: los turbo llegan a su último intento
+        with pytest.raises(PossibleBlock):
+            process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), lambda job: BLOCKED)
+    calls = []
+
+    def blocked(job):
+        calls.append(job["job_key"])
+        return BLOCKED
+
+    with pytest.raises(PossibleBlock):
+        process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), blocked)
+
+    assert [key for key in calls if "unimarc" in key] == ["type:unimarc_0"]
+    assert _job_states(db) == {"failed": 10, "pending": 5}
 
 
 def test_failures_where_rappi_answered_do_not_stop_the_run(db):

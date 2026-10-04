@@ -154,6 +154,7 @@ export const NEW_IN_RAPPI = [
 ]
 
 // `vertical`: id del prototipo de la tienda (va en los eventos y en los pedidos a rappi-ia).
+// `concept`: concepto de rappi-ia cuando el del tema local no calza (el tuto de pollo es pollo, no carnes).
 const UNIMARC = { store: 'Unimarc', storeLogo: logoUnimarc, eta: 'Sun, 9 AM', etaIcon: 'clock', vertical: 'grocery' }
 const EXPRESS = { store: 'Express Lider', storeLogo: logoExpress, eta: 'Sun, 9 AM', etaIcon: 'clock', vertical: 'grocery' }
 const LIQUIDOS = { store: 'Liquidos', storeLogo: logoLiquidos, eta: '26 min or sched.', etaIcon: 'bolt', vertical: 'liquor' }
@@ -166,9 +167,9 @@ export const GROCERY_SECTIONS = [
     title: 'Meat & Seafood',
     icon: icMeat,
     products: [
-      { id: 'p-kingnuggets', img: pKingNuggets, price: '$1.000', before: '$1.690', discount: '-41%', name: 'King Nuggets de Pollo Congelados', size: '300 g', unit: '$3.34/g', ...UNIMARC },
-      { id: 'p-superpollo', img: pSuperPollo, price: '$3.000', before: '$4.300', discount: '-30%', name: 'Super Pollo Tuto Corto de Pollo Congelado', size: '800 g', unit: '$3.75/g', ...UNIMARC },
-      { id: 'p-sperpollo', img: pSperPollo, price: '$3.850', before: '$5.550', discount: '-31%', name: 'Sper Pollo Trutro Corto y Largo Deshuesados', size: '1 x 750 g', unit: '$5.14/g', ...EXPRESS },
+      { id: 'p-kingnuggets', img: pKingNuggets, price: '$1.000', before: '$1.690', discount: '-41%', name: 'King Nuggets de Pollo Congelados', size: '300 g', unit: '$3.34/g', ...UNIMARC, concept: 'pollo' },
+      { id: 'p-superpollo', img: pSuperPollo, price: '$3.000', before: '$4.300', discount: '-30%', name: 'Super Pollo Tuto Corto de Pollo Congelado', size: '800 g', unit: '$3.75/g', ...UNIMARC, concept: 'pollo' },
+      { id: 'p-sperpollo', img: pSperPollo, price: '$3.850', before: '$5.550', discount: '-31%', name: 'Sper Pollo Trutro Corto y Largo Deshuesados', size: '1 x 750 g', unit: '$5.14/g', ...EXPRESS, concept: 'pollo' },
     ],
   },
   {
@@ -190,7 +191,7 @@ export const GROCERY_SECTIONS = [
     products: [
       { id: 'p-palta', img: pPalta, price: '$3.280', before: '$4.990', discount: '-34%', name: 'Palta Hass Malla', size: '1 Kg', unit: '$3.29/g', ...UNIMARC },
       { id: 'p-palta600', img: pPlaceholder, price: '$2.390', before: '$3.550', discount: '-33%', name: 'Palta Hass Malla 600gs', size: '600 g', unit: '$3.99/g', ...UNIMARC },
-      { id: 'p-zapallo', img: pZapallo, price: '$1.190', before: '$1.590', discount: '-25%', name: 'Nuestra Cocina Zapallo en Cubo', size: '1 x 500 g', unit: '$2.38/g', ...UNIMARC },
+      { id: 'p-zapallo', img: pZapallo, price: '$1.190', before: '$1.590', discount: '-25%', name: 'Nuestra Cocina Zapallo en Cubo', size: '1 x 500 g', unit: '$2.38/g', ...UNIMARC, concept: 'verduras' },
       { id: 'p-habas', img: pHabas, price: '$1.590', before: '$2.290', discount: '-31%', name: 'Nuestra Cocina Haba Con Piel Congelada', size: '500 g', unit: '$3.18/g', ...UNIMARC },
       { id: 'p-naranja', img: pNaranja, price: '$2.620', before: '$3.630', discount: '-28%', name: 'Naranja malla 2 kgd2714', size: '1 Und', unit: '$2629.60/und', ...EXPRESS },
       { id: 'p-mandarina', img: pMandarina, price: '$2.110', before: '$3.110', discount: '-32%', name: 'Mandarina', size: 'X 1 Kg', unit: '$2.12/g', ...EXPRESS },

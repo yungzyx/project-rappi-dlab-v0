@@ -7,6 +7,8 @@
 from psycopg import Connection
 from psycopg.rows import dict_row
 
+from ..agent.verticals import _SHARES, MIN_ITEMS_ELSEWHERE
+
 SOURCES = ("synthetic", "prototype")
 ACTIVE_DAYS = 30
 MULTI_VERTICAL_DAYS = 60
@@ -69,8 +71,9 @@ rhythm AS (
                 ELSE percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM ts - prev) / 86400) END AS days
     FROM user_orders WHERE prev IS NOT NULL GROUP BY user_id
 ),
-last_order AS (
-    SELECT user_id, count(*) AS orders, max(ts) AS last_ts FROM app_orders WHERE source = %(source)s GROUP BY user_id
+last_order AS (  -- compras, no pedidos: un carro dividido en dos verticales es una sola compra
+    SELECT user_id, count(DISTINCT coalesce(cart_id, order_id)) AS orders, max(ts) AS last_ts
+    FROM app_orders WHERE source = %(source)s GROUP BY user_id
 ),
 risk AS (
     SELECT l.user_id, l.orders, r.days AS rhythm,
@@ -80,6 +83,25 @@ risk AS (
                 WHEN extract(epoch FROM {_AS_OF} - l.last_ts) / 86400 > greatest(2 * r.days, 21) THEN 'en_riesgo'
                 ELSE 'activo' END AS status
     FROM last_order l LEFT JOIN rhythm r USING (user_id)
+)"""
+
+# Embudo (ver funnel()): una fila por sesión y vertical; la entrada se mira en toda la sesión.
+_FUNNEL = """
+entry AS (  -- buscó, chateó, navegó, aceptó una sugerencia o agregó desde una lista (el «+» solo manda cart_add),
+            -- en cualquier vertical (o sin vertical)
+    SELECT DISTINCT session_id FROM app_events
+    WHERE source = %(source)s
+      AND type IN ('search', 'chat', 'view_store', 'view_item', 'suggestion_accepted', 'cart_add')
+),
+funnel_steps AS (
+    SELECT session_id, vertical, session_id IN (SELECT session_id FROM entry) AS busca,
+           bool_or(type = 'cart_add') AS carro,
+           bool_or(type = 'checkout_start') AS pago,
+           bool_or(type = 'order_placed') AS pedido
+    FROM app_events
+    WHERE source = %(source)s AND vertical IS NOT NULL
+      AND type NOT IN ('suggestion_shown', 'suggestion_dismissed')
+    GROUP BY 1, 2
 )"""
 
 
@@ -109,7 +131,8 @@ def kpis(conn: Connection, source: str = "synthetic") -> dict:
                 FROM app_events
                 WHERE source = %(source)s AND type IN ('search', 'chat')
                   AND ts > {_AS_OF} - interval '{ACTIVE_DAYS} days'
-            )
+            ),
+            {_FUNNEL.strip()}
             SELECT {_AS_OF} AS as_of,
                    (SELECT count(*) FROM active) AS usuarios_activos,
                    (SELECT n FROM orders30) AS pedidos_30d,
@@ -123,7 +146,12 @@ def kpis(conn: Connection, source: str = "synthetic") -> dict:
                    (SELECT count(*) FROM risk WHERE status = 'en_riesgo') AS en_riesgo,
                    (SELECT count(*) FROM risk WHERE status = 'perdido') AS perdidos,
                    round(100.0 * (SELECT unmet FROM searches) / nullif((SELECT total FROM searches), 0), 1)
-                       AS busquedas_sin_resultado_pct""",
+                       AS busquedas_sin_resultado_pct,
+                   -- titular del embudo: cada sesión una vez, aunque la sugerencia cruzada la ponga en dos verticales
+                   round(100.0 * (SELECT count(DISTINCT session_id) FROM funnel_steps
+                                  WHERE busca AND carro AND pago AND pedido)
+                         / nullif((SELECT count(DISTINCT session_id) FROM funnel_steps WHERE busca), 0), 1)
+                       AS conversion_sesiones_pct""",
         {"source": source},
     )
     row["source"] = source
@@ -186,24 +214,27 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
                        count(*) FILTER (WHERE ts <= {_AS_OF} - make_interval(weeks => %(weeks)s)
                                           AND ts > {_AS_OF} - make_interval(weeks => 2 * %(weeks)s)) AS anteriores
                 FROM unmet GROUP BY 1, 2, 3
+            ),
+            elsewhere AS (  -- donde Bigotes lo ofrecería: la regla de agent.verticals.available_elsewhere
+                SELECT concept_id, vertical, items FROM ({_SHARES}) s WHERE items >= %(min_items)s
             )
             SELECT a.vertical, a.concept_id, coalesce(c.emoji || ' ' || c.name, a.query) AS que,
                    a.busquedas, a.usuarios, a.ciudades, a.recientes, a.anteriores,
                    CASE WHEN a.anteriores = 0 THEN NULL
                         ELSE round(100.0 * (a.recientes - a.anteriores) / a.anteriores, 0) END AS crecimiento_pct,
-                   (SELECT string_agg(ca.vertical, ', ' ORDER BY ca.items DESC) FROM concept_assortment ca
-                    WHERE ca.concept_id = a.concept_id AND ca.vertical <> a.vertical AND ca.items >= 3)
+                   (SELECT string_agg(e.vertical, ', ' ORDER BY e.items DESC) FROM elsewhere e
+                    WHERE e.concept_id = a.concept_id AND e.vertical <> a.vertical)
                        AS existe_en,
                    CASE WHEN a.concept_id IS NULL THEN 'Revisar la consulta: sumar sinónimo o concepto nuevo'
-                        WHEN EXISTS (SELECT 1 FROM concept_assortment ca WHERE ca.concept_id = a.concept_id
-                                     AND ca.vertical <> a.vertical AND ca.items >= 3)
+                        WHEN EXISTS (SELECT 1 FROM elsewhere e
+                                     WHERE e.concept_id = a.concept_id AND e.vertical <> a.vertical)
                              THEN 'Existe en otro vertical: que Bigotes lo ofrezca ahí'
                         ELSE 'Oportunidad: sumar comercios o categoría' END AS accion
             FROM agg a LEFT JOIN concepts c ON c.concept_id = a.concept_id
             WHERE a.usuarios >= %(min_users)s
               AND c.sensitive IS NOT TRUE  -- ninguna palanca usa conceptos sensibles (regla 6)
             ORDER BY a.usuarios DESC""",
-        {"source": source, "weeks": weeks, "min_users": 5},
+        {"source": source, "weeks": weeks, "min_users": 5, "min_items": MIN_ITEMS_ELSEWHERE},
     )
 
 
@@ -234,23 +265,22 @@ def trends(conn: Connection, source: str = "synthetic", weeks: int = 4, limit: i
 
 
 def funnel(conn: Connection, source: str = "synthetic") -> list[dict]:
-    """Por vertical: sesiones que buscan → agregan al carro → inician pago → piden."""
+    """Por vertical: sesiones que buscan (llegan a la vertical) → agregan al carro → inician pago → piden.
+
+    La entrada (buscar, chatear, navegar, aceptar una sugerencia o agregar al carro desde una lista) se mira en toda
+    la sesión: la sugerencia cruzada de Bigotes lleva la compra a otra vertical, y exigirla en la misma dejaba fuera
+    esos pedidos (Farmacia y Turbo quedaban en 0). Una sesión cuenta en una vertical si tuvo ahí algún evento que no
+    sea ver o descartar una sugerencia: ver una sugerencia sin aceptarla no la mete en esa vertical.
+    """
     _check(source)
     return _rows(
         conn,
-        """WITH s AS (
-               SELECT session_id, vertical,
-                      bool_or(type IN ('search', 'chat', 'view_item')) AS busca,
-                      bool_or(type = 'cart_add') AS carro,
-                      bool_or(type = 'checkout_start') AS pago,
-                      bool_or(type = 'order_placed') AS pedido
-               FROM app_events WHERE source = %(source)s AND vertical IS NOT NULL GROUP BY 1, 2
-           )
+        f"""WITH {_FUNNEL.strip()}
            SELECT vertical, count(*) FILTER (WHERE busca) AS buscan,
                   count(*) FILTER (WHERE busca AND carro) AS agregan,
                   count(*) FILTER (WHERE busca AND carro AND pago) AS pagan,
                   count(*) FILTER (WHERE busca AND carro AND pago AND pedido) AS piden
-           FROM s GROUP BY 1 ORDER BY 2 DESC""",
+           FROM funnel_steps GROUP BY 1 ORDER BY 2 DESC""",
         {"source": source},
     )
 
@@ -385,9 +415,10 @@ def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
 
 
 def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> list[dict]:
-    """Retención (pedido entre días 61 y 120) de multi-vertical vs un vertical, a igual número de pedidos.
+    """Retención (pedido entre días 61 y 120) de multi-vertical vs un vertical, a igual número de compras.
 
-    Estratificar por pedidos evita la confusión obvia (quien pide más cae más en 2 verticales y retiene más).
+    Estratificar por compras evita la confusión obvia (quien pide más cae más en 2 verticales y retiene más). Una
+    compra es un carro: dividido en dos verticales son dos pedidos, pero una compra.
     Solo usuarios cuyo primer pedido fue hace ≥ 120 días.
     """
     _check(source)
@@ -397,8 +428,9 @@ def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> lis
                 SELECT user_id, min(ts) AS first_ts FROM app_orders WHERE source = %(source)s GROUP BY 1
             ),
             eligible AS (SELECT * FROM firsts WHERE first_ts <= {_AS_OF} - interval '{RETENTION_TO} days'),
-            early AS (
-                SELECT e.user_id, count(*) AS pedidos, count(DISTINCT o.vertical) AS verticales
+            early AS (  -- compras (un carro dividido en dos verticales es una), como en el estado de riesgo
+                SELECT e.user_id, count(DISTINCT coalesce(o.cart_id, o.order_id)) AS compras,
+                       count(DISTINCT o.vertical) AS verticales
                 FROM eligible e JOIN app_orders o ON o.user_id = e.user_id AND o.source = %(source)s
                 WHERE o.ts < e.first_ts + interval '{MULTI_VERTICAL_DAYS} days'
                 GROUP BY e.user_id
@@ -410,8 +442,8 @@ def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> lis
                       AND o.ts < e.first_ts + interval '{RETENTION_TO} days') AS kept
                 FROM eligible e
             )
-            SELECT CASE WHEN pedidos <= 2 THEN '1–2 pedidos' WHEN pedidos <= 5 THEN '3–5 pedidos'
-                        ELSE '6+ pedidos' END AS estrato,
+            SELECT CASE WHEN compras <= 2 THEN '1–2 compras' WHEN compras <= 5 THEN '3–5 compras'
+                        ELSE '6+ compras' END AS estrato,
                    CASE WHEN verticales >= 2 THEN 'multi-vertical' ELSE 'un vertical' END AS grupo,
                    count(*) AS usuarios, round(100.0 * avg(kept::int), 1) AS retencion_pct
             FROM early JOIN retained USING (user_id)

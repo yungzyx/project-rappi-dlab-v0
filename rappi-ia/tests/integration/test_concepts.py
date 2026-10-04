@@ -5,6 +5,7 @@ import csv
 from conftest import add_dish, add_product, add_store
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.concepts.report import CATEGORY_MAP_COLUMNS, coverage_report, render_text, write_category_proposals
+from rappi_ia.concepts.store import CATEGORY_MAP_CSV
 
 
 def _seed(db):
@@ -100,3 +101,18 @@ def test_a_weak_suggestion_is_not_proposed(tmp_path):
     write_category_proposals(rows, path)
     [row] = list(csv.DictReader(path.open(encoding="utf-8")))
     assert (row["concept_id"], row["confianza"]) == ("ninguno", "0.02")
+
+
+def test_categories_reviewed_without_a_concept_are_not_reported_again(db):
+    """Una fila «ninguno» de category_map.csv es una revisión hecha: no vuelve como «sin mapeo revisado»."""
+    with CATEGORY_MAP_CSV.open(encoding="utf-8") as f:
+        reviewed = next(
+            r["nombre"] for r in csv.DictReader(f) if r["tipo"] == "categoria" and r["concept_id"] == "ninguno"
+        )
+    _seed(db)
+    add_product(db, 300, "Cerveza Kunstmann Torobayo 330 cc", 1, reviewed)
+    add_product(db, 301, "Producto misterioso", 1, "Novedades de temporada")
+    db.commit()
+    build_concepts(db)
+
+    assert [row["nombre"] for row in coverage_report(db)["categorias_sin_mapear"]] == ["Novedades de temporada"]

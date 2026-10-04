@@ -23,6 +23,7 @@ function product(id, img, price, before, discount, name, size, unit, store, extr
 }
 
 // `vertical`: id del prototipo de la tienda (va en los eventos y en los pedidos a rappi-ia).
+// `concept`: concepto de rappi-ia cuando el del tema local no calza (un perfume es fragancias, no maquillaje).
 const UNIMARC = { store: 'Unimarc', storeLogo: logoUnimarc, eta: 'Sun, 9 AM', etaIcon: 'clock', vertical: 'grocery' }
 const AHUMADA = { store: 'Farmacias Ahumada', storeLogo: logoAhumada, eta: 'Sun, 11 AM', etaIcon: 'bolt', vertical: 'pharmacy' }
 const CRUZ_VERDE = { store: 'Cruz Verde', storeBadge: '#1d9c3f', eta: '26 min or sched.', etaIcon: 'bolt', vertical: 'pharmacy' }
@@ -82,9 +83,9 @@ export const VERTICALS = {
         type: 'products',
         title: 'Beauty Week',
         products: [
-          product('ret-ck', a('ret-p0'), '$24.990', '$52.990', '-53%', 'Ck In2u Men 50 Edt Ml', '1 Und', '$24990/und', RIPLEY),
+          product('ret-ck', a('ret-p0'), '$24.990', '$52.990', '-53%', 'Ck In2u Men 50 Edt Ml', '1 Und', '$24990/und', RIPLEY, { concept: 'fragancias' }),
           product('ret-clinique', a('ret-p1'), '$20.900', '$27.900', '-25%', 'Clinique Labial Pop Cheek + Lip Oil', '1 x 7 mL', '$2985.72/ml', RIPLEY),
-          product('ret-abgold', a('ret-p2'), '$27.990', '$37.990', '-26%', 'Ab Gold Edt 200 Ml', '1 Und', '$27990/und', RIPLEY, { partial: true }),
+          product('ret-abgold', a('ret-p2'), '$27.990', '$37.990', '-26%', 'Ab Gold Edt 200 Ml', '1 Und', '$27990/und', RIPLEY, { partial: true, concept: 'fragancias' }),
         ],
       },
     ],
@@ -184,9 +185,10 @@ export const VERTICALS = {
   },
 }
 
-/** Tienda de una vertical en el formato que usan la página de tienda y el buscador. */
-export function toStore(store) {
+/** Tienda de una vertical (`vertical`: su id) en el formato que usan la página de tienda y el buscador. */
+export function toStore(store, vertical) {
   return {
+    vertical,
     name: store.name,
     img: store.logo,
     logo: true,
@@ -200,6 +202,8 @@ export const VERTICAL_PRODUCTS = Object.values(VERTICALS).flatMap((vertical) =>
   vertical.sections.filter((section) => section.type === 'products').flatMap((section) => section.products),
 )
 
-export const VERTICAL_STORES = Object.values(VERTICALS).flatMap((vertical) =>
-  vertical.sections.filter((section) => section.type === 'stores').flatMap((section) => section.stores.map(toStore)),
+export const VERTICAL_STORES = Object.entries(VERTICALS).flatMap(([id, vertical]) =>
+  vertical.sections
+    .filter((section) => section.type === 'stores')
+    .flatMap((section) => section.stores.map((store) => toStore(store, id))),
 )

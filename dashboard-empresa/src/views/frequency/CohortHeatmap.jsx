@@ -40,8 +40,8 @@ function CohortTable({ matrix }) {
   return <DataTable caption="Retención por cohorte semanal" columns={columns} rows={matrix.cohorts} rowKey={(row) => row.cohort} />
 }
 
-export function CohortHeatmap({ data, asOf }) {
-  const matrix = buildCohortMatrix(data, asOf)
+export function CohortHeatmap({ data }) {
+  const matrix = buildCohortMatrix(data)
   if (!matrix.cohorts.length) {
     return <EmptyState title="Sin cohortes">Esta fuente todavía no tiene pedidos.</EmptyState>
   }

@@ -20,32 +20,8 @@ from psycopg import Connection
 from ..concepts.assign import concept_matcher
 from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import load_taxonomy
-from ..text import normalize
-from .verticals import ranked_verticals
-
-GREETING_WORDS = {"hola", "holi", "buenas", "buenos", "dias", "tardes", "noches", "hey", "wena", "alo", "ola"}
-THANKS_WORDS = {"gracias", "muchas", "vale", "listo", "ok", "okay", "perfecto", "genial", "bacan", "buenisimo"}
-ASSISTANT_WORDS = {"bigotes"}
-REQUEST_WORDS = {
-    "quiero",
-    "queria",
-    "busco",
-    "necesito",
-    "tienen",
-    "tienes",
-    "hay",
-    "dame",
-    "me",
-    "podrias",
-    "puedes",
-    "porfa",
-    "por",
-    "favor",
-    "un",
-    "una",
-    "unos",
-    "unas",
-}  # solo se quitan al inicio del mensaje
+from ..text import ASSISTANT_WORDS, GREETING_WORDS, REQUEST_WORDS, THANKS_WORDS, normalize
+from .verticals import contending_verticals, ranked_verticals
 
 # Menciones inequívocas de un vertical. Palabras sueltas como "mall", "super" o "express" son también marcas
 # ("Pall Mall", "Super 8", "Express Lider"): no cuentan.
@@ -77,8 +53,12 @@ SYMPTOMS = [
     "remedio",
 ]
 
-# Un concepto en restaurantes y en otra tienda es ambiguo si la tienda tiene al menos esta fracción del surtido.
-AMBIGUITY_RATIO = 0.3
+# Un concepto en restaurantes y en otra tienda es ambiguo si, entre las dos verticales que compiten, la de menor
+# participación tiene al menos esta fracción de la otra: la misma medida que elige la vertical (agent/verticals.py).
+# Con la base del 03-10 preguntan «café», «empanadas» y «platos listos».
+AMBIGUITY_RATIO = 0.5
+# Quien habla de síntomas no va a una botillería, aunque ahí el jugo pese más que en el súper (es para mezclar).
+NOT_WHEN_SICK = {"licores"}
 # Vertical natural de un grupo, para conceptos sin surtido en ningún vertical (los demás grupos van al súper).
 GROUP_VERTICALS = {
     "comida": "restaurantes",
@@ -90,10 +70,13 @@ GROUP_VERTICALS = {
     "juguetes": "mall",
     "libreria": "mall",
 }
-_UNITS = r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u|personas?|porciones|cm|mts?|metros?)"
+# «u» suelta es «unidades», salvo que sea la «o» antes de otra o («5 lucas u otro trago»).
+_UNITS = r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u(?!\s+o)|personas?|porciones|cm|mts?|metros?)"
+_DECIMAL = r"\d+[.,]\d{1,2}(?=\s*(?:mil|lucas|k)\b)"  # «1,5 lucas»: decimales solo con mil/lucas/k
 PRICE = re.compile(
     r"(?:bajo|menos de|hasta|maximo|max|no mas de|por menos de|que cueste menos de)\s*"
-    r"(\$)?\s*(\d{1,3}(?:[.\s]\d{3})+|\d+)\s*(mil|lucas|k)?\b(?!\s*" + _UNITS + r"\b)"
+    r"(\$)?\s*(" + _DECIMAL + r"|\d{1,3}(?:[.,\s]\d{3})+|\d+)(?![.,]\d)\s*(mil|lucas|k)?\b"
+    r"(?:\s*(?:pesos|clp)\b)?(?!\s*" + _UNITS + r"\b)"
 )
 
 
@@ -117,7 +100,7 @@ class Understander:
     def __init__(self):
         taxonomy = load_taxonomy()
         self.taxonomy = taxonomy
-        self.concepts = concept_matcher(taxonomy)
+        self.concepts = concept_matcher(taxonomy, for_queries=True)
         self.occasions = KeywordMatcher((o.id, kw) for o in taxonomy.occasions.values() for kw in o.keywords)
         self.verticals = KeywordMatcher((v, kw) for v, kws in VERTICAL_MENTIONS.items() for kw in kws)
         self.symptoms = KeywordMatcher(("sintoma", kw) for kw in SYMPTOMS)
@@ -133,12 +116,18 @@ class Understander:
             return Intent("gracias", text, current_vertical, confidence=1.0)
 
         price_max, without_price = _price(text)
-        body = _clean(normalize(without_price))
-        occasion = self.occasions.best(body)
+        said = normalize(without_price)
+        body = _clean(said)
+        # Ocasiones y síntomas, sobre el texto sin limpiar: «me siento mal» y «me duele» empiezan con «me».
+        occasion = self.occasions.best(said)
         concept_matches = self.concepts.matches(body)
         concepts = [m.target for m in concept_matches]
         mention = self._mention(body, concept_matches)
-        symptom = self.symptoms.best(body) is not None
+        # La ocasión «Me siento mal» cuenta como síntoma («malestar», «cuidarme»): sin Licores, sin «También en» ni
+        # venta cruzada, y con el aviso de farmacia. Aunque otra ocasión vaya antes («un tecito para el malestar»).
+        symptom = self.symptoms.best(said) is not None or any(
+            m.target == "enfermo" for m in self.occasions.matches(said)
+        )
 
         explicit = bool(concepts)
         if occasion and not concepts:
@@ -165,11 +154,12 @@ class Understander:
             fixed = self.taxonomy.occasions[occasion.target].vertical
             if fixed:
                 return Intent(kind, text, fixed, concepts, **common)
-            options = ranked_verticals(conn, concepts)
+            options = _ranked(conn, concepts, symptom)
             return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
-        options = ranked_verticals(conn, concepts[:1])
-        if len(options) >= 2 and "restaurantes" in options[:2] and _comparable(conn, concepts[0], options[:2]):
-            return Intent("aclarar", text, None, concepts, options=options[:2], **common)
+        options = _ranked(conn, concepts[:1], symptom)
+        pair = [v for v in options[:2] if v in contending_verticals(conn, concepts[:1])]
+        if len(pair) == 2 and "restaurantes" in pair and _comparable(conn, concepts[0], pair):
+            return Intent("aclarar", text, None, concepts, options=pair, **common)
         return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
 
     def _home(self, concept_id: str) -> str | None:
@@ -192,12 +182,16 @@ def _simplify(text: str) -> str:
 
 
 def _price(text: str) -> tuple[float | None, str]:
-    """Tope de precio y el texto sin esa frase. "hasta 5 kilos" o "2 litros" no son precios; "bajo 5" tampoco:
-    se exige $, "mil"/"lucas"/"k" o al menos 3 dígitos."""
+    """Tope de precio y el texto sin esa frase (con su "pesos" o "clp"). "hasta 5 kilos" o "2 litros" no son
+    precios; "bajo 5" tampoco: se exige $, "mil"/"lucas"/"k" o al menos 3 dígitos. "1,5 lucas" son $1.500 y
+    "$10,000" (coma de miles) $10.000; "$5,5", sin mil/lucas/k, no es precio."""
     simple = _simplify(text)
     for match in PRICE.finditer(simple):
         currency, digits, thousands = match.groups()
-        value = float(re.sub(r"[.\s]", "", digits))
+        decimal = re.fullmatch(r"\d+[.,]\d{1,2}", digits)
+        if decimal and not thousands:  # «1,5 mil ml»: la regex soltó «mil» porque le sigue una unidad
+            continue
+        value = float(digits.replace(",", ".")) if decimal else float(re.sub(r"[.,\s]", "", digits))
         if not (currency or thousands or value >= 100):
             continue
         return (value * 1000 if thousands else value), simple[: match.start()] + simple[match.end() :]
@@ -216,12 +210,19 @@ def _id(match) -> str | None:
     return match.target if match else None
 
 
+def _ranked(conn: Connection, concept_ids: list[str], sick: bool) -> list[str]:
+    return [v for v in ranked_verticals(conn, concept_ids) if not (sick and v in NOT_WHEN_SICK)]
+
+
 def _comparable(conn: Connection, concept_id: str, verticals: list[str]) -> bool:
-    counts = dict(
+    """Participaciones parecidas (no conteos: restaurantes tiene ~5 veces más ítems y nunca habría empate)."""
+    shares = dict(
         conn.execute(
-            "SELECT vertical, items FROM concept_assortment WHERE concept_id = %s AND vertical = ANY(%s)",
+            """WITH total AS (SELECT vertical, sum(items) AS items FROM concept_assortment GROUP BY vertical)
+               SELECT a.vertical, a.items::float / t.items FROM concept_assortment a JOIN total t USING (vertical)
+               WHERE a.concept_id = %s AND a.vertical = ANY(%s)""",
             (concept_id, verticals),
         ).fetchall()
     )
-    values = [counts.get(v, 0) for v in verticals]
+    values = [shares.get(v, 0) for v in verticals]
     return min(values) >= AMBIGUITY_RATIO * max(values)

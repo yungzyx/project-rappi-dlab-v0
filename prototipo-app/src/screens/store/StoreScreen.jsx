@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import ProductRow from '../../components/ProductRow'
 import { useToast } from '../../components/Toast'
 import { ChevronLeft, HeartIcon } from '../../components/Icons'
-import { findStore, productsOfStore } from '../../data/catalog'
+import { cartEventFields } from '../../api/orders'
+import { productsOfStore, storeFor, storeVertical } from '../../data/catalog'
 import { useEvents } from '../../state/EventsContext'
 import { useFavorites } from '../../state/FavoritesContext'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
@@ -18,18 +19,20 @@ const SKELETON_ROWS = 5
 /**
  * Página de tienda (funcionalidad agregada: no está en los videos).
  * Muestra la foto, los datos de la tarjeta, ♥ para favoritos y las ofertas de esa tienda que conoce el prototipo.
+ * `params.item`: el producto que se tocó para llegar aquí (en el chat, «Para ti» o una vertical), si lo hubo.
  */
 export default function StoreScreen({ back, params }) {
   // Lo que llega por parámetro manda (p. ej. la foto de un banner); el catálogo completa lo que falte o venga vacío.
   const given = Object.fromEntries(Object.entries(params.store).filter(([, value]) => value !== '' && value != null))
-  const store = { ...findStore(params.store.name), ...given }
+  const known = storeFor(params.store)
+  const store = { ...known, ...given }
   const toast = useToast()
   const favorites = useFavorites()
   const [mode, setMode] = useState(MODES[0])
   const isFavorite = favorites.isFavorite(store.name)
   const products = productsOfStore(store.name)
   // Los restaurantes del scraper traen su menú real (se busca en el catálogo: el historial guarda una copia liviana).
-  const menu = findStore(store.name)?.sections
+  const menu = known?.sections
   const scrollRef = useRef(null)
   const [menuReady, setMenuReady] = useState(!menu)
   const { track } = useProfile()
@@ -41,14 +44,24 @@ export default function StoreScreen({ back, params }) {
   }, [menuReady])
 
   const events = useEvents()
+  // Vertical de la tienda en los eventos: el embudo del panel cuenta como entrada lo que pasa en cada vertical.
+  const vertical = storeVertical(store)
+  const item = params.item
   // Una vez por tienda: StrictMode monta dos veces en desarrollo y contaría la visita doble.
   const tracked = useRef(null)
   useEffect(() => {
     if (tracked.current === store.name) return
     tracked.current = store.name
     track(store.name, WEIGHTS.store)
-    events.track('view_store', { entity_type: 'store', entity_id: store.id ? String(store.id) : undefined, payload: { name: store.name } })
-  }, [store.name, store.id, track, events])
+    events.track('view_store', {
+      vertical,
+      entity_type: 'store',
+      entity_id: store.id ? String(store.id) : undefined,
+      payload: { name: store.name },
+    })
+    // Llegar tocando un producto es verlo (el prototipo no tiene página de producto): mismos campos que el carro.
+    if (item) events.track('view_item', { ...cartEventFields(item), vertical: item.vertical ?? vertical })
+  }, [store.name, store.id, vertical, item, track, events])
 
   const toggleFavorite = () => {
     favorites.toggle(store)

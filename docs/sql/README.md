@@ -35,7 +35,7 @@ Con TablePlus, Beekeeper Studio o la extensión "PostgreSQL" de VS Code:
 
 - **`LIMIT` siempre** al listar filas: hay tablas con cientos de miles.
 - **Nunca `SELECT *`** en `stores` o `store_products` (la columna `raw` es el JSON completo de la página), ni la columna `embedding` (768 números por fila).
-- **Primero las vistas** (`v_…`): ya resuelven uniones difíciles, como "el último precio". Excepción: `v_vertical_summary` tarda unos 25 s; la consulta 1.1 hace lo mismo en menos de 1 s.
+- **Primero las vistas** (`v_…`): ya resuelven uniones difíciles, como "el último precio". Excepción: `v_vertical_summary` tarda unos 6 s (más de 20 s antes de la migración 017); la consulta 1.1 hace lo mismo en menos de 1 s.
 - **Texto sin tildes:** `es_unaccent(columna) ILIKE es_unaccent('%cafe%')` encuentra "Café".
 - **Consulta lenta:** anteponle `EXPLAIN (ANALYZE, BUFFERS)` para ver dónde se va el tiempo (consulta 4.5).
 - **Exportar un resultado:** `\copy (SELECT …) TO '~/Desktop/archivo.csv' WITH (FORMAT csv, HEADER)` en `psql` (consulta 4.6), o el botón de exportar de la app.

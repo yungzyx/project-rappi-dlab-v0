@@ -102,9 +102,57 @@ def test_price_parsing_ignores_units_and_small_numbers():
         "cerveza bajo 5 grados",
         "pizza para hasta 4 personas",
         "algo bajo 5",
+        "vino bajo $5,5",  # un decimal sin mil/lucas/k no es precio (se leía como $5)
+        "vino bajo $2.5",
     ]:
         assert _price(text)[0] is None, text
     assert "3 mil" not in _price("cerveza bajo 3 mil")[1]  # la frase de precio sale de la consulta
+
+
+@pytest.mark.parametrize(
+    "text, value, rest",
+    [
+        ("vino bajo 1,5 lucas", 1500, ["vino"]),
+        ("vino bajo 2.5 lucas", 2500, ["vino"]),
+        ("snacks hasta 1,5k", 1500, ["snacks"]),
+        ("completo por menos de 1000 pesos", 1000, ["completo"]),
+        ("cerveza bajo 5 mil pesos", 5000, ["cerveza"]),
+        ("pisco hasta $8.000 clp", 8000, ["pisco"]),
+        # «u» es la «o» antes de otra o, no «unidades»: el tope se perdía.
+        ("pisco bajo 5,5 lucas u otro trago", 5500, ["pisco", "u", "otro", "trago"]),
+        ("vino bajo 2,5 lucas u otra cosa", 2500, ["vino", "u", "otra", "cosa"]),
+        ("vino bajo $2.5 lucas u otra cosa", 2500, ["vino", "u", "otra", "cosa"]),
+        ("vino bajo 10 mil u otra cosa", 10000, ["vino", "u", "otra", "cosa"]),
+        # Coma de miles: «$10,000» se leía como un tope de $10 y dejaba «,000» en la consulta.
+        ("vino hasta $10,000", 10000, ["vino"]),
+        ("pisco bajo 12,990 pesos", 12990, ["pisco"]),
+    ],
+)
+def test_price_parsing_accepts_decimal_thousands_and_drops_the_currency_word(text, value, rest):
+    """«1,5 lucas» no se entendía (el tope se ignoraba sin aviso y la consulta quedaba con «1 5 lucas») y «pesos»
+    quedaba en la consulta: «Mira estas opciones de «completo pesos»»."""
+    price, without = _price(text)
+    assert price == value and without.split() == rest
+
+
+def test_price_parsing_still_ignores_decimal_units():
+    assert _price("cerveza bajo 4.5 grados")[0] is None
+    assert _price("bebida hasta 1,5 litros")[0] is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "bebida hasta 1,5 mil ml",
+        "cerveza hasta 1,5 mil cc",
+        "bajo 1,5 k kg",
+        "pañales bajo $2.5 mil u",
+    ],
+)
+def test_a_decimal_followed_by_a_unit_is_not_a_price_and_does_not_fail(text):
+    """Si a «mil/lucas/k» le sigue una unidad, la regex soltaba esa palabra y se quedaba con «5,5» a secas:
+    float('5,5') lanzaba ValueError (HTTP 400 en /chat, 500 en /chat/voice) y «$2.5» se leía como $25."""
+    assert _price(text)[0] is None
 
 
 def test_clean_query_drops_greeting_and_request_words():
@@ -132,6 +180,30 @@ def test_symptoms_flag_pharmacy_notice_and_never_map_to_medicines():
     intent = Understander().understand(None, "tengo fiebre y dolor de cabeza", "supermercado")
     assert intent.symptom and "medicamentos" not in intent.concepts
     assert "medicamentos" not in Understander().understand(None, "me siento enfermo", "supermercado").concepts
+
+
+def test_symptoms_starting_with_me_are_detected():
+    """«me» es palabra de pedido y se quitaba al inicio antes de buscar síntomas y ocasiones: «me siento mal» y
+    «me duele la cabeza» no activaban el aviso de farmacia (regla 6d) y buscaban «duele la cabeza»."""
+    u = Understander()
+    for text in ["me siento mal", "me duele la cabeza", "Me duele la guata"]:
+        intent = u.understand(None, text, "supermercado")
+        assert intent.symptom and intent.occasion == "enfermo", text
+    assert u.understand(None, "me duele la cabeza", "supermercado").query == "duele la cabeza"  # la consulta, limpia
+
+
+def test_feeling_unwell_is_a_symptom_even_after_another_occasion():
+    """«malestar» y «cuidarme» son de la ocasión «Me siento mal», pero solo contaban como síntoma si esa ocasión era la
+    mejor, y a igual largo gana la que va primero: «un tecito para el malestar» (once) o «después del carrete tengo
+    malestar» permitían Licores, venta cruzada y «También en», y no llevaban el aviso de farmacia."""
+    u = Understander()
+    for text in [
+        "un tecito para el malestar",
+        "despues del carrete tengo malestar",
+        "después del carrete quiero cuidarme",
+    ]:
+        assert u.understand(None, text, "supermercado").symptom, text
+    assert not u.understand(None, "un tecito para la once", "supermercado").symptom
 
 
 def test_llm_verifier_blocks_claims_invented_names_and_spelled_numbers():

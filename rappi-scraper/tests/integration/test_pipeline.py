@@ -7,6 +7,7 @@ from rappi_scraper.pipeline import discover
 from rappi_scraper.pipeline.restaurants import process_restaurant_jobs
 from rappi_scraper.pipeline.stores import process_store_jobs
 from rappi_scraper.storage import repository
+from rappi_scraper.storage.db import migrate
 
 
 def _store_job(key, *paths, verticals=("supermercado",)):
@@ -43,6 +44,72 @@ def test_store_job_falls_back_to_next_branch_and_skips_same_brand(db):
     # la tienda repetida se detecta con la primera página, sin recorrer sus pasillos
     assert client.requested.count("/tiendas/900025946-lider") == 2
     assert db.execute("SELECT vertical FROM store_verticals WHERE store_id = 900025946").fetchone() == ("supermercado",)
+
+
+def test_store_seen_only_in_filters_moves_to_turbo_once_its_page_says_so(db):
+    """Sin store_type en el listado no se sabe si es Turbo: lo dice recién su página (store_type y sub_group)."""
+    lider = "/tiendas/900025946-lider"
+
+    class TurboPage(FakeClient):
+        def get_next_data(self, path):
+            data = super().get_next_data(path)
+            if path == lider:
+                data["props"]["pageProps"]["storeContext"].update(store_type="turbo_x", sub_group="Turbo")
+            return data
+
+    # Lo que deja el descubrimiento: la tienda sin formato, en el vertical del listado y con su filtro.
+    repository.upsert_store(db, {"store_id": 900025946, "name": "Lider", "store_type": "", "path": lider})
+    repository.upsert_store_vertical(db, 900025946, "supermercado", "", "", ["Té & Café"])
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("id:900025946", lider)])
+
+    process_store_jobs(db, TurboPage(), run, max_aisles=1)
+
+    assert _statuses(db) == {"id:900025946": "done"}
+    rows = db.execute("SELECT vertical, subvertical, filters FROM store_verticals WHERE store_id = 900025946")
+    assert rows.fetchall() == [("turbo", "Turbo", ["Té & Café"])]
+
+
+def test_store_already_known_as_turbo_stays_in_turbo_when_rediscovered_only_in_filters(db, monkeypatch):
+    """La corrida siguiente la vuelve a ver solo en los filtros de supermercado: no debe reaparecer ahí aunque su
+    job falle y save_crawl no la corrija."""
+    lider = "/tiendas/900025946-lider"
+    repository.upsert_store(
+        db, {"store_id": 900025946, "name": "Lider", "store_type": "turbo_x", "sub_group": "Turbo", "path": lider}
+    )
+    repository.upsert_store_vertical(db, 900025946, "turbo", "Turbo")
+    only_in_filters = {
+        "store_id": 900025946, "name": "", "store_type": "", "subvertical": "", "landing_classification": "",
+        "path": "/tiendas/900025946", "filters": ["Té & Café"],
+    }  # fmt: skip
+    monkeypatch.setattr(discover, "parse_vertical_listing", lambda data: [only_in_filters])
+    run = repository.start_run(db, "stores", {})
+    city = {"city": "Santiago de Chile", "lat": -33.4, "lng": -70.6}
+
+    discover.discover_stores(db, FakeClient(), run, ["supermercado"], [city])
+    process_store_jobs(db, FakeClient(unavailable={"/tiendas/900025946"}), run, max_aisles=1)
+
+    assert _statuses(db) == {"id:900025946": "failed"}
+    rows = db.execute("SELECT vertical, filters FROM store_verticals WHERE store_id = 900025946").fetchall()
+    assert rows == [("turbo", ["Té & Café"])]
+
+
+def test_migration_moves_turbo_stores_left_in_the_listing_vertical(db):
+    """900102097 y 900102111 (turbo_*, sub_group Turbo) quedaron en supermercado. Ya no se corrigen al bajarlas: el
+    descubrimiento las pone en turbo y el job deja de nombrar supermercado."""
+    repository.upsert_store(
+        db, {"store_id": 900102097, "name": "Café y Té", "store_type": "turbo_cafeyte_nc", "sub_group": "Turbo"}
+    )
+    repository.upsert_store_vertical(db, 900102097, "supermercado", "Turbo", "", ["Té & Café"])
+    repository.upsert_store(db, {"store_id": 1, "name": "Lider", "store_type": "lider"})
+    repository.upsert_store_vertical(db, 1, "supermercado")
+    db.execute("DELETE FROM schema_migrations WHERE name = '018_turbo_stores_from_filters.sql'")
+    db.commit()
+
+    migrate(db)
+
+    rows = db.execute("SELECT store_id, vertical, filters FROM store_verticals ORDER BY 1").fetchall()
+    assert rows == [(1, "supermercado", []), (900102097, "turbo", ["Té & Café"])]
 
 
 def test_store_job_fails_when_no_branch_available(db):

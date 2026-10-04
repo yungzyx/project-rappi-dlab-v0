@@ -107,7 +107,7 @@
     {"vertical": "restaurantes", "query": "pizza pepperoni", "concepts": ["pizza"], "tipo": "exacta"},
     {"vertical": "restaurantes", "query": "pasta a la bolognesa", "concepts": ["pastas"], "tipo": "exacta"},
     {"vertical": "restaurantes", "query": "gelato de pistacho", "concepts": ["helados"], "tipo": "exacta"},
-    {"vertical": "restaurantes", "query": "algo rico para almorzar", "concepts": ["pizza", "pastas", "hamburguesa", "sushi", "platos-listos", "pescados-mariscos", "carnes", "sandwiches", "ensaladas-bowls", "pollo", "latina", "empanadas"], "tipo": "necesidad"},
+    {"vertical": "restaurantes", "query": "algo rico para almorzar", "concepts": ["pizza", "pastas", "hamburguesa", "sushi", "platos-listos", "pescados-mariscos", "carnes", "sandwiches", "ensaladas-bowls", "pollo", "pollo-preparado", "latina", "empanadas"], "tipo": "necesidad"},
     {"vertical": "restaurantes", "query": "ensalada liviana", "concepts": ["ensaladas-bowls"], "tipo": "necesidad"},
     {"vertical": "restaurantes", "query": "postre de chocolate", "concepts": ["postres", "chocolates", "pasteleria"], "tipo": "necesidad"},
     {"vertical": "restaurantes", "query": "tiramisu", "concepts": ["postres"], "tipo": "sin_tildes"},

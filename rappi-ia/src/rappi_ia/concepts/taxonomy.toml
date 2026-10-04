@@ -4,10 +4,17 @@
 # - `keywords` se usan para reglas sobre nombres de productos, platos y consultas. Se escriben con tildes
 #   y se normalizan al cargar (sin tildes ni ñ, minúsculas). Una palabra suelta también calza su plural
 #   (s/es); las frases calzan completas. Evitar palabras ambiguas (collar, arnés, papel, filtro, tenis).
-# - `sensitive = true`: Bigotes nunca lo sugiere por iniciativa propia (solo responde si se lo piden).
+# - `sensitive = true`: Bigotes nunca lo sugiere por iniciativa propia (solo responde si se lo piden). Sus keywords no
+#   pueden ser palabras de uso común («puro», «pipa», «lubricante»): el plato o el utensilio quedaría oculto como sensible.
+#   Su nombre de una sola palabra («Medicamentos») tampoco asigna productos (concepts/assign.py).
+# - `query_keywords`: palabras que sirven para pedir el concepto en una consulta, pero que no asignan productos
+#   («lubricante» pide bienestar sexual; «Lubricante para lentes» no lo es). En las consultas también cuenta el nombre.
+#   Una palabra suelta de estas solo cuenta si es todo el pedido: «lubricante wd-40» no pide bienestar sexual.
 # - `age_restricted = true`: +18; la respuesta lleva el recordatorio.
+# - `prepared = true` (en el grupo o en el concepto): se pide hecho, así que también se busca en restaurantes.
+#   El resto nunca compite en restaurantes aunque sus locales lo tengan (gaseosas, papas fritas en combos).
 
-version = "2026-09-30"
+version = "2026-10-03"
 
 # ─── Grupos ───────────────────────────────────────────────────────────────────
 [[group]]
@@ -44,6 +51,7 @@ emoji = "🥬"
 id = "comida"
 name = "Comida preparada"
 emoji = "🍱"
+prepared = true
 
 [[group]]
 id = "bebe"
@@ -234,6 +242,7 @@ id = "cafe"
 parent = "bebidas"
 name = "Café"
 emoji = "☕"
+prepared = true
 keywords = ["café", "cafe", "espresso", "cappuccino", "capuccino", "latte", "americano", "nescafé", "nescafe", "cápsulas de café", "moka", "frappé", "frappuccino", "mocaccino"]
 
 [[concept]]
@@ -270,7 +279,7 @@ id = "galletas"
 parent = "snacks"
 name = "Galletas"
 emoji = "🍪"
-keywords = ["galleta", "oreo", "tritón", "triton", "obsesión", "kuky", "vino galleta", "criollitas", "soda galleta", "alfajor mini"]
+keywords = ["galleta", "oreo", "tritón", "triton", "obsesión", "kuky", "vino galleta", "criollitas", "soda galleta", "alfajor", "alfajor mini"]
 
 [[concept]]
 id = "barras-cereal"
@@ -292,13 +301,14 @@ id = "golosinas"
 parent = "dulces"
 name = "Golosinas"
 emoji = "🍬"
-keywords = ["gomitas", "gomita", "caramelo", "chicle", "calugas", "marshmallow", "malvavisco", "chupete dulce", "mentitas", "alfajor", "dulces típicos", "turrón", "mazapán", "calugón"]
+keywords = ["gomitas", "gomita", "caramelo", "chicle", "calugas", "marshmallow", "malvavisco", "chupete dulce", "mentitas", "dulces típicos", "turrón", "mazapán", "calugón"]
 
 [[concept]]
 id = "helados"
 parent = "dulces"
 name = "Helados"
 emoji = "🍦"
+prepared = true
 keywords = ["helado", "gelato", "paleta helada", "sorbete", "cassata", "sundae", "mcflurry", "barquillo"]
 
 [[concept]]
@@ -306,6 +316,7 @@ id = "postres"
 parent = "dulces"
 name = "Postres"
 emoji = "🍮"
+prepared = true
 keywords = ["postre", "flan", "mousse", "tiramisú", "tiramisu", "cheesecake", "leche asada", "suspiro limeño", "panqueque", "brownie", "gelatina", "arroz con leche", "tres leches", "crème brûlée", "creme brulee", "volcán de chocolate", "copa de helado"]
 
 [[concept]]
@@ -313,7 +324,8 @@ id = "pasteleria"
 parent = "dulces"
 name = "Tortas y pastelería"
 emoji = "🎂"
-keywords = ["torta", "pastel", "kuchen", "queque", "cupcake", "muffin", "dona", "donut", "croissant", "medialuna", "berlín", "berlin", "pie de limón", "tarta dulce", "cinnamon roll", "rollo de canela", "macarons", "pastelito"]
+prepared = true
+keywords = ["torta", "pastel", "kuchen", "queque", "cupcake", "muffin", "dona", "donut", "croissant", "medialuna", "berlín", "berlin", "pie de limón", "tarta dulce", "cinnamon roll", "rollo de canela", "macarons", "pastelito", "calzones rotos"]
 
 [[concept]]
 id = "untables-dulces"
@@ -413,7 +425,7 @@ id = "pollo"
 parent = "frescos"
 name = "Pollo"
 emoji = "🍗"
-keywords = ["pollo", "pechuga", "trutro", "alitas", "nuggets", "pavo", "chicken", "tenders", "pollo asado", "pollo frito", "broaster", "kfc"]
+keywords = ["pollo", "pechuga", "trutro", "pavo", "chicken"]
 
 [[concept]]
 id = "pescados-mariscos"
@@ -491,7 +503,7 @@ id = "sandwiches"
 parent = "comida"
 name = "Sándwiches y completos"
 emoji = "🥪"
-keywords = ["sándwich", "sandwich", "churrasco", "barros luco", "barros jarpa", "chacarero", "completos", "completo italiano", "hot dog", "lomito", "wrap", "chacarera", "ave palta", "ave mayo"]
+keywords = ["sándwich", "sandwich", "churrasco", "barros luco", "barros jarpa", "chacarero", "completos", "completo italiano", "hot dog", "perro caliente", "perros calientes", "lomito", "wrap", "chacarera", "ave palta", "ave mayo"]
 
 [[concept]]
 id = "empanadas"
@@ -547,7 +559,7 @@ id = "picoteo"
 parent = "comida"
 name = "Picoteo y tablas"
 emoji = "🍟"
-keywords = ["chorrillana", "picoteo", "tabla", "papas rústicas", "aros de cebolla", "fritos", "papas con queso", "salchipapa"]
+keywords = ["chorrillana", "picoteo", "tabla", "papas rústicas", "aros de cebolla", "aros de cebollas", "fritos", "papas con queso", "salchipapa"]
 
 [[concept]]
 id = "platos-listos"
@@ -562,6 +574,14 @@ parent = "comida"
 name = "Comida latina"
 emoji = "🫓"
 keywords = ["arepa", "arepas", "tequeños", "cachapa", "pupusa", "patacón", "pastelitos venezolanos", "reina pepiada", "empanada venezolana", "tamal"]
+
+[[concept]]
+id = "pollo-preparado"
+parent = "comida"
+name = "Pollo frito y asado"
+emoji = "🍗"
+# El pollo fresco (grupo frescos) no compite en restaurantes: lo que se pide hecho va aquí.
+keywords = ["pollo asado", "pollo frito", "broaster", "kfc", "nuggets", "tenders", "alitas"]
 
 # Bebé
 [[concept]]
@@ -595,6 +615,7 @@ sensitive = true
 # Solo nombres de medicamentos o tipos de producto: los síntomas NO llevan aquí (regla 6d: no se sugieren
 # medicamentos a partir de síntomas; los síntomas activan el aviso de farmacia en agent/understand.py).
 keywords = ["paracetamol", "ibuprofeno", "aspirina", "antigripal", "jarabe para la tos", "analgésico", "antiácido", "antiacido", "descongestionante", "suero oral", "antialérgico", "tapsin", "zolben", "kitadol"]
+query_keywords = ["medicamento", "lubricante ocular", "lubricantes oculares"]
 
 [[concept]]
 id = "vitaminas"
@@ -616,7 +637,7 @@ parent = "salud"
 name = "Salud sexual"
 emoji = "🩺"
 sensitive = true
-keywords = ["preservativo", "condón", "condon", "lubricante", "prueba de embarazo", "test de embarazo", "anticonceptivo"]
+keywords = ["preservativo", "condón", "condon", "prueba de embarazo", "test de embarazo", "anticonceptivo"]
 
 [[concept]]
 id = "higiene-femenina"
@@ -630,14 +651,14 @@ id = "cuidado-oral"
 parent = "salud"
 name = "Cuidado oral"
 emoji = "🪥"
-keywords = ["pasta dental", "crema dental", "cepillo de dientes", "cepillo dental", "enjuague bucal", "hilo dental", "colgate", "listerine", "oral-b"]
+keywords = ["pasta dental", "pasta de dientes", "crema dental", "cepillo de dientes", "cepillo dental", "enjuague bucal", "hilo dental", "colgate", "listerine", "oral-b"]
 
 [[concept]]
 id = "higiene-personal"
 parent = "salud"
 name = "Higiene personal"
 emoji = "🧼"
-keywords = ["shampoo", "champú", "acondicionador", "jabón", "jabon", "desodorante", "gel de ducha", "afeitadora", "máquina de afeitar", "crema de afeitar", "talco", "antitranspirante", "body wash", "rexona", "dove", "gillette"]
+keywords = ["jabón", "jabon", "desodorante", "gel de ducha", "afeitadora", "máquina de afeitar", "crema de afeitar", "talco", "antitranspirante", "body wash", "rexona", "dove", "gillette"]
 
 [[concept]]
 id = "dermocosmetica"
@@ -666,7 +687,7 @@ id = "cuidado-cabello"
 parent = "belleza"
 name = "Cuidado del cabello"
 emoji = "💇"
-keywords = ["tinte", "coloración", "secador de pelo", "plancha de pelo", "rizador", "gel para el pelo", "cera para el pelo", "tratamiento capilar", "keratina", "mascarilla capilar", "peineta", "cepillo de pelo"]
+keywords = ["shampoo", "champú", "acondicionador", "tinte", "coloración", "secador de pelo", "plancha de pelo", "rizador", "gel para el pelo", "cera para el pelo", "tratamiento capilar", "keratina", "mascarilla capilar", "peineta", "cepillo de pelo"]
 
 # Hogar
 [[concept]]
@@ -776,7 +797,7 @@ name = "Cigarrillos"
 emoji = "🚬"
 sensitive = true
 age_restricted = true
-keywords = ["cigarrillo", "cigarrillos", "cajetilla", "marlboro", "lucky strike", "pall mall", "kent", "belmont", "philip morris", "habano", "puro", "tabaco"]
+keywords = ["cigarrillo", "cigarrillos", "cigarro", "pucho", "cajetilla", "marlboro", "lucky strike", "pall mall", "kent", "philip morris", "habano", "tabaco"]
 
 [[concept]]
 id = "vapeo"
@@ -785,7 +806,7 @@ name = "Vapeo"
 emoji = "💨"
 sensitive = true
 age_restricted = true
-keywords = ["vape", "vaporizador", "pod", "e-liquid", "sales de nicotina", "desechable vape", "elf bar", "ignite", "nicotina"]
+keywords = ["vape", "vapeo", "vaporizador", "pod", "e-liquid", "sales de nicotina", "desechable vape", "elf bar", "ignite", "nicotina", "cigarro electrónico", "cigarrillo electrónico"]
 
 [[concept]]
 id = "accesorios-fumador"
@@ -794,7 +815,7 @@ name = "Accesorios para fumar"
 emoji = "🔥"
 sensitive = true
 age_restricted = true
-keywords = ["papelillo", "papel para armar", "ocb", "raw papel", "encendedor", "grinder", "moledor", "pipa", "boquilla", "filtros para armar", "cenicero"]
+keywords = ["papelillo", "papel para armar", "ocb", "raw papel", "grinder", "pipa para fumar", "pipa de agua", "filtros para armar", "cenicero"]
 
 # Adultos
 [[concept]]
@@ -804,7 +825,8 @@ name = "Bienestar sexual"
 emoji = "🔞"
 sensitive = true
 age_restricted = true
-keywords = ["vibrador", "dildo", "succionador", "masajeador íntimo", "juguete sexual", "juguetes sexuales", "lencería erótica", "bondage", "kit erótico", "feromonas", "estimulante sexual", "anillo vibrador", "plug anal"]
+keywords = ["vibrador", "dildo", "succionador", "masajeador íntimo", "juguete sexual", "juguetes sexuales", "lencería erótica", "bondage", "kit erótico", "feromonas", "estimulante sexual", "anillo vibrador", "plug anal", "lubricante íntimo", "lubricante personal", "kama sutra", "shunga"]
+query_keywords = ["lubricante"]  # casi todos los productos que lo nombran son de la categoría Lubricantes
 
 # Moda
 [[concept]]
@@ -959,13 +981,14 @@ name = "Regalo"
 emoji = "🎁"
 keywords = ["regalo", "regalar", "sorpresa", "aniversario", "día de la madre", "san valentín", "detalle para"]
 concepts = ["flores-regalos", "chocolates", "fragancias", "vino", "espumante", "joyeria", "juguetes-infantiles"]
+vertical = "chocolateria"  # por masa mínima ganaba Licores: el piso lo ponían los juguetes y joyas del Mall
 
 [[occasion]]
 id = "hambre"
 name = "Hambre ya"
 emoji = "🍽️"
 keywords = ["hambre", "tengo hambre", "almorzar", "cenar", "comida rápida", "algo rico", "delivery de comida", "para comer"]
-concepts = ["pizza", "hamburguesa", "sushi", "pollo", "sandwiches", "asiatica", "empanadas", "platos-listos"]
+concepts = ["pizza", "hamburguesa", "sushi", "pollo", "pollo-preparado", "sandwiches", "asiatica", "empanadas", "platos-listos"]
 vertical = "restaurantes"  # "hambre ya": pedir comida lista, no comprar una pizza congelada
 
 [[occasion]]
@@ -979,7 +1002,7 @@ concepts = ["panales", "alimentacion-bebe", "articulos-bebe", "dermocosmetica"]
 id = "enfermo"
 name = "Me siento mal"
 emoji = "🤒"
-keywords = ["enfermo", "enferma", "me siento mal", "resfriado", "gripe", "dolor", "fiebre", "malestar", "cuidarme"]
+keywords = ["enfermo", "enferma", "me siento mal", "me duele", "resfriado", "gripe", "dolor", "fiebre", "malestar", "cuidarme"]
 concepts = ["sopas", "jugos", "te", "frutas"]  # nunca medicamentos: no se sugieren por síntomas
 
 [[occasion]]

@@ -30,6 +30,24 @@ def _user_with_beer(db, user="u1"):
     )
 
 
+def test_a_concept_not_seeded_yet_is_saved_without_concept(db):
+    """Un concepto nuevo de taxonomy.toml aún no sembrado en la base (antes de `rappi-ia concepts`) no tumba el
+    registro: el evento y la línea se guardan sin concepto, como uno desconocido."""
+    seed_taxonomy(db, load_taxonomy())
+    db.execute("DELETE FROM concepts WHERE concept_id = 'pollo-preparado'")
+    events.record(db, [events.Event("u5", "s1", "chat", ts=NOW, concept_id="pollo-preparado", query="pollo frito")])
+    events.record_order(
+        db,
+        "u5",
+        "s1",
+        "c1",
+        "restaurantes",
+        [{"entity_type": "menu_item", "entity_id": "1", "concept_id": "pollo-preparado", "unit_price": 5000}],
+    )
+    assert db.execute("SELECT concept_id FROM app_events WHERE type = 'chat'").fetchone()[0] is None
+    assert db.execute("SELECT concept_id FROM app_order_lines").fetchone()[0] is None
+
+
 def test_forget_everything_deletes_user_events_and_orders(db):
     _user_with_beer(db)
     assert events.forget(db, "u1") > 0
@@ -45,6 +63,14 @@ def test_forget_one_concept_removes_it_everywhere_but_keeps_the_rest(db):
     queries_left = [r[0] for r in db.execute("SELECT query FROM app_events WHERE query IS NOT NULL")]
     assert queries_left == ["vino tinto"]  # "chelas" nombraba cerveza: se borró el texto
     assert list(events.profile(db, "u1", now=NOW)) == ["vino"]
+
+
+def test_forget_a_concept_erases_queries_that_name_it_with_query_only_words(db):
+    """«lubricante» no asigna productos, pero en una consulta pide bienestar sexual: olvidarlo borra la consulta."""
+    seed_taxonomy(db, load_taxonomy())
+    events.record(db, [events.Event("u4", "s1", "search", ts=NOW, query="lubricante")])
+    events.forget(db, "u4", "bienestar-sexual")
+    assert db.execute("SELECT count(*) FROM app_events WHERE query IS NOT NULL").fetchone()[0] == 0
 
 
 def test_profile_learns_only_from_positive_signals(db):

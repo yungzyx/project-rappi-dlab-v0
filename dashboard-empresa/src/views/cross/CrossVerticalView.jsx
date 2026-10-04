@@ -68,7 +68,7 @@ function RetentionHeadline({ source }) {
       <Headline
         value={formatPoints(comparable.gap)}
         unit="de retención a favor de quien usa dos verticales"
-        context={`a igual número de pedidos (${comparable.stratum})`}
+        context={`a igual número de compras (${comparable.stratum})`}
         size="minor"
       />
     )
@@ -145,9 +145,10 @@ export function CrossVerticalView({ source }) {
         <div className="section-head">
           <h2 id="multi-vertical">¿Retiene más quien usa dos verticales?</h2>
           <p>
-            Retención (pidió entre los días 61 y 120) por número de pedidos en sus primeros 60 días, solo usuarios cuyo
-            primer pedido fue hace 120 días o más. Quien pide más cae más en dos verticales y además retiene más; por
-            eso se compara a igual número de pedidos, y aun así no mide causa: eso solo lo da un A/B con holdout.
+            Retención (pidió entre los días 61 y 120) por número de compras en sus primeros 60 días, solo usuarios cuyo
+            primer pedido fue hace 120 días o más. Una compra es un carro: dividido en dos verticales son dos pedidos.
+            Quien pide más cae más en dos verticales y además retiene más; por eso se compara a igual número de
+            compras, y aun así no mide causa: eso solo lo da un A/B con holdout.
           </p>
           <Async fallback={null}>
             <RetentionHeadline source={source} />

@@ -10,12 +10,11 @@ from pathlib import Path
 
 from psycopg import Connection
 
-from ..agent.verticals import ranked_verticals
+from .. import config
+from ..agent.verticals import typical_verticals
 
 TEMPLATE = Path(__file__).resolve().parent / "multivertical.html"
-OUTPUT = (
-    Path(__file__).resolve().parents[4] / "dashboard-empresa" / "public" / "presentacion" / "mapa-multivertical.html"
-)
+OUTPUT = config.PROJECT_ROOT.parent / "dashboard-empresa" / "public" / "presentacion" / "mapa-multivertical.html"
 ORDER = ["supermercado", "conveniencia", "turbo", "licores", "chocolateria", "restaurantes", "farmacia", "mall"]
 LABELS = {
     "supermercado": "Súper",
@@ -31,12 +30,19 @@ MIN_ITEMS = 20  # una línea concepto → vertical necesita al menos estos produ
 BRIDGE_MIN_VERTICALS = 5
 TOP = 12
 
-_PRODUCT_VERTICALS = """SELECT DISTINCT sp.master_product_id, sv.vertical FROM store_products sp
-                        JOIN store_verticals sv USING (store_id)"""
+# Qué verticales comparte un producto se decide solo con las tiendas de una vertical, como el panel
+# (v_cross_vertical_items_real): con la doble etiqueta de Lider, Express Lider y Unimarc, cada producto suyo contaría
+# como vendido en Súper y en Express. Los totales (productos de cada vertical, tiendas de un producto) cuentan todas.
+_SINGLE_VERTICAL_STORES = """SELECT store_id, min(vertical) AS vertical FROM v_store_verticals
+                             GROUP BY store_id HAVING count(*) = 1"""
+_PRODUCT_VERTICALS = f"""SELECT DISTINCT sp.master_product_id, sv.vertical FROM store_products sp
+                         JOIN ({_SINGLE_VERTICAL_STORES}) sv USING (store_id)
+                         WHERE sp.master_product_id IS NOT NULL"""
 
 
 def collect(conn: Connection) -> dict:
-    products = dict(conn.execute(f"SELECT vertical, count(*) FROM ({_PRODUCT_VERTICALS}) pv GROUP BY 1").fetchall())
+    # Con todas las tiendas, como «Calidad del catálogo» en el panel.
+    products = dict(conn.execute("SELECT vertical, count(*) FROM v_item_verticals GROUP BY 1").fetchall())
     products["restaurantes"] = conn.execute("SELECT count(*) FROM menu_items").fetchone()[0]
     shared = conn.execute(
         f"""WITH pv AS ({_PRODUCT_VERTICALS})
@@ -54,6 +60,9 @@ def collect(conn: Connection) -> dict:
         "SELECT concept_id, vertical, items FROM concept_assortment WHERE items > 0"
     ):
         items_by_concept.setdefault(cid, {})[vertical] = items
+    # `items` cuenta cada producto una vez por vertical; el total del concepto lo cuenta una sola vez.
+    totals = dict(conn.execute("SELECT concept_id, count(*) FROM item_concepts GROUP BY 1").fetchall())
+    homes = typical_verticals(conn)
     concepts = []
     for cid, name, emoji, parent, sensitive in conn.execute(
         "SELECT concept_id, name, emoji, parent_id, sensitive FROM concepts WHERE parent_id IS NOT NULL ORDER BY 1"
@@ -61,8 +70,7 @@ def collect(conn: Connection) -> dict:
         items = items_by_concept.get(cid)
         if not items:
             continue
-        ranked = ranked_verticals(conn, [cid])
-        home = ranked[0] if ranked else max(items, key=items.get)
+        home = homes.get(cid) or max(items, key=items.get)
         concepts.append(
             {
                 "id": cid,
@@ -72,24 +80,30 @@ def collect(conn: Connection) -> dict:
                 "sensitive": sensitive,
                 "home": home,
                 "items": items,
+                "total": totals.get(cid, 0),
             }
         )
     complements = conn.execute(
         "SELECT from_concept, to_concept, weight FROM concept_edges WHERE method = 'curado' ORDER BY 1, 2"
     ).fetchall()
     bridges = conn.execute(
-        """SELECT ci.name, array_agg(DISTINCT sv.vertical), count(DISTINCT sp.store_id)
-           FROM catalog_items ci
-           JOIN store_products sp USING (master_product_id)
-           JOIN store_verticals sv USING (store_id)
-           GROUP BY ci.master_product_id, ci.name HAVING count(DISTINCT sv.vertical) >= %s
-           ORDER BY count(DISTINCT sv.vertical) DESC, count(DISTINCT sp.store_id) DESC, ci.name LIMIT %s""",
+        f"""SELECT ci.name, array_agg(DISTINCT sv.vertical) FILTER (WHERE sv.vertical IS NOT NULL),
+                   count(DISTINCT sp.store_id)
+            FROM catalog_items ci
+            JOIN store_products sp USING (master_product_id)
+            LEFT JOIN ({_SINGLE_VERTICAL_STORES}) sv USING (store_id)
+            GROUP BY ci.master_product_id, ci.name HAVING count(DISTINCT sv.vertical) >= %s
+            ORDER BY count(DISTINCT sv.vertical) DESC, count(DISTINCT sp.store_id) DESC, ci.name LIMIT %s""",
         (BRIDGE_MIN_VERTICALS, TOP),
     ).fetchall()
+    # Una cadena es su nombre sin importar mayúsculas (Unimarc y UNIMARC), con el nombre que más usan sus sucursales;
+    # cada sucursal cuenta una vez aunque esté en dos verticales.
     chains = conn.execute(
-        """SELECT trim(s.name), array_agg(DISTINCT sv.vertical), count(*) FROM stores s
+        """SELECT mode() WITHIN GROUP (ORDER BY trim(s.name)), array_agg(DISTINCT sv.vertical),
+                  count(DISTINCT s.store_id)
+           FROM stores s
            JOIN store_verticals sv USING (store_id) WHERE trim(s.name) <> ''
-           GROUP BY 1 HAVING count(DISTINCT sv.vertical) >= 2
+           GROUP BY lower(trim(s.name)) HAVING count(DISTINCT sv.vertical) >= 2
            ORDER BY count(DISTINCT sv.vertical) DESC, 3 DESC, 1 LIMIT %s""",
         (TOP,),
     ).fetchall()
@@ -110,10 +124,13 @@ def collect(conn: Connection) -> dict:
 
 
 def render(data: dict) -> str:
-    return TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False))
+    # «</» escapado: un nombre del catálogo con «</script>» no puede cerrar el script (JSON lo lee igual).
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    return TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", payload)
 
 
 def write(conn: Connection, path: Path = OUTPUT) -> dict:
     data = collect(conn)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render(data), encoding="utf-8")
     return data

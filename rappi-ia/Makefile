@@ -54,15 +54,19 @@ analytics:  ## Resumen de métricas del panel
 	$(PY) -m rappi_ia analytics
 
 # Con los pesos ya descargados, la API no consulta huggingface.co al cargarlos (~20 peticiones por arranque).
+# Mira los modelos por defecto: con otro en .env que no está en caché, la API arranca sin esa capacidad (/health lo
+# dice en «faltantes»); `make serve HF_OFFLINE=` lo descarga la primera vez.
 HF_CACHE := $(or $(HF_HUB_CACHE),$(HOME)/.cache/huggingface/hub)
 HF_MODELS := intfloat--multilingual-e5-base sentence-transformers--clip-ViT-B-32 \
 	sentence-transformers--clip-ViT-B-32-multilingual-v1 Systran--faster-whisper-small
 HF_OFFLINE := $(shell for m in $(HF_MODELS); do test -d "$(HF_CACHE)/models--$$m" || exit 0; done; echo HF_HUB_OFFLINE=1)
 
-serve:  ## API en http://localhost:8000, solo este Mac (docs en /docs)
+# serve y serve-lan migran antes: tras un `git pull`, el código puede necesitar una migración nueva (sin la 019, todo
+# lo que muestra productos respondía 500).
+serve: migrate  ## API en http://localhost:8000, solo este Mac (docs en /docs)
 	$(HF_OFFLINE) $(PY) -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8000
 
-serve-lan:  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
+serve-lan: migrate  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
 	$(HF_OFFLINE) API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --host 0.0.0.0 --port 8000
 
 images:  ## Fotos del catálogo con CLIP (miles de descargas: correr con el scraper detenido)

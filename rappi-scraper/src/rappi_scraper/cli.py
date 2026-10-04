@@ -8,6 +8,7 @@ Flujo típico:
     rappi build-search
     rappi search "pañales" --vertical supermercado
     rappi retry-failed --kind stores        # reintentar jobs fallidos de la última corrida
+    rappi refresh --resume-only             # y retomar solo lo reencolado (sin corridas nuevas)
     rappi report                            # reporte de calidad de la última corrida
     rappi refresh                           # todo lo anterior de una vez (pensado para correr semanal)
 """
@@ -33,13 +34,15 @@ from .reporting import render_markdown, write_run_report
 from .scraping.client import RappiClient
 from .storage import repository
 from .storage.backup import backup_database
-from .storage.db import connect, database_url, migrate
+from .storage.db import PendingMigrations, check_migrations, connect, database_url, migrate
 from .storage.search import VERTICALS, build_search_documents, search
 
 log = logging.getLogger("rappi_scraper")
 
 LOGS_DIR = config.DATA_DIR / "logs"
 LONG_COMMANDS = {"discover", "scrape-stores", "scrape-restaurants", "refresh"}  # log a archivo + Mac despierto
+# `refresh` terminó todo menos el respaldo: refresh-semanal.sh lo anota («respaldo fallido») y sigue con la capa de IA.
+BACKUP_FAILED_EXIT = 3
 
 
 def _run_id(conn, kind: str, args) -> int:
@@ -103,12 +106,13 @@ def _scrape_or_stop(conn, run_id: int, kind: str, process) -> None:
 def cmd_refresh(conn, args) -> None:
     client = RappiClient()
     try:
-        reports = refresh(
+        reports, backup_failed = refresh(
             conn,
             client,
             _store_discoverer(client, list(VERTICAL_LISTINGS)),
             _restaurant_discoverer(client),
             backup=None if args.no_backup else lambda: backup_database(database_url()),
+            resume_only=args.resume_only,
         )
     except PossibleBlock as exc:
         raise SystemExit(
@@ -117,6 +121,8 @@ def cmd_refresh(conn, args) -> None:
         ) from exc
     for report in reports:
         print(render_markdown(report))
+    if backup_failed:
+        raise SystemExit(BACKUP_FAILED_EXIT)
 
 
 def cmd_backup(conn, args) -> None:
@@ -218,6 +224,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("refresh", help="Actualización completa: tiendas, restaurantes, búsqueda, reportes y respaldo")
     p.add_argument("--no-backup", action="store_true", help="No respaldar la base al final")
+    p.add_argument(
+        "--resume-only",
+        action="store_true",
+        help="Solo retomar las corridas abiertas (p. ej. tras retry-failed), sin empezar corridas nuevas",
+    )
 
     sub.add_parser("backup", help="Respaldar la base en data/backups/ (conserva los últimos 4)")
 
@@ -267,7 +278,7 @@ def main(argv: list[str] | None = None) -> None:
         else:
             _setup_logging(args.command)
             _run_simple(args)
-    except DownloadInProgress as exc:
+    except (DownloadInProgress, PendingMigrations) as exc:
         raise SystemExit(str(exc)) from exc
     except KeyboardInterrupt:
         log.warning("Interrumpido. Lo avanzado quedó guardado: retoma con el mismo comando.")
@@ -281,6 +292,7 @@ def _run_simple(args) -> None:
         elif args.command == "migrate":
             print("Aplicadas:", migrate(conn) or "ninguna (al día)")
         elif args.command == "build-search":
+            check_migrations(conn)
             print(build_search_documents(conn))
         elif args.command == "search":
             for hit in search(conn, args.vertical, args.query, args.limit):

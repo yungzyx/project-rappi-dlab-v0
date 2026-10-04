@@ -3,6 +3,9 @@
 Relevancia: un resultado es relevante si su concepto (item_concepts) está entre los esperados de la consulta.
 Es una etiqueta automática y ruidosa (depende de la precisión de la capa 2), pero es la misma para los tres
 modos, así que la comparación es justa. Métricas: P@10, MRR y nDCG@10 (ganancia binaria).
+
+Además del ranking (`retrieve`), mide lo que ve el usuario: los productos de `search_products` (lo que muestran
+/search y Bigotes) y «sin resultado» con la regla con que Bigotes lo registra.
 """
 
 import json
@@ -13,6 +16,8 @@ from pathlib import Path
 
 from psycopg import Connection
 
+from ..agent.tools import search_products
+from ..agent.understand import Understander
 from ..embeddings.base import TextEmbedder
 from ..retrieval.hybrid import DEFAULT_TAU, MODES, THRESHOLDS_FILE, retrieve
 
@@ -23,9 +28,19 @@ STALE_STRICT_MATCHES = 3  # una negativa con tantos productos que calzan todas s
 # Híbrido sin el refuerzo por concepto: el refuerzo reordena con la misma etiqueta (item_concepts) con que se juzga la
 # relevancia, así que infla al híbrido. Esta fila mide cuánto aporta la fusión léxico + vector por sí sola.
 ABLATION = "hibrido_sin_refuerzo"
-EVAL_MODES = (*MODES, ABLATION)
-COMPARISONS = [("hibrido", "vector"), ("hibrido", "lexico"), (ABLATION, "vector"), ("hibrido", ABLATION)]
+# Lo que ve el usuario: el híbrido después de search_products (sensibles, foco en el concepto de la consulta, precio
+# vigente, sin repetidos). `retrieve` puede traer 10 relevantes y que se muestre 1.
+SHOWN = "hibrido_mostrado"
+EVAL_MODES = (*MODES, ABLATION, SHOWN)
+COMPARISONS = [
+    ("hibrido", "vector"),
+    ("hibrido", "lexico"),
+    (ABLATION, "vector"),
+    ("hibrido", ABLATION),
+    (SHOWN, "hibrido"),
+]
 BOOTSTRAP_RESAMPLES = 2000
+TAU_CANDIDATES = [round(0.70 + 0.01 * i, 2) for i in range(26)]
 
 
 @dataclass
@@ -40,6 +55,8 @@ class QueryRun:
     concept_in_vertical: bool
     names_concept: bool = False
     items: list[dict] = field(default_factory=list)  # los resultados (tipo, id, texto, concepto): muestra de juicio
+    shown_unmet: bool | None = None  # solo en SHOWN: «sin resultado» como lo registra Bigotes (y nada a la vista)
+    has_words: bool = True  # le queda alguna palabra sin las stopwords («té» no): sin ellas no hay «sin resultado»
 
 
 def load_queries(path: Path = QUERIES_FILE) -> list[dict]:
@@ -48,16 +65,28 @@ def load_queries(path: Path = QUERIES_FILE) -> list[dict]:
 
 def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[dict]) -> list[QueryRun]:
     runs = []
+    understander = Understander()
     for q in queries:
         for mode in EVAL_MODES:
             if mode != "lexico" and embedder is None:
                 continue
-            if mode == ABLATION:
-                result = retrieve(conn, q["vertical"], q["query"], embedder, k=K, mode="hibrido", concepts=[])
+            shown_unmet = None
+            if mode == SHOWN:
+                # Como /search: los conceptos los detecta la consulta. Bigotes registra la demanda solo sin productos, y
+                # nunca por síntomas: ahí los medicamentos se ocultan por la regla 6d, no por falta de surtido.
+                outcome = search_products(conn, q["vertical"], q["query"], None, embedder, k=K)
+                result = outcome.result
+                items = [(p.entity_type, p.entity_id, p.name, p.concept) for p in outcome.products]
+                symptom = understander.understand(conn, q["query"], q["vertical"]).symptom
+                shown_unmet = result.unmet and not outcome.products and not symptom
             else:
-                result = retrieve(conn, q["vertical"], q["query"], embedder, k=K, mode=mode)
+                if mode == ABLATION:
+                    result = retrieve(conn, q["vertical"], q["query"], embedder, k=K, mode="hibrido", concepts=[])
+                else:
+                    result = retrieve(conn, q["vertical"], q["query"], embedder, k=K, mode=mode)
+                items = [(h.entity_type, h.entity_id, h.content, h.concept_id) for h in result.hits]
             expected = set(q["concepts"])
-            relevance = [1 if h.concept_id in expected else 0 for h in result.hits]
+            relevance = [1 if concept in expected else 0 for *_, concept in items]
             runs.append(
                 QueryRun(
                     q["vertical"],
@@ -70,14 +99,11 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                     result.concept_in_vertical,
                     bool(result.query_concepts),
                     [
-                        {
-                            "entity_type": h.entity_type,
-                            "entity_id": h.entity_id,
-                            "texto": h.content,
-                            "concepto": h.concept_id,
-                        }
-                        for h in result.hits
+                        {"entity_type": etype, "entity_id": eid, "texto": text, "concepto": concept}
+                        for etype, eid, text, concept in items
                     ],
+                    shown_unmet,
+                    result.has_words,
                 )
             )
     return runs
@@ -150,15 +176,20 @@ def compare_modes(runs: list[QueryRun]) -> list[dict]:
 def calibrate_tau(runs: list[QueryRun], candidates=None) -> dict[str, float]:
     """τ por vertical: el que maximiza el recall de 'sin resultado' con precisión ≥ 0,9 (modo híbrido).
 
-    Solo cuentan las negativas que dependen de τ (sin coincidencia léxica estricta ni concepto nombrado): las demás
-    dan el mismo recall con cualquier τ. Un vertical sin esas negativas, o donde ningún τ detecta alguna, no recibe
-    propuesta. Ante un empate gana el τ más bajo: el más prudente con las consultas que no están en el set.
+    Solo cuentan las negativas que dependen de τ (sin coincidencia léxica estricta ni concepto nombrado, y con
+    palabras que buscar): las demás dan el mismo recall con cualquier τ. Un vertical sin esas negativas, o donde
+    ningún τ detecta alguna, no recibe propuesta. Ante un empate gana el τ más bajo: el más prudente con las
+    consultas que no están en el set.
     """
-    candidates = candidates or [round(0.70 + 0.01 * i, 2) for i in range(26)]
+    candidates = candidates or TAU_CANDIDATES
     hybrid = [r for r in runs if r.mode == "hibrido"]
     taus = {}
     for vertical in sorted({r.vertical for r in hybrid}):
-        rows = [r for r in hybrid if r.vertical == vertical and r.strict_lexical == 0 and not r.names_concept]
+        rows = [
+            r
+            for r in hybrid
+            if r.vertical == vertical and r.strict_lexical == 0 and not r.names_concept and r.has_words
+        ]
         actual = [r.tipo == "negativa" for r in rows]
         if not any(actual):
             continue
@@ -176,10 +207,28 @@ def calibrate_tau(runs: list[QueryRun], candidates=None) -> dict[str, float]:
     return taus
 
 
-def unmet_quality(runs: list[QueryRun], taus: dict[str, float]) -> dict:
+def unmet_quality(runs: list[QueryRun], taus: dict[str, float], run_taus: dict[str, float] | None = None) -> dict:
+    """«Sin resultado» de la búsqueda (modo híbrido, con `taus`) y, si se corrió, el que registra Bigotes («mostrado»:
+    marcado y sin productos a la vista, con los τ vigentes al correr la evaluación, `run_taus`; por defecto `taus`)."""
     hybrid = [r for r in runs if r.mode == "hibrido"]
-    predicted = [_is_unmet(r, taus.get(r.vertical, DEFAULT_TAU)) for r in hybrid]
-    actual = [r.tipo == "negativa" for r in hybrid]
+    quality = _detection(hybrid, [_is_unmet(r, taus.get(r.vertical, DEFAULT_TAU)) for r in hybrid])
+    quality["negativas_detalle"] = negative_diagnosis(runs, taus)
+    shown = [r for r in runs if r.mode == SHOWN]
+    if shown:
+        quality["mostrado"] = _detection(shown, [bool(r.shown_unmet) for r in shown])
+        # Marcadas por la búsqueda con los mismos τ con que se calculó «mostrado» (no con los recién guardados).
+        at_run = taus if run_taus is None else run_taus
+        flagged = {(r.vertical, r.query) for r in hybrid if _is_unmet(r, at_run.get(r.vertical, DEFAULT_TAU))}
+        quality["mostrado"]["marcadas_con_productos"] = [
+            f"{r.vertical}: {r.query}"
+            for r in shown
+            if r.tipo == "negativa" and not r.shown_unmet and (r.vertical, r.query) in flagged
+        ]
+    return quality
+
+
+def _detection(runs: list[QueryRun], predicted: list[bool]) -> dict:
+    actual = [r.tipo == "negativa" for r in runs]
     tp = sum(p and a for p, a in zip(predicted, actual, strict=True))
     fp = sum(p and not a for p, a in zip(predicted, actual, strict=True))
     fn = sum(a and not p for p, a in zip(predicted, actual, strict=True))
@@ -191,12 +240,11 @@ def unmet_quality(runs: list[QueryRun], taus: dict[str, float]) -> dict:
         "precision": round(tp / (tp + fp), 3) if tp + fp else None,
         "recall": round(tp / (tp + fn), 3) if tp + fn else None,
         "no_detectadas_detalle": [
-            f"{r.vertical}: {r.query}" for r, p, a in zip(hybrid, predicted, actual, strict=True) if a and not p
+            f"{r.vertical}: {r.query}" for r, p, a in zip(runs, predicted, actual, strict=True) if a and not p
         ],
         "falsas_alarmas_detalle": [
-            f"{r.vertical}: {r.query}" for r, p, a in zip(hybrid, predicted, actual, strict=True) if p and not a
+            f"{r.vertical}: {r.query}" for r, p, a in zip(runs, predicted, actual, strict=True) if p and not a
         ],
-        "negativas_detalle": negative_diagnosis(runs, taus),
     }
 
 
@@ -234,6 +282,13 @@ def render_markdown(
             "",
             f"`{ABLATION}`: el híbrido sin el refuerzo por concepto. El refuerzo reordena con la misma etiqueta con"
             " que se juzga la relevancia, así que esta fila es la medida justa de la fusión léxico + vector.",
+        ]
+    if SHOWN in summary:
+        lines += [
+            "",
+            f"`{SHOWN}`: lo que ve el usuario. Son los productos que devuelve `search_products` (/search y Bigotes):"
+            " sin sensibles no pedidos, enfocados en el concepto que detecta la consulta, con precio vigente y sin"
+            " repetidos. Si muestra menos de 10, P@10 y nDCG@10 bajan.",
         ]
     if comparisons:
         lines += [
@@ -287,16 +342,39 @@ def render_markdown(
         "Sin propuesta: el vertical no tiene negativas que dependan de τ (todas cortan por coincidencia léxica o por"
         " concepto nombrado), o ningún τ entre 0,70 y 0,95 las detecta con precisión ≥ 0,9. Un vertical sin propuesta,"
         " al guardar, conserva su τ vigente.",
+    ]
+    floor = [v for v in sorted(current) if current[v] <= min(TAU_CANDIDATES)]
+    if floor:
+        lines += [
+            "",
+            f"⚠ τ vigente en el piso de la grilla (0,70): {', '.join(floor)}. No viene de una calibración y con él la"
+            " regla del coseno casi nunca se dispara (los cosenos e5 rara vez bajan de 0,76). Hacen falta negativas"
+            " sin concepto nombrado en ese vertical para calibrarlo.",
+        ]
+    lines += [
         "",
         "Calidad medida con los τ guardados en eval/thresholds.json (propuestos, y vigentes donde no hay propuesta):"
         if saved
         else "Calidad medida con los τ vigentes (los propuestos no se guardaron):",
         "",
-        f"Negativas: {unmet['negativas']} · detectadas: {unmet['detectadas']}"
-        f" · falsas alarmas: {unmet['falsas_alarmas']} · precisión: {unmet['precision']} · recall: {unmet['recall']}",
+        _detection_line(unmet),
     ]
     if unmet["falsas_alarmas_detalle"]:
         lines.append(f"- Falsas alarmas: {', '.join(unmet['falsas_alarmas_detalle'])}")
+    if "mostrado" in unmet:
+        shown = unmet["mostrado"]
+        lines += [
+            "",
+            "Lo que registra Bigotes (`search_products`: la búsqueda marca «sin resultado» y no se muestra ningún"
+            " producto), con los τ vigentes al correr la evaluación:",
+            "",
+            _detection_line(shown),
+        ]
+        if shown["falsas_alarmas_detalle"]:
+            lines.append(f"- Falsas alarmas: {', '.join(shown['falsas_alarmas_detalle'])}")
+        if shown["marcadas_con_productos"]:
+            lost = ", ".join(shown["marcadas_con_productos"])
+            lines.append(f"- La búsqueda las marca, pero se muestran productos: {lost}")
     if unmet["negativas_detalle"]:
         lines += [
             "",
@@ -316,6 +394,14 @@ def render_markdown(
     return "\n".join(lines) + "\n"
 
 
+def _detection_line(quality: dict) -> str:
+    return (
+        f"Negativas: {quality['negativas']} · detectadas: {quality['detectadas']}"
+        f" · falsas alarmas: {quality['falsas_alarmas']} · precisión: {quality['precision']}"
+        f" · recall: {quality['recall']}"
+    )
+
+
 def negative_diagnosis(runs: list[QueryRun], taus: dict[str, float]) -> list[dict]:
     """Por cada negativa (modo híbrido): si «sin resultado» la detecta y qué lo decidió, con la misma regla que
     `_is_unmet`."""
@@ -327,6 +413,8 @@ def negative_diagnosis(runs: list[QueryRun], taus: dict[str, float]) -> list[dic
             cause = f"{n} {'coincidencia léxica estricta' if n == 1 else 'coincidencias léxicas estrictas'}"
         elif r.names_concept:
             cause = f"el concepto nombrado {'está' if r.concept_in_vertical else 'no está'} en el vertical"
+        elif not r.has_words:
+            cause = "sin palabras que buscar (solo stopwords)"
         elif r.max_cosine is None:
             cause = "sin coseno (sin embeddings)"
         else:
@@ -349,6 +437,8 @@ def _is_unmet(run: QueryRun, tau: float) -> bool:
         return False
     if run.names_concept:
         return not run.concept_in_vertical
+    if not run.has_words:
+        return False
     return run.max_cosine is None or run.max_cosine < tau
 
 

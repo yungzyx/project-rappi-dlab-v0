@@ -1,6 +1,9 @@
 import csv
+from collections import defaultdict
 
-from rappi_ia.concepts.store import CATEGORY_MAP_CSV, NO_CONCEPT
+import pytest
+
+from rappi_ia.concepts.store import CATEGORY_MAP_CSV, NO_CONCEPT, read_category_map_csv
 from rappi_ia.concepts.taxonomy import load_complements, load_taxonomy
 
 
@@ -38,6 +41,36 @@ def test_category_map_csv_uses_known_concepts():
     assert all(r["metodo"] in {"llm", "curado"} for r in rows)
 
 
+def test_category_map_csv_has_one_concept_per_key():
+    """La clave es el nombre en minúsculas: «Otros medicamentos» y «Otros Medicamentos» son la misma, y la última
+    fila pisaba en silencio la decisión del juez (productos de acuario quedaban como medicamentos)."""
+    concepts = defaultdict(set)
+    with CATEGORY_MAP_CSV.open(encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            concepts[(r["tipo"], r["nombre"].strip().lower())].add(r["concept_id"])
+    assert {key: sorted(ids) for key, ids in concepts.items() if len(ids) > 1} == {}
+
+
+def test_reading_a_category_map_with_conflicting_rows_fails(tmp_path):
+    path = tmp_path / "category_map.csv"
+    path.write_text(
+        "tipo,nombre,concept_id,confianza,metodo,revision,nota,productos\n"
+        "categoria,Otros medicamentos,accesorios-mascota,0.8,llm,juez,,3\n"
+        "categoria,Otros Medicamentos ,medicamentos,0.75,llm,juez,,1\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="otros medicamentos"):
+        read_category_map_csv(path)
+
+
 def test_hunger_occasion_is_always_restaurants():
     assert load_taxonomy().occasions["hambre"].vertical == "restaurantes"
     assert load_taxonomy().occasions["asado"].vertical is None  # las demás: el vertical con más surtido
+
+
+def test_prepared_flag_comes_from_the_concept_or_its_group():
+    """Lo que se pide hecho puede buscarse en restaurantes (agent/verticals.py); se declara en la taxonomía."""
+    concepts = load_taxonomy().concepts
+    assert concepts["hamburguesa"].prepared  # por su grupo, comida preparada
+    assert concepts["postres"].prepared and concepts["cafe"].prepared  # por el concepto
+    assert not concepts["chocolates"].prepared and not concepts["gaseosas"].prepared

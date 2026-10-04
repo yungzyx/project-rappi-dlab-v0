@@ -20,7 +20,7 @@ def _to_number(value: str | None) -> float | None:
         return None
 
 
-def _row_to_product(row: dict) -> dict:
+def _row_to_product(row: dict, category_ids: dict[str, int]) -> dict:
     """Fila del CSV -> producto con las claves crudas de Rappi que usa `repository.save_products`."""
     return {
         "product_id": row["sku"],
@@ -31,12 +31,14 @@ def _row_to_product(row: dict) -> dict:
         "quantity": _to_number(row.get("cantidad")),
         "unit_type": row.get("unidad"),
         "trademark": row.get("marca"),
+        "category_id": category_ids.get(row.get("categoria") or ""),
         "category_name": row.get("categoria"),
         "image_url": row.get("imagen_url"),
         "price": _to_number(row.get("precio")),
         "real_price": _to_number(row.get("precio_normal")),
         "pum": row.get("precio_por_unidad"),
         "in_stock": row.get("en_stock") == "True",
+        "_scraped_at": row.get("fecha_scraping") or None,
     }
 
 
@@ -49,6 +51,8 @@ def import_legacy_csv(conn: Connection, folder: Path) -> tuple[int, int]:
     for row in read_group_csvs(folder):
         by_store[int(row["store_id"])].append(row)
 
+    # El CSV trae el nombre de la categoría y no su id: se busca entre las que ya vio una descarga.
+    category_ids = dict(conn.execute("SELECT name, min(category_id) FROM categories GROUP BY name").fetchall())
     run_id = repository.start_run(conn, "legacy_csv", {"folder": str(folder)})
     total = 0
     for store_id, rows in by_store.items():
@@ -59,7 +63,7 @@ def import_legacy_csv(conn: Connection, folder: Path) -> tuple[int, int]:
                 {"store_id": store_id, "name": first["tienda"], "city": first["ciudad"], "address": first["direccion"]},
             )
             repository.upsert_store_vertical(conn, store_id, "supermercado")
-            total += repository.save_products(conn, run_id, store_id, [_row_to_product(r) for r in rows])
+            total += repository.save_products(conn, run_id, store_id, [_row_to_product(r, category_ids) for r in rows])
     repository.finish_run(conn, run_id)
     log.info("Importadas %d filas de %d tiendas (corrida %d)", total, len(by_store), run_id)
     return run_id, total

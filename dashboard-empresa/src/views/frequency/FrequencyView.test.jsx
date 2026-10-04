@@ -1,9 +1,10 @@
 import { fireEvent, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { renderWithData, resetApi, serveFixtures } from '../../test/fixtureApi.js'
 import { FrequencyView } from './FrequencyView.jsx'
 import { formatNumber } from '../../lib/format.js'
 import atRisk from '../../fixtures/at-risk.synthetic.json'
+import cohorts from '../../fixtures/cohorts.synthetic.json'
 
 describe('FrequencyView', () => {
   afterEach(resetApi)
@@ -27,11 +28,45 @@ describe('FrequencyView', () => {
     expect(within(table).getAllByRole('row')).toHaveLength(1 + atRisk.data.length)
   })
 
+  test('la semana que la API no calculó sale vacía y no en 0%', async () => {
+    // Hoy el corte de los datos guardados cae en domingo (27-09): la API deja fuera la semana del 21 al 27-09.
+    serveFixtures()
+    await renderWithData(<FrequencyView source="synthetic" />)
+
+    const card = await screen.findByRole('region', { name: 'Retención por cohorte semanal' })
+    fireEvent.click(within(card).getByRole('button', { name: 'Ver tabla' }))
+    const lastCohort = cohorts.data.at(-1).cohorte
+    const lastWeek = Math.max(...cohorts.data.filter((row) => row.cohorte === lastCohort).map((row) => row.semana))
+    const cells = within(within(card).getAllByRole('row').at(-1)).getAllByRole('cell')
+
+    // Columnas: cohorte, usuarios, S0, S1…
+    expect(cells[2 + lastWeek + 1].textContent).toBe('—')
+  })
+
   test('sin datos del prototipo muestra estados vacíos', async () => {
     serveFixtures()
     await renderWithData(<FrequencyView source="prototype" />)
 
     expect(await screen.findByText('Sin cohortes')).toBeTruthy()
     expect(await screen.findByText('Nadie en riesgo ni perdido')).toBeTruthy()
+  })
+
+  test('el titular del embudo cuenta cada sesión una vez, no la suma de las verticales', async () => {
+    // Con la sugerencia cruzada una sesión pasa por dos verticales: la API da la tasa por sesión.
+    serveFixtures()
+    const fixtures = globalThis.fetch
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const response = await fixtures(url)
+        if (!url.includes('/analytics/kpis')) return response
+        const body = await response.json()
+        return { ...response, json: async () => ({ ...body, data: { ...body.data, conversion_sesiones_pct: 61.2 } }) }
+      }),
+    )
+    await renderWithData(<FrequencyView source="synthetic" />)
+
+    const value = await screen.findByText('61,2%')
+    expect(value.closest('.headline').textContent).toMatch(/de las sesiones que buscan terminan en pedido/)
   })
 })

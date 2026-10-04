@@ -48,3 +48,26 @@ def test_closer_neighbors_weigh_more():
     sims = np.array([0.95] * 5 + [0.60] * 10, dtype=np.float32)
     concepts = np.array(["pizza"] * 5 + ["pastas"] * 10)
     assert _decide(None, ITEM, sims, concepts, MODEL).concept_id == "pizza"
+
+
+def test_a_rule_needs_strong_agreement_to_enter_a_sensitive_concept():
+    """«Hand Rolls» con 60 % de vecinos papelillos quedaba como accesorio para fumar (y oculto en la búsqueda)."""
+    dish = ItemText("menu_item", "1", "Hand Rolls Opc 1")
+    sushi = Assignment("menu_item", "1", "sushi", "regla", 0.7, None, "nombre:rolls")
+    majority = _neighbors(["accesorios-fumador"] * 9 + ["sushi"] * 6)
+    strong = _neighbors(["accesorios-fumador"] * 13 + ["sushi"] * 2)
+    assert _decide(sushi, dish, *majority, MODEL) == sushi
+    assert _decide(sushi, dish, *strong, MODEL).concept_id == "accesorios-fumador"
+
+
+def test_an_unassigned_item_still_enters_a_sensitive_concept_with_majority():
+    """Medicamentos sin categoría («Panadol (160 mg)») los encuentra el kNN con mayoría: sin concepto, la búsqueda
+    no los filtraría como sensibles."""
+    neighbors = _neighbors(["medicamentos"] * 9 + ["vitaminas"] * 6)
+    assert _decide(None, ITEM, *neighbors, MODEL).concept_id == "medicamentos"
+
+
+def test_a_sensitive_rule_moves_to_another_sensitive_concept_with_majority():
+    tobacco = _current("cigarrillos", "regla", 0.7)
+    decision = _decide(tobacco, ITEM, *_neighbors(["accesorios-fumador"] * 9 + ["cigarrillos"] * 6), MODEL)
+    assert decision.concept_id == "accesorios-fumador"
