@@ -113,15 +113,16 @@ export default function AssistantPanel({ push, vertical }) {
     ...extra,
   })
 
-  /** Registra la sugerencia cruzada mostrada (para el panel) y no la repite en la sesión. */
+  /**
+   * Registra la sugerencia cruzada mostrada (para el panel) y no la repite en la sesión. Como las demás, una vez por
+   * pestaña (firstShowing): AddButton registra la mostrada que falte al aceptarla y no debe contarse dos veces.
+   */
   const noteSuggestion = (message) => {
     if (!message.suggestion) return message
-    noteShownTopic(message.suggestion.concept)
-    events.track('suggestion_shown', {
-      concept_id: message.suggestion.concept,
-      vertical: message.suggestion.vertical,
-      payload: { origen: 'chat' },
-    })
+    const { concept, vertical } = message.suggestion
+    noteShownTopic(concept)
+    if (firstShowing({ concept, vertical, origin: 'chat', generation: profile.resets }))
+      events.track('suggestion_shown', { concept_id: concept, vertical, payload: { origen: 'chat' } })
     return message
   }
 

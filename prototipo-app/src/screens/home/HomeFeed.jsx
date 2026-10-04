@@ -51,7 +51,8 @@ export default function HomeFeed({ push }) {
       events.track('suggestion_shown', { concept_id: remote.concept, vertical: remote.vertical, payload: { origen: 'para-ti' } })
   }, [remote, events])
   // Sin fila de rappi-ia (sin API, nada aprendido o tras «Olvidar») queda la local, también marcada como sugerencia:
-  // cuenta como mostrada una vez por pestaña, por concepto y vertical. Mientras se espera la de rappi-ia, no.
+  // cuenta como mostrada una vez por pestaña, por concepto y vertical. Mientras se espera la de rappi-ia, no: lo que se
+  // acepte ahí lo registra AddButton.
   const localPairs =
     demo.isProposal && !remote && !pending
       ? [...new Set(picks.products.filter(conceptOf).map((item) => `${conceptOf(item)}|${item.vertical}`))].join(',')

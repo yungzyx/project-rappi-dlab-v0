@@ -1,4 +1,5 @@
 import { cartEventFields, conceptOf } from '../api/orders'
+import { firstShowing } from '../api/useRemoteForYou'
 import { productTags } from '../assistant/tags'
 import { useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
@@ -35,11 +36,12 @@ export default function AddButton({ product, className = '' }) {
     const key = `${profile.resets}|${concept}|${item.vertical}|${origin}`
     if (item.fromSuggestion && !accepted.has(key)) {
       accepted.add(key)
-      events.track('suggestion_accepted', {
-        concept_id: concept,
-        vertical: item.vertical,
-        payload: { origen: origin },
-      })
+      const fields = { concept_id: concept, vertical: item.vertical, payload: { origen: origin } }
+      // Lo aceptado siempre tiene su mostrada: la fila local de la Home no la registra mientras espera la de rappi-ia
+      // (es provisoria), pero su «+» ya funciona.
+      if (firstShowing({ concept, vertical: item.vertical, origin, generation: profile.resets }))
+        events.track('suggestion_shown', fields)
+      events.track('suggestion_accepted', fields)
     }
     // Dentro del chat Bigotes ya está recomendando: el aviso solo sale fuera.
     if (demo.isProposal && !assistant.isOpen) nudge.offer(item)

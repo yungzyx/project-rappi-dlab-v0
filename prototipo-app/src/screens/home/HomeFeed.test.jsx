@@ -124,4 +124,31 @@ describe('«Para ti» local en la Home (sin fila de rappi-ia)', () => {
       payload: { origen: 'para-ti' },
     })
   })
+
+  test('lo que se acepta de la fila local mientras llega la de rappi-ia queda con su mostrada', async () => {
+    // La espera dura el /health y el /recommendations (hasta 8 s), y el «+» de la fila local funciona igual.
+    let answer
+    api.health.mockResolvedValue({ voz: false })
+    api.recommendations.mockReturnValue(new Promise((resolve) => (answer = resolve)))
+    render(<HomeFeed push={() => {}} />, { wrapper: Providers })
+    await waitFor(() => expect(api.recommendations).toHaveBeenCalled())
+
+    fireEvent.click(within(forYouRow()).getAllByLabelText(/^Agregar /)[0])
+    answer({
+      rows: [
+        {
+          reason: 'Porque te interesa 🍺 cerveza',
+          concept: 'snacks-salados',
+          vertical: 'supermercado',
+          products: [{ id: 'cat-1', name: 'Papas Lays', price: '$1.990', store: 'Unimarc', vertical: 'supermercado' }],
+        },
+      ],
+    })
+    await waitFor(() => expect(screen.getByText('Papas Lays')).toBeTruthy())
+
+    const [accepted] = tracked('suggestion_accepted')
+    expect(accepted).toMatchObject({ payload: { origen: 'para-ti-local' } })
+    const shownLocal = tracked('suggestion_shown').filter((fields) => fields.payload.origen === 'para-ti-local')
+    expect(shownLocal.map(pair)).toEqual([pair(accepted)])
+  })
 })
