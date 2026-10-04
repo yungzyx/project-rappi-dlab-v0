@@ -47,16 +47,18 @@ def reopen_run(conn: Connection, run_id: int) -> None:
     conn.commit()
 
 
-def requeue_failed(conn: Connection, run_id: int, max_attempts: int, job_keys: list[str] | None = None) -> list[str]:
-    """Vuelve a `pending` los jobs fallidos con menos de `max_attempts` intentos.
+def requeue_failed(
+    conn: Connection, run_id: int, max_attempts: int | None, job_keys: list[str] | None = None
+) -> list[str]:
+    """Vuelve a `pending` los jobs fallidos con menos de `max_attempts` intentos (`None`: sin tope).
 
     Con `job_keys`, solo entre esos jobs. Devuelve las claves reencoladas.
     """
     rows = conn.execute(
         "UPDATE scrape_jobs SET status = 'pending', error = NULL, updated_at = now() "
-        "WHERE run_id = %s AND status = 'failed' AND attempts < %s "
+        "WHERE run_id = %s AND status = 'failed' AND (%s::int IS NULL OR attempts < %s) "
         "AND (%s::text[] IS NULL OR job_key = ANY(%s)) RETURNING job_key",
-        (run_id, max_attempts, job_keys, job_keys),
+        (run_id, max_attempts, max_attempts, job_keys, job_keys),
     ).fetchall()
     conn.commit()
     return [r[0] for r in rows]

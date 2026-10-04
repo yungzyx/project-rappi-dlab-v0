@@ -1,6 +1,11 @@
 """Reintentos de jobs y reporte de calidad de corridas, contra `rappi_test`."""
 
+from collections import Counter
+
+import pytest
+
 from conftest import FakeClient, load_page
+from rappi_scraper.pipeline.queue import PossibleBlock, process_with_retry
 from rappi_scraper.pipeline.stores import process_store_jobs
 from rappi_scraper.reporting import build_run_report, write_run_report
 from rappi_scraper.scraping.restaurant_parser import parse_restaurant
@@ -54,6 +59,45 @@ def test_transient_failure_is_retried_automatically(db):
     process_store_jobs(db, client, run, max_aisles=1)
 
     assert _status(db, "type:lider") == ("done", 2)
+
+
+BLOCKED = ("failed", None, "403 Client Error: Forbidden")
+
+
+def _job_states(db):
+    return dict(db.execute("SELECT status, count(*) FROM scrape_jobs GROUP BY 1").fetchall())
+
+
+def test_a_block_during_the_retry_pass_sends_the_streak_back_to_the_queue(db):
+    """Esos jobs ya llevaban un intento: con el tope de intentos quedaban 'failed' y nadie los volvía a tomar."""
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_job(f"type:{i:02}") for i in range(30)])
+    calls = Counter()
+
+    def handler(job):
+        calls[job["job_key"]] += 1
+        if calls[job["job_key"]] > 1:  # en la pasada de reintento rappi.cl ya bloquea todo
+            return BLOCKED
+        if int(job["job_key"][-2:]) % 2:  # en la primera pasada falla uno de cada dos (error transitorio)
+            return "failed", None, "HTTP 502"
+        return "done", {}, None
+
+    with pytest.raises(PossibleBlock):
+        process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), handler)
+
+    assert _job_states(db) == {"done": 15, "pending": 15}
+
+
+def test_a_block_two_weeks_in_a_row_leaves_the_jobs_pending(db):
+    """La corrida queda abierta y la semana siguiente se retoma: un segundo bloqueo tampoco los da por fallidos."""
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_job(f"type:{i:02}") for i in range(15)])
+
+    for _ in range(2):
+        with pytest.raises(PossibleBlock):
+            process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), lambda job: BLOCKED)
+
+    assert _job_states(db) == {"pending": 15}
 
 
 def test_failures_where_rappi_answered_do_not_stop_the_run(db):
