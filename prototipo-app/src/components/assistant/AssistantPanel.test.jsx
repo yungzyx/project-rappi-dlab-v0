@@ -414,6 +414,16 @@ describe('lo aprendido y Olvidar', () => {
     expect(screen.getByText('Olvidar')).toBeTruthy()
   })
 
+  test('tras Olvidar, el saludo personalizado se va y queda la confirmación', async () => {
+    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
+    await renderPanel()
+    expect(screen.getAllByText(/Vi que te gusta/).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByText('Olvidar'))
+    await runUntilIdle()
+    expect(document.querySelector('.assistant-messages').textContent).not.toMatch(/Vi que te gusta/)
+    expect(screen.getAllByText(/olvidé lo que aprendí de ti/).length).toBeGreaterThan(0)
+  })
+
   test('Olvidar espera la pregunta en curso y el lote de eventos antes del DELETE, y mientras no se envía nada', async () => {
     localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
     const pendingChat = deferred()
