@@ -20,32 +20,8 @@ from psycopg import Connection
 from ..concepts.assign import concept_matcher
 from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import load_taxonomy
-from ..text import normalize
+from ..text import ASSISTANT_WORDS, GREETING_WORDS, REQUEST_WORDS, THANKS_WORDS, normalize
 from .verticals import contending_verticals, ranked_verticals
-
-GREETING_WORDS = {"hola", "holi", "buenas", "buenos", "dias", "tardes", "noches", "hey", "wena", "alo", "ola"}
-THANKS_WORDS = {"gracias", "muchas", "vale", "listo", "ok", "okay", "perfecto", "genial", "bacan", "buenisimo"}
-ASSISTANT_WORDS = {"bigotes"}
-REQUEST_WORDS = {
-    "quiero",
-    "queria",
-    "busco",
-    "necesito",
-    "tienen",
-    "tienes",
-    "hay",
-    "dame",
-    "me",
-    "podrias",
-    "puedes",
-    "porfa",
-    "por",
-    "favor",
-    "un",
-    "una",
-    "unos",
-    "unas",
-}  # solo se quitan al inicio del mensaje
 
 # Menciones inequívocas de un vertical. Palabras sueltas como "mall", "super" o "express" son también marcas
 # ("Pall Mall", "Super 8", "Express Lider"): no cuentan.

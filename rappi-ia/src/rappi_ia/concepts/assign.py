@@ -11,11 +11,11 @@ salvo que el nombre calce un concepto sensible y la categoría no (un lubricante
 mascotas y juguetes (un analgésico veterinario sigue en mascotas).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cache
 
-from ..text import tokens
-from .matcher import KeywordMatcher
+from ..text import FILLER_WORDS, tokens
+from .matcher import KeywordMatcher, Match
 from .taxonomy import Concept, Taxonomy, keeps_sensitive, load_taxonomy
 
 MIN_MAP_CONFIDENCE = 0.6  # bajo esto, el mapeo de categoría se considera dudoso y se prueban las reglas
@@ -45,14 +45,48 @@ class Assignment:
     source: str
 
 
-def concept_matcher(taxonomy: Taxonomy, for_queries: bool = False) -> KeywordMatcher:
+def concept_matcher(taxonomy: Taxonomy, for_queries: bool = False) -> "KeywordMatcher | QueryMatcher":
     """`for_queries`: para entender consultas, no para asignar productos. Suma el nombre de los sensibles y sus
     `query_keywords`: «necesito medicamentos» pide medicamentos aunque «Dosificador de medicamentos» no sea uno."""
-    return KeywordMatcher(
+    entries = [
         (c.id, kw)
         for c in taxonomy.concepts.values()
         for kw in (*_name_keyword(c, for_queries), *c.keywords, *(c.query_keywords if for_queries else ()))
-    )
+    ]
+    if not for_queries:
+        return KeywordMatcher(entries)
+    alone = [(c.id, kw) for c in taxonomy.concepts.values() for kw in _query_only_words(c)]
+    return QueryMatcher(KeywordMatcher(e for e in entries if e not in alone), KeywordMatcher(alone))
+
+
+class QueryMatcher:
+    """Las palabras sueltas que solo sirven para pedir un sensible («medicamentos», «lubricante») cuentan solo si son
+    todo el pedido, sin contar saludo, cortesía ni verbos de pedido. Con otras palabras son un complemento
+    («pastillero para medicamentos», «lubricante wd-40») y el foco en el sensible ocultaba lo pedido."""
+
+    def __init__(self, matcher: KeywordMatcher, alone: KeywordMatcher):
+        self._matcher = matcher
+        self._alone = alone
+
+    def matches(self, text: str) -> list[Match]:
+        found = self._matcher.matches(text)
+        words = tokens(text)
+        content = [i for i, word in enumerate(words) if word not in FILLER_WORDS]
+        if found or len(content) != 1:
+            return found
+        match = self._alone.best(words[content[0]])
+        return [replace(match, position=content[0])] if match else []
+
+    def best(self, text: str) -> Match | None:
+        found = self.matches(text)
+        return found[0] if found else None
+
+
+def _query_only_words(concept: Concept) -> list[str]:
+    """Palabras sueltas que no asignan productos y sirven para pedirlo: el nombre de un sensible de una palabra y sus
+    `query_keywords` de una palabra («lubricante»; «lubricante ocular» es una frase y calza en cualquier parte)."""
+    name = [] if _name_keyword(concept, for_queries=False) else [concept.name]
+    return [kw for kw in (*name, *concept.query_keywords) if len(tokens(kw)) == 1]
 
 
 def _name_keyword(concept: Concept, for_queries: bool) -> tuple[str, ...]:

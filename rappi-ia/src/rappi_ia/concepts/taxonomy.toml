@@ -9,6 +9,7 @@
 #   Su nombre de una sola palabra («Medicamentos») tampoco asigna productos (concepts/assign.py).
 # - `query_keywords`: palabras que sirven para pedir el concepto en una consulta, pero que no asignan productos
 #   («lubricante» pide bienestar sexual; «Lubricante para lentes» no lo es). En las consultas también cuenta el nombre.
+#   Una palabra suelta de estas solo cuenta si es todo el pedido: «lubricante wd-40» no pide bienestar sexual.
 # - `age_restricted = true`: +18; la respuesta lleva el recordatorio.
 # - `prepared = true` (en el grupo o en el concepto): se pide hecho, así que también se busca en restaurantes.
 #   El resto nunca compite en restaurantes aunque sus locales lo tengan (gaseosas, papas fritas en combos).

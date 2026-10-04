@@ -469,6 +469,33 @@ def test_sensitive_concepts_are_found_when_asked_by_their_plain_name(pharmacy_bi
     assert "701" not in [p["entity_id"] for p in eyes["products"]]
 
 
+def test_words_that_only_ask_for_a_sensitive_concept_do_not_hide_what_was_asked(bigotes, monkeypatch):
+    """Con otras palabras, «lubricante» y «medicamentos» son un complemento: «lubricante wd-40» mostraba lubricantes
+    íntimos con el aviso +18 y «pastillero para medicamentos», analgésicos en vez de pastilleros."""
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    add_store(db, 12, "mall", "Ferretería")
+    for pid, name, store, category in [
+        (900, "Lubricante Multiuso WD-40 311 g", 12, "Aerosoles y pinturas"),
+        (901, "Bentley Gel Lubricante Íntimo Ice 60 ml", 12, "Lubricantes"),
+        (910, "Pastillero Semanal 7 Días", 11, "Otros Equipo y material médico"),
+        (911, "Paracetamol 500 mg 16 Comprimidos", 11, "Analgésicos sistémicos"),
+    ]:
+        add_product(db, pid, name, store, category)
+        add_price(db, store, pid, 3990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"mall": 0.0, "farmacia": 0.0})  # sin «sin resultado»
+
+    oil = agent.reply(db, "lubricante wd-40", Context(vertical="mall"))
+    assert [p["entity_id"] for p in oil["products"]] == ["900"] and not oil["age_notice"]
+    assert "bienestar-sexual" not in oil["intent"]["concepts"]
+    pills = agent.reply(db, "pastillero para medicamentos", Context(vertical="farmacia"))
+    assert [p["entity_id"] for p in pills["products"]] == ["910"]
+
+
 def test_hunger_includes_roast_and_fried_chicken(bigotes):
     """Los conceptos de la ocasión son el foco de la búsqueda: desde que el pollo asado o frito es `pollo-preparado`
     (y no `pollo`), «tengo hambre» lo descartaba."""

@@ -113,7 +113,9 @@ def test_sensitive_concepts_are_still_found_by_name(matcher, text, concept):
     [
         ("necesito medicamentos", "medicamentos"),
         ("un medicamento", "medicamentos"),
+        ("quiero medicamentos porfa", "medicamentos"),
         ("lubricante", "bienestar-sexual"),
+        ("tienen lubricante", "bienestar-sexual"),
         ("lubricante ocular", "medicamentos"),
     ],
 )
@@ -123,6 +125,27 @@ def test_queries_ask_for_sensitive_concepts_with_words_that_do_not_assign_them(t
     «necesito medicamentos» mostraba vaselina y agua bidestilada."""
     assert Understander().understand(None, text, "farmacia").concepts[:1] == [concept]
     assert _query_concepts(text)[:1] == [concept]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "lubricante wd-40",
+        "aceite lubricante",
+        "lubricante para bisagras",
+        "lubricante para lentes de contacto",
+        "pastillero para medicamentos",
+        "dosificador de medicamentos",
+        "organizador de medicamentos",
+        "medicamento homeopático",
+    ],
+)
+def test_words_that_only_ask_for_a_sensitive_concept_count_only_on_their_own(text):
+    """«medicamentos» y «lubricante» piden el concepto cuando son todo el pedido. Con otras palabras son un complemento,
+    y el foco en el sensible ocultaba lo pedido: «lubricante wd-40» mostraba lubricantes íntimos con el aviso +18 y
+    «pastillero para medicamentos», analgésicos."""
+    assert not set(Understander().understand(None, text, "farmacia").concepts) & sensitive_concepts()
+    assert not set(_query_concepts(text)) & sensitive_concepts()
 
 
 def test_a_doubtful_sensitive_category_is_not_replaced_by_a_rule(matcher):
