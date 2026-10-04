@@ -128,7 +128,7 @@ body.figura #mapa-conceptos { margin: 0; border: 0; }
       <svg id="shared" viewBox="0 0 640 560" role="img" aria-label="Red de productos compartidos entre las ocho verticales"></svg>
       <aside class="panel" id="sharedPanel"></aside>
     </div>
-    <p class="note">Restaurantes no comparte productos con las tiendas: sus platos son propios de cada local. Se conecta con las demás verticales por concepto (siguiente mapa).</p>
+    <p class="note">Restaurantes no comparte productos con las tiendas: sus platos son propios de cada local. Se conecta con las demás verticales por concepto (siguiente mapa). Como en el panel, no se cuentan las tiendas con doble etiqueta (Lider, Express Lider y Unimarc salen en Súper y en Express): cada producto suyo contaría como compartido.</p>
     <details><summary>Ver como tabla</summary><div id="sharedTable"></div></details>
   </section>
 
@@ -280,7 +280,7 @@ document.getElementById('minItems').textContent = DATA.minItems;
   const svg = document.getElementById('concepts');
   const panel = document.getElementById('conceptPanel');
   const C = 500, R = 318, RV = 150, GAP = 2;
-  const total = (c) => Object.values(c.items).reduce((t, n) => t + n, 0);
+  const total = (c) => c.total; // productos distintos: uno que se vende en 3 verticales cuenta 1, no 3
   const concepts = [...DATA.concepts].sort((a, b) =>
     DATA.order.indexOf(a.home) - DATA.order.indexOf(b.home) || a.group.localeCompare(b.group) || total(b) - total(a));
   const homes = DATA.order.filter((v) => concepts.some((c) => c.home === v));

@@ -48,6 +48,59 @@ def test_collect_counts_products_shared_between_verticals(db):
     assert data["chains"] == [["Unimarc", ["supermercado", "conveniencia"], 2]]  # 2+ verticales, en orden del mapa
 
 
+def test_a_store_listed_in_two_verticals_does_not_make_its_products_shared(db, monkeypatch):
+    """Como el panel (v_cross_vertical_items_real): la doble etiqueta de Lider o Unimarc no cruza verticales."""
+    _catalog(db)
+    add_store(db, 8, "supermercado", "Lider")
+    db.execute("INSERT INTO store_verticals (store_id, vertical) VALUES (8, 'conveniencia')")
+    add_product(db, 104, "Arroz grado 1 Tucapel 1 kg", 8, "Arroz")  # solo en la tienda con doble etiqueta
+    db.execute("INSERT INTO store_products (store_id, sku, master_product_id) VALUES (8, 'b8', 100)")
+    db.commit()
+    monkeypatch.setattr(multivertical, "BRIDGE_MIN_VERTICALS", 3)
+    data = multivertical.collect(db)
+
+    assert {(a, b): n for a, b, n in data["shared"]} == {
+        ("conveniencia", "licores"): 1,
+        ("conveniencia", "supermercado"): 1,
+        ("licores", "supermercado"): 1,
+    }
+    assert dict(data["spread"]) == {1: 3, 3: 1}  # el arroz no cuenta como «en 2 verticales»
+    assert data["products"]["supermercado"] == 2  # cerveza y papas, de la tienda 1
+    assert data["bridges"] == [["Cerveza Escudo Lata 470 cc", ["supermercado", "conveniencia", "licores"], 3]]
+
+
+def test_a_chain_is_one_row_whatever_its_case_and_counts_each_branch_once(db):
+    _catalog(db)
+    add_store(db, 10, "supermercado", "Cadena")
+    add_store(db, 11, "supermercado", "Cadena")
+    db.execute("INSERT INTO store_verticals (store_id, vertical) VALUES (11, 'conveniencia')")  # doble etiqueta
+    add_store(db, 12, "farmacia", " CADENA ")
+    db.commit()
+    data = multivertical.collect(db)
+
+    assert data["chains"][0] == ["Cadena", ["supermercado", "conveniencia", "farmacia"], 3]  # 3 sucursales, no 4
+    assert [name for name, *_ in data["chains"]] == ["Cadena", "Unimarc"]
+
+
+def test_products_without_master_id_are_not_a_product(db):
+    _catalog(db)
+    for store in (1, 2):  # store_products sin master_product_id en Súper y en Licores
+        db.execute("INSERT INTO store_products (store_id, sku) VALUES (%s, 'sin-master')", (store,))
+    db.commit()
+    data = multivertical.collect(db)
+
+    assert dict(data["spread"]) == {1: 3, 3: 1}
+    assert data["products"]["supermercado"] == 2 and data["products"]["licores"] == 2
+
+
+def test_concept_total_counts_a_product_once_whatever_its_verticals(db):
+    _catalog(db)
+    beer = next(c for c in multivertical.collect(db)["concepts"] if c["id"] == "cerveza")
+
+    assert beer["items"] == {"supermercado": 1, "licores": 2, "conveniencia": 1}
+    assert beer["total"] == 2  # Escudo (en 3 verticales) y Kunstmann: 2 productos, no 4
+
+
 def test_render_embeds_the_data_in_a_self_contained_page(db):
     _catalog(db)
     page = multivertical.render(multivertical.collect(db))

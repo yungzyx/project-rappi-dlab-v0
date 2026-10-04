@@ -30,8 +30,13 @@ MIN_ITEMS = 20  # una línea concepto → vertical necesita al menos estos produ
 BRIDGE_MIN_VERTICALS = 5
 TOP = 12
 
-_PRODUCT_VERTICALS = """SELECT DISTINCT sp.master_product_id, sv.vertical FROM store_products sp
-                        JOIN store_verticals sv USING (store_id)"""
+# Solo las tiendas de una vertical, como el panel (v_cross_vertical_items_real): con la doble etiqueta de Lider,
+# Express Lider y Unimarc, cada producto suyo contaría como vendido en Súper y en Express.
+_SINGLE_VERTICAL_STORES = """SELECT store_id, min(vertical) AS vertical FROM v_store_verticals
+                             GROUP BY store_id HAVING count(*) = 1"""
+_PRODUCT_VERTICALS = f"""SELECT DISTINCT sp.master_product_id, sv.vertical FROM store_products sp
+                         JOIN ({_SINGLE_VERTICAL_STORES}) sv USING (store_id)
+                         WHERE sp.master_product_id IS NOT NULL"""
 
 
 def collect(conn: Connection) -> dict:
@@ -53,6 +58,8 @@ def collect(conn: Connection) -> dict:
         "SELECT concept_id, vertical, items FROM concept_assortment WHERE items > 0"
     ):
         items_by_concept.setdefault(cid, {})[vertical] = items
+    # `items` cuenta cada producto una vez por vertical; el total del concepto lo cuenta una sola vez.
+    totals = dict(conn.execute("SELECT concept_id, count(*) FROM item_concepts GROUP BY 1").fetchall())
     homes = typical_verticals(conn)
     concepts = []
     for cid, name, emoji, parent, sensitive in conn.execute(
@@ -71,24 +78,29 @@ def collect(conn: Connection) -> dict:
                 "sensitive": sensitive,
                 "home": home,
                 "items": items,
+                "total": totals.get(cid, 0),
             }
         )
     complements = conn.execute(
         "SELECT from_concept, to_concept, weight FROM concept_edges WHERE method = 'curado' ORDER BY 1, 2"
     ).fetchall()
     bridges = conn.execute(
-        """SELECT ci.name, array_agg(DISTINCT sv.vertical), count(DISTINCT sp.store_id)
-           FROM catalog_items ci
-           JOIN store_products sp USING (master_product_id)
-           JOIN store_verticals sv USING (store_id)
-           GROUP BY ci.master_product_id, ci.name HAVING count(DISTINCT sv.vertical) >= %s
-           ORDER BY count(DISTINCT sv.vertical) DESC, count(DISTINCT sp.store_id) DESC, ci.name LIMIT %s""",
+        f"""SELECT ci.name, array_agg(DISTINCT sv.vertical), count(DISTINCT sp.store_id)
+            FROM catalog_items ci
+            JOIN store_products sp USING (master_product_id)
+            JOIN ({_SINGLE_VERTICAL_STORES}) sv USING (store_id)
+            GROUP BY ci.master_product_id, ci.name HAVING count(DISTINCT sv.vertical) >= %s
+            ORDER BY count(DISTINCT sv.vertical) DESC, count(DISTINCT sp.store_id) DESC, ci.name LIMIT %s""",
         (BRIDGE_MIN_VERTICALS, TOP),
     ).fetchall()
+    # Una cadena es su nombre sin importar mayúsculas (Unimarc y UNIMARC), con el nombre que más usan sus sucursales;
+    # cada sucursal cuenta una vez aunque esté en dos verticales.
     chains = conn.execute(
-        """SELECT trim(s.name), array_agg(DISTINCT sv.vertical), count(*) FROM stores s
+        """SELECT mode() WITHIN GROUP (ORDER BY trim(s.name)), array_agg(DISTINCT sv.vertical),
+                  count(DISTINCT s.store_id)
+           FROM stores s
            JOIN store_verticals sv USING (store_id) WHERE trim(s.name) <> ''
-           GROUP BY 1 HAVING count(DISTINCT sv.vertical) >= 2
+           GROUP BY lower(trim(s.name)) HAVING count(DISTINCT sv.vertical) >= 2
            ORDER BY count(DISTINCT sv.vertical) DESC, 3 DESC, 1 LIMIT %s""",
         (TOP,),
     ).fetchall()
