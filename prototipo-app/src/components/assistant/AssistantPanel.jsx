@@ -4,7 +4,7 @@ import { forYou, greeting, photoReply, reply, suggestions, ASSISTANT_NAME, VOICE
 import { TAGS } from '../../assistant/tags'
 import { useDemo } from '../../state/DemoContext'
 import { clearShownTopics, noteShownTopic, sessionId, shownTopics, useEvents, userId } from '../../state/EventsContext'
-import { findStore } from '../../data/catalog'
+import { storeFor } from '../../data/catalog'
 import { useAssistant } from '../../state/AssistantContext'
 import { useDialog } from '../../hooks/useDialog'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
@@ -473,7 +473,12 @@ export default function AssistantPanel({ push, vertical }) {
             onStreamDone={() => markStreamed(message.id)}
             onOpenProduct={(product) =>
               go('store', {
-                store: findStore(product.store) ?? { name: product.store, img: product.img, eta: product.eta },
+                // Un plato real abre su sucursal (por id): otras pueden tener el mismo nombre.
+                store: storeFor({ id: product.storeId, name: product.store }) ?? {
+                  name: product.store,
+                  img: product.img,
+                  eta: product.eta,
+                },
                 item: product,
               })
             }

@@ -27,6 +27,7 @@ function toDish(item, store) {
     before: hasDiscount ? formatPrice(Math.round(item.realPrice)) : undefined,
     discount: hasDiscount ? `-${Math.round(item.discount)}%` : undefined,
     store: store.name,
+    storeId: store.id, // el nombre recortado lo comparten las sucursales; el id dice cuál es
     storeLogo: store.img,
     eta: store.eta,
     etaIcon: 'bolt',
