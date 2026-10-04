@@ -521,6 +521,11 @@ def test_a_symptom_without_remedies_for_it_gets_the_painkillers(remedies_bigotes
         ids = [p["entity_id"] for p in r["products"]]
         assert r["vertical"] == "farmacia" and {"800", "801"} <= set(ids) and "803" not in ids, text
         assert "me siento mal" not in r["text"].lower() and "químico farmacéutico" not in r["text"], text
+    # Con los analgésicos genéricos lo dice: no aparenta que son para la tos.
+    assert agent.reply(db, "tengo tos", Context())["text"].startswith(
+        "No encontré algo específico para eso en Farmacia"
+    )
+    assert not agent.reply(db, "tengo fiebre", Context())["text"].startswith("No encontré")
 
 
 def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):

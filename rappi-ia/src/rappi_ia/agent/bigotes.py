@@ -16,7 +16,7 @@ from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
-from .compose import AGE_NOTICE, Draft, TemplateComposer
+from .compose import AGE_NOTICE, Draft, TemplateComposer, notices
 from .tools import (
     VERTICAL_LABELS,
     Suggestion,
@@ -70,6 +70,7 @@ class Bigotes:
             return self._service(conn, intent, ctx)
         vertical = intent.vertical or ctx.vertical or "supermercado"
         outcome = None
+        generic_remedies = False
         # Un síntoma sin producto ni vertical nombrados: remedios de farmacia (sin receta) para eso, o los analgésicos
         # si nada nombra el síntoma («me siento mal»). Sin farmacia, lo de siempre para cuidarse (sopas, jugos, té).
         if intent.symptom and not intent.explicit_concepts and not intent.explicit_vertical:
@@ -80,6 +81,7 @@ class Bigotes:
                     intent = replace(
                         intent, vertical="farmacia", concepts=["medicamentos"], kind="buscar", occasion=None
                     )
+                    generic_remedies = query == GENERAL_REMEDIES
                     break
         if outcome is None:
             outcome = search_products(
@@ -110,6 +112,9 @@ class Bigotes:
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
         also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical)
         text = self.composer.compose(draft)
+        if generic_remedies:  # la muestra del catálogo no tiene algo para ese síntoma: no aparentar que sí
+            text = "No encontré algo específico para eso en Farmacia. Estos son los analgésicos que hay."
+            text += "".join(f" {n}" for n in notices(draft))
         response = self._response(
             intent, vertical, text, products, suggestion, unmet, outcome.result.unmet_reason, draft
         )
