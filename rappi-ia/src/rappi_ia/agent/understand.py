@@ -51,6 +51,8 @@ SYMPTOMS = [
     "enferma",
     "me siento mal",
     "remedio",
+    "acidez",
+    "garganta",
 ]
 
 # Un concepto en restaurantes y en otra tienda es ambiguo si, entre las dos verticales que compiten, la de menor
@@ -93,7 +95,7 @@ class Intent:
     explicit_vertical: bool = False
     explicit_concepts: bool = False  # los conceptos se nombraron (no vienen solo de la ocasión)
     query: str = ""  # consulta limpia para buscar y para repetirle al usuario
-    symptom: bool = False  # habló de síntomas: aviso de farmacia, nunca medicamentos sugeridos
+    symptom: bool = False  # habló de síntomas: remedios de farmacia sin receta, sin venta cruzada
 
 
 class Understander:

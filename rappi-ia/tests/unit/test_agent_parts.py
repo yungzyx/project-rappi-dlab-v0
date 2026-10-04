@@ -184,7 +184,7 @@ def test_brand_words_do_not_switch_vertical():
     assert (mention.vertical, mention.explicit_vertical) == ("supermercado", True)
 
 
-def test_symptoms_flag_pharmacy_notice_and_never_map_to_medicines():
+def test_symptoms_alone_do_not_name_medicines():
     intent = Understander().understand(None, "tengo fiebre y dolor de cabeza", "supermercado")
     assert intent.symptom and "medicamentos" not in intent.concepts
     assert "medicamentos" not in Understander().understand(None, "me siento enfermo", "supermercado").concepts
@@ -192,7 +192,7 @@ def test_symptoms_flag_pharmacy_notice_and_never_map_to_medicines():
 
 def test_symptoms_starting_with_me_are_detected():
     """«me» es palabra de pedido y se quitaba al inicio antes de buscar síntomas y ocasiones: «me siento mal» y
-    «me duele la cabeza» no activaban el aviso de farmacia (regla 6d) y buscaban «duele la cabeza»."""
+    «me duele la cabeza» no contaban como síntoma y buscaban «duele la cabeza»."""
     u = Understander()
     for text in ["me siento mal", "me duele la cabeza", "Me duele la guata"]:
         intent = u.understand(None, text, "supermercado")
@@ -203,7 +203,7 @@ def test_symptoms_starting_with_me_are_detected():
 def test_feeling_unwell_is_a_symptom_even_after_another_occasion():
     """«malestar» y «cuidarme» son de la ocasión «Me siento mal», pero solo contaban como síntoma si esa ocasión era la
     mejor, y a igual largo gana la que va primero: «un tecito para el malestar» (once) o «después del carrete tengo
-    malestar» permitían Licores, venta cruzada y «También en», y no llevaban el aviso de farmacia."""
+    malestar» permitían Licores, venta cruzada y «También en»."""
     u = Understander()
     for text in [
         "un tecito para el malestar",

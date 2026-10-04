@@ -23,7 +23,7 @@ cd dashboard-empresa && npm run dev  # http://localhost:5175
 | 1 | `una hamburguesa` | Hamburguesas de restaurantes y, aparte, **«De Licores · ¿Te tinca sumar bebidas gaseosas? Porque llevas 🍔 hamburguesa»** con su botón «Ver más en Licores». | La búsqueda no se mezcla: responde en su vertical. Lo de otra vertical va aparte, una sola vez y con su razón a la vista. |
 | 2 | `vino tinto` | Vinos de Licores, quesos del súper y la fila **«También en»**: Express, Súper y Turbo con el logo y el nombre de tiendas reales. | El mismo concepto existe en varias verticales: hoy cada una lo muestra por separado. |
 | 3 | `algo para el carrete` | Va directo a Licores sin preguntar y sugiere desde Express. | Entiende ocasiones, no solo productos. |
-| 4 | `tengo fiebre` | Productos para cuidarse, el aviso de consultar a un químico farmacéutico y ningún medicamento sugerido. | Lo sensible nunca se ofrece por iniciativa propia. |
+| 4 | `tengo fiebre` | Remedios de Farmacia para la fiebre (sin receta), sin venta cruzada. | Entiende la necesidad y lleva a la vertical que la resuelve; lo que pide receta nunca se ofrece. |
 | 5 | Agrega al carro un producto de la sugerencia (paso 1) y paga. | El pedido se confirma. | — |
 | 6 | En el panel: **Entre verticales**, fuente Prototipo. Si el panel ya estaba ahí, toca **Actualizar** (junto a la fecha de corte). | «Bigotes entre verticales»: suben las mostradas, aceptadas y convertidas. | Cada sugerencia queda medida: se ve si se acepta y si termina en compra. |
 | 7 | En el panel, fuente **Simulados**: Resumen y Oportunidades. | Las decisiones de la semana y lo que la gente pide y no encuentra. | Con datos simulados: muestra la mecánica, no resultados. Con datos de Rappi se mide de verdad. |

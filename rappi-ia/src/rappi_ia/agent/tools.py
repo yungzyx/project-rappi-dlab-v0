@@ -117,6 +117,24 @@ def search_products(
     return SearchOutcome(result, products, cheapest)
 
 
+MIN_REMEDIES = 2  # con menos, lo que calza el síntoma suele ser casualidad (un laxante para «me siento mal»)
+
+
+def search_remedies(
+    conn: Connection, query: str, embedder: TextEmbedder | None, price_max: float | None = None, k: int = 6
+) -> SearchOutcome:
+    """Remedios de farmacia para un síntoma: medicamentos sin receta cuyo texto nombra lo que se dijo (búsqueda por
+    palabras, no solo cercanía vectorial). Con menos de MIN_REMEDIES no devuelve ninguno."""
+    result = retrieve(conn, "farmacia", query, embedder, k=k * 2, filters=Filters(price_max), concepts=["medicamentos"])
+    hits = [
+        h
+        for h in result.hits
+        if h.concept_id == "medicamentos" and not h.metadata.get("receta") and "lexico" in h.ranks
+    ]
+    products = _dedupe(_within_budget(_with_prices(conn, "farmacia", hits), price_max))[:k]
+    return SearchOutcome(result, products if len(products) >= MIN_REMEDIES else [])
+
+
 def suggest_complement(
     conn: Connection,
     source_concepts: list[str],

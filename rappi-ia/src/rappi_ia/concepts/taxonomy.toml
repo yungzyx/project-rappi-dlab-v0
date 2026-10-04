@@ -1003,7 +1003,7 @@ id = "enfermo"
 name = "Me siento mal"
 emoji = "🤒"
 keywords = ["enfermo", "enferma", "me siento mal", "me duele", "resfriado", "gripe", "dolor", "fiebre", "malestar", "cuidarme"]
-concepts = ["sopas", "jugos", "te", "frutas"]  # nunca medicamentos: no se sugieren por síntomas
+concepts = ["sopas", "jugos", "te", "frutas"]  # sin farmacia; con farmacia, Bigotes busca remedios (agent/bigotes.py)
 
 [[occasion]]
 id = "once"
