@@ -91,9 +91,11 @@ GROUP_VERTICALS = {
     "libreria": "mall",
 }
 _UNITS = r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u|personas?|porciones|cm|mts?|metros?)"
+_DECIMAL = r"\d+[.,]\d{1,2}(?=\s*(?:mil|lucas|k)\b)"  # «1,5 lucas»: decimales solo con mil/lucas/k
 PRICE = re.compile(
     r"(?:bajo|menos de|hasta|maximo|max|no mas de|por menos de|que cueste menos de)\s*"
-    r"(\$)?\s*(\d{1,3}(?:[.\s]\d{3})+|\d+)\s*(mil|lucas|k)?\b(?!\s*" + _UNITS + r"\b)"
+    r"(\$)?\s*(" + _DECIMAL + r"|\d{1,3}(?:[.\s]\d{3})+|\d+)\s*(mil|lucas|k)?\b"
+    r"(?:\s*(?:pesos|clp)\b)?(?!\s*" + _UNITS + r"\b)"
 )
 
 
@@ -194,12 +196,13 @@ def _simplify(text: str) -> str:
 
 
 def _price(text: str) -> tuple[float | None, str]:
-    """Tope de precio y el texto sin esa frase. "hasta 5 kilos" o "2 litros" no son precios; "bajo 5" tampoco:
-    se exige $, "mil"/"lucas"/"k" o al menos 3 dígitos."""
+    """Tope de precio y el texto sin esa frase (con su "pesos" o "clp"). "hasta 5 kilos" o "2 litros" no son
+    precios; "bajo 5" tampoco: se exige $, "mil"/"lucas"/"k" o al menos 3 dígitos. "1,5 lucas" son $1.500."""
     simple = _simplify(text)
     for match in PRICE.finditer(simple):
         currency, digits, thousands = match.groups()
-        value = float(re.sub(r"[.\s]", "", digits))
+        decimal = thousands and re.fullmatch(r"\d+[.,]\d{1,2}", digits)
+        value = float(digits.replace(",", ".")) if decimal else float(re.sub(r"[.\s]", "", digits))
         if not (currency or thousands or value >= 100):
             continue
         return (value * 1000 if thousands else value), simple[: match.start()] + simple[match.end() :]

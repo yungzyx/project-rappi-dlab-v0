@@ -107,6 +107,29 @@ def test_price_parsing_ignores_units_and_small_numbers():
     assert "3 mil" not in _price("cerveza bajo 3 mil")[1]  # la frase de precio sale de la consulta
 
 
+@pytest.mark.parametrize(
+    "text, value, rest",
+    [
+        ("vino bajo 1,5 lucas", 1500, ["vino"]),
+        ("vino bajo 2.5 lucas", 2500, ["vino"]),
+        ("snacks hasta 1,5k", 1500, ["snacks"]),
+        ("completo por menos de 1000 pesos", 1000, ["completo"]),
+        ("cerveza bajo 5 mil pesos", 5000, ["cerveza"]),
+        ("pisco hasta $8.000 clp", 8000, ["pisco"]),
+    ],
+)
+def test_price_parsing_accepts_decimal_thousands_and_drops_the_currency_word(text, value, rest):
+    """«1,5 lucas» no se entendía (el tope se ignoraba sin aviso y la consulta quedaba con «1 5 lucas») y «pesos»
+    quedaba en la consulta: «Mira estas opciones de «completo pesos»»."""
+    price, without = _price(text)
+    assert price == value and without.split() == rest
+
+
+def test_price_parsing_still_ignores_decimal_units():
+    assert _price("cerveza bajo 4.5 grados")[0] is None
+    assert _price("bebida hasta 1,5 litros")[0] is None
+
+
 def test_clean_query_drops_greeting_and_request_words():
     assert _clean("hola bigotes quiero sushi") == "sushi"
     assert _clean("buenas tardes tienen kombucha") == "kombucha"
