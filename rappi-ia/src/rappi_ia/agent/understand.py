@@ -199,10 +199,13 @@ def _price(text: str) -> tuple[float | None, str]:
 
 
 def _clean(body: str) -> str:
-    """Quita saludo, nombre del asistente y verbos de pedido al inicio: "hola bigotes quiero sushi" → "sushi"."""
+    """Quita saludo, nombre del asistente y verbos de pedido al inicio, y la cortesía al final:
+    "hola bigotes quiero sushi porfa" → "sushi"."""
     words = body.split()
     while words and words[0] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | REQUEST_WORDS:
         words = words[1:]
+    while words and words[-1] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | {"porfa", "por", "favor"}:
+        words = words[:-1]
     return " ".join(words)
 
 

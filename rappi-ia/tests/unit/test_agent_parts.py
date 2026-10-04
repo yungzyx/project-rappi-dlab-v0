@@ -160,6 +160,14 @@ def test_clean_query_drops_greeting_and_request_words():
     assert _clean("buenas tardes tienen kombucha") == "kombucha"
 
 
+def test_clean_query_drops_courtesy_at_the_end():
+    """«quiero té porfa» buscaba «te porfa»: sin concepto, la búsqueda vectorial traía pasteles y porotos."""
+    assert _clean("quiero te porfa") == "te"
+    assert _clean("te por favor") == "te"
+    assert _clean("una pizza gracias bigotes") == "pizza"
+    assert _clean("pan para una") == "pan para una"  # solo cortesía: un artículo al final no se toca
+
+
 def test_greeting_and_thanks_combos_are_not_searches():
     u = Understander()
     for text in ["hola buenas", "hola, buenas tardes", "hola bigotes"]:
