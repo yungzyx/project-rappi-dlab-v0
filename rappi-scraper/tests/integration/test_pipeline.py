@@ -45,6 +45,30 @@ def test_store_job_falls_back_to_next_branch_and_skips_same_brand(db):
     assert db.execute("SELECT vertical FROM store_verticals WHERE store_id = 900025946").fetchone() == ("supermercado",)
 
 
+def test_store_seen_only_in_filters_moves_to_turbo_once_its_page_says_so(db):
+    """Sin store_type en el listado no se sabe si es Turbo: lo dice recién su página (store_type y sub_group)."""
+    lider = "/tiendas/900025946-lider"
+
+    class TurboPage(FakeClient):
+        def get_next_data(self, path):
+            data = super().get_next_data(path)
+            if path == lider:
+                data["props"]["pageProps"]["storeContext"].update(store_type="turbo_x", sub_group="Turbo")
+            return data
+
+    # Lo que deja el descubrimiento: la tienda sin formato, en el vertical del listado y con su filtro.
+    repository.upsert_store(db, {"store_id": 900025946, "name": "Lider", "store_type": "", "path": lider})
+    repository.upsert_store_vertical(db, 900025946, "supermercado", "", "", ["Té & Café"])
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("id:900025946", lider)])
+
+    process_store_jobs(db, TurboPage(), run, max_aisles=1)
+
+    assert _statuses(db) == {"id:900025946": "done"}
+    rows = db.execute("SELECT vertical, subvertical, filters FROM store_verticals WHERE store_id = 900025946")
+    assert rows.fetchall() == [("turbo", "Turbo", ["Té & Café"])]
+
+
 def test_store_job_fails_when_no_branch_available(db):
     run = repository.start_run(db, "stores", {})
     repository.add_jobs(db, run, [_store_job("type:x", "/tiendas/1-a", "/tiendas/2-b")])

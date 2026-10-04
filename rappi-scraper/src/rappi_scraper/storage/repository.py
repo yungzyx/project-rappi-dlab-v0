@@ -203,6 +203,16 @@ def upsert_store_vertical(
     )
 
 
+def move_store_vertical(conn: Connection, store_id: int, vertical: str, new_vertical: str) -> None:
+    """Pasa la fila de la tienda en `vertical` a `new_vertical`, con sus filtros (si ya la tenía, borra la otra)."""
+    conn.execute(
+        "UPDATE store_verticals SET vertical = %s WHERE store_id = %s AND vertical = %s "
+        "AND NOT EXISTS (SELECT 1 FROM store_verticals WHERE store_id = %s AND vertical = %s)",
+        (new_vertical, store_id, vertical, store_id, new_vertical),
+    )
+    conn.execute("DELETE FROM store_verticals WHERE store_id = %s AND vertical = %s", (store_id, vertical))
+
+
 def upsert_aisles(conn: Connection, store_id: int, aisles: list[dict]) -> None:
     """aisles: [{aisle_id, parent_aisle_id, name, friendly_url, product_count}]."""
     with conn.cursor() as cur:

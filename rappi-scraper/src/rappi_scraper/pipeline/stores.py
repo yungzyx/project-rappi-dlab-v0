@@ -9,6 +9,7 @@ from ..scraping.client import PAGE_ERRORS, RappiClient, StoreUnavailable
 from ..scraping.next_data import ParseError
 from ..scraping.store_parser import parse_aisles, parse_products, parse_store, parse_sub_aisles
 from ..storage import repository
+from .discover import canonical_vertical
 from .queue import GONE_MID_CRAWL, NO_BRANCH_AVAILABLE, process_with_retry
 
 log = logging.getLogger(__name__)
@@ -74,10 +75,16 @@ def crawl_store(client: RappiClient, store_data: dict, max_aisles: int | None = 
 
 def save_crawl(conn: Connection, run_id: int, crawl: dict, verticals: list[str]) -> int:
     store = crawl["store"]
+    # Una tienda que solo salió en filtros llega sin store_type: recién su página dice si es Turbo, y la fila que
+    # dejó el descubrimiento en el vertical del listado pasa a Turbo.
+    page = {"store_type": store["store_type"], "subvertical": store["sub_group"]}
     with conn.transaction():
         repository.upsert_store(conn, store, raw=crawl["context"])
         for vertical in verticals:
-            repository.upsert_store_vertical(conn, store["store_id"], vertical, store.get("sub_group") or "")
+            canonical = canonical_vertical(vertical, page)
+            if canonical != vertical:
+                repository.move_store_vertical(conn, store["store_id"], vertical, canonical)
+            repository.upsert_store_vertical(conn, store["store_id"], canonical, store.get("sub_group") or "")
         repository.upsert_aisles(conn, store["store_id"], crawl["aisles"])
         return repository.save_products(conn, run_id, store["store_id"], crawl["products"])
 
