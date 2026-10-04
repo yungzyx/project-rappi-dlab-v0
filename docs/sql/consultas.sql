@@ -16,7 +16,7 @@ SET default_transaction_read_only = on;
 -- Idea de SQL: LEFT JOIN + GROUP BY + COUNT(DISTINCT). Nota: hasta la migración 017 la vista v_vertical_summary tardaba más de 20 s (se cortaba por el timeout), así que el resumen se arma desde las tablas.
 -- Tiempo medido: ~464 ms
 -- ¿Qué tan grande es cada vertical? Tiendas, productos, marcas y categorías.
--- Nota: la vista v_vertical_summary trae un resumen parecido; tardaba más de 20 s y con la migración 017 unos 2 s
+-- Nota: la vista v_vertical_summary trae un resumen parecido; tardaba más de 20 s y con la migración 017 unos 6 s
 -- (una vista es una consulta guardada: se recalcula completa cada vez).
 -- Por eso aquí lo armamos directo desde las tablas.
 SELECT sv.vertical,
