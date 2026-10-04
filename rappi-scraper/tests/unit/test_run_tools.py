@@ -93,6 +93,27 @@ def test_refresh_command_exits_with_a_clear_message_on_a_block(monkeypatch):
     assert exit_info.value.code != 0
 
 
+def test_refresh_command_ends_normally_when_everything_worked(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: ([{"kind": "stores"}], False))
+    monkeypatch.setattr(cli, "render_markdown", lambda report: f"reporte de {report['kind']}")
+
+    cli.cmd_refresh(None, Namespace(no_backup=False))
+
+    assert "reporte de stores" in capsys.readouterr().out
+
+
+def test_refresh_command_exits_with_its_own_code_when_only_the_backup_failed(monkeypatch, capsys):
+    """refresh-semanal.sh distingue el código 3: anota «respaldo fallido» y sigue con la capa de IA."""
+    monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: ([{"kind": "stores"}], True))
+    monkeypatch.setattr(cli, "render_markdown", lambda report: f"reporte de {report['kind']}")
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.cmd_refresh(None, Namespace(no_backup=False))
+
+    assert exit_info.value.code == 3
+    assert "reporte de stores" in capsys.readouterr().out  # los reportes salen igual
+
+
 @pytest.mark.parametrize(
     ("command", "kind", "processor"),
     [

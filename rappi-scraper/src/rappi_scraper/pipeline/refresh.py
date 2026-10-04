@@ -63,8 +63,8 @@ def refresh(
     discover_restaurants: Discoverer,
     backup: Callable[[], Path] | None = None,
     reports_dir: Path = REPORTS_DIR,
-) -> list[dict]:
-    """Corre la actualización completa y devuelve los reportes (tiendas, restaurantes)."""
+) -> tuple[list[dict], bool]:
+    """Corre la actualización completa y devuelve los reportes (tiendas, restaurantes) y si falló el respaldo."""
     reports = []
     # Con restaurantes abiertos y tiendas cerradas, la actualización anterior se cortó después de terminar las tiendas
     # (apagado, corte de luz): se retoma en los restaurantes, sin volver a bajar tiendas.
@@ -78,12 +78,14 @@ def refresh(
     reports.append(finish_and_report(conn, run_id, "restaurants", reports_dir)[0])
 
     log.info("Documentos de búsqueda: %s", build_search_documents(conn))
+    backup_failed = False
     if backup is not None:
         try:
             backup()
         except Exception:  # los respaldos anteriores siguen intactos; la capa de IA igual tiene que correr
             log.exception("Respaldo fallido: se conservan los anteriores")
-    return reports
+            backup_failed = True
+    return reports, backup_failed
 
 
 def _scrape(conn: Connection, run_id: int, kind: str, process: Callable[[], None], reports_dir: Path) -> None:

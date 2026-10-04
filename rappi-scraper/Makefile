@@ -71,5 +71,7 @@ schedule-status:  ## Ver si la programación semanal está activa y cómo termin
 	@launchctl print gui/$$(id -u)/cl.rappi.refresh 2>/dev/null | grep -E "state =|runs =|last exit code" || echo "No programado en este Mac"
 	@echo "Últimas ejecuciones (data/logs/ultimo-estado.txt):"
 	@tail -n 5 data/logs/ultimo-estado.txt 2>/dev/null || echo "  ninguna todavía"
+	@echo "Respaldo más nuevo (data/backups/):"
+	@newest=$$(ls -t data/backups/rappi_*.dump 2>/dev/null | head -n 1); echo "  $${newest:-ninguno todavía}"
 	@echo "Final del log de la corrida (data/logs/launchd.err.log; ahí quedan también los errores):"
 	@tail -n 20 data/logs/launchd.err.log 2>/dev/null || echo "  sin log todavía"

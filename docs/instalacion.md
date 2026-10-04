@@ -106,7 +106,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 
 - **Qué corre:** `rappi-scraper/scripts/refresh-semanal.sh`.
   - Primero `rappi migrate` (las migraciones que haya traído un `git pull`) y `rappi refresh`: tiendas, restaurantes, búsqueda, reportes y respaldo en `data/backups/` (quedan los últimos 4).
-  - Si termina bien, `make post-refresh` de rappi-ia: purga (primero, para cumplir la retención aunque falle otro paso), conceptos, embeddings, evaluación, datos simulados y otra purga.
+  - Si termina bien (o solo falló el respaldo), `make post-refresh` de rappi-ia: purga (primero, para cumplir la retención aunque falle otro paso), conceptos, embeddings, evaluación, datos simulados y otra purga.
   - Nunca corren dos descargas a la vez: los comandos que descargan (y `make images`) comparten el candado `rappi-scraper/data/scraper.lock`, que el sistema suelta aunque el proceso muera. Además, la tarea semanal tiene su propio candado, que se borra aunque la corten con una señal (Ctrl-C, cerrar la terminal).
 - **τ:** la evaluación semanal no guarda τ, porque `thresholds.json` está en el repositorio. Para recalibrar: `make eval` a mano en `rappi-ia/` y commit.
 - **Dormido o apagado:** si a esa hora el equipo estaba **dormido**, la tarea corre al despertar; si estaba **apagado**, esa semana se salta. Por eso conviene:
@@ -118,6 +118,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
   - `exit=0`: terminó bien;
   - «omitida»: otra descarga estaba en curso;
   - «interrumpida»: la anterior se cortó (apagado, corte de luz) y se retoma en la etapa donde quedó, sin volver a bajar tiendas ya terminadas;
+  - «respaldo fallido»: la descarga y la capa de IA terminaron, pero no hay respaldo nuevo (se conservan los anteriores); el error está en `launchd.err.log`, y «Respaldo más nuevo» muestra de cuándo es el último;
   - un código distinto de 0: falló; el detalle está en `rappi-scraper/data/logs/launchd.err.log`.
 - **Posible bloqueo:** si 10 jobs seguidos fallan sin respuesta útil de rappi.cl (403, 429, red), la descarga se detiene, el reporte de la corrida lo marca con ⛔ y la corrida queda abierta: la próxima actualización la retoma. No hay que hacer nada salvo revisar el reporte. Si el ⛔ se repite semana tras semana con los mismos jobs, no es un bloqueo sino un error fijo de esos jobs (por ejemplo, rappi.cl cambió esas páginas): hay que revisar su error. Mientras tanto no se actualiza nada; después de unas semanas (4 intentos) esos jobs quedan fallidos y la corrida sigue.
 - **Reportes:** la salida completa queda en `rappi-scraper/data/logs/launchd.*.log` y el reporte de calidad en `rappi-scraper/data/reports/`.

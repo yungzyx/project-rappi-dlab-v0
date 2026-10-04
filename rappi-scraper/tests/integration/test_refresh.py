@@ -45,7 +45,7 @@ def test_refresh_resumes_open_runs_without_rediscovering(db, tmp_path):
     client = FakeClient({"/restaurantes/384": "restaurant"})
     backups = []
 
-    reports = refresh(
+    reports, backup_failed = refresh(
         db, client, _no_discovery, _no_discovery, backup=lambda: backups.append("ok"), reports_dir=tmp_path
     )
 
@@ -56,14 +56,14 @@ def test_refresh_resumes_open_runs_without_rediscovering(db, tmp_path):
         f"run_{restaurants_run}_restaurants.md",
     }
     assert db.execute("SELECT count(*) FROM search_documents").fetchone()[0] > 0
-    assert backups == ["ok"]
+    assert backups == ["ok"] and not backup_failed
 
 
 def test_refresh_starts_new_runs_and_discovers_when_none_open(db, tmp_path):
     store_calls, restaurant_calls = [], []
     client = FakeClient({"/restaurantes/384": "restaurant"})
 
-    reports = refresh(
+    reports, _ = refresh(
         db,
         client,
         _discoverer(STORE_JOB, store_calls),
@@ -117,12 +117,13 @@ def test_refresh_stops_on_a_block_and_leaves_the_run_open(db, tmp_path):
 
 
 def test_a_failed_backup_does_not_stop_the_weekly_update(db, tmp_path, caplog):
-    """Sin respaldo nuevo quedan los anteriores; la capa de IA (post-refresh) igual debe correr."""
+    """Sin respaldo nuevo quedan los anteriores; la capa de IA (post-refresh) igual debe correr. Pero el fallo se
+    informa: si solo quedara en el log, la tarea semanal anotaría «exit=0» semana tras semana."""
 
     def broken_backup():
         raise RuntimeError("pg_dump: disco lleno")
 
-    reports = refresh(
+    reports, backup_failed = refresh(
         db,
         FakeClient({"/restaurantes/384": "restaurant"}),
         _discoverer(STORE_JOB, []),
@@ -132,6 +133,8 @@ def test_a_failed_backup_does_not_stop_the_weekly_update(db, tmp_path, caplog):
     )
 
     assert [r["status"] for r in reports] == ["done", "done"]
+    assert db.execute("SELECT count(*) FROM search_documents").fetchone()[0] > 0
+    assert backup_failed
     assert "Respaldo fallido" in caplog.text
 
 
@@ -145,7 +148,7 @@ def test_an_interrupted_refresh_resumes_restaurants_without_scraping_stores_agai
     repository.add_jobs(db, restaurants_run, [RESTAURANT_JOB])
     client = FakeClient({"/restaurantes/384": "restaurant"})
 
-    reports = refresh(db, client, _no_discovery, _no_discovery, reports_dir=tmp_path)
+    reports, _ = refresh(db, client, _no_discovery, _no_discovery, reports_dir=tmp_path)
 
     assert [(r["kind"], r["run_id"], r["status"]) for r in reports] == [("restaurants", restaurants_run, "done")]
     assert client.requested == ["/restaurantes/384"]

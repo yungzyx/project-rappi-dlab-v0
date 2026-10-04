@@ -81,9 +81,9 @@ Una tienda se recorre así: portada → pasillos → sub-pasillos. Cuando algo f
 `rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4).
 
 - **Retomar:** si una actualización se cortó con las tiendas ya terminadas, retoma en los restaurantes sin volver a bajar tiendas.
-- **Respaldo:** se escribe a un `.part`, se valida con `pg_restore --list` y recién entonces rota. Si falla, se conservan los anteriores y la actualización sigue.
+- **Respaldo:** se escribe a un `.part`, se valida con `pg_restore --list` y recién entonces rota. Si falla, se conservan los anteriores y la actualización sigue, pero `rappi refresh` termina con código 3 (la tarea semanal lo anota como «respaldo fallido» y corre igual la capa de IA).
 - **Migraciones:** la tarea semanal aplica las pendientes (`rappi migrate`) antes de descargar, para que una migración que trajo un `git pull` no haga fallar la descarga al final.
-- **Capa de IA:** la tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si la descarga terminó bien y `../rappi-ia` está instalado, sigue con `make -C ../rappi-ia post-refresh` (purga, conceptos, embeddings, evaluación, datos simulados y otra purga).
+- **Capa de IA:** la tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si la descarga terminó bien (aunque haya fallado el respaldo) y `../rappi-ia` está instalado, sigue con `make -C ../rappi-ia post-refresh` (purga, conceptos, embeddings, evaluación, datos simulados y otra purga).
 
 ```bash
 make schedule          # instala la tarea en launchd (~/Library/LaunchAgents/cl.rappi.refresh.plist)
@@ -94,7 +94,7 @@ make unschedule        # quitarla
 - **Mac dormido o apagado:** si está dormido a esa hora, corre al despertar; si está apagado, esa semana se salta.
 - **Una sola a la vez:** los comandos que descargan (`discover`, `scrape-stores`, `scrape-restaurants`, `refresh`) y `rappi-ia embed-images` toman el mismo candado de archivo (`data/scraper.lock`, con `flock`: el sistema lo suelta aunque el proceso muera) y se niegan a empezar si otra descarga lo tiene. Además, un candado (`data/refresh-semanal.pid`) impide que corran dos actualizaciones semanales; se borra aunque la tarea se corte con Ctrl+C o una señal. Si hay otra descarga (`discover`, `scrape-*`, `refresh`), un `make post-refresh` o `embed-images` en curso, la tarea se omite y lo anota.
 - **Ubicación del proyecto:** debe estar fuera de Documentos, Escritorio y Descargas: macOS no deja que launchd lea esas carpetas (detalle en [docs/instalacion.md](../docs/instalacion.md)).
-- **Logs:** cada ejecución deja una línea en `data/logs/ultimo-estado.txt` (`exit=N`, «omitida» o «interrumpida»), que muestra `make schedule-status`; la salida de launchd queda en `data/logs/launchd.*.log`, y el log detallado y el reporte, como en cualquier corrida.
+- **Logs:** cada ejecución deja una línea en `data/logs/ultimo-estado.txt` (`exit=N`, «omitida», «interrumpida» o «respaldo fallido»), que muestra `make schedule-status` junto con el respaldo más nuevo; la salida de launchd queda en `data/logs/launchd.*.log`, y el log detallado y el reporte, como en cualquier corrida.
 - Programarla en **un solo** equipo.
 
 ## Objetivos del Makefile

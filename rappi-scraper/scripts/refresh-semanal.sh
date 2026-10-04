@@ -36,7 +36,14 @@ fi
 # Antes de descargar: una migración pendiente haría fallar el refresh al final (tras un día de descarga), y el
 # `migrate` de post-refresh nunca llegaría a correr.
 .venv/bin/rappi migrate
-caffeinate -i .venv/bin/rappi refresh
+# Código 3: todo terminó salvo el respaldo (quedan los anteriores). La capa de IA corre igual, pero queda anotado.
+refresh_rc=0
+caffeinate -i .venv/bin/rappi refresh || refresh_rc=$?
+if (( refresh_rc == 3 )); then
+  nota="respaldo fallido: se conservan los anteriores"
+elif (( refresh_rc != 0 )); then
+  exit $refresh_rc
+fi
 if [[ -x ../rappi-ia/.venv/bin/python ]]; then
   echo "$(date '+%F %T') refresh terminado: actualizando rappi-ia"
   caffeinate -i make -C ../rappi-ia post-refresh EVAL_ARGS=

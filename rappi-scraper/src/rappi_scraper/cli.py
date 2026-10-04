@@ -40,6 +40,8 @@ log = logging.getLogger("rappi_scraper")
 
 LOGS_DIR = config.DATA_DIR / "logs"
 LONG_COMMANDS = {"discover", "scrape-stores", "scrape-restaurants", "refresh"}  # log a archivo + Mac despierto
+# `refresh` terminó todo menos el respaldo: refresh-semanal.sh lo anota («respaldo fallido») y sigue con la capa de IA.
+BACKUP_FAILED_EXIT = 3
 
 
 def _run_id(conn, kind: str, args) -> int:
@@ -103,7 +105,7 @@ def _scrape_or_stop(conn, run_id: int, kind: str, process) -> None:
 def cmd_refresh(conn, args) -> None:
     client = RappiClient()
     try:
-        reports = refresh(
+        reports, backup_failed = refresh(
             conn,
             client,
             _store_discoverer(client, list(VERTICAL_LISTINGS)),
@@ -117,6 +119,8 @@ def cmd_refresh(conn, args) -> None:
         ) from exc
     for report in reports:
         print(render_markdown(report))
+    if backup_failed:
+        raise SystemExit(BACKUP_FAILED_EXIT)
 
 
 def cmd_backup(conn, args) -> None:
