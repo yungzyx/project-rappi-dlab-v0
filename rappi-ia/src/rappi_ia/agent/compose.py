@@ -36,6 +36,7 @@ class Draft:
     suggestion_label: str | None = None
     age_notice: bool = False
     interest_label: str | None = None
+    learns: bool = True  # en «Rappi hoy» no se aprende nada
     unmet: bool = False
 
 
@@ -62,6 +63,11 @@ class TemplateComposer:
             return (
                 "El horario, el tiempo y el costo de envío los ves en cada tienda antes de pagar, y la app te muestra "
                 "las que están abiertas cerca de ti 🛵. ¿Qué te gustaría pedir?"
+            )
+        if d.kind == "memoria" and not d.learns:
+            return (
+                "En «Rappi hoy» no aprendo de lo que buscas. En la propuesta recuerdo tus gustos por tema para "
+                "recomendarte mejor, y con «Olvidar» se borra todo 🔒."
             )
         if d.kind == "memoria":
             return (

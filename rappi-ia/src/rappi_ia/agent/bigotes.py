@@ -10,6 +10,7 @@ Reglas de conducta (docs/diseno-ia.md §4) que se aplican aquí, en código:
 7. En modo "Rappi hoy" no hay sugerencias cruzadas ni aprendizaje.
 """
 
+import re
 from dataclasses import dataclass, field, replace
 
 from psycopg import Connection
@@ -67,11 +68,12 @@ NOT_DETAIL = {
     *("pastilla", "pastillas", "capsulas", "comprimidos", "tabletas", "remedio", "remedios", "producto", "productos"),
     # para quién y medidas: los nombres lo dicen de otras formas («Men», «Kids», «FPS 50»)
     *("hombre", "hombres", "mujer", "mujeres", "adulto", "adultos", "nino", "ninos", "nina", "ninas", "factor"),
+    *("persona", "personas", "porcion", "porciones", "docena", "docenas"),
 }
 # Detalles que el nombre del producto dice de otra forma: «para celíacos» es «sin gluten».
 DETAIL_ALIASES = {
-    **dict.fromkeys(("celiaco", "celiaca", "celiacos", "celiacas"), ("gluten", "sin gluten")),
-    **dict.fromkeys(("diabetico", "diabetica", "diabeticos", "diabeticas"), ("azucar", "sin azúcar")),
+    **dict.fromkeys(("celiaco", "celiaca", "celiacos", "celiacas"), ("gluten", "sin gluten", True)),
+    **dict.fromkeys(("diabetico", "diabetica", "diabeticos", "diabeticas"), ("azucar", "sin azúcar", True)),
 }
 
 
@@ -85,6 +87,10 @@ class Bigotes:
         self._concept_words = {
             c.id: {w for kw in (c.name, *c.keywords, *c.query_keywords) for w in tokens(kw)}
             for c in self.taxonomy.concepts.values()
+        }
+        # «sin carne» es una forma de nombrar lo vegano: ese «sin» no excluye nada
+        self._concept_phrases = {
+            c.id: {normalize(kw) for kw in (*c.keywords, *c.query_keywords)} for c in self.taxonomy.concepts.values()
         }
 
     def reply(self, conn: Connection, message: str, ctx: Context | None = None) -> dict:
@@ -117,10 +123,12 @@ class Bigotes:
             return self._service(conn, intent, ctx)
         vertical = intent.vertical or ctx.vertical or "supermercado"
         # «vino» desde Farmacia: si la pantalla actual casi no tiene el concepto, se busca donde está y se dice.
-        missing = None
+        missing = None  # (vertical donde no está, qué, cuántos hay allí) para decirlo
         home = self._home_for(conn, intent, vertical) if vertical == ctx.vertical else None
         if home:
-            missing, vertical = (vertical, self.taxonomy.concepts[intent.concepts[0]].name.lower()), home
+            missing = (vertical, self.taxonomy.concepts[intent.concepts[0]].name.lower(), home[1])
+            vertical = home[0]
+        avoided = self._avoided(intent)
         outcome = None
         generic_remedies = False
         # Un síntoma sin producto ni vertical nombrados: remedios de farmacia (sin receta) para eso, o los analgésicos
@@ -147,7 +155,7 @@ class Bigotes:
                 intent.concepts,
                 self.embedder,
                 intent.price_max,
-                k=CHEAP_POOL if intent.cheapest or intent.priciest or intent.exclude_previous else 6,
+                k=CHEAP_POOL if intent.cheapest or intent.priciest or intent.exclude_previous or avoided else 6,
                 symptom=intent.symptom,
             )
         products = outcome.products
@@ -172,20 +180,32 @@ class Bigotes:
                 products = (products + [p for p in extra if p.id not in ids])[:6]
         # «helado de lúcuma»: si nada de lo mostrado dice «lúcuma», se busca entre más candidatos y, si aquí no hay,
         # en la vertical que lo tenga (salvo que se haya nombrado una).
+        # Con menos de MIN_SHOWN que lo digan se buscan más entre 24 candidatos; si aquí no hay ninguno, en la
+        # vertical que los tenga. Lo que lo dice va primero y, con «sin», solo eso (un vino común no es «sin alcohol»).
         detail = self._detail(intent) if intent.explicit_concepts and not intent.symptom and products else None
-        if detail and not any(detail[0] in normalize(p.name) for p in products):
-            found = self._with_detail(conn, intent, vertical, detail[0])
-            if found:
-                if found[0] != vertical:
-                    missing = (vertical, detail[1])
-                vertical, outcome, products = found
+        if detail:
+            says = [p for p in products if _names(p.name, detail[0], detail[2])]
+            found = self._with_detail(conn, intent, vertical, detail) if len(says[:6]) < MIN_SHOWN else None
+            if found and found[0] != vertical and not says:
+                missing = missing or (vertical, detail[1], 0)
+                vertical, outcome, says = found
+                products = says
+            elif found and found[0] == vertical and len(found[2]) > len(says):
+                outcome, says = found[1], found[2]
+            if says:
+                products = says if detail[2] else says + [p for p in products if p not in says]
+        if avoided:  # «sushi sin palta»: fuera lo que nombra la palta (salvo «sin palta»); nunca se muestra igual
+            products = [
+                p for p in products if not any(_names(p.name, w) and not _names(p.name, w, True) for w in avoided)
+            ]
         if intent.exclude_previous and ctx.previous:  # «de otra marca»: sin lo que ya se mostró
             seen = set(ctx.previous.get("product_ids") or [])
-            products = [p for p in products if p.entity_id not in seen][:6]
+            products = [p for p in products if p.entity_id not in seen]
         if intent.cheapest:  # «barato»: lo más barato de un grupo más amplio (sin precio, al final)
-            products = sorted(products, key=lambda p: (p.price_value is None, p.price_value or 0))[:6]
+            products = sorted(products, key=lambda p: (p.price_value is None, p.price_value or 0))
         elif intent.priciest:  # «uno más caro»: lo más caro primero
-            products = sorted(products, key=lambda p: (p.price_value is None, -(p.price_value or 0)))[:6]
+            products = sorted(products, key=lambda p: (p.price_value is None, -(p.price_value or 0)))
+        products = products[:6]
 
         suggestion = None
         # «Porque llevas X»: X está en la respuesta (en una ocasión, no cualquiera de sus conceptos). Con síntomas no
@@ -205,10 +225,7 @@ class Bigotes:
         also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical)
         text = self.composer.compose(draft)
         if missing and products:
-            text = (
-                f"En {VERTICAL_LABELS[missing[0]]} no hay «{missing[1]}», pero en {VERTICAL_LABELS[vertical]} sí. "
-                + text
-            )
+            text = _moved(missing[0], vertical, missing[1], missing[2]) + text
         if generic_remedies:  # la muestra del catálogo no tiene algo para ese síntoma: no aparentar que sí
             text = "No encontré algo específico para eso en Farmacia. Estos son los analgésicos que hay."
             text += "".join(f" {n}" for n in notices(draft))
@@ -313,7 +330,7 @@ class Bigotes:
     def _small_talk(self, intent: Intent, ctx: Context) -> dict:
         interest = self._top_interest(ctx.profile) if ctx.mode == "propuesta" else None
         label = self.taxonomy.concepts[interest].label.lower() if interest else None
-        text = self.composer.compose(Draft(kind=intent.kind, interest_label=label))
+        text = self.composer.compose(Draft(kind=intent.kind, interest_label=label, learns=ctx.mode == "propuesta"))
         response = _base(intent, text)
         if intent.kind == "ayuda":  # ejemplos que se pueden tocar: nadie empieza frente a un campo vacío
             response["actions"] = [
@@ -410,9 +427,9 @@ class Bigotes:
             v["prototype_vertical"] = PROTOTYPE_VERTICALS.get(v["vertical"])
         return {"concept": concept.id, "label": concept.label, "verticals": verticals}
 
-    def _home_for(self, conn: Connection, intent: Intent, vertical: str) -> str | None:
-        """La vertical donde buscar un concepto nombrado que `vertical` casi no tiene (menos de MIN_HOME_ITEMS), si
-        otra tiene al menos eso. Nunca si se nombró la vertical o se habla de síntomas."""
+    def _home_for(self, conn: Connection, intent: Intent, vertical: str) -> tuple[str, int] | None:
+        """(vertical, productos del concepto en `vertical`) donde buscar un concepto nombrado que `vertical` casi no
+        tiene (menos de MIN_HOME_ITEMS), si otra tiene al menos eso. Nunca si se nombró la vertical o en síntomas."""
         if not intent.explicit_concepts or intent.explicit_vertical or intent.symptom or intent.follow_up:
             return None
         concept = intent.concepts[0]
@@ -421,26 +438,45 @@ class Bigotes:
         )
         if items.get(vertical, 0) >= MIN_HOME_ITEMS:
             return None
-        return next((v for v in ranked_verticals(conn, [concept]) if items.get(v, 0) >= MIN_HOME_ITEMS), None)
+        home = next((v for v in ranked_verticals(conn, [concept]) if items.get(v, 0) >= MIN_HOME_ITEMS), None)
+        return (home, items.get(vertical, 0)) if home else None
 
-    def _detail(self, intent: Intent) -> tuple[str, str] | None:
-        """(raíz para buscar en el nombre, cómo decirlo) de la primera palabra del pedido que no es el concepto ni
-        relleno: «lúcuma» en «helado de lúcuma», «sin gluten» en «galletas para celíacos»."""
+    def _avoided(self, intent: Intent) -> list[str]:
+        """Lo que se pide «sin»: «palta» en «sushi sin palta». No cuenta si es parte del concepto («algo sin carne»
+        es vegano y su «carne vegetal» sirve)."""
+        if not intent.explicit_concepts or intent.symptom:
+            return []
+        phrases = {p for c in intent.concepts for p in self._concept_phrases.get(c, ())}
+        words = _query_words(intent.query)
+        return [
+            _stem(b)
+            for a, b in zip(words, words[1:], strict=False)
+            if a == "sin" and len(b) >= 3 and f"sin {b}" not in phrases
+        ]
+
+    def _detail(self, intent: Intent) -> tuple[str, str, bool] | None:
+        """(raíz, cómo decirlo, si se pide «sin») de la primera palabra del pedido que no es el concepto ni relleno:
+        «lúcuma» en «helado de lúcuma», «sin gluten» en «galletas para celíacos»."""
         concept_words = {w for c in intent.concepts for w in self._concept_words.get(c, ())}
+        phrases = {p for c in intent.concepts for p in self._concept_phrases.get(c, ())}
         said = {normalize(w): w.lower() for w in intent.text.split()}
-        words = tokens(intent.query)
+        words = _query_words(intent.query)
         for i, word in enumerate(words):
-            stem = word[:-1] if word.endswith("s") else word
+            stem = _stem(word)
             if word in DETAIL_ALIASES:
                 return DETAIL_ALIASES[word]
-            if len(word) >= 4 and word.isalpha() and not {word, stem} & (NOT_DETAIL | concept_words):
+            # tras «sin» cuenta aunque sea palabra del concepto («sandwich sin palta»), salvo «sin carne» en vegano
+            free_from = i > 0 and words[i - 1] == "sin" and f"sin {word}" not in phrases
+            known = set() if free_from else concept_words
+            if len(word) >= 4 and word.isalpha() and not {word, stem} & (NOT_DETAIL | known):
                 label = said.get(word, word).strip("¿?¡!.,")
-                return stem, f"sin {label}" if i and words[i - 1] == "sin" else label
+                return stem, f"sin {label}" if free_from else label, free_from
         return None
 
-    def _with_detail(self, conn: Connection, intent: Intent, vertical: str, stem: str):
-        """(vertical, resultado, productos) con `stem` en el nombre: entre más candidatos de esta vertical y, si no se
-        nombró una, en las que más productos del concepto lo tienen. None si no hay en ninguna."""
+    def _with_detail(self, conn: Connection, intent: Intent, vertical: str, detail: tuple[str, str, bool]):
+        """(vertical, resultado, productos) del concepto que dicen el detalle en el nombre: entre más candidatos de
+        esta vertical y, si no se nombró una, en las que más productos del concepto lo dicen. None si no hay."""
+        stem, _, free_from = detail
         candidates = [vertical]
         if not intent.explicit_vertical:
             candidates += [
@@ -450,9 +486,9 @@ class Bigotes:
                        JOIN item_concepts ic ON ic.entity_type = 'catalog_item'
                         AND ic.entity_id = ci.master_product_id::text
                        JOIN store_products sp USING (master_product_id) JOIN store_verticals sv USING (store_id)
-                       WHERE ic.concept_id = %s AND unaccent(lower(ci.name)) LIKE %s AND sv.vertical <> %s
+                       WHERE ic.concept_id = %s AND unaccent(lower(ci.name)) ~ %s AND sv.vertical <> %s
                        GROUP BY 1 ORDER BY count(DISTINCT ci.master_product_id) DESC LIMIT 2""",
-                    (intent.concepts[0], f"%{stem}%", vertical),
+                    (intent.concepts[0], _name_pattern(stem, free_from, sql=True), vertical),
                 )
             ]
         for candidate in candidates:
@@ -465,7 +501,8 @@ class Bigotes:
                 intent.price_max,
                 CHEAP_POOL,
             )
-            products = [p for p in outcome.products if stem in normalize(p.name)][:6]
+            products = [p for p in outcome.products if p.concept in intent.concepts and _names(p.name, stem, free_from)]
+            products = products[:6]
             if len(products) >= (1 if candidate == vertical else MIN_ELSEWHERE):
                 return candidate, outcome, products
         return None
@@ -503,3 +540,34 @@ def _label(occasion, concept) -> str | None:
     if occasion and occasion.id != "enfermo":  # «opciones de me siento mal 🤒» no nombra lo que se muestra
         return f"{occasion.name.lower()} {occasion.emoji}"
     return concept.label if concept else None
+
+
+def _stem(word: str) -> str:
+    """Singular aproximado: «champiñones» → «champinon», «tomates» → «tomate», «paltas» → «palta»."""
+    if word.endswith("es") and len(word) > 4 and word[-3] in "nrldzj":
+        return word[:-2]
+    return word[:-1] if word.endswith("s") and len(word) > 3 else word
+
+
+def _query_words(query: str) -> list[str]:
+    """Las palabras del pedido, sin el artículo tras «sin» («pizza sin las aceitunas»)."""
+    return tokens(re.sub(r"\bsin (?:el|la|los|las|un|una|unos|unas) ", "sin ", normalize(query)))
+
+
+def _name_pattern(stem: str, free_from: bool = False, sql: bool = False) -> str:
+    """La palabra entera con su plural («sal» no es «salmón»); con `free_from`, dicha como «sin», «libre de» o «0»."""
+    start, end = (r"\m", r"\M") if sql else (r"\b", r"\b")
+    lead = r"(?:sin|libre de|cero|0)\s+" if free_from else ""
+    return rf"{start}{lead}{stem}(?:es|s)?{end}"
+
+
+def _names(name: str, stem: str, free_from: bool = False) -> bool:
+    return re.search(_name_pattern(stem, free_from), normalize(name)) is not None
+
+
+def _moved(here: str, there: str, what: str, count: int = 0) -> str:
+    """«En X no hay…» solo si no hay ninguno; con unos pocos, «casi no hay»."""
+    here, there = VERTICAL_LABELS.get(here, here), VERTICAL_LABELS.get(there, there)
+    if count:
+        return f"En {here} casi no hay «{what}»; en {there} hay más. "
+    return f"En {here} no hay «{what}», pero en {there} sí. "

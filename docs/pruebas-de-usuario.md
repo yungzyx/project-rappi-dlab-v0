@@ -18,7 +18,13 @@ triste») o encargos («que me compren algo en una ferretería»). Este proceso 
    productos, como «completo»), intenciones en `agent/understand.py`.
 4. Cada fallo queda como test en `rappi-ia/tests/unit/test_user_phrases.py` (o en `test_bigotes.py` si necesita la
    base), escrito antes del arreglo.
-5. Repite la ronda completa (`make probar-chat` sin archivo corre todas) para ver que no se rompió lo anterior.
+5. Repite la ronda completa (`make probar-chat` sin archivo corre todas) para ver que no se rompió lo anterior, y
+   compárala con la corrida anterior: una frase vieja que cambia de vertical o de conceptos es una regresión hasta que
+   se demuestre lo contrario (así se pillaron «pastillas para dormir» saltando a Licores en la ronda 7 y «pañales talla
+   m» perdiendo la talla en la ronda 9).
+6. Un test que pasa sin el arreglo no prueba nada: desactiva el arreglo un momento y comprueba que falla (mutación).
+   Cuando la base de prueba no reproduce el fallo, simula la búsqueda real con `monkeypatch` (ver
+   `test_few_results_are_completed_with_the_concept`).
 
 ## Rondas hechas
 
@@ -33,6 +39,12 @@ triste») o encargos («que me compren algo en una ferretería»). Este proceso 
 | 7 | 04-10-2026 | 44 (3 conversaciones) | un detalle que no está en la vertical se busca donde sí está («pan sin gluten»: «En Express no hay "sin gluten", pero en el súper sí»), las personas no se buscan («de mi mamá» traía mamaderas), «la presión» es un tensiómetro y diabetes o colesterol son con receta, cigarro electrónico, almuerzo saludable, «no quiero cocinar», Nescafé se compra, Starbucks es restaurante |
 | 8 | 04-10-2026 | 36 (2 conversaciones) | la regla del detalle de la ronda 7 se pasaba («protector solar factor 50» y «desodorante para hombre» saltaban al súper por un producto): ahora pide 2 y no cuenta «hombre», «niños» ni «factor»; con menos de 3 resultados se completa con el concepto («unos puchos»), salvo si se nombró cadena o vertical; preguntas de privacidad («olvida lo que te dije» traía un dije), útiles escolares, bebida isotónica, «cabros chicos», «no me gustó ninguno» |
 | 9 | 04-10-2026 | 31 (2 conversaciones) | desde una vertical que casi no tiene lo pedido se va a la que sí y lo dice («vino» en Farmacia: «En Farmacia no hay "vino", pero en Licores sí»); «remedio para la tos» busca el síntoma y no la palabra «remedio»; letras estiradas («holaaaa»), risas, números solos y links; «farmasia»; la vertical nombrada no se busca («en el super…» traía comida para gatos Super); «entre 5 y 10 mil», «menos de mil»; «y para tomar?» |
+| 10 | 04-10-2026 | 35 (2 conversaciones) | ronda de convergencia (un día cualquiera: oficinista, mamá, estudiante, adulto mayor, fitness): casi todo ya respondía bien; «sushi sin palta» deja fuera lo que nombra la palta, «para llevar» es restaurante, noche de estudio como ocasión, «un energético», toallas húmedas, «ver una película» |
+
+Tras la ronda 10 los fallos que quedan son sobre todo de vocabulario o de la muestra del catálogo (no hay jarabes
+para la tos ni bolsas de basura; «Tempera 250ml» viene marcada +18). Las próximas rondas rinden más con perfiles
+nuevos o probando el flujo en el prototipo (botones, «También en», seguimientos de varios turnos) que con más frases
+sueltas.
 
 Límite conocido: la muestra pública del catálogo no tiene algunas cosas (jarabes para la tos, tofu, bolsas de basura).
 Ahí Bigotes lo dice o muestra lo más cercano; no se arregla con palabras.

@@ -1262,3 +1262,66 @@ def test_a_remedy_for_a_symptom_searches_the_symptom_not_the_word_remedy(remedie
     embed_search_documents(db, agent.embedder)
     r = agent.reply(db, "remedio para la fiebre", Context(vertical="supermercado"))
     assert r["vertical"] == "farmacia" and sorted(p["entity_id"] for p in r["products"]) == ["800", "801"]
+
+
+def test_without_x_leaves_out_what_names_x(bigotes):
+    """sushi → «sin palta» mostraba rolls con palta: el nombre que dice «palta» (y no «sin palta») queda fuera."""
+    agent, db = bigotes
+    for pid, name in [(530, "Roll palta salmón"), (531, "Roll sin palta queso"), (532, "Roll tempura queso")]:
+        add_dish(db, pid, name, 3, "Sushi", ["Sushi"])
+        db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, %s, 5990)", (pid,))
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    names = [p["name"] for p in agent.reply(db, "sushi sin palta", Context(vertical="restaurantes"))["products"]]
+    assert names and "Roll palta salmón" not in names and "Roll sin palta queso" in names
+
+
+def test_without_a_flavor_never_brings_that_flavor(ice_creams):
+    """«galletas sin frutilla» se iba a otra vertical a buscar galletas de frutilla, y si todo nombraba lo excluido
+    lo mostraba igual."""
+    agent, db = ice_creams
+    here = agent.reply(db, "helado sin lúcuma", Context(vertical="supermercado"))
+    assert here["vertical"] == "supermercado" and here["products"]
+    assert not any("cuma" in p["name"].lower() for p in here["products"])
+    only_that = agent.reply(db, "helado sin lúcuma", Context(vertical="turbo"))
+    assert not any("cuma" in p["name"].lower() for p in only_that["products"])
+    # «chocolate» es palabra de los helados («helado de chocolate»), pero tras «sin» igual se excluye
+    no_chocolate = agent.reply(db, "helado sin chocolate", Context(vertical="supermercado"))
+    assert not any("chocolate" in p["name"].lower() for p in no_chocolate["products"])
+    with_article = agent.reply(db, "helado sin la frutilla", Context(vertical="supermercado"))
+    assert not any("frutilla" in p["name"].lower() for p in with_article["products"])
+
+
+def test_a_detail_elsewhere_must_be_of_the_concept(ice_creams):
+    """«café de menta» desde Farmacia mostraba Mentos: lo que dice «menta» y no es café no cuenta."""
+    agent, db = ice_creams
+    for pid in (308, 309):
+        add_product(db, pid, f"Caramelos de menta {pid}", 4, "Caramelos")
+        add_price(db, 4, pid, 990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    r = agent.reply(db, "helado de menta", Context(vertical="supermercado"))
+    assert r["vertical"] == "supermercado" and all(p["concept"] == "helados" for p in r["products"])
+
+
+def test_the_memory_answer_is_true_in_rappi_hoy(bigotes):
+    agent, db = bigotes
+    assert "Recuerdo" not in agent.reply(db, "qué sabes de mí", Context(mode="actual"))["text"]
+
+
+def test_free_from_shows_only_what_says_so_even_when_cheap(ice_creams):
+    """«vino barato sin alcohol» encontraba los sin alcohol, pero el orden por precio ponía primero los comunes."""
+    agent, db = ice_creams
+    for pid in (310, 311):
+        add_product(db, pid, f"Helado sin azúcar frambuesa {pid}", 1, "Helados")
+        add_price(db, 1, pid, 9990)  # más caros que los comunes (3.990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    r = agent.reply(db, "helado barato sin azúcar", Context(vertical="supermercado"))
+    assert r["products"] and all("sin azúcar" in p["name"] for p in r["products"])

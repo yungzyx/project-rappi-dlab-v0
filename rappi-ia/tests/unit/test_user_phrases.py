@@ -356,3 +356,106 @@ def test_a_price_range_caps_at_its_top_and_mil_alone_is_a_thousand():
 
 def test_something_to_drink_is_drinks():
     assert U.understand(None, "algo para tomar", "supermercado").concepts[:1] == ["gaseosas"]
+
+
+# Ronda 10
+@pytest.mark.parametrize(
+    ("text", "concept"),
+    [
+        ("un energético", "energizantes"),
+        ("toallas húmedas", "panales"),
+    ],
+)
+def test_round_ten_words(text, concept):
+    assert U.understand(None, text, "supermercado").concepts[:1] == [concept]
+
+
+def test_studying_all_night_is_an_occasion_that_never_beats_what_is_named():
+    assert U.understand(None, "algo para estudiar toda la noche", None).occasion == "estudiar"
+    assert U.understand(None, "café pa estudiar toda la noche", "supermercado").concepts[:1] == ["cafe"]
+
+
+def test_watching_a_movie_is_a_night_in():
+    assert U.understand(None, "algo para ver una película", None).occasion == "panorama"
+
+
+def test_to_go_is_a_restaurant():
+    intent = U.understand(None, "un café con leche para llevar", None)
+    assert intent.vertical == "restaurantes" and intent.kind == "buscar"
+
+
+# Revisión de las rondas 5 a 10 (casos que las reglas nuevas resolvían mal)
+def test_a_no_answer_before_the_request_is_not_a_refusal():
+    assert U.understand(None, "no, quiero pizza", "restaurantes").concepts[:1] == ["pizza"]
+
+
+def test_less_of_something_is_not_refusing_it():
+    intent = U.understand(None, "yogurt con menos azúcar", "supermercado")
+    assert intent.concepts[:1] == ["lacteos"] and "azucar" in intent.query
+
+
+def test_a_refused_concept_never_comes_back_in_the_query():
+    assert "sushi" not in U.understand(None, "cualquier cosa menos sushi", None).query
+    assert U.understand(None, "no quiero cerveza", "licores").kind == "vacio"
+
+
+@pytest.mark.parametrize("text", ["algo menos caro", "vino no tan caro", "crema para la cara", "cara de cerdo"])
+def test_pricey_only_when_asked_for(text):
+    assert not U.understand(None, text, "supermercado").priciest
+
+
+def test_less_expensive_is_cheapest():
+    assert U.understand(None, "vino menos caro", "licores").cheapest
+
+
+def test_and_cheaper_keeps_the_previous_refinement():
+    previous = {"query": "panales huggies talla g", "concepts": ["panales"], "vertical": "farmacia"}
+    intent = U.understand(None, "y más barato?", "farmacia", previous=previous)
+    assert "huggies" in intent.query and "talla g" in intent.query and intent.cheapest
+
+
+def test_not_spicy_keeps_the_no():
+    previous = {"query": "salsa", "concepts": ["salsas"], "vertical": "supermercado"}
+    assert "no picante" in U.understand(None, "no picante", "supermercado", previous=previous).query
+
+
+@pytest.mark.parametrize(
+    ("text", "price", "kept"),
+    [
+        ("pizza grande 10 lucas", 10000, "grande"),
+        ("televisor de 4k", None, "4k"),
+        ("rompecabezas de 2 mil piezas", None, "piezas"),
+        ("entre 2 y 3 kilos de carne", None, "entre 2 y 3 kilos"),
+    ],
+)
+def test_prices_do_not_eat_sizes_or_quantities(text, price, kept):
+    intent = U.understand(None, text, "supermercado")
+    assert intent.price_max == price and kept in intent.query
+
+
+def test_stretching_does_not_break_links_sizes_or_fillers():
+    assert U.understand(None, "www.rappi.cl", "supermercado").kind == "vacio"
+    assert "xxxl" in U.understand(None, "polera talla xxxl", "mall").query
+    assert U.understand(None, "mmm quiero pizza", "restaurantes").query == "pizza"
+
+
+@pytest.mark.parametrize(
+    "text", ["lamina de privacidad para celular", "olvidate de la pizza, mejor sushi", "recargar mis datos"]
+)
+def test_memory_questions_are_phrases_not_words(text):
+    assert U.understand(None, text, "mall").kind != "memoria"
+
+
+def test_diabetes_supplies_are_products():
+    assert U.understand(None, "tiras reactivas para diabetes", "farmacia").kind == "buscar"
+
+
+def test_without_the_x_is_still_without():
+    assert "frutas" not in U.understand(None, "helado sin la frutilla", "supermercado").concepts
+
+
+def test_and_another_kind_replaces_the_previous_refinement():
+    """vino tinto → «uno más caro» → «y blanco?» volvía a mostrar tintos."""
+    previous = {"query": "vino tinto uno mas caro", "concepts": ["vino"], "vertical": "licores"}
+    intent = U.understand(None, "y blanco?", "licores", previous=previous)
+    assert "tinto" not in intent.query and "blanco" in intent.query
