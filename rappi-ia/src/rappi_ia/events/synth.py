@@ -22,6 +22,8 @@ from datetime import date, datetime, timedelta, timezone
 
 from psycopg import Connection
 
+from ..agent.verticals import ranked_verticals
+
 log = logging.getLogger(__name__)
 CHILE = timezone(timedelta(hours=-3))
 
@@ -149,6 +151,7 @@ class Catalog:
     items: dict[tuple[str, str], list[tuple[str, str, float]]]
     edges: dict[str, list[tuple[str, float]]]
     names: dict[str, str]
+    ranked: dict[str, list[str]]  # concepto sugerible → verticales en el orden de Bigotes (`ranked_verticals`)
 
     def pick(self, rng: random.Random, vertical: str, concept: str):
         options = self.items.get((vertical, concept))
@@ -189,7 +192,9 @@ def load_catalog(conn: Connection, per_concept: int = 40) -> Catalog:
     ):
         edges.setdefault(source, []).append((target, float(weight)))
     names = dict(conn.execute("SELECT concept_id, name FROM concepts").fetchall())
-    return Catalog(items, edges, names)
+    targets = {target for options in edges.values() for target, _ in options}
+    ranked = {target: ranked_verticals(conn, [target]) for target in targets}
+    return Catalog(items, edges, names, ranked)
 
 
 def generate(conn: Connection, users: int = 1500, weeks: int = 20, seed: int = 7, until: date | None = None) -> dict:
@@ -328,7 +333,7 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
         )
         lines.append((item, concept, False))
 
-    suggestion = _suggestion(rng, catalog, concept, vertical)
+    suggestion = _suggestion(catalog, concept, vertical)
     if suggestion:
         target, sug_vertical, weight = suggestion
         clock += timedelta(seconds=rng.randint(5, 30))
@@ -402,12 +407,13 @@ def _maybe_wish(rng, week: float):
     return None
 
 
-def _suggestion(rng, catalog: Catalog, concept: str, vertical: str):
-    """Complemento curado en OTRO vertical con ítems reales (como haría Bigotes)."""
+def _suggestion(catalog: Catalog, concept: str, vertical: str):
+    """Complemento curado en OTRO vertical con ítems reales: el primero en el orden de Bigotes (`ranked_verticals`,
+    donde el concepto es más típico y restaurantes solo para lo que se pide hecho), no uno al azar."""
     for target, weight in sorted(catalog.edges.get(concept, []), key=lambda e: -e[1]):
-        verticals = [v for (v, c) in catalog.items if c == target and v != vertical]
+        verticals = [v for v in catalog.ranked.get(target, []) if v != vertical and (v, target) in catalog.items]
         if verticals:
-            return target, rng.choice(verticals), weight
+            return target, verticals[0], weight
     return None
 
 

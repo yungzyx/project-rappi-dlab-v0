@@ -5,8 +5,9 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 from rappi_scraper.storage.search import build_search_documents
 
-from conftest import add_price, add_product, add_store
+from conftest import add_dish, add_price, add_product, add_store
 from rappi_ia.agent.tools import suggest_complement
+from rappi_ia.agent.verticals import ranked_verticals
 from rappi_ia.analytics import queries
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.concepts.store import seed_taxonomy
@@ -349,6 +350,43 @@ def test_funnel_is_monotonic_and_cohorts_are_percentages(simulated, monkeypatch)
     assert cohorts[0]["semana"] == 0 and cohorts[0]["retencion_pct"] == 100.0  # semana 0 = la del primer pedido
     first = [r["semana"] for r in cohorts if r["cohorte"] == cohorts[0]["cohorte"]]
     assert first == list(range(len(first)))  # semanas consecutivas: las de 0% también vienen
+
+
+def test_synthetic_suggestions_go_to_the_vertical_bigotes_would_choose(db):
+    """El generador sorteaba la vertical entre todas las que tienen 1 ítem del concepto: «Cerveza · Farmacia»
+    encabezaba la tabla de sugerencias. Ahora usa el orden de Bigotes (`ranked_verticals`)."""
+    for store_id, vertical in [(2, "licores"), (3, "conveniencia"), (4, "farmacia"), (5, "mall")]:
+        add_store(db, store_id, vertical, vertical.title())
+    add_store(db, 6, "restaurantes", "Pizzería")
+    rows = [(200 + i, f"Cerveza marca {i} lata 470 cc", 2, "Cervezas") for i in range(25)]
+    rows += [(300 + i, f"Cerveza marca {i} express", 3, "Cervezas") for i in range(5)]
+    rows += [(350 + i, f"Papas fritas marca {i} 180 g", 3, "Snacks salados") for i in range(5)]
+    rows += [(400, "Cerveza sin alcohol lata 350 cc", 4, "Cervezas")]
+    rows += [(500 + i, f"Cerveza artesanal de regalo {i}", 5, "Cervezas") for i in range(2)]
+    for pid, name, store, category in rows:
+        add_product(db, pid, name, store, category)
+        add_price(db, store, pid, 1990)
+    db.execute("INSERT INTO scrape_runs (run_id, kind, status) VALUES (999, 'restaurants', 'done')")
+    for item_id, name, section in [(600, "Pizza napolitana", "Pizzas"), (601, "Pizza pepperoni", "Pizzas")] + [
+        (610 + i, f"Cerveza Kunstmann schop {i}", "Bebidas") for i in range(3)
+    ]:
+        add_dish(db, item_id, name, 6, section)
+        db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, %s, 6990)", (item_id,))
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+
+    generate(db, users=150, weeks=20, seed=3, until=date(2026, 9, 27))
+
+    shown = dict(
+        db.execute(
+            """SELECT vertical, count(*) FROM app_events
+               WHERE type = 'suggestion_shown' AND concept_id = 'cerveza' GROUP BY 1"""
+        ).fetchall()
+    )
+    assert shown  # el escenario genera sugerencias de cerveza (desde snacks y pizza)
+    assert not set(shown) & {"farmacia", "mall", "restaurantes"}
+    assert max(shown, key=shown.get) == ranked_verticals(db, ["cerveza"])[0] == "licores"
 
 
 def test_at_risk_uses_pseudonyms_and_no_sensitive_concepts(simulated):
