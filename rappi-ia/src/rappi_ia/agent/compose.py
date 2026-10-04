@@ -22,7 +22,7 @@ AGE_NOTICE = "Recuerda: estos productos se venden solo a mayores de 18."
 class Draft:
     """Los hechos de la respuesta, ya decididos por el código."""
 
-    kind: str  # saludo | gracias | resultados | sin_resultado | sin_precio | aclarar | vacio
+    kind: str  # saludo | gracias | ayuda | envio | ofertas | resultados | sin_resultado | sin_precio | aclarar | vacio
     query: str = ""
     concept_label: str | None = None
     vertical_label: str | None = None
@@ -50,6 +50,19 @@ class TemplateComposer:
             return f"¡Hola! Soy Bigotes 😺.{extra} ¿Qué se te antoja hoy?"
         if d.kind == "gracias":
             return "¡De nada! Aquí estoy si necesitas algo más 😺"
+        if d.kind == "ayuda":
+            return (
+                "Soy Bigotes 😺, tu asistente en Rappi. Pídeme lo que necesites («pañales talla G», «algo para el "
+                "carrete», «tengo fiebre») y te muestro lo que hay, aunque esté en otra vertical. También te llevo a "
+                "RappiTravel o RappiFavor."
+            )
+        if d.kind == "envio":
+            return "El tiempo y el costo de envío los ves en cada tienda antes de pagar 🛵. ¿Qué te gustaría pedir?"
+        if d.kind == "ofertas":
+            return (
+                "Las ofertas del día están en la pestaña Ofertas del inicio 🔥. "
+                "Si me dices qué buscas, te muestro lo más barato."
+            )
         if d.kind == "vacio":
             return "Cuéntame qué buscas: un producto, un antojo o una ocasión (asado, carrete, once…)."
         if d.kind == "aclarar":

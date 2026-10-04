@@ -34,6 +34,33 @@ VERTICAL_MENTIONS = {
     "conveniencia": ["oxxo", "minimarket", "almacen de barrio"],
     "chocolateria": ["chocolateria"],
 }
+# Preguntas sobre la app, no búsquedas (se buscaba la frase literal: «quien eres» traía ajos). Normalizadas.
+APP_QUESTIONS = {
+    "ayuda": [
+        "ayuda",
+        "ayudame",
+        "quien eres",
+        "que eres",
+        "que puedes hacer",
+        "que haces",
+        "como funciona",
+        "como te uso",
+    ],
+    "envio": [
+        "hacen delivery",
+        "hay delivery",
+        "hacen despacho",
+        "cuanto se demora",
+        "cuanto demora",
+        "cuanto tarda",
+        "cuanto cuesta el envio",
+        "costo de envio",
+        "cuando llega",
+    ],
+    "ofertas": ["ofertas", "tienen ofertas", "hay ofertas", "descuentos", "promociones", "promos"],
+}
+CHEAP_WORDS = {"barato", "barata", "baratos", "baratas", "economico", "economica", "economicos", "economicas"}
+
 SYMPTOMS = [
     "fiebre",
     "resfrio",
@@ -84,7 +111,7 @@ PRICE = re.compile(
 
 @dataclass
 class Intent:
-    kind: str  # saludo | gracias | buscar | ocasion | aclarar | servicio | vacio
+    kind: str  # saludo | gracias | ayuda | envio | ofertas | buscar | ocasion | aclarar | servicio | vacio
     text: str
     vertical: str | None = None
     concepts: list[str] = field(default_factory=list)
@@ -97,6 +124,7 @@ class Intent:
     query: str = ""  # consulta limpia para buscar y para repetirle al usuario
     symptom: bool = False  # habló de síntomas: remedios de farmacia sin receta, sin venta cruzada
     service: str | None = None  # servicio sin catálogo (RappiTravel, RappiFavor)
+    cheapest: bool = False  # «barato»: lo más barato primero
 
 
 class Understander:
@@ -108,6 +136,7 @@ class Understander:
         self.verticals = KeywordMatcher((v, kw) for v, kws in VERTICAL_MENTIONS.items() for kw in kws)
         self.symptoms = KeywordMatcher(("sintoma", kw) for kw in SYMPTOMS)
         self.services = KeywordMatcher((s.id, kw) for s in taxonomy.services.values() for kw in s.keywords)
+        self.app_questions = KeywordMatcher((kind, kw) for kind, kws in APP_QUESTIONS.items() for kw in kws)
 
     def understand(self, conn: Connection, text: str, current_vertical: str | None = None) -> Intent:
         normalized = normalize(text)
@@ -134,6 +163,9 @@ class Understander:
         )
 
         explicit = bool(concepts)
+        question = None if explicit or occasion else self.app_questions.best(body or said)
+        if question:  # «hacen delivery?», «quien eres»: se contesta, no se busca
+            return Intent(question.target, text, current_vertical, confidence=1.0)
         # Un servicio sin catálogo, si no se nombra un producto («paquete de pañales» no es un envío) ni un síntoma.
         service = None if explicit or symptom else self.services.best(said)
         if service:
@@ -149,6 +181,7 @@ class Understander:
             explicit_concepts=explicit,
             query=body or normalized,
             symptom=symptom,
+            cheapest=bool(set(said.split()) & CHEAP_WORDS),
         )
 
         if mention:
