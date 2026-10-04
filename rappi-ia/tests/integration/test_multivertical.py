@@ -114,6 +114,9 @@ def test_render_embeds_the_data_in_a_self_contained_page(db):
     data = json.loads(re.search(r"const DATA = (\{.*?\});\n", page, re.S).group(1))
     assert data["catalogTotal"] == 4
     assert not re.search(r"""<(script|link)[^>]+(src|href)=["']https?://""", page)  # funciona sin internet
+    # El radio de cada concepto y la columna «Productos» usan su total de productos distintos, no la suma por vertical.
+    assert "const total = (c) => c.total;" in page
+    assert "Object.values(c.items).reduce" not in page
 
 
 def test_names_from_the_catalog_cannot_break_out_of_the_page(db, tmp_path):
