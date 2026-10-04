@@ -100,6 +100,30 @@ def test_a_block_two_weeks_in_a_row_leaves_the_jobs_pending(db):
     assert _job_states(db) == {"pending": 15}
 
 
+def test_a_streak_that_repeats_every_week_ends_up_failed_and_the_run_moves_on(db):
+    """Un error fijo (no un bloqueo) en 10 jobs seguidos arma la misma racha cada semana, porque la cola va por
+    job_key: sin tope, la corrida de tiendas quedaba detenida para siempre y los jobs sanos no corrían nunca."""
+    run = repository.start_run(db, "stores", {})
+    turbo = [_job(f"type:turbo_{i:02}") for i in range(10)]
+    repository.add_jobs(db, run, turbo + [_job(f"type:unimarc_{i}") for i in range(5)])
+
+    def handler(job):
+        if "turbo" in job["job_key"]:
+            return "failed", None, "ParseError: sin __NEXT_DATA__"
+        return "done", {}, None
+
+    blocked_weeks = 0
+    for _ in range(8):  # una actualización por semana, que retoma la corrida abierta
+        try:
+            process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), handler)
+            break
+        except PossibleBlock:
+            blocked_weeks += 1
+
+    assert _job_states(db) == {"failed": 10, "done": 5}
+    assert blocked_weeks == 4  # tres semanas de vuelta a la cola (cubren un bloqueo real) y la cuarta quedan 'failed'
+
+
 def test_failures_where_rappi_answered_do_not_stop_the_run(db):
     """«Ninguna sucursal disponible» es una respuesta de rappi.cl, no una señal de bloqueo."""
     path = "/tiendas/900025946-lider"
