@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { chat, chatPhoto, chatVoice, forget, health, profile as remoteProfile, toMessage } from '../../api/client'
+import { conceptOf } from '../../api/orders'
+import { firstShowing } from '../../api/useRemoteForYou'
 import { forYou, greeting, photoReply, reply, suggestions, ASSISTANT_NAME, VOICE_SAMPLES } from '../../assistant/brain'
 import { TAGS } from '../../assistant/tags'
 import { useDemo } from '../../state/DemoContext'
@@ -123,8 +125,26 @@ export default function AssistantPanel({ push, vertical }) {
     return message
   }
 
+  /**
+   * Lo que el cerebro local sugiere por iniciativa propia («Para ti» y el complemento, marcados como sugerencia) cuenta
+   * como mostrado una vez por pestaña, por concepto y vertical: los mismos que lleva su aceptación (AddButton).
+   */
+  const noteLocalSuggestions = (message) => {
+    const suggested = [...(message.products ?? []), ...(message.suggestion?.products ?? [])]
+    for (const product of suggested.filter((item) => item.fromSuggestion)) {
+      const concept = conceptOf(product)
+      if (concept && firstShowing({ concept, vertical: product.vertical, generation: profile.resets }))
+        events.track('suggestion_shown', {
+          concept_id: concept,
+          vertical: product.vertical,
+          payload: { origen: product.suggestionOrigin },
+        })
+    }
+    return message
+  }
+
   /** Respuesta de las reglas del prototipo: queda marcada en pantalla para que se sepa qué Bigotes contestó. */
-  const localReply = (message) => ({ ...message, source: 'local' })
+  const localReply = (message) => noteLocalSuggestions({ ...message, source: 'local' })
 
   /** Respuesta de la API; si no está o falla, el cerebro local de siempre. */
   const answer = async (text, askVertical) => {
@@ -308,13 +328,15 @@ export default function AssistantPanel({ push, vertical }) {
     const isFirst = messages.length === 0
     if (isFirst) {
       const picks = forYou(profile)
-      addMessage({
-        from: 'bot',
-        animate: true,
-        text: greeting(profile),
-        products: picks.products,
-        reason: picks.reason,
-      })
+      addMessage(
+        noteLocalSuggestions({
+          from: 'bot',
+          animate: true,
+          text: greeting(profile),
+          products: picks.products,
+          reason: picks.reason,
+        }),
+      )
     }
     if (session.mode === 'voice') later(listen, OPEN_MS, voiceTimers)
     if (session.query) later(() => send(session.query), OPEN_MS)
