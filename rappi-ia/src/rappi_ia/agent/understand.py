@@ -146,7 +146,9 @@ class Understander:
         concept_matches = self.concepts.matches(body)
         concepts = [m.target for m in concept_matches]
         mention = self._mention(body, concept_matches)
-        symptom = self.symptoms.best(said) is not None
+        # La ocasión «Me siento mal» cuenta como síntoma («malestar», «cuidarme»): sin Licores, sin «También en» ni
+        # venta cruzada, y con el aviso de farmacia.
+        symptom = self.symptoms.best(said) is not None or _id(occasion) == "enfermo"
 
         explicit = bool(concepts)
         if occasion and not concepts:
@@ -169,14 +171,13 @@ class Understander:
         if not concepts:
             return Intent(kind, text, None, [], **common)
 
-        sick = symptom or _id(occasion) == "enfermo"
         if not explicit:  # ocasión: su vertical fijo o el de más surtido para el conjunto de sus conceptos
             fixed = self.taxonomy.occasions[occasion.target].vertical
             if fixed:
                 return Intent(kind, text, fixed, concepts, **common)
-            options = _ranked(conn, concepts, sick)
+            options = _ranked(conn, concepts, symptom)
             return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
-        options = _ranked(conn, concepts[:1], sick)
+        options = _ranked(conn, concepts[:1], symptom)
         pair = [v for v in options[:2] if v in contending_verticals(conn, concepts[:1])]
         if len(pair) == 2 and "restaurantes" in pair and _comparable(conn, concepts[0], pair):
             return Intent("aclarar", text, None, concepts, options=pair, **common)

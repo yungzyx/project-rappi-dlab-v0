@@ -590,6 +590,8 @@ def test_other_verticals_are_ordered_by_how_much_offer_they_have(volume_bigotes,
 
 
 def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypatch):
+    """«malestar» y «cuidarme» son de la ocasión «Me siento mal» pero no de SYMPTOMS: sacaban Licores de la vertical,
+    y aun así mostraban «También en» (con Licores) y no el aviso de farmacia."""
     agent, db = volume_bigotes
     monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)
     add_store(db, 9, "conveniencia", "Express")
@@ -601,8 +603,10 @@ def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypa
     build_concepts(db)
 
     assert "also_in" in agent.reply(db, "jugo de naranja", Context(vertical="supermercado"))
-    sick = agent.reply(db, "tengo fiebre, quiero jugo", Context(vertical="supermercado"))
-    assert sick["products"] and "also_in" not in sick
+    for text in ["tengo fiebre, quiero jugo", "malestar", "algo para cuidarme"]:
+        sick = agent.reply(db, text, Context(vertical="supermercado"))
+        assert sick["products"] and "also_in" not in sick, text
+        assert "químico farmacéutico" in sick["text"], text
 
 
 # Ítems con concepto por vertical en la base real (03-10): restaurantes es unas 5 veces el súper.
