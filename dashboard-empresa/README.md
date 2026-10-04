@@ -57,7 +57,7 @@ La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://
 | `npm run fixtures` | Vuelve a guardar las respuestas de la API en `src/fixtures/` (correr tras `make synth` o una actualización del catálogo) |
 | `npm run screenshots` | Regenera `docs/screenshots/` con el Chrome instalado y un Vite propio en el 5198 |
 
-Tests: 80 (Vitest, 30-09-2026). CI en GitHub Actions: lint, tests y build.
+Tests: 90 (Vitest, 04-10-2026). CI en GitHub Actions: lint, tests y build.
 
 ## Vistas
 
