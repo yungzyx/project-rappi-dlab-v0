@@ -63,8 +63,13 @@ class Bigotes:
         products = outcome.products
 
         suggestion = None
-        if ctx.mode == "propuesta" and products:
-            sources = intent.concepts or [p.concept for p in products[:1] if p.concept]
+        # «Porque llevas X»: X está en la respuesta (en una ocasión, no cualquiera de sus conceptos). Con síntomas no
+        # hay venta cruzada, como tampoco «También en».
+        if ctx.mode == "propuesta" and products and not intent.symptom:
+            if intent.concepts:
+                sources = [c for c in dict.fromkeys(p.concept for p in products) if c in intent.concepts]
+            else:
+                sources = [p.concept for p in products[:1] if p.concept]
             exclude = set(ctx.shown_topics) | set(intent.concepts)
             suggestion = suggest_complement(conn, sources, vertical, self.embedder, exclude)
 

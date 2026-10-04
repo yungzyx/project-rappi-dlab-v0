@@ -293,6 +293,34 @@ def test_symptoms_starting_with_me_get_the_pharmacy_notice_and_no_painkillers(bi
     assert "710" not in [p["entity_id"] for p in r["products"]]
 
 
+def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none(bigotes):
+    """En una ocasión, el origen de la sugerencia salía de todos sus conceptos: «regalo para mi polola» mostraba solo
+    chocolates y decía «Porque llevas 🍷 vino». A quien tiene fiebre se le hacía venta cruzada («Porque llevas 🍎
+    frutas», sin frutas en la respuesta), aunque con síntomas ni siquiera se muestra «También en»."""
+    agent, db = bigotes
+    add_store(db, 10, "chocolateria", "Chocolatería")
+    for pid, name, store, category in [
+        (600, "Chocolate Sahne-Nuss 250 g", 10, "Chocolates"),
+        (620, "Queso Gouda Colún 250 g", 1, "Quesos"),
+        (621, "Café Nescafé Tradición 170 g", 1, "Café"),
+        (622, "Jugo Watts Naranja 1 L", 1, "Jugos"),
+        (623, "Leche Colún Entera 1 L", 1, "Leches"),
+    ]:
+        add_product(db, pid, name, store, category)
+        add_price(db, store, pid, 1990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    gift = agent.reply(db, "regalo para mi polola", Context(vertical="chocolateria"))
+    assert {p["concept"] for p in gift["products"]} == {"chocolates"}
+    assert gift["suggestion"]["reason"] == "Porque llevas 🍫 chocolates"
+
+    sick = agent.reply(db, "tengo fiebre", Context(vertical="supermercado"))
+    assert sick["products"] and "suggestion" not in sick and sick["reason"] is None
+
+
 def test_age_notice_covers_the_cross_suggestion(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "pizza", Context(vertical="restaurantes"))
