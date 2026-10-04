@@ -165,3 +165,44 @@ def test_without_a_previous_message_nothing_changes():
 
 def test_healthier_after_hunger_is_a_salad():
     assert _then("tengo hambre", "algo más sano").concepts[:1] == ["ensaladas-bowls"]
+
+
+# Ronda 5
+@pytest.mark.parametrize(("text", "concept"), [("🍕", "pizza"), ("quiero un 🍔", "hamburguesa"), ("🍺🍺", "cerveza")])
+def test_emojis_name_their_concept(text, concept):
+    assert U.understand(None, text, "supermercado").concepts[:1] == [concept]
+
+
+def test_voice_fillers_are_not_searched():
+    intent = U.understand(None, "eh quiero este una coca po", "supermercado")
+    assert intent.query == "coca" and intent.concepts[:1] == ["gaseosas"]
+
+
+@pytest.mark.parametrize(("text", "concept"), [("beer", "cerveza"), ("pastillas para dormir", "vitaminas")])
+def test_round_five_words(text, concept):
+    assert U.understand(None, text, "supermercado").concepts[:1] == [concept]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["como va a estar el clima", "cuéntame un chiste", "cuál es la capital de francia", "eres tonto", "te quiero"],
+)
+def test_off_topic_is_answered_not_logged_as_demand(text):
+    assert U.understand(None, text, "supermercado").kind == "fuera"
+
+
+@pytest.mark.parametrize("text", ["farmacia de turno", "algo abierto ahora", "cerca de mí"])
+def test_opening_hours_and_location_are_app_questions(text):
+    assert U.understand(None, text, "supermercado").kind == "envio"
+
+
+def test_a_price_said_as_de_n_lucas_is_a_cap():
+    assert U.understand(None, "cerveza de 2 lucas", "licores").price_max == 2000
+    assert U.understand(None, "pack de 6 cervezas", "licores").price_max is None
+
+
+def test_an_alternative_replaces_the_previous_refinement():
+    """helado → de chocolate → «y de vainilla?» buscaba «helado de chocolate y de vainilla»."""
+    previous = {"query": "helado de chocolate", "concepts": ["helados"], "vertical": "conveniencia"}
+    intent = U.understand(None, "y de vainilla?", "conveniencia", previous=previous)
+    assert intent.follow_up and "chocolate" not in intent.query and "vainilla" in intent.query

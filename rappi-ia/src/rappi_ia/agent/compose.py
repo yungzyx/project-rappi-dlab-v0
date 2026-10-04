@@ -22,7 +22,8 @@ AGE_NOTICE = "Recuerda: estos productos se venden solo a mayores de 18."
 class Draft:
     """Los hechos de la respuesta, ya decididos por el código."""
 
-    kind: str  # saludo | gracias | ayuda | envio | ofertas | resultados | sin_resultado | sin_precio | aclarar | vacio
+    # saludo | gracias | ayuda | envio | ofertas | fuera | resultados | sin_resultado | sin_precio | aclarar | vacio
+    kind: str
     query: str = ""
     concept_label: str | None = None
     vertical_label: str | None = None
@@ -57,7 +58,12 @@ class TemplateComposer:
                 "RappiTravel o RappiFavor."
             )
         if d.kind == "envio":
-            return "El tiempo y el costo de envío los ves en cada tienda antes de pagar 🛵. ¿Qué te gustaría pedir?"
+            return (
+                "El horario, el tiempo y el costo de envío los ves en cada tienda antes de pagar, y la app te muestra "
+                "las que están abiertas cerca de ti 🛵. ¿Qué te gustaría pedir?"
+            )
+        if d.kind == "fuera":
+            return "De eso no sé mucho 😸, lo mío es ayudarte a pedir. ¿Se te antoja algo? Comida, súper, farmacia…"
         if d.kind == "ofertas":
             return (
                 "Las ofertas del día están en la pestaña Ofertas del inicio 🔥. "
