@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { getFallbacks, loadAnalytics, retryConnection, subscribeConnection } from './api.js'
+import { getFallbacks, loadAnalytics, refreshSource, retryConnection, subscribeConnection } from './api.js'
 import savedKpis from '../fixtures/kpis.synthetic.json'
 import savedWeekly from '../fixtures/weekly.synthetic.json'
 import savedCatalog from '../fixtures/catalog.json'
@@ -83,6 +83,37 @@ describe('loadAnalytics', () => {
     retryConnection()
     await loadAnalytics('trends', 'synthetic')
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  test('refreshSource vuelve a pedir lo de esa fuente y deja en caché lo demás (sin repetir weekly)', async () => {
+    const fetchMock = vi.fn(async (url) => jsonResponse({ source: new URL(url).searchParams.get('source'), data: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await loadAnalytics('suggestions', 'prototype')
+    await loadAnalytics('weekly', 'synthetic')
+    refreshSource('prototype')
+    await loadAnalytics('suggestions', 'prototype')
+    await loadAnalytics('weekly', 'synthetic')
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      'http://localhost:8000/analytics/suggestions?source=prototype',
+      'http://localhost:8000/analytics/weekly?source=synthetic',
+      'http://localhost:8000/analytics/suggestions?source=prototype',
+    ])
+  })
+
+  test('refreshSource olvida el aviso sin conexión de esa fuente y avisa', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))))
+    await loadAnalytics('suggestions', 'prototype')
+    await loadAnalytics('kpis', 'synthetic')
+    const listener = vi.fn()
+    const unsubscribe = subscribeConnection(listener)
+
+    refreshSource('prototype')
+
+    expect(getFallbacks().map((fallback) => fallback.key)).toEqual(['kpis.synthetic'])
+    expect(listener).toHaveBeenCalledTimes(1)
+    unsubscribe()
   })
 
   test('rechaza fuentes desconocidas', () => {

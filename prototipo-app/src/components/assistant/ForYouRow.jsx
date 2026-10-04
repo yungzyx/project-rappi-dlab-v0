@@ -1,19 +1,25 @@
 import HScroll from '../HScroll'
 import { ProductCard } from '../ProductCard'
-import { findStore } from '../../data/catalog'
+import { storeFor } from '../../data/catalog'
 import { SparkleIcon } from './SmartBar'
 import './for-you.css'
 
 /**
  * Fila de recomendaciones de Bigotes (modo Propuesta): productos de otras verticales con la razón visible.
- * Tocar un producto abre su tienda.
+ * Tocar un producto abre su tienda (con el producto, que la tienda registra como visto).
  */
 export default function ForYouRow({ title, reason, products, push }) {
   if (products.length === 0) return null
 
+  // Un plato real abre su sucursal (por id): otras pueden tener el mismo nombre.
   const openStore = (product) =>
     push('store', {
-      store: findStore(product.store) ?? { name: product.store, img: product.storeLogo ?? product.img, logo: true },
+      store: storeFor({ id: product.storeId, name: product.store }) ?? {
+        name: product.store,
+        img: product.storeLogo ?? product.img,
+        logo: true,
+      },
+      item: product,
     })
 
   return (

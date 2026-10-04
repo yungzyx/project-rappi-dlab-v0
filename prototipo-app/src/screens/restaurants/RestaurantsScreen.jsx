@@ -51,7 +51,7 @@ export default function RestaurantsScreen({ back, push }) {
       </header>
 
       <div className="rest-search-wrap">
-        <button type="button" className="search-bar tap" onClick={() => push('search')}>
+        <button type="button" className="search-bar tap" onClick={() => push('search', { vertical: 'restaurants' })}>
           <SearchIcon size={21} />
           <span className="search-hint">Search for dishes or restaurants</span>
         </button>
@@ -91,7 +91,7 @@ export default function RestaurantsScreen({ back, push }) {
             key={cat.id}
             type="button"
             className="rest-category tap"
-            onClick={() => push('search', { query: cat.query })}
+            onClick={() => push('search', { query: cat.query, vertical: 'restaurants' })}
           >
             <span className={cat.partial ? 'rest-category-img is-partial' : 'rest-category-img'}>
               <img src={cat.img} alt="" />
@@ -170,7 +170,10 @@ export default function RestaurantsScreen({ back, push }) {
                 key={store.id}
                 store={store}
                 onClick={() =>
-                  push('store', { store: { name: store.name, img: store.img, eta: store.eta, rating: store.rating } })
+                  // Con el id: dos sucursales pueden tener el mismo nombre y cada una tiene su menú.
+                  push('store', {
+                    store: { id: store.id, name: store.name, img: store.img, eta: store.eta, rating: store.rating },
+                  })
                 }
               />
             ))}

@@ -15,7 +15,7 @@ function AsOf({ source }) {
   )
 }
 
-export function Header({ source, onSourceChange }) {
+export function Header({ source, onSourceChange, onRefresh }) {
   return (
     <header className="masthead">
       <div className="container masthead-inner">
@@ -44,6 +44,10 @@ export function Header({ source, onSourceChange }) {
           <Async fallback={<span>Cargando fecha de corte…</span>}>
             <AsOf source={source} />
           </Async>
+          {' · '}
+          <button type="button" className="text-button" onClick={onRefresh}>
+            Actualizar
+          </button>
         </div>
       </div>
     </header>

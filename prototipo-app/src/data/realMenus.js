@@ -27,6 +27,7 @@ function toDish(item, store) {
     before: hasDiscount ? formatPrice(Math.round(item.realPrice)) : undefined,
     discount: hasDiscount ? `-${Math.round(item.discount)}%` : undefined,
     store: store.name,
+    storeId: store.id, // el nombre recortado lo comparten las sucursales; el id dice cuál es
     storeLogo: store.img,
     eta: store.eta,
     etaIcon: 'bolt',
@@ -37,7 +38,7 @@ function toDish(item, store) {
   }
 }
 
-function toRestaurant(restaurant) {
+export function toRestaurant(restaurant) {
   const { name, area } = splitName(restaurant.name)
   const items = restaurant.sections.flatMap((section) => section.items)
   // Sin logo ni portada en la base: la foto del plato más popular hace de portada.
@@ -46,6 +47,7 @@ function toRestaurant(restaurant) {
     id: `real-${restaurant.id}`,
     name,
     area,
+    fullName: restaurant.name, // así lo nombra la API ("Vapiano - Las Condes")
     img: cover,
     real: true,
     rating: restaurant.rating ? Number(restaurant.rating).toFixed(1) : undefined,
@@ -55,6 +57,7 @@ function toRestaurant(restaurant) {
     deliveryLabel: restaurant.deliveryCost > 0 ? undefined : 'FREE DELIVERY',
     fee: restaurant.deliveryCost > 0 ? formatPrice(restaurant.deliveryCost) : undefined,
     distance: area,
+    vertical: 'restaurants',
   }
   return {
     ...store,

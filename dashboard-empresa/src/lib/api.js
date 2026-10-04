@@ -97,3 +97,14 @@ export function retryConnection() {
   fallbacks = []
   notify()
 }
+
+/**
+ * Olvida lo cargado de una fuente, para ver lo nuevo (p. ej. lo que se hizo en el prototipo durante la demo).
+ * La caché no expira sola: /analytics/weekly tarda segundos y no se vuelve a pedir sin que alguien lo pida.
+ */
+export function refreshSource(source) {
+  const suffix = `.${source}`
+  for (const key of cache.keys()) if (key.endsWith(suffix)) cache.delete(key)
+  fallbacks = fallbacks.filter((fallback) => !fallback.key.endsWith(suffix))
+  notify()
+}

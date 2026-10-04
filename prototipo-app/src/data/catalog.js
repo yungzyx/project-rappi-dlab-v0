@@ -15,12 +15,17 @@ function uniqueByName(items) {
   })
 }
 
+// Los restaurantes de las capturas no tienen productos con vertical que la delaten: se marcan aquí.
+const restaurants = (stores) => stores.map((store) => ({ vertical: 'restaurants', ...store }))
+
 export const ALL_STORES = uniqueByName([
-  ...TURBO_RESTAURANTS,
-  ...LOWER_FEES,
-  ...MOST_ORDERED,
-  ...NEW_IN_RAPPI.filter((store) => !store.partial),
-  ...BEST_RESTAURANTS,
+  ...restaurants([
+    ...TURBO_RESTAURANTS,
+    ...LOWER_FEES,
+    ...MOST_ORDERED,
+    ...NEW_IN_RAPPI.filter((store) => !store.partial),
+    ...BEST_RESTAURANTS,
+  ]),
   ...BEST_GROCERY,
   ...VERTICAL_STORES,
   ...REAL_RESTAURANTS,
@@ -45,8 +50,25 @@ export function findStore(name) {
   return ALL_STORES.find((store) => normalize(store.name) === normalize(name))
 }
 
+/**
+ * Tienda de una página de tienda. Un restaurante real se busca por su id (dos sucursales pueden quedar con el mismo
+ * nombre recortado) o por su nombre completo, que es como lo trae la API ("Délice - Las Condes"); el resto, por nombre.
+ */
+export function storeFor({ id, name }) {
+  return (
+    REAL_RESTAURANTS.find((store) => store.id === id) ??
+    findStore(name) ??
+    REAL_RESTAURANTS.find((store) => normalize(store.fullName) === normalize(name))
+  )
+}
+
 export function productsOfStore(name) {
   return ALL_PRODUCTS.filter((product) => normalize(product.store) === normalize(name))
+}
+
+/** Vertical de una tienda (id del prototipo): la suya o, si no la trae, la de sus productos. */
+export function storeVertical(store) {
+  return store.vertical ?? productsOfStore(store.name).find((product) => product.vertical)?.vertical
 }
 
 /** Búsqueda simple por palabras (sin tildes): todas las palabras deben aparecer en el nombre o la tienda. */

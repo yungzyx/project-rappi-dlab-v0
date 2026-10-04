@@ -92,6 +92,13 @@ const matches = (text, words) => words.some((word) => new RegExp(`(^|[^a-z0-9])$
 const GREETINGS = /^((buenas tardes|buenas noches|buenos dias|buenas|holi|hola|hey|wena|ola)\b[\s,!.]*)+/
 const GENERIC_OCCASIONS = new Set(['hambre'])
 
+/**
+ * Productos que Bigotes sugiere por iniciativa propia (copias marcadas, como los de la API): lo que se pida desde
+ * ahí no cuenta como compra orgánica para aprender afinidad, y su aceptación lleva el origen.
+ */
+const asSuggestion = (products, origin) =>
+  products.map((product) => ({ ...product, fromSuggestion: true, suggestionOrigin: origin }))
+
 /** Complemento del tema con productos de UNA vertical distinta a la de la respuesta (como la API). */
 function complementFor(tag, ownProducts) {
   const extra = COMPLEMENTS[tag]?.[0]
@@ -106,7 +113,7 @@ function complementFor(tag, ownProducts) {
     reason: `Porque llevas ${TAGS[tag].emoji} ${TAGS[tag].label.toLowerCase()}`,
     verticalLabel: VERTICAL_NAMES[vertical],
     route: routeForScreen(vertical),
-    products: candidates.filter((product) => product.vertical === vertical).slice(0, 3),
+    products: asSuggestion(candidates.filter((product) => product.vertical === vertical).slice(0, 3), 'chat-local'),
   }
 }
 
@@ -167,10 +174,10 @@ export function reply(input, profile) {
 /** "Para ti": lo que acompaña al interés principal, de otra vertical. */
 export function forYou(profile) {
   const [first] = profile.top
-  if (!first) return { products: variedDiscounts(6), reason: null }
+  if (!first) return { products: asSuggestion(variedDiscounts(6), 'para-ti-local'), reason: null }
   const tags = COMPLEMENTS[first] ?? [first]
   return {
-    products: productsForTags(tags, 6),
+    products: asSuggestion(productsForTags(tags, 6), 'para-ti-local'),
     reason: `Porque te interesa ${TAGS[first].emoji} ${TAGS[first].label.toLowerCase()}`,
   }
 }
@@ -199,9 +206,12 @@ export function forVertical(verticalId, profile, excludeIds = new Set()) {
   const tags = [...new Set([source, ...own].flatMap((tag) => COMPLEMENTS[tag] ?? []))].filter(
     (tag) => !own.includes(tag),
   )
-  const products = productsForTags(tags, 12)
-    .filter((product) => !excludeIds.has(product.id))
-    .slice(0, 8)
+  const products = asSuggestion(
+    productsForTags(tags, 12)
+      .filter((product) => !excludeIds.has(product.id))
+      .slice(0, 8),
+    'vertical-para-ti',
+  )
   const topic = `${TAGS[source].emoji} ${TAGS[source].label.toLowerCase()}`
   return { products, reason: favorite ? `Porque te gusta ${topic}` : `Combina con ${topic}` }
 }

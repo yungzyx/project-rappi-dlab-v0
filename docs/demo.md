@@ -25,7 +25,7 @@ cd dashboard-empresa && npm run dev  # http://localhost:5175
 | 3 | `algo para el carrete` | Va directo a Licores sin preguntar y sugiere desde Express. | Entiende ocasiones, no solo productos. |
 | 4 | `tengo fiebre` | Productos para cuidarse, el aviso de consultar a un químico farmacéutico y ningún medicamento sugerido. | Lo sensible nunca se ofrece por iniciativa propia. |
 | 5 | Agrega al carro un producto de la sugerencia (paso 1) y paga. | El pedido se confirma. | — |
-| 6 | En el panel: **Entre verticales**, fuente Prototipo. | «Bigotes entre verticales»: suben las mostradas, aceptadas y convertidas. | Cada sugerencia queda medida: se ve si se acepta y si termina en compra. |
+| 6 | En el panel: **Entre verticales**, fuente Prototipo. Si el panel ya estaba ahí, toca **Actualizar** (junto a la fecha de corte). | «Bigotes entre verticales»: suben las mostradas, aceptadas y convertidas. | Cada sugerencia queda medida: se ve si se acepta y si termina en compra. |
 | 7 | En el panel, fuente **Simulados**: Resumen y Oportunidades. | Las decisiones de la semana y lo que la gente pide y no encuentra. | Con datos simulados: muestra la mecánica, no resultados. Con datos de Rappi se mide de verdad. |
 
 ## Qué aclarar si preguntan

@@ -1,4 +1,4 @@
-import { cartEventFields } from '../api/orders'
+import { cartEventFields, conceptOf } from '../api/orders'
 import { productTags } from '../assistant/tags'
 import { useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
@@ -8,6 +8,10 @@ import { useDemo } from '../state/DemoContext'
 import { useNudge } from '../state/NudgeContext'
 import { pressable } from './pressable'
 import './add-button.css'
+
+// Sugerencias ya aceptadas, por carro y generación del perfil (carro|generación|concepto|vertical|origen): «Olvidar»
+// borra los eventos en el servidor, y lo que se acepte después vuelve a contar. Viven lo que la pestaña, como el carro.
+const accepted = new Set()
 
 /** Botón verde "+" de los productos. Con unidades en el carrito se abre como contador "− 2 +". */
 export default function AddButton({ product, className = '' }) {
@@ -20,17 +24,22 @@ export default function AddButton({ product, className = '' }) {
   const qty = cart.qtyOf(product)
   const cartEvent = (type, item) => events.track(type, cartEventFields(item, cart.id))
   const add = (item) => {
-    const first = cart.qtyOf(item) === 0
     cart.add(item)
     profile.trackTags(productTags(item), WEIGHTS.cart)
     cartEvent('cart_add', item)
-    // Aceptar una sugerencia es agregarla por primera vez; los "+" siguientes son solo cantidad.
-    if (item.fromSuggestion && first)
+    // Aceptar una sugerencia es agregarla por primera vez en el carro: los "+" siguientes son solo cantidad, y
+    // quitarla y volver a agregarla tampoco es otra aceptación (salvo que entre medio se haya tocado «Olvidar»).
+    const origin = item.suggestionOrigin ?? 'chat'
+    const concept = conceptOf(item) // los del cerebro local no traen concepto: sale de sus temas
+    const key = `${cart.id}|${profile.resets}|${concept}|${item.vertical}|${origin}`
+    if (item.fromSuggestion && !accepted.has(key)) {
+      accepted.add(key)
       events.track('suggestion_accepted', {
-        concept_id: item.concept,
+        concept_id: concept,
         vertical: item.vertical,
-        payload: { origen: item.suggestionOrigin ?? 'chat' },
+        payload: { origen: origin },
       })
+    }
     // Dentro del chat Bigotes ya está recomendando: el aviso solo sale fuera.
     if (demo.isProposal && !assistant.isOpen) nudge.offer(item)
   }

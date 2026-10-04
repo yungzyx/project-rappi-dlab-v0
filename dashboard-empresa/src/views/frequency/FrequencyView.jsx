@@ -52,8 +52,7 @@ function Funnel({ source }) {
 }
 
 function Cohorts({ source }) {
-  const [cohorts, kpis] = useAnalyticsMany(['cohorts', 'kpis'], source)
-  return <CohortHeatmap data={cohorts} asOf={kpis.as_of} />
+  return <CohortHeatmap data={useAnalytics('cohorts', source)} />
 }
 
 function Rhythm({ source }) {

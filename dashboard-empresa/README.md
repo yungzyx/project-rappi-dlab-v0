@@ -46,6 +46,8 @@ La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://
 
 **Sin la API** el panel igual funciona. Cada consulta que falla, o que tarda más de 30 s, cae a la respuesta guardada en `src/fixtures/`. En ese caso aparece el aviso «Modo sin conexión (datos guardados)», que dice qué consultas fallaron y por qué, y trae un botón *Reintentar*.
 
+**Datos nuevos.** Cada consulta se pide una vez por fuente y queda en memoria mientras la página esté abierta (`/analytics/weekly` tarda varios segundos). El botón *Actualizar*, junto a la fecha de corte, vuelve a pedir solo la fuente elegida: así se ve lo que se acaba de hacer en el prototipo sin recargar la página.
+
 | Comando | Qué hace |
 |---|---|
 | `npm run dev` | Servidor de desarrollo en el puerto 5175 |

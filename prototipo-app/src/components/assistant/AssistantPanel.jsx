@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { chat, chatPhoto, chatVoice, forget, health, profile as remoteProfile, toMessage } from '../../api/client'
+import { conceptOf } from '../../api/orders'
+import { firstShowing } from '../../api/useRemoteForYou'
 import { forYou, greeting, photoReply, reply, suggestions, ASSISTANT_NAME, VOICE_SAMPLES } from '../../assistant/brain'
 import { TAGS } from '../../assistant/tags'
 import { useDemo } from '../../state/DemoContext'
-import { sessionId, useEvents, userId } from '../../state/EventsContext'
-import { findStore } from '../../data/catalog'
+import { clearShownTopics, noteShownTopic, sessionId, shownTopics, useEvents, userId } from '../../state/EventsContext'
+import { storeFor } from '../../data/catalog'
 import { useAssistant } from '../../state/AssistantContext'
 import { useDialog } from '../../hooks/useDialog'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
@@ -67,7 +69,6 @@ export default function AssistantPanel({ push, vertical }) {
   // Preguntas en fila: la siguiente sale cuando la respuesta anterior ya está en pantalla.
   const chatQueue = useRef(Promise.resolve())
   const profileGeneration = useRef(0) // sube al "Olvidar": un perfil remoto pedido antes ya no vale
-  const shownTopics = useRef(new Set())
   const [learnedRemote, setLearnedRemote] = useState(null)
   const [forgetting, setForgetting] = useState(false)
 
@@ -108,14 +109,14 @@ export default function AssistantPanel({ push, vertical }) {
     user_id: userId(),
     session_id: sessionId(),
     mode: demo.isProposal ? 'propuesta' : 'actual',
-    shown_topics: [...shownTopics.current], // texto, voz y foto: una sugerencia por tema en la sesión
+    shown_topics: shownTopics(), // texto, voz, foto y «Para ti»: una sugerencia por tema en la sesión
     ...extra,
   })
 
   /** Registra la sugerencia cruzada mostrada (para el panel) y no la repite en la sesión. */
   const noteSuggestion = (message) => {
     if (!message.suggestion) return message
-    shownTopics.current.add(message.suggestion.concept)
+    noteShownTopic(message.suggestion.concept)
     events.track('suggestion_shown', {
       concept_id: message.suggestion.concept,
       vertical: message.suggestion.vertical,
@@ -124,8 +125,26 @@ export default function AssistantPanel({ push, vertical }) {
     return message
   }
 
+  /**
+   * Lo que el cerebro local sugiere por iniciativa propia («Para ti» y el complemento, marcados como sugerencia) cuenta
+   * como mostrado una vez por pestaña, por concepto y vertical: los mismos que lleva su aceptación (AddButton).
+   */
+  const noteLocalSuggestions = (message) => {
+    const suggested = [...(message.products ?? []), ...(message.suggestion?.products ?? [])]
+    for (const product of suggested.filter((item) => item.fromSuggestion)) {
+      const concept = conceptOf(product)
+      if (concept && firstShowing({ concept, vertical: product.vertical, generation: profile.resets }))
+        events.track('suggestion_shown', {
+          concept_id: concept,
+          vertical: product.vertical,
+          payload: { origen: product.suggestionOrigin },
+        })
+    }
+    return message
+  }
+
   /** Respuesta de las reglas del prototipo: queda marcada en pantalla para que se sepa qué Bigotes contestó. */
-  const localReply = (message) => ({ ...message, source: 'local' })
+  const localReply = (message) => noteLocalSuggestions({ ...message, source: 'local' })
 
   /** Respuesta de la API; si no está o falla, el cerebro local de siempre. */
   const answer = async (text, askVertical) => {
@@ -309,13 +328,15 @@ export default function AssistantPanel({ push, vertical }) {
     const isFirst = messages.length === 0
     if (isFirst) {
       const picks = forYou(profile)
-      addMessage({
-        from: 'bot',
-        animate: true,
-        text: greeting(profile),
-        products: picks.products,
-        reason: picks.reason,
-      })
+      addMessage(
+        noteLocalSuggestions({
+          from: 'bot',
+          animate: true,
+          text: greeting(profile),
+          products: picks.products,
+          reason: picks.reason,
+        }),
+      )
     }
     if (session.mode === 'voice') later(listen, OPEN_MS, voiceTimers)
     if (session.query) later(() => send(session.query), OPEN_MS)
@@ -409,7 +430,7 @@ export default function AssistantPanel({ push, vertical }) {
     // servidor: se espera antes del DELETE, y lo que haya dejado en cola se descarta.
     await Promise.allSettled([chatQueue.current, voiceInFlight])
     events.clear()
-    shownTopics.current.clear()
+    clearShownTopics()
     await events.settled()
     // Siempre se intenta en el servidor (aunque el último chequeo de salud haya fallado).
     try {
@@ -474,7 +495,13 @@ export default function AssistantPanel({ push, vertical }) {
             onStreamDone={() => markStreamed(message.id)}
             onOpenProduct={(product) =>
               go('store', {
-                store: findStore(product.store) ?? { name: product.store, img: product.img, eta: product.eta },
+                // Un plato real abre su sucursal (por id): otras pueden tener el mismo nombre.
+                store: storeFor({ id: product.storeId, name: product.store }) ?? {
+                  name: product.store,
+                  img: product.img,
+                  eta: product.eta,
+                },
+                item: product,
               })
             }
             onOpenStore={(store) => go('store', { store })}

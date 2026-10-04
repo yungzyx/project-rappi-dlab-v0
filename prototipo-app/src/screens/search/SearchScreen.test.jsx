@@ -38,10 +38,17 @@ afterEach(() => {
 })
 
 describe('SearchScreen', () => {
-  const setup = () => {
-    render(<SearchScreen back={() => {}} push={() => {}} params={{}} />, { wrapper: Providers })
+  const setup = (params = {}) => {
+    render(<SearchScreen back={() => {}} push={() => {}} params={params} />, { wrapper: Providers })
     return screen.getByPlaceholderText('What do you want today?')
   }
+
+  test('la búsqueda lleva la vertical de la pantalla desde la que se abrió (el embudo es por vertical)', () => {
+    const input = setup({ vertical: 'liquor' })
+    fireEvent.change(input, { target: { value: 'pisco' } })
+    fireEvent.blur(input)
+    expect(searches()[0]).toMatchObject({ query: 'pisco', vertical: 'liquor' })
+  })
 
   test('una palabra a medio escribir no es una búsqueda: se registra al dar Enter, una vez y sin "unmet"', () => {
     const input = setup()
