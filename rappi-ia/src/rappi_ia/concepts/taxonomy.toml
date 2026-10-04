@@ -980,6 +980,7 @@ name = "Regalo"
 emoji = "🎁"
 keywords = ["regalo", "regalar", "sorpresa", "aniversario", "día de la madre", "san valentín", "detalle para"]
 concepts = ["flores-regalos", "chocolates", "fragancias", "vino", "espumante", "joyeria", "juguetes-infantiles"]
+vertical = "chocolateria"  # por masa mínima ganaba Licores: el piso lo ponían los juguetes y joyas del Mall
 
 [[occasion]]
 id = "hambre"

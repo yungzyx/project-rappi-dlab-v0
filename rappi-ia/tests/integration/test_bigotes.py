@@ -704,6 +704,34 @@ def test_a_sick_person_is_never_sent_to_a_liquor_store(bigotes):
     assert intent.vertical != "licores"
 
 
+def test_a_gift_is_not_sent_to_a_liquor_store(bigotes):
+    """En una ocasión se suman conceptos muy distintos y el piso de masa lo fija la tienda con más oferta de
+    cualquiera: en «regalo», los juguetes y joyas del Mall dejaban fuera a las chocolaterías (419 chocolates) y un
+    regalo pedido desde el inicio iba a Licores, con vinos y espumantes y el aviso +18."""
+    agent, db = bigotes
+    _assortment(
+        db,
+        [
+            ("chocolates", "chocolateria", 419),
+            ("vino", "licores", 801),
+            ("espumante", "licores", 178),
+            ("chocolates", "licores", 147),
+            ("juguetes-infantiles", "mall", 1822),
+            ("joyeria", "mall", 1423),
+            ("fragancias", "mall", 514),
+            ("chocolates", "mall", 153),
+            ("flores-regalos", "mall", 153),
+            ("chocolates", "supermercado", 936),
+            ("juguetes-infantiles", "supermercado", 330),
+            ("fragancias", "supermercado", 303),
+            ("vino", "supermercado", 267),
+        ],
+    )
+    intent = agent.understander.understand(db, "regalo para mi polola")
+    assert intent.occasion == "regalo"
+    assert intent.vertical == "chocolateria"
+
+
 def test_ambiguity_is_measured_with_the_same_share_that_ranks(bigotes):
     """La vertical se elige por participación, pero la ambigüedad se medía con conteos: con restaurantes 5 veces más
     grande, ningún concepto llegaba al umbral (0 de 112) y «aclarar» no salía nunca. Cifras de la base real."""
