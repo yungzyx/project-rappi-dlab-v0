@@ -121,7 +121,30 @@ def test_a_streak_that_repeats_every_week_ends_up_failed_and_the_run_moves_on(db
             blocked_weeks += 1
 
     assert _job_states(db) == {"failed": 10, "done": 5}
-    assert blocked_weeks == 4  # tres semanas de vuelta a la cola (cubren un bloqueo real) y la cuarta quedan 'failed'
+    # Tres semanas de vuelta a la cola (cubren un bloqueo real); la cuarta quedan 'failed' y la corrida sigue esa misma
+    # semana: antes se detenía igual, sin reencolar nada, y los sanos esperaban una semana más.
+    assert blocked_weeks == 3
+
+
+def test_a_block_right_after_a_streak_of_exhausted_jobs_still_stops_the_run(db):
+    """Si la racha de jobs agotados no detiene la corrida, un bloqueo real justo después sí: al primer fallo más."""
+    run = repository.start_run(db, "stores", {})
+    turbo = [_job(f"type:turbo_{i:02}") for i in range(10)]
+    repository.add_jobs(db, run, turbo + [_job(f"type:unimarc_{i}") for i in range(5)])
+    for _ in range(3):  # tres semanas de la misma racha: los turbo llegan a su último intento
+        with pytest.raises(PossibleBlock):
+            process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), lambda job: BLOCKED)
+    calls = []
+
+    def blocked(job):
+        calls.append(job["job_key"])
+        return BLOCKED
+
+    with pytest.raises(PossibleBlock):
+        process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), blocked)
+
+    assert [key for key in calls if "unimarc" in key] == ["type:unimarc_0"]
+    assert _job_states(db) == {"failed": 10, "pending": 5}
 
 
 def test_failures_where_rappi_answered_do_not_stop_the_run(db):

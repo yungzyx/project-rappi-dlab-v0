@@ -49,10 +49,13 @@ def _process(
             site_answered = isinstance(exc, StoreUnavailable | RestaurantGone)
         repository.mark_job(conn, run_id, job["job_key"], status, result, error)
         streak = [] if site_answered else [*streak, job["job_key"]]
-        if len(streak) >= config.MAX_CONSECUTIVE_FAILURES:
-            # Esos fallos los causó el bloqueo, no el job: vuelven a la cola para la próxima actualización, con un
-            # tope más alto que el normal (un job de la pasada de reintento, o de un bloqueo anterior, ya llegó a ese).
-            repository.requeue_failed(conn, run_id, config.MAX_BLOCKED_JOB_ATTEMPTS, streak)
+        # Esos fallos los causó el bloqueo, no el job: vuelven a la cola para la próxima actualización, con un tope más
+        # alto que el normal (un job de la pasada de reintento, o de un bloqueo anterior, ya llegó a ese). Si ninguno
+        # vuelve (todos agotaron ese tope), es un error fijo de esos jobs y la corrida sigue; la racha no se vacía, así
+        # que un bloqueo real justo después la detiene al primer fallo.
+        if len(streak) >= config.MAX_CONSECUTIVE_FAILURES and repository.requeue_failed(
+            conn, run_id, config.MAX_BLOCKED_JOB_ATTEMPTS, streak
+        ):
             raise PossibleBlock(f"posible bloqueo: {len(streak)} fallos consecutivos (último: {error})")
 
 
