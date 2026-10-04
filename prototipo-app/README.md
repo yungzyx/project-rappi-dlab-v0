@@ -56,7 +56,7 @@ Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000; carga los m
 | `./scripts/export-menus.sh` | Exporta los menús reales desde Postgres a `src/data/generated/menus.json` (fuera de git) |
 | `./scripts/make-icons.sh` | Regenera los íconos de pantalla de inicio desde `scripts/icon.svg` |
 
-Tests: 157 (Vitest, 04-10-2026). CI en GitHub Actions: lint, tests y build.
+Tests: 169 (Vitest, 04-10-2026). CI en GitHub Actions: lint, tests y build.
 
 **Accesibilidad:** el asistente y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), y cada respuesta de Bigotes se anuncia completa al lector de pantalla.
 
