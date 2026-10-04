@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan warm images purge post-refresh
+.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat images purge post-refresh
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -83,6 +83,10 @@ warm:  ## Calienta la API antes de una demo (con la API ya corriendo; repetirlo 
 	@for m in $(ANALYTICS); do for s in synthetic prototype; do \
 	  curl -s -o /dev/null $(API)/analytics/$$m?source=$$s; done; done
 	@curl -s -o /dev/null $(API)/analytics/catalog && echo "Lista: API caliente."
+
+FRASES ?=
+probar-chat:  ## Prueba el chat con las frases de usuarios (con la API corriendo; ver docs/pruebas-de-usuario.md)
+	@$(PY) scripts/probar_chat.py $(FRASES)
 
 images:  ## Fotos del catálogo con CLIP (miles de descargas: correr con el scraper detenido)
 	$(PY) -m rappi_ia embed-images
