@@ -179,6 +179,21 @@ def test_sensitive_concepts_are_found_when_asked_by_their_plain_name(pharmacy_bi
     assert "701" not in [p["entity_id"] for p in eyes["products"]]
 
 
+def test_hunger_includes_roast_and_fried_chicken(bigotes):
+    """Los conceptos de la ocasión son el foco de la búsqueda: desde que el pollo asado o frito es `pollo-preparado`
+    (y no `pollo`), «tengo hambre» lo descartaba."""
+    agent, db = bigotes
+    add_dish(db, 520, "Pollo Asado Entero", 3, "Pollos")
+    db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, 520, 9990)")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    r = agent.reply(db, "tengo hambre", Context())
+    assert r["vertical"] == "restaurantes"
+    assert "520" in [p["entity_id"] for p in r["products"]]
+
+
 def test_concept_without_assortment_goes_to_its_group_vertical(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "quiero sushi", Context())  # no hay sushi en ningún vertical

@@ -986,7 +986,7 @@ id = "hambre"
 name = "Hambre ya"
 emoji = "🍽️"
 keywords = ["hambre", "tengo hambre", "almorzar", "cenar", "comida rápida", "algo rico", "delivery de comida", "para comer"]
-concepts = ["pizza", "hamburguesa", "sushi", "pollo", "sandwiches", "asiatica", "empanadas", "platos-listos"]
+concepts = ["pizza", "hamburguesa", "sushi", "pollo", "pollo-preparado", "sandwiches", "asiatica", "empanadas", "platos-listos"]
 vertical = "restaurantes"  # "hambre ya": pedir comida lista, no comprar una pizza congelada
 
 [[occasion]]
