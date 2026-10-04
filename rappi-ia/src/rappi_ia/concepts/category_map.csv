@@ -829,3 +829,12 @@ seccion_menu,Platos de la Temporada,pastas,0.5,llm,acuerdo,"Salsa Di Mare, proba
 seccion_menu,Promos,ninguno,0.65,llm,juez,Combo familiar genérico; faltaría concepto promociones/combos,1
 seccion_menu,Sopas,sopas,0.75,llm,juez,Caldillo de congrio: sopa,1
 seccion_menu,Tapas,picoteo,0.85,llm,acuerdo,Tabla para compartir,1
+seccion_menu,Completos,sandwiches,0.8,curado,curado,Completos y hot dogs: un «Completo» o «Italiano» sin la frase en el nombre,740
+seccion_menu,Vienesas,sandwiches,0.8,curado,curado,Hot dogs y completos,360
+seccion_menu,Perros Calientes,sandwiches,0.8,curado,curado,Hot dogs: «Perro Italiano» no es alimento para perros,148
+seccion_menu,Hot Dogs,sandwiches,0.8,curado,curado,Hot dogs y completos,74
+seccion_menu,Completos y Perros Calientes,sandwiches,0.8,curado,curado,Hot dogs y completos,38
+seccion_menu,Perro Caliente,sandwiches,0.8,curado,curado,Hot dogs: «Perro Especial» no es alimento para perros,22
+seccion_menu,Hot Dog,sandwiches,0.8,curado,curado,Hot dogs y completos,20
+seccion_menu,Perros,sandwiches,0.8,curado,curado,Hot dogs en un menú de restaurante,4
+seccion_menu,Completos Venezolanos,sandwiches,0.8,curado,curado,Perros calientes venezolanos,4

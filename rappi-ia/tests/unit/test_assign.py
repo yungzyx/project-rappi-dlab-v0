@@ -1,6 +1,7 @@
 import pytest
 
 from rappi_ia.concepts.assign import MappedName, assign_catalog_item, assign_menu_item, concept_matcher
+from rappi_ia.concepts.store import read_category_map_csv
 from rappi_ia.concepts.taxonomy import load_taxonomy
 
 
@@ -77,3 +78,37 @@ def test_menu_item_sensitive_name_rule_still_wins_over_the_section(matcher):
     """Un local que vende cigarrillos en «Bebidas»: el nombre sensible manda (no se ofrecen como gaseosa)."""
     a = assign_menu_item("23", "Cigarrillos Marlboro Rojo", "Bebidas", [], DISH_SECTIONS, {}, matcher)
     assert (a.concept_id, a.method) == ("cigarrillos", "regla")
+
+
+@pytest.fixture(scope="module")
+def csv_maps():
+    """Los mapeos versionados en category_map.csv, con la clave en minúsculas como los carga `rappi-ia concepts`."""
+    maps = {"categoria": {}, "seccion_menu": {}, "cocina": {}}
+    for row in read_category_map_csv():
+        maps[row["tipo"]][row["nombre"].strip().lower()] = MappedName(
+            row["concept_id"], row["metodo"], float(row["confianza"])
+        )
+    return maps
+
+
+@pytest.mark.parametrize(
+    ("name", "section", "cuisines"),
+    [
+        ("Perro Italiano", "Perros Calientes", ["Hamburguesa"]),
+        ("Perro tradicional", "Perros Calientes", []),
+        ("Perro Jumbo Gigante", "PERROS CALIENTES", ["Americana"]),
+        ("Perro Especial", "Perro Caliente", ["Hamburguesa"]),
+        ("Perro chilango", "Perros", []),
+        ("Completo", "Completos", ["Americana"]),
+        ("Perro Sencillo", "Completos Venezolanos", []),
+        ("Perro Venezolano Xl", "Vienesas", []),
+        ("Completo Aleman", "Completos y Perros Calientes", ["Americana"]),
+        ("As Italiano", "Hot Dogs", ["Pastelería y Postres"]),
+        ("Italiano", "Hot Dog", []),
+    ],
+)
+def test_hot_dog_sections_of_the_real_map_make_the_dish_a_sandwich(matcher, csv_maps, name, section, cuisines):
+    """Sin la sección mapeada, un perro caliente sin esa frase en el nombre quedaba como alimento para perros o
+    tomaba la cocina del local (pizza, hamburguesa, pastelería)."""
+    a = assign_menu_item("24", name, section, cuisines, csv_maps["seccion_menu"], csv_maps["cocina"], matcher)
+    assert (a.concept_id, a.source) == ("sandwiches", f"seccion:{section}"), a
