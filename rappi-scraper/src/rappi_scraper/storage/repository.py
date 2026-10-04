@@ -178,6 +178,13 @@ def upsert_store(conn: Connection, store: dict, raw: dict | None = None) -> None
     )
 
 
+def saved_store_format(conn: Connection, store_id: int) -> dict:
+    """`store_type` y `subvertical` (el sub_group de su página) ya guardados de una tienda; vacíos si no se conocen."""
+    row = conn.execute("SELECT store_type, sub_group FROM stores WHERE store_id = %s", (store_id,)).fetchone()
+    store_type, sub_group = row or (None, None)
+    return {"store_type": store_type or "", "subvertical": sub_group or ""}
+
+
 def upsert_store_vertical(
     conn: Connection,
     store_id: int,

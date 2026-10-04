@@ -82,6 +82,10 @@ def discover_stores(
             log.info("%-22s %-13s %3d tiendas", city["city"], vertical, len(listing))
             for store in listing:
                 store_vertical = canonical_vertical(vertical, store)
+                if not store["store_type"]:
+                    # Solo salió en filtros: si su página ya dijo que es Turbo (lo guardó save_crawl), sigue en Turbo.
+                    saved = repository.saved_store_format(conn, store["store_id"])
+                    store_vertical = canonical_vertical(store_vertical, saved)
                 repository.upsert_store(conn, {**store, "city": city["city"]})
                 repository.upsert_store_vertical(
                     conn,
