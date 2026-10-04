@@ -130,6 +130,23 @@ def test_price_parsing_still_ignores_decimal_units():
     assert _price("bebida hasta 1,5 litros")[0] is None
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "pisco bajo 5,5 lucas u otro trago",
+        "vino bajo 2,5 lucas u otra cosa",
+        "bebida hasta 1,5 mil ml",
+        "cerveza hasta 1,5 mil cc",
+        "bajo 1,5 k kg",
+        "vino bajo $2.5 lucas u otra cosa",
+    ],
+)
+def test_a_decimal_followed_by_a_unit_is_not_a_price_and_does_not_fail(text):
+    """Si a «mil/lucas/k» le sigue una unidad, la regex soltaba esa palabra y se quedaba con «5,5» a secas:
+    float('5,5') lanzaba ValueError (HTTP 400 en /chat, 500 en /chat/voice) y «$2.5» se leía como $25."""
+    assert _price(text)[0] is None
+
+
 def test_clean_query_drops_greeting_and_request_words():
     assert _clean("hola bigotes quiero sushi") == "sushi"
     assert _clean("buenas tardes tienen kombucha") == "kombucha"

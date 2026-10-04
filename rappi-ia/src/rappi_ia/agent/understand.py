@@ -207,7 +207,9 @@ def _price(text: str) -> tuple[float | None, str]:
     simple = _simplify(text)
     for match in PRICE.finditer(simple):
         currency, digits, thousands = match.groups()
-        decimal = thousands and re.fullmatch(r"\d+[.,]\d{1,2}", digits)
+        decimal = re.fullmatch(r"\d+[.,]\d{1,2}", digits)
+        if decimal and not thousands:  # «1,5 mil ml»: la regex soltó «mil» porque le sigue una unidad
+            continue
         value = float(digits.replace(",", ".")) if decimal else float(re.sub(r"[.\s]", "", digits))
         if not (currency or thousands or value >= 100):
             continue
