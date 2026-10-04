@@ -126,7 +126,7 @@ Sin el refuerzo, el híbrido no se distingue del vectorial: consulta por consult
 | Supermercado | 30 | 0,896 |
 | Licores | 18 | 0,847 |
 
-**"Sin resultado"** (demanda no satisfecha), sobre las 41 consultas negativas y con los τ recalibrados el 29-09 (`src/rappi_ia/eval/thresholds.json`): precisión 1,00 (0 falsas alarmas) y recall 0,71 (29 de 41) con el catálogo del 30-09 (31 de 41 con el del 28-09: el catálogo cambia y dos negativas dejaron de serlo). El reporte dice por qué se detecta o no cada una.
+**"Sin resultado"** (demanda no satisfecha), sobre las 41 consultas negativas y con los τ recalibrados el 29-09 (`src/rappi_ia/eval/thresholds.json`): precisión 1,00 (0 falsas alarmas) y recall 0,71 (29 de 41) con el catálogo del 30-09 (31 de 41 con el del 28-09: el catálogo cambia y dos negativas dejaron de serlo). El reporte dice por qué se detecta o no cada una. Esas cifras son de la búsqueda (`retrieve`); Bigotes anota la demanda en 21 de las 41, sin falsas alarmas en las 124 positivas (03-10, mismo catálogo): en las otras 8 la búsqueda la marca, pero se muestran los pocos productos del concepto pedido (surtido testimonial), así que no se anota.
 
 - **Regla:** es un "sin resultado" cuando nada calza todas las palabras y, además, se cumple la condición que corresponda:
   - si la consulta nombra un concepto, ese concepto no tiene surtido real en el vertical;
