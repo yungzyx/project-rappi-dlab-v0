@@ -28,7 +28,7 @@ from .verticals import contending_verticals, ranked_verticals
 VERTICAL_MENTIONS = {
     "supermercado": ["supermercado", "en el super", "del super", "al super", "lider", "unimarc", "jumbo", "tottus"],
     "licores": ["botilleria", "licoreria", "en licores"],
-    "farmacia": ["farmacia", "cruz verde", "salcobrand", "farmacias ahumada"],
+    "farmacia": ["farmacia", "farmasia", "cruz verde", "salcobrand", "farmacias ahumada"],
     "restaurantes": [
         "restaurante",
         "restaurant",
@@ -71,6 +71,19 @@ MEMORY_QUESTIONS = [
 ]
 # Muletillas al dictar por voz («eh quiero este una coca po»): solo se quitan en los bordes del mensaje.
 VOICE_FILLERS = {"eh", "em", "mm", "mmm", "este", "ya", "mira", "oye", "po", "pues"}
+# «holaaaa», «cervezaaaa»: tres o más letras iguales seguidas son una (no hay palabras así en español).
+STRETCHED = re.compile(r"([^\W\d_])\1{2,}")
+# Risas («jajaja», «xd») y links no piden nada: se responde como a un mensaje vacío, sin anotar demanda.
+LAUGHTER = re.compile(r"(?:j[aeiou]){2,}j?|(?:[aeiou]?j){2,}|x+d+|lol|jsjs\w*")
+LINK = re.compile(r"https?://|www\.", re.IGNORECASE)
+# Nombres genéricos de vertical, que no se buscan. Las cadenas sí («leche lider», «big mac de mcdonalds»): su
+# nombre está en los productos.
+GENERIC_MENTIONS = {
+    *("supermercado", "en el super", "del super", "al super", "botilleria", "licoreria", "en licores"),
+    *("farmacia", "farmasia", "rappi mall", "en el mall", "minimarket", "almacen de barrio", "chocolateria"),
+}
+# Artículos y preposiciones que acompañan a una vertical nombrada («en el súper», «de la farmacia»).
+MENTION_LEADS = r"(?:(?:en|de|del|al|el|la|los|las)\s+)*"
 # Preguntas sobre la app, no búsquedas (se buscaba la frase literal: «quien eres» traía ajos). Normalizadas.
 APP_QUESTIONS = {
     "ayuda": [
@@ -308,10 +321,10 @@ class Understander:
         self, conn: Connection, text: str, current_vertical: str | None = None, previous: dict | None = None
     ) -> Intent:
         """`previous`: el pedido anterior de la conversación ({query, concepts, vertical}), para los seguimientos."""
-        original, text = text, self._emoji_names(text)
+        original, text = text, STRETCHED.sub(r"\1", self._emoji_names(text))
         normalized = normalize(text)
         words = set(normalized.split())
-        if not normalized:
+        if not re.search(r"[a-z]", normalized) or LINK.search(text) or all(LAUGHTER.fullmatch(w) for w in words):
             return Intent("vacio", original)
         if words <= GREETING_WORDS | ASSISTANT_WORDS:
             return Intent("saludo", text, current_vertical, confidence=1.0)
@@ -377,7 +390,8 @@ class Understander:
             price_max=price_max,
             confidence=confidence,
             explicit_concepts=explicit,
-            query=body or normalized,
+            # la vertical nombrada no se busca («en el super algo…» traía comida para gatos Super)
+            query=_without_mention(body, mention) or body or normalized,
             symptom=symptom,
             cheapest=bool(set(said.split()) & CHEAP_WORDS),
             priciest=bool(set(said.split()) & PRICEY_WORDS),
@@ -458,6 +472,16 @@ class Understander:
         return None
 
 
+def _without_mention(body: str, mention: str | None) -> str:
+    if mention is None:
+        return body
+    for keyword in sorted(GENERIC_MENTIONS & set(VERTICAL_MENTIONS[mention]), key=len, reverse=True):
+        cleaned, found = re.subn(rf"\b{MENTION_LEADS}{re.escape(keyword)}\b", " ", body, count=1)
+        if found:
+            return " ".join(cleaned.split())
+    return body
+
+
 def _simplify(text: str) -> str:
     """Minúsculas y sin tildes, pero conservando $ y puntos (normalize los borra y el precio los necesita)."""
     decomposed = unicodedata.normalize("NFD", text.lower())
@@ -468,7 +492,9 @@ def _price(text: str) -> tuple[float | None, str]:
     """Tope de precio y el texto sin esa frase (con su "pesos" o "clp"). "hasta 5 kilos" o "2 litros" no son
     precios; "bajo 5" tampoco: se exige $, "mil"/"lucas"/"k" o al menos 3 dígitos. "1,5 lucas" son $1.500 y
     "$10,000" (coma de miles) $10.000; "$5,5", sin mil/lucas/k, no es precio."""
-    simple = _simplify(text)
+    # «entre 5 y 10 mil» es «hasta 10 mil»; «menos de mil» es «menos de 1000».
+    simple = re.sub(r"\bentre\s+\$?\s*[\d.,]+\s*(?:mil|lucas|k)?\s+y\s+(?=\$?\s*\d)", "hasta ", _simplify(text))
+    simple = re.sub(r"\b(menos de|bajo|hasta|maximo|no mas de)\s+(?:mil|una luca)\b", r"\1 1000", simple)
     for match in PRICE.finditer(simple):
         currency, digits, thousands = match.groups()
         decimal = re.fullmatch(r"\d+[.,]\d{1,2}", digits)

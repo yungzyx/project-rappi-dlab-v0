@@ -28,7 +28,7 @@ from .tools import (
     suggest_complement,
 )
 from .understand import Intent, Understander
-from .verticals import available_elsewhere, ranked_verticals
+from .verticals import MIN_ITEMS_ELSEWHERE, available_elsewhere, ranked_verticals
 
 PROTOTYPE_VERTICALS = {  # ids del prototipo (prototipo-app/src/screens/vertical/data.js)
     "supermercado": "grocery",
@@ -54,7 +54,9 @@ class Context:
 CHEAP_POOL = 24  # «barato»: reordenar solo los 6 más relevantes no daba lo más barato
 MIN_SHOWN = 3  # menos productos se completan con la búsqueda por el nombre del concepto
 MIN_ELSEWHERE = 2  # productos con el detalle pedido para cambiar de vertical: con uno solo suele ser casualidad
+MIN_HOME_ITEMS = MIN_ITEMS_ELSEWHERE  # con menos productos del concepto, la pantalla actual no es donde buscarlo
 GENERAL_REMEDIES = "analgésico"  # si nada nombra el síntoma: paracetamol, aspirina y similares
+REMEDY_WORDS = {"remedio", "remedios", "medicamento", "medicamentos", "pastilla", "pastillas", "algo", "para"}
 # Palabras de un pedido que no son un detalle que deba decir el nombre del producto («lúcuma» en «helado de lúcuma» sí).
 NOT_DETAIL = {
     *("para", "algo", "unos", "unas", "como", "pero", "bien", "solo", "menos", "otra", "otro", "marca", "tipo"),
@@ -114,12 +116,21 @@ class Bigotes:
         if intent.kind == "servicio":
             return self._service(conn, intent, ctx)
         vertical = intent.vertical or ctx.vertical or "supermercado"
+        # «vino» desde Farmacia: si la pantalla actual casi no tiene el concepto, se busca donde está y se dice.
+        missing = None
+        home = self._home_for(conn, intent, vertical) if vertical == ctx.vertical else None
+        if home:
+            missing, vertical = (vertical, self.taxonomy.concepts[intent.concepts[0]].name.lower()), home
         outcome = None
         generic_remedies = False
         # Un síntoma sin producto ni vertical nombrados: remedios de farmacia (sin receta) para eso, o los analgésicos
         # si nada nombra el síntoma («me siento mal»). Sin farmacia, lo de siempre para cuidarse (sopas, jugos, té).
-        if intent.symptom and not intent.explicit_concepts and not intent.explicit_vertical:
-            for query in (intent.query or intent.text, GENERAL_REMEDIES):
+        # «remedio para la tos» nombra medicamentos, pero lo que importa es el síntoma.
+        remedy_only = intent.concepts == ["medicamentos"]
+        if intent.symptom and (not intent.explicit_concepts or remedy_only) and not intent.explicit_vertical:
+            # Se busca el síntoma, no «remedio»: esa palabra traía remedios para el estómago («remedio para la tos»).
+            said = " ".join(w for w in tokens(intent.query or intent.text) if w not in REMEDY_WORDS)
+            for query in (said or intent.query or intent.text, GENERAL_REMEDIES):
                 remedies = search_remedies(conn, query, self.embedder, intent.price_max)
                 if remedies.products:
                     outcome, vertical = remedies, "farmacia"
@@ -162,11 +173,11 @@ class Bigotes:
         # «helado de lúcuma»: si nada de lo mostrado dice «lúcuma», se busca entre más candidatos y, si aquí no hay,
         # en la vertical que lo tenga (salvo que se haya nombrado una).
         detail = self._detail(intent) if intent.explicit_concepts and not intent.symptom and products else None
-        moved_from = None
         if detail and not any(detail[0] in normalize(p.name) for p in products):
             found = self._with_detail(conn, intent, vertical, detail[0])
             if found:
-                moved_from = vertical if found[0] != vertical else None
+                if found[0] != vertical:
+                    missing = (vertical, detail[1])
                 vertical, outcome, products = found
         if intent.exclude_previous and ctx.previous:  # «de otra marca»: sin lo que ya se mostró
             seen = set(ctx.previous.get("product_ids") or [])
@@ -193,9 +204,9 @@ class Bigotes:
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
         also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical)
         text = self.composer.compose(draft)
-        if moved_from:
+        if missing and products:
             text = (
-                f"En {VERTICAL_LABELS[moved_from]} no hay «{detail[1]}», pero en {VERTICAL_LABELS[vertical]} sí. "
+                f"En {VERTICAL_LABELS[missing[0]]} no hay «{missing[1]}», pero en {VERTICAL_LABELS[vertical]} sí. "
                 + text
             )
         if generic_remedies:  # la muestra del catálogo no tiene algo para ese síntoma: no aparentar que sí
@@ -398,6 +409,19 @@ class Bigotes:
         for v in verticals:
             v["prototype_vertical"] = PROTOTYPE_VERTICALS.get(v["vertical"])
         return {"concept": concept.id, "label": concept.label, "verticals": verticals}
+
+    def _home_for(self, conn: Connection, intent: Intent, vertical: str) -> str | None:
+        """La vertical donde buscar un concepto nombrado que `vertical` casi no tiene (menos de MIN_HOME_ITEMS), si
+        otra tiene al menos eso. Nunca si se nombró la vertical o se habla de síntomas."""
+        if not intent.explicit_concepts or intent.explicit_vertical or intent.symptom or intent.follow_up:
+            return None
+        concept = intent.concepts[0]
+        items = dict(
+            conn.execute("SELECT vertical, items FROM concept_assortment WHERE concept_id = %s", (concept,)).fetchall()
+        )
+        if items.get(vertical, 0) >= MIN_HOME_ITEMS:
+            return None
+        return next((v for v in ranked_verticals(conn, [concept]) if items.get(v, 0) >= MIN_HOME_ITEMS), None)
 
     def _detail(self, intent: Intent) -> tuple[str, str] | None:
         """(raíz para buscar en el nombre, cómo decirlo) de la primera palabra del pedido que no es el concepto ni

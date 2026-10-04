@@ -216,7 +216,7 @@ parent = "bebidas"
 name = "Bebidas gaseosas"
 emoji = "🥤"
 keywords = ["bebida", "gaseosa", "coca cola", "coca-cola", "sprite", "fanta", "pepsi", "bilz", "pap", "ginger ale", "agua tónica", "tónica", "seven up", "7up", "kem", "canada dry", "limón soda"]
-query_keywords = ["coca", "cocacola"]
+query_keywords = ["coca", "cocacola", "para tomar", "algo para tomar", "de tomar", "algo de tomar", "para beber"]
 
 [[concept]]
 id = "jugos"

@@ -323,3 +323,36 @@ def test_kids_in_slang_are_an_occasion():
 def test_none_of_them_asks_for_others():
     intent = _then("completo", "no me gustó ninguno")
     assert intent.follow_up and intent.exclude_previous
+
+
+# Ronda 9
+def test_stretched_letters_are_read_as_one():
+    assert U.understand(None, "holaaaa", "supermercado").kind == "saludo"
+    assert U.understand(None, "cervezaaaa", "licores").concepts[:1] == ["cerveza"]
+
+
+@pytest.mark.parametrize("text", ["jajaja", "jajajaja xd", "123", "https://www.rappi.cl"])
+def test_laughter_numbers_and_links_are_not_searched(text):
+    assert U.understand(None, text, "supermercado").kind == "vacio"
+
+
+def test_a_misspelled_vertical_is_still_a_vertical():
+    intent = U.understand(None, "algo de la farmasia", None)
+    assert intent.vertical == "farmacia" and intent.explicit_vertical
+
+
+def test_the_vertical_named_is_not_searched():
+    """«en el super algo para el desayuno» buscaba «super» y traía comida para gatos Super."""
+    intent = U.understand(None, "en el super algo para el desayuno", None)
+    assert intent.vertical == "supermercado" and "super" not in intent.query.split()
+    assert "farmacia" not in U.understand(None, "en la farmacia algo bajo 5 lucas", None).query
+    assert "lider" in U.understand(None, "leche del lider", None).query  # la cadena es también la marca
+
+
+def test_a_price_range_caps_at_its_top_and_mil_alone_is_a_thousand():
+    assert U.understand(None, "vino tinto entre 5 y 10 mil", "licores").price_max == 10000
+    assert U.understand(None, "cerveza a menos de mil", "licores").price_max == 1000
+
+
+def test_something_to_drink_is_drinks():
+    assert U.understand(None, "algo para tomar", "supermercado").concepts[:1] == ["gaseosas"]
