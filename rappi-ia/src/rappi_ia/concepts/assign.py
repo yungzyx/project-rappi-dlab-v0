@@ -59,9 +59,18 @@ def concept_matcher(taxonomy: Taxonomy, for_queries: bool = False) -> "KeywordMa
     return QueryMatcher(KeywordMatcher(e for e in entries if e not in alone), KeywordMatcher(alone))
 
 
+# Acompañan un pedido sin nombrar otra cosa («venden los medicamentos», «algún lubricante barato»).
+_NOT_CONTENT = FILLER_WORDS | {
+    *("el", "la", "los", "las", "de", "del", "y", "o"),
+    *("algo", "algun", "alguna", "algunos", "algunas"),
+    *("vende", "venden"),
+    *("barato", "barata", "baratos", "baratas"),
+}
+
+
 class QueryMatcher:
     """Las palabras sueltas que solo sirven para pedir un sensible («medicamentos», «lubricante») cuentan solo si son
-    todo el pedido, sin contar saludo, cortesía ni verbos de pedido. Con otras palabras son un complemento
+    todo el pedido, sin contar saludo, cortesía, verbos de pedido ni artículos. Con otras palabras son un complemento
     («pastillero para medicamentos», «lubricante wd-40») y el foco en el sensible ocultaba lo pedido."""
 
     def __init__(self, matcher: KeywordMatcher, alone: KeywordMatcher):
@@ -71,7 +80,7 @@ class QueryMatcher:
     def matches(self, text: str) -> list[Match]:
         found = self._matcher.matches(text)
         words = tokens(text)
-        content = [i for i, word in enumerate(words) if word not in FILLER_WORDS]
+        content = [i for i, word in enumerate(words) if word not in _NOT_CONTENT]
         if found or len(content) != 1:
             return found
         match = self._alone.best(words[content[0]])

@@ -488,6 +488,10 @@ def test_sensitive_concepts_are_found_when_asked_by_their_plain_name(pharmacy_bi
     assert "700" in [p["entity_id"] for p in medicines["products"]]
     assert {p["concept"] for p in medicines["products"]} == {"medicamentos"}
 
+    for text in ("venden medicamentos", "necesito los medicamentos"):  # daban «No encontré… Lo anoté»
+        asked = agent.reply(db, text, Context(vertical="farmacia"))
+        assert "700" in [p["entity_id"] for p in asked["products"]] and not asked["unmet"], text
+
     lube = agent.reply(db, "lubricante", Context(vertical="farmacia"))
     assert [p["entity_id"] for p in lube["products"]] == ["701"] and lube["age_notice"]
     eyes = agent.reply(db, "lubricante ocular", Context(vertical="farmacia"))

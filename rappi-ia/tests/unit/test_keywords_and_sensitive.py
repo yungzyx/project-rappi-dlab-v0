@@ -116,6 +116,13 @@ def test_sensitive_concepts_are_still_found_by_name(matcher, text, concept):
         ("quiero medicamentos porfa", "medicamentos"),
         ("lubricante", "bienestar-sexual"),
         ("tienen lubricante", "bienestar-sexual"),
+        # Artículos, «algún», «venden» o «barato» no nombran otra cosa: la palabra sigue siendo todo el pedido.
+        ("necesito los medicamentos", "medicamentos"),
+        ("quiero algún medicamento", "medicamentos"),
+        ("venden medicamentos", "medicamentos"),
+        ("medicamentos baratos", "medicamentos"),
+        ("venden lubricante", "bienestar-sexual"),
+        ("algo de lubricante", "bienestar-sexual"),
         ("lubricante ocular", "medicamentos"),
     ],
 )
