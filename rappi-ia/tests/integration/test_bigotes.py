@@ -98,6 +98,25 @@ def test_price_cap_never_shows_another_concept(bigotes):
     assert "No encontré" in r["text"] and "$1.290" in r["text"] and not r["unmet"]
 
 
+def test_cheapest_without_the_cap_is_also_of_the_requested_concept(bigotes):
+    """Sin tope, el súper no trae cervezas entre sus resultados (un vaso calza la palabra y no es «sin resultado»):
+    «el más barato» no puede ser otra cosa, como las papas fritas a $1.990."""
+    agent, db = bigotes
+    add_product(db, 220, "Vaso Schop Vidrio 500 ml", 1, "Vajilla")
+    add_price(db, 1, 220, 2500)
+    db.execute("UPDATE catalog_items SET description = 'Ideal para servir cerveza' WHERE master_product_id = 220")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    r = agent.reply(db, "cerveza bajo 500", Context(vertical="supermercado"))
+
+    assert r["vertical"] == "supermercado" and r["intent"]["concepts"] == ["cerveza"]
+    assert r["products"] == [] and not r["unmet"]
+    assert "más barato" not in r["text"] and "$1.990" not in r["text"]
+
+
 def test_unmet_by_cosine_shows_nothing_and_is_recorded(bigotes, monkeypatch):
     """Sin concepto nombrado, «sin resultado» lo decide el coseno bajo τ: antes se mostraban sus vecinos igual
     (arena para gato a quien pedía un pasaje de avión) y la demanda no se anotaba."""
