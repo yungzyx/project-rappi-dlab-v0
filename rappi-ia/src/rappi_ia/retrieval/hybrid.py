@@ -16,6 +16,7 @@ from rappi_scraper.storage.search import VERTICALS
 from ..concepts.assign import concept_matcher
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder, to_pgvector
+from ..text import FILLER_WORDS, tokens
 
 RRF_K = 60  # constante estándar de Reciprocal Rank Fusion
 CANDIDATES = 200  # tamaño del pool de cada recuperador
@@ -208,8 +209,10 @@ def _strict_lexical_count(conn: Connection, vertical: str, query: str, filters: 
 
 
 def _has_words(conn: Connection, query: str) -> bool:
-    """¿Le queda alguna palabra a la consulta sin las stopwords? «té» es stopword: no hay nada que calzar."""
-    return conn.execute("SELECT length(to_tsvector('spanish', es_unaccent(%s))) > 0", (query,)).fetchone()[0]
+    """¿Le queda alguna palabra a la consulta sin las stopwords? «té» es stopword: no hay nada que calzar. Tampoco
+    cuentan las de saludo, cortesía o pedido en cualquier lugar: Bigotes solo las limpia al inicio («té porfa»)."""
+    words = " ".join(word for word in tokens(query) if word not in FILLER_WORDS)
+    return conn.execute("SELECT length(to_tsvector('spanish', es_unaccent(%s))) > 0", (words,)).fetchone()[0]
 
 
 def _vector(

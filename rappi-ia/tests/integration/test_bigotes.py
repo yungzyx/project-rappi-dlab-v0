@@ -144,10 +144,12 @@ def test_a_query_without_words_to_search_is_not_recorded_as_unmet(bigotes, monke
     embed_search_documents(db, agent.embedder)
     monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
 
-    r = agent.reply(db, "té", Context(vertical="supermercado"))
+    # «porfa» queda al final de la consulta limpia (solo se limpia el inicio) y no es algo que buscar.
+    for text in ["té", "quiero té porfa"]:
+        r = agent.reply(db, text, Context(vertical="supermercado"))
 
-    assert r["intent"]["concepts"] == []
-    assert not r["unmet"] and r["products"] and "Lo anoté" not in r["text"]
+        assert r["intent"]["concepts"] == [], text
+        assert not r["unmet"] and r["products"] and "Lo anoté" not in r["text"], text
 
 
 def test_symptoms_are_not_recorded_as_unmet_demand(bigotes, monkeypatch):
