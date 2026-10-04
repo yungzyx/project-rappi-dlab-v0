@@ -55,6 +55,8 @@ VERTICAL_MENTIONS = {
     "conveniencia": ["oxxo", "minimarket", "almacen de barrio"],
     "chocolateria": ["chocolateria"],
 }
+# Muletillas al dictar por voz («eh quiero este una coca po»): solo se quitan en los bordes del mensaje.
+VOICE_FILLERS = {"eh", "em", "mm", "mmm", "este", "ya", "mira", "oye", "po", "pues"}
 # Preguntas sobre la app, no búsquedas (se buscaba la frase literal: «quien eres» traía ajos). Normalizadas.
 APP_QUESTIONS = {
     "ayuda": [
@@ -77,8 +79,30 @@ APP_QUESTIONS = {
         "cuanto cuesta el envio",
         "costo de envio",
         "cuando llega",
+        # horario y lugar: lo resuelve la app con la ubicación del usuario, no una búsqueda
+        "de turno",
+        "abierto ahora",
+        "abierta ahora",
+        "cerca de mi",
+        "cerca de aqui",
+        "horario",
+        "a que hora cierra",
     ],
     "ofertas": ["ofertas", "tienen ofertas", "hay ofertas", "descuentos", "promociones", "promos"],
+    # Fuera de tema: se contesta con humor y se vuelve a lo que Bigotes sabe hacer; no es demanda no atendida.
+    "fuera": [
+        "clima",
+        "chiste",
+        "capital de",
+        "te quiero",
+        "te amo",
+        "eres tonto",
+        "tonto",
+        "idiota",
+        "como estas",
+        "quien gano",
+        "noticias",
+    ],
     "recomendar": [
         "me recomiendas",
         "que me recomiendas",
@@ -165,7 +189,9 @@ GROUP_VERTICALS = {
 _UNITS = r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u(?!\s+o)|personas?|porciones|cm|mts?|metros?)"
 _DECIMAL = r"\d+[.,]\d{1,2}(?=\s*(?:mil|lucas|k)\b)"  # «1,5 lucas»: decimales solo con mil/lucas/k
 PRICE = re.compile(
-    r"(?:bajo|menos de|hasta|maximo|max|no mas de|por menos de|que cueste menos de)\s*"
+    # «de 2 lucas» también es un tope, pero solo con $ o mil/lucas/k («pack de 6» no lo es)
+    r"(?:bajo|menos de|hasta|maximo|max|no mas de|por menos de|que cueste menos de"
+    r"|de(?=\s*(?:\$|\d[\d.,]*\s*(?:mil|lucas|k)\b)))\s*"
     r"(\$)?\s*(" + _DECIMAL + r"|\d{1,3}(?:[.,\s]\d{3})+|\d+)(?![.,]\d)\s*(mil|lucas|k)?\b"
     r"(?:\s*(?:pesos|clp)\b)?(?!\s*" + _UNITS + r"\b)"
 )
@@ -173,7 +199,7 @@ PRICE = re.compile(
 
 @dataclass
 class Intent:
-    kind: str  # saludo | gracias | ayuda | envio | ofertas | buscar | ocasion | aclarar | servicio | vacio
+    kind: str  # saludo | gracias | ayuda | envio | ofertas | fuera | buscar | ocasion | aclarar | servicio | vacio
     text: str
     vertical: str | None = None
     concepts: list[str] = field(default_factory=list)
@@ -201,15 +227,21 @@ class Understander:
         self.symptoms = KeywordMatcher(("sintoma", kw) for kw in SYMPTOMS)
         self.services = KeywordMatcher((s.id, kw) for s in taxonomy.services.values() for kw in s.keywords)
         self.app_questions = KeywordMatcher((kind, kw) for kind, kws in APP_QUESTIONS.items() for kw in kws)
+        # «🍕» o «quiero un 🍔»: el emoji de un concepto se lee como su nombre (gana el primero que lo usa).
+        self.emojis: dict[str, str] = {}
+        for concept in taxonomy.concepts.values():
+            if concept.emoji:
+                self.emojis.setdefault(concept.emoji.replace("\ufe0f", ""), concept.name)
 
     def understand(
         self, conn: Connection, text: str, current_vertical: str | None = None, previous: dict | None = None
     ) -> Intent:
         """`previous`: el pedido anterior de la conversación ({query, concepts, vertical}), para los seguimientos."""
+        original, text = text, self._emoji_names(text)
         normalized = normalize(text)
         words = set(normalized.split())
         if not normalized:
-            return Intent("vacio", text)
+            return Intent("vacio", original)
         if words <= GREETING_WORDS | ASSISTANT_WORDS:
             return Intent("saludo", text, current_vertical, confidence=1.0)
         if words <= THANKS_WORDS | GREETING_WORDS | ASSISTANT_WORDS and words & THANKS_WORDS:
@@ -235,7 +267,8 @@ class Understander:
         )
 
         explicit = bool(concepts)
-        question = None if explicit or occasion else self.app_questions.best(body or said)
+        # Sobre lo dicho si la limpieza se comió la pregunta: «oye bigotes me recomiendas…» queda «recomiendas…».
+        question = None if explicit or occasion else self.app_questions.best(body) or self.app_questions.best(said)
         if question:  # «hacen delivery?», «quien eres»: se contesta, no se busca
             return Intent(question.target, text, current_vertical, confidence=1.0)
         # Un servicio sin catálogo, si no se nombra un producto («paquete de pañales» no es un envío) ni un síntoma.
@@ -292,6 +325,9 @@ class Understander:
         rest = [w for w in body_words if w not in FOLLOW_UP_FILLER and w not in mention_words]
         other = bool(set(body_words) & OTHER_WORDS)
         extra = "" if other or (mention and not rest) else " ".join(body_words)
+        base = previous.get("query") or ""
+        if body_words[:1] == ["y"] and extra:  # «y de vainilla?»: otra opción, no se suma a «de chocolate»
+            base, extra = normalize(self.taxonomy.concepts[previous_concepts[0]].name), " ".join(body_words[1:])
         return Intent(
             "buscar",
             text,
@@ -301,11 +337,19 @@ class Understander:
             confidence=0.8,
             explicit_vertical=bool(mention),
             explicit_concepts=True,
-            query=" ".join(p for p in (previous.get("query") or "", extra) if p),
+            query=" ".join(p for p in (base, extra) if p),
             cheapest=bool(set(said.split()) & CHEAP_WORDS),
             follow_up=True,
             exclude_previous=other,
         )
+
+    def _emoji_names(self, text: str) -> str:
+        if text.isascii():
+            return text
+        text = text.replace("\ufe0f", "")
+        for emoji, name in self.emojis.items():
+            text = text.replace(emoji, f" {name} ")
+        return text
 
     def _home(self, concept_id: str) -> str | None:
         concept = self.taxonomy.concepts.get(concept_id)
@@ -349,9 +393,13 @@ def _clean(body: str) -> str:
     """Quita saludo, nombre del asistente y verbos de pedido al inicio, y la cortesía al final:
     "hola bigotes quiero sushi porfa" → "sushi"."""
     words = body.split()
-    while words and words[0] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | REQUEST_WORDS:
+    while words and words[0] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | REQUEST_WORDS | VOICE_FILLERS:
         words = words[1:]
-    while words and words[-1] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | {"porfa", "por", "favor"}:
+    while words and words[-1] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | VOICE_FILLERS | {
+        "porfa",
+        "por",
+        "favor",
+    }:
         words = words[:-1]
     return " ".join(words)
 

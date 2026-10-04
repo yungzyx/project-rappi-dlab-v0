@@ -73,7 +73,7 @@ class Bigotes:
             response = self.reply(conn, concept.name, ctx)
             response["text"] = f"Como te gusta {concept.label.lower()} 😉 " + response["text"]
             return response
-        if intent.kind in ("saludo", "gracias", "vacio", "ayuda", "envio", "ofertas"):
+        if intent.kind in ("saludo", "gracias", "vacio", "ayuda", "envio", "ofertas", "fuera"):
             return self._small_talk(intent, ctx)
         if intent.kind == "aclarar":
             return self._clarify(intent)

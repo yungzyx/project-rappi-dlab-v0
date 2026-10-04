@@ -1066,6 +1066,9 @@ def test_questions_about_the_app_get_an_answer_not_products(bigotes):
     assert [a["query"] for a in help_["actions"]] == ["algo para el carrete", "tengo hambre", "tengo fiebre"]
     assert "envío" in agent.reply(db, "hacen delivery?", Context())["text"]
     assert "Ofertas" in agent.reply(db, "tienen ofertas?", Context())["text"]
+    off_topic = agent.reply(db, "cuéntame un chiste", Context(mode="propuesta"))
+    assert not off_topic["products"] and not off_topic.get("unmet") and not off_topic["actions"]
+    assert "pedir" in off_topic["text"]
 
 
 def test_cheap_shows_the_cheapest_first(bigotes):

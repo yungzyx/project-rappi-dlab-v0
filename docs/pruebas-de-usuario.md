@@ -28,6 +28,7 @@ triste») o encargos («que me compren algo en una ferretería»). Este proceso 
 | 2 | 04-10-2026 | 50 | «pa»/«pal», «sin X», «qué me recomiendas», un mimo («estoy triste»), regalo para un niño, leches vegetales |
 | 3 | 04-10-2026 | 46 | «nesecito», cadenas de restaurantes, «café en grano», «pollo con papas fritas», partido, cena romántica |
 | 4 | 04-10-2026 | 23 (10 conversaciones) | seguimientos: «talla g», «más barata», «de otra marca», «y en el súper?», «sin lactosa», «con papas»; si nada es del concepto nombrado, se busca por su nombre («algo más sano», «tofu», «comida china») |
+| 5 | 04-10-2026 | 42 (3 conversaciones) | voz con muletillas («eh quiero este una coca po»), emojis («🍕», «quiero un 🍔»), «beer», «pastillas para dormir», «cerveza de 2 lucas», fuera de tema («el clima», «eres tonto»: se contesta y no cuenta como demanda), horario y lugar («farmacia de turno»), «y de vainilla?» tras «de chocolate» reemplaza en vez de sumar |
 
 Límite conocido: la muestra pública del catálogo no tiene algunas cosas (jarabes para la tos, tofu, bolsas de basura).
 Ahí Bigotes lo dice o muestra lo más cercano; no se arregla con palabras.
