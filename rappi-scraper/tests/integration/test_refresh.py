@@ -153,3 +153,39 @@ def test_an_interrupted_refresh_resumes_restaurants_without_scraping_stores_agai
     assert [(r["kind"], r["run_id"], r["status"]) for r in reports] == [("restaurants", restaurants_run, "done")]
     assert client.requested == ["/restaurantes/384"]
     assert repository.latest_run(db, "stores") == stores_run  # ninguna corrida de tiendas nueva
+
+
+def test_resuming_after_retry_failed_does_not_start_new_runs(db, tmp_path):
+    """`retry-failed` reabrió las tiendas y no los restaurantes (reencoló 0): retomar no vuelve a bajar los ~4.900
+    restaurantes (unas 5,5 h) en una corrida nueva."""
+    stores_run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, stores_run, [STORE_JOB])
+    restaurants_run = repository.start_run(db, "restaurants", {})
+    repository.add_jobs(db, restaurants_run, [RESTAURANT_JOB])
+    repository.mark_job(db, restaurants_run, RESTAURANT_JOB["job_key"], "done", {})
+    repository.finish_run(db, restaurants_run)
+    client = FakeClient()
+
+    reports, _ = refresh(db, client, _no_discovery, _no_discovery, reports_dir=tmp_path, resume_only=True)
+
+    assert [(r["kind"], r["run_id"], r["status"]) for r in reports] == [("stores", stores_run, "done")]
+    assert all(path.startswith("/tiendas/") for path in client.requested)
+    assert repository.latest_run(db, "restaurants") == restaurants_run
+
+
+def test_resuming_with_nothing_open_rebuilds_search_and_backup_without_downloading(db, tmp_path):
+    """Un corte cuando las dos corridas ya cerraron (durante la búsqueda o el respaldo) no empieza otra descarga."""
+    backups = []
+
+    reports, _ = refresh(
+        db,
+        FakeClient(),
+        _no_discovery,
+        _no_discovery,
+        backup=lambda: backups.append("ok"),
+        reports_dir=tmp_path,
+        resume_only=True,
+    )
+
+    assert reports == [] and backups == ["ok"]
+    assert db.execute("SELECT count(*) FROM scrape_runs").fetchone()[0] == 0

@@ -63,19 +63,26 @@ def refresh(
     discover_restaurants: Discoverer,
     backup: Callable[[], Path] | None = None,
     reports_dir: Path = REPORTS_DIR,
+    resume_only: bool = False,
 ) -> tuple[list[dict], bool]:
-    """Corre la actualización completa y devuelve los reportes (tiendas, restaurantes) y si falló el respaldo."""
+    """Corre la actualización completa y devuelve los reportes (tiendas, restaurantes) y si falló el respaldo.
+
+    Con `resume_only` solo retoma las corridas abiertas (p. ej. las que reabrió `retry-failed`) y nunca empieza una
+    nueva: sin él, una corrida de restaurantes cerrada se volvería a bajar entera."""
     reports = []
     # Con restaurantes abiertos y tiendas cerradas, la actualización anterior se cortó después de terminar las tiendas
     # (apagado, corte de luz): se retoma en los restaurantes, sin volver a bajar tiendas.
-    if repository.open_run(conn, "stores") is not None or repository.open_run(conn, "restaurants") is None:
+    if repository.open_run(conn, "stores") is not None or (
+        not resume_only and repository.open_run(conn, "restaurants") is None
+    ):
         run_id = ensure_run(conn, "stores", discover_stores)
         _scrape(conn, run_id, "stores", lambda: process_store_jobs(conn, client, run_id), reports_dir)
         reports.append(finish_and_report(conn, run_id, "stores", reports_dir)[0])
 
-    run_id = ensure_run(conn, "restaurants", discover_restaurants)
-    _scrape(conn, run_id, "restaurants", lambda: process_restaurant_jobs(conn, client, run_id), reports_dir)
-    reports.append(finish_and_report(conn, run_id, "restaurants", reports_dir)[0])
+    if not resume_only or repository.open_run(conn, "restaurants") is not None:
+        run_id = ensure_run(conn, "restaurants", discover_restaurants)
+        _scrape(conn, run_id, "restaurants", lambda: process_restaurant_jobs(conn, client, run_id), reports_dir)
+        reports.append(finish_and_report(conn, run_id, "restaurants", reports_dir)[0])
 
     log.info("Documentos de búsqueda: %s", build_search_documents(conn))
     backup_failed = False

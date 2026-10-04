@@ -89,7 +89,7 @@ def test_refresh_command_exits_with_a_clear_message_on_a_block(monkeypatch):
 
     monkeypatch.setattr(cli, "refresh", blocked)
     with pytest.raises(SystemExit, match="Descarga detenida: posible bloqueo") as exit_info:
-        cli.cmd_refresh(None, Namespace(no_backup=True))
+        cli.cmd_refresh(None, Namespace(no_backup=True, resume_only=False))
     assert exit_info.value.code != 0
 
 
@@ -97,7 +97,7 @@ def test_refresh_command_ends_normally_when_everything_worked(monkeypatch, capsy
     monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: ([{"kind": "stores"}], False))
     monkeypatch.setattr(cli, "render_markdown", lambda report: f"reporte de {report['kind']}")
 
-    cli.cmd_refresh(None, Namespace(no_backup=False))
+    cli.cmd_refresh(None, Namespace(no_backup=False, resume_only=False))
 
     assert "reporte de stores" in capsys.readouterr().out
 
@@ -108,10 +108,20 @@ def test_refresh_command_exits_with_its_own_code_when_only_the_backup_failed(mon
     monkeypatch.setattr(cli, "render_markdown", lambda report: f"reporte de {report['kind']}")
 
     with pytest.raises(SystemExit) as exit_info:
-        cli.cmd_refresh(None, Namespace(no_backup=False))
+        cli.cmd_refresh(None, Namespace(no_backup=False, resume_only=False))
 
     assert exit_info.value.code == 3
     assert "reporte de stores" in capsys.readouterr().out  # los reportes salen igual
+
+
+def test_refresh_command_can_resume_without_starting_new_runs(monkeypatch):
+    """Tras `retry-failed`: `rappi refresh --resume-only` (o `refresh-semanal.sh --resume-only`)."""
+    calls = []
+    monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: calls.append(kwargs) or ([], False))
+
+    cli.cmd_refresh(None, cli.build_parser().parse_args(["refresh", "--resume-only"]))
+
+    assert calls[0]["resume_only"] is True
 
 
 @pytest.mark.parametrize(

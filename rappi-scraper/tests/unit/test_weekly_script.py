@@ -35,9 +35,9 @@ def _project(tmp_path: Path, rappi_body: str, other_download_running: bool = Fal
     return project
 
 
-def _run(project: Path) -> subprocess.CompletedProcess:
+def _run(project: Path, *args: str) -> subprocess.CompletedProcess:
     env = {**os.environ, "PATH": f"{project / 'bin'}:{os.environ['PATH']}"}
-    return subprocess.run(["zsh", project / "scripts" / SCRIPT.name], env=env, capture_output=True, text=True)
+    return subprocess.run(["zsh", project / "scripts" / SCRIPT.name, *args], env=env, capture_output=True, text=True)
 
 
 def _status_lines(project: Path) -> list[str]:
@@ -77,6 +77,16 @@ def test_migrations_are_applied_before_downloading(tmp_path):
 
     assert result.returncode == 0
     assert (project / "calls.txt").read_text().splitlines() == ["migrate", "refresh"]
+
+
+def test_the_script_passes_its_options_to_refresh(tmp_path):
+    """Tras `retry-failed`, `./scripts/refresh-semanal.sh --resume-only` retoma solo lo reencolado."""
+    project = _project(tmp_path, 'echo "$*" >> calls.txt')
+
+    result = _run(project, "--resume-only")
+
+    assert result.returncode == 0
+    assert (project / "calls.txt").read_text().splitlines() == ["migrate", "refresh --resume-only"]
 
 
 def test_a_failed_migration_stops_before_downloading(tmp_path):

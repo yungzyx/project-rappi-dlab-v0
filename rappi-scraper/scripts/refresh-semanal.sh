@@ -4,6 +4,7 @@
 #      búsqueda, reportes y respaldo.
 #   2. Si rappi-ia está instalado al lado: conceptos, embeddings, evaluación, datos simulados y purga.
 # La evaluación no guarda τ (eval/thresholds.json está en git: recalibrar es a mano, con `make eval`).
+# Las opciones pasan a `rappi refresh`: tras `retry-failed`, `refresh-semanal.sh --resume-only` retoma solo lo reencolado.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p data/logs
@@ -38,7 +39,7 @@ fi
 .venv/bin/rappi migrate
 # Código 3: todo terminó salvo el respaldo (quedan los anteriores). La capa de IA corre igual, pero queda anotado.
 refresh_rc=0
-caffeinate -i .venv/bin/rappi refresh || refresh_rc=$?
+caffeinate -i .venv/bin/rappi refresh "$@" || refresh_rc=$?
 if (( refresh_rc == 3 )); then
   nota="respaldo fallido: se conservan los anteriores"
 elif (( refresh_rc != 0 )); then

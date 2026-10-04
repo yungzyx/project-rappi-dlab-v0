@@ -8,6 +8,7 @@ Flujo típico:
     rappi build-search
     rappi search "pañales" --vertical supermercado
     rappi retry-failed --kind stores        # reintentar jobs fallidos de la última corrida
+    rappi refresh --resume-only             # y retomar solo lo reencolado (sin corridas nuevas)
     rappi report                            # reporte de calidad de la última corrida
     rappi refresh                           # todo lo anterior de una vez (pensado para correr semanal)
 """
@@ -111,6 +112,7 @@ def cmd_refresh(conn, args) -> None:
             _store_discoverer(client, list(VERTICAL_LISTINGS)),
             _restaurant_discoverer(client),
             backup=None if args.no_backup else lambda: backup_database(database_url()),
+            resume_only=args.resume_only,
         )
     except PossibleBlock as exc:
         raise SystemExit(
@@ -222,6 +224,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("refresh", help="Actualización completa: tiendas, restaurantes, búsqueda, reportes y respaldo")
     p.add_argument("--no-backup", action="store_true", help="No respaldar la base al final")
+    p.add_argument(
+        "--resume-only",
+        action="store_true",
+        help="Solo retomar las corridas abiertas (p. ej. tras retry-failed), sin empezar corridas nuevas",
+    )
 
     sub.add_parser("backup", help="Respaldar la base en data/backups/ (conserva los últimos 4)")
 
