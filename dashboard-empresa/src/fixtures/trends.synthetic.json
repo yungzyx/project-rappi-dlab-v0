@@ -4,86 +4,86 @@
     {
       "concept_id": "textil-hogar",
       "concepto": "🛏️ Textiles del hogar",
-      "recientes": 16,
-      "anteriores": 51,
+      "recientes": 12,
+      "anteriores": 39,
       "crecimiento_pct": -69
-    },
-    {
-      "concept_id": "cocina-menaje",
-      "concepto": "🍳 Cocina y menaje",
-      "recientes": 38,
-      "anteriores": 83,
-      "crecimiento_pct": -54
     },
     {
       "concept_id": "peruana",
       "concepto": "🇵🇪 Comida peruana",
-      "recientes": 243,
-      "anteriores": 163,
-      "crecimiento_pct": 49
+      "recientes": 246,
+      "anteriores": 147,
+      "crecimiento_pct": 67
     },
     {
       "concept_id": "audio",
       "concepto": "🎧 Audio",
-      "recientes": 22,
-      "anteriores": 41,
-      "crecimiento_pct": -46
+      "recientes": 13,
+      "anteriores": 28,
+      "crecimiento_pct": -54
+    },
+    {
+      "concept_id": "ron",
+      "concepto": "🥃 Ron",
+      "recientes": 60,
+      "anteriores": 106,
+      "crecimiento_pct": -43
+    },
+    {
+      "concept_id": "carbon",
+      "concepto": "🔥 Carbón y leña",
+      "recientes": 43,
+      "anteriores": 31,
+      "crecimiento_pct": 39
+    },
+    {
+      "concept_id": "cereales",
+      "concepto": "🥣 Cereales y avena",
+      "recientes": 179,
+      "anteriores": 130,
+      "crecimiento_pct": 38
+    },
+    {
+      "concept_id": "cocina-menaje",
+      "concepto": "🍳 Cocina y menaje",
+      "recientes": 49,
+      "anteriores": 71,
+      "crecimiento_pct": -31
+    },
+    {
+      "concept_id": "hamburguesa",
+      "concepto": "🍔 Hamburguesa",
+      "recientes": 126,
+      "anteriores": 181,
+      "crecimiento_pct": -30
+    },
+    {
+      "concept_id": "helados",
+      "concepto": "🍦 Helados",
+      "recientes": 79,
+      "anteriores": 109,
+      "crecimiento_pct": -28
+    },
+    {
+      "concept_id": "juguetes-infantiles",
+      "concepto": "🧸 Juguetes",
+      "recientes": 51,
+      "anteriores": 40,
+      "crecimiento_pct": 28
+    },
+    {
+      "concept_id": "pastas",
+      "concepto": "🍝 Pastas",
+      "recientes": 378,
+      "anteriores": 506,
+      "crecimiento_pct": -25
     },
     {
       "concept_id": "hielo",
       "concepto": "🧊 Hielo",
       "recientes": 43,
-      "anteriores": 30,
-      "crecimiento_pct": 43
-    },
-    {
-      "concept_id": "helados",
-      "concepto": "🍦 Helados",
-      "recientes": 83,
-      "anteriores": 139,
-      "crecimiento_pct": -40
-    },
-    {
-      "concept_id": "cereales",
-      "concepto": "🥣 Cereales y avena",
-      "recientes": 142,
-      "anteriores": 220,
-      "crecimiento_pct": -35
-    },
-    {
-      "concept_id": "pasteleria",
-      "concepto": "🎂 Tortas y pastelería",
-      "recientes": 236,
-      "anteriores": 179,
-      "crecimiento_pct": 32
-    },
-    {
-      "concept_id": "carbon",
-      "concepto": "🔥 Carbón y leña",
-      "recientes": 40,
-      "anteriores": 54,
-      "crecimiento_pct": -26
-    },
-    {
-      "concept_id": "desayuno",
-      "concepto": "🥞 Desayunos y brunch",
-      "recientes": 113,
-      "anteriores": 91,
-      "crecimiento_pct": 24
-    },
-    {
-      "concept_id": "salsas",
-      "concepto": "🥫 Salsas y aderezos",
-      "recientes": 44,
-      "anteriores": 58,
-      "crecimiento_pct": -24
-    },
-    {
-      "concept_id": "alimentacion-bebe",
-      "concepto": "🍼 Alimentación infantil",
-      "recientes": 198,
-      "anteriores": 166,
-      "crecimiento_pct": 19
+      "anteriores": 57,
+      "crecimiento_pct": -25
     }
   ]
 }

@@ -29,7 +29,7 @@ describe('FrequencyView', () => {
   })
 
   test('la semana que la API no calculó sale vacía y no en 0%', async () => {
-    // Hoy el corte de los datos guardados cae en domingo (27-09): la API deja fuera la semana del 21 al 27-09.
+    // El corte de los datos guardados es el sábado 03-10: la API deja fuera la semana en curso (28-09 al 04-10).
     serveFixtures()
     await renderWithData(<FrequencyView source="synthetic" />)
 

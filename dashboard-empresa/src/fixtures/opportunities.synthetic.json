@@ -5,35 +5,35 @@
       "vertical": "restaurantes",
       "concept_id": "peruana",
       "que": "🇵🇪 Comida peruana",
-      "busquedas": 545,
-      "usuarios": 440,
+      "busquedas": 525,
+      "usuarios": 430,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 243,
-      "anteriores": 163,
-      "crecimiento_pct": 49,
-      "existe_en": "farmacia, supermercado",
-      "accion": "Existe en otro vertical: que Bigotes lo ofrezca ahí"
+      "recientes": 246,
+      "anteriores": 147,
+      "crecimiento_pct": 67,
+      "existe_en": null,
+      "accion": "Oportunidad: sumar comercios o categoría"
     },
     {
       "vertical": "restaurantes",
       "concept_id": "desayuno",
       "que": "🥞 Desayunos y brunch",
-      "busquedas": 275,
-      "usuarios": 245,
+      "busquedas": 261,
+      "usuarios": 227,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 113,
-      "anteriores": 91,
-      "crecimiento_pct": 24,
+      "recientes": 100,
+      "anteriores": 83,
+      "crecimiento_pct": 20,
       "existe_en": null,
       "accion": "Oportunidad: sumar comercios o categoría"
     },
@@ -41,35 +41,17 @@
       "vertical": "restaurantes",
       "concept_id": "mexicana",
       "que": "🌮 Comida mexicana",
-      "busquedas": 275,
-      "usuarios": 232,
+      "busquedas": 204,
+      "usuarios": 187,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 86,
-      "anteriores": 80,
-      "crecimiento_pct": 8,
-      "existe_en": null,
-      "accion": "Oportunidad: sumar comercios o categoría"
-    },
-    {
-      "vertical": "restaurantes",
-      "concept_id": "arabe",
-      "que": "🥙 Comida árabe",
-      "busquedas": 137,
-      "usuarios": 127,
-      "ciudades": [
-        "Antofagasta",
-        "Concepción",
-        "Santiago",
-        "Valparaíso"
-      ],
-      "recientes": 42,
-      "anteriores": 46,
-      "crecimiento_pct": -9,
+      "recientes": 67,
+      "anteriores": 76,
+      "crecimiento_pct": -12,
       "existe_en": null,
       "accion": "Oportunidad: sumar comercios o categoría"
     },
@@ -77,36 +59,54 @@
       "vertical": "supermercado",
       "concept_id": null,
       "que": "kombucha",
-      "busquedas": 137,
-      "usuarios": 127,
+      "busquedas": 171,
+      "usuarios": 158,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 63,
-      "anteriores": 45,
-      "crecimiento_pct": 40,
+      "recientes": 75,
+      "anteriores": 43,
+      "crecimiento_pct": 74,
       "existe_en": null,
       "accion": "Revisar la consulta: sumar sinónimo o concepto nuevo"
+    },
+    {
+      "vertical": "restaurantes",
+      "concept_id": "arabe",
+      "que": "🥙 Comida árabe",
+      "busquedas": 149,
+      "usuarios": 136,
+      "ciudades": [
+        "Antofagasta",
+        "Concepción",
+        "Santiago",
+        "Valparaíso"
+      ],
+      "recientes": 51,
+      "anteriores": 49,
+      "crecimiento_pct": 4,
+      "existe_en": null,
+      "accion": "Oportunidad: sumar comercios o categoría"
     },
     {
       "vertical": "mall",
       "concept_id": "automotriz",
       "que": "🚗 Auto",
-      "busquedas": 34,
-      "usuarios": 33,
+      "busquedas": 30,
+      "usuarios": 30,
       "ciudades": [
         "Antofagasta",
         "Concepción",
         "Santiago",
         "Valparaíso"
       ],
-      "recientes": 16,
-      "anteriores": 7,
-      "crecimiento_pct": 129,
-      "existe_en": "supermercado, conveniencia, turbo",
+      "recientes": 10,
+      "anteriores": 8,
+      "crecimiento_pct": 25,
+      "existe_en": "supermercado, conveniencia",
       "accion": "Existe en otro vertical: que Bigotes lo ofrezca ahí"
     }
   ]
