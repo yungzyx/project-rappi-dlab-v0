@@ -33,6 +33,7 @@ GitHub muestra los PNG. Las versiones interactivas (HTML) hay que descargarlas y
 | Flujo de datos | Las etapas de punta a punta: Descarga → Postgres → IA offline → Consulta → Apps | [rag-datos.png](diagramas/rag-datos.png) | [rag-datos.html](diagramas/rag-datos.html) |
 | Arquitectura de la IA | Catálogo, agente Bigotes y panel en cuatro carriles: datos offline, conversación online, entre verticales y negocio | [arquitectura-ia.png](diagramas/arquitectura-ia.png) | [arquitectura-ia.html](diagramas/arquitectura-ia.html) |
 | Scraper | Cómo `rappi refresh` descubre, descarga y guarda el catálogo en Postgres + pgvector | [scraper-flujo.png](diagramas/scraper-flujo.png) | [scraper-flujo.html](diagramas/scraper-flujo.html) |
+| Red multivertical | Qué productos y conceptos comparten las verticales (catálogo del 30-09); se regenera con `rappi-ia multivertical` | [mapa-conceptos.jpg](../dashboard-empresa/public/presentacion/mapa-conceptos.jpg) | [mapa-multivertical.html](../dashboard-empresa/public/presentacion/mapa-multivertical.html) |
 
 Las fuentes JSON de los diagramas están en [diagramas-fuente/](diagramas-fuente/).
 

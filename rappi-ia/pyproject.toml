@@ -31,6 +31,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "rappi_ia.concepts" = ["*.toml", "*.csv"]
 "rappi_ia.eval" = ["*.json"]
+"rappi_ia.analytics" = ["*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

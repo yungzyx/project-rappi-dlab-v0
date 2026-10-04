@@ -10,6 +10,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia eval-search             # léxico vs vectorial vs híbrido + calibración de τ ("sin resultado")
     rappi-ia synth                   # usuarios y eventos SIMULADOS para el panel (reemplaza los anteriores)
     rappi-ia analytics               # resumen de métricas del panel (frecuencia, abandono, oportunidades…)
+    rappi-ia multivertical           # mapa multivertical para la presentación (dashboard-empresa/public/presentacion/)
 """
 
 import argparse
@@ -198,7 +199,18 @@ def cmd_analytics(conn, args) -> None:
     print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
 
 
+def cmd_multivertical(conn, args) -> None:
+    from pathlib import Path
+
+    from .analytics import multivertical
+
+    path = Path(args.salida) if args.salida else multivertical.OUTPUT
+    data = multivertical.write(conn, path)
+    print(f"Mapa multivertical: {len(data['concepts'])} conceptos, {len(data['shared'])} pares de verticales → {path}")
+
+
 COMMANDS = {
+    "multivertical": cmd_multivertical,
     "synth": cmd_synth,
     "purge": cmd_purge,
     "analytics": cmd_analytics,
@@ -253,6 +265,10 @@ def build_parser() -> argparse.ArgumentParser:
     synth.add_argument("--hasta", help="fecha final AAAA-MM-DD (por defecto hoy)")
     purge = sub.add_parser("purge", help="borra el texto de consultas más antiguas que la retención (90 días)")
     purge.add_argument("--dias", type=int)
+    mv = sub.add_parser(
+        "multivertical", help="mapa de productos y conceptos compartidos entre verticales (presentación)"
+    )
+    mv.add_argument("--salida", help="archivo HTML (por defecto dashboard-empresa/public/presentacion/)")
     analytics = sub.add_parser("analytics", help="resumen de métricas del panel")
     analytics.add_argument("--fuente", choices=("synthetic", "prototype"), default="synthetic")
     return parser

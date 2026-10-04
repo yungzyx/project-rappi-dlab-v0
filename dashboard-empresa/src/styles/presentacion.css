@@ -149,7 +149,8 @@
 }
 
 .hero-figure figcaption,
-.example-figure figcaption {
+.example-figure figcaption,
+.diagram figcaption {
   margin-top: var(--space-2);
   font-size: var(--text-xs);
   color: var(--ink-3);
@@ -290,6 +291,10 @@
   height: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-m);
+}
+
+.red-cta {
+  margin-top: var(--space-4);
 }
 
 /* ---------- Cifras: cuatro titulares numéricos en una fila de informe ---------- */
