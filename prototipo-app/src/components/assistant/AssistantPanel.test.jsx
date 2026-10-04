@@ -88,7 +88,7 @@ function OpenButton() {
   )
 }
 
-async function renderPanel() {
+async function renderPanel({ push = () => {} } = {}) {
   render(
     <DemoProvider>
       <ProfileProvider>
@@ -96,7 +96,7 @@ async function renderPanel() {
           <CartProvider>
             <NudgeProvider>
               <OpenButton />
-              <AssistantPanel push={() => {}} />
+              <AssistantPanel push={push} />
             </NudgeProvider>
           </CartProvider>
         </AssistantProvider>
@@ -149,6 +149,79 @@ describe('chat en orden', () => {
     const texts = bubbles()
     expect(texts).toContain('Respuesta A')
     expect(texts.indexOf('Respuesta A')).toBeLessThan(texts.indexOf('Respuesta B'))
+  })
+})
+
+describe('sugerencia cruzada', () => {
+  test('dice de qué vertical viene y su botón abre esa vertical', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      text: 'Mira estas hamburguesas',
+      products: [],
+      suggestion: {
+        concept: 'gaseosas',
+        vertical: 'licores',
+        prototype_vertical: 'liquor',
+        reason: 'Porque llevas 🍔 hamburguesa',
+        question: '¿Te tinca sumar gaseosas?',
+        products: [
+          {
+            id: 'cat-1',
+            entity_type: 'catalog_item',
+            entity_id: '1',
+            name: 'Bebida Pepsi 1,5 L',
+            price: '$1.990',
+            store: 'Botillería',
+            vertical: 'licores',
+            concept: 'gaseosas',
+          },
+        ],
+      },
+    })
+    await renderPanel({ push })
+    say('una hamburguesa')
+    await runUntilIdle()
+
+    expect(screen.getByText('De Licores')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Ver más en Licores/ }))
+    await runUntilIdle()
+    expect(push).toHaveBeenCalledWith('vertical', { id: 'liquor' }, expect.anything())
+  })
+})
+
+describe('también en otras verticales', () => {
+  test('muestra las verticales con sus tiendas (logo o inicial) y cada una abre su vertical', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      text: 'Mira estas cervezas',
+      products: [],
+      also_in: {
+        concept: 'cerveza',
+        label: '🍺 Cerveza',
+        verticals: [
+          {
+            vertical: 'supermercado',
+            prototype_vertical: 'grocery',
+            items: 262,
+            stores: [
+              { name: 'Unimarc', logo: 'https://x/u.png' },
+              { name: 'Lider', logo: null },
+            ],
+          },
+        ],
+      },
+    })
+    await renderPanel({ push })
+    say('cerveza')
+    await runUntilIdle()
+
+    expect(screen.getByText('También en')).toBeTruthy()
+    const button = screen.getByRole('button', { name: /Súper.*Unimarc · Lider.*262 productos/ })
+    expect(button.querySelector('img').getAttribute('src')).toBe('https://x/u.png')
+    expect(button.textContent).toContain('L') // Lider sin logo: su inicial
+    fireEvent.click(button)
+    await runUntilIdle()
+    expect(push).toHaveBeenCalledWith('vertical', { id: 'grocery' }, expect.anything())
   })
 })
 

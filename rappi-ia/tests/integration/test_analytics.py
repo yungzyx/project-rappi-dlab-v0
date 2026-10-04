@@ -174,6 +174,28 @@ def test_nudge_taps_are_not_mixed_with_suggestions_added_to_the_cart(db, monkeyp
     assert (row["mostradas"], row["aceptadas"], row["aceptacion_pct"]) == (10, 3, 30.0)
 
 
+def test_prototype_suggestions_show_from_the_first_one_without_a_rate_on_a_small_sample(db):
+    """En una demo en vivo el panel debe mostrar la sugerencia recién vista; el % recién con 10 mostradas.
+    Los datos simulados mantienen el mínimo de 10 para aparecer."""
+    seed_taxonomy(db, load_taxonomy())
+    at = T0 + timedelta(days=1)
+
+    def shown(user, n, accepted=0):
+        rows = [("suggestion_shown", n), ("suggestion_accepted", accepted)]
+        return [
+            events.Event(user, "s", t, ts=at, concept_id="gaseosas", vertical="licores", payload={"origen": "chat"})
+            for t, count in rows
+            for _ in range(count)
+        ]
+
+    events.record(db, shown("u1", 2, accepted=1), source="prototype")
+    events.record(db, shown("u2", 3), source="synthetic")
+    db.commit()
+    [row] = queries.suggestions(db, "prototype")
+    assert (row["mostradas"], row["aceptadas"], row["aceptacion_pct"]) == (2, 1, None)
+    assert queries.suggestions(db, "synthetic") == []
+
+
 def test_cohorts_stop_at_the_last_finished_week(db, monkeypatch):
     """La semana en curso no es 0% de retención: queda fuera (celda vacía en el panel)."""
     monkeypatch.setattr(queries, "MIN_GROUP_USERS", 1)

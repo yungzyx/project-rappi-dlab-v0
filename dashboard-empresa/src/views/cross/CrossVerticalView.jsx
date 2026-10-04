@@ -7,7 +7,7 @@ import { useAnalytics } from '../../lib/useAnalytics.js'
 import { AffinityTable } from './AffinityTable.jsx'
 import { MultiVerticalRetention } from './MultiVerticalRetention.jsx'
 import { strataRows } from './strata.js'
-import { SuggestionPerformance } from './SuggestionPerformance.jsx'
+import { MIN_SHOWN_FOR_RATE, SuggestionPerformance } from './SuggestionPerformance.jsx'
 import './cross.css'
 
 const EDGE_NOTES = {
@@ -23,6 +23,16 @@ function SuggestionHeadline({ source }) {
   const shown = sum(rows, 'mostradas')
   if (!shown) return null
   const accepted = sum(rows, 'aceptadas')
+  if (shown < MIN_SHOWN_FOR_RATE) {
+    return (
+      <Headline
+        value={formatNumber(shown)}
+        unit="sugerencias cruzadas mostradas"
+        context={`${formatNumber(accepted)} aceptadas; el % aparece desde ${MIN_SHOWN_FOR_RATE} mostradas`}
+        tone="brand"
+      />
+    )
+  }
   return (
     <Headline
       value={formatPct((accepted * 100) / shown)}

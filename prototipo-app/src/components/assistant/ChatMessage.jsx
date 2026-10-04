@@ -67,6 +67,47 @@ function ProductCards({ products, onOpenProduct, delay = 0 }) {
   )
 }
 
+/** Logo de la tienda; si no hay (o no carga), su inicial. */
+function StoreLogo({ store }) {
+  const [broken, setBroken] = useState(false)
+  if (!store.logo || broken) return <span className="chat-also-initial">{store.name.trim().charAt(0)}</span>
+  return <img src={store.logo} alt="" onError={() => setBroken(true)} />
+}
+
+/** "También en": otras verticales con oferta de lo pedido y sus tiendas reales. Cada una abre su vertical. */
+function AlsoIn({ alsoIn, onAction }) {
+  return (
+    <div className="chat-also">
+      <p className="chat-reason">
+        <span className="chat-suggestion-tag">También en</span> {alsoIn.label} en otras verticales:
+      </p>
+      <div className="chat-stores">
+        {alsoIn.verticals.map((vertical, i) => (
+          <button
+            key={vertical.label}
+            type="button"
+            className="chat-store chat-also-vertical tap"
+            style={{ animationDelay: `${240 + i * 60}ms` }}
+            onClick={() => vertical.route && onAction({ route: vertical.route })}
+          >
+            <span className="chat-also-logos">
+              {vertical.stores.map((store) => (
+                <StoreLogo key={store.name} store={store} />
+              ))}
+            </span>
+            <span>
+              <strong>{vertical.label}</strong>
+              <small>
+                {vertical.stores.map((store) => store.name).join(' · ')} · {vertical.items} productos
+              </small>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** Un mensaje del chat: burbuja del usuario (texto o foto) o respuesta del asistente con tarjetas. */
 export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOpenStore, onAction }) {
   const [revealed, setRevealed] = useState(!message.animate)
@@ -117,12 +158,24 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
             {message.suggestion?.products?.length > 0 && (
               <div className="chat-suggestion">
                 <p className="chat-reason">
-                  <span className="chat-suggestion-tag">De otra tienda</span> {message.suggestion.question}{' '}
-                  {message.suggestion.reason}
+                  <span className="chat-suggestion-tag">
+                    {message.suggestion.verticalLabel ? `De ${message.suggestion.verticalLabel}` : 'De otra tienda'}
+                  </span>{' '}
+                  {message.suggestion.question} {message.suggestion.reason}
                 </p>
                 <ProductCards products={message.suggestion.products} onOpenProduct={onOpenProduct} delay={180} />
+                {message.suggestion.route && message.suggestion.verticalLabel && (
+                  <button
+                    type="button"
+                    className="chat-action tap"
+                    onClick={() => onAction({ route: message.suggestion.route })}
+                  >
+                    Ver más en {message.suggestion.verticalLabel} →
+                  </button>
+                )}
               </div>
             )}
+            {message.alsoIn?.verticals?.length > 0 && <AlsoIn alsoIn={message.alsoIn} onAction={onAction} />}
             {message.stores?.length > 0 && (
               <div className="chat-stores">
                 {message.stores.map((store, i) => (

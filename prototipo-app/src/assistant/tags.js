@@ -88,3 +88,11 @@ export function topDiscounts(limit = 8) {
     .sort((a, b) => discountOf(b) - discountOf(a))
     .slice(0, limit)
 }
+
+/** Ofertas sin saber qué busca: primero la mejor de cada vertical (si no, ganan los combos de restaurantes). */
+export function variedDiscounts(limit = 8) {
+  const sorted = topDiscounts(ALL_PRODUCTS.length)
+  const seen = new Set()
+  const firsts = sorted.filter((product) => !seen.has(product.vertical) && seen.add(product.vertical))
+  return [...firsts, ...sorted.filter((product) => !firsts.includes(product))].slice(0, limit)
+}

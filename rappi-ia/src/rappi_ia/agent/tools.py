@@ -10,6 +10,7 @@ from psycopg import Connection
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
 from ..retrieval.hybrid import Filters, RetrievalResult, _concepts_of, _hydrate, retrieve
+from .verticals import ranked_verticals
 
 
 def _sensitive() -> set[str]:
@@ -184,11 +185,7 @@ def _allowed(concept_id: str | None, requested: list[str]) -> bool:
 
 
 def _verticals_for(conn: Connection, concept_id: str, current_vertical: str | None) -> list[str]:
-    rows = conn.execute(
-        "SELECT vertical FROM concept_assortment WHERE concept_id = %s AND items > 0 ORDER BY items DESC",
-        (concept_id,),
-    ).fetchall()
-    verticals = [r[0] for r in rows]
+    verticals = ranked_verticals(conn, [concept_id])
     # Primero otros verticales (el valor de la propuesta es cruzar), después el actual.
     return [v for v in verticals if v != current_vertical] + [v for v in verticals if v == current_vertical]
 

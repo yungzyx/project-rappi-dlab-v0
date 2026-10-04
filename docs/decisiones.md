@@ -81,7 +81,9 @@
 | Fecha | Decisión | Motivo |
 |---|---|---|
 | 27-09-2026 | Solo habla de lo que existe: cada producto viene de una herramienta, los precios salen de SQL y un verificador rechaza lo que no se recuperó. | Confianza en las respuestas. |
-| 27-09-2026 | Respeta el vertical: como máximo una sugerencia cruzada por respuesta, marcada "De otra tienda" y con su razón visible. | Ayudar sin invadir. |
+| 27-09-2026 | Respeta el vertical: como máximo una sugerencia cruzada por respuesta, marcada con su vertical ("De Licores") y con su razón visible. | Ayudar sin invadir. |
+| 03-10-2026 | La vertical (de la respuesta y de la sugerencia) se elige donde el concepto es más típico, por su participación en el catálogo de cada vertical, no donde hay más ítems. Restaurantes solo compite en lo que se pide hecho: comida preparada, postres, pastelería, helados y café. | Restaurantes tiene ~5 veces más ítems y ganaba casi todo: "vino" sugería un sándwich de queso y "algo para el carrete" respondía con restaurantes. |
+| 03-10-2026 | Bajo la respuesta, "También en": otras verticales con al menos 20 productos de lo pedido (las de más oferta primero) y dos tiendas reales cada una. No es una sugerencia: no se registra ni cuenta para el máximo de una; nunca para sensibles ni cuando se habla de síntomas. | Mostrar la multiverticalidad sin romper la regla de una sugerencia por respuesta. |
 | 27-09-2026 | Categorías sensibles nunca por iniciativa propia; en farmacia no sugiere medicamentos a partir de síntomas; productos +18 con recordatorio; tabaco y vapeo solo si se piden por nombre. | Cuidado del usuario y Ley 20.105 (publicidad del tabaco). |
 | 27-09-2026 | Memoria transparente: intereses por concepto con decaimiento, visibles ("Aprendiendo de ti") y borrables ("Olvidar"). | El usuario controla lo que se aprende de él. |
 | 27-09-2026 | Audio y fotos no se guardan; las consultas se guardan con datos personales redactados y su texto se borra a los 90 días. | Privacidad por diseño. |
@@ -94,6 +96,7 @@
 | 27-09-2026 | Usuarios, eventos y pedidos simulados (generador con semilla) o del prototipo, siempre con `source`; nunca se mezclan con datos reales ni se presentan como evidencia. | No hay datos internos: el panel muestra la mecánica, no resultados. |
 | 27-09-2026 | Las aristas aprendidas de datos simulados solo se ven en el panel; el agente no las usa. | No recomendar a partir de supuestos. |
 | 27-09-2026 | Cualquier palanca del panel se valida con un grupo de control antes de escalar. | La comparación directa no mide el efecto causal. |
+| 03-10-2026 | Con la fuente Prototipo, "Bigotes entre verticales" muestra cada sugerencia desde la primera; el % de aceptación aparece recién con 10 mostradas. Los datos simulados mantienen el mínimo de 10 para aparecer. | Una demo en vivo debe verse, sin calcular porcentajes con dos casos. |
 
 ## Operación
 

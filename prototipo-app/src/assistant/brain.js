@@ -1,8 +1,17 @@
 // Respuestas simuladas del asistente. Todo sale de los datos del prototipo; nada va a internet.
-// Una respuesta es { text, products?, stores?, actions?: [{ label, route }], reason?, tags? }.
+// Una respuesta es { text, products?, stores?, actions?: [{ label, route }], reason?, suggestion?, tags? }.
 // `tags` son los temas que usó para responder; con ellos aprende el perfil.
 import { search } from '../data/catalog'
-import { COMPLEMENTS, TAGS, normalize, productsForTags, storesForTags, tagsOf, topDiscounts } from './tags'
+import {
+  COMPLEMENTS,
+  TAGS,
+  normalize,
+  productsForTags,
+  storesForTags,
+  tagsOf,
+  topDiscounts,
+  variedDiscounts,
+} from './tags'
 
 export const ASSISTANT_NAME = 'Bigotes'
 
@@ -82,6 +91,36 @@ const matches = (text, words) => words.some((word) => new RegExp(`(^|[^a-z0-9])$
 const GREETINGS = /^((buenas tardes|buenas noches|buenos dias|buenas|holi|hola|hey|wena|ola)\b[\s,!.]*)+/
 const GENERIC_OCCASIONS = new Set(['hambre'])
 
+// Nombre visible de cada vertical del prototipo, para "De Licores" y "Ver más en Licores".
+const VERTICAL_LABELS = {
+  grocery: 'Súper',
+  liquor: 'Licores',
+  pharmacy: 'Farmacia',
+  retail: 'Rappi Mall',
+  express: 'Express',
+  pet: 'Mascotas',
+  chocolates: 'Chocolatería',
+  restaurants: 'Restaurantes',
+}
+
+/** Complemento del tema con productos de UNA vertical distinta a la de la respuesta (como la API). */
+function complementFor(tag, ownProducts) {
+  const extra = COMPLEMENTS[tag]?.[0]
+  if (!extra) return null
+  const own = new Set(ownProducts.map((product) => product.vertical))
+  const candidates = productsForTags([extra], 20).filter((product) => !own.has(product.vertical))
+  if (candidates.length === 0) return null
+  const { vertical } = candidates[0]
+  return {
+    concept: extra,
+    question: `¿Te tinca sumar ${TAGS[extra].label.toLowerCase()}?`,
+    reason: `Porque llevas ${TAGS[tag].emoji} ${TAGS[tag].label.toLowerCase()}`,
+    verticalLabel: VERTICAL_LABELS[vertical],
+    route: vertical === 'restaurants' ? ['restaurants'] : ['vertical', { id: vertical }],
+    products: candidates.filter((product) => product.vertical === vertical).slice(0, 3),
+  }
+}
+
 function forTags(tags, text, storesOnly = false) {
   return {
     tags,
@@ -110,8 +149,10 @@ export function reply(input, profile) {
   if (tags.length > 0) {
     const labels = tags.map((tag) => `${TAGS[tag].emoji} ${TAGS[tag].label.toLowerCase()}`).join(' y ')
     const response = forTags(tags, `Esto encontré de ${labels}:`)
+    const suggestion = complementFor(tags[0], response.products)
     const extra = COMPLEMENTS[tags[0]]?.[0]
-    if (extra)
+    if (suggestion) response.suggestion = suggestion
+    else if (extra)
       response.reason = `Tip: a quienes piden ${TAGS[tags[0]].label.toLowerCase()} también les gusta ${TAGS[extra].emoji} ${TAGS[extra].label.toLowerCase()}.`
     return response
   }
@@ -137,7 +178,7 @@ export function reply(input, profile) {
 /** "Para ti": lo que acompaña al interés principal, de otra vertical. */
 export function forYou(profile) {
   const [first] = profile.top
-  if (!first) return { products: topDiscounts(6), reason: null }
+  if (!first) return { products: variedDiscounts(6), reason: null }
   const tags = COMPLEMENTS[first] ?? [first]
   return {
     products: productsForTags(tags, 6),

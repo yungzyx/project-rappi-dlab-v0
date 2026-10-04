@@ -21,6 +21,7 @@ from ..concepts.assign import concept_matcher
 from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import load_taxonomy
 from ..text import normalize
+from .verticals import ranked_verticals
 
 GREETING_WORDS = {"hola", "holi", "buenas", "buenos", "dias", "tardes", "noches", "hey", "wena", "alo", "ola"}
 THANKS_WORDS = {"gracias", "muchas", "vale", "listo", "ok", "okay", "perfecto", "genial", "bacan", "buenisimo"}
@@ -164,9 +165,9 @@ class Understander:
             fixed = self.taxonomy.occasions[occasion.target].vertical
             if fixed:
                 return Intent(kind, text, fixed, concepts, **common)
-            options = _verticals_for(conn, concepts)
+            options = ranked_verticals(conn, concepts)
             return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
-        options = _verticals_for(conn, concepts[:1])
+        options = ranked_verticals(conn, concepts[:1])
         if len(options) >= 2 and "restaurantes" in options[:2] and _comparable(conn, concepts[0], options[:2]):
             return Intent("aclarar", text, None, concepts, options=options[:2], **common)
         return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
@@ -213,15 +214,6 @@ def _clean(body: str) -> str:
 
 def _id(match) -> str | None:
     return match.target if match else None
-
-
-def _verticals_for(conn: Connection, concept_ids: list[str]) -> list[str]:
-    rows = conn.execute(
-        """SELECT vertical FROM concept_assortment WHERE concept_id = ANY(%s) AND items > 0
-           GROUP BY vertical ORDER BY sum(items) DESC, vertical""",
-        (concept_ids,),
-    ).fetchall()
-    return [r[0] for r in rows]
 
 
 def _comparable(conn: Connection, concept_id: str, verticals: list[str]) -> bool:

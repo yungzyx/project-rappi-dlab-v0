@@ -150,7 +150,7 @@ Decisiones:
    - En el texto, los productos se citan con marcadores (`{p1}`) que reemplaza el código.
    - El verificador rechaza ids no recuperados y cifras, precios o atributos ("sin alcohol", "el más barato") que no salgan de esos campos.
    - Los botones (`actions`) los arma siempre el código.
-2. **Respeta el vertical en que estás.** La respuesta principal sale de ese vertical. Lo cruzado va aparte y marcado "De otra tienda", con su razón visible ("porque llevas cerveza").
+2. **Respeta el vertical en que estás.** La respuesta principal sale de ese vertical. Lo cruzado va aparte y marcado con su vertical ("De Licores"), con su razón visible ("porque llevas cerveza") y un botón para abrir esa vertical.
 3. **Máximo una sugerencia cruzada por respuesta** y una por tema por sesión (el tope diario queda pendiente). Nada de urgencias falsas.
 4. **Honestidad.** Si no encuentra (según la definición del §1), lo dice y registra **demanda no satisfecha** (consulta, vertical, conceptos y condición). Esa es la materia prima de las oportunidades de negocio.
 5. **Aclara, no adivina.** Si la intención es ambigua entre verticales, hace una sola pregunta con opciones.
@@ -168,7 +168,8 @@ Decisiones:
 **Contrato de respuesta.** Amplía el de `prototipo-app/src/assistant/brain.js` (`text`, `products`, `stores`, `reason`, `actions` y `tags`) sin romperlo:
 - `reason` sigue en el primer nivel;
 - `products` tiene la forma de `prototipo-app/src/data/catalog.js` (`id`, `name`, `price`, `img`, `store`…);
-- `suggestion` agrega la sugerencia cruzada, que el cliente muestra como "De otra tienda";
+- `suggestion` agrega la sugerencia cruzada, que el cliente muestra como "De Licores" (su vertical) con un botón "Ver más en Licores";
+- `also_in` (opcional) lista hasta 3 verticales más donde hay lo pedido, con dos tiendas cada una (nombre y logo); el cliente la muestra como "También en". No es una sugerencia: no cuenta para el máximo de una por respuesta;
 - `vertical` usa los códigos del backend. El cliente los traduce a los ids del prototipo: supermercado → grocery, licores → liquor, farmacia → pharmacy, mall → retail, conveniencia/turbo → express, chocolateria → chocolates.
 
 ```json
