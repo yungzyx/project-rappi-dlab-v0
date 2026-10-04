@@ -275,6 +275,24 @@ def test_symptoms_never_bring_medicines_but_add_pharmacy_notice(bigotes):
     assert "químico farmacéutico" in r["text"]
 
 
+def test_symptoms_starting_with_me_get_the_pharmacy_notice_and_no_painkillers(bigotes):
+    """«me duele la cabeza» se limpiaba a «duele la cabeza» antes de buscar el síntoma: sin aviso de farmacia y con
+    un analgésico que calzaba la palabra «cabeza»."""
+    agent, db = bigotes
+    add_product(db, 710, "Anacin Max Dolor de Cabeza X 8 Comprimidos", 1, "Analgésicos sistémicos")
+    add_price(db, 1, 710, 2600)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    r = agent.reply(db, "me duele la cabeza", Context(vertical="supermercado"))
+
+    assert r["intent"]["occasion"] == "enfermo"
+    assert "químico farmacéutico" in r["text"]
+    assert "710" not in [p["entity_id"] for p in r["products"]]
+
+
 def test_age_notice_covers_the_cross_suggestion(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "pizza", Context(vertical="restaurantes"))

@@ -1000,7 +1000,7 @@ concepts = ["panales", "alimentacion-bebe", "articulos-bebe", "dermocosmetica"]
 id = "enfermo"
 name = "Me siento mal"
 emoji = "🤒"
-keywords = ["enfermo", "enferma", "me siento mal", "resfriado", "gripe", "dolor", "fiebre", "malestar", "cuidarme"]
+keywords = ["enfermo", "enferma", "me siento mal", "me duele", "resfriado", "gripe", "dolor", "fiebre", "malestar", "cuidarme"]
 concepts = ["sopas", "jugos", "te", "frutas"]  # nunca medicamentos: no se sugieren por síntomas
 
 [[occasion]]

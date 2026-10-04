@@ -133,12 +133,14 @@ class Understander:
             return Intent("gracias", text, current_vertical, confidence=1.0)
 
         price_max, without_price = _price(text)
-        body = _clean(normalize(without_price))
-        occasion = self.occasions.best(body)
+        said = normalize(without_price)
+        body = _clean(said)
+        # Ocasiones y síntomas, sobre el texto sin limpiar: «me siento mal» y «me duele» empiezan con «me».
+        occasion = self.occasions.best(said)
         concept_matches = self.concepts.matches(body)
         concepts = [m.target for m in concept_matches]
         mention = self._mention(body, concept_matches)
-        symptom = self.symptoms.best(body) is not None
+        symptom = self.symptoms.best(said) is not None
 
         explicit = bool(concepts)
         if occasion and not concepts:

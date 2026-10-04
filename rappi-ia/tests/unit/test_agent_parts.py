@@ -134,6 +134,16 @@ def test_symptoms_flag_pharmacy_notice_and_never_map_to_medicines():
     assert "medicamentos" not in Understander().understand(None, "me siento enfermo", "supermercado").concepts
 
 
+def test_symptoms_starting_with_me_are_detected():
+    """«me» es palabra de pedido y se quitaba al inicio antes de buscar síntomas y ocasiones: «me siento mal» y
+    «me duele la cabeza» no activaban el aviso de farmacia (regla 6d) y buscaban «duele la cabeza»."""
+    u = Understander()
+    for text in ["me siento mal", "me duele la cabeza", "Me duele la guata"]:
+        intent = u.understand(None, text, "supermercado")
+        assert intent.symptom and intent.occasion == "enfermo", text
+    assert u.understand(None, "me duele la cabeza", "supermercado").query == "duele la cabeza"  # la consulta, limpia
+
+
 def test_llm_verifier_blocks_claims_invented_names_and_spelled_numbers():
     refs = {"p1": "Cerveza Escudo 470 cc"}
     allowed = "Cerveza Escudo 470 cc 🍺 cerveza Licores"
