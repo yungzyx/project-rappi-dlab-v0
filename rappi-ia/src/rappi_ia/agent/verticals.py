@@ -4,7 +4,12 @@ Restaurantes tiene unas 5 veces más ítems que el súper y casi todos sus local
 schop; por cantidad ganaría casi cualquier concepto. Por eso se compara la participación del concepto en el
 catálogo de cada vertical (ítems del concepto / ítems del vertical), y restaurantes solo compite cuando el
 concepto se pide hecho (`prepared` en la taxonomía: comida preparada, postres, pastelería, helados, café).
+
+Por participación, una vertical chica ganaba con un puñado de productos («pan» iba a chocolaterías con 46, y el súper
+tiene 431). Por eso compiten primero las que tienen masa mínima (`MIN_ITEMS_TO_COMPETE` y `MIN_OFFER_SHARE`).
 """
+
+from collections import defaultdict
 
 from psycopg import Connection
 
@@ -17,25 +22,45 @@ _SHARES = """
     JOIN concepts c USING (concept_id)
     WHERE a.items > 0 AND (a.vertical <> 'restaurantes' OR c.prepared)"""
 
+# Masa mínima para competir por participación: al menos estos productos y una cuarta parte de los que tiene la tienda
+# con más oferta del concepto. Restaurantes no fija ese máximo: con ~5 veces más ítems dejaría fuera a las tiendas.
+MIN_ITEMS_TO_COMPETE = 20
+MIN_OFFER_SHARE = 0.25
+
 
 def ranked_verticals(conn: Connection, concept_ids: list[str]) -> list[str]:
-    """Verticales con oferta de los conceptos, del más típico al menos típico."""
-    rows = conn.execute(
-        f"""SELECT vertical FROM ({_SHARES}) s WHERE concept_id = ANY(%s)
-            GROUP BY vertical ORDER BY sum(items)::float / max(vertical_items) DESC, vertical""",
-        (concept_ids,),
-    ).fetchall()
-    return [r[0] for r in rows]
+    """Verticales con oferta de los conceptos: primero las que tienen masa mínima, después el resto, cada grupo del
+    más típico al menos típico. Si ninguna tiene masa mínima, de la de más oferta a la de menos."""
+    contenders, rest = _rank(_offer(conn, concept_ids))
+    return contenders + rest
 
 
 def typical_verticals(conn: Connection) -> dict[str, str]:
     """La vertical más típica de cada concepto (la primera de `ranked_verticals`), en una sola consulta."""
-    return dict(
-        conn.execute(
-            f"""SELECT DISTINCT ON (concept_id) concept_id, vertical FROM ({_SHARES}) s
-                ORDER BY concept_id, items::float / vertical_items DESC, vertical"""
-        ).fetchall()
-    )
+    offer: dict[str, list[tuple[str, int, int]]] = defaultdict(list)
+    for concept_id, vertical, items, vertical_items in conn.execute(_SHARES):
+        offer[concept_id].append((vertical, items, vertical_items))
+    return {concept_id: _rank(rows)[0][0] for concept_id, rows in offer.items()}
+
+
+def _offer(conn: Connection, concept_ids: list[str]) -> list[tuple[str, int, int]]:
+    """(vertical, ítems de los conceptos, ítems de la vertical)."""
+    return conn.execute(
+        f"""SELECT vertical, sum(items)::integer, max(vertical_items)::integer FROM ({_SHARES}) s
+            WHERE concept_id = ANY(%s) GROUP BY vertical""",
+        (concept_ids,),
+    ).fetchall()
+
+
+def _rank(offer: list[tuple[str, int, int]]) -> tuple[list[str], list[str]]:
+    """(las que tienen masa mínima, el resto), por participación; si ninguna la tiene, todas por cantidad."""
+    store_max = max((items for vertical, items, _ in offer if vertical != "restaurantes"), default=0)
+    floor = max(MIN_ITEMS_TO_COMPETE, MIN_OFFER_SHARE * store_max)
+    by_share = sorted(offer, key=lambda row: (-row[1] / row[2], row[0]))
+    contenders = [row[0] for row in by_share if row[1] >= floor]
+    if not contenders:
+        return [row[0] for row in sorted(offer, key=lambda row: (-row[1], row[0]))], []
+    return contenders, [row[0] for row in by_share if row[1] < floor]
 
 
 LOGO_BASE_URL = "https://images.rappi.cl/marketplace/"  # el scraper guarda solo el archivo del logo

@@ -79,6 +79,8 @@ SYMPTOMS = [
 
 # Un concepto en restaurantes y en otra tienda es ambiguo si la tienda tiene al menos esta fracción del surtido.
 AMBIGUITY_RATIO = 0.3
+# Quien habla de síntomas no va a una botillería, aunque ahí el jugo pese más que en el súper (es para mezclar).
+NOT_WHEN_SICK = {"licores"}
 # Vertical natural de un grupo, para conceptos sin surtido en ningún vertical (los demás grupos van al súper).
 GROUP_VERTICALS = {
     "comida": "restaurantes",
@@ -165,13 +167,14 @@ class Understander:
         if not concepts:
             return Intent(kind, text, None, [], **common)
 
+        sick = symptom or _id(occasion) == "enfermo"
         if not explicit:  # ocasión: su vertical fijo o el de más surtido para el conjunto de sus conceptos
             fixed = self.taxonomy.occasions[occasion.target].vertical
             if fixed:
                 return Intent(kind, text, fixed, concepts, **common)
-            options = ranked_verticals(conn, concepts)
+            options = _ranked(conn, concepts, sick)
             return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
-        options = ranked_verticals(conn, concepts[:1])
+        options = _ranked(conn, concepts[:1], sick)
         if len(options) >= 2 and "restaurantes" in options[:2] and _comparable(conn, concepts[0], options[:2]):
             return Intent("aclarar", text, None, concepts, options=options[:2], **common)
         return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
@@ -219,6 +222,10 @@ def _clean(body: str) -> str:
 
 def _id(match) -> str | None:
     return match.target if match else None
+
+
+def _ranked(conn: Connection, concept_ids: list[str], sick: bool) -> list[str]:
+    return [v for v in ranked_verticals(conn, concept_ids) if not (sick and v in NOT_WHEN_SICK)]
 
 
 def _comparable(conn: Connection, concept_id: str, verticals: list[str]) -> bool:

@@ -29,7 +29,7 @@ El proyecto no tiene acceso a datos internos: con ellos, Rappi puede confirmarlo
 
 | Lo que hace la persona | Concepto | Complemento | Dónde se busca | Qué ve |
 |---|---|---|---|---|
-| Pide cerveza bajo $3.000 en Licores | cerveza | snacks salados | otro vertical, donde el concepto es más típico (Turbo) | «De Turbo · ¿Te tinca sumar snacks salados? Porque llevas cerveza», con un botón «Ver más en Turbo» |
+| Pide cerveza bajo $3.000 en Licores | cerveza | snacks salados | otro vertical, donde el concepto es más típico entre los que tienen oferta suficiente (Express) | «De Express · ¿Te tinca sumar snacks salados? Porque llevas cerveza», con un botón «Ver más en Express» |
 | Compra pañales en el supermercado | pañales | alimentación de bebé | el vertical donde ese concepto es más típico (farmacia), no el de más ítems | «De Farmacia · ¿Te tinca sumar alimentación de bebé? Porque llevas pañales» |
 
 Ejemplos ilustrativos: el complemento y el vertical se eligen según el peso de la relación entre conceptos y el surtido real de cada vertical.

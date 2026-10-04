@@ -523,6 +523,78 @@ def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypa
     assert sick["products"] and "also_in" not in sick
 
 
+# Ítems con concepto por vertical en la base real (03-10): restaurantes es unas 5 veces el súper.
+REAL_TOTALS = {
+    "chocolateria": 1145,
+    "turbo": 2562,
+    "licores": 5734,
+    "farmacia": 6141,
+    "conveniencia": 9220,
+    "supermercado": 32441,
+    "mall": 35398,
+    "restaurantes": 168668,
+}
+
+
+def _assortment(db, rows, totals=REAL_TOTALS):
+    """Cambia el surtido materializado por cifras dadas (las de la base real no caben en un fixture). El resto de
+    cada vertical va a un concepto de relleno, que cuenta en el total pero no existe en la taxonomía."""
+    db.execute("DROP MATERIALIZED VIEW concept_assortment")
+    db.execute("CREATE TABLE concept_assortment (concept_id text, vertical text, items integer)")
+    used = {v: sum(n for _, vertical, n in rows if vertical == v) for v in totals}
+    with db.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO concept_assortment VALUES (%s, %s, %s)",
+            [*rows, *(("relleno", v, totals[v] - used[v]) for v in totals)],
+        )
+
+
+def test_a_small_vertical_needs_enough_offer_to_be_chosen(bigotes):
+    """Por participación, una vertical chica ganaba con un puñado de productos: «pan» iba a chocolaterías (46 de sus
+    1.145 ítems) con 431 en el súper, y «quiero pastas» mostraba lasañas de una pastelería."""
+    agent, db = bigotes
+    _assortment(
+        db,
+        [("panaderia", "chocolateria", 10), ("panaderia", "supermercado", 150)],
+        {"chocolateria": 200, "supermercado": 10_000},
+    )
+    assert ranked_verticals(db, ["panaderia"]) == ["supermercado", "chocolateria"]
+
+    db.rollback()
+    _assortment(
+        db,
+        [
+            ("panaderia", "chocolateria", 46),
+            ("panaderia", "conveniencia", 180),
+            ("panaderia", "turbo", 36),
+            ("panaderia", "supermercado", 431),
+        ],
+    )
+    assert agent.reply(db, "pan", Context())["vertical"] == "conveniencia"
+    assert verticals.typical_verticals(db)["panaderia"] == "conveniencia"
+    # La lista sigue completa (la sugerencia y «También en» buscan también en las demás).
+    assert set(ranked_verticals(db, ["panaderia"])) == {"chocolateria", "conveniencia", "turbo", "supermercado"}
+
+
+def test_a_sick_person_is_never_sent_to_a_liquor_store(bigotes):
+    """En Licores el jugo pesa más que en el súper (es para mezclar): «tengo fiebre, quiero jugo» iba a una
+    botillería."""
+    agent, db = bigotes
+    _assortment(
+        db,
+        [
+            ("jugos", "licores", 182),
+            ("jugos", "turbo", 69),
+            ("jugos", "conveniencia", 187),
+            ("jugos", "supermercado", 421),
+            ("jugos", "farmacia", 28),
+        ],
+    )
+    intent = agent.understander.understand(db, "tengo fiebre, quiero jugo")
+    assert intent.symptom and intent.concepts == ["jugos"]
+    assert intent.vertical != "licores"
+
+
 def test_packaged_sweets_are_not_offered_from_restaurants(bigotes):
     agent, db = bigotes
     add_store(db, 10, "chocolateria", "Chocolatería")
