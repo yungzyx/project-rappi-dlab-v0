@@ -70,7 +70,7 @@ PERSONAS = [
                 "cereales": 1.5,
                 "alimentacion-bebe": 1.5,
             },
-            "restaurantes": {"pizza": 2, "pollo": 1.5},
+            "restaurantes": {"pizza": 2, "pollo-preparado": 1.5},
             "chocolateria": {"pasteleria": 0.5},
         },
         0.25,

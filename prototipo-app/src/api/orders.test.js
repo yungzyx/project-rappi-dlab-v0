@@ -72,6 +72,7 @@ describe('pedidos para el panel', () => {
     expect(conceptOfId('p-superpollo')).toBe('pollo') // Super Pollo Tuto Corto
     expect(conceptOfId('p-kingnuggets')).toBe('pollo')
     expect(conceptOfId('p-sperpollo')).toBe('pollo')
+    expect(conceptOfId('deal-wow-bucket')).toBe('pollo-preparado') // el pollo frito de restaurante no es el del súper
     expect(conceptOfId('p-zapallo')).toBe('verduras') // Zapallo en Cubo
     expect(conceptOfId('ret-ck')).toBe('fragancias') // Ck In2u Edt
     expect(conceptOfId('ret-abgold')).toBe('fragancias')
