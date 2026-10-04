@@ -62,6 +62,8 @@ def db():
         url = database_url("DATABASE_URL_TEST")
     except RuntimeError:
         pytest.skip("DATABASE_URL_TEST no configurada")
+    if not url.rstrip("/").endswith("rappi_test"):
+        pytest.fail(f"Por seguridad los tests solo borran la base rappi_test, no {url}")
     with connect(url) as conn:
         conn.execute("DROP SCHEMA public CASCADE")
         conn.execute("CREATE SCHEMA public")
