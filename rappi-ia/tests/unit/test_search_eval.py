@@ -197,11 +197,14 @@ def test_shown_row_judges_the_products_the_user_sees(monkeypatch):
 
 def test_shown_unmet_follows_the_bigotes_rule(monkeypatch):
     """Bigotes registra «sin resultado» solo si no muestra productos: con la búsqueda marcándolo y productos a la
-    vista (las arenas para gato de «pasaje de avión»), no cuenta."""
+    vista (las arenas para gato de «pasaje de avión»), no cuenta. Por síntomas tampoco: los medicamentos se ocultan
+    por la regla 6d, no por falta de surtido («tengo tos» era una falsa alarma que Bigotes no anota)."""
     outcomes = {
         "pasaje de avión": SimpleNamespace(result=_result(unmet=True), products=[_product("1", "accesorios-mascota")]),
         "neumáticos": SimpleNamespace(result=_result(unmet=True), products=[]),
         "pisco": SimpleNamespace(result=_result(), products=[]),
+        "tengo tos": SimpleNamespace(result=_result(unmet=True), products=[]),
+        "me siento mal": SimpleNamespace(result=_result(unmet=True), products=[]),
     }
     monkeypatch.setattr(search_eval, "retrieve", lambda *args, **kwargs: _result())
     monkeypatch.setattr(search_eval, "search_products", lambda conn, v, query, *args, **kwargs: outcomes[query])
@@ -209,7 +212,13 @@ def test_shown_unmet_follows_the_bigotes_rule(monkeypatch):
 
     shown = {r.query: r.shown_unmet for r in run_queries(None, object(), queries) if r.mode == SHOWN}
 
-    assert shown == {"pasaje de avión": False, "neumáticos": True, "pisco": False}
+    assert shown == {
+        "pasaje de avión": False,
+        "neumáticos": True,
+        "pisco": False,
+        "tengo tos": False,
+        "me siento mal": False,
+    }
 
 
 def test_report_measures_unmet_as_bigotes_records_it():

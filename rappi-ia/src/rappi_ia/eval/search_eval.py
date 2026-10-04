@@ -17,6 +17,7 @@ from pathlib import Path
 from psycopg import Connection
 
 from ..agent.tools import search_products
+from ..agent.understand import Understander
 from ..embeddings.base import TextEmbedder
 from ..retrieval.hybrid import DEFAULT_TAU, MODES, THRESHOLDS_FILE, retrieve
 
@@ -64,17 +65,20 @@ def load_queries(path: Path = QUERIES_FILE) -> list[dict]:
 
 def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[dict]) -> list[QueryRun]:
     runs = []
+    understander = Understander()
     for q in queries:
         for mode in EVAL_MODES:
             if mode != "lexico" and embedder is None:
                 continue
             shown_unmet = None
             if mode == SHOWN:
-                # Como /search: los conceptos los detecta la consulta. Bigotes registra la demanda solo sin productos.
+                # Como /search: los conceptos los detecta la consulta. Bigotes registra la demanda solo sin productos, y
+                # nunca por síntomas: ahí los medicamentos se ocultan por la regla 6d, no por falta de surtido.
                 outcome = search_products(conn, q["vertical"], q["query"], None, embedder, k=K)
                 result = outcome.result
                 items = [(p.entity_type, p.entity_id, p.name, p.concept) for p in outcome.products]
-                shown_unmet = result.unmet and not outcome.products
+                symptom = understander.understand(conn, q["query"], q["vertical"]).symptom
+                shown_unmet = result.unmet and not outcome.products and not symptom
             else:
                 if mode == ABLATION:
                     result = retrieve(conn, q["vertical"], q["query"], embedder, k=K, mode="hibrido", concepts=[])
