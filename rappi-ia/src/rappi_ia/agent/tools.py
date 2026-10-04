@@ -219,7 +219,7 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                    FROM price_snapshots ps
                    JOIN store_products sp USING (store_id, sku)
                    WHERE sp.master_product_id = ANY(%(ids)s::bigint[])
-                   ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC
+                   ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC, ps.run_id DESC  -- el desempate de la vista
                )
                SELECT DISTINCT ON (sp.master_product_id) sp.master_product_id::text, ci.name, l.price, l.real_price,
                       coalesce(b.name, s.name), ci.is_alcoholic OR ci.age_restricted

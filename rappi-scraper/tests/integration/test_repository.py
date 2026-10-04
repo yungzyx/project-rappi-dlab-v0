@@ -357,6 +357,26 @@ def test_legacy_import_keeps_the_date_of_the_csv_so_it_does_not_replace_newer_pr
     assert _count(db, "SELECT (metadata->>'precio_min')::int FROM search_documents WHERE entity_id = '100'") == 1500
 
 
+def test_importing_the_same_legacy_csv_twice_keeps_every_offer_current(db, tmp_path):
+    """Las dos importaciones guardan los precios con la misma fecha (la del CSV): el último precio se elegía sin
+    desempate y no coincidía con la corrida que la vigencia toma por última (v_store_format_runs desempata por
+    run_id), así que la mitad de las ofertas salía de la búsqueda al azar."""
+    defaults = {"fecha_scraping": "2026-09-24", "store_id": "5", "tienda": "Lider", "ciudad": "Santiago",
+                "direccion": "x", "en_stock": "True", "precio": "1000"}  # fmt: skip
+    with (tmp_path / "products_lider_santiago.csv").open("w", newline="", encoding=CSV_ENCODING) as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        for i in range(40):
+            product = {"sku": f"s{i}", "master_product_id": str(1000 + i), "nombre": f"Producto {i}"}
+            writer.writerow({c: "" for c in CSV_COLUMNS} | defaults | product)
+
+    import_legacy_csv(db, tmp_path)
+    import_legacy_csv(db, tmp_path)
+    build_search_documents(db)
+
+    assert _count(db, "SELECT count(*) FROM search_documents WHERE entity_type = 'catalog_item'") == 40
+
+
 def test_zero_stock_is_kept_but_zero_ids_are_not(db):
     _store(db, 1, "lider", "supermercado")
     run = repository.start_run(db, "stores", {})

@@ -270,6 +270,29 @@ def test_the_price_shown_is_from_the_current_branch_not_an_old_one(bigotes):
         assert [(p.entity_id, p.price_value, p.store) for p in products] == [("230", 77940, "Mi Market Licores")]
 
 
+def test_a_price_saved_twice_with_the_same_date_is_still_shown(bigotes):
+    """Importar dos veces el mismo CSV legacy guarda el precio con la misma fecha en dos corridas. El último precio se
+    elegía sin desempate y, si no era el de la corrida que la vigencia toma por última (desempata por run_id), Bigotes
+    ocultaba el producto aunque estuviera en la búsqueda."""
+    agent, db = bigotes
+    add_store(db, 6, "licores", "Botillería Centro")
+    add_product(db, 240, "Pisco Mistral 35° 750 cc", 6, "Pisco")
+    new_run = "INSERT INTO scrape_runs (kind, status) VALUES ('legacy_csv', 'done') RETURNING run_id"
+    runs = [db.execute(new_run).fetchone()[0] for _ in range(2)]
+    db.execute(
+        """INSERT INTO price_snapshots (run_id, store_id, sku, price, in_stock, scraped_at)
+           VALUES (%s, 6, 'sku-240', 6990, true, '2026-09-24'), (%s, 6, 'sku-240', 6990, true, '2026-09-24')""",
+        runs,
+    )
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    products = search_products(db, "licores", "pisco mistral", None, agent.embedder).products
+    assert [p.entity_id for p in products] == ["240"]
+
+
 def test_ambiguous_between_restaurant_and_store_asks(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "quiero pizza")

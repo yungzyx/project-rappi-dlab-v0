@@ -59,7 +59,7 @@ CREATE TEMP TABLE offer_prices ON COMMIT DROP AS
 WITH latest AS (
     SELECT DISTINCT ON (store_id, sku) store_id, sku, price, run_id
     FROM price_snapshots
-    ORDER BY store_id, sku, scraped_at DESC
+    ORDER BY store_id, sku, scraped_at DESC, run_id DESC  -- el mismo desempate que v_store_format_runs
 )
 SELECT l.store_id, l.sku, l.price, l.run_id = f.format_run_id AS current
 FROM latest l
