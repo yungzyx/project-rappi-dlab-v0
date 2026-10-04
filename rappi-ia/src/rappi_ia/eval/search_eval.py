@@ -55,6 +55,7 @@ class QueryRun:
     names_concept: bool = False
     items: list[dict] = field(default_factory=list)  # los resultados (tipo, id, texto, concepto): muestra de juicio
     shown_unmet: bool | None = None  # solo en SHOWN: «sin resultado» como lo registra Bigotes (y nada a la vista)
+    has_words: bool = True  # le queda alguna palabra sin las stopwords («té» no): sin ellas no hay «sin resultado»
 
 
 def load_queries(path: Path = QUERIES_FILE) -> list[dict]:
@@ -98,6 +99,7 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                         for etype, eid, text, concept in items
                     ],
                     shown_unmet,
+                    result.has_words,
                 )
             )
     return runs
@@ -170,15 +172,20 @@ def compare_modes(runs: list[QueryRun]) -> list[dict]:
 def calibrate_tau(runs: list[QueryRun], candidates=None) -> dict[str, float]:
     """τ por vertical: el que maximiza el recall de 'sin resultado' con precisión ≥ 0,9 (modo híbrido).
 
-    Solo cuentan las negativas que dependen de τ (sin coincidencia léxica estricta ni concepto nombrado): las demás
-    dan el mismo recall con cualquier τ. Un vertical sin esas negativas, o donde ningún τ detecta alguna, no recibe
-    propuesta. Ante un empate gana el τ más bajo: el más prudente con las consultas que no están en el set.
+    Solo cuentan las negativas que dependen de τ (sin coincidencia léxica estricta ni concepto nombrado, y con
+    palabras que buscar): las demás dan el mismo recall con cualquier τ. Un vertical sin esas negativas, o donde
+    ningún τ detecta alguna, no recibe propuesta. Ante un empate gana el τ más bajo: el más prudente con las
+    consultas que no están en el set.
     """
     candidates = candidates or TAU_CANDIDATES
     hybrid = [r for r in runs if r.mode == "hibrido"]
     taus = {}
     for vertical in sorted({r.vertical for r in hybrid}):
-        rows = [r for r in hybrid if r.vertical == vertical and r.strict_lexical == 0 and not r.names_concept]
+        rows = [
+            r
+            for r in hybrid
+            if r.vertical == vertical and r.strict_lexical == 0 and not r.names_concept and r.has_words
+        ]
         actual = [r.tipo == "negativa" for r in rows]
         if not any(actual):
             continue
@@ -394,6 +401,8 @@ def negative_diagnosis(runs: list[QueryRun], taus: dict[str, float]) -> list[dic
             cause = f"{n} {'coincidencia léxica estricta' if n == 1 else 'coincidencias léxicas estrictas'}"
         elif r.names_concept:
             cause = f"el concepto nombrado {'está' if r.concept_in_vertical else 'no está'} en el vertical"
+        elif not r.has_words:
+            cause = "sin palabras que buscar (solo stopwords)"
         elif r.max_cosine is None:
             cause = "sin coseno (sin embeddings)"
         else:
@@ -416,6 +425,8 @@ def _is_unmet(run: QueryRun, tau: float) -> bool:
         return False
     if run.names_concept:
         return not run.concept_in_vertical
+    if not run.has_words:
+        return False
     return run.max_cosine is None or run.max_cosine < tau
 
 

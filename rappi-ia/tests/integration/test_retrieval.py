@@ -144,6 +144,20 @@ def test_unmet_does_not_depend_on_the_price_cap(catalog, monkeypatch):
     assert "102" not in [h.entity_id for h in capped.hits]  # el ranking sí respeta el tope (la Torobayo vale 2.990)
 
 
+def test_a_query_without_words_to_search_is_not_unmet_by_cosine(catalog, monkeypatch):
+    """«té» es stopword: sin palabras que buscar, la primera condición de «sin resultado» (que nada calce todas las
+    palabras) no se puede evaluar, y el coseno solo no basta para marcarla."""
+    embedder = HashEmbedder()
+    embed_search_documents(catalog, embedder)
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"licores": 0.99})
+
+    tea = retrieve(catalog, "licores", "té", embedder)
+
+    assert tea.query_concepts == [] and tea.strict_lexical_matches == 0 and tea.max_cosine < 0.99
+    assert not tea.unmet and not tea.has_words
+    assert retrieve(catalog, "licores", "xyzzy", embedder).unmet  # con palabras, el coseno sí decide
+
+
 def test_hyphenated_words_keep_their_weight(db):
     """`to_tsquery` volvía a separar el lexema «coca-col» en 'coca-col' <-> 'coca' <-> 'col' ('coca' no existe en el
     índice): la palabra más rara y específica de la consulta no sumaba su IDF."""

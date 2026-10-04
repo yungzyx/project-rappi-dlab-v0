@@ -57,6 +57,7 @@ class RetrievalResult:
     concept_in_vertical: bool
     unmet: bool
     unmet_reason: str | None
+    has_words: bool = True  # le queda alguna palabra sin las stopwords («té» no)
 
 
 def thresholds() -> dict[str, float]:
@@ -115,10 +116,19 @@ def retrieve(
         unfiltered = _vector(conn, vertical, query_vector, embedder, Filters(entity_types=filters.entity_types))
         max_cosine = max((cosine for _, cosine in unfiltered), default=None)
     concept_here = _concept_in_vertical(conn, vertical, query_concepts)
+    words = _has_words(conn, query)
     unmet, reason = _unmet(
-        vertical, strict, max_cosine, concept_here, bool(query_concepts), has_vectors=embedder is not None
+        vertical,
+        strict,
+        max_cosine,
+        concept_here,
+        bool(query_concepts),
+        has_vectors=embedder is not None,
+        has_words=words,
     )
-    return RetrievalResult(vertical, query, hits, query_concepts, strict, max_cosine, concept_here, unmet, reason)
+    return RetrievalResult(
+        vertical, query, hits, query_concepts, strict, max_cosine, concept_here, unmet, reason, words
+    )
 
 
 def _query_concepts(query: str) -> list[str]:
@@ -195,6 +205,11 @@ def _strict_lexical_count(conn: Connection, vertical: str, query: str, filters: 
                LIMIT 50) s""",
         (vertical, list(filters.entity_types), query),
     ).fetchone()[0]
+
+
+def _has_words(conn: Connection, query: str) -> bool:
+    """¿Le queda alguna palabra a la consulta sin las stopwords? «té» es stopword: no hay nada que calzar."""
+    return conn.execute("SELECT length(to_tsvector('spanish', es_unaccent(%s))) > 0", (query,)).fetchone()[0]
 
 
 def _vector(
@@ -307,12 +322,14 @@ def _unmet(
     concept_here: bool,
     names_concept: bool,
     has_vectors: bool,
+    has_words: bool = True,
 ) -> tuple[bool, str | None]:
     """Sin resultado = nada calza todas las palabras Y (el concepto nombrado no está en el vertical, o bien,
     si la consulta no nombra un concepto, el coseno máximo queda bajo τ).
 
     Con e5 los cosenos se concentran (0,78–0,90), así que cuando la consulta nombra un concepto, su presencia
     en el vertical es mejor señal que el coseno ("pizza" en Rappi Mall: no hay; aunque el coseno sea 0,82).
+    Sin palabras que buscar («té» es stopword), que nada calce no dice nada y el coseno solo no basta: no se marca.
     """
     if strict > 0:
         return False, None
@@ -323,6 +340,8 @@ def _unmet(
             True,
             f"sin coincidencia léxica; el concepto pedido no está en {vertical} (o es testimonial)",
         )
+    if not has_words:
+        return False, None
     tau = thresholds().get(vertical, DEFAULT_TAU)
     if not has_vectors or max_cosine is None or max_cosine < tau:
         cosine = f"{max_cosine:.3f}" if max_cosine is not None else "sin vectores"

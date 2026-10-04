@@ -111,6 +111,36 @@ def test_unmet_by_cosine_shows_nothing_and_is_recorded(bigotes, monkeypatch):
     assert "Lo anoté" in r["text"]
 
 
+def test_a_query_without_words_to_search_is_not_recorded_as_unmet(bigotes, monkeypatch):
+    """«té» es stopword: la regla léxica estricta nunca puede confirmarlo y, sin concepto nombrado, solo quedaba el
+    coseno bajo τ. Express y Licores respondían «No encontré «té»… Lo anoté» teniendo decenas de tés."""
+    agent, db = bigotes
+    add_product(db, 820, "Té Supremo Canela 20 bolsitas", 1, "Té e infusiones")
+    add_price(db, 1, 820, 1990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
+
+    r = agent.reply(db, "té", Context(vertical="supermercado"))
+
+    assert r["intent"]["concepts"] == []
+    assert not r["unmet"] and r["products"] and "Lo anoté" not in r["text"]
+
+
+def test_symptoms_are_not_recorded_as_unmet_demand(bigotes, monkeypatch):
+    """Por síntomas no se ofrecen medicamentos (regla 6d): no mostrarlos no es falta de surtido. «tengo tos» en
+    farmacia quedaba anotado como demanda no satisfecha por el coseno bajo τ."""
+    agent, db = bigotes
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
+
+    r = agent.reply(db, "tengo tos", Context(vertical="supermercado"))
+
+    assert "químico farmacéutico" in r["text"]  # habló de síntomas
+    assert not r["unmet"] and "Lo anoté" not in r["text"]
+
+
 def test_conditioner_finds_conditioners_and_soap_finds_soap(bigotes):
     """El concepto de la consulta sale de las keywords y el del producto de su categoría: si no coinciden
     («acondicionador» era keyword de higiene-personal y los acondicionadores están en cuidado-cabello), el foco se

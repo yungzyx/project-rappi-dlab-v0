@@ -68,8 +68,9 @@ class Bigotes:
             exclude = set(ctx.shown_topics) | set(intent.concepts)
             suggestion = suggest_complement(conn, sources, vertical, self.embedder, exclude)
 
-        # Con tope de precio también es demanda no satisfecha si no existe a ningún precio.
-        unmet = not products and outcome.result.unmet and outcome.cheapest_without_filter is None
+        # Con tope de precio también es demanda no satisfecha si no existe a ningún precio. Por síntomas no: los
+        # medicamentos se ocultan por la regla 6d, no por falta de surtido.
+        unmet = not intent.symptom and not products and outcome.result.unmet and outcome.cheapest_without_filter is None
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
         also_in = None if intent.symptom else self._also_in(conn, ctx, products, vertical)
         text = self.composer.compose(draft)

@@ -89,6 +89,33 @@ def test_each_negative_says_why_it_was_or_was_not_detected():
     assert one[0]["causa"] == "1 coincidencia léxica estricta"
 
 
+def test_a_query_without_words_is_never_unmet_and_does_not_calibrate_tau():
+    """Misma regla que la búsqueda: «té» es stopword y no se marca por coseno. Si contara, una positiva así parecería
+    una falsa alarma y empujaría τ (aquí no habría propuesta)."""
+    tea = QueryRun("licores", "té", "exacta", "hibrido", [1] * 10, 0, 0.75, False, has_words=False)
+    runs = [tea, run("neumáticos", "negativa", 0.80)]
+
+    assert calibrate_tau(runs) == {"licores": 0.81}
+    assert unmet_quality(runs, {"licores": 0.81})["falsas_alarmas"] == 0
+    stopwords = QueryRun("licores", "de la", "negativa", "hibrido", [], 0, 0.7, False, has_words=False)
+    assert negative_diagnosis([stopwords], {})[0] | {"vertical": None} == {
+        "vertical": None,
+        "consulta": "de la",
+        "detectada": False,
+        "causa": "sin palabras que buscar (solo stopwords)",
+        "desactualizada": False,
+    }
+
+
+def test_run_queries_keeps_whether_the_query_had_words(monkeypatch):
+    monkeypatch.setattr(search_eval, "retrieve", lambda *args, **kwargs: _result(has_words=False))
+    outcome = SimpleNamespace(result=_result(has_words=False), products=[])
+    monkeypatch.setattr(search_eval, "search_products", lambda *args, **kwargs: outcome)
+    queries = [{"vertical": "licores", "query": "té", "concepts": ["te"], "tipo": "exacta"}]
+
+    assert {r.has_words for r in run_queries(None, object(), queries)} == {False}
+
+
 def test_report_lists_the_cause_of_each_negative():
     runs = [run("neumáticos", "negativa", 0.83), run("pisco", "exacta", 0.95)]
     taus = {"licores": 0.8}
@@ -96,7 +123,7 @@ def test_report_lists_the_cause_of_each_negative():
     assert "| licores | neumáticos | no | coseno 0.830 ≥ τ 0.8 |" in report
 
 
-def _result(hits=(), unmet=False, query_concepts=()):
+def _result(hits=(), unmet=False, query_concepts=(), has_words=True):
     return SimpleNamespace(
         hits=list(hits),
         strict_lexical_matches=0,
@@ -104,6 +131,7 @@ def _result(hits=(), unmet=False, query_concepts=()):
         concept_in_vertical=True,
         query_concepts=list(query_concepts),
         unmet=unmet,
+        has_words=has_words,
     )
 
 

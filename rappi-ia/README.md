@@ -130,7 +130,7 @@ Sin el refuerzo, el híbrido no se distingue del vectorial: consulta por consult
 
 - **Regla:** es un "sin resultado" cuando nada calza todas las palabras y, además, se cumple la condición que corresponda:
   - si la consulta nombra un concepto, ese concepto no tiene surtido real en el vertical;
-  - si no nombra ninguno, el coseno queda bajo τ.
+  - si no nombra ninguno, el coseno queda bajo τ (una consulta sin palabras que buscar, como «té», que es stopword, no se marca).
 - **Por qué no se detectan 12:** 5 nombran un concepto que el vertical sí tiene, 4 calzan por casualidad con la regla léxica estricta y 3 quedan sobre τ.
 - **Set anterior (28-09):** recall 0,33 (5 de 15), porque parte de las negativas quedó desactualizada con el catálogo completo: "kebab mixto" (16 platos) y "comida mexicana con tacos" sí existen. Se reemplazaron el 29-09.
 - **Coincidencias casuales:** "pizza familiar" encuentra un horno para pizza en Mall y "neumáticos" un renovador de neumáticos en conveniencia. Es un límite real de la regla léxica estricta.
