@@ -128,6 +128,22 @@ def test_unmet_demand_rules(catalog):
     assert "τ" in (retrieve(catalog, "licores", "xyzzy qwerty", embedder).unmet_reason or "")
 
 
+def test_unmet_does_not_depend_on_the_price_cap(catalog, monkeypatch):
+    """«Sin resultado» es «no existe», no «no cabe en el tope»: el coseno, igual que la coincidencia estricta, se
+    mide sin el filtro de precio. Antes, con tope, lo que el vertical sí tiene a otro precio quedaba «sin resultado»."""
+    embedder = HashEmbedder()
+    embed_search_documents(catalog, embedder)
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"licores": 0.2})
+    query = "torobayo xyz"  # sin concepto ni coincidencia estricta: decide el coseno
+
+    free = retrieve(catalog, "licores", query, embedder)
+    capped = retrieve(catalog, "licores", query, embedder, filters=Filters(price_max=2000))
+
+    assert free.query_concepts == [] and free.strict_lexical_matches == 0 and not free.unmet
+    assert not capped.unmet and capped.max_cosine == free.max_cosine
+    assert "102" not in [h.entity_id for h in capped.hits]  # el ranking sí respeta el tope (la Torobayo vale 2.990)
+
+
 def test_unknown_vertical_is_rejected(catalog):
     with pytest.raises(ValueError):
         retrieve(catalog, "aerolineas", "algo")

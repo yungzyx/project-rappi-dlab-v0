@@ -86,8 +86,10 @@ def retrieve(
 
     lexical = _lexical(conn, vertical, query, filters) if mode != "vector" else []
     vector: list[tuple[tuple[str, str], float]] = []
+    query_vector = None
     if mode != "lexico" and embedder is not None:
-        vector = _vector(conn, vertical, embedder.embed_queries([query])[0], embedder, filters)
+        query_vector = embedder.embed_queries([query])[0]
+        vector = _vector(conn, vertical, query_vector, embedder, filters)
 
     scores: dict[tuple[str, str], float] = {}
     ranks: dict[tuple[str, str], dict[str, int]] = {}
@@ -108,6 +110,11 @@ def retrieve(
 
     strict = _strict_lexical_count(conn, vertical, query, filters)
     max_cosine = max(cosines.values()) if cosines else None
+    if filters.price_max is not None and query_vector is not None:
+        # Como la coincidencia estricta, el coseno de "sin resultado" se mide sin el tope: lo que el vertical tiene a
+        # otro precio no es demanda no satisfecha (Bigotes dice cuánto cuesta lo más barato).
+        unfiltered = _vector(conn, vertical, query_vector, embedder, Filters(entity_types=filters.entity_types))
+        max_cosine = max((cosine for _, cosine in unfiltered), default=None)
     concept_here = _concept_in_vertical(conn, vertical, query_concepts)
     unmet, reason = _unmet(
         vertical, strict, max_cosine, concept_here, bool(query_concepts), has_vectors=embedder is not None

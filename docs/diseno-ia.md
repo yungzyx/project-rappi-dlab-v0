@@ -61,7 +61,7 @@ Decisiones:
 - **"Sin resultado" bien definido.** La búsqueda vectorial siempre devuelve vecinos, así que "no encontrar" necesita una regla.
   - **Primera condición, siempre:** que nada calce todas las palabras de la consulta.
   - **Si la consulta nombra un concepto:** además, que el concepto no tenga surtido real en el vertical, es decir, menos de 3 ítems o del 0,05% del vertical.
-  - **Si no nombra ninguno:** además, que el coseno máximo de e5 quede bajo τ del vertical.
+  - **Si no nombra ninguno:** además, que el coseno máximo de e5 quede bajo τ del vertical. Como la coincidencia estricta, se mide sin el tope de precio: lo que existe a otro precio no es demanda no satisfecha.
   - **Qué se muestra:** ni los vecinos del coseno ni productos de otro concepto (si el concepto pedido es testimonial, sus pocos productos sí). Sin productos a la vista, Bigotes anota la demanda.
   - **Por qué no se usa solo el coseno:** en la evaluación, los cosenos de e5 se concentran en un rango estrecho (datos parciales) y separan mal; la presencia del concepto es mejor señal.
   - **Calibración:** τ se calibra por vertical con las consultas negativas del set de evaluación, pidiendo precisión ≥ 0,9. Solo cuentan las negativas que dependen de τ (sin coincidencia léxica ni concepto nombrado); un vertical sin ellas no recibe propuesta y conserva su τ (o 0,82 si nunca tuvo): pasarlo a 0,82 metía una falsa alarma en Mall. El reporte muestra el τ vigente y el propuesto, y advierte cuando un τ vigente está en el piso de la grilla (0,70): ahí la regla del coseno casi no se dispara.
