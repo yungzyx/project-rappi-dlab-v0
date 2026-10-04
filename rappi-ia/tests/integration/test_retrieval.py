@@ -144,6 +144,21 @@ def test_unmet_does_not_depend_on_the_price_cap(catalog, monkeypatch):
     assert "102" not in [h.entity_id for h in capped.hits]  # el ranking sí respeta el tope (la Torobayo vale 2.990)
 
 
+def test_hyphenated_words_keep_their_weight(db):
+    """`to_tsquery` volvía a separar el lexema «coca-col» en 'coca-col' <-> 'coca' <-> 'col' ('coca' no existe en el
+    índice): la palabra más rara y específica de la consulta no sumaba su IDF."""
+    add_store(db, 5, "conveniencia", "Express")
+    add_product(db, 300, "Coca-Cola Zero 1,5 L", 5, "Bebidas")
+    add_product(db, 301, "Pack Coca Cola Original + Coca Cola Light", 5, "Bebidas")
+    add_product(db, 302, "Agua Mineral Cachantun Sin Gas 1,6 L", 5, "Aguas")
+    db.commit()
+    build_search_documents(db)
+
+    scores = dict(hybrid._lexical(db, "conveniencia", "coca-cola", Filters()))
+
+    assert scores[("catalog_item", "300")] > scores[("catalog_item", "301")]
+
+
 def test_unknown_vertical_is_rejected(catalog):
     with pytest.raises(ValueError):
         retrieve(catalog, "aerolineas", "algo")

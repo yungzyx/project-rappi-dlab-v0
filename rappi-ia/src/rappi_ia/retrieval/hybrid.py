@@ -146,7 +146,9 @@ def _lexical(conn: Connection, vertical: str, query: str, filters: Filters) -> l
     """Cualquier palabra de la consulta (OR), puntuada por IDF dentro del vertical: las palabras raras pesan más.
 
     Sin IDF, una unidad como "g" (presente en miles de productos) tapaba a "pañales" en "pañales talla g".
-    ts_rank_cd solo desempata (palabras más juntas, más arriba).
+    ts_rank_cd solo desempata (palabras más juntas, más arriba). Cada lexema ya normalizado entra al tsquery tal
+    cual (`::tsquery`): `to_tsquery` lo volvía a separar ("coca-col" → 'coca-col' <-> 'coca' <-> 'col', y 'coca'
+    no existe en el índice), así que las palabras con guion perdían su peso.
     """
     rows = conn.execute(
         f"""WITH lexemes AS (
@@ -154,14 +156,14 @@ def _lexical(conn: Connection, vertical: str, query: str, filters: Filters) -> l
             ),
             docs AS MATERIALIZED (SELECT count(*)::float AS n FROM search_documents WHERE vertical = %(vertical)s),
             weights AS MATERIALIZED (
-                SELECT l.lexeme, to_tsquery('simple', quote_literal(l.lexeme)) AS q,
+                SELECT l.lexeme, quote_literal(l.lexeme)::tsquery AS q,
                        ln(1 + docs.n / (1 + (SELECT count(*) FROM search_documents d
                                              WHERE d.vertical = %(vertical)s
-                                               AND d.tsv_unaccent @@ to_tsquery('simple', quote_literal(l.lexeme)))))
+                                               AND d.tsv_unaccent @@ quote_literal(l.lexeme)::tsquery)))
                        AS idf
                 FROM lexemes l, docs
             ),
-            any_q AS (SELECT to_tsquery('simple', string_agg(quote_literal(lexeme), ' | ')) AS q FROM lexemes)
+            any_q AS (SELECT string_agg(quote_literal(lexeme), ' | ')::tsquery AS q FROM lexemes)
             SELECT d.entity_type, d.entity_id,
                    sum(w.idf) + max(ts_rank_cd(d.tsv_unaccent, any_q.q)) AS score
             FROM search_documents d
