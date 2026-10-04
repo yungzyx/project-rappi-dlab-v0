@@ -209,10 +209,15 @@ def test_a_sensitive_category_keeps_its_concept_over_another_sensitive_name(matc
         ("Wilton Set 4 Boquillas De Plástico Para Manga Pastelera", "Utensilios de repostería", "cocina-menaje"),
         ("Aceite Belmont 250ml", "Aceite", "aceites-condimentos"),
         ("Ronson Encendedor Recargable Electrolite", "Carbón, Leña y chispa", "carbon"),
+        ("Naxpet Analgésico Para Perros", "Medicamentos para mascotas", "accesorios-mascota"),
+        ("Sucravet Antiácido Uso Veterinario", "Medicamentos para mascotas", "accesorios-mascota"),
+        ("Insecto Vibrador Chinita", "Juguetes didácticos", "juguetes-infantiles"),
     ],
 )
 def test_the_symmetric_guard_does_not_hide_common_products(matcher, name, category, mapped):
     """Con la guardia simétrica, una keyword sensible ambigua («boquilla», «belmont», «encendedor») escondería un
-    vaso de bebé, un aceite o un encendedor de parrilla: esas palabras no van en conceptos sensibles."""
+    vaso de bebé, un aceite o un encendedor de parrilla: esas palabras no van en conceptos sensibles. En mascotas y
+    juguetes la categoría manda aunque el nombre calce un sensible: un remedio veterinario no es un medicamento
+    (category_map.csv lo decidió así) y un insecto vibrador de juguete no es +18."""
     categories = {category.lower(): MappedName(mapped, "llm", 0.9, "v1")}
     assert assign_catalog_item("13", name, category, categories, matcher).concept_id == mapped

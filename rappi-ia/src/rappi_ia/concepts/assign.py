@@ -7,7 +7,8 @@ Prioridad (la primera que responda gana):
 En los platos manda el nombre porque las secciones suelen ser genéricas ("Promociones", "Combos"), salvo que la
 regla caiga fuera de lo que vende un restaurante ("Perro caliente" no es alimento para perros): ahí gana la sección
 o la cocina mapeada. En los productos manda la categoría porque el nombre trae marcas y ruido ("Fanta Naranja 1,5 L"),
-salvo que el nombre calce un concepto sensible y la categoría no (un lubricante en "Agua saborizada").
+salvo que el nombre calce un concepto sensible y la categoría no (un lubricante en "Agua saborizada"), fuera de
+mascotas y juguetes (un analgésico veterinario sigue en mascotas).
 """
 
 from dataclasses import dataclass
@@ -20,6 +21,9 @@ from .taxonomy import Concept, Taxonomy, keeps_sensitive, load_taxonomy
 MIN_MAP_CONFIDENCE = 0.6  # bajo esto, el mapeo de categoría se considera dudoso y se prueban las reglas
 RULE_CONFIDENCE = 0.7  # confianza de una regla por palabra clave sobre el nombre
 MENU_GROUPS = frozenset({"alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida"})  # lo de un menú
+# Grupos cuya categoría manda aunque el nombre calce un sensible: ahí la palabra tiene otro sentido (un analgésico
+# veterinario, un insecto vibrador de juguete) y el concepto sensible los ocultaría.
+CATEGORY_WINS_GROUPS = frozenset({"mascotas", "juguetes"})
 
 
 @dataclass(frozen=True)
@@ -65,7 +69,12 @@ def assign_catalog_item(
     mapped = category_map.get(_key(category)) if category else None
     rule = _from_rule("catalog_item", item_id, name, matcher)
     # Guardia simétrica: un nombre sensible manda sobre una categoría común (un lubricante en «Agua saborizada»).
-    sensitive_name = rule is not None and mapped is not None and keeps_sensitive(rule.concept_id, mapped.concept_id)
+    sensitive_name = (
+        rule is not None
+        and mapped is not None
+        and keeps_sensitive(rule.concept_id, mapped.concept_id)
+        and mapped.concept_id not in _category_always_wins()
+    )
     if mapped and mapped.confidence >= MIN_MAP_CONFIDENCE and not sensitive_name:
         return _from_map("catalog_item", item_id, mapped, f"categoria:{category}")
     if rule and not (mapped and keeps_sensitive(mapped.concept_id, rule.concept_id)):
@@ -86,6 +95,11 @@ def assign_menu_item(
     if by_name and by_name.concept_id in _name_wins_in_menus():
         return by_name
     return _from_menu_maps(item_id, section, cuisines, section_map, cuisine_map) or by_name
+
+
+@cache
+def _category_always_wins() -> frozenset[str]:
+    return frozenset(c.id for c in load_taxonomy().concepts.values() if c.parent in CATEGORY_WINS_GROUPS)
 
 
 @cache
