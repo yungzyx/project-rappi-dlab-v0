@@ -73,7 +73,7 @@ class Bigotes:
             response = self.reply(conn, concept.name, ctx)
             response["text"] = f"Como te gusta {concept.label.lower()} 😉 " + response["text"]
             return response
-        if intent.kind in ("saludo", "gracias", "vacio", "ayuda", "envio", "ofertas", "fuera"):
+        if intent.kind in ("saludo", "gracias", "vacio", "ayuda", "envio", "ofertas", "fuera", "pedido"):
             return self._small_talk(intent, ctx)
         if intent.kind == "aclarar":
             return self._clarify(intent)
@@ -102,7 +102,7 @@ class Bigotes:
                 intent.concepts,
                 self.embedder,
                 intent.price_max,
-                k=CHEAP_POOL if intent.cheapest or intent.exclude_previous else 6,
+                k=CHEAP_POOL if intent.cheapest or intent.priciest or intent.exclude_previous else 6,
                 symptom=intent.symptom,
             )
         products = outcome.products
@@ -122,6 +122,8 @@ class Bigotes:
             products = [p for p in products if p.entity_id not in seen][:6]
         if intent.cheapest:  # «barato»: lo más barato de un grupo más amplio (sin precio, al final)
             products = sorted(products, key=lambda p: (p.price_value is None, p.price_value or 0))[:6]
+        elif intent.priciest:  # «uno más caro»: lo más caro primero
+            products = sorted(products, key=lambda p: (p.price_value is None, -(p.price_value or 0)))[:6]
 
         suggestion = None
         # «Porque llevas X»: X está en la respuesta (en una ocasión, no cualquiera de sus conceptos). Con síntomas no

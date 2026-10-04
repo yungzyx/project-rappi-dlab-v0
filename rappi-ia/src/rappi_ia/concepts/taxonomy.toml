@@ -478,7 +478,7 @@ parent = "frescos"
 name = "Alternativas vegetales"
 emoji = "🌱"
 keywords = ["vegano", "vegana", "leche vegetal", "leche de almendras", "bebida de avena", "vegetariano", "vegetariana", "veggie", "plant based", "tofu", "seitán", "seitan", "soya texturizada", "hamburguesa vegetal", "carne vegetal", "not burger", "notco"]
-query_keywords = ["leche de almendra", "leche de avena", "leche de soya", "bebida vegetal"]
+query_keywords = ["leche de almendra", "leche de avena", "leche de soya", "bebida vegetal", "sin carne"]
 
 # Comida preparada
 [[concept]]
@@ -487,6 +487,7 @@ parent = "comida"
 name = "Pizza"
 emoji = "🍕"
 keywords = ["pizza", "pizzas", "calzone", "pizzeta", "napolitana", "margarita pizza", "pepperoni", "tartas saladas"]
+query_keywords = ["pisa", "piza", "pitsa", "pisas", "pisa familiar", "piza familiar", "pisa mediana"]
 
 [[concept]]
 id = "hamburguesa"
@@ -494,6 +495,7 @@ parent = "comida"
 name = "Hamburguesa"
 emoji = "🍔"
 keywords = ["hamburguesa", "burger", "cheeseburger", "whopper", "big mac", "smash", "cuarto de libra", "doble queso"]
+query_keywords = ["amburgesa", "amburguesa", "hamburgesa", "hanburguesa"]
 
 [[concept]]
 id = "sushi"
@@ -798,7 +800,7 @@ parent = "mascotas"
 name = "Accesorios para mascotas"
 emoji = "🦴"
 keywords = ["mascota", "mascotas", "juguete para gato", "juguete para el gato", "juguetes para gatos", "arena para gatos", "arena sanitaria", "juguete para perro", "collar para perro", "correa para perro", "cama para perro", "rascador", "pipeta", "antipulgas", "comedero", "transportadora"]
-query_keywords = ["arena para gato", "arena para el gato", "arena de gato"]
+query_keywords = ["arena para gato", "arena para el gato", "arena de gato", "juguete para mi perro", "juguete para mi gato", "juguetes para perro"]
 
 # Tabaco
 [[concept]]
@@ -1030,6 +1032,15 @@ emoji = "🎂"
 # Sin alcohol: «cumpleaños de mi hijo» iba a Licores con ron y vodka (estaba en carrete).
 keywords = ["cumpleaños", "cumple", "fiesta infantil", "cumpleaños infantil", "piñata", "torta de cumpleaños"]
 concepts = ["pasteleria", "decoracion", "golosinas", "juguetes-infantiles", "gaseosas"]
+
+[[occasion]]
+id = "fiestas-patrias"
+name = "Fiestas Patrias"
+emoji = "🇨🇱"
+# Era carrete (ron y vodka): el dieciocho es asado, empanadas y vino. En el súper está todo junto.
+keywords = ["fiestas patrias", "dieciocho", "18 de septiembre", "fonda", "fondas", "ramada"]
+concepts = ["empanadas", "carnes", "carbon", "vino", "cerveza", "pisco", "gaseosas"]
+vertical = "supermercado"
 
 [[occasion]]
 id = "antojo"

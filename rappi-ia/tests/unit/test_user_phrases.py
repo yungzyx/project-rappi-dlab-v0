@@ -206,3 +206,59 @@ def test_an_alternative_replaces_the_previous_refinement():
     previous = {"query": "helado de chocolate", "concepts": ["helados"], "vertical": "conveniencia"}
     intent = U.understand(None, "y de vainilla?", "conveniencia", previous=previous)
     assert intent.follow_up and "chocolate" not in intent.query and "vainilla" in intent.query
+
+
+# Ronda 6
+@pytest.mark.parametrize(
+    "text", ["mi pedido no llega", "quiero cancelar mi pedido", "me llegó mal el pedido", "donde viene el rappi"]
+)
+def test_order_complaints_are_answered_not_searched(text):
+    assert U.understand(None, text, "supermercado").kind == "pedido"
+
+
+def test_a_refused_concept_is_neither_shown_nor_searched():
+    intent = U.understand(None, "no quiero pizza, algo más sano", "restaurantes")
+    assert "pizza" not in intent.concepts and "pizza" not in intent.query
+    assert intent.concepts[:1] == ["ensaladas-bowls"]
+
+
+def test_anything_but_x_offers_the_rest_of_the_occasion():
+    intent = U.understand(None, "cualquier cosa menos sushi", None)
+    assert intent.occasion == "hambre" and "sushi" not in intent.concepts and intent.concepts
+    assert "sushi" not in intent.query
+
+
+def test_without_meat_is_vegetarian():
+    assert U.understand(None, "algo sin carne", "supermercado").concepts == ["vegano"]
+
+
+def test_my_dad_is_not_potatoes():
+    assert "verduras" not in U.understand(None, "regalo de navidad para mi papá", "mall").concepts
+
+
+@pytest.mark.parametrize(
+    ("text", "concept"),
+    [
+        ("juguete para mi perro", "accesorios-mascota"),
+        ("amburgesa", "hamburguesa"),
+        ("pisa familiar", "pizza"),
+    ],
+)
+def test_round_six_words(text, concept):
+    assert U.understand(None, text, "supermercado").concepts[:1] == [concept]
+
+
+def test_national_holidays_are_an_occasion():
+    intent = U.understand(None, "algo para las fiestas patrias", None)
+    assert intent.occasion == "fiestas-patrias" and "empanadas" in intent.concepts
+
+
+def test_a_longer_follow_up_with_fillers_still_follows():
+    """sushi → «mejor no, algo más barato»: cinco palabras, pero solo «barato» dice algo."""
+    intent = _then("sushi", "mejor no, algo más barato")
+    assert intent.follow_up and intent.concepts == ["sushi"] and intent.cheapest
+
+
+def test_more_expensive_sorts_the_priciest_first():
+    intent = _then("vino tinto", "uno más caro")
+    assert intent.follow_up and intent.priciest and not intent.cheapest
