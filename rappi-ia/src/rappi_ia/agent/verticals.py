@@ -35,6 +35,11 @@ def ranked_verticals(conn: Connection, concept_ids: list[str]) -> list[str]:
     return contenders + rest
 
 
+def contending_verticals(conn: Connection, concept_ids: list[str]) -> list[str]:
+    """Solo las verticales con masa mínima (o todas, si ninguna la tiene): las que compiten por la respuesta."""
+    return _rank(_offer(conn, concept_ids))[0]
+
+
 def typical_verticals(conn: Connection) -> dict[str, str]:
     """La vertical más típica de cada concepto (la primera de `ranked_verticals`), en una sola consulta."""
     offer: dict[str, list[tuple[str, int, int]]] = defaultdict(list)

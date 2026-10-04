@@ -595,6 +595,34 @@ def test_a_sick_person_is_never_sent_to_a_liquor_store(bigotes):
     assert intent.vertical != "licores"
 
 
+def test_ambiguity_is_measured_with_the_same_share_that_ranks(bigotes):
+    """La vertical se elige por participación, pero la ambigüedad se medía con conteos: con restaurantes 5 veces más
+    grande, ningún concepto llegaba al umbral (0 de 112) y «aclarar» no salía nunca. Cifras de la base real."""
+    agent, db = bigotes
+    _assortment(
+        db,
+        [
+            ("platos-listos", "restaurantes", 3024),
+            ("platos-listos", "supermercado", 463),
+            ("platos-listos", "conveniencia", 89),
+            ("platos-listos", "turbo", 23),
+            ("platos-listos", "chocolateria", 14),
+            ("pizza", "restaurantes", 11361),
+            ("pizza", "supermercado", 167),
+            ("pizza", "conveniencia", 35),
+            ("pizza", "chocolateria", 10),
+            ("latina", "restaurantes", 900),
+            ("latina", "chocolateria", 10),
+        ],
+    )
+    ready = agent.understander.understand(db, "platos listos")
+    assert ready.concepts == ["platos-listos"]
+    assert ready.kind == "aclarar" and set(ready.options) == {"restaurantes", "supermercado"}
+    assert agent.understander.understand(db, "quiero pizza").vertical == "restaurantes"  # 6,7 % frente a 0,5 %
+    # 10 platos latinos en chocolaterías pesan casi lo mismo que en restaurantes, pero no compiten: no se pregunta.
+    assert agent.understander.understand(db, "comida latina").kind == "buscar"
+
+
 def test_packaged_sweets_are_not_offered_from_restaurants(bigotes):
     agent, db = bigotes
     add_store(db, 10, "chocolateria", "Chocolatería")

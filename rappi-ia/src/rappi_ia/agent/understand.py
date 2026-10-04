@@ -21,7 +21,7 @@ from ..concepts.assign import concept_matcher
 from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import load_taxonomy
 from ..text import normalize
-from .verticals import ranked_verticals
+from .verticals import contending_verticals, ranked_verticals
 
 GREETING_WORDS = {"hola", "holi", "buenas", "buenos", "dias", "tardes", "noches", "hey", "wena", "alo", "ola"}
 THANKS_WORDS = {"gracias", "muchas", "vale", "listo", "ok", "okay", "perfecto", "genial", "bacan", "buenisimo"}
@@ -77,8 +77,10 @@ SYMPTOMS = [
     "remedio",
 ]
 
-# Un concepto en restaurantes y en otra tienda es ambiguo si la tienda tiene al menos esta fracción del surtido.
-AMBIGUITY_RATIO = 0.3
+# Un concepto en restaurantes y en otra tienda es ambiguo si, entre las dos verticales que compiten, la de menor
+# participación tiene al menos esta fracción de la otra: la misma medida que elige la vertical (agent/verticals.py).
+# Con la base del 03-10 preguntan «café», «empanadas» y «platos listos».
+AMBIGUITY_RATIO = 0.5
 # Quien habla de síntomas no va a una botillería, aunque ahí el jugo pese más que en el súper (es para mezclar).
 NOT_WHEN_SICK = {"licores"}
 # Vertical natural de un grupo, para conceptos sin surtido en ningún vertical (los demás grupos van al súper).
@@ -175,8 +177,9 @@ class Understander:
             options = _ranked(conn, concepts, sick)
             return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
         options = _ranked(conn, concepts[:1], sick)
-        if len(options) >= 2 and "restaurantes" in options[:2] and _comparable(conn, concepts[0], options[:2]):
-            return Intent("aclarar", text, None, concepts, options=options[:2], **common)
+        pair = [v for v in options[:2] if v in contending_verticals(conn, concepts[:1])]
+        if len(pair) == 2 and "restaurantes" in pair and _comparable(conn, concepts[0], pair):
+            return Intent("aclarar", text, None, concepts, options=pair, **common)
         return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
 
     def _home(self, concept_id: str) -> str | None:
@@ -229,11 +232,14 @@ def _ranked(conn: Connection, concept_ids: list[str], sick: bool) -> list[str]:
 
 
 def _comparable(conn: Connection, concept_id: str, verticals: list[str]) -> bool:
-    counts = dict(
+    """Participaciones parecidas (no conteos: restaurantes tiene ~5 veces más ítems y nunca habría empate)."""
+    shares = dict(
         conn.execute(
-            "SELECT vertical, items FROM concept_assortment WHERE concept_id = %s AND vertical = ANY(%s)",
+            """WITH total AS (SELECT vertical, sum(items) AS items FROM concept_assortment GROUP BY vertical)
+               SELECT a.vertical, a.items::float / t.items FROM concept_assortment a JOIN total t USING (vertical)
+               WHERE a.concept_id = %s AND a.vertical = ANY(%s)""",
             (concept_id, verticals),
         ).fetchall()
     )
-    values = [counts.get(v, 0) for v in verticals]
+    values = [shares.get(v, 0) for v in verticals]
     return min(values) >= AMBIGUITY_RATIO * max(values)
