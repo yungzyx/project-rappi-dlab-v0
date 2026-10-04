@@ -7,6 +7,7 @@ supuestos explícitos. El panel muestra la mecánica, no evidencia: por construc
 SUPUESTOS (editables aquí):
 - Personas con verticales, conceptos y ritmo de compra propios (PERSONAS).
 - Quien no encuentra lo que busca (demanda no satisfecha) o abandona carros, se va antes (CHURN_*).
+- Parte de los carros abandonados alcanza a iniciar el pago (CHECKOUT_ABANDON_SHARE); el resto se va antes.
 - Quien compra en 2+ verticales se va menos (MULTI_VERTICAL_RETENTION): es la hipótesis del proyecto.
 - Aceptar una sugerencia cruzada acorta un poco el ritmo de compra (SUGGESTION_CADENCE_BOOST).
 - Algunos antojos no existen en el catálogo y crecen con el tiempo (WISHES): alimentan "oportunidades".
@@ -138,6 +139,7 @@ WISHES = [
 
 CHURN_UNMET = 0.35  # +35% de riesgo por cada búsqueda sin resultado en las últimas 4 semanas
 CHURN_ABANDON = 0.2  # +20% por cada carro abandonado en las últimas 4 semanas
+CHECKOUT_ABANDON_SHARE = 0.4  # de los carros abandonados, la parte que alcanza a iniciar el pago
 MULTI_VERTICAL_RETENTION = 0.55  # riesgo × 0,55 si compró en 2+ verticales en 60 días
 SUGGESTION_ACCEPT = 0.22  # probabilidad base de aceptar una sugerencia cruzada (× peso de la arista)
 SUGGESTION_CADENCE_BOOST = 0.93  # aceptar una sugerencia acorta el ritmo 7%
@@ -358,15 +360,20 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
             emit("suggestion_dismissed", clock + timedelta(seconds=3), vertical=sug_vertical, concept=target)
 
     clock += timedelta(seconds=rng.randint(20, 120))
-    if rng.random() < s.persona.abandon:
+    abandon = rng.random() < s.persona.abandon
+    if abandon and rng.random() >= CHECKOUT_ABANDON_SHARE:  # se va antes de ir a pagar
         s.recent_abandon.append(ts)
         return
     by_vertical: dict[str, list] = {}
     for line in lines:
         line_vertical = vertical if not line[2] else suggestion[1]
         by_vertical.setdefault(line_vertical, []).append(line)
-    for order_vertical, order_lines in by_vertical.items():  # un pedido (y un pago) por tienda/vertical
+    for order_vertical in by_vertical:  # un pago por tienda/vertical, antes de saber si termina en pedido
         emit("checkout_start", clock, vertical=order_vertical, cart=cart_id)
+    if abandon:  # inició el pago y no lo terminó
+        s.recent_abandon.append(ts)
+        return
+    for order_vertical, order_lines in by_vertical.items():  # un pedido por tienda/vertical
         order_id = f"ord-syn-{uuid.UUID(int=rng.getrandbits(128)).hex[:12]}"
         total = 0.0
         for i, ((etype, eid, price), line_concept, from_suggestion) in enumerate(order_lines, start=1):

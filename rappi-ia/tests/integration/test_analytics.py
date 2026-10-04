@@ -352,6 +352,19 @@ def test_funnel_is_monotonic_and_cohorts_are_percentages(simulated, monkeypatch)
     assert first == list(range(len(first)))  # semanas consecutivas: las de 0% también vienen
 
 
+def test_synthetic_carts_are_also_abandoned_after_starting_payment(simulated):
+    """El inicio de pago se emitía solo junto con el pedido, así que «pagan» era siempre igual a «piden». Ahora una
+    parte de los carros abandonados alcanza a iniciar el pago, y el resto se va antes."""
+    db, _ = simulated
+    carts = dict(
+        db.execute(
+            """SELECT type, count(DISTINCT cart_id) FROM app_events
+               WHERE type IN ('cart_add', 'checkout_start', 'order_placed') GROUP BY 1"""
+        ).fetchall()
+    )
+    assert carts["cart_add"] > carts["checkout_start"] > carts["order_placed"]
+
+
 def test_synthetic_suggestions_go_to_the_vertical_bigotes_would_choose(db):
     """El generador sorteaba la vertical entre todas las que tienen 1 ítem del concepto: «Cerveza · Farmacia»
     encabezaba la tabla de sugerencias. Ahora usa el orden de Bigotes (`ranked_verticals`)."""
