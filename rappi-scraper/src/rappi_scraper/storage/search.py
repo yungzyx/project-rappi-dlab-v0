@@ -112,6 +112,12 @@ item_verticals AS (
     GROUP BY o.master_product_id, vsv.vertical
 ),
 store_vertical AS (SELECT DISTINCT store_id, vertical FROM v_store_verticals),
+-- Rappi marca los medicamentos con receta: Bigotes no los muestra cuando se habla de síntomas.
+prescription AS (
+    SELECT master_product_id FROM store_products
+    WHERE master_product_id IS NOT NULL AND raw->>'requires_medical_prescription' = 'true'
+    GROUP BY master_product_id
+),
 prices AS (
     SELECT o.master_product_id, sv.vertical,
            min(o.price) AS precio_min, max(o.price) AS precio_max,
@@ -129,7 +135,8 @@ SELECT iv.vertical, 'catalog_item', ci.master_product_id::text, d.content,
            'master_product_id', ci.master_product_id, 'categoria', c.name, 'marca', NULLIF(ci.trademark, ''),
            'subverticales', iv.subverticals, 'tiendas', iv.stores, 'cadenas', p.cadenas,
            'precio_min', p.precio_min, 'precio_max', p.precio_max, 'imagen', NULLIF(ci.image_url, ''),
-           'alcohol', ci.is_alcoholic, 'restriccion_edad', ci.age_restricted)),
+           'alcohol', ci.is_alcoholic, 'restriccion_edad', ci.age_restricted,
+           'receta', CASE WHEN rx.master_product_id IS NOT NULL THEN true END)),
        md5(d.content)
 FROM item_verticals iv
 JOIN catalog_items ci USING (master_product_id)
@@ -138,6 +145,7 @@ CROSS JOIN LATERAL (SELECT concat_ws('. ', clean_html(ci.name), 'Marca: ' || NUL
                                      NULLIF(ci.presentation, ''), 'Categoría: ' || c.name,
                                      NULLIF(NULLIF(clean_html(ci.description), ''), ci.name)) AS content) d
 LEFT JOIN prices p ON p.master_product_id = iv.master_product_id AND p.vertical = iv.vertical
+LEFT JOIN prescription rx ON rx.master_product_id = iv.master_product_id
 """
 
 MENU_DOCS = f"""

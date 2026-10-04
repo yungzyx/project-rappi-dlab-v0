@@ -121,22 +121,33 @@ export default function HomeFeed({ push }) {
         </section>
 
         <HScroll className="home-shortcuts">
-          {SHORTCUTS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={item.unavailable ? 'home-shortcut is-unavailable tap' : 'home-shortcut tap'}
-              aria-label={item.unavailable ? `${item.label} (no disponible)` : undefined}
-              onClick={() => {
-                if (item.unavailable) toast(`${item.label} no está disponible`)
-                else if (item.route) push(...item.route)
-                else toast()
-              }}
-            >
-              <img src={item.img} alt="" draggable="false" />
-              {!item.unavailable && <span>{item.label}</span>}
-            </button>
-          ))}
+          {SHORTCUTS.map((item) => {
+            const enabled = demo.isProposal && item.proposalRoute // RappiFavor: no disponible hoy, sí en la propuesta
+            const unavailable = item.unavailable && !enabled
+            const route = enabled ? item.proposalRoute : item.route
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={unavailable ? 'home-shortcut is-unavailable tap' : 'home-shortcut tap'}
+                aria-label={unavailable ? `${item.label} (no disponible)` : undefined}
+                onClick={() => {
+                  if (unavailable) toast(`${item.label} no está disponible`)
+                  else if (route) push(...route)
+                  else toast()
+                }}
+              >
+                {enabled ? (
+                  <i className="home-shortcut-emoji" aria-hidden="true">
+                    {item.emoji}
+                  </i>
+                ) : (
+                  <img src={item.img} alt="" draggable="false" />
+                )}
+                {!unavailable && <span>{item.label}</span>}
+              </button>
+            )
+          })}
         </HScroll>
 
         <Carousel

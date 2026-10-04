@@ -141,6 +141,8 @@ Decisiones:
 - `buscar_productos(vertical, consulta, conceptos, precio_max)`: `search_products` en `tools.py`
 - `buscar_por_foto(imagen, vertical?)`: `photo.py` (los productos parecidos requieren haber corrido `make images`)
 - `recomendar_complementos(conceptos, vertical_actual)`: `suggest_complement` en `tools.py`
+- `buscar_remedios(sintoma)`: `search_remedies` en `tools.py` (remedios sin receta que nombran el síntoma)
+- **Servicios sin catálogo** (`[[service]]` en `taxonomy.toml`): RappiTravel (viajes, vuelos, hoteles) y RappiFavor (envíos, compras en cualquier tienda, trámites). Si la consulta los nombra y no nombra un producto, Bigotes lleva a su pantalla y, en «Propuesta», sugiere un gancho del catálogo (RappiTravel: protector solar, traje de baño o maleta). Lo que no está en el catálogo se ofrece con RappiFavor.
 - `detalle(entidad)`: pendiente
 - `historial_precio(producto)`: pendiente
 
@@ -161,7 +163,7 @@ Decisiones:
    - a. **Sensibles:** los conceptos marcados `sensitive` (medicamentos, salud sexual, bienestar sexual, tabaco y vapeo). **Restringidos por edad:** alcohol, tabaco, vapeo y adultos. Un producto es restringido si `is_alcoholic` o `age_restricted` es verdadero, o si su concepto es `age_restricted`.
    - b. **Nunca por iniciativa propia.** Bigotes no sugiere un producto sensible, ni como sugerencia cruzada, recompra, reactivación o alerta. Las aristas hacia esos conceptos se ignoran. El alcohol se puede sugerir como complemento (cerveza con pizza), siempre con +18.
    - c. **Fuera del perfil.** Los conceptos sensibles no entran al perfil, no se muestran en "Aprendiendo de ti" y no sirven de origen ni de razón de una sugerencia.
-   - d. **Farmacia.** No se sugieren medicamentos a partir de síntomas: solo se muestran los productos que el usuario nombra, y se recomienda consultar a un químico farmacéutico.
+   - d. **Síntomas.** Quien habla de un síntoma («tengo fiebre», «me siento mal») va a Farmacia con remedios **sin receta** cuyo texto nombra el síntoma (búsqueda por palabras), o con analgésicos si nada lo nombra; nunca un medicamento con receta (`requires_medical_prescription` de Rappi). Sin venta cruzada ni «También en». Si la farmacia no tiene nada, se muestra lo de cuidarse (sopas, jugos, té). No hay aviso aparte: cortaba la compra.
    - e. **Productos +18.** Siempre llevan el recordatorio. El tabaco y el vapeo solo se muestran si se piden por nombre, porque en Chile su publicidad está prohibida (Ley 20.105).
 7. **Memoria transparente.** Intereses por concepto con decaimiento (vida media de 14 días), visibles ("Aprendiendo de ti") y borrables ("Olvidar"). En modo "Rappi hoy" no aprende.
 8. **El código decide y el LLM solo redacta.**

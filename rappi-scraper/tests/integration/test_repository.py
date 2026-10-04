@@ -138,6 +138,26 @@ def test_search_is_isolated_per_vertical(db, page):
     assert _count(db, "SELECT count(*) FROM search_documents WHERE vertical IS NULL") == 0
 
 
+def test_search_documents_mark_products_that_need_a_prescription(db):
+    """Rappi marca `requires_medical_prescription`: Bigotes no los muestra cuando se habla de síntomas."""
+    _store(db, 1, "cruzverde", "farmacia")
+    run = repository.start_run(db, "stores", {})
+    repository.save_products(
+        db,
+        run,
+        1,
+        [
+            _product("a", 100, "Amoxicilina 500 mg", 3990, requires_medical_prescription=True),
+            _product("b", 101, "Paracetamol 500 mg", 990, requires_medical_prescription=False),
+        ],
+    )
+    build_search_documents(db)
+    rows = db.execute(
+        "SELECT entity_id, metadata->'receta' FROM search_documents WHERE entity_type = 'catalog_item' ORDER BY 1"
+    ).fetchall()
+    assert rows == [("100", True), ("101", None)]
+
+
 EMBEDDED_ITEMS = "SELECT count(*) FROM search_documents WHERE embedding IS NOT NULL AND entity_type = 'catalog_item'"
 
 

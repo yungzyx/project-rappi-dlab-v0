@@ -89,6 +89,9 @@ body.figura #mapa-conceptos { margin: 0; border: 0; }
 #concepts .edge.home { stroke-opacity: 0.45; stroke-width: 1.2; }
 #concepts .comp { fill: none; stroke: var(--ink-2); stroke-opacity: 0.35; stroke-width: 0.9; stroke-dasharray: 3 3; display: none; }
 #concepts.show-comp .comp { display: inline; }
+#concepts .sedge { fill: none; stroke: var(--ink); stroke-opacity: 0.45; stroke-width: 1.2; stroke-dasharray: 5 4; }
+#concepts .snode { cursor: pointer; fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+#concepts .slabel { font-size: 13px; font-weight: 700; fill: var(--ink); }
 #concepts.focus .edge, #concepts.focus .comp { stroke-opacity: 0.04; }
 #concepts.focus .edge.on { stroke-opacity: 0.9; stroke-width: 1.8; }
 #concepts.focus .comp.on { display: inline; stroke-opacity: 0.9; stroke: var(--ink); }
@@ -136,7 +139,7 @@ body.figura #mapa-conceptos { margin: 0; border: 0; }
     <div class="card-head">
       <div>
         <h2>Mapa de conceptos</h2>
-        <p>Cada punto es un concepto (cerveza, pañales, café…), ubicado y coloreado según la vertical donde es más típico, la misma regla que usa Bigotes. Las líneas lo unen con cada vertical que tiene al menos <span id="minItems"></span> productos de él.</p>
+        <p>Cada punto es un concepto (cerveza, pañales, café…), ubicado y coloreado según la vertical donde es más típico, la misma regla que usa Bigotes. Las líneas lo unen con cada vertical que tiene al menos <span id="minItems"></span> productos de él. Al centro, los servicios sin catálogo (RappiTravel, RappiFavor): la línea punteada va a lo que Bigotes sugiere junto con ellos.</p>
       </div>
       <div class="controls">
         <label><input type="checkbox" id="showComp"> Complementos</label>
@@ -324,6 +327,26 @@ document.getElementById('minItems').textContent = DATA.minItems;
     const t = el('text', { x: vpos[v].x, y: vpos[v].y + 32, 'text-anchor': 'middle', class: 'vlabel' }, svg);
     t.textContent = DATA.labels[v];
   }
+  // Servicios sin catálogo: al centro, con línea punteada a sus ganchos (lo que Bigotes sugiere con ellos).
+  const services = DATA.services || [];
+  services.forEach((s, i) => {
+    s.x = C + (i - (services.length - 1) / 2) * 92; s.y = C;
+    for (const h of s.hooks) {
+      if (!byId[h]) continue;
+      el('path', { d: `M${s.x},${s.y} L${byId[h].x},${byId[h].y}`, class: 'sedge', 'data-s': s.id }, svg);
+    }
+    const node = el('circle', { cx: s.x, cy: s.y, r: 20, class: 'snode', tabindex: 0 }, svg);
+    const t = el('text', { x: s.x, y: s.y + 6, 'text-anchor': 'middle', class: 'slabel' }, svg);
+    t.textContent = s.emoji;
+    const name = el('text', { x: s.x, y: s.y + 36, 'text-anchor': 'middle', class: 'vlabel' }, svg);
+    name.textContent = s.name;
+    const show = () => {
+      panel.innerHTML = `<h3>${esc(s.emoji)} ${esc(s.name)}</h3><p class="sub">Servicio sin catálogo: ${esc(s.pitch)}.</p>
+        ${s.hooks.length ? `<p class="sub" style="margin-top:14px">Bigotes lo ofrece y sugiere del catálogo:</p><div class="chips">${s.hooks.map((h) => byId[h] ? `<span class="chip">${esc(byId[h].emoji)} ${esc(byId[h].name)}</span>` : '').join('')}</div>`
+          : '<p class="sub" style="margin-top:14px">Bigotes lo ofrece cuando algo no está en el catálogo: un Rappitendero lo compra en otra tienda.</p>'}`;
+    };
+    for (const target of [node, t, name]) { target.addEventListener('mouseenter', show); target.addEventListener('focus', show); }
+  });
   const nodes = el('g', {}, svg);
   for (const c of concepts) {
     const r = 3 + 7 * Math.sqrt(total(c) / maxT);

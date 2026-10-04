@@ -65,6 +65,22 @@ const SHORTCUTS = [
     }),
   },
   {
+    words: [
+      'llaves',
+      'enviar un paquete',
+      'mandar un paquete',
+      'tramite',
+      'trámite',
+      'mandado',
+      'rappifavor',
+      'un favor',
+    ],
+    build: () => ({
+      text: 'Para eso está 🛵 RappiFavor: un Rappitendero lo lleva de un punto a otro, compra en cualquier tienda o hace tu trámite.',
+      actions: [{ label: 'Abrir RappiFavor', route: ['favor'] }],
+    }),
+  },
+  {
     words: ['puntos', 'millas', 'latam', 'loyalty'],
     build: () => ({
       text: 'Puedes acumular millas o puntos en cada pedido siendo Pro 🏆',

@@ -16,7 +16,6 @@ from .. import config
 log = logging.getLogger(__name__)
 
 AGE_NOTICE = "Recuerda: estos productos se venden solo a mayores de 18."
-PHARMACY_NOTICE = "Ojo: no doy dosis ni diagnósticos; para eso, consulta a un químico farmacéutico."
 
 
 @dataclass
@@ -34,7 +33,6 @@ class Draft:
     suggestion_reason: str | None = None
     suggestion_label: str | None = None
     age_notice: bool = False
-    pharmacy_notice: bool = False
     interest_label: str | None = None
     unmet: bool = False
 
@@ -70,7 +68,7 @@ class TemplateComposer:
 
 def notices(d: Draft) -> list[str]:
     """Los avisos los pone siempre el código (nunca el LLM): así no se pierden ni se reescriben."""
-    return [n for n, on in ((PHARMACY_NOTICE, d.pharmacy_notice), (AGE_NOTICE, d.age_notice)) if on]
+    return [AGE_NOTICE] if d.age_notice else []
 
 
 class ClaudeComposer:

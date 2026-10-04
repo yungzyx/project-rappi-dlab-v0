@@ -152,3 +152,27 @@ describe('«Para ti» local en la Home (sin fila de rappi-ia)', () => {
     expect(shownLocal.map(pair)).toEqual([pair(accepted)])
   })
 })
+
+describe('RappiFavor en la Home', () => {
+  test('en «Rappi hoy» sigue no disponible, como en la app; en «Propuesta» abre su pantalla', async () => {
+    api.health.mockResolvedValue(null)
+    const push = vi.fn()
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
+    const { unmount } = render(
+      <Providers>
+        <HomeFeed push={push} />
+      </Providers>,
+    )
+    expect(screen.getByLabelText('RappiFavor (no disponible)')).toBeTruthy()
+    unmount()
+
+    localStorage.setItem('rappi-proto-demo-mode', 'propuesta')
+    render(
+      <Providers>
+        <HomeFeed push={push} />
+      </Providers>,
+    )
+    fireEvent.click(screen.getByText('RappiFavor'))
+    expect(push).toHaveBeenCalledWith('favor')
+  })
+})

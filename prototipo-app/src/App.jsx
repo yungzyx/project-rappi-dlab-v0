@@ -7,6 +7,7 @@ import Nudge from './components/assistant/Nudge'
 import StatusBar from './components/StatusBar'
 import { ToastProvider } from './components/Toast'
 import CheckoutScreen from './screens/checkout/CheckoutScreen'
+import FavorScreen from './screens/favor/FavorScreen'
 import HomeScreen from './screens/home/HomeScreen'
 import ListScreen from './screens/list/ListScreen'
 import LoyaltyScreen from './screens/loyalty/LoyaltyScreen'
@@ -37,6 +38,7 @@ const SCREENS = {
   search: SearchScreen,
   vertical: VerticalScreen,
   travel: TravelScreen,
+  favor: FavorScreen,
   loyalty: LoyaltyScreen,
   list: ListScreen,
   checkout: CheckoutScreen,

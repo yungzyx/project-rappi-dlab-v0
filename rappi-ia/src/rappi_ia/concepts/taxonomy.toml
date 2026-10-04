@@ -14,7 +14,7 @@
 # - `prepared = true` (en el grupo o en el concepto): se pide hecho, así que también se busca en restaurantes.
 #   El resto nunca compite en restaurantes aunque sus locales lo tengan (gaseosas, papas fritas en combos).
 
-version = "2026-10-03"
+version = "2026-10-04"
 
 # ─── Grupos ───────────────────────────────────────────────────────────────────
 [[group]]
@@ -1003,7 +1003,7 @@ id = "enfermo"
 name = "Me siento mal"
 emoji = "🤒"
 keywords = ["enfermo", "enferma", "me siento mal", "me duele", "resfriado", "gripe", "dolor", "fiebre", "malestar", "cuidarme"]
-concepts = ["sopas", "jugos", "te", "frutas"]  # nunca medicamentos: no se sugieren por síntomas
+concepts = ["sopas", "jugos", "te", "frutas"]  # sin farmacia; con farmacia, Bigotes busca remedios (agent/bigotes.py)
 
 [[occasion]]
 id = "once"
@@ -1011,3 +1011,29 @@ name = "Once"
 emoji = "☕"
 keywords = ["once", "onces", "tecito", "hora del té"]
 concepts = ["panaderia", "fiambres", "quesos", "cafe", "te", "pasteleria", "untables-dulces"]
+
+# Servicios de Rappi sin catálogo de productos. Bigotes los reconoce por sus keywords (si la consulta no nombra un
+# producto), lleva a su pantalla del prototipo (`route`) y, si tiene ganchos, sugiere UN producto del catálogo que lo
+# acompaña. RappiFavor además se ofrece cuando algo no está en el catálogo (agent/bigotes.py).
+[[service]]
+id = "rappitravel"
+name = "RappiTravel"
+emoji = "✈️"
+pitch = "vuelos, hoteles, autos, seguros y paquetes, pagando con tus RappiCréditos y con cashback"
+route = "travel"
+reason = "Para tu viaje ✈️"
+keywords = ["viaje", "viajar", "me voy de viaje", "vacaciones", "vuelo", "vuelos", "pasaje", "pasajes", "avion", "hotel", "hoteles", "hospedaje", "alojamiento", "arrendar un auto", "arriendo de auto", "rent a car", "seguro de viaje", "paquete turistico", "tour", "excursion", "escapada", "rappitravel"]
+hooks = [
+  { concept = "dermocosmetica", query = "protector solar", question = "¿Llevas protector solar? 🧴" },
+  { concept = "ropa", query = "traje de baño", question = "¿Te falta traje de baño? 👙" },
+  { concept = "accesorios-moda", query = "maleta", question = "¿Necesitas maleta? 🧳" },
+]
+
+[[service]]
+id = "rappifavor"
+name = "RappiFavor"
+emoji = "🛵"
+pitch = "un Rappitendero lleva lo que necesites de un punto a otro, te compra en cualquier tienda o hace tu trámite"
+route = "favor"
+keywords = ["rappifavor", "un favor", "mandado", "mandados", "encomienda", "enviar un paquete", "mandar un paquete", "enviar unas llaves", "llaves", "se me quedo", "se me quedaron", "olvide", "enviar un documento", "documentos", "tramite", "tramites", "retirar un paquete", "recoger un paquete", "correos de chile", "punto a punto", "de un lugar a otro", "llevar algo"]
+

@@ -121,11 +121,11 @@ def test_cheapest_without_the_cap_is_also_of_the_requested_concept(bigotes):
 
 def test_unmet_by_cosine_shows_nothing_and_is_recorded(bigotes, monkeypatch):
     """Sin concepto nombrado, «sin resultado» lo decide el coseno bajo τ: antes se mostraban sus vecinos igual
-    (arena para gato a quien pedía un pasaje de avión) y la demanda no se anotaba."""
+    (arena para gato a quien pedía un pasaje de avión, que hoy va a RappiTravel) y la demanda no se anotaba."""
     agent, db = bigotes
     monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
 
-    r = agent.reply(db, "pasaje de avión a punta arenas", Context(vertical="supermercado"))
+    r = agent.reply(db, "kombucha de jengibre artesanal", Context(vertical="supermercado"))
 
     assert r["intent"]["concepts"] == []
     assert r["products"] == [] and r["unmet"] and "τ" in r["unmet_reason"]
@@ -153,14 +153,13 @@ def test_a_query_without_words_to_search_is_not_recorded_as_unmet(bigotes, monke
 
 
 def test_symptoms_are_not_recorded_as_unmet_demand(bigotes, monkeypatch):
-    """Por síntomas no se ofrecen medicamentos (regla 6d): no mostrarlos no es falta de surtido. «tengo tos» en
-    farmacia quedaba anotado como demanda no satisfecha por el coseno bajo τ."""
+    """Sin remedios para el síntoma se muestra lo de cuidarse: no mostrar lo pedido no es falta de surtido. «tengo
+    tos» quedaba anotado como demanda no satisfecha por el coseno bajo τ."""
     agent, db = bigotes
     monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
 
     r = agent.reply(db, "tengo tos", Context(vertical="supermercado"))
 
-    assert "químico farmacéutico" in r["text"]  # habló de síntomas
     assert not r["unmet"] and "Lo anoté" not in r["text"]
 
 
@@ -323,16 +322,15 @@ def test_explicit_request_wins_over_occasion(bigotes):
     assert {p["concept"] for p in r["products"]} <= {"cerveza", "snacks-salados"}
 
 
-def test_symptoms_never_bring_medicines_but_add_pharmacy_notice(bigotes):
+def test_symptoms_without_pharmacy_remedies_never_bring_medicines(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "tengo fiebre", Context(vertical="supermercado"))
     assert "medicamentos" not in {p["concept"] for p in r["products"]}
-    assert "químico farmacéutico" in r["text"]
 
 
-def test_symptoms_starting_with_me_get_the_pharmacy_notice_and_no_painkillers(bigotes):
-    """«me duele la cabeza» se limpiaba a «duele la cabeza» antes de buscar el síntoma: sin aviso de farmacia y con
-    un analgésico que calzaba la palabra «cabeza»."""
+def test_symptoms_starting_with_me_are_symptoms_and_bring_no_unlabeled_painkillers(bigotes):
+    """«me duele la cabeza» se limpiaba a «duele la cabeza» antes de buscar el síntoma, y mostraba un analgésico sin
+    concepto que calzaba la palabra «cabeza»."""
     agent, db = bigotes
     add_product(db, 710, "Anacin Max Dolor de Cabeza X 8 Comprimidos", 1, "Analgésicos sistémicos")
     add_price(db, 1, 710, 2600)
@@ -344,7 +342,6 @@ def test_symptoms_starting_with_me_get_the_pharmacy_notice_and_no_painkillers(bi
     r = agent.reply(db, "me duele la cabeza", Context(vertical="supermercado"))
 
     assert r["intent"]["occasion"] == "enfermo"
-    assert "químico farmacéutico" in r["text"]
     assert "710" not in [p["entity_id"] for p in r["products"]]
 
 
@@ -393,7 +390,7 @@ def test_a_photo_in_pharmacy_does_not_show_unlabeled_medicines(bigotes):
     similar = [("farmacia", "catalog_item", "711", 0.9), ("farmacia", "catalog_item", "712", 0.8)]
     r = agent.reply_photo(db, reading, similar, Context(vertical="farmacia"))
     assert [p["entity_id"] for p in r["products"]] == ["712"]
-    assert "químico farmacéutico" in r["text"]  # en farmacia, con aviso (regla 6), como al buscar por texto
+    assert "químico farmacéutico" not in r["text"]  # sin el aviso que cortaba la compra
 
 
 def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none(bigotes):
@@ -477,6 +474,95 @@ def pharmacy_bigotes(bigotes):
     build_concepts(db)
     embed_search_documents(db, agent.embedder)
     return agent, db
+
+
+@pytest.fixture
+def remedies_bigotes(bigotes):
+    """Farmacia con remedios para la fiebre (uno con receta) y algo para el súper."""
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    for pid, name in [
+        (800, "Paracetamol 500 mg para la fiebre y el dolor 16 comprimidos"),
+        (801, "Tapsin Día fiebre y resfrío 18 comprimidos"),
+        (802, "Amoxicilina 500 mg para la fiebre 21 cápsulas"),
+        (803, "Crema de manos Nivea 75 ml"),
+    ]:
+        add_product(db, pid, name, 11, "Analgésicos tópicos" if pid != 803 else "Cremas de manos")
+        add_price(db, 11, pid, 2990)
+    db.execute(
+        "UPDATE store_products SET raw = '{\"requires_medical_prescription\": true}' WHERE master_product_id = 802"
+    )
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    return agent, db
+
+
+def test_a_symptom_goes_to_pharmacy_with_remedies_and_no_notice(remedies_bigotes):
+    """«tengo fiebre» iba a Express con sopas y jugos, escondía los remedios y agregaba «consulta a un químico
+    farmacéutico»: cortaba la compra. Ahora va a Farmacia con lo que se vende para eso, nunca con receta."""
+    agent, db = remedies_bigotes
+    for ctx in (Context(), Context(vertical="conveniencia")):
+        r = agent.reply(db, "tengo fiebre", ctx)
+        ids = [p["entity_id"] for p in r["products"]]
+        assert r["vertical"] == "farmacia" and {"800", "801"} <= set(ids)
+        assert "802" not in ids  # con receta
+        assert "químico farmacéutico" not in r["text"]
+        assert not r.get("suggestion") and not r.get("also_in") and not r["unmet"]
+
+
+def test_a_symptom_without_remedies_for_it_gets_the_painkillers(remedies_bigotes):
+    """Si nada en la farmacia nombra el síntoma («me siento mal», «tengo tos»), no se muestra cualquier medicamento
+    que calce por cercanía: los analgésicos, y el texto no habla de la ocasión."""
+    agent, db = remedies_bigotes
+    for text in ["me siento mal", "tengo tos"]:
+        r = agent.reply(db, text, Context(vertical="supermercado"))
+        ids = [p["entity_id"] for p in r["products"]]
+        assert r["vertical"] == "farmacia" and {"800", "801"} <= set(ids) and "803" not in ids, text
+        assert "me siento mal" not in r["text"].lower() and "químico farmacéutico" not in r["text"], text
+
+
+def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
+    """RappiTravel no tiene catálogo: Bigotes lleva a su pantalla y suma un gancho del catálogo para el viaje."""
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
+    add_price(db, 11, 900, 15990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    r = agent.reply(db, "me voy de vacaciones a la playa", Context())
+    assert r["intent"]["kind"] == "servicio" and r["service"] == "rappitravel"
+    assert r["actions"] == [{"label": "Abrir RappiTravel", "route": ["travel"]}]
+    assert "RappiTravel" in r["text"] and not r["products"]
+    assert r["suggestion"]["concept"] == "dermocosmetica" and r["suggestion"]["reason"] == "Para tu viaje ✈️"
+    assert [p["entity_id"] for p in r["suggestion"]["products"]] == ["900"]
+    # Una sola sugerencia por tema en la sesión: si ya se mostró, se pasa al siguiente gancho (o a ninguno).
+    again = agent.reply(db, "me voy de vacaciones", Context(shown_topics=["dermocosmetica"]))
+    assert again.get("suggestion", {}).get("concept") != "dermocosmetica"
+    # En «Rappi hoy» no hay ganchos.
+    assert "suggestion" not in agent.reply(db, "me voy de vacaciones", Context(mode="actual"))
+
+
+def test_an_errand_opens_rappifavor(bigotes):
+    agent, db = bigotes
+    r = agent.reply(db, "se me quedaron las llaves en la oficina", Context())
+    assert r["service"] == "rappifavor" and r["actions"] == [{"label": "Abrir RappiFavor", "route": ["favor"]}]
+    assert "suggestion" not in r
+
+
+def test_what_is_not_in_the_catalog_can_be_bought_with_rappifavor(bigotes, monkeypatch):
+    """«No está en el catálogo» era el final: ahora RappiFavor lo compra en otra tienda (solo en «Propuesta»)."""
+    agent, db = bigotes
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
+    r = agent.reply(db, "kombucha de jengibre", Context(vertical="supermercado"))
+    assert r["unmet"] and {"label": "Pedirlo con RappiFavor", "route": ["favor"]} in r["actions"]
+    assert "RappiFavor" in r["text"]
+    actual = agent.reply(db, "kombucha de jengibre", Context(vertical="supermercado", mode="actual"))
+    assert actual["unmet"] and not actual["actions"]
 
 
 def test_sensitive_concepts_are_found_when_asked_by_their_plain_name(pharmacy_bigotes):
@@ -699,7 +785,7 @@ def test_other_verticals_are_ordered_by_how_much_offer_they_have(volume_bigotes,
 
 def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypatch):
     """«malestar» y «cuidarme» son de la ocasión «Me siento mal» pero no de SYMPTOMS: sacaban Licores de la vertical,
-    y aun así mostraban «También en» (con Licores) y no el aviso de farmacia."""
+    y aun así mostraban «También en» (con Licores)."""
     agent, db = volume_bigotes
     monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)
     add_store(db, 9, "conveniencia", "Express")
@@ -714,7 +800,7 @@ def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypa
     for text in ["tengo fiebre, quiero jugo", "malestar", "algo para cuidarme"]:
         sick = agent.reply(db, text, Context(vertical="supermercado"))
         assert sick["products"] and "also_in" not in sick, text
-        assert "químico farmacéutico" in sick["text"], text
+        assert "me siento mal" not in sick["text"].lower(), text
     # Con otra ocasión antes en el texto («tecito» es once), «malestar» y «cuidarme» siguen siendo síntoma.
     for text in [
         "un tecito para el malestar",
@@ -723,7 +809,6 @@ def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypa
     ]:
         sick = agent.reply(db, text, Context())
         assert sick["vertical"] != "licores" and "also_in" not in sick and "suggestion" not in sick, text
-        assert "químico farmacéutico" in sick["text"], text
 
 
 # Ítems con concepto por vertical en la base real (03-10): restaurantes es unas 5 veces el súper.

@@ -74,3 +74,24 @@ def test_prepared_flag_comes_from_the_concept_or_its_group():
     assert concepts["hamburguesa"].prepared  # por su grupo, comida preparada
     assert concepts["postres"].prepared and concepts["cafe"].prepared  # por el concepto
     assert not concepts["chocolates"].prepared and not concepts["gaseosas"].prepared
+
+
+def test_services_without_catalog_are_loaded_with_their_hooks():
+    services = load_taxonomy().services
+    assert set(services) == {"rappitravel", "rappifavor"}
+    assert services["rappitravel"].route == "travel" and services["rappifavor"].route == "favor"
+    assert [h.concept for h in services["rappitravel"].hooks] == ["dermocosmetica", "ropa", "accesorios-moda"]
+
+
+def test_a_service_hook_must_be_a_known_concept(tmp_path):
+    from rappi_ia.concepts.taxonomy import DATA_DIR
+
+    broken = (
+        (DATA_DIR / "taxonomy.toml")
+        .read_text(encoding="utf-8")
+        .replace('concept = "ropa", query', 'concept = "no-existe", query')
+    )
+    path = tmp_path / "taxonomy.toml"
+    path.write_text(broken, encoding="utf-8")
+    with pytest.raises(ValueError, match="ganchos inexistentes"):
+        load_taxonomy(path)
