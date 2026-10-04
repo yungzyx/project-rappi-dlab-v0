@@ -8,7 +8,8 @@ triste») o encargos («que me compren algo en una ferretería»). Este proceso 
 
 1. Con la API arriba (`make serve` en `rappi-ia/`), escribe 40 a 60 frases como las escribiría alguien real, en
    `rappi-ia/src/rappi_ia/eval/frases_usuarios/rondaN.txt`: perfiles distintos (mamá apurada, carrete, adulto mayor,
-   estudiante, fitness), mayúsculas, faltas, frases largas y combinaciones. `frase|vertical` la manda desde esa vertical.
+   estudiante, fitness), mayúsculas, faltas, frases largas y combinaciones. `frase|vertical` la manda desde esa vertical;
+   `+ frase` sigue la conversación (manda el pedido anterior, como el prototipo: «cerveza» y luego «+ más barata»).
 2. `make probar-chat FRASES=src/rappi_ia/eval/frases_usuarios/rondaN.txt` y lee cada respuesta buscando:
    productos que no tienen que ver, una vertical rara, un aviso que sobra (+18 en un cumpleaños infantil), «Lo anoté»
    para algo que sí existe, o una pregunta sobre la app tratada como búsqueda.
@@ -26,6 +27,7 @@ triste») o encargos («que me compren algo en una ferretería»). Este proceso 
 | 1 | 04-10-2026 | 55 | chilenismos y faltas, cumpleaños sin alcohol, antojo dulce, panorama en casa, preguntas sobre la app, «barato» |
 | 2 | 04-10-2026 | 50 | «pa»/«pal», «sin X», «qué me recomiendas», un mimo («estoy triste»), regalo para un niño, leches vegetales |
 | 3 | 04-10-2026 | 46 | «nesecito», cadenas de restaurantes, «café en grano», «pollo con papas fritas», partido, cena romántica |
+| 4 | 04-10-2026 | 23 (10 conversaciones) | seguimientos: «talla g», «más barata», «de otra marca», «y en el súper?», «sin lactosa», «con papas»; si nada es del concepto nombrado, se busca por su nombre («algo más sano», «tofu», «comida china») |
 
 Límite conocido: la muestra pública del catálogo no tiene algunas cosas (jarabes para la tos, tofu, bolsas de basura).
 Ahí Bigotes lo dice o muestra lo más cercano; no se arregla con palabras.

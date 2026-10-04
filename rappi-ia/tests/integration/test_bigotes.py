@@ -1,5 +1,6 @@
 """Conducta de Bigotes (docs/diseno-ia.md §4) contra `rappi_ia_test`, con el modelo falso de embeddings."""
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -1087,3 +1088,44 @@ def test_a_recommendation_uses_what_the_user_likes(bigotes):
     assert liked["text"].startswith("Como te gusta 🍺 cerveza 😉 Mira") and liked["products"]
     unknown = agent.reply(db, "qué me recomiendas", Context())
     assert unknown["intent"]["kind"] == "ayuda" and unknown["actions"]
+
+
+def test_a_conversation_follows_the_previous_request(bigotes):
+    """Ronda 4: «más barata» o «de otra marca» después de «cerveza» olvidaban la cerveza y traían cualquier cosa."""
+    agent, db = bigotes
+    first = agent.reply(db, "cerveza", Context(vertical="licores"))
+    shown = [p["entity_id"] for p in first["products"]]
+    previous = {"query": first["intent"]["query"], "concepts": first["intent"]["concepts"],
+                "vertical": first["vertical"], "product_ids": shown[:1]}  # fmt: skip
+    cheaper = agent.reply(db, "más barata", Context(previous=previous))
+    assert cheaper["intent"]["follow_up"] and {p["concept"] for p in cheaper["products"]} == {"cerveza"}
+    prices = [p["price_value"] for p in cheaper["products"]]
+    assert prices == sorted(prices)
+    other = agent.reply(db, "de otra marca", Context(previous=previous))
+    assert other["products"] and shown[0] not in [p["entity_id"] for p in other["products"]]
+
+
+def test_a_concept_named_with_generic_words_is_searched_by_its_name(bigotes, monkeypatch):
+    """«algo más sano» se entiende como ensaladas, pero esas palabras no están en ningún producto: la búsqueda traía
+    pizza y pescado. Si nada es del concepto pedido, se busca por el nombre del concepto."""
+    agent, db = bigotes
+    add_dish(db, 520, "Ensalada César con pollo", 3, "Ensaladas", ["Ensaladas"])
+    db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, 520, 6990)")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    from rappi_ia.agent import bigotes as module
+
+    real = module.search_products
+
+    def like_the_real_catalog(conn, vertical, query, *args, **kwargs):  # con «algo mas sano» no sale la ensalada
+        outcome = real(conn, vertical, query, *args, **kwargs)
+        if query != "Ensaladas y bowls":
+            outcome = replace(outcome, products=[p for p in outcome.products if p.concept != "ensaladas-bowls"])
+        return outcome
+
+    monkeypatch.setattr(module, "search_products", like_the_real_catalog)
+    r = agent.reply(db, "algo más sano", Context(vertical="restaurantes"))
+    assert r["intent"]["concepts"][:1] == ["ensaladas-bowls"]
+    assert [p["entity_id"] for p in r["products"]] == ["520"]

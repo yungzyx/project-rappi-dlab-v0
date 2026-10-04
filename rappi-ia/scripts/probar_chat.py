@@ -2,9 +2,10 @@
 
 Uso (con la API corriendo):  make probar-chat            # todas las rondas de src/rappi_ia/eval/frases_usuarios
                              make probar-chat FRASES=archivo.txt
-Las líneas que empiezan con # son comentarios; «frase|vertical» la manda desde esa vertical. No registra eventos (sin
-user_id). Leer la salida buscando: productos que no tienen que ver, verticales raras, avisos que sobran, «Lo anoté» para
-algo que sí existe. Ver docs/pruebas-de-usuario.md.
+Las líneas que empiezan con # son comentarios; «frase|vertical» la manda desde esa vertical; «+ frase» sigue la
+conversación (manda el pedido anterior, como el prototipo). No registra eventos (sin user_id). Leer la salida
+buscando: productos que no tienen que ver, verticales raras, avisos que sobran, «Lo anoté» para algo que sí existe.
+Ver docs/pruebas-de-usuario.md.
 """
 
 import json
@@ -18,8 +19,10 @@ API = os.environ.get("API", "http://localhost:8000").rstrip("/")
 DEFAULT = Path(__file__).resolve().parents[1] / "src" / "rappi_ia" / "eval" / "frases_usuarios"
 
 
-def chat(text: str, vertical: str | None) -> tuple[dict, float]:
+def chat(text: str, vertical: str | None, previous: dict | None = None) -> tuple[dict, float]:
     body = {"message": text, "mode": "propuesta", **({"vertical": vertical} if vertical else {})}
+    if previous:
+        body["previous"] = previous
     request = urllib.request.Request(f"{API}/chat", json.dumps(body).encode(), {"Content-Type": "application/json"})
     start = time.time()
     try:
@@ -47,13 +50,24 @@ def main(paths: list[str]) -> None:
     files = [Path(p) for p in paths] or sorted(DEFAULT.glob("*.txt"))
     for path in files:
         print(f"\n## {path.name}")
+        previous = None
         for line in path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line or line.startswith("#"):
                 print(line)
                 continue
-            text, _, vertical = line.partition("|")
-            print(summary(text.strip(), *chat(text.strip(), vertical.strip() or None)))
+            follow = line.startswith("+")
+            text, _, vertical = line.lstrip("+ ").partition("|")
+            response, seconds = chat(text.strip(), vertical.strip() or None, previous if follow else None)
+            print(("  " if follow else "") + summary(text.strip(), response, seconds))
+            intent = response.get("intent") or {}
+            if intent.get("concepts"):
+                previous = {
+                    "query": intent.get("query", text),
+                    "concepts": intent["concepts"],
+                    "vertical": response.get("vertical"),
+                    "product_ids": [p["entity_id"] for p in response.get("products", [])],
+                }
 
 
 if __name__ == "__main__":

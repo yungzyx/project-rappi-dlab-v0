@@ -574,3 +574,28 @@ describe('sugerencias mostradas', () => {
     expect(shown).toHaveLength(1)
   })
 })
+
+describe('conversación', () => {
+  test('el mensaje siguiente lleva el pedido anterior: «más barata» se lee sobre «cerveza»', async () => {
+    api.chat.mockResolvedValueOnce({
+      text: 'Mira estas cervezas',
+      vertical: 'licores',
+      intent: { query: 'cerveza', concepts: ['cerveza'] },
+      products: [{ id: 'cat-1', entity_type: 'catalog_item', entity_id: '1', name: 'Escudo', price: '$1.290' }],
+    })
+    api.chat.mockResolvedValueOnce({ text: 'Las más baratas', products: [] })
+    await renderPanel()
+    say('cerveza')
+    await runUntilIdle()
+    say('más barata')
+    await runUntilIdle()
+
+    expect(api.chat.mock.calls[0][0].previous).toBeUndefined()
+    expect(api.chat.mock.calls[1][0].previous).toEqual({
+      query: 'cerveza',
+      concepts: ['cerveza'],
+      vertical: 'licores',
+      product_ids: ['1'],
+    })
+  })
+})

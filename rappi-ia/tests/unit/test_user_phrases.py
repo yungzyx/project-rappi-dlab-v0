@@ -116,3 +116,52 @@ def test_fried_chicken_with_fries_is_a_dish():
 def test_restaurant_chains_go_to_restaurants(text):
     intent = U.understand(None, text, None)
     assert intent.vertical == "restaurantes" and intent.explicit_vertical, text
+
+
+# Ronda 4: conversaciones. El segundo mensaje refina el primero.
+def _then(first, then, vertical=None):
+    previous_intent = U.understand(None, first, vertical or "supermercado")
+    previous = {
+        "query": previous_intent.query,
+        "concepts": previous_intent.concepts,
+        "vertical": previous_intent.vertical,
+    }
+    return U.understand(None, then, "supermercado", previous=previous)
+
+
+@pytest.mark.parametrize(
+    ("first", "then", "concept", "query"),
+    [
+        ("pañales", "talla g", "panales", "panales talla g"),
+        ("shampoo", "para pelo graso", "cuidado-cabello", "shampoo para pelo graso"),
+        ("leche", "sin lactosa", "lacteos", "leche sin lactosa"),
+        ("chocolates", "más grande", "chocolates", "chocolates mas grande"),
+        ("hamburguesa", "con papas", "hamburguesa", "hamburguesa con papas"),
+    ],
+)
+def test_a_short_follow_up_refines_the_previous_request(first, then, concept, query):
+    intent = _then(first, then)
+    assert intent.concepts[:1] == [concept] and intent.query == query and intent.follow_up
+
+
+def test_cheaper_keeps_the_previous_request():
+    intent = _then("cerveza", "más barata", "licores")
+    assert intent.concepts == ["cerveza"] and intent.cheapest and intent.vertical == "licores"
+
+
+def test_naming_a_vertical_moves_the_previous_request_there():
+    intent = _then("vino tinto", "y en el súper?", "licores")
+    assert intent.concepts == ["vino"] and intent.vertical == "supermercado" and intent.explicit_vertical
+
+
+@pytest.mark.parametrize(("first", "then"), [("quiero una pizza", "mejor sushi"), ("comida pal perro", "para gato")])
+def test_naming_something_new_is_a_new_request(first, then):
+    assert not _then(first, then).follow_up
+
+
+def test_without_a_previous_message_nothing_changes():
+    assert not U.understand(None, "talla g", "supermercado").follow_up
+
+
+def test_healthier_after_hunger_is_a_salad():
+    assert _then("tengo hambre", "algo más sano").concepts[:1] == ["ensaladas-bowls"]

@@ -679,3 +679,11 @@ def test_demo_chat_suggestion_order_reaches_the_panel(client):
     funnel = {r["vertical"]: r for r in panel("funnel")}
     assert funnel["supermercado"] == {"vertical": "supermercado", "buscan": 1, "agregan": 1, "pagan": 1, "piden": 1}
     assert panel("kpis")["pedidos_30d"] == 2
+
+
+def test_chat_follows_up_on_the_previous_turn(client):
+    first = client.post("/chat", json={"message": "cerveza", "vertical": "liquor"}).json()
+    previous = {"query": first["intent"]["query"], "concepts": first["intent"]["concepts"], "vertical": "liquor"}
+    follow = client.post("/chat", json={"message": "más barata", "previous": previous}).json()
+    assert follow["intent"]["follow_up"] and follow["vertical"] == "licores"
+    assert {p["concept"] for p in follow["products"]} == {"cerveza"}

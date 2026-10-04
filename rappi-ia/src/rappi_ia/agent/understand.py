@@ -103,6 +103,24 @@ PACKAGED_WORDS = {
     "congeladas",
     "congelados",
 }
+# Un mensaje corto que empieza así refina el anterior aunque nombre algo («con papas» tras «hamburguesa»).
+REFINE_START = {
+    "con",
+    "sin",
+    "talla",
+    "mas",
+    "menos",
+    "de",
+    "del",
+    "tamano",
+    "sabor",
+    "marca",
+    "light",
+    "grande",
+    "chico",
+}
+OTHER_WORDS = {"otra", "otro", "otras", "otros", "distinta", "distinto", "diferente", "diferentes"}
+FOLLOW_UP_FILLER = {"y", "en", "el", "la", "los", "las", "mejor", "entonces", "ahora", "tambien", "pero"}
 CHEAP_WORDS = {"barato", "barata", "baratos", "baratas", "economico", "economica", "economicos", "economicas"}
 
 SYMPTOMS = [
@@ -169,6 +187,8 @@ class Intent:
     symptom: bool = False  # habló de síntomas: remedios de farmacia sin receta, sin venta cruzada
     service: str | None = None  # servicio sin catálogo (RappiTravel, RappiFavor)
     cheapest: bool = False  # «barato»: lo más barato primero
+    follow_up: bool = False  # refina el mensaje anterior («talla g» tras «pañales»)
+    exclude_previous: bool = False  # «de otra marca», «otras opciones»: sin lo que ya se mostró
 
 
 class Understander:
@@ -182,7 +202,10 @@ class Understander:
         self.services = KeywordMatcher((s.id, kw) for s in taxonomy.services.values() for kw in s.keywords)
         self.app_questions = KeywordMatcher((kind, kw) for kind, kws in APP_QUESTIONS.items() for kw in kws)
 
-    def understand(self, conn: Connection, text: str, current_vertical: str | None = None) -> Intent:
+    def understand(
+        self, conn: Connection, text: str, current_vertical: str | None = None, previous: dict | None = None
+    ) -> Intent:
+        """`previous`: el pedido anterior de la conversación ({query, concepts, vertical}), para los seguimientos."""
         normalized = normalize(text)
         words = set(normalized.split())
         if not normalized:
@@ -219,6 +242,9 @@ class Understander:
         service = None if explicit or symptom else self.services.best(said)
         if service:
             return Intent("servicio", text, None, [], confidence=0.8, query=body or normalized, service=service.target)
+        follow_up = self._follow_up(text, said, body_words, concepts, occasion, symptom, mention, previous, price_max)
+        if follow_up:
+            return follow_up
         if occasion and not concepts:
             concepts = list(self.taxonomy.occasions[occasion.target].concepts)
         kind = "ocasion" if occasion else "buscar"
@@ -253,6 +279,33 @@ class Understander:
         if len(pair) == 2 and "restaurantes" in pair and _comparable(conn, concepts[0], pair):
             return Intent("aclarar", text, None, concepts, options=pair, **common)
         return Intent(kind, text, options[0] if options else self._home(concepts[0]), concepts, **common)
+
+    def _follow_up(self, text, said, body_words, concepts, occasion, symptom, mention, previous, price_max):
+        """Un mensaje corto que no nombra nada nuevo (o que empieza con «con», «sin», «talla», «más»…) sigue el pedido
+        anterior: «talla g» tras «pañales» busca «pañales talla g»; «y en el súper?» busca lo mismo allá."""
+        if not previous or occasion or symptom or len(body_words) > 4:
+            return None
+        previous_concepts = [c for c in previous.get("concepts") or [] if c in self.taxonomy.concepts]
+        if not previous_concepts or (concepts and body_words[:1] and body_words[0] not in REFINE_START):
+            return None
+        mention_words = {w for kw in VERTICAL_MENTIONS.get(mention, ()) for w in kw.split()}
+        rest = [w for w in body_words if w not in FOLLOW_UP_FILLER and w not in mention_words]
+        other = bool(set(body_words) & OTHER_WORDS)
+        extra = "" if other or (mention and not rest) else " ".join(body_words)
+        return Intent(
+            "buscar",
+            text,
+            mention or previous.get("vertical"),
+            previous_concepts,
+            price_max=price_max,
+            confidence=0.8,
+            explicit_vertical=bool(mention),
+            explicit_concepts=True,
+            query=" ".join(p for p in (previous.get("query") or "", extra) if p),
+            cheapest=bool(set(said.split()) & CHEAP_WORDS),
+            follow_up=True,
+            exclude_previous=other,
+        )
 
     def _home(self, concept_id: str) -> str | None:
         concept = self.taxonomy.concepts.get(concept_id)

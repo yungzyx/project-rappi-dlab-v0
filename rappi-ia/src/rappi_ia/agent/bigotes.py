@@ -48,6 +48,7 @@ class Context:
     profile: dict[str, float] = field(default_factory=dict)  # interés por concepto
     shown_topics: list[str] = field(default_factory=list)  # conceptos ya sugeridos en la sesión
     mode: str = "propuesta"  # propuesta | actual ("Rappi hoy")
+    previous: dict | None = None  # pedido anterior de la conversación: {query, concepts, vertical, product_ids}
 
 
 CHEAP_POOL = 24  # «barato»: reordenar solo los 6 más relevantes no daba lo más barato
@@ -63,7 +64,7 @@ class Bigotes:
 
     def reply(self, conn: Connection, message: str, ctx: Context | None = None) -> dict:
         ctx = ctx or Context()
-        intent = self.understander.understand(conn, message, ctx.vertical)
+        intent = self.understander.understand(conn, message, ctx.vertical, previous=ctx.previous)
         if intent.kind == "recomendar":  # «qué me recomiendas»: lo que le gusta; sin perfil, ejemplos
             interest = self._top_interest(ctx.profile) if ctx.mode == "propuesta" else None
             if interest is None:
@@ -101,10 +102,24 @@ class Bigotes:
                 intent.concepts,
                 self.embedder,
                 intent.price_max,
-                k=CHEAP_POOL if intent.cheapest else 6,
+                k=CHEAP_POOL if intent.cheapest or intent.exclude_previous else 6,
                 symptom=intent.symptom,
             )
         products = outcome.products
+        # «algo más sano» se entiende como ensaladas, pero esas palabras no están en los productos: si nada de lo
+        # encontrado es del concepto nombrado, se busca por el nombre del concepto.
+        if intent.explicit_concepts and not intent.symptom and not any(p.concept in intent.concepts for p in products):
+            concept = self.taxonomy.concepts.get(intent.concepts[0])
+            retry = (
+                search_products(conn, vertical, concept.name, intent.concepts, self.embedder, intent.price_max, k=6)
+                if concept
+                else None
+            )
+            if retry and any(p.concept in intent.concepts for p in retry.products):
+                outcome, products = retry, retry.products
+        if intent.exclude_previous and ctx.previous:  # «de otra marca»: sin lo que ya se mostró
+            seen = set(ctx.previous.get("product_ids") or [])
+            products = [p for p in products if p.entity_id not in seen][:6]
         if intent.cheapest:  # «barato»: lo más barato de un grupo más amplio (sin precio, al final)
             products = sorted(products, key=lambda p: (p.price_value is None, p.price_value or 0))[:6]
 
@@ -347,6 +362,8 @@ def _base(intent: Intent, text: str) -> dict:
             "occasion": intent.occasion,
             "price_max": intent.price_max,
             "confidence": intent.confidence,
+            "query": intent.query,
+            "follow_up": intent.follow_up,
         },
         "unmet": False,
         "age_notice": False,
