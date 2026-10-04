@@ -112,6 +112,42 @@ def test_purged_searches_without_concept_do_not_become_a_null_opportunity(db):
     assert queries.opportunities(db, "prototype") == []
 
 
+def test_where_it_exists_follows_the_rule_bigotes_uses(db):
+    """El panel no pide que Bigotes ofrezca algo donde Bigotes no lo haría: 3 «comidas peruanas» en farmacia (un
+    laxante mal etiquetado) no son oferta, y la cerveza no se busca en restaurantes porque no se pide hecha."""
+    seed_taxonomy(db, load_taxonomy())
+    db.execute("DROP MATERIALIZED VIEW concept_assortment")
+    db.execute("CREATE TABLE concept_assortment (concept_id text, vertical text, items integer)")
+    with db.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO concept_assortment VALUES (%s, %s, %s)",
+            [
+                ("peruana", "restaurantes", 1727),
+                ("peruana", "farmacia", 3),
+                ("peruana", "supermercado", 3),
+                ("cerveza", "restaurantes", 931),
+                ("cerveza", "supermercado", 262),
+                ("cerveza", "farmacia", 1),
+            ],
+        )
+    events.record(
+        db,
+        [
+            events.Event(f"u{i}", f"s{i}", "search", ts=T0, vertical=vertical, concept_id=concept, unmet=True)
+            for i in range(5)
+            for vertical, concept in [("restaurantes", "peruana"), ("licores", "cerveza")]
+        ],
+    )
+    db.commit()
+
+    rows = {r["concept_id"]: r for r in queries.opportunities(db, "prototype")}
+
+    assert rows["peruana"]["existe_en"] is None
+    assert rows["peruana"]["accion"] == "Oportunidad: sumar comercios o categoría"
+    assert rows["cerveza"]["existe_en"] == "supermercado"
+    assert rows["cerveza"]["accion"] == "Existe en otro vertical: que Bigotes lo ofrezca ahí"
+
+
 def test_cart_abandonment_follows_the_definition(db):
     """§5: carros con productos; abandonado si su último evento de carro (agregar, quitar, pagar) fue hace > 24 h
     y no tiene pedido; una vez por carro, en la semana de su último evento."""

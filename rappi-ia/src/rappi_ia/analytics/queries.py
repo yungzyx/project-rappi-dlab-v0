@@ -7,6 +7,8 @@
 from psycopg import Connection
 from psycopg.rows import dict_row
 
+from ..agent.verticals import _SHARES, MIN_ITEMS_ELSEWHERE
+
 SOURCES = ("synthetic", "prototype")
 ACTIVE_DAYS = 30
 MULTI_VERTICAL_DAYS = 60
@@ -187,24 +189,27 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
                        count(*) FILTER (WHERE ts <= {_AS_OF} - make_interval(weeks => %(weeks)s)
                                           AND ts > {_AS_OF} - make_interval(weeks => 2 * %(weeks)s)) AS anteriores
                 FROM unmet GROUP BY 1, 2, 3
+            ),
+            elsewhere AS (  -- donde Bigotes lo ofrecería: la regla de agent.verticals.available_elsewhere
+                SELECT concept_id, vertical, items FROM ({_SHARES}) s WHERE items >= %(min_items)s
             )
             SELECT a.vertical, a.concept_id, coalesce(c.emoji || ' ' || c.name, a.query) AS que,
                    a.busquedas, a.usuarios, a.ciudades, a.recientes, a.anteriores,
                    CASE WHEN a.anteriores = 0 THEN NULL
                         ELSE round(100.0 * (a.recientes - a.anteriores) / a.anteriores, 0) END AS crecimiento_pct,
-                   (SELECT string_agg(ca.vertical, ', ' ORDER BY ca.items DESC) FROM concept_assortment ca
-                    WHERE ca.concept_id = a.concept_id AND ca.vertical <> a.vertical AND ca.items >= 3)
+                   (SELECT string_agg(e.vertical, ', ' ORDER BY e.items DESC) FROM elsewhere e
+                    WHERE e.concept_id = a.concept_id AND e.vertical <> a.vertical)
                        AS existe_en,
                    CASE WHEN a.concept_id IS NULL THEN 'Revisar la consulta: sumar sinónimo o concepto nuevo'
-                        WHEN EXISTS (SELECT 1 FROM concept_assortment ca WHERE ca.concept_id = a.concept_id
-                                     AND ca.vertical <> a.vertical AND ca.items >= 3)
+                        WHEN EXISTS (SELECT 1 FROM elsewhere e
+                                     WHERE e.concept_id = a.concept_id AND e.vertical <> a.vertical)
                              THEN 'Existe en otro vertical: que Bigotes lo ofrezca ahí'
                         ELSE 'Oportunidad: sumar comercios o categoría' END AS accion
             FROM agg a LEFT JOIN concepts c ON c.concept_id = a.concept_id
             WHERE a.usuarios >= %(min_users)s
               AND c.sensitive IS NOT TRUE  -- ninguna palanca usa conceptos sensibles (regla 6)
             ORDER BY a.usuarios DESC""",
-        {"source": source, "weeks": weeks, "min_users": 5},
+        {"source": source, "weeks": weeks, "min_users": 5, "min_items": MIN_ITEMS_ELSEWHERE},
     )
 
 

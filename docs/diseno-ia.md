@@ -204,7 +204,7 @@ Decisiones:
 **Vistas** (además de una pestaña Resumen con los indicadores y las palancas):
 
 1. **Oportunidades.**
-   - Demanda no satisfecha, agrupada por concepto, vertical y ciudad: cuántos usuarios la piden, su tendencia y una acción sugerida (sumar comercios o categoría, sinónimo de búsqueda, o avisar cuando llegue).
+   - Demanda no satisfecha, agrupada por concepto, vertical y ciudad: cuántos usuarios la piden, su tendencia y una acción sugerida (sumar comercios o categoría, sinónimo de búsqueda, o avisar cuando llegue). «Que Bigotes lo ofrezca en otra vertical» solo se sugiere donde el agente lo haría: la misma regla de `available_elsewhere`.
    - Conceptos que suben: últimas 4 semanas contra las 4 anteriores.
 2. **Frecuencia y abandono.** Embudo por vertical, retención por cohorte semanal, distribución de días entre pedidos y lista de usuarios en riesgo (id seudónimo) con la acción sugerida.
 3. **Entre verticales.** Afinidad concepto → concepto y rendimiento de las sugerencias de Bigotes (mostradas, aceptadas, convertidas, ignoradas).
