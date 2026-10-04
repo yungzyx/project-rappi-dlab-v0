@@ -49,12 +49,15 @@ def test_collect_counts_products_shared_between_verticals(db):
 
 
 def test_a_store_listed_in_two_verticals_does_not_make_its_products_shared(db, monkeypatch):
-    """Como el panel (v_cross_vertical_items_real): la doble etiqueta de Lider o Unimarc no cruza verticales."""
+    """Como el panel (v_cross_vertical_items_real): la doble etiqueta de Lider o Unimarc no cruza verticales,
+    pero sus productos y sucursales sí cuentan (como en «Calidad del catálogo»)."""
     _catalog(db)
     add_store(db, 8, "supermercado", "Lider")
     db.execute("INSERT INTO store_verticals (store_id, vertical) VALUES (8, 'conveniencia')")
     add_product(db, 104, "Arroz grado 1 Tucapel 1 kg", 8, "Arroz")  # solo en la tienda con doble etiqueta
-    db.execute("INSERT INTO store_products (store_id, sku, master_product_id) VALUES (8, 'b8', 100)")
+    add_product(db, 105, "Hielo en bolsa 2 kg", 2, "Hielo")  # en Licores y en el Lider
+    for sku, product in (("b8", 100), ("h8", 105)):
+        db.execute("INSERT INTO store_products (store_id, sku, master_product_id) VALUES (8, %s, %s)", (sku, product))
     db.commit()
     monkeypatch.setattr(multivertical, "BRIDGE_MIN_VERTICALS", 3)
     data = multivertical.collect(db)
@@ -64,9 +67,11 @@ def test_a_store_listed_in_two_verticals_does_not_make_its_products_shared(db, m
         ("conveniencia", "supermercado"): 1,
         ("licores", "supermercado"): 1,
     }
-    assert dict(data["spread"]) == {1: 3, 3: 1}  # el arroz no cuenta como «en 2 verticales»
-    assert data["products"]["supermercado"] == 2  # cerveza y papas, de la tienda 1
-    assert data["bridges"] == [["Cerveza Escudo Lata 470 cc", ["supermercado", "conveniencia", "licores"], 3]]
+    assert dict(data["spread"]) == {1: 4, 3: 1}  # el arroz no cuenta como «en 2 verticales»; el hielo, solo en Licores
+    assert data["products"]["supermercado"] == 4  # cerveza y papas de la tienda 1, arroz y hielo del Lider
+    assert data["products"]["conveniencia"] == 4  # cerveza y agua de la tienda 3, arroz y hielo del Lider
+    # La cerveza está en 4 sucursales (también el Lider); el hielo llega a 3 verticales solo por la doble etiqueta.
+    assert data["bridges"] == [["Cerveza Escudo Lata 470 cc", ["supermercado", "conveniencia", "licores"], 4]]
 
 
 def test_a_chain_is_one_row_whatever_its_case_and_counts_each_branch_once(db):

@@ -30,8 +30,9 @@ MIN_ITEMS = 20  # una línea concepto → vertical necesita al menos estos produ
 BRIDGE_MIN_VERTICALS = 5
 TOP = 12
 
-# Solo las tiendas de una vertical, como el panel (v_cross_vertical_items_real): con la doble etiqueta de Lider,
-# Express Lider y Unimarc, cada producto suyo contaría como vendido en Súper y en Express.
+# Qué verticales comparte un producto se decide solo con las tiendas de una vertical, como el panel
+# (v_cross_vertical_items_real): con la doble etiqueta de Lider, Express Lider y Unimarc, cada producto suyo contaría
+# como vendido en Súper y en Express. Los totales (productos de cada vertical, tiendas de un producto) cuentan todas.
 _SINGLE_VERTICAL_STORES = """SELECT store_id, min(vertical) AS vertical FROM v_store_verticals
                              GROUP BY store_id HAVING count(*) = 1"""
 _PRODUCT_VERTICALS = f"""SELECT DISTINCT sp.master_product_id, sv.vertical FROM store_products sp
@@ -40,7 +41,8 @@ _PRODUCT_VERTICALS = f"""SELECT DISTINCT sp.master_product_id, sv.vertical FROM 
 
 
 def collect(conn: Connection) -> dict:
-    products = dict(conn.execute(f"SELECT vertical, count(*) FROM ({_PRODUCT_VERTICALS}) pv GROUP BY 1").fetchall())
+    # Con todas las tiendas, como «Calidad del catálogo» en el panel.
+    products = dict(conn.execute("SELECT vertical, count(*) FROM v_item_verticals GROUP BY 1").fetchall())
     products["restaurantes"] = conn.execute("SELECT count(*) FROM menu_items").fetchone()[0]
     shared = conn.execute(
         f"""WITH pv AS ({_PRODUCT_VERTICALS})
@@ -85,10 +87,11 @@ def collect(conn: Connection) -> dict:
         "SELECT from_concept, to_concept, weight FROM concept_edges WHERE method = 'curado' ORDER BY 1, 2"
     ).fetchall()
     bridges = conn.execute(
-        f"""SELECT ci.name, array_agg(DISTINCT sv.vertical), count(DISTINCT sp.store_id)
+        f"""SELECT ci.name, array_agg(DISTINCT sv.vertical) FILTER (WHERE sv.vertical IS NOT NULL),
+                   count(DISTINCT sp.store_id)
             FROM catalog_items ci
             JOIN store_products sp USING (master_product_id)
-            JOIN ({_SINGLE_VERTICAL_STORES}) sv USING (store_id)
+            LEFT JOIN ({_SINGLE_VERTICAL_STORES}) sv USING (store_id)
             GROUP BY ci.master_product_id, ci.name HAVING count(DISTINCT sv.vertical) >= %s
             ORDER BY count(DISTINCT sv.vertical) DESC, count(DISTINCT sp.store_id) DESC, ci.name LIMIT %s""",
         (BRIDGE_MIN_VERTICALS, TOP),
