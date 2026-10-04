@@ -2,22 +2,16 @@
   "source": "synthetic",
   "data": [
     {
-      "estrato": "1–2 compras",
-      "grupo": "un vertical",
-      "usuarios": 20,
-      "retencion_pct": 35
-    },
-    {
       "estrato": "3–5 compras",
       "grupo": "multi-vertical",
-      "usuarios": 34,
-      "retencion_pct": 70.6
+      "usuarios": 45,
+      "retencion_pct": 77.8
     },
     {
       "estrato": "6+ compras",
       "grupo": "multi-vertical",
-      "usuarios": 88,
-      "retencion_pct": 88.6
+      "usuarios": 53,
+      "retencion_pct": 79.2
     }
   ]
 }

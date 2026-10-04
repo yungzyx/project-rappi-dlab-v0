@@ -14,7 +14,7 @@ cd dashboard-empresa && npm run dev  # http://localhost:5175
 
 1. Abre el prototipo y deja el modo **Propuesta** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy»).
 2. Abre el panel en otra pestaña y elige la fuente **Prototipo**: ahí aparece lo que se haga en la demo.
-3. Para empezar sin rastros de pruebas anteriores, en el chat toca **Olvidar**: borra los eventos y pedidos del usuario de este navegador. Lo que se probó desde otros navegadores sigue en la fuente Prototipo.
+3. Para empezar sin rastros de pruebas anteriores, en el chat toca **Olvidar**: borra los eventos y pedidos del usuario de este navegador, y el chat lo confirma. Lo que se probó desde otros navegadores sigue en la fuente Prototipo.
 
 ## Recorrido
 

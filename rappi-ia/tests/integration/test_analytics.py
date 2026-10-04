@@ -402,6 +402,18 @@ def test_funnel_is_monotonic_and_cohorts_are_percentages(simulated, monkeypatch)
     assert first == list(range(len(first)))  # semanas consecutivas: las de 0% también vienen
 
 
+def test_some_synthetic_sessions_find_products_and_leave_without_adding(simulated):
+    """Solo se iban sin agregar las búsquedas sin resultado: en las verticales sin demanda no satisfecha el embudo
+    marcaba exactamente 100 % de «buscan» a «agregan»."""
+    db, _ = simulated
+    found, left = db.execute(
+        """SELECT count(*), count(*) FILTER (WHERE NOT EXISTS (
+                      SELECT 1 FROM app_events a WHERE a.session_id = e.session_id AND a.type = 'cart_add'))
+           FROM app_events e WHERE e.type IN ('search', 'chat') AND e.results > 0"""
+    ).fetchone()
+    assert 0 < left < found * 0.3
+
+
 def test_synthetic_carts_are_also_abandoned_after_starting_payment(simulated):
     """El inicio de pago se emitía solo junto con el pedido, así que «pagan» era siempre igual a «piden». Ahora una
     parte de los carros abandonados alcanza a iniciar el pago, y el resto se va antes."""

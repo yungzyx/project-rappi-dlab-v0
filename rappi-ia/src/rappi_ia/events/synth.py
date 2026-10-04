@@ -7,6 +7,7 @@ supuestos explícitos. El panel muestra la mecánica, no evidencia: por construc
 SUPUESTOS (editables aquí):
 - Personas con verticales, conceptos y ritmo de compra propios (PERSONAS).
 - Quien no encuentra lo que busca (demanda no satisfecha) o abandona carros, se va antes (CHURN_*).
+- Parte de quienes encuentran productos se va sin agregar nada al carro (BROWSE_ONLY).
 - Parte de los carros abandonados alcanza a iniciar el pago (CHECKOUT_ABANDON_SHARE); el resto se va antes.
 - Quien compra en 2+ verticales se va menos (MULTI_VERTICAL_RETENTION): es la hipótesis del proyecto.
 - Aceptar una sugerencia cruzada acorta un poco el ritmo de compra (SUGGESTION_CADENCE_BOOST).
@@ -141,6 +142,7 @@ CHURN_UNMET = 0.35  # +35% de riesgo por cada búsqueda sin resultado en las úl
 CHURN_ABANDON = 0.2  # +20% por cada carro abandonado en las últimas 4 semanas
 CHECKOUT_ABANDON_SHARE = 0.4  # de los carros abandonados, la parte que alcanza a iniciar el pago
 MULTI_VERTICAL_RETENTION = 0.55  # riesgo × 0,55 si compró en 2+ verticales en 60 días
+BROWSE_ONLY = 0.12  # encuentra productos y se va sin agregar nada al carro
 SUGGESTION_ACCEPT = 0.22  # probabilidad base de aceptar una sugerencia cruzada (× peso de la arista)
 SUGGESTION_CADENCE_BOOST = 0.93  # aceptar una sugerencia acorta el ritmo 7%
 MODALITIES = (("texto", 0.8), ("voz", 0.12), ("foto", 0.08))
@@ -316,6 +318,8 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
     )
     if item is None:
         s.recent_unmet.append(ts)
+        return
+    if rng.random() < BROWSE_ONLY:
         return
     cart_id = uuid.UUID(int=rng.getrandbits(128)).hex[:12]
     lines = []

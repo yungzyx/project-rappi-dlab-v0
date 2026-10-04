@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "documentos": 240200,
+  "documentos": 252111,
   "capacidades": {
     "busqueda_semantica": "intfloat/multilingual-e5-base",
     "fotos": true,

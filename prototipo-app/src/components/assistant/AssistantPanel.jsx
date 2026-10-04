@@ -437,6 +437,8 @@ export default function AssistantPanel({ push, vertical }) {
     // Siempre se intenta en el servidor (aunque el último chequeo de salud haya fallado).
     try {
       await forget(userId())
+      // La conversación hablaba de lo aprendido («Vi que te gusta…»): se reemplaza para que se vea que ya no está.
+      setMessages([{ id: nextId++, from: 'bot', text: 'Listo, olvidé lo que aprendí de ti 🧹 ¿Qué se te antoja hoy?' }])
     } catch {
       if (await health({ force: true })) {
         botSays({ text: 'No pude borrar lo aprendido en el servidor 😿 Inténtalo de nuevo en un rato.' })

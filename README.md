@@ -80,13 +80,13 @@ Cifras al 30-09-2026, tras la primera descarga semanal automática, salvo donde 
 | Catálogo | Documentos con embedding | 100 % (`intfloat/multilingual-e5-base`, 768 dim, HNSW por vertical) | Real | Base `rappi`, 30-09-2026 |
 | Catálogo | Grupos de tiendas (uno por marca y formato) | 753 descargados · 26 fallidos · 49 omitidos (marca ya descargada) | Real | Corrida 5 (tiendas), 29-09 |
 | Catálogo | Restaurantes | 3.259 descargados · 301 fallidos · 1.295 omitidos | Real | Corrida 6 (restaurantes), 29 y 30-09 |
-| Capa 2 | Taxonomía | 132 conceptos · 101 complementos curados · 757 categorías con mapeo revisado (131 nuevas sin mapear, con sugerencia en `rappi-ia map-categories`) | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 30-09-2026 |
+| Capa 2 | Taxonomía | 133 conceptos · 103 complementos curados · 757 categorías con mapeo revisado (131 nuevas sin mapear, con sugerencia en `rappi-ia map-categories`) | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 30-09-2026 |
 | Capa 2 | Ítems con concepto | 97,1 % a 100 % según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 30-09-2026 |
 | Capa 2 | Precisión de la asignación | ≈88 % por categoría · ≈81 % platos · 55 % reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
 | Búsqueda | nDCG@10 | híbrido 0,910 · sin refuerzo por concepto 0,860 · vectorial 0,846 · léxico 0,778 | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests (pytest / Vitest) | scraper 104 · rappi-ia 189 · prototipo 117 · panel 80 | Verificación local, 30-09 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) y un job semanal que instala los modelos con las versiones fijadas |
-| Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); auditoría del 28-09 con 4 bloques de mejoras (29 y 30-09) | Proceso | — |
+| Calidad | Tests (pytest / Vitest) | scraper 138 · rappi-ia 356 · prototipo 157 · panel 90 | Verificación local, 04-10 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) y un job semanal que instala los modelos con las versiones fijadas |
+| Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); auditoría del 28-09 con 4 bloques de mejoras (29 y 30-09); revisión integral del 03 y 04-10 (47 hallazgos, segunda revisión y prueba en vivo de la demo sobre una copia de la base) | Proceso | — |
 | Panel | Usuarios, eventos y pedidos | 1.500 usuarios × 20 semanas (semilla 7) | **Simulado** | `rappi-ia/src/rappi_ia/events/synth.py` |
 
 ### Catálogo por vertical

@@ -3,6 +3,9 @@ import { afterEach, describe, expect, test } from 'vitest'
 import { renderWithData, resetApi, serveFixtures } from '../../test/fixtureApi.js'
 import { OpportunitiesView } from './OpportunitiesView.jsx'
 import { UnmetDemand } from './UnmetDemand.jsx'
+import opportunities from '../../fixtures/opportunities.synthetic.json'
+
+const rows = opportunities.data
 
 describe('OpportunitiesView', () => {
   afterEach(resetApi)
@@ -12,9 +15,10 @@ describe('OpportunitiesView', () => {
     await renderWithData(<OpportunitiesView source="synthetic" />)
 
     expect(await screen.findByText('«kombucha»')).toBeTruthy()
-    expect(screen.getAllByText('Oportunidad: sumar comercios o categoría')).toHaveLength(3)
-    expect(await screen.findByText('Suben · 5')).toBeTruthy()
-    expect(screen.getByText('Bajan · 7')).toBeTruthy()
+    const action = 'Oportunidad: sumar comercios o categoría'
+    expect(screen.getAllByText(action)).toHaveLength(rows.filter((row) => row.accion === action).length)
+    expect(await screen.findByText(/^Suben · [1-9]/)).toBeTruthy()
+    expect(screen.getByText(/^Bajan · [1-9]/)).toBeTruthy()
     // Peruana sube, pero no tiene oferta: se marca.
     expect(screen.getAllByText('sin oferta').length).toBeGreaterThan(0)
   })
@@ -23,9 +27,10 @@ describe('OpportunitiesView', () => {
     serveFixtures()
     await renderWithData(<OpportunitiesView source="synthetic" />)
 
-    expect(await screen.findByText('1.403')).toBeTruthy()
+    const total = (field) => rows.reduce((sum, row) => sum + row[field], 0).toLocaleString('es-CL')
+    expect(await screen.findByText(total('busquedas'))).toBeTruthy()
     expect(screen.getByText('búsquedas sin resultado')).toBeTruthy()
-    expect(screen.queryByText('1.204')).toBeNull()
+    expect(screen.queryByText(total('usuarios'))).toBeNull()
   })
 
   test('«nueva» solo si hubo búsquedas recientes; sin ellas, sin actividad', () => {

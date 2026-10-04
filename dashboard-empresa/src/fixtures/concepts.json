@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-27",
+  "version": "2026-10-03",
   "concepts": [
     {
       "id": "cerveza",
@@ -432,6 +432,13 @@
       "id": "latina",
       "name": "Comida latina",
       "emoji": "🫓",
+      "group": "comida",
+      "sensitive": false
+    },
+    {
+      "id": "pollo-preparado",
+      "name": "Pollo frito y asado",
+      "emoji": "🍗",
       "group": "comida",
       "sensitive": false
     },
