@@ -123,7 +123,13 @@ def collect(conn: Connection) -> dict:
         "chains": [[name, in_order(v), n] for name, v, n in chains],
         # Servicios sin catálogo (RappiTravel, RappiFavor): se enganchan a conceptos, no tienen productos.
         "services": [
-            {"id": s.id, "name": s.name, "emoji": s.emoji, "pitch": s.pitch, "hooks": [h.concept for h in s.hooks]}
+            {
+                "id": s.id,
+                "name": s.name,
+                "emoji": s.emoji,
+                "pitch": s.pitch,
+                "hooks": list(dict.fromkeys(h.concept for h in s.hooks)),
+            }
             for s in load_taxonomy().services.values()
         ],
     }

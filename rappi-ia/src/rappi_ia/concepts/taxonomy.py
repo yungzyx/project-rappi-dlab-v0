@@ -42,6 +42,7 @@ class Hook:
     concept: str
     query: str
     question: str
+    when: tuple[str, ...] = ()  # contextos de la consulta en que aplica («playa»); vacío = siempre
 
 
 @dataclass(frozen=True)
@@ -110,7 +111,7 @@ def load_taxonomy(path: Path = DATA_DIR / "taxonomy.toml") -> Taxonomy:
             s["pitch"],
             s["route"],
             tuple(s["keywords"]),
-            tuple(Hook(h["concept"], h["query"], h["question"]) for h in s.get("hooks", ())),
+            tuple(Hook(h["concept"], h["query"], h["question"], tuple(h.get("when", ()))) for h in s.get("hooks", ())),
             s.get("reason"),
         )
         for s in raw.get("service", ())

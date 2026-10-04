@@ -552,6 +552,36 @@ def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
     assert "suggestion" not in agent.reply(db, "me voy de vacaciones", Context(mode="actual"))
 
 
+def test_the_trip_hook_depends_on_where_you_go(bigotes):
+    """«playa» engancha protector solar; «nieve», una chaqueta; un viaje sin contexto, una mochila de viaje."""
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    add_store(db, 12, "mall", "Tienda")
+    for pid, name, store, category in [
+        (900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales"),
+        (901, "Chaqueta acolchada impermeable hombre", 12, "Abrigos, Chamarras, Chalecos"),
+        (902, "Mochila de viaje 40 litros", 12, "Maletas de viaje"),
+    ]:
+        add_product(db, pid, name, store, category)
+        add_price(db, store, pid, 19990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    hook = lambda text: [p["entity_id"] for p in agent.reply(db, text, Context())["suggestion"]["products"]]  # noqa: E731
+    assert hook("me voy de vacaciones a la playa") == ["900"]
+    assert hook("me voy de viaje a la nieve") == ["901"]
+    assert hook("busco un hotel en puerto varas") == ["902"]
+
+
+def test_a_gift_can_be_sent_with_rappifavor(bigotes):
+    agent, db = bigotes
+    r = agent.reply(db, "un regalo para mi mamá", Context())
+    assert {"label": "Mandarlo con RappiFavor", "route": ["favor"], "service": "rappifavor"} in r["actions"]
+    assert r["service"] == "rappifavor"
+    assert not agent.reply(db, "un regalo para mi mamá", Context(mode="actual"))["actions"]
+
+
 def test_an_errand_opens_rappifavor(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "se me quedaron las llaves en la oficina", Context())

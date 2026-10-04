@@ -16,6 +16,7 @@ from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
+from ..text import normalize
 from .compose import AGE_NOTICE, Draft, TemplateComposer, notices
 from .tools import (
     VERTICAL_LABELS,
@@ -120,6 +121,12 @@ class Bigotes:
         )
         if also_in:
             response["also_in"] = also_in
+        if intent.occasion == "regalo" and ctx.mode == "propuesta":  # un regalo también se puede mandar
+            favor = self.taxonomy.services["rappifavor"]
+            response["actions"].append(
+                {"label": f"Mandarlo con {favor.name}", "route": [favor.route], "service": favor.id}
+            )
+            response["service"] = favor.id
         if unmet and ctx.mode == "propuesta":  # lo que no está en el catálogo, un Rappitendero lo compra donde esté
             favor = self.taxonomy.services["rappifavor"]
             response["text"] += f" Si lo venden en otra tienda, {favor.label} te lo compra y te lo lleva."
@@ -138,7 +145,10 @@ class Bigotes:
         response.update(service=service.id, actions=[action])
         if ctx.mode != "propuesta":
             return response
-        for hook in service.hooks:
+        said = f" {normalize(intent.text)} "
+        # Primero los ganchos del contexto que se nombró («playa», «nieve»); los demás solo si no tienen contexto.
+        in_context = [h for h in service.hooks if any(f" {normalize(w)} " in said for w in h.when)]
+        for hook in in_context + [h for h in service.hooks if not h.when]:
             if hook.concept in ctx.shown_topics:
                 continue
             for vertical in ranked_verticals(conn, [hook.concept])[:2]:
