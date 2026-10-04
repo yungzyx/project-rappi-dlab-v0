@@ -124,7 +124,7 @@ _MATCHER = None
 def _matcher():
     global _MATCHER
     if _MATCHER is None:
-        _MATCHER = concept_matcher(load_taxonomy())
+        _MATCHER = concept_matcher(load_taxonomy(), for_queries=True)
     return _MATCHER
 
 

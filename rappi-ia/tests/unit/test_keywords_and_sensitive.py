@@ -5,9 +5,11 @@ from collections import defaultdict
 import numpy as np
 import pytest
 
+from rappi_ia.agent.understand import Understander
 from rappi_ia.concepts.assign import Assignment, MappedName, assign_catalog_item, concept_matcher
 from rappi_ia.concepts.knn import ItemText, _decide
 from rappi_ia.concepts.taxonomy import load_taxonomy, sensitive_concepts
+from rappi_ia.retrieval.hybrid import _query_concepts
 from rappi_ia.text import normalize
 
 
@@ -20,7 +22,7 @@ def test_no_keyword_belongs_to_two_concepts():
     """Con una keyword en dos conceptos, gana el que aparece primero en el archivo: una regla que nadie decidió."""
     owners = defaultdict(set)
     for concept in load_taxonomy().concepts.values():
-        for keyword in (concept.name, *concept.keywords):
+        for keyword in (concept.name, *concept.keywords, *concept.query_keywords):
             owners[normalize(keyword)].add(concept.id)
     assert {kw: sorted(ids) for kw, ids in owners.items() if len(ids) > 1} == {}
 
@@ -104,6 +106,23 @@ def test_ambiguous_words_do_not_make_anything_sensitive(matcher, text):
 )
 def test_sensitive_concepts_are_still_found_by_name(matcher, text, concept):
     assert matcher.best(text).target == concept
+
+
+@pytest.mark.parametrize(
+    ("text", "concept"),
+    [
+        ("necesito medicamentos", "medicamentos"),
+        ("un medicamento", "medicamentos"),
+        ("lubricante", "bienestar-sexual"),
+        ("lubricante ocular", "medicamentos"),
+    ],
+)
+def test_queries_ask_for_sensitive_concepts_with_words_that_do_not_assign_them(text, concept):
+    """«Medicamentos» y «lubricante» a secas no asignan productos (un dosificador o un lubricante para lentes no son
+    sensibles), pero en una consulta nombran el concepto: sin él, la búsqueda oculta los sensibles y
+    «necesito medicamentos» mostraba vaselina y agua bidestilada."""
+    assert Understander().understand(None, text, "farmacia").concepts[:1] == [concept]
+    assert _query_concepts(text)[:1] == [concept]
 
 
 def test_a_doubtful_sensitive_category_is_not_replaced_by_a_rule(matcher):

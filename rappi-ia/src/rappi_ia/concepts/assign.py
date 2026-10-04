@@ -41,14 +41,20 @@ class Assignment:
     source: str
 
 
-def concept_matcher(taxonomy: Taxonomy) -> KeywordMatcher:
-    return KeywordMatcher((c.id, kw) for c in taxonomy.concepts.values() for kw in (*_name_keyword(c), *c.keywords))
+def concept_matcher(taxonomy: Taxonomy, for_queries: bool = False) -> KeywordMatcher:
+    """`for_queries`: para entender consultas, no para asignar productos. Suma el nombre de los sensibles y sus
+    `query_keywords`: «necesito medicamentos» pide medicamentos aunque «Dosificador de medicamentos» no sea uno."""
+    return KeywordMatcher(
+        (c.id, kw)
+        for c in taxonomy.concepts.values()
+        for kw in (*_name_keyword(c, for_queries), *c.keywords, *(c.query_keywords if for_queries else ()))
+    )
 
 
-def _name_keyword(concept: Concept) -> tuple[str, ...]:
-    """El nombre del concepto también es keyword, salvo el de un sensible de una sola palabra: «Dosificador de
-    medicamentos» no es un medicamento. Lo que sirve para pedirlo va en sus keywords («vapeo»)."""
-    if concept.sensitive and len(tokens(concept.name)) == 1:
+def _name_keyword(concept: Concept, for_queries: bool) -> tuple[str, ...]:
+    """El nombre del concepto también es keyword, salvo al asignar el de un sensible de una sola palabra:
+    «Dosificador de medicamentos» no es un medicamento."""
+    if concept.sensitive and len(tokens(concept.name)) == 1 and not for_queries:
         return ()
     return (concept.name,)
 

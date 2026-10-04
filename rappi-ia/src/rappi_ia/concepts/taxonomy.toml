@@ -6,7 +6,9 @@
 #   (s/es); las frases calzan completas. Evitar palabras ambiguas (collar, arnés, papel, filtro, tenis).
 # - `sensitive = true`: Bigotes nunca lo sugiere por iniciativa propia (solo responde si se lo piden). Sus keywords no
 #   pueden ser palabras de uso común («puro», «pipa», «lubricante»): el plato o el utensilio quedaría oculto como sensible.
-#   Su nombre de una sola palabra («Medicamentos») tampoco cuenta como keyword (concepts/assign.py).
+#   Su nombre de una sola palabra («Medicamentos») tampoco asigna productos (concepts/assign.py).
+# - `query_keywords`: palabras que sirven para pedir el concepto en una consulta, pero que no asignan productos
+#   («lubricante» pide bienestar sexual; «Lubricante para lentes» no lo es). En las consultas también cuenta el nombre.
 # - `age_restricted = true`: +18; la respuesta lleva el recordatorio.
 # - `prepared = true` (en el grupo o en el concepto): se pide hecho, así que también se busca en restaurantes.
 #   El resto nunca compite en restaurantes aunque sus locales lo tengan (gaseosas, papas fritas en combos).
@@ -612,6 +614,7 @@ sensitive = true
 # Solo nombres de medicamentos o tipos de producto: los síntomas NO llevan aquí (regla 6d: no se sugieren
 # medicamentos a partir de síntomas; los síntomas activan el aviso de farmacia en agent/understand.py).
 keywords = ["paracetamol", "ibuprofeno", "aspirina", "antigripal", "jarabe para la tos", "analgésico", "antiácido", "antiacido", "descongestionante", "suero oral", "antialérgico", "tapsin", "zolben", "kitadol"]
+query_keywords = ["medicamento", "lubricante ocular", "lubricantes oculares"]
 
 [[concept]]
 id = "vitaminas"
@@ -822,6 +825,7 @@ emoji = "🔞"
 sensitive = true
 age_restricted = true
 keywords = ["vibrador", "dildo", "succionador", "masajeador íntimo", "juguete sexual", "juguetes sexuales", "lencería erótica", "bondage", "kit erótico", "feromonas", "estimulante sexual", "anillo vibrador", "plug anal", "lubricante íntimo", "lubricante personal", "kama sutra", "shunga"]
+query_keywords = ["lubricante"]  # casi todos los productos que lo nombran son de la categoría Lubricantes
 
 # Moda
 [[concept]]

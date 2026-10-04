@@ -259,7 +259,7 @@ def forget(conn: Connection, user_id: str, concept_id: str | None = None) -> int
     ).rowcount
     concept = load_taxonomy().concepts.get(concept_id)
     if concept is not None:
-        matcher = KeywordMatcher((concept.id, kw) for kw in (concept.name, *concept.keywords))
+        matcher = KeywordMatcher((concept.id, kw) for kw in (concept.name, *concept.keywords, *concept.query_keywords))
         rows = conn.execute(
             "SELECT event_id, query FROM app_events WHERE user_id = %s AND query IS NOT NULL", (user_id,)
         ).fetchall()

@@ -142,6 +142,43 @@ def test_occasion_picks_its_vertical_without_asking_about_its_first_concept(bigo
     assert party["intent"]["kind"] == "ocasion" and party["vertical"] == "supermercado"
 
 
+@pytest.fixture
+def pharmacy_bigotes(bigotes):
+    """Farmacia con las categorías que esos productos tienen en la base (category_map.csv): «Antiácidos» y
+    «Gotas, lubricantes y lágrimas» son medicamentos, «Lubricantes» es bienestar sexual."""
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    products = [
+        (700, "Sal de Fruta Eno Limón 5 g", "Antiácidos"),
+        (701, "Bentley Gel Lubricante Íntimo Ice 60 ml", "Lubricantes"),
+        (702, "Systane Lubricante Ocular Ultra 10 ml", "Gotas, lubricantes y lágrimas"),
+    ]
+    for pid, name, category in products:
+        add_product(db, pid, name, 11, category)
+        add_price(db, 11, pid, 4990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    return agent, db
+
+
+def test_sensitive_concepts_are_found_when_asked_by_their_plain_name(pharmacy_bigotes):
+    """«medicamentos» y «lubricante» no asignan productos, pero en la consulta nombran el concepto: sin él, los
+    sensibles quedaban ocultos («necesito medicamentos» iba al súper y «lubricante» no encontraba nada)."""
+    agent, db = pharmacy_bigotes
+    medicines = agent.reply(db, "necesito medicamentos", Context())
+    assert medicines["vertical"] == "farmacia"
+    assert "700" in [p["entity_id"] for p in medicines["products"]]
+    assert {p["concept"] for p in medicines["products"]} == {"medicamentos"}
+
+    lube = agent.reply(db, "lubricante", Context(vertical="farmacia"))
+    assert [p["entity_id"] for p in lube["products"]] == ["701"] and lube["age_notice"]
+    eyes = agent.reply(db, "lubricante ocular", Context(vertical="farmacia"))
+    assert eyes["products"][0]["entity_id"] == "702"
+    assert "701" not in [p["entity_id"] for p in eyes["products"]]
+
+
 def test_concept_without_assortment_goes_to_its_group_vertical(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "quiero sushi", Context())  # no hay sushi en ningún vertical

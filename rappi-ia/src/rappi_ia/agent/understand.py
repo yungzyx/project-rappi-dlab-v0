@@ -117,7 +117,7 @@ class Understander:
     def __init__(self):
         taxonomy = load_taxonomy()
         self.taxonomy = taxonomy
-        self.concepts = concept_matcher(taxonomy)
+        self.concepts = concept_matcher(taxonomy, for_queries=True)
         self.occasions = KeywordMatcher((o.id, kw) for o in taxonomy.occasions.values() for kw in o.keywords)
         self.verticals = KeywordMatcher((v, kw) for v, kws in VERTICAL_MENTIONS.items() for kw in kws)
         self.symptoms = KeywordMatcher(("sintoma", kw) for kw in SYMPTOMS)

@@ -47,6 +47,14 @@ def test_forget_one_concept_removes_it_everywhere_but_keeps_the_rest(db):
     assert list(events.profile(db, "u1", now=NOW)) == ["vino"]
 
 
+def test_forget_a_concept_erases_queries_that_name_it_with_query_only_words(db):
+    """«lubricante» no asigna productos, pero en una consulta pide bienestar sexual: olvidarlo borra la consulta."""
+    seed_taxonomy(db, load_taxonomy())
+    events.record(db, [events.Event("u4", "s1", "search", ts=NOW, query="lubricante")])
+    events.forget(db, "u4", "bienestar-sexual")
+    assert db.execute("SELECT count(*) FROM app_events WHERE query IS NOT NULL").fetchone()[0] == 0
+
+
 def test_profile_learns_only_from_positive_signals(db):
     seed_taxonomy(db, load_taxonomy())
     events.record(
