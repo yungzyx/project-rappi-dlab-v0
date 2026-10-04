@@ -10,6 +10,7 @@ import re
 import time
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
@@ -146,6 +147,15 @@ class Clean(BaseModel):
 
 
 # ── Modelos ──────────────────────────────────────────────────────────────────
+class PreviousTurnIn(Clean):
+    """El pedido anterior de la conversación: un seguimiento («talla g», «más barata») se lee sobre él."""
+
+    query: str = Field(default="", max_length=200)
+    concepts: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=10)
+    vertical: str | None = Field(default=None, max_length=64)
+    product_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=24)
+
+
 class ChatIn(Clean):
     message: str = Field(min_length=1, max_length=500)
     vertical: str | None = None
@@ -154,6 +164,7 @@ class ChatIn(Clean):
     profile: dict[str, float] | None = Field(default=None, max_length=200)
     shown_topics: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=50)
     mode: Literal["propuesta", "actual"] = "propuesta"
+    previous: PreviousTurnIn | None = None
 
 
 MAX_PAYLOAD_KEYS = 10
@@ -224,6 +235,10 @@ def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_ser
 @app.post("/chat")
 def chat(body: ChatIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
     ctx = _context(conn, body.vertical, body.user_id, body.profile, body.shown_topics, body.mode)
+    if body.previous and body.previous.concepts:
+        previous = body.previous.model_dump()
+        previous["vertical"] = backend_vertical(previous["vertical"])
+        ctx = replace(ctx, previous=previous)
     try:
         response = svc.bigotes.reply(conn, body.message, ctx)
     except ValueError as exc:

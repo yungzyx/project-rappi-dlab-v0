@@ -68,6 +68,7 @@ export default function AssistantPanel({ push, vertical }) {
   const voiceRequest = useRef(null) // audio ya subido: "Olvidar" espera a que el servidor termine
   // Preguntas en fila: la siguiente sale cuando la respuesta anterior ya está en pantalla.
   const chatQueue = useRef(Promise.resolve())
+  const lastTurn = useRef(null) // pedido anterior de la conversación (para los seguimientos)
   const profileGeneration = useRef(0) // sube al "Olvidar": un perfil remoto pedido antes ya no vale
   const [learnedRemote, setLearnedRemote] = useState(null)
   const [forgetting, setForgetting] = useState(false)
@@ -163,7 +164,17 @@ export default function AssistantPanel({ push, vertical }) {
         const response = await chat({
           message: text,
           ...apiContext({ vertical: askVertical ?? vertical }),
+          ...(lastTurn.current ? { previous: lastTurn.current } : {}),
         })
+        // El pedido que queda para el próximo mensaje: «talla g» o «más barata» se leen sobre él.
+        if (response.intent?.concepts?.length) {
+          lastTurn.current = {
+            query: response.intent.query ?? text,
+            concepts: response.intent.concepts,
+            vertical: response.vertical ?? null,
+            product_ids: (response.products ?? []).map((p) => p.entity_id).filter(Boolean),
+          }
+        }
         return noteSuggestion(toMessage(response))
       } catch {
         // cae al cerebro local
@@ -427,6 +438,7 @@ export default function AssistantPanel({ push, vertical }) {
   const forgetAll = async () => {
     setForgetting(true) // mientras tanto no se envía nada: una pregunta nueva recrearía lo borrado
     profileGeneration.current++
+    lastTurn.current = null
     profile.reset()
     setLearnedRemote(null)
     // Voz: si está grabando se descarta sin subirla; si ya se subió, se espera al servidor y su respuesta se ignora.

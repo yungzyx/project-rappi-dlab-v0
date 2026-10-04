@@ -550,6 +550,7 @@ parent = "comida"
 name = "Ensaladas y bowls"
 emoji = "🥗"
 keywords = ["ensalada", "bowl", "poke", "poké", "ensaladas", "saludable", "buddha bowl", "acai", "açaí"]
+query_keywords = ["sano", "algo sano", "mas sano", "más sano", "liviano", "algo liviano"]
 
 [[concept]]
 id = "desayuno"
