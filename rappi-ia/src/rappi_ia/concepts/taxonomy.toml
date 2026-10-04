@@ -238,6 +238,7 @@ parent = "bebidas"
 name = "Energéticas e isotónicas"
 emoji = "⚡"
 keywords = ["energizante", "energética", "red bull", "monster", "isotónica", "gatorade", "powerade", "burn"]
+query_keywords = ["bebida isotonica", "bebidas isotonicas", "isotonica"]
 
 [[concept]]
 id = "cafe"
@@ -952,6 +953,7 @@ parent = "libreria"
 name = "Útiles y oficina"
 emoji = "✏️"
 keywords = ["cuaderno", "lápiz", "lapiz", "bolígrafo", "destacador", "plumones", "plumón permanente", "plumón de pizarra", "cartulina", "tijeras", "corrector líquido", "cinta correctora", "agenda", "carpeta", "archivador", "resma", "block de dibujo", "estuche escolar", "témpera", "acuarela"]
+query_keywords = ["utiles escolares", "utiles de colegio", "utiles"]
 
 [[concept]]
 id = "libros"
@@ -1079,7 +1081,7 @@ id = "regalo-nino"
 name = "Regalo para un niño"
 emoji = "🧸"
 # Antes caía en una búsqueda literal: «mi nieto viene… comprarle algo» traía pezoneras y pisco.
-keywords = ["mi nieto", "mi nieta", "mi sobrino", "mi sobrina", "regalo para un niño", "regalo para una niña", "regalo para niño", "regalo para niña", "para un niño", "para una niña"]
+keywords = ["mi nieto", "mi nieta", "mi sobrino", "mi sobrina", "regalo para un niño", "regalo para una niña", "regalo para niño", "regalo para niña", "para un niño", "para una niña", "cabros chicos", "chiquillos"]
 concepts = ["juguetes-infantiles", "juegos-mesa", "golosinas", "chocolates"]
 vertical = "mall"
 

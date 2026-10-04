@@ -1069,6 +1069,8 @@ def test_questions_about_the_app_get_an_answer_not_products(bigotes):
     off_topic = agent.reply(db, "cuéntame un chiste", Context(mode="propuesta"))
     assert not off_topic["products"] and not off_topic.get("unmet") and not off_topic["actions"]
     assert "pedir" in off_topic["text"]
+    memory = agent.reply(db, "olvida lo que te dije", Context(mode="propuesta"))
+    assert not memory["products"] and "Olvidar" in memory["text"]
     order = agent.reply(db, "mi pedido no llega", Context(mode="propuesta"))
     assert not order["products"] and not order.get("unmet") and "Mis pedidos" in order["text"]
 
@@ -1146,6 +1148,7 @@ def ice_creams(bigotes):
         (300, "Helado de chocolate 1 L", 1),
         (301, "Helado de frutilla 1 L", 1),
         (302, "Helado Lúcuma Manjar 1 L", 4),
+        (305, "Helado lúcuma nuez 1 L", 4),
     ]:
         add_product(db, pid, name, store, "Helados")
         add_price(db, store, pid, 3990)
@@ -1160,19 +1163,57 @@ def test_a_flavor_missing_here_is_shown_where_it_is(ice_creams):
     """«helado de lúcuma» en el súper mostraba helados de chocolate: en Turbo sí hay de lúcuma."""
     agent, db = ice_creams
     r = agent.reply(db, "helado de lúcuma", Context(vertical="supermercado"))
-    assert r["vertical"] == "turbo" and [p["name"] for p in r["products"]] == ["Helado Lúcuma Manjar 1 L"]
+    assert r["vertical"] == "turbo"
+    assert sorted(p["name"] for p in r["products"]) == ["Helado Lúcuma Manjar 1 L", "Helado lúcuma nuez 1 L"]
     assert "Turbo" in r["text"] and "lúcuma" in r["text"]
 
 
 def test_a_missing_without_x_is_said_as_such(ice_creams):
     agent, db = ice_creams
-    add_product(db, 303, "Helado sin azúcar vainilla", 4, "Helados")
-    add_price(db, 4, 303, 4990)
+    for pid in (303, 306):
+        add_product(db, pid, f"Helado sin azúcar vainilla {pid}", 4, "Helados")
+        add_price(db, 4, pid, 4990)
     db.commit()
     build_search_documents(db)
     build_concepts(db)
     embed_search_documents(db, agent.embedder)
     assert "no hay «sin azúcar»" in agent.reply(db, "helado sin azúcar", Context(vertical="supermercado"))["text"]
+
+
+def test_one_product_elsewhere_is_not_enough_to_leave(ice_creams):
+    """«protector solar factor 50» se iba al súper por un solo producto que decía «factor»."""
+    agent, db = ice_creams
+    add_product(db, 307, "Helado lavanda 1 L", 4, "Helados")
+    add_price(db, 4, 307, 3990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    assert agent.reply(db, "helado de lavanda", Context(vertical="supermercado"))["vertical"] == "supermercado"
+
+
+def test_few_results_are_completed_with_the_concept(bigotes, monkeypatch):
+    """«unos puchos» mostraba un solo producto: se completa con la búsqueda por el nombre del concepto."""
+    agent, db = bigotes
+    for pid in range(203, 207):
+        add_product(db, pid, f"Cigarrillos Lucky {pid} 20 u", 2, "Cigarrillos")
+        add_price(db, 2, pid, 5000)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    from rappi_ia.agent import bigotes as module
+
+    real = module.search_products
+
+    def like_the_real_catalog(conn, vertical, query, *args, **kwargs):  # con «puchos» salía un solo producto
+        outcome = real(conn, vertical, query, *args, **kwargs)
+        return outcome if query == "Cigarrillos" else replace(outcome, products=outcome.products[:1])
+
+    monkeypatch.setattr(module, "search_products", like_the_real_catalog)
+    assert len(agent.reply(db, "unos puchos", Context(vertical="licores"))["products"]) >= 3
+    # «puchos en la botillería»: se nombró dónde, y lo demás no es lo pedido
+    assert len(agent.reply(db, "unos puchos en la botillería", Context(vertical="licores"))["products"]) == 1
 
 
 def test_a_pill_form_is_not_a_detail(ice_creams):
@@ -1189,7 +1230,7 @@ def test_a_pill_form_is_not_a_detail(ice_creams):
 
 def test_a_flavor_missing_everywhere_keeps_the_vertical(ice_creams):
     agent, db = ice_creams
-    r = agent.reply(db, "helado de pistacho", Context(vertical="supermercado"))
+    r = agent.reply(db, "helado de lavanda", Context(vertical="supermercado"))
     assert r["vertical"] == "supermercado" and r["products"]
 
 

@@ -56,6 +56,19 @@ VERTICAL_MENTIONS = {
     "conveniencia": ["oxxo", "minimarket", "almacen de barrio"],
     "chocolateria": ["chocolateria"],
 }
+# Sobre lo que Bigotes recuerda: se contesta antes de buscar («olvida lo que te dije» traía un dije de joyería).
+MEMORY_QUESTIONS = [
+    "olvida",
+    "olvidate",
+    "que sabes de mi",
+    "que sabes sobre mi",
+    "que recuerdas",
+    "no guardes",
+    "borra lo que",
+    "borra mis datos",
+    "mis datos",
+    "privacidad",
+]
 # Muletillas al dictar por voz («eh quiero este una coca po»): solo se quitan en los bordes del mensaje.
 VOICE_FILLERS = {"eh", "em", "mm", "mmm", "este", "ya", "mira", "oye", "po", "pues"}
 # Preguntas sobre la app, no búsquedas (se buscaba la frase literal: «quien eres» traía ajos). Normalizadas.
@@ -161,7 +174,18 @@ REFINE_START = {
     "grande",
     "chico",
 }
-OTHER_WORDS = {"otra", "otro", "otras", "otros", "distinta", "distinto", "diferente", "diferentes"}
+OTHER_WORDS = {
+    "otra",
+    "otro",
+    "otras",
+    "otros",
+    "distinta",
+    "distinto",
+    "diferente",
+    "diferentes",
+    "ninguno",
+    "ninguna",
+}
 FOLLOW_UP_FILLER = {
     "y",
     "en",
@@ -242,8 +266,8 @@ PRICE = re.compile(
 
 @dataclass
 class Intent:
-    # saludo | gracias | ayuda | envio | ofertas | fuera | pedido | receta | buscar | ocasion | aclarar | servicio
-    # | vacio
+    # saludo | gracias | ayuda | envio | ofertas | fuera | pedido | receta | memoria | buscar | ocasion | aclarar
+    # | servicio | vacio
     kind: str
     text: str
     vertical: str | None = None
@@ -273,6 +297,7 @@ class Understander:
         self.symptoms = KeywordMatcher(("sintoma", kw) for kw in SYMPTOMS)
         self.services = KeywordMatcher((s.id, kw) for s in taxonomy.services.values() for kw in s.keywords)
         self.app_questions = KeywordMatcher((kind, kw) for kind, kws in APP_QUESTIONS.items() for kw in kws)
+        self.memory_questions = KeywordMatcher(("memoria", kw) for kw in MEMORY_QUESTIONS)
         # «🍕» o «quiero un 🍔»: el emoji de un concepto se lee como su nombre (gana el primero que lo usa).
         self.emojis: dict[str, str] = {}
         for concept in taxonomy.concepts.values():
@@ -292,6 +317,8 @@ class Understander:
             return Intent("saludo", text, current_vertical, confidence=1.0)
         if words <= THANKS_WORDS | GREETING_WORDS | ASSISTANT_WORDS and words & THANKS_WORDS:
             return Intent("gracias", text, current_vertical, confidence=1.0)
+        if self.memory_questions.best(normalized):
+            return Intent("memoria", text, current_vertical, confidence=1.0)
 
         price_max, without_price = _price(text)
         # Habla chilena: «pa» y «pal» son «para» y «para el» («algo pa comer», «juguete pal gato»).

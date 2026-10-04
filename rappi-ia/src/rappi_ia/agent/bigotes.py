@@ -52,6 +52,8 @@ class Context:
 
 
 CHEAP_POOL = 24  # «barato»: reordenar solo los 6 más relevantes no daba lo más barato
+MIN_SHOWN = 3  # menos productos se completan con la búsqueda por el nombre del concepto
+MIN_ELSEWHERE = 2  # productos con el detalle pedido para cambiar de vertical: con uno solo suele ser casualidad
 GENERAL_REMEDIES = "analgésico"  # si nada nombra el síntoma: paracetamol, aspirina y similares
 # Palabras de un pedido que no son un detalle que deba decir el nombre del producto («lúcuma» en «helado de lúcuma» sí).
 NOT_DETAIL = {
@@ -61,6 +63,8 @@ NOT_DETAIL = {
     *("buena", "bueno", "buenos", "quiero", "tienen", "venden", "preparado", "preparada", "barato", "barata"),
     *("baratos", "baratas", "caro", "cara", "caros", "caras", "premium", "mejor", "opcion", "segunda", "primera"),
     *("pastilla", "pastillas", "capsulas", "comprimidos", "tabletas", "remedio", "remedios", "producto", "productos"),
+    # para quién y medidas: los nombres lo dicen de otras formas («Men», «Kids», «FPS 50»)
+    *("hombre", "hombres", "mujer", "mujeres", "adulto", "adultos", "nino", "ninos", "nina", "ninas", "factor"),
 }
 # Detalles que el nombre del producto dice de otra forma: «para celíacos» es «sin gluten».
 DETAIL_ALIASES = {
@@ -92,7 +96,18 @@ class Bigotes:
             response = self.reply(conn, concept.name, ctx)
             response["text"] = f"Como te gusta {concept.label.lower()} 😉 " + response["text"]
             return response
-        if intent.kind in ("saludo", "gracias", "vacio", "ayuda", "envio", "ofertas", "fuera", "pedido", "receta"):
+        if intent.kind in (
+            "saludo",
+            "gracias",
+            "vacio",
+            "ayuda",
+            "envio",
+            "ofertas",
+            "fuera",
+            "pedido",
+            "receta",
+            "memoria",
+        ):
             return self._small_talk(intent, ctx)
         if intent.kind == "aclarar":
             return self._clarify(intent)
@@ -127,15 +142,23 @@ class Bigotes:
         products = outcome.products
         # «algo más sano» se entiende como ensaladas, pero esas palabras no están en los productos: si nada de lo
         # encontrado es del concepto nombrado, se busca por el nombre del concepto.
-        if intent.explicit_concepts and not intent.symptom and not any(p.concept in intent.concepts for p in products):
+        # Con menos de MIN_SHOWN («unos puchos» traía uno) se completa con esa búsqueda, salvo en un seguimiento
+        # («talla xg») o si se nombró una cadena o vertical («tienen kfc»): lo demás no es lo pedido.
+        on_topic = any(p.concept in intent.concepts for p in products)
+        few = len(products) < MIN_SHOWN and not intent.follow_up and not intent.explicit_vertical
+        if intent.explicit_concepts and not intent.symptom and (few or not on_topic):
             concept = self.taxonomy.concepts.get(intent.concepts[0])
             retry = (
                 search_products(conn, vertical, concept.name, intent.concepts, self.embedder, intent.price_max, k=6)
                 if concept
                 else None
             )
-            if retry and any(p.concept in intent.concepts for p in retry.products):
+            extra = [p for p in retry.products if p.concept in intent.concepts] if retry else []
+            if extra and not on_topic:
                 outcome, products = retry, retry.products
+            elif extra:
+                ids = {p.id for p in products}
+                products = (products + [p for p in extra if p.id not in ids])[:6]
         # «helado de lúcuma»: si nada de lo mostrado dice «lúcuma», se busca entre más candidatos y, si aquí no hay,
         # en la vertical que lo tenga (salvo que se haya nombrado una).
         detail = self._detail(intent) if intent.explicit_concepts and not intent.symptom and products else None
@@ -419,7 +442,7 @@ class Bigotes:
                 CHEAP_POOL,
             )
             products = [p for p in outcome.products if stem in normalize(p.name)][:6]
-            if products:
+            if len(products) >= (1 if candidate == vertical else MIN_ELSEWHERE):
                 return candidate, outcome, products
         return None
 
