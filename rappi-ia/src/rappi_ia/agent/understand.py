@@ -123,8 +123,10 @@ class Understander:
         concepts = [m.target for m in concept_matches]
         mention = self._mention(body, concept_matches)
         # La ocasión «Me siento mal» cuenta como síntoma («malestar», «cuidarme»): sin Licores, sin «También en» ni
-        # venta cruzada, y con el aviso de farmacia.
-        symptom = self.symptoms.best(said) is not None or _id(occasion) == "enfermo"
+        # venta cruzada, y con el aviso de farmacia. Aunque otra ocasión vaya antes («un tecito para el malestar»).
+        symptom = self.symptoms.best(said) is not None or any(
+            m.target == "enfermo" for m in self.occasions.matches(said)
+        )
 
         explicit = bool(concepts)
         if occasion and not concepts:

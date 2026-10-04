@@ -184,6 +184,20 @@ def test_symptoms_starting_with_me_are_detected():
     assert u.understand(None, "me duele la cabeza", "supermercado").query == "duele la cabeza"  # la consulta, limpia
 
 
+def test_feeling_unwell_is_a_symptom_even_after_another_occasion():
+    """«malestar» y «cuidarme» son de la ocasión «Me siento mal», pero solo contaban como síntoma si esa ocasión era la
+    mejor, y a igual largo gana la que va primero: «un tecito para el malestar» (once) o «después del carrete tengo
+    malestar» permitían Licores, venta cruzada y «También en», y no llevaban el aviso de farmacia."""
+    u = Understander()
+    for text in [
+        "un tecito para el malestar",
+        "despues del carrete tengo malestar",
+        "después del carrete quiero cuidarme",
+    ]:
+        assert u.understand(None, text, "supermercado").symptom, text
+    assert not u.understand(None, "un tecito para la once", "supermercado").symptom
+
+
 def test_llm_verifier_blocks_claims_invented_names_and_spelled_numbers():
     refs = {"p1": "Cerveza Escudo 470 cc"}
     allowed = "Cerveza Escudo 470 cc 🍺 cerveza Licores"

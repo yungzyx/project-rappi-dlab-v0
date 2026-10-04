@@ -687,6 +687,15 @@ def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypa
         sick = agent.reply(db, text, Context(vertical="supermercado"))
         assert sick["products"] and "also_in" not in sick, text
         assert "químico farmacéutico" in sick["text"], text
+    # Con otra ocasión antes en el texto («tecito» es once), «malestar» y «cuidarme» siguen siendo síntoma.
+    for text in [
+        "un tecito para el malestar",
+        "despues del carrete tengo malestar",
+        "despues del carrete quiero cuidarme",
+    ]:
+        sick = agent.reply(db, text, Context())
+        assert sick["vertical"] != "licores" and "also_in" not in sick and "suggestion" not in sick, text
+        assert "químico farmacéutico" in sick["text"], text
 
 
 # Ítems con concepto por vertical en la base real (03-10): restaurantes es unas 5 veces el súper.
