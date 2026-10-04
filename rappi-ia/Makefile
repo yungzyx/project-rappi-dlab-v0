@@ -54,6 +54,8 @@ analytics:  ## Resumen de métricas del panel
 	$(PY) -m rappi_ia analytics
 
 # Con los pesos ya descargados, la API no consulta huggingface.co al cargarlos (~20 peticiones por arranque).
+# Mira los modelos por defecto: con otro en .env que no está en caché, la API arranca sin esa capacidad (/health lo
+# dice en «faltantes»); `make serve HF_OFFLINE=` lo descarga la primera vez.
 HF_CACHE := $(or $(HF_HUB_CACHE),$(HOME)/.cache/huggingface/hub)
 HF_MODELS := intfloat--multilingual-e5-base sentence-transformers--clip-ViT-B-32 \
 	sentence-transformers--clip-ViT-B-32-multilingual-v1 Systran--faster-whisper-small

@@ -60,12 +60,16 @@ def _load_services() -> Services:
             photo_reader, image_model = PhotoReader(clip), clip.model_name
         except ImportError as exc:
             missing["ml"] = f"falta el extra ml ({exc.name})"
+        except OSError as exc:  # p. ej. un modelo de .env que no está en caché, con HF_HUB_OFFLINE=1 (make serve)
+            missing["ml"] = f"no se pudo cargar el modelo: {exc}"
         try:
             from ..agent.audio import transcriber as load_transcriber
 
             transcriber = load_transcriber()
         except ImportError as exc:
             missing["audio"] = f"falta el extra audio ({exc.name})"
+        except OSError as exc:
+            missing["audio"] = f"no se pudo cargar el modelo: {exc}"
     else:
         missing["modelos"] = "RAPPI_IA_LIGHT=1"
     bigotes = Bigotes(embedder, default_composer())
