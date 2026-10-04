@@ -317,6 +317,46 @@ def test_import_legacy_csv(db, tmp_path):
     assert float(_count(db, "SELECT discount_pct FROM price_snapshots WHERE sku = '1'")) == 16.7
 
 
+def _legacy_csv(folder, **row):
+    """Un CSV del scraper original con una fila de la tienda 1 (Lider), del 24-09."""
+    defaults = {"fecha_scraping": "2026-09-24", "store_id": "1", "tienda": "Lider", "ciudad": "Santiago",
+                "direccion": "x", "en_stock": "True"}  # fmt: skip
+    with (folder / "products_lider_santiago.csv").open("w", newline="", encoding=CSV_ENCODING) as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        writer.writerow({c: "" for c in CSV_COLUMNS} | defaults | row)
+
+
+def test_legacy_import_keeps_the_category_rappi_already_named(db, tmp_path):
+    """929 productos del CSV del 24-09 quedaron sin categoría: el CSV trae el nombre y no el id."""
+    _store(db, 1, "lider", "supermercado")
+    run = repository.start_run(db, "stores", {})
+    galletas = {"category_id": 123, "category_name": "Galletas"}
+    repository.save_products(db, run, 1, [_product("a", 100, "Galleta Tritón", 990, **galletas)])
+    _legacy_csv(
+        tmp_path, store_id="5", sku="b", master_product_id="906357", nombre="Galleta Club Social", categoria="Galletas"
+    )  # una tienda que solo está en el CSV
+
+    import_legacy_csv(db, tmp_path)
+    build_search_documents(db)
+
+    assert _count(db, "SELECT category_id FROM catalog_items WHERE master_product_id = 906357") == 123
+    assert "Categoría: Galletas" in _count(db, "SELECT content FROM search_documents WHERE entity_id = '906357'")
+
+
+def test_legacy_import_keeps_the_date_of_the_csv_so_it_does_not_replace_newer_prices(db, tmp_path):
+    _store(db, 1, "lider", "supermercado")
+    run = repository.start_run(db, "stores", {})
+    repository.save_products(db, run, 1, [_product("a", 100, "Arroz Tucapel", 1500)])
+    _legacy_csv(tmp_path, sku="a", master_product_id="100", nombre="Arroz Tucapel", precio="1000")
+
+    import_legacy_csv(db, tmp_path)
+    build_search_documents(db)
+
+    assert str(_count(db, "SELECT min(scraped_at)::date FROM price_snapshots")) == "2026-09-24"
+    assert _count(db, "SELECT (metadata->>'precio_min')::int FROM search_documents WHERE entity_id = '100'") == 1500
+
+
 def test_zero_stock_is_kept_but_zero_ids_are_not(db):
     _store(db, 1, "lider", "supermercado")
     run = repository.start_run(db, "stores", {})

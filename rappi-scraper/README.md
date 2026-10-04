@@ -239,4 +239,6 @@ rappi import-csv                                                          # carg
 
 Columnas: `fecha_scraping, cadena, ciudad, store_id, tienda, direccion, pasillo, sub_pasillo, sku, master_product_id, ean, nombre, marca, descripcion, presentacion, cantidad, unidad, tipo_venta, precio, precio_normal, descuento_pct, tiene_descuento, precio_por_unidad, categoria, en_stock, imagen_url`.
 
+`rappi import-csv` guarda los precios con su `fecha_scraping` (así no pasan por más nuevos que una descarga posterior) y busca el id de `categoria` entre las categorías que ya vio una descarga; si no la encuentra, el producto queda sin categoría.
+
 Código en `src/rappi_scraper/legacy/`.
