@@ -74,4 +74,4 @@ schedule-status:  ## Ver si la programación semanal está activa y cómo termin
 	@echo "Respaldo más nuevo (data/backups/):"
 	@newest=$$(ls -t data/backups/rappi_*.dump 2>/dev/null | head -n 1); echo "  $${newest:-ninguno todavía}"
 	@echo "Final del log de la corrida (data/logs/launchd.err.log; ahí quedan también los errores):"
-	@tail -n 20 data/logs/launchd.err.log 2>/dev/null || echo "  sin log todavía"
+	@grep -v "HTTP Request:" data/logs/launchd.err.log 2>/dev/null | tail -n 20 || echo "  sin log todavía"

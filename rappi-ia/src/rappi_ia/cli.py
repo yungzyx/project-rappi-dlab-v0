@@ -274,13 +274,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> None:
-    args = build_parser().parse_args(argv)
+def configure_logging(verbose: bool) -> None:
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%H:%M:%S",
     )
+    # Las peticiones a huggingface.co al cargar un modelo (~20 por carga) tapaban los errores del log semanal.
+    logging.getLogger("httpx").setLevel(logging.DEBUG if verbose else logging.WARNING)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    configure_logging(args.verbose)
     try:
         with connect() as conn:
             COMMANDS[args.command](conn, args)
