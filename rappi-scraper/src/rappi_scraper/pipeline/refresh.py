@@ -84,6 +84,9 @@ def refresh(
         _scrape(conn, run_id, "restaurants", lambda: process_restaurant_jobs(conn, client, run_id), reports_dir)
         reports.append(finish_and_report(conn, run_id, "restaurants", reports_dir)[0])
 
+    # Cierra la transacción de lectura que abre `open_run` (con `resume_only`): si no, la búsqueda quedaría en un
+    # savepoint sin guardar, `pg_dump` respaldaría los documentos viejos y un respaldo fallido (exit 3) la desharía.
+    conn.commit()
     log.info("Documentos de búsqueda: %s", build_search_documents(conn))
     backup_failed = False
     if backup is not None:

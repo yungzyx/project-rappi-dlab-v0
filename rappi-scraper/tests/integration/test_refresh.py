@@ -6,6 +6,7 @@ from conftest import FakeClient
 from rappi_scraper.pipeline.queue import PossibleBlock
 from rappi_scraper.pipeline.refresh import refresh
 from rappi_scraper.storage import repository
+from rappi_scraper.storage.db import connect, database_url
 
 STORE_JOB = {
     "job_key": "type:lider",
@@ -171,6 +172,30 @@ def test_resuming_after_retry_failed_does_not_start_new_runs(db, tmp_path):
     assert [(r["kind"], r["run_id"], r["status"]) for r in reports] == [("stores", stores_run, "done")]
     assert all(path.startswith("/tiendas/") for path in client.requested)
     assert repository.latest_run(db, "restaurants") == restaurants_run
+
+
+def test_resuming_commits_the_search_documents_before_the_backup(db, tmp_path):
+    """`pg_dump` corre en otra conexión: tiene que ver los documentos nuevos. Y si el respaldo falla (exit 3, que
+    deshace lo pendiente de la conexión), los documentos ya quedaron guardados."""
+    stores_run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, stores_run, [STORE_JOB])
+    restaurants_run = repository.start_run(db, "restaurants", {})
+    repository.finish_run(db, restaurants_run)
+    seen_by_backup = []
+
+    def backup():
+        with connect(database_url("DATABASE_URL_TEST")) as other:
+            seen_by_backup.append(other.execute("SELECT count(*) FROM search_documents").fetchone()[0])
+        raise RuntimeError("pg_dump: disco lleno")
+
+    _, backup_failed = refresh(
+        db, FakeClient(), _no_discovery, _no_discovery, backup=backup, reports_dir=tmp_path, resume_only=True
+    )
+    db.rollback()  # como al salir de `with connect()` con SystemExit(3)
+
+    assert backup_failed
+    assert seen_by_backup[0] > 0
+    assert db.execute("SELECT count(*) FROM search_documents").fetchone()[0] == seen_by_backup[0]
 
 
 def test_resuming_with_nothing_open_rebuilds_search_and_backup_without_downloading(db, tmp_path):
