@@ -6,17 +6,17 @@ const row = (estrato, grupo, retencion_pct, usuarios = 40) => ({ estrato, grupo,
 
 describe('strataRows', () => {
   test('compara dentro de cada estrato y calcula la diferencia en puntos', () => {
-    const rows = strataRows([row('3–5 pedidos', 'multi-vertical', 70), row('3–5 pedidos', 'un vertical', 55)])
+    const rows = strataRows([row('3–5 compras', 'multi-vertical', 70), row('3–5 compras', 'un vertical', 55)])
 
-    const middle = rows.find((item) => item.stratum === '3–5 pedidos')
+    const middle = rows.find((item) => item.stratum === '3–5 compras')
     expect(middle.groups.map((group) => group?.retencion_pct)).toEqual([70, 55])
     expect(middle.gap).toBe(15)
   })
 
   test('siempre devuelve los tres estratos, con null donde falta un grupo', () => {
-    const rows = strataRows([row('6+ pedidos', 'multi-vertical', 90)])
+    const rows = strataRows([row('6+ compras', 'multi-vertical', 90)])
 
-    expect(rows.map((item) => item.stratum)).toEqual(['1–2 pedidos', '3–5 pedidos', '6+ pedidos'])
+    expect(rows.map((item) => item.stratum)).toEqual(['1–2 compras', '3–5 compras', '6+ compras'])
     expect(rows[0].groups).toEqual([null, null])
     expect(rows[2].groups[1]).toBeNull()
     expect(rows[2].gap).toBeNull()
@@ -25,7 +25,7 @@ describe('strataRows', () => {
   test('con los datos guardados no hay grupo "un vertical" contra qué comparar', () => {
     const rows = strataRows(saved.data)
 
-    const multi6 = saved.data.find((row) => row.estrato === '6+ pedidos' && row.grupo === 'multi-vertical')
+    const multi6 = saved.data.find((row) => row.estrato === '6+ compras' && row.grupo === 'multi-vertical')
 
     expect(rows.every((item) => item.gap === null)).toBe(true)
     expect(rows[2].groups[0].retencion_pct).toBe(multi6.retencion_pct)

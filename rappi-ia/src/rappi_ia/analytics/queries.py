@@ -415,9 +415,10 @@ def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
 
 
 def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> list[dict]:
-    """Retención (pedido entre días 61 y 120) de multi-vertical vs un vertical, a igual número de pedidos.
+    """Retención (pedido entre días 61 y 120) de multi-vertical vs un vertical, a igual número de compras.
 
-    Estratificar por pedidos evita la confusión obvia (quien pide más cae más en 2 verticales y retiene más).
+    Estratificar por compras evita la confusión obvia (quien pide más cae más en 2 verticales y retiene más). Una
+    compra es un carro: dividido en dos verticales son dos pedidos, pero una compra.
     Solo usuarios cuyo primer pedido fue hace ≥ 120 días.
     """
     _check(source)
@@ -428,7 +429,7 @@ def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> lis
             ),
             eligible AS (SELECT * FROM firsts WHERE first_ts <= {_AS_OF} - interval '{RETENTION_TO} days'),
             early AS (  -- compras (un carro dividido en dos verticales es una), como en el estado de riesgo
-                SELECT e.user_id, count(DISTINCT coalesce(o.cart_id, o.order_id)) AS pedidos,
+                SELECT e.user_id, count(DISTINCT coalesce(o.cart_id, o.order_id)) AS compras,
                        count(DISTINCT o.vertical) AS verticales
                 FROM eligible e JOIN app_orders o ON o.user_id = e.user_id AND o.source = %(source)s
                 WHERE o.ts < e.first_ts + interval '{MULTI_VERTICAL_DAYS} days'
@@ -441,8 +442,8 @@ def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> lis
                       AND o.ts < e.first_ts + interval '{RETENTION_TO} days') AS kept
                 FROM eligible e
             )
-            SELECT CASE WHEN pedidos <= 2 THEN '1–2 pedidos' WHEN pedidos <= 5 THEN '3–5 pedidos'
-                        ELSE '6+ pedidos' END AS estrato,
+            SELECT CASE WHEN compras <= 2 THEN '1–2 compras' WHEN compras <= 5 THEN '3–5 compras'
+                        ELSE '6+ compras' END AS estrato,
                    CASE WHEN verticales >= 2 THEN 'multi-vertical' ELSE 'un vertical' END AS grupo,
                    count(*) AS usuarios, round(100.0 * avg(kept::int), 1) AS retencion_pct
             FROM early JOIN retained USING (user_id)

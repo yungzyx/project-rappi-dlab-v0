@@ -1,5 +1,5 @@
 // Estratos y grupos de /analytics/multi-vertical. La API omite los grupos con menos de 20 usuarios.
-export const STRATA = ['1–2 pedidos', '3–5 pedidos', '6+ pedidos']
+export const STRATA = ['1–2 compras', '3–5 compras', '6+ compras']
 export const GROUPS = [
   { key: 'multi-vertical', label: 'Multi-vertical', fill: 'fill-data', swatch: 'var(--data)' },
   { key: 'un vertical', label: 'Un vertical', fill: 'fill-deemph', swatch: 'var(--deemph)' },

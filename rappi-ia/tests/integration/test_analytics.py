@@ -94,7 +94,7 @@ def test_a_cart_split_in_two_verticals_is_one_purchase(db, monkeypatch):
     events.record(db, [events.Event("u3", "s", "app_open", ts=T0 + timedelta(days=130))])
     monkeypatch.setattr(queries, "MIN_GROUP_USERS", 1)
     strata = {r["estrato"] for r in queries.multi_vertical_retention(db, "prototype")}
-    assert strata == {"1–2 pedidos"}
+    assert strata == {"1–2 compras"}  # u2 hizo 3 pedidos: el estrato dice lo que cuenta
 
 
 def test_purged_searches_without_concept_do_not_become_a_null_opportunity(db):
