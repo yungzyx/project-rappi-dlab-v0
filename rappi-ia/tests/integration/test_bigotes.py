@@ -1,5 +1,7 @@
 """Conducta de Bigotes (docs/diseno-ia.md §4) contra `rappi_ia_test`, con el modelo falso de embeddings."""
 
+from types import SimpleNamespace
+
 import pytest
 from rappi_scraper.storage.search import build_search_documents
 
@@ -317,6 +319,27 @@ def test_unlabeled_medicines_are_never_shown_for_symptoms_or_in_pharmacy(bigotes
         assert "710" not in [p["entity_id"] for p in r["products"]], text
     shown = [p["entity_id"] for p in agent.reply(db, "nivea", Context(vertical="farmacia"))["products"]]
     assert "712" in shown and "711" not in shown
+
+
+def test_a_photo_in_pharmacy_does_not_show_unlabeled_medicines(bigotes):
+    """La foto filtraba sin `strict`: en farmacia mostraba analgésicos sin concepto (y ocultaba los del concepto
+    medicamentos)."""
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    for pid, name, category in [
+        (711, "Anacin Clásico X 8 Comprimidos", "Analgésicos sistémicos"),
+        (712, "Crema de Manos Nivea 75 ml", "Cremas de manos"),
+    ]:
+        add_product(db, pid, name, 11, category)
+        add_price(db, 11, pid, 2600)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+
+    reading = SimpleNamespace(concept=None, probability=0.2)
+    similar = [("farmacia", "catalog_item", "711", 0.9), ("farmacia", "catalog_item", "712", 0.8)]
+    r = agent.reply_photo(db, reading, similar, Context(vertical="farmacia"))
+    assert [p["entity_id"] for p in r["products"]] == ["712"]
 
 
 def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none(bigotes):
