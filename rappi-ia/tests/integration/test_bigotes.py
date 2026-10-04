@@ -1237,3 +1237,28 @@ def test_a_flavor_missing_everywhere_keeps_the_vertical(ice_creams):
 def test_a_named_vertical_is_never_left(ice_creams):
     agent, db = ice_creams
     assert agent.reply(db, "helado de lúcuma en el súper", Context())["vertical"] == "supermercado"
+
+
+def test_a_concept_this_vertical_barely_has_goes_where_it_is(bigotes, monkeypatch):
+    """«vino» desde Farmacia mostraba mascarillas: Farmacia casi no tiene vino y Licores sí."""
+    agent, db = bigotes
+    from rappi_ia.agent import bigotes as module
+
+    monkeypatch.setattr(module, "MIN_HOME_ITEMS", 2)  # la base de prueba es chica: Licores tiene 2 cervezas
+    r = agent.reply(db, "cerveza", Context(vertical="supermercado"))
+    assert r["vertical"] == "licores" and {p["concept"] for p in r["products"]} == {"cerveza"}
+    assert "no hay «cerveza», pero en Licores sí" in r["text"]
+    assert agent.reply(db, "cerveza en el súper", Context(vertical="supermercado"))["vertical"] == "supermercado"
+
+
+def test_a_remedy_for_a_symptom_searches_the_symptom_not_the_word_remedy(remedies_bigotes):
+    """«remedio para la tos» traía remedios para el estómago: calzaban con la palabra «remedio»."""
+    agent, db = remedies_bigotes
+    add_product(db, 806, "Remedio natural para el estómago 20 comprimidos", 11, "Analgésicos tópicos")
+    add_price(db, 11, 806, 2990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    r = agent.reply(db, "remedio para la fiebre", Context(vertical="supermercado"))
+    assert r["vertical"] == "farmacia" and sorted(p["entity_id"] for p in r["products"]) == ["800", "801"]
