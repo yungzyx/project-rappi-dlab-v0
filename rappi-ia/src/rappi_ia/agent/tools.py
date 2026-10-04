@@ -6,6 +6,7 @@ Todo producto que Bigotes muestra pasa por aquí: sale de la base, con su precio
 from dataclasses import dataclass, field
 
 from psycopg import Connection
+from rappi_scraper.storage.search import MIN_PRICE
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
@@ -257,7 +258,8 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                 name=name,
                 vertical=hit.vertical,
                 concept=hit.concept_id,
-                price_value=float(price) if price is not None else None,
+                # Un precio de relleno ($0, $1) cuenta como desconocido: el producto no se ofrece.
+                price_value=float(price) if price is not None and price >= MIN_PRICE else None,
                 before_value=float(real) if real is not None else None,
                 store=store or hit.metadata.get("restaurante"),
                 img=hit.metadata.get("imagen"),

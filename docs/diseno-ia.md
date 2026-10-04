@@ -55,6 +55,7 @@ Decisiones:
   - El léxico usa una columna de texto sin tildes ni ñ (`unaccent` + español), en el documento y en la consulta: "panales" encuentra "pañales". Cada palabra pesa según su IDF dentro del vertical: las palabras raras pesan más.
 - **Filtros duros dentro de cada recuperador, antes de fusionar.** Precio máximo, tipo de ítem y vertical:
   - el precio se compara contra `price_min`, una columna indexada con el precio vigente más bajo entre las tiendas del vertical (migración 013);
+  - un precio bajo $10 cuenta como desconocido: son los $0 y $1 de relleno de los platos cuyo precio depende de las opciones. No pasa el tope ni se muestra;
   - en el vectorial, un pool de 200 candidatos con `hnsw.iterative_scan` de pgvector; si el tope de precio deja pocos documentos (hasta 5.000), se revisan todos, porque el índice filtrado podría devolver de menos.
   - Si nada de lo pedido cabe bajo el tope, no se muestra otra cosa: Bigotes lo dice ("no hay bajo $X; el más barato cuesta $Y") y **no** registra demanda no satisfecha.
 - **"Sin resultado" bien definido.** La búsqueda vectorial siempre devuelve vecinos, así que "no encontrar" necesita una regla.

@@ -313,3 +313,27 @@ def test_product_names_are_cleaned_too(db):
 
     content = db.execute("SELECT content FROM search_documents WHERE entity_id = '100'").fetchone()[0]
     assert content.startswith("Basurero de Metal Con Pedal tie. Marca:")
+
+
+def test_filler_menu_prices_are_unknown_in_search(db):
+    """Un plato cuyo precio depende de sus opciones viene a $0 o $1 («Completo Dinamico»): como precio pasaba
+    cualquier tope. En la búsqueda queda sin precio; uno real se conserva."""
+    _store(db, 3, "restaurant", "restaurantes", brand=("Lo de Anita", 900))
+    run = repository.start_run(db, "restaurants", {})
+    for item_id, name, price in [
+        (1, "Completo Dinamico", 0),
+        (2, "Elige Tu Bebida Favorita", 1),
+        (3, "Completo", 2500),
+    ]:
+        db.execute("INSERT INTO menu_items (item_id, store_id, name) VALUES (%s, 3, %s)", (item_id, name))
+        db.execute(
+            "INSERT INTO menu_price_snapshots (run_id, item_id, price, real_price) VALUES (%s, %s, %s, %s)",
+            (run, item_id, price, price),
+        )
+    db.commit()
+    build_search_documents(db)
+
+    rows = db.execute(
+        "SELECT entity_id, metadata ? 'precio', price_min FROM search_documents WHERE entity_type = 'menu_item'"
+    ).fetchall()
+    assert sorted(rows) == [("1", False, None), ("2", False, None), ("3", True, 2500)]

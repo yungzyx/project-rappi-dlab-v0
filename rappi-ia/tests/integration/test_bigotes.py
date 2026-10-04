@@ -136,6 +136,28 @@ def test_words_of_the_query_win_when_its_concept_is_a_minority(bigotes):
     assert [p.entity_id for p in soap.products] == ["802"]
 
 
+def test_filler_prices_are_never_shown(bigotes):
+    """$0 y $1 son precios de relleno de platos que dependen de sus opciones: pasaban cualquier tope y se ofrecían
+    a «$0»."""
+    agent, db = bigotes
+    for item_id, name, price in [
+        (530, "Completo Dinámico", 0),
+        (531, "Completo Elige Tu Salsa", 1),
+        (532, "Completo Italiano", 900),
+    ]:
+        add_dish(db, item_id, name, 3, "Completos")
+        db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, %s, %s)", (item_id, price))
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    capped = search_products(db, "restaurantes", "completo", None, agent.embedder, price_max=1000)
+    assert [p.entity_id for p in capped.products] == ["532"]
+    shown = [p.entity_id for p in search_products(db, "restaurantes", "completo", None, agent.embedder).products]
+    assert "532" in shown and not {"530", "531"} & set(shown)
+
+
 def test_ambiguous_between_restaurant_and_store_asks(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "quiero pizza")

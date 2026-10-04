@@ -8,6 +8,10 @@ from psycopg import Connection
 
 VERTICALS = ("supermercado", "conveniencia", "turbo", "mall", "farmacia", "licores", "chocolateria", "restaurantes")
 
+# Bajo $10 no hay precio real en pesos chilenos: un plato a $0 o $1 es de relleno (su precio depende de las opciones
+# que se elijan) y pasaba cualquier tope de precio. Se trata como precio desconocido.
+MIN_PRICE = 10
+
 # Clave de pg_advisory_xact_lock para reescribir search_documents. rappi-ia la toma antes de copiar vectores: sin
 # ella, su UPDATE masivo y el upsert de abajo bloquean filas en distinto orden (deadlock). No sirve mirar
 # scrape_runs: la corrida ya quedó 'done' cuando empieza esta reescritura.
@@ -81,7 +85,7 @@ CROSS JOIN LATERAL (SELECT concat_ws('. ', clean_html(ci.name), 'Marca: ' || NUL
 LEFT JOIN prices p ON p.master_product_id = iv.master_product_id AND p.vertical = iv.vertical
 """
 
-MENU_DOCS = """
+MENU_DOCS = f"""
 WITH latest AS (
     SELECT DISTINCT ON (item_id) item_id, price, real_price
     FROM menu_price_snapshots
@@ -91,7 +95,8 @@ INSERT INTO staged_documents (vertical, entity_type, entity_id, content, metadat
 SELECT 'restaurantes', 'menu_item', mi.item_id::text, d.content,
        jsonb_strip_nulls(jsonb_build_object(
            'store_id', s.store_id, 'restaurante', s.name, 'cadena', b.name, 'ciudad', NULLIF(s.city, ''),
-           'cocinas', cu.cocinas, 'precio', mp.price, 'precio_normal', mp.real_price,
+           'cocinas', cu.cocinas, 'precio', CASE WHEN mp.price >= {MIN_PRICE} THEN mp.price END,
+           'precio_normal', mp.real_price,
            'popular', mi.is_popular, 'imagen', NULLIF(mi.image_url, ''))),
        md5(d.content)
 FROM menu_items mi
