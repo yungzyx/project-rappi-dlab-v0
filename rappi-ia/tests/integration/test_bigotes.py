@@ -1069,6 +1069,8 @@ def test_questions_about_the_app_get_an_answer_not_products(bigotes):
     off_topic = agent.reply(db, "cuéntame un chiste", Context(mode="propuesta"))
     assert not off_topic["products"] and not off_topic.get("unmet") and not off_topic["actions"]
     assert "pedir" in off_topic["text"]
+    order = agent.reply(db, "mi pedido no llega", Context(mode="propuesta"))
+    assert not order["products"] and not order.get("unmet") and "Mis pedidos" in order["text"]
 
 
 def test_cheap_shows_the_cheapest_first(bigotes):
@@ -1083,6 +1085,8 @@ def test_cheap_shows_the_cheapest_first(bigotes):
     embed_search_documents(db, agent.embedder)
     prices = [p["price_value"] for p in agent.reply(db, "cerveza barata", Context(vertical="licores"))["products"]]
     assert prices == sorted(prices) and prices[0] == 1290
+    pricey = [p["price_value"] for p in agent.reply(db, "cerveza cara", Context(vertical="licores"))["products"]]
+    assert pricey == sorted(pricey, reverse=True) and pricey[0] == 9990
 
 
 def test_a_recommendation_uses_what_the_user_likes(bigotes):

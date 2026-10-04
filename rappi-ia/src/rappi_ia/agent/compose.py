@@ -22,7 +22,8 @@ AGE_NOTICE = "Recuerda: estos productos se venden solo a mayores de 18."
 class Draft:
     """Los hechos de la respuesta, ya decididos por el código."""
 
-    # saludo | gracias | ayuda | envio | ofertas | fuera | resultados | sin_resultado | sin_precio | aclarar | vacio
+    # saludo | gracias | ayuda | envio | ofertas | fuera | pedido | resultados | sin_resultado | sin_precio
+    # | aclarar | vacio
     kind: str
     query: str = ""
     concept_label: str | None = None
@@ -61,6 +62,11 @@ class TemplateComposer:
             return (
                 "El horario, el tiempo y el costo de envío los ves en cada tienda antes de pagar, y la app te muestra "
                 "las que están abiertas cerca de ti 🛵. ¿Qué te gustaría pedir?"
+            )
+        if d.kind == "pedido":
+            return (
+                "Lo de un pedido en camino (dónde viene, cancelarlo o un reclamo) lo ves en «Mis pedidos» de la app, "
+                "con el chat de soporte 🛵. Yo te ayudo a encontrar qué pedir."
             )
         if d.kind == "fuera":
             return "De eso no sé mucho 😸, lo mío es ayudarte a pedir. ¿Se te antoja algo? Comida, súper, farmacia…"

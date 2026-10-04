@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from psycopg import Connection
 
 from ..concepts.assign import concept_matcher
-from ..concepts.matcher import KeywordMatcher
+from ..concepts.matcher import KeywordMatcher, Match
 from ..concepts.taxonomy import load_taxonomy
 from ..text import ASSISTANT_WORDS, GREETING_WORDS, REQUEST_WORDS, THANKS_WORDS, normalize
 from .verticals import contending_verticals, ranked_verticals
@@ -89,6 +89,20 @@ APP_QUESTIONS = {
         "a que hora cierra",
     ],
     "ofertas": ["ofertas", "tienen ofertas", "hay ofertas", "descuentos", "promociones", "promos"],
+    # Un pedido en curso (estado, cancelar, reclamo): se resuelve en «Mis pedidos», no es demanda no atendida.
+    "pedido": [
+        "mi pedido",
+        "el pedido",
+        "cancelar",
+        "reclamo",
+        "reclamar",
+        "devolucion",
+        "reembolso",
+        "donde viene",
+        "no llega",
+        "no ha llegado",
+        "llego mal",
+    ],
     # Fuera de tema: se contesta con humor y se vuelve a lo que Bigotes sabe hacer; no es demanda no atendida.
     "fuera": [
         "clima",
@@ -144,8 +158,31 @@ REFINE_START = {
     "chico",
 }
 OTHER_WORDS = {"otra", "otro", "otras", "otros", "distinta", "distinto", "diferente", "diferentes"}
-FOLLOW_UP_FILLER = {"y", "en", "el", "la", "los", "las", "mejor", "entonces", "ahora", "tambien", "pero"}
+FOLLOW_UP_FILLER = {
+    "y",
+    "en",
+    "el",
+    "la",
+    "los",
+    "las",
+    "mejor",
+    "entonces",
+    "ahora",
+    "tambien",
+    "pero",
+    "no",
+    "algo",
+    "uno",
+    "una",
+}
 CHEAP_WORDS = {"barato", "barata", "baratos", "baratas", "economico", "economica", "economicos", "economicas"}
+PRICEY_WORDS = {"caro", "cara", "caros", "caras", "premium"}
+# «no quiero pizza», «menos sushi»: el concepto que sigue se descarta y se saca de la consulta. «sin» también se
+# descarta, pero queda en la consulta («yogurt sin azúcar» busca eso).
+REFUSALS = [("no", "quiero"), ("no", "sea"), ("nada", "de"), ("menos",), ("excepto",), ("salvo",)]
+# «para mi papá» es una persona, no papas.
+POSSESSIVES = {"mi", "tu", "su"}
+PERSON_KEYWORDS = {"papa"}
 
 SYMPTOMS = [
     "fiebre",
@@ -199,7 +236,8 @@ PRICE = re.compile(
 
 @dataclass
 class Intent:
-    kind: str  # saludo | gracias | ayuda | envio | ofertas | fuera | buscar | ocasion | aclarar | servicio | vacio
+    # saludo | gracias | ayuda | envio | ofertas | fuera | pedido | buscar | ocasion | aclarar | servicio | vacio
+    kind: str
     text: str
     vertical: str | None = None
     concepts: list[str] = field(default_factory=list)
@@ -213,6 +251,7 @@ class Intent:
     symptom: bool = False  # habló de síntomas: remedios de farmacia sin receta, sin venta cruzada
     service: str | None = None  # servicio sin catálogo (RappiTravel, RappiFavor)
     cheapest: bool = False  # «barato»: lo más barato primero
+    priciest: bool = False  # «más caro»: lo más caro primero
     follow_up: bool = False  # refina el mensaje anterior («talla g» tras «pañales»)
     exclude_previous: bool = False  # «de otra marca», «otras opciones»: sin lo que ya se mostró
 
@@ -253,12 +292,31 @@ class Understander:
         body = _clean(said)
         # Ocasiones y síntomas, sobre el texto sin limpiar: «me siento mal» y «me duele» empiezan con «me».
         occasion = self.occasions.best(said)
-        # «sin azúcar» no pide azúcar: se descarta un concepto nombrado justo después de «sin».
+        # «sin azúcar» no pide azúcar ni «no quiero pizza» pizza: se descarta el concepto nombrado después.
         body_words = body.split()
-        concept_matches = [
-            m for m in self.concepts.matches(body) if not (m.position and body_words[m.position - 1] == "sin")
-        ]
+        concept_matches, refused = [], []
+        for m in self.concepts.matches(body):
+            before = tuple(body_words[max(0, m.position - 2) : m.position])
+            refusal = next((r for r in REFUSALS if before[-len(r) :] == r), None)
+            if refusal:
+                refused.append(m)
+                body_words[m.position - len(refusal) : m.position + m.words] = [""] * (len(refusal) + m.words)
+            elif before[-1:] == ("sin",) or (
+                before[-1:] and before[-1] in POSSESSIVES and m.keyword in PERSON_KEYWORDS
+            ):
+                continue
+            else:
+                concept_matches.append(m)
+        if refused:  # lo rechazado tampoco se busca
+            body = " ".join(w for w in body_words if w)
+            body_words = body.split()
         concepts = [m.target for m in concept_matches]
+        refused_ids = {m.target for m in refused}
+        if refused and not concepts and not occasion:  # «cualquier cosa menos sushi»: el resto de su ocasión
+            occasion = next(
+                (Match(o.id, "", 0, 0) for o in self.taxonomy.occasions.values() if refused_ids & set(o.concepts)),
+                None,
+            )
         mention = self._mention(body, concept_matches)
         # La ocasión «Me siento mal» cuenta como síntoma («malestar», «cuidarme»): sin Licores, sin «También en» ni
         # venta cruzada, y con el aviso de farmacia. Aunque otra ocasión vaya antes («un tecito para el malestar»).
@@ -279,7 +337,7 @@ class Understander:
         if follow_up:
             return follow_up
         if occasion and not concepts:
-            concepts = list(self.taxonomy.occasions[occasion.target].concepts)
+            concepts = [c for c in self.taxonomy.occasions[occasion.target].concepts if c not in refused_ids]
         kind = "ocasion" if occasion else "buscar"
         confidence = 0.9 if concept_matches else (0.7 if occasion else 0.3)
         common = dict(
@@ -290,6 +348,7 @@ class Understander:
             query=body or normalized,
             symptom=symptom,
             cheapest=bool(set(said.split()) & CHEAP_WORDS),
+            priciest=bool(set(said.split()) & PRICEY_WORDS),
         )
 
         if mention:
@@ -316,7 +375,7 @@ class Understander:
     def _follow_up(self, text, said, body_words, concepts, occasion, symptom, mention, previous, price_max):
         """Un mensaje corto que no nombra nada nuevo (o que empieza con «con», «sin», «talla», «más»…) sigue el pedido
         anterior: «talla g» tras «pañales» busca «pañales talla g»; «y en el súper?» busca lo mismo allá."""
-        if not previous or occasion or symptom or len(body_words) > 4:
+        if not previous or occasion or symptom or len([w for w in body_words if w not in FOLLOW_UP_FILLER]) > 4:
             return None
         previous_concepts = [c for c in previous.get("concepts") or [] if c in self.taxonomy.concepts]
         if not previous_concepts or (concepts and body_words[:1] and body_words[0] not in REFINE_START):
@@ -324,7 +383,7 @@ class Understander:
         mention_words = {w for kw in VERTICAL_MENTIONS.get(mention, ()) for w in kw.split()}
         rest = [w for w in body_words if w not in FOLLOW_UP_FILLER and w not in mention_words]
         other = bool(set(body_words) & OTHER_WORDS)
-        extra = "" if other or (mention and not rest) else " ".join(body_words)
+        extra = "" if other or (mention and not rest) else " ".join(rest)  # «mejor no, algo más barato» → «mas barato»
         base = previous.get("query") or ""
         if body_words[:1] == ["y"] and extra:  # «y de vainilla?»: otra opción, no se suma a «de chocolate»
             base, extra = normalize(self.taxonomy.concepts[previous_concepts[0]].name), " ".join(body_words[1:])
@@ -339,6 +398,7 @@ class Understander:
             explicit_concepts=True,
             query=" ".join(p for p in (base, extra) if p),
             cheapest=bool(set(said.split()) & CHEAP_WORDS),
+            priciest=bool(set(said.split()) & PRICEY_WORDS),
             follow_up=True,
             exclude_previous=other,
         )
