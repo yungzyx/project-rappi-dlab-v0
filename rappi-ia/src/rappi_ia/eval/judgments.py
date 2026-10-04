@@ -10,7 +10,7 @@ import json
 import random
 from pathlib import Path
 
-from .search_eval import ABLATION, QueryRun
+from .search_eval import ABLATION, SHOWN, QueryRun
 
 SAMPLE_FILE = Path(__file__).resolve().parent / "judgments-sample.json"
 # Juicios a mano: {"juicios": {id de par: "relevante" | "no" | "nose"}}, copiados de la página de juicio.
@@ -24,7 +24,7 @@ def build_sample(
 ) -> list[dict]:
     pairs: dict[tuple, dict] = {}
     for run in runs:
-        if run.tipo == "negativa":
+        if run.tipo == "negativa" or run.mode == SHOWN:  # lo mostrado sale del híbrido: no es otro modo que juzgar
             continue
         for item, relevant in zip(run.items, run.relevance, strict=True):
             key = (run.vertical, run.query, item["entity_type"], item["entity_id"])

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from rappi_ia.eval import search_eval
 from rappi_ia.eval.search_eval import (
     ABLATION,
+    SHOWN,
     QueryRun,
     calibrate_tau,
     negative_diagnosis,
@@ -95,23 +96,130 @@ def test_report_lists_the_cause_of_each_negative():
     assert "| licores | neumáticos | no | coseno 0.830 ≥ τ 0.8 |" in report
 
 
+def _result(hits=(), unmet=False, query_concepts=()):
+    return SimpleNamespace(
+        hits=list(hits),
+        strict_lexical_matches=0,
+        max_cosine=0.9,
+        concept_in_vertical=True,
+        query_concepts=list(query_concepts),
+        unmet=unmet,
+    )
+
+
+def _hit(entity_id, concept):
+    return SimpleNamespace(
+        entity_type="catalog_item", entity_id=entity_id, content=f"Ítem {entity_id}", concept_id=concept
+    )
+
+
+def _product(entity_id, concept):
+    return SimpleNamespace(entity_type="catalog_item", entity_id=entity_id, name=f"Ítem {entity_id}", concept=concept)
+
+
 def test_ablation_runs_hybrid_without_the_concept_bonus(monkeypatch):
     """El refuerzo reordena con la misma etiqueta con que se juzga: la ablación mide la búsqueda sin él."""
     calls = []
 
     def fake_retrieve(conn, vertical, query, embedder, k, mode, concepts=None):
         calls.append((mode, concepts))
-        return SimpleNamespace(
-            hits=[], strict_lexical_matches=0, max_cosine=0.9, concept_in_vertical=True, query_concepts=[]
-        )
+        return _result()
 
     monkeypatch.setattr(search_eval, "retrieve", fake_retrieve)
+    monkeypatch.setattr(
+        search_eval, "search_products", lambda *args, **kwargs: SimpleNamespace(result=_result(), products=[])
+    )
     query = {"vertical": "licores", "query": "pisco", "concepts": ["pisco"], "tipo": "exacta"}
 
     runs = run_queries(None, object(), [query])
 
-    assert [r.mode for r in runs] == ["lexico", "vector", "hibrido", ABLATION]
+    assert [r.mode for r in runs] == ["lexico", "vector", "hibrido", ABLATION, SHOWN]
     assert calls[-1] == ("hibrido", [])
+
+
+def test_shown_row_judges_the_products_the_user_sees(monkeypatch):
+    """`retrieve` traía 10 alfajores (galletas), pero _focus se quedaba con el único de golosinas, el concepto que
+    la consulta detectaba: la evaluación daba nDCG 1 y el usuario veía 1 producto. La fila «mostrado» lo mide."""
+    hits = [_hit(str(i), "galletas") for i in range(9)] + [_hit("9", "golosinas")]
+    calls = []
+
+    def fake_search_products(conn, vertical, query, concepts, embedder, k):
+        calls.append((vertical, query, concepts, k))
+        return SimpleNamespace(
+            result=_result(hits, query_concepts=["golosinas"]), products=[_product("9", "golosinas")]
+        )
+
+    monkeypatch.setattr(search_eval, "retrieve", lambda *args, **kwargs: _result(hits, query_concepts=["golosinas"]))
+    monkeypatch.setattr(search_eval, "search_products", fake_search_products)
+    query = {"vertical": "chocolateria", "query": "alfajores", "concepts": ["galletas", "golosinas"], "tipo": "exacta"}
+
+    runs = {r.mode: r for r in run_queries(None, object(), [query])}
+
+    assert calls == [("chocolateria", "alfajores", None, 10)]  # como /search: la consulta detecta sus conceptos
+    assert runs["hibrido"].relevance == [1] * 10
+    assert runs[SHOWN].relevance == [1]
+    assert runs[SHOWN].items == [
+        {"entity_type": "catalog_item", "entity_id": "9", "texto": "Ítem 9", "concepto": "golosinas"}
+    ]
+    summary = summarize(list(runs.values()))
+    assert summary[SHOWN]["total"]["ndcg@10"] < summary["hibrido"]["total"]["ndcg@10"] == 1.0
+    report = render_markdown(summary, unmet_quality(list(runs.values()), {}), {}, {}, saved=False, model="e5")
+    assert f"| {SHOWN} | 0.1 |" in report
+
+
+def test_shown_unmet_follows_the_bigotes_rule(monkeypatch):
+    """Bigotes registra «sin resultado» solo si no muestra productos: con la búsqueda marcándolo y productos a la
+    vista (las arenas para gato de «pasaje de avión»), no cuenta."""
+    outcomes = {
+        "pasaje de avión": SimpleNamespace(result=_result(unmet=True), products=[_product("1", "accesorios-mascota")]),
+        "neumáticos": SimpleNamespace(result=_result(unmet=True), products=[]),
+        "pisco": SimpleNamespace(result=_result(), products=[]),
+    }
+    monkeypatch.setattr(search_eval, "retrieve", lambda *args, **kwargs: _result())
+    monkeypatch.setattr(search_eval, "search_products", lambda conn, v, query, *args, **kwargs: outcomes[query])
+    queries = [{"vertical": "supermercado", "query": q, "concepts": [], "tipo": "negativa"} for q in outcomes]
+
+    shown = {r.query: r.shown_unmet for r in run_queries(None, object(), queries) if r.mode == SHOWN}
+
+    assert shown == {"pasaje de avión": False, "neumáticos": True, "pisco": False}
+
+
+def test_report_measures_unmet_as_bigotes_records_it():
+    hybrid = [
+        run("pasaje de avión", "negativa", 0.79),
+        run("neumáticos", "negativa", 0.75),
+        run("pisco", "exacta", 0.9),
+    ]
+    shown = [
+        QueryRun("licores", "pasaje de avión", "negativa", SHOWN, [0] * 6, 0, 0.79, False, shown_unmet=False),
+        QueryRun("licores", "neumáticos", "negativa", SHOWN, [], 0, 0.75, False, shown_unmet=True),
+        QueryRun("licores", "pisco", "exacta", SHOWN, [1] * 6, 0, 0.9, False, shown_unmet=False),
+    ]
+    taus = {"licores": 0.8}
+
+    quality = unmet_quality([*hybrid, *shown], taus)
+
+    assert (quality["detectadas"], quality["recall"]) == (2, 1.0)  # la búsqueda (retrieve) detecta las dos
+    assert (quality["mostrado"]["detectadas"], quality["mostrado"]["recall"]) == (1, 0.5)
+    assert quality["mostrado"]["no_detectadas_detalle"] == ["licores: pasaje de avión"]
+    report = render_markdown(summarize([*hybrid, *shown]), quality, taus, {}, saved=False, model="e5")
+    assert "Lo que registra Bigotes" in report
+    assert "detectadas: 1 · falsas alarmas: 0 · precisión: 1.0 · recall: 0.5" in report
+    assert "- La búsqueda las marca, pero se muestran productos: licores: pasaje de avión" in report
+
+
+def test_report_warns_when_a_current_tau_sits_on_the_floor_of_the_grid():
+    """Con τ = 0,70 (el mínimo de la grilla) la regla del coseno no se dispara: los cosenos e5 están sobre 0,76.
+    Un vertical sin propuesta lo conserva, así que el reporte lo advierte (sin cambiarlo)."""
+    runs = [run("neumáticos", "negativa", 0.75), run("pisco", "exacta", 0.90)]
+    current = {"chocolateria": 0.7, "licores": 0.82, "mall": 0.7}
+
+    report = render_markdown(summarize(runs), unmet_quality(runs, current), current, {}, saved=False, model="e5")
+
+    assert "| chocolateria | 0.7 | sin propuesta |" in report  # el valor no se toca
+    assert "⚠ τ vigente en el piso de la grilla (0,70): chocolateria, mall." in report
+    calibrated = render_markdown(summarize(runs), unmet_quality(runs, {}), {"licores": 0.82}, {}, False, "e5")
+    assert "piso de la grilla" not in calibrated
 
 
 def _mode_run(query, mode, relevant):

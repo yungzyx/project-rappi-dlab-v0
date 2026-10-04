@@ -1,5 +1,5 @@
 from rappi_ia.eval.judgments import build_sample, human_report
-from rappi_ia.eval.search_eval import ABLATION, QueryRun
+from rappi_ia.eval.search_eval import ABLATION, SHOWN, QueryRun
 
 
 def _item(entity_id, concept):
@@ -45,6 +45,13 @@ def test_sample_adds_random_pairs_from_every_mode_without_duplicates():
     assert len(keys) == len(set(keys)) == 6  # p1, p2, v1, v2, v3 de «pisco» y r1 de «ron»
     assert {p["origen"] for p in sample} == {"diferencia", "al_azar"}
     assert all(p["id"] and p["texto"] for p in sample)
+
+
+def test_sample_ignores_the_products_shown_row():
+    """«mostrado» repite ítems del híbrido y trae otros del puesto 11 al 20: sumarlo cambiaría la muestra versionada."""
+    shown = _run("pisco", SHOWN, ["p1", "p9"])
+
+    assert build_sample([*RUNS, shown], n_diff=2, n_random=10) == build_sample(RUNS, n_diff=2, n_random=10)
 
 
 def test_sample_is_reproducible_and_grouped_by_query():
