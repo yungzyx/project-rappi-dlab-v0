@@ -240,19 +240,21 @@ def trends(conn: Connection, source: str = "synthetic", weeks: int = 4, limit: i
 
 
 def funnel(conn: Connection, source: str = "synthetic") -> list[dict]:
-    """Por vertical: sesiones que buscan → agregan al carro → inician pago → piden.
+    """Por vertical: sesiones que buscan (llegan a la vertical) → agregan al carro → inician pago → piden.
 
-    La búsqueda se mira en toda la sesión: la sugerencia cruzada de Bigotes lleva la compra a otra vertical, y
-    exigirla en la misma dejaba fuera esos pedidos (Farmacia y Turbo quedaban en 0). Una sesión entra al embudo de
-    una vertical si hizo algo ahí; ver una sugerencia sin aceptarla no cuenta.
+    La entrada (buscar, chatear, navegar, aceptar una sugerencia o agregar al carro desde una lista) se mira en toda
+    la sesión: la sugerencia cruzada de Bigotes lleva la compra a otra vertical, y exigirla en la misma dejaba fuera
+    esos pedidos (Farmacia y Turbo quedaban en 0). Una sesión cuenta en una vertical si tuvo ahí algún evento que no
+    sea ver o descartar una sugerencia: ver una sugerencia sin aceptarla no la mete en esa vertical.
     """
     _check(source)
     return _rows(
         conn,
-        """WITH entry AS (  -- buscó, chateó, navegó o aceptó una sugerencia, en cualquier vertical (o sin vertical)
+        """WITH entry AS (  -- buscó, chateó, navegó, aceptó una sugerencia o agregó desde una lista (el «+» solo
+                            -- manda cart_add), en cualquier vertical (o sin vertical)
                SELECT DISTINCT session_id FROM app_events
                WHERE source = %(source)s
-                 AND type IN ('search', 'chat', 'view_store', 'view_item', 'suggestion_accepted')
+                 AND type IN ('search', 'chat', 'view_store', 'view_item', 'suggestion_accepted', 'cart_add')
            ),
            s AS (
                SELECT session_id, vertical, session_id IN (SELECT session_id FROM entry) AS busca,

@@ -305,6 +305,29 @@ def test_funnel_counts_orders_whose_search_was_in_another_vertical(db):
     assert sum(r["piden"] for r in funnel.values()) == orders
 
 
+def test_adding_from_a_list_without_searching_also_enters_the_funnel(db):
+    """El «+» de una lista (la pantalla de una vertical, Ofertas, «Para ti») solo manda cart_add: quien entra a
+    Súper desde la Home, agrega una cerveza y paga sin buscar ni chatear también llega a la vertical."""
+    seed_taxonomy(db, load_taxonomy())
+    line = [{"entity_type": "catalog_item", "entity_id": "1", "concept_id": "cerveza", "unit_price": 1000}]
+    events.record(
+        db,
+        [
+            events.Event("u1", "s1", "app_open", ts=T0),
+            events.Event("u1", "s1", "cart_add", ts=T0, vertical="supermercado", cart_id="c1"),
+            events.Event("u1", "s1", "checkout_start", ts=T0, vertical="supermercado", cart_id="c1"),
+        ],
+    )
+    events.record_order(db, "u1", "s1", "c1", "supermercado", line, ts=T0)
+    db.commit()
+
+    funnel = queries.funnel(db, "prototype")
+
+    assert funnel == [{"vertical": "supermercado", "buscan": 1, "agregan": 1, "pagan": 1, "piden": 1}]
+    orders = db.execute("SELECT count(*) FROM app_orders WHERE source = 'prototype'").fetchone()[0]
+    assert sum(r["piden"] for r in funnel) == orders
+
+
 def test_invalid_source_is_rejected(db):
     with pytest.raises(ValueError):
         queries.kpis(db, "real")
