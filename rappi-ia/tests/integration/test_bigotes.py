@@ -240,6 +240,34 @@ def test_filler_prices_are_never_shown(bigotes):
     assert "532" in shown and not {"530", "531"} & set(shown)
 
 
+def test_the_price_shown_is_from_the_current_branch_not_an_old_one(bigotes):
+    """608121 en Licores: una sucursal que solo salió en la corrida 1 lo tenía a $39.950 y la vigente del mismo formato
+    lo vende a $77.940. La búsqueda ya filtraba por $77.940, pero Bigotes mostraba $39.950 de la sucursal vieja."""
+    agent, db = bigotes
+    for store_id, name in [(4, "Mi Market Vieja"), (5, "Mi Market Licores")]:
+        add_store(db, store_id, "licores", name)
+    db.execute("UPDATE stores SET store_type = 'mi_market_licores' WHERE store_id IN (4, 5)")
+    add_product(db, 230, "Whisky Johnnie Walker Black Label 750 cc", 4, "Whiskys")
+    db.execute("INSERT INTO store_products (store_id, sku, master_product_id) VALUES (5, 'sku-230', 230)")
+    old_run, new_run = (
+        db.execute("INSERT INTO scrape_runs (kind, status) VALUES ('stores', 'done') RETURNING run_id").fetchone()[0]
+        for _ in range(2)
+    )
+    db.execute(
+        """INSERT INTO price_snapshots (run_id, store_id, sku, price, in_stock, scraped_at)
+           VALUES (%s, 4, 'sku-230', 39950, true, now() - interval '1 week'), (%s, 5, 'sku-230', 77940, true, now())""",
+        (old_run, new_run),
+    )
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    for price_max in (None, 80000):
+        products = search_products(db, "licores", "whisky", None, agent.embedder, price_max=price_max).products
+        assert [(p.entity_id, p.price_value, p.store) for p in products] == [("230", 77940, "Mi Market Licores")]
+
+
 def test_ambiguous_between_restaurant_and_store_asks(bigotes):
     agent, db = bigotes
     r = agent.reply(db, "quiero pizza")

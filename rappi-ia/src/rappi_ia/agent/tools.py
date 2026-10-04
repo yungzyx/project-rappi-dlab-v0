@@ -210,9 +210,12 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
     menu_ids = [h.entity_id for h in hits if h.entity_type == "menu_item"]
     prices: dict[tuple[str, str], tuple] = {}
     if catalog_ids:
+        # Solo ofertas vigentes, con la misma regla que la búsqueda (v_store_format_runs): una sucursal que la última
+        # corrida de su formato ya no bajó no pone el precio, así el tope y el precio mostrado coinciden.
         for pid, name, price, real, store, age in conn.execute(
             """WITH latest AS (
-                   SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock
+                   SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock,
+                          ps.run_id
                    FROM price_snapshots ps
                    JOIN store_products sp USING (store_id, sku)
                    WHERE sp.master_product_id = ANY(%(ids)s::bigint[])
@@ -222,6 +225,7 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                       coalesce(b.name, s.name), ci.is_alcoholic OR ci.age_restricted
                FROM latest l
                JOIN store_products sp USING (store_id, sku)
+               JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
                JOIN stores s ON s.store_id = sp.store_id
                LEFT JOIN brands b ON b.brand_id = s.brand_id
                JOIN catalog_items ci ON ci.master_product_id = sp.master_product_id

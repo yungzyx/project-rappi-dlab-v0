@@ -52,22 +52,18 @@ WHERE NOT EXISTS (SELECT 1 FROM staged_documents s
 # que bajó su formato o su cadena: así salen las sucursales viejas y lo que ya no se vende, y un formato que la última
 # corrida no pudo bajar conserva su último dato. Un plato también sale si una corrida posterior ya no encontró su
 # local o su cadena en Rappi (el motivo que anota pipeline/restaurants.py). Lo que no tiene ningún precio guardado
-# no se descarta (no hay con qué compararlo).
+# no se descarta (no hay con qué compararlo). La corrida de cada formato sale de v_store_format_runs (migración 019),
+# la misma que usa el precio que muestra Bigotes.
 _OFFER_PRICES = """
 CREATE TEMP TABLE offer_prices ON COMMIT DROP AS
 WITH latest AS (
-    SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.run_id, ps.scraped_at,
-           COALESCE(s.store_type, 'id:' || s.store_id) AS format
-    FROM price_snapshots ps
-    JOIN stores s ON s.store_id = ps.store_id
-    ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC
-),
-format_run AS (
-    SELECT DISTINCT ON (format) format, run_id FROM latest ORDER BY format, scraped_at DESC, run_id DESC
+    SELECT DISTINCT ON (store_id, sku) store_id, sku, price, run_id
+    FROM price_snapshots
+    ORDER BY store_id, sku, scraped_at DESC
 )
-SELECT l.store_id, l.sku, l.price, l.run_id = f.run_id AS current
+SELECT l.store_id, l.sku, l.price, l.run_id = f.format_run_id AS current
 FROM latest l
-JOIN format_run f USING (format)
+JOIN v_store_format_runs f USING (store_id)
 """
 
 _DISH_PRICES = """
