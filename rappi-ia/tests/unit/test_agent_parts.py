@@ -102,6 +102,8 @@ def test_price_parsing_ignores_units_and_small_numbers():
         "cerveza bajo 5 grados",
         "pizza para hasta 4 personas",
         "algo bajo 5",
+        "vino bajo $5,5",  # un decimal sin mil/lucas/k no es precio (se leía como $5)
+        "vino bajo $2.5",
     ]:
         assert _price(text)[0] is None, text
     assert "3 mil" not in _price("cerveza bajo 3 mil")[1]  # la frase de precio sale de la consulta
@@ -121,6 +123,9 @@ def test_price_parsing_ignores_units_and_small_numbers():
         ("vino bajo 2,5 lucas u otra cosa", 2500, ["vino", "u", "otra", "cosa"]),
         ("vino bajo $2.5 lucas u otra cosa", 2500, ["vino", "u", "otra", "cosa"]),
         ("vino bajo 10 mil u otra cosa", 10000, ["vino", "u", "otra", "cosa"]),
+        # Coma de miles: «$10,000» se leía como un tope de $10 y dejaba «,000» en la consulta.
+        ("vino hasta $10,000", 10000, ["vino"]),
+        ("pisco bajo 12,990 pesos", 12990, ["pisco"]),
     ],
 )
 def test_price_parsing_accepts_decimal_thousands_and_drops_the_currency_word(text, value, rest):
