@@ -94,19 +94,22 @@ def search_products(
     price_max: float | None = None,
     k: int = 6,
     mode: str = "hibrido",
+    symptom: bool = False,
 ) -> SearchOutcome:
-    """Con `concepts=None`, los conceptos los detecta la búsqueda en la consulta (endpoint /search)."""
+    """Con `concepts=None`, los conceptos los detecta la búsqueda en la consulta (endpoint /search). Con `symptom` (o
+    en farmacia) no se muestra lo que no tiene concepto: podría ser un medicamento sin categoría mapeada."""
     result = retrieve(
         conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), mode=mode, concepts=concepts
     )
     concepts = result.query_concepts
     capped = price_max is not None
-    hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts)], concepts, result.unmet, capped)
+    strict = symptom or vertical == "farmacia"
+    hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts, strict)], concepts, result.unmet, capped)
     products = _dedupe(_within_budget(_with_prices(conn, vertical, hits), price_max))[:k]
     cheapest = None
     if not products and capped:
         unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, mode=mode, concepts=concepts)
-        allowed = [h for h in unfiltered.hits if _allowed(h.concept_id, concepts)]
+        allowed = [h for h in unfiltered.hits if _allowed(h.concept_id, concepts, strict)]
         # «El más barato» es de lo pedido: el mismo foco que con tope.
         candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet, capped))
         priced = [p for p in candidates if p.price_value is not None]
@@ -186,9 +189,13 @@ def _focus(hits, concepts: list[str], unmet: bool, capped: bool = False):
     return [] if unmet or capped else hits
 
 
-def _allowed(concept_id: str | None, requested: list[str]) -> bool:
+def _allowed(concept_id: str | None, requested: list[str], strict: bool = False) -> bool:
     """Los conceptos sensibles (medicamentos, salud sexual, tabaco, vapeo, adultos) solo aparecen si se piden
-    por su nombre: nunca por un síntoma, una ocasión o la cercanía vectorial (regla 6, Ley 20.105)."""
+    por su nombre: nunca por un síntoma, una ocasión o la cercanía vectorial (regla 6, Ley 20.105). Con `strict`
+    (síntomas o farmacia), lo que no tiene concepto tampoco: ahí suele ser un medicamento sin categoría mapeada
+    (laxantes, analgésicos, antidiarreicos)."""
+    if concept_id is None:
+        return not strict
     return concept_id not in _sensitive() or concept_id in requested
 
 

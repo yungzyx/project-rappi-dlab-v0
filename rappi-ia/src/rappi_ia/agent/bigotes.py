@@ -59,7 +59,9 @@ class Bigotes:
         search_query = self._search_query(intent)
         # Por síntomas no se buscan medicamentos (regla 6d): solo lo que el usuario nombró.
         concepts = [c for c in intent.concepts if c != "medicamentos"] if intent.symptom else intent.concepts
-        outcome = search_products(conn, vertical, search_query, concepts, self.embedder, intent.price_max)
+        outcome = search_products(
+            conn, vertical, search_query, concepts, self.embedder, intent.price_max, symptom=intent.symptom
+        )
         products = outcome.products
 
         suggestion = None

@@ -293,6 +293,32 @@ def test_symptoms_starting_with_me_get_the_pharmacy_notice_and_no_painkillers(bi
     assert "710" not in [p["entity_id"] for p in r["products"]]
 
 
+def test_unlabeled_medicines_are_never_shown_for_symptoms_or_in_pharmacy(bigotes, monkeypatch):
+    """El filtro de sensibles miraba solo el concepto: un medicamento sin concepto (su categoría, «Analgésicos
+    sistémicos», no está en category_map.csv) pasaba siempre. «tengo tos» mostraba antitusivos y «me siento mal»,
+    laxantes, traídos por cercanía. Con síntomas, o en farmacia, lo que no tiene concepto no se muestra."""
+    agent, db = bigotes
+    add_store(db, 11, "farmacia", "Farmacia")
+    for pid, name, store, category in [
+        (710, "Anacin Max Dolor de Cabeza y Tos X 8 Comprimidos", 1, "Analgésicos sistémicos"),
+        (711, "Anacin Clásico Nivea X 8 Comprimidos", 11, "Analgésicos sistémicos"),
+        (712, "Crema de Manos Nivea 75 ml", 11, "Cremas de manos"),
+    ]:
+        add_product(db, pid, name, store, category)
+        add_price(db, store, pid, 2600)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.0, "farmacia": 0.0})  # sin «sin resultado»
+
+    for text in ["tengo tos", "me duele la cabeza"]:
+        r = agent.reply(db, text, Context(vertical="supermercado"))
+        assert "710" not in [p["entity_id"] for p in r["products"]], text
+    shown = [p["entity_id"] for p in agent.reply(db, "nivea", Context(vertical="farmacia"))["products"]]
+    assert "712" in shown and "711" not in shown
+
+
 def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none(bigotes):
     """En una ocasión, el origen de la sugerencia salía de todos sus conceptos: «regalo para mi polola» mostraba solo
     chocolates y decía «Porque llevas 🍷 vino». A quien tiene fiebre se le hacía venta cruzada («Porque llevas 🍎
