@@ -345,6 +345,10 @@ def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none
 
     sick = agent.reply(db, "tengo fiebre", Context(vertical="supermercado"))
     assert sick["products"] and "suggestion" not in sick and sick["reason"] is None
+    # Con un concepto nombrado que sí tiene complemento (el mismo que sugiere en el regalo), tampoco.
+    sick = agent.reply(db, "tengo fiebre, quiero chocolate", Context(vertical="chocolateria"))
+    assert {p["concept"] for p in sick["products"]} == {"chocolates"}
+    assert "suggestion" not in sick and sick["reason"] is None
 
 
 def test_age_notice_covers_the_cross_suggestion(bigotes):
