@@ -405,7 +405,7 @@ def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
                        THEN round(100.0 * s.aceptadas / s.mostradas, 1) END AS aceptacion_pct
            FROM s JOIN concepts c USING (concept_id)
            LEFT JOIN converted cv ON cv.concept_id = s.concept_id AND cv.vertical = s.vertical
-           WHERE s.mostradas >= %(min_shown)s
+           WHERE s.mostradas >= %(min_shown)s AND NOT c.sensitive
            ORDER BY s.mostradas DESC""",
         {
             "source": source,

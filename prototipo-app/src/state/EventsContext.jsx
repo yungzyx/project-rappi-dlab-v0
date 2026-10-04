@@ -20,9 +20,11 @@ function withinLimits(event) {
   return clipped
 }
 
+// randomUUID solo existe en contexto seguro (https o localhost): abierta por la IP de la red (iPhone) no está, y el
+// respaldo con la hora daba ids adivinables. getRandomValues sí funciona por http.
 function randomId(prefix) {
-  const random = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
-  return `${prefix}-${random.replace(/-/g, '').slice(0, 16)}`
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(8))
+  return `${prefix}-${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`
 }
 
 function readStore(storage, key) {

@@ -352,3 +352,64 @@ def test_database_down_is_a_clear_503_not_a_500(monkeypatch):
     response = TestClient(api.app, raise_server_exceptions=False).get("/profile/u1")
     assert response.status_code == 503
     assert response.json() == {"detail": "Base de datos no disponible"}
+
+
+def test_the_prototype_cannot_forget_or_write_on_behalf_of_simulated_users(client, db):
+    """Con la API abierta a la red (demo en el iPhone), DELETE /profile/syn-… borraba usuarios simulados del panel y
+    /events podía colgarles eventos: los ids simulados son correlativos."""
+    from rappi_ia.events import store as events
+
+    events.ensure_user(db, "syn-7-00001", "synthetic")
+    events.record(db, [events.Event("syn-7-00001", "s1", "app_open")], source="synthetic")
+    db.commit()
+
+    assert client.delete("/profile/syn-7-00001").json()["eventos_borrados"] == 0
+    assert db.execute("SELECT count(*) FROM app_events WHERE user_id = 'syn-7-00001'").fetchone()[0] == 1
+    sent = client.post("/events", json={"user_id": "syn-7-00001", "events": [{"type": "app_open", "session_id": "s"}]})
+    assert sent.status_code == 400
+    order = {"user_id": "syn-7-00001", "session_id": "s", "cart_id": "c", "vertical": "licores",
+             "lines": [{"entity_type": "catalog_item", "entity_id": "1"}]}  # fmt: skip
+    assert client.post("/orders", json=order).status_code == 400
+
+
+def test_the_beacon_only_accepts_the_apps_origin(client, db):
+    """Llega como text/plain, sin preflight: cualquier página abierta podía escribir eventos (y texto en el panel)."""
+    body = json.dumps({"user_id": "u-evil", "events": [{"type": "app_open", "session_id": "s"}]})
+    headers = {"content-type": "text/plain"}
+    assert (
+        client.post("/events/beacon", content=body, headers={**headers, "origin": "https://evil.com"}).status_code
+        == 403
+    )
+    assert (
+        client.post("/events/beacon", content=body, headers={**headers, "origin": "http://localhost:5174"}).status_code
+        == 204
+    )
+    assert (
+        client.post("/events/beacon", content=body, headers=headers).status_code == 204
+    )  # curl en la red de confianza
+
+
+def test_events_and_chat_have_size_limits(client):
+    big = "x" * 1000
+    for event in (
+        {"type": "app_open", "session_id": "s", "concept_id": big},
+        {"type": "app_open", "session_id": "s", "vertical": big},
+        {"type": "app_open", "session_id": "s", "payload": {"x": "y" * 5000}},
+        {"type": "app_open", "session_id": "s", "payload": {f"k{i}": 1 for i in range(50)}},
+    ):
+        assert client.post("/events", json={"user_id": "u-big", "events": [event]}).status_code == 422
+    huge_profile = {f"c{i}": 1.0 for i in range(500)}
+    assert client.post("/chat", json={"message": "cerveza", "profile": huge_profile}).status_code == 422
+
+
+def test_sensitive_suggestions_never_show_in_the_panel(client, db):
+    from rappi_ia.events import store as events
+
+    events.record(
+        db,
+        [events.Event("u-s", "s", "suggestion_shown", concept_id="salud-sexual", vertical="farmacia")],
+        source="prototype",
+    )
+    db.commit()
+    rows = client.get("/analytics/suggestions?source=prototype").json()["data"]
+    assert not any("Salud sexual" in row["concepto"] for row in rows)

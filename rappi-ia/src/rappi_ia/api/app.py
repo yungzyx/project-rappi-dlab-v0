@@ -4,18 +4,20 @@ make serve   →   http://localhost:8000/docs
 """
 
 import io
+import json
 import logging
+import re
 import time
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from psycopg import Connection, OperationalError
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from rappi_scraper.storage.search import VERTICALS
 
 from .. import config
@@ -130,16 +132,20 @@ class ChatIn(Clean):
     vertical: str | None = None
     user_id: str | None = Field(default=None, max_length=64)
     session_id: str | None = Field(default=None, max_length=64)
-    profile: dict[str, float] | None = None
-    shown_topics: list[str] = Field(default_factory=list, max_length=50)
+    profile: dict[str, float] | None = Field(default=None, max_length=200)
+    shown_topics: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=50)
     mode: Literal["propuesta", "actual"] = "propuesta"
 
 
+MAX_PAYLOAD_KEYS = 10
+MAX_PAYLOAD_BYTES = 2048
+
+
 class EventIn(Clean):
-    type: str
+    type: str = Field(max_length=64)
     session_id: str = Field(max_length=64)
-    vertical: str | None = None
-    concept_id: str | None = None
+    vertical: str | None = Field(default=None, max_length=64)
+    concept_id: str | None = Field(default=None, max_length=64)
     entity_type: Literal["catalog_item", "menu_item", "store"] | None = None
     entity_id: str | None = Field(default=None, max_length=64)
     cart_id: str | None = Field(default=None, max_length=64)
@@ -149,6 +155,14 @@ class EventIn(Clean):
     unmet: bool | None = None
     value: float | None = None
     payload: dict = Field(default_factory=dict)
+
+    @field_validator("payload")
+    @classmethod
+    def small_payload(cls, payload: dict) -> dict:
+        """El payload no pasa por la redacción ni la purga: solo datos chicos (origen, servicio, cantidad…)."""
+        if len(payload) > MAX_PAYLOAD_KEYS or len(json.dumps(payload)) > MAX_PAYLOAD_BYTES:
+            raise ValueError("payload demasiado grande")
+        return payload
 
 
 class EventsIn(Clean):
@@ -332,6 +346,13 @@ def post_events(body: EventsIn, conn: Connection = Depends(get_conn)) -> dict:
 async def post_events_beacon(request: Request, conn: Connection = Depends(get_conn)) -> None:
     """Lo que queda en cola al cerrar la pestaña (navigator.sendBeacon). Llega como text/plain, que no necesita
     preflight de CORS; el contenido es el mismo JSON de /events."""
+    origin = request.headers.get("origin")
+    if (
+        origin
+        and origin not in config.API_CORS_ORIGINS
+        and not re.fullmatch(cors_origin_regex(config.API_ALLOW_LAN), origin)
+    ):  # text/plain no tiene preflight: sin esto, cualquier página abierta podía escribir eventos
+        raise HTTPException(403, "Origen no permitido")
     raw = await request.body()
     if len(raw) > MAX_BEACON_BYTES:
         raise HTTPException(413, "Demasiados eventos")
@@ -363,15 +384,18 @@ def post_order(body: OrderIn, conn: Connection = Depends(get_conn)) -> dict:
     vertical = backend_vertical(body.vertical)
     if vertical is None:  # un pedido es de una tienda: sin vertical del catálogo no se puede guardar
         raise HTTPException(400, f"Vertical desconocido: {body.vertical}")
-    order_id = events.record_order(
-        conn,
-        body.user_id,
-        body.session_id,
-        body.cart_id,
-        vertical,
-        [line.model_dump() for line in body.lines],
-        source="prototype",
-    )
+    try:
+        order_id = events.record_order(
+            conn,
+            body.user_id,
+            body.session_id,
+            body.cart_id,
+            vertical,
+            [line.model_dump() for line in body.lines],
+            source="prototype",
+        )
+    except ValueError as exc:  # un usuario de otra fuente (simulado)
+        raise HTTPException(400, str(exc)) from exc
     conn.commit()
     return {"order_id": order_id}
 
@@ -463,7 +487,11 @@ def _log_chat(conn, user_id, session_id, text, response, modality, mode) -> None
         unmet=bool(response.get("unmet")),
         payload={"mode": mode, "intent": response.get("intent", {}).get("kind")},
     )
-    events.record(conn, [event], source="prototype")
+    try:
+        events.record(conn, [event], source="prototype")
+    except ValueError:  # un id de usuario simulado: la respuesta sale igual, no se registra
+        conn.rollback()
+        return
     conn.commit()
 
 

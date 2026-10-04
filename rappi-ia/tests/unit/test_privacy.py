@@ -22,6 +22,10 @@ REDACTED = [
     ("juan @ gmail.com", "[correo]"),
     ("x@sub.mi-dominio.cl", "[correo]"),
     ("4111 1111 1111 1111", "[tarjeta]"),
+    ("me llamo Juan Pérez Soto", "me llamo [nombre]"),
+    ("mi nombre es María José", "mi nombre es [nombre]"),
+    ("manda a Los Leones 123", "manda a [dirección]"),
+    ("estoy en Apoquindo 3000", "estoy en [dirección]"),
 ]
 UNCHANGED = [
     "comida de calle para 4",
@@ -31,6 +35,7 @@ UNCHANGED = [
     "vino 750 cc $12.990",
     "promo 2x1 hasta las 22 hrs",
     "12.345.678-9",  # dígito verificador inválido: no es un RUT
+    "me llamo la atención este vino",  # sin mayúscula no es un nombre
 ]
 
 

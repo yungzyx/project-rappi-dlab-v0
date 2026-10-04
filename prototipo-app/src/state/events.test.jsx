@@ -16,6 +16,20 @@ describe('identidad seudónima y sesiones', () => {
     expect(userId()).toBe(first)
   })
 
+  test('sin randomUUID (página por http en el iPhone) el id sigue siendo aleatorio y largo', () => {
+    // randomUUID solo existe en contexto seguro (https o localhost); por la IP de la red local no está.
+    const original = crypto.randomUUID
+    Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true })
+    try {
+      localStorage.clear()
+      const id = userId()
+      expect(id).toMatch(/^proto-[0-9a-f]{16}$/)
+      expect(id.slice(6).startsWith(String(Date.now()).slice(0, 8))).toBe(false) // no es la hora: no se adivina
+    } finally {
+      Object.defineProperty(crypto, 'randomUUID', { value: original, configurable: true })
+    }
+  })
+
   test('la sesión se renueva tras 30 minutos sin actividad', () => {
     const t0 = 1_000_000
     const a = sessionId(t0)
