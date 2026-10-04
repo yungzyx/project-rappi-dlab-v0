@@ -238,7 +238,7 @@ parent = "bebidas"
 name = "Energéticas e isotónicas"
 emoji = "⚡"
 keywords = ["energizante", "energética", "red bull", "monster", "isotónica", "gatorade", "powerade", "burn"]
-query_keywords = ["bebida isotonica", "bebidas isotonicas", "isotonica"]
+query_keywords = ["bebida isotonica", "bebidas isotonicas", "isotonica", "energetico", "energeticos", "bebida energetica"]
 
 [[concept]]
 id = "cafe"
@@ -600,6 +600,7 @@ parent = "bebe"
 name = "Pañales y toallitas"
 emoji = "🧷"
 keywords = ["pañal", "pañales", "toallitas húmedas", "huggies", "pampers", "babysec", "pañal para adulto"]
+query_keywords = ["toallas humedas", "toallitas humedas", "toallitas"]
 
 [[concept]]
 id = "alimentacion-bebe"
@@ -642,7 +643,7 @@ parent = "salud"
 name = "Botiquín"
 emoji = "🩹"
 keywords = ["parche curita", "curitas", "venda", "gasa", "apósito", "alcohol gel", "termómetro", "algodón", "jeringa", "mascarilla", "tapabocas", "suero fisiológico", "agua oxigenada", "botiquín"]
-query_keywords = ["la presion", "presion alta", "presion arterial", "toma presion", "tensiometro"]
+query_keywords = ["la presion", "presion alta", "presion arterial", "toma presion", "tensiometro", "tiras reactivas", "glucometro", "lancetas"]
 
 [[concept]]
 id = "salud-sexual"
@@ -1047,6 +1048,16 @@ concepts = ["empanadas", "carnes", "carbon", "vino", "cerveza", "pisco", "gaseos
 vertical = "supermercado"
 
 [[occasion]]
+id = "estudiar"
+name = "Noche de estudio"
+emoji = "📚"
+# «algo para estudiar toda la noche» traía toallas nocturnas. Como ocasión no le gana a lo que se nombra
+# («café pa estudiar» sigue siendo café). Express: abierto tarde y sin el aviso +18 de Licores.
+keywords = ["para estudiar", "estudiar toda la noche", "noche de estudio", "para no dormir", "trasnochar"]
+concepts = ["energizantes", "cafe", "snacks-salados", "chocolates"]
+vertical = "conveniencia"
+
+[[occasion]]
 id = "antojo"
 name = "Antojo dulce"
 emoji = "🍬"
@@ -1057,7 +1068,7 @@ concepts = ["chocolates", "golosinas", "galletas", "helados", "pasteleria"]
 id = "panorama"
 name = "Panorama en casa"
 emoji = "🍿"
-keywords = ["aburrido", "aburrida", "no se que hacer", "panorama en casa", "maraton de series", "noche de peliculas", "noche de películas"]
+keywords = ["aburrido", "aburrida", "no se que hacer", "panorama en casa", "maraton de series", "noche de peliculas", "noche de películas", "ver una pelicula", "ver una película", "ver peliculas", "ver películas", "ver una peli", "ver series"]
 concepts = ["snacks-salados", "gaseosas", "juegos-mesa", "videojuegos", "helados"]
 vertical = "conveniencia"  # por surtido ganaba Licores (snacks) con aviso +18
 

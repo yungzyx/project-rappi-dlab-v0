@@ -28,11 +28,12 @@ from .verticals import contending_verticals, ranked_verticals
 VERTICAL_MENTIONS = {
     "supermercado": ["supermercado", "en el super", "del super", "al super", "lider", "unimarc", "jumbo", "tottus"],
     "licores": ["botilleria", "licoreria", "en licores"],
-    "farmacia": ["farmacia", "farmasia", "cruz verde", "salcobrand", "farmacias ahumada"],
+    "farmacia": ["farmacia", "farmacias", "farmasia", "cruz verde", "salcobrand", "farmacias ahumada"],
     "restaurantes": [
         "restaurante",
         "restaurant",
         "para pedir ya",
+        "para llevar",
         "delivery de comida",
         # Cadenas: «mcdonalds» se buscaba en el súper y quedaba sin resultado.
         "mcdonalds",
@@ -57,22 +58,25 @@ VERTICAL_MENTIONS = {
     "chocolateria": ["chocolateria"],
 }
 # Sobre lo que Bigotes recuerda: se contesta antes de buscar («olvida lo que te dije» traía un dije de joyería).
+# Frases, no palabras sueltas: «olvídate de la pizza» o «lámina de privacidad» son pedidos.
 MEMORY_QUESTIONS = [
-    "olvida",
-    "olvidate",
+    "olvida lo que",
+    "olvida todo",
+    "olvidate de mi",
+    "olvidate de todo",
     "que sabes de mi",
     "que sabes sobre mi",
     "que recuerdas",
     "no guardes",
     "borra lo que",
     "borra mis datos",
-    "mis datos",
-    "privacidad",
+    "mis datos personales",
+    "mi privacidad",
 ]
 # Muletillas al dictar por voz («eh quiero este una coca po»): solo se quitan en los bordes del mensaje.
 VOICE_FILLERS = {"eh", "em", "mm", "mmm", "este", "ya", "mira", "oye", "po", "pues"}
 # «holaaaa», «cervezaaaa»: tres o más letras iguales seguidas son una (no hay palabras así en español).
-STRETCHED = re.compile(r"([^\W\d_])\1{2,}")
+STRETCHED = re.compile(r"([^\W\d_xw])\1{2,}")  # salvo x y w: «talla xxxl», «www»
 # Risas («jajaja», «xd») y links no piden nada: se responde como a un mensaje vacío, sin anotar demanda.
 LAUGHTER = re.compile(r"(?:j[aeiou]){2,}j?|(?:[aeiou]?j){2,}|x+d+|lol|jsjs\w*")
 LINK = re.compile(r"https?://|www\.", re.IGNORECASE)
@@ -80,7 +84,16 @@ LINK = re.compile(r"https?://|www\.", re.IGNORECASE)
 # nombre está en los productos.
 GENERIC_MENTIONS = {
     *("supermercado", "en el super", "del super", "al super", "botilleria", "licoreria", "en licores"),
-    *("farmacia", "farmasia", "rappi mall", "en el mall", "minimarket", "almacen de barrio", "chocolateria"),
+    *(
+        "farmacia",
+        "farmacias",
+        "farmasia",
+        "rappi mall",
+        "en el mall",
+        "minimarket",
+        "almacen de barrio",
+        "chocolateria",
+    ),
 }
 # Artículos y preposiciones que acompañan a una vertical nombrada («en el súper», «de la farmacia»).
 MENTION_LEADS = r"(?:(?:en|de|del|al|el|la|los|las)\s+)*"
@@ -211,16 +224,27 @@ FOLLOW_UP_FILLER = {
     "ahora",
     "tambien",
     "pero",
-    "no",
     "algo",
     "uno",
     "una",
 }
 CHEAP_WORDS = {"barato", "barata", "baratos", "baratas", "economico", "economica", "economicos", "economicas"}
-PRICEY_WORDS = {"caro", "cara", "caros", "caras", "premium"}
+PRICEY_WORDS = {"caro", "caros", "premium"}  # «cara» solo tras «más»: «crema para la cara» es la cara
 # «no quiero pizza», «menos sushi»: el concepto que sigue se descarta y se saca de la consulta. «sin» también se
 # descarta, pero queda en la consulta («yogurt sin azúcar» busca eso).
 REFUSALS = [("no", "quiero"), ("no", "sea"), ("nada", "de"), ("menos",), ("excepto",), ("salvo",)]
+LESS = {"con", "mas", "lo", "al"}
+SIZE_OR_PRICE = {"mas", "menos", "talla", "tamano", "grande", "chico", "chica"}  # refinan, no son otra opción
+ARTICLES = {
+    "el",
+    "la",
+    "los",
+    "las",
+    "un",
+    "una",
+    "unos",
+    "unas",
+}  # «con menos azúcar» es menos, no sin: se trata como «sin»
 # «para mi papá», «de mi mamá»: una persona no se busca (traía papas y mamaderas).
 PEOPLE = re.compile(
     r"\b(?:(?:de|para|a|al)\s+)?(?:mi|mis|tu|su)\s+(?:mama|papa|esposo|esposa|marido|senora|hijo|hija|hijos|"
@@ -266,12 +290,16 @@ GROUP_VERTICALS = {
     "libreria": "mall",
 }
 # «u» suelta es «unidades», salvo que sea la «o» antes de otra o («5 lucas u otro trago»).
-_UNITS = r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u(?!\s+o)|personas?|porciones|cm|mts?|metros?)"
+_UNITS = (
+    r"(?:kg|kilos?|gr?|gramos?|l|litros?|ml|cc|grados?|unidades|u(?!\s+o)|personas?|porciones|cm|mts?|metros?"
+    r"|piezas)"
+)
 _DECIMAL = r"\d+[.,]\d{1,2}(?=\s*(?:mil|lucas|k)\b)"  # «1,5 lucas»: decimales solo con mil/lucas/k
 PRICE = re.compile(
     # «de 2 lucas» también es un tope, pero solo con $ o mil/lucas/k («pack de 6» no lo es)
     r"(?:bajo|menos de|hasta|maximo|max|no mas de|por menos de|que cueste menos de"
-    r"|de(?=\s*(?:\$|\d[\d.,]*\s*(?:mil|lucas|k)\b)))\s*"
+    r"|\bde(?=\s*(?:\$|\d[\d.,]*\s*(?:mil|lucas)\b))"
+    r"|\b(?=\d[\d.,]*\s*lucas\b))\s*"  # «10 lucas» solo es plata
     r"(\$)?\s*(" + _DECIMAL + r"|\d{1,3}(?:[.,\s]\d{3})+|\d+)(?![.,]\d)\s*(mil|lucas|k)?\b"
     r"(?:\s*(?:pesos|clp)\b)?(?!\s*" + _UNITS + r"\b)"
 )
@@ -321,10 +349,11 @@ class Understander:
         self, conn: Connection, text: str, current_vertical: str | None = None, previous: dict | None = None
     ) -> Intent:
         """`previous`: el pedido anterior de la conversación ({query, concepts, vertical}), para los seguimientos."""
-        original, text = text, STRETCHED.sub(r"\1", self._emoji_names(text))
+        # «no, quiero pizza»: el «no» contesta algo anterior, no rechaza la pizza.
+        original, text = text, re.sub(r"^\s*no\s*[,.;!]+", "", STRETCHED.sub(r"\1", self._emoji_names(text)))
         normalized = normalize(text)
         words = set(normalized.split())
-        if not re.search(r"[a-z]", normalized) or LINK.search(text) or all(LAUGHTER.fullmatch(w) for w in words):
+        if not re.search(r"[a-z]", normalized) or LINK.search(original) or all(LAUGHTER.fullmatch(w) for w in words):
             return Intent("vacio", original)
         if words <= GREETING_WORDS | ASSISTANT_WORDS:
             return Intent("saludo", text, current_vertical, confidence=1.0)
@@ -345,10 +374,12 @@ class Understander:
         for m in self.concepts.matches(body):
             before = tuple(body_words[max(0, m.position - 2) : m.position])
             refusal = next((r for r in REFUSALS if before[-len(r) :] == r), None)
+            if refusal == ("menos",) and before[:1] and before[0] in LESS:
+                continue
             if refusal:
                 refused.append(m)
                 body_words[m.position - len(refusal) : m.position + m.words] = [""] * (len(refusal) + m.words)
-            elif before[-1:] == ("sin",):
+            elif before[-1:] == ("sin",) or (before[:1] == ("sin",) and before[1] in ARTICLES):  # «sin la palta»
                 continue
             else:
                 concept_matches.append(m)
@@ -357,6 +388,8 @@ class Understander:
             body_words = body.split()
         concepts = [m.target for m in concept_matches]
         refused_ids = {m.target for m in refused}
+        if refused and not concepts and not occasion and not body:  # «no quiero cerveza»: nada que buscar
+            return Intent("vacio", original)
         if refused and not concepts and not occasion:  # «cualquier cosa menos sushi»: el resto de su ocasión
             occasion = next(
                 (Match(o.id, "", 0, 0) for o in self.taxonomy.occasions.values() if refused_ids & set(o.concepts)),
@@ -391,10 +424,10 @@ class Understander:
             confidence=confidence,
             explicit_concepts=explicit,
             # la vertical nombrada no se busca («en el super algo…» traía comida para gatos Super)
-            query=_without_mention(body, mention) or body or normalized,
+            # (lo rechazado no vuelve por el texto completo: «menos sushi» no busca sushi)
+            query=_without_mention(body, mention) or body or ("" if refused else normalized),
             symptom=symptom,
-            cheapest=bool(set(said.split()) & CHEAP_WORDS),
-            priciest=bool(set(said.split()) & PRICEY_WORDS),
+            **_price_order(said.split()),
         )
 
         if mention:
@@ -421,6 +454,8 @@ class Understander:
     def _follow_up(self, text, said, body_words, concepts, occasion, symptom, mention, previous, price_max):
         """Un mensaje corto que no nombra nada nuevo (o que empieza con «con», «sin», «talla», «más»…) sigue el pedido
         anterior: «talla g» tras «pañales» busca «pañales talla g»; «y en el súper?» busca lo mismo allá."""
+        if body_words[:2] == ["mejor", "no"]:  # «mejor no, algo más barato»: el «no» rechaza lo anterior
+            body_words = body_words[2:]
         if not previous or occasion or symptom or len([w for w in body_words if w not in FOLLOW_UP_FILLER]) > 4:
             return None
         previous_concepts = [c for c in previous.get("concepts") or [] if c in self.taxonomy.concepts]
@@ -431,8 +466,10 @@ class Understander:
         other = bool(set(body_words) & OTHER_WORDS)
         extra = "" if other or (mention and not rest) else " ".join(rest)  # «mejor no, algo más barato» → «mas barato»
         base = previous.get("query") or ""
-        if body_words[:1] == ["y"] and extra:  # «y de vainilla?»: otra opción, no se suma a «de chocolate»
-            base, extra = normalize(self.taxonomy.concepts[previous_concepts[0]].name), " ".join(body_words[1:])
+        order = _price_order(said.split())
+        # «y de vainilla?», «y blanco?»: otra opción, no se suma a «de chocolate». «y más barato?» o «y talla g?» sí.
+        if body_words[:1] == ["y"] and rest[:1] and rest[0] not in SIZE_OR_PRICE and not any(order.values()):
+            base = normalize(self.taxonomy.concepts[previous_concepts[0]].name)
         return Intent(
             "buscar",
             text,
@@ -443,8 +480,7 @@ class Understander:
             explicit_vertical=bool(mention),
             explicit_concepts=True,
             query=" ".join(p for p in (base, extra) if p),
-            cheapest=bool(set(said.split()) & CHEAP_WORDS),
-            priciest=bool(set(said.split()) & PRICEY_WORDS),
+            **order,
             follow_up=True,
             exclude_previous=other,
         )
@@ -488,12 +524,28 @@ def _simplify(text: str) -> str:
     return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
 
 
+def _price_order(words: list[str]) -> dict[str, bool]:
+    """«barato» o «menos caro»/«no tan caro» piden lo más barato primero; «caro», «premium» o «más cara», lo más
+    caro."""
+    cheapest = priciest = False
+    for i, word in enumerate(words):
+        before = words[max(0, i - 3) : i]
+        pricey = word in PRICEY_WORDS or (word in {"cara", "caras"} and before[-1:] == ["mas"])
+        if word in CHEAP_WORDS or (pricey and {"menos", "no", "tan"} & set(before)):
+            cheapest = True
+        elif pricey:
+            priciest = True
+    return {"cheapest": cheapest, "priciest": priciest and not cheapest}
+
+
 def _price(text: str) -> tuple[float | None, str]:
     """Tope de precio y el texto sin esa frase (con su "pesos" o "clp"). "hasta 5 kilos" o "2 litros" no son
     precios; "bajo 5" tampoco: se exige $, "mil"/"lucas"/"k" o al menos 3 dígitos. "1,5 lucas" son $1.500 y
     "$10,000" (coma de miles) $10.000; "$5,5", sin mil/lucas/k, no es precio."""
     # «entre 5 y 10 mil» es «hasta 10 mil»; «menos de mil» es «menos de 1000».
-    simple = re.sub(r"\bentre\s+\$?\s*[\d.,]+\s*(?:mil|lucas|k)?\s+y\s+(?=\$?\s*\d)", "hasta ", _simplify(text))
+    # Si no queda un precio, el texto vuelve tal cual: «entre 2 y 3 kilos» no es «hasta 3 kilos».
+    plain = _simplify(text)
+    simple = re.sub(r"\bentre\s+\$?\s*[\d.,]+\s*(?:mil|lucas|k)?\s+y\s+(?=\$?\s*\d)", "hasta ", plain)
     simple = re.sub(r"\b(menos de|bajo|hasta|maximo|no mas de)\s+(?:mil|una luca)\b", r"\1 1000", simple)
     for match in PRICE.finditer(simple):
         currency, digits, thousands = match.groups()
@@ -504,14 +556,15 @@ def _price(text: str) -> tuple[float | None, str]:
         if not (currency or thousands or value >= 100):
             continue
         return (value * 1000 if thousands else value), simple[: match.start()] + simple[match.end() :]
-    return None, simple
+    return None, plain
 
 
 def _clean(body: str) -> str:
     """Quita saludo, nombre del asistente y verbos de pedido al inicio, y la cortesía al final:
     "hola bigotes quiero sushi porfa" → "sushi"."""
     words = body.split()
-    while words and words[0] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | REQUEST_WORDS | VOICE_FILLERS:
+    # «m» (de «mmm» ya colapsado) solo al inicio: al final es una talla («pañales talla m»)
+    while words and words[0] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | REQUEST_WORDS | VOICE_FILLERS | {"m"}:
         words = words[1:]
     while words and words[-1] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | VOICE_FILLERS | {
         "porfa",
