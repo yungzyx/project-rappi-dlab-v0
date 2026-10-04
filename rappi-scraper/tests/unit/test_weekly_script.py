@@ -62,6 +62,27 @@ def test_a_skipped_run_is_not_reported_as_a_success(tmp_path):
     assert line.endswith("exit=0 (omitida: había una descarga o una actualización en curso)")
 
 
+def test_migrations_are_applied_before_downloading(tmp_path):
+    """Tras un `git pull` con una migración nueva, la descarga de un día no debe reventar al final (p. ej. sin la
+    función `clean_html` en build_search_documents) ni repetir el fallo cada domingo."""
+    project = _project(tmp_path, 'echo "$*" >> calls.txt')
+
+    result = _run(project)
+
+    assert result.returncode == 0
+    assert (project / "calls.txt").read_text().splitlines() == ["migrate", "refresh"]
+
+
+def test_a_failed_migration_stops_before_downloading(tmp_path):
+    project = _project(tmp_path, '[[ $1 == migrate ]] && exit 1; echo "$*" >> calls.txt')
+
+    result = _run(project)
+
+    assert result.returncode == 1
+    assert not (project / "calls.txt").exists()
+    assert _status_lines(project)[0].endswith("exit=1")
+
+
 def test_a_run_cut_by_a_shutdown_is_recorded_on_the_next_run(tmp_path):
     """Un apagado no deja correr el trap: la ejecución siguiente encuentra el candado huérfano y lo anota."""
     project = _project(tmp_path, "exit 0")

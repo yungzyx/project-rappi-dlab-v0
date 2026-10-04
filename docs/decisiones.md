@@ -130,6 +130,7 @@
 | 29-09-2026 | Cada ejecución semanal deja una línea en `data/logs/ultimo-estado.txt` (`exit=N`, «omitida», «interrumpida») que muestra `make schedule-status`. | Un fallo del domingo no queda escondido en el log de launchd. |
 | 29-09-2026 | Versiones de Python fijadas en `rappi-ia/requirements.lock.txt` (en `make install` y en CI) y un job semanal que instala los modelos. | Una versión nueva de torch o sentence-transformers no entra sola. |
 | 29-09-2026 | Con Postgres caído la API responde 503; el chat del prototipo espera 8 s y marca «Respuesta local» si contestan sus reglas. | En una demo se tiene que saber qué Bigotes contestó. |
+| 04-10-2026 | La tarea semanal aplica las migraciones pendientes (`rappi migrate`) antes de descargar. | Una migración que trajo un `git pull` hacía fallar el refresh al final, tras un día de descarga, y el fallo se repetía cada domingo. |
 
 ## Repositorio y documentación
 

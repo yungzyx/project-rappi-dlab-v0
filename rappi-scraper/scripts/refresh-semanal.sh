@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Tarea semanal (launchd, domingos 03:00; ver `make schedule`): descarga y capa de IA, en orden.
-#   1. rappi refresh: tiendas, restaurantes, búsqueda, reportes y respaldo.
+#   1. rappi migrate (migraciones pendientes, p. ej. tras un git pull) y rappi refresh: tiendas, restaurantes,
+#      búsqueda, reportes y respaldo.
 #   2. Si rappi-ia está instalado al lado: conceptos, embeddings, evaluación, datos simulados y purga.
 # La evaluación no guarda τ (eval/thresholds.json está en git: recalibrar es a mano, con `make eval`).
 set -euo pipefail
@@ -32,6 +33,9 @@ if pgrep -f "rappi(_scraper)? (refresh|discover|scrape-)|post-refresh|embed-imag
   nota="omitida: había una descarga o una actualización en curso"
   exit 0
 fi
+# Antes de descargar: una migración pendiente haría fallar el refresh al final (tras un día de descarga), y el
+# `migrate` de post-refresh nunca llegaría a correr.
+.venv/bin/rappi migrate
 caffeinate -i .venv/bin/rappi refresh
 if [[ -x ../rappi-ia/.venv/bin/python ]]; then
   echo "$(date '+%F %T') refresh terminado: actualizando rappi-ia"
