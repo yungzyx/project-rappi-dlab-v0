@@ -127,17 +127,18 @@ export default function AssistantPanel({ push, vertical }) {
 
   /**
    * Lo que el cerebro local sugiere por iniciativa propia («Para ti» y el complemento, marcados como sugerencia) cuenta
-   * como mostrado una vez por pestaña, por concepto y vertical: los mismos que lleva su aceptación (AddButton).
+   * como mostrado una vez por pestaña, por concepto, vertical y origen: los mismos que lleva su aceptación (AddButton).
    */
   const noteLocalSuggestions = (message) => {
     const suggested = [...(message.products ?? []), ...(message.suggestion?.products ?? [])]
     for (const product of suggested.filter((item) => item.fromSuggestion)) {
       const concept = conceptOf(product)
-      if (concept && firstShowing({ concept, vertical: product.vertical, generation: profile.resets }))
+      const origin = product.suggestionOrigin
+      if (concept && firstShowing({ concept, vertical: product.vertical, origin, generation: profile.resets }))
         events.track('suggestion_shown', {
           concept_id: concept,
           vertical: product.vertical,
-          payload: { origen: product.suggestionOrigin },
+          payload: { origen: origin },
         })
     }
     return message

@@ -13,9 +13,12 @@ import { userId } from '../state/EventsContext'
 let cachedRow = null
 const shown = new Set()
 
-/** true la primera vez que se muestra esta sugerencia en la pestaña (concepto, vertical y generación del perfil). */
+/**
+ * true la primera vez que se muestra esta sugerencia en la pestaña (concepto, vertical, origen y generación del
+ * perfil): la misma clave con que AddButton cuenta su aceptación, para que las aceptadas nunca superen a las mostradas.
+ */
 export function firstShowing(row) {
-  const key = `${row.concept}|${row.vertical}|${row.generation}`
+  const key = `${row.concept}|${row.vertical}|${row.origin}|${row.generation}`
   if (shown.has(key)) return false
   shown.add(key)
   return true

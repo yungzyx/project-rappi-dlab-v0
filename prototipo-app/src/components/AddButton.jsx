@@ -9,8 +9,9 @@ import { useNudge } from '../state/NudgeContext'
 import { pressable } from './pressable'
 import './add-button.css'
 
-// Sugerencias ya aceptadas, por carro y generación del perfil (carro|generación|concepto|vertical|origen): «Olvidar»
-// borra los eventos en el servidor, y lo que se acepte después vuelve a contar. Viven lo que la pestaña, como el carro.
+// Sugerencias ya aceptadas, por generación del perfil (generación|concepto|vertical|origen): una vez por pestaña, como
+// se cuenta la mostrada (firstShowing), así las aceptadas nunca superan a las mostradas, ni con un carro nuevo tras un
+// pedido. «Olvidar» borra los eventos en el servidor, y lo que se acepte después vuelve a contar.
 const accepted = new Set()
 
 /** Botón verde "+" de los productos. Con unidades en el carrito se abre como contador "− 2 +". */
@@ -27,11 +28,11 @@ export default function AddButton({ product, className = '' }) {
     cart.add(item)
     profile.trackTags(productTags(item), WEIGHTS.cart)
     cartEvent('cart_add', item)
-    // Aceptar una sugerencia es agregarla por primera vez en el carro: los "+" siguientes son solo cantidad, y
-    // quitarla y volver a agregarla tampoco es otra aceptación (salvo que entre medio se haya tocado «Olvidar»).
+    // Aceptar una sugerencia es agregarla por primera vez: los "+" siguientes son solo cantidad, y quitarla y volver a
+    // agregarla tampoco es otra aceptación (salvo que entre medio se haya tocado «Olvidar»).
     const origin = item.suggestionOrigin ?? 'chat'
     const concept = conceptOf(item) // los del cerebro local no traen concepto: sale de sus temas
-    const key = `${cart.id}|${profile.resets}|${concept}|${item.vertical}|${origin}`
+    const key = `${profile.resets}|${concept}|${item.vertical}|${origin}`
     if (item.fromSuggestion && !accepted.has(key)) {
       accepted.add(key)
       events.track('suggestion_accepted', {

@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
 import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
-import { CartProvider } from '../../state/CartContext'
+import { CartProvider, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { NudgeProvider } from '../../state/NudgeContext'
 import { ProfileProvider } from '../../state/ProfileContext'
@@ -37,9 +37,33 @@ function OpenButton() {
   )
 }
 
+/** Tras un pedido el carro es otro (CheckoutScreen llama a `clear`). */
+function NewCartButton() {
+  const cart = useCart()
+  return (
+    <button type="button" onClick={() => cart.clear()}>
+      carro nuevo
+    </button>
+  )
+}
+
 const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
 const pair = (fields) => `${fields.concept_id}|${fields.vertical}`
 const shownBy = (origin) => tracked('suggestion_shown').filter((fields) => fields.payload.origen === origin)
+const countByPair = (list) =>
+  list.reduce((counts, fields) => counts.set(pair(fields), (counts.get(pair(fields)) ?? 0) + 1), new Map())
+
+async function send(text) {
+  const input = screen.getByPlaceholderText('Escríbele a Bigotes…')
+  fireEvent.change(input, { target: { value: text } })
+  fireEvent.submit(input.closest('form'))
+  await runUntilIdle()
+}
+const addAll = (container) =>
+  within(container)
+    .getAllByLabelText(/^Agregar /)
+    .forEach((add) => fireEvent.click(add))
+const lastSuggestion = () => [...document.querySelectorAll('.chat-suggestion')].at(-1)
 
 beforeAll(() => {
   Element.prototype.scrollTo = () => {} // jsdom no lo implementa
@@ -56,7 +80,7 @@ afterEach(() => {
 })
 
 describe('sugerencias del cerebro local en el chat', () => {
-  test('el saludo («Para ti») y el complemento cuentan como mostrados, y lo aceptado ahí tiene su mostrada', async () => {
+  test('el saludo («Para ti») y el complemento cuentan como mostrados, y lo aceptado ahí no supera a lo mostrado', async () => {
     render(
       <DemoProvider>
         <ProfileProvider>
@@ -64,6 +88,7 @@ describe('sugerencias del cerebro local en el chat', () => {
             <CartProvider>
               <NudgeProvider>
                 <OpenButton />
+                <NewCartButton />
                 <AssistantPanel push={() => {}} />
               </NudgeProvider>
             </CartProvider>
@@ -73,23 +98,28 @@ describe('sugerencias del cerebro local en el chat', () => {
     )
     fireEvent.click(screen.getByText('abrir'))
     await runUntilIdle()
-    // El saludo trae «Para ti» del cerebro local.
-    expect(shownBy('para-ti-local').length).toBeGreaterThan(0)
+    // El saludo trae «Para ti» del cerebro local (entre otros, cerveza de Licores).
+    expect(shownBy('para-ti-local').map(pair)).toContain('cerveza|liquor')
     const [greeting] = document.querySelectorAll('.chat-products')
-    fireEvent.click(within(greeting).getAllByLabelText(/^Agregar /)[0])
+    addAll(greeting)
 
-    const input = screen.getByPlaceholderText('Escríbele a Bigotes…')
-    fireEvent.change(input, { target: { value: 'cerveza' } })
-    fireEvent.submit(input.closest('form'))
-    await runUntilIdle()
+    await send('cerveza')
     // «¿Te tinca sumar snacks?»: el complemento, de otra vertical.
     expect(shownBy('chat-local').length).toBeGreaterThan(0)
-    const suggestion = document.querySelector('.chat-suggestion')
-    fireEvent.click(within(suggestion).getAllByLabelText(/^Agregar /)[0])
+    const snacks = lastSuggestion()
+    addAll(snacks)
+    // Tras un pedido, volver a agregar la misma sugerencia no es otra aceptación: se mostró una vez.
+    fireEvent.click(screen.getByText('carro nuevo'))
+    addAll(snacks)
+    // El complemento de «pizza» es cerveza de Licores, que ya salió en el saludo pero desde otro origen.
+    await send('pizza')
+    expect(shownBy('chat-local').map(pair)).toContain('cerveza|liquor')
+    addAll(lastSuggestion())
 
     const accepted = tracked('suggestion_accepted')
-    expect(accepted.map((fields) => fields.payload.origen)).toEqual(['para-ti-local', 'chat-local'])
-    const shown = tracked('suggestion_shown').map(pair)
-    for (const fields of accepted) expect(shown).toContain(pair(fields))
+    expect(new Set(accepted.map((fields) => fields.payload.origen))).toEqual(new Set(['para-ti-local', 'chat-local']))
+    // El panel agrupa por concepto y vertical: las aceptadas de cada par no pueden superar a sus mostradas.
+    const shown = countByPair(tracked('suggestion_shown'))
+    for (const [key, count] of countByPair(accepted)) expect(count, key).toBeLessThanOrEqual(shown.get(key) ?? 0)
   })
 })

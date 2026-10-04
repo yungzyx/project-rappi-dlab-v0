@@ -34,7 +34,7 @@ export default function VerticalScreen({ back, push, params }) {
   useEffect(() => {
     for (const pair of shownPairs ? shownPairs.split(',') : []) {
       const [concept, verticalId] = pair.split('|')
-      if (firstShowing({ concept, vertical: verticalId, generation: profile.resets }))
+      if (firstShowing({ concept, vertical: verticalId, origin: 'vertical-para-ti', generation: profile.resets }))
         events.track('suggestion_shown', {
           concept_id: concept,
           vertical: verticalId,

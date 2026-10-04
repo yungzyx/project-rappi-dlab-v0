@@ -56,7 +56,7 @@ describe('AddButton', () => {
     expect(screen.getAllByLabelText('Agregar Cerveza Escudo')).toHaveLength(1)
   })
 
-  test('quitar y volver a agregar una sugerencia no es otra aceptación; en el carro siguiente sí cuenta', () => {
+  test('quitar y volver a agregar una sugerencia no es otra aceptación, ni en el carro siguiente: se mostró una vez', () => {
     const suggested = {
       id: 'cat-1',
       name: 'Papas Lays',
@@ -82,7 +82,7 @@ describe('AddButton', () => {
 
     fireEvent.click(screen.getByText('vaciar')) // tras un pedido el carro es otro
     fireEvent.click(screen.getByLabelText('Agregar Papas Lays'))
-    expect(count('suggestion_accepted')).toBe(2)
+    expect(count('suggestion_accepted')).toBe(1)
   })
 
   test('tras «Olvidar» (el servidor borra sus eventos), volver a aceptarla en el mismo carro sí cuenta', () => {

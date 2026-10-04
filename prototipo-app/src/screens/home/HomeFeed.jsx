@@ -47,7 +47,7 @@ export default function HomeFeed({ push }) {
   useEffect(() => {
     if (!remote) return
     noteShownTopic(remote.concept) // el chat no vuelve a sugerir este tema en la sesión
-    if (firstShowing(remote))
+    if (firstShowing({ ...remote, origin: 'para-ti' }))
       events.track('suggestion_shown', { concept_id: remote.concept, vertical: remote.vertical, payload: { origen: 'para-ti' } })
   }, [remote, events])
   // Sin fila de rappi-ia (sin API, nada aprendido o tras «Olvidar») queda la local, también marcada como sugerencia:
@@ -59,7 +59,7 @@ export default function HomeFeed({ push }) {
   useEffect(() => {
     for (const pair of localPairs ? localPairs.split(',') : []) {
       const [concept, vertical] = pair.split('|')
-      if (firstShowing({ concept, vertical, generation: profile.resets }))
+      if (firstShowing({ concept, vertical, origin: 'para-ti-local', generation: profile.resets }))
         events.track('suggestion_shown', { concept_id: concept, vertical, payload: { origen: 'para-ti-local' } })
     }
   }, [localPairs, profile.resets, events])
