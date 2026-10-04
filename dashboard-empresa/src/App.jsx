@@ -3,7 +3,7 @@ import { ProvenanceBadge } from './components/ProvenanceBadge.jsx'
 import { Header } from './components/shell/Header.jsx'
 import { ProvenanceBanner } from './components/shell/ProvenanceBanner.jsx'
 import { Tabs } from './components/shell/Tabs.jsx'
-import { API_URL, retryConnection } from './lib/api.js'
+import { API_URL, refreshSource, retryConnection } from './lib/api.js'
 import { useFallbacks } from './lib/useAnalytics.js'
 import { useUrlState } from './lib/useUrlState.js'
 import { CatalogView } from './views/catalog/CatalogView.jsx'
@@ -41,9 +41,19 @@ export default function App() {
     setReloadKey((key) => key + 1)
   }
 
+  // Vuelve a pedir la fuente elegida (lo nuevo del prototipo) sin recargar la página ni repetir la otra fuente.
+  const refresh = () => {
+    refreshSource(source)
+    setReloadKey((key) => key + 1)
+  }
+
   return (
     <>
-      <Header source={source} onSourceChange={(next) => setUrlState((state) => ({ ...state, source: next }))} />
+      <Header
+        source={source}
+        onSourceChange={(next) => setUrlState((state) => ({ ...state, source: next }))}
+        onRefresh={refresh}
+      />
       <ProvenanceBanner source={source} fallbacks={fallbacks} onRetry={retry} />
       <div className="tabbar" ref={tabbar}>
         <div className="container tabbar-inner">

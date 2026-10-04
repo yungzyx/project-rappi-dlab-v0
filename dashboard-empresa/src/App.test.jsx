@@ -43,6 +43,29 @@ describe('App', () => {
     expect(await screen.findByText('Sin señales suficientes')).toBeTruthy()
   })
 
+  test('«Actualizar» trae lo nuevo del prototipo sin recargar la página', async () => {
+    window.history.replaceState(null, '', '/?vista=verticales&fuente=prototipo')
+    serveFixtures()
+    await renderWithData(<App />)
+    expect(await screen.findByText('Sin sugerencias que evaluar')).toBeTruthy()
+
+    // Mientras tanto se hace la demo en el prototipo: la API ya cuenta la sugerencia mostrada.
+    const fixtures = globalThis.fetch
+    const demo = [{ concepto: '🥤 Bebidas gaseosas', vertical: 'licores', mostradas: 2, aceptadas: 1, ignoradas: 0, convertidas: 1, aceptacion_pct: null }]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) =>
+        url.includes('/analytics/suggestions')
+          ? { ok: true, status: 200, json: async () => ({ source: 'prototype', data: demo }) }
+          : fixtures(url),
+      ),
+    )
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Actualizar' })))
+
+    expect(await screen.findByText('sugerencias cruzadas mostradas')).toBeTruthy()
+    expect(screen.queryByText('Sin sugerencias que evaluar')).toBeNull()
+  })
+
   test('con la API caída usa los datos guardados y lo avisa', async () => {
     apiDown()
     await renderWithData(<App />)
