@@ -56,11 +56,12 @@ Decisiones:
 - **Filtros duros dentro de cada recuperador, antes de fusionar.** Precio máximo, tipo de ítem y vertical:
   - el precio se compara contra `price_min`, una columna indexada con el precio vigente más bajo entre las tiendas del vertical (migración 013);
   - en el vectorial, un pool de 200 candidatos con `hnsw.iterative_scan` de pgvector; si el tope de precio deja pocos documentos (hasta 5.000), se revisan todos, porque el índice filtrado podría devolver de menos.
-  - Si el filtro deja la lista vacía, Bigotes lo dice ("no hay bajo $X; el más barato cuesta $Y") y **no** registra demanda no satisfecha.
+  - Si nada de lo pedido cabe bajo el tope, no se muestra otra cosa: Bigotes lo dice ("no hay bajo $X; el más barato cuesta $Y") y **no** registra demanda no satisfecha.
 - **"Sin resultado" bien definido.** La búsqueda vectorial siempre devuelve vecinos, así que "no encontrar" necesita una regla.
   - **Primera condición, siempre:** que nada calce todas las palabras de la consulta.
   - **Si la consulta nombra un concepto:** además, que el concepto no tenga surtido real en el vertical, es decir, menos de 3 ítems o del 0,05% del vertical.
   - **Si no nombra ninguno:** además, que el coseno máximo de e5 quede bajo τ del vertical.
+  - **Qué se muestra:** ni los vecinos del coseno ni productos de otro concepto (si el concepto pedido es testimonial, sus pocos productos sí). Sin productos a la vista, Bigotes anota la demanda.
   - **Por qué no se usa solo el coseno:** en la evaluación, los cosenos de e5 se concentran en un rango estrecho (datos parciales) y separan mal; la presencia del concepto es mejor señal.
   - **Calibración:** τ se calibra por vertical con las consultas negativas del set de evaluación, pidiendo precisión ≥ 0,9. Solo cuentan las negativas que dependen de τ (sin coincidencia léxica ni concepto nombrado); un vertical sin ellas no recibe propuesta y conserva su τ (o 0,82 si nunca tuvo): pasarlo a 0,82 metía una falsa alarma en Mall. El reporte muestra el τ vigente y el propuesto, y advierte cuando un τ vigente está en el piso de la grilla (0,70): ahí la regla del coseno casi no se dispara.
   - **Resultado vigente:** precisión 1,00 y recall 0,71 (29 de 41), en [README → Resultados](../README.md#resultados). El set anterior (28-09) tenía negativas desactualizadas y se renovó el 29-09.

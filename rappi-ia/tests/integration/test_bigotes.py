@@ -6,10 +6,12 @@ from rappi_scraper.storage.search import build_search_documents
 from conftest import add_dish, add_price, add_product, add_store
 from rappi_ia.agent import verticals
 from rappi_ia.agent.bigotes import Bigotes, Context
+from rappi_ia.agent.tools import search_products
 from rappi_ia.agent.verticals import ranked_verticals
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
+from rappi_ia.retrieval import hybrid
 
 
 @pytest.fixture
@@ -73,6 +75,65 @@ def test_price_filter_and_cheapest_alternative(bigotes):
     assert [p["entity_id"] for p in cheap["products"]] == ["200"]
     none = agent.reply(db, "cerveza bajo 500", Context(vertical="licores"))
     assert none["products"] == [] and "$1.290" in none["text"] and not none["unmet"]
+
+
+def test_price_cap_never_shows_another_concept(bigotes):
+    """Con tope, lo que cabe bajo el tope era otra cosa (vasos, chocolates) y se mostraba con «Porque llevas
+    cerveza»; el «no hay bajo $X, el más barato cuesta $Y» nunca se alcanzaba."""
+    agent, db = bigotes
+    for pid, name, category, price in [
+        (210, "Vasos Plásticos Desechables 10 u", "Vajilla desechable", 250),
+        (211, "Chocolate Trencito 25 g", "Chocolates", 300),
+    ]:
+        add_product(db, pid, name, 2, category)
+        add_price(db, 2, pid, price)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    r = agent.reply(db, "cerveza bajo 500", Context(vertical="licores"))
+
+    assert r["products"] == [] and "suggestion" not in r
+    assert "No encontré" in r["text"] and "$1.290" in r["text"] and not r["unmet"]
+
+
+def test_unmet_by_cosine_shows_nothing_and_is_recorded(bigotes, monkeypatch):
+    """Sin concepto nombrado, «sin resultado» lo decide el coseno bajo τ: antes se mostraban sus vecinos igual
+    (arena para gato a quien pedía un pasaje de avión) y la demanda no se anotaba."""
+    agent, db = bigotes
+    monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
+
+    r = agent.reply(db, "pasaje de avión a punta arenas", Context(vertical="supermercado"))
+
+    assert r["intent"]["concepts"] == []
+    assert r["products"] == [] and r["unmet"] and "τ" in r["unmet_reason"]
+    assert "Lo anoté" in r["text"]
+
+
+def test_words_of_the_query_win_when_its_concept_is_a_minority(bigotes):
+    """El concepto de la consulta sale de las keywords y el del producto de su categoría: si no coinciden
+    («acondicionador» era keyword de higiene-personal y los acondicionadores están en cuidado-cabello), el foco se
+    quedaba con el jabón y descartaba lo que calza todas las palabras."""
+    agent, db = bigotes
+    for pid, name, category in [
+        (800, "Acondicionador Sedal Ceramidas 340 ml", "Acondicionador"),
+        (801, "Acondicionador Pantene Rizos Definidos 400 ml", "Acondicionador"),
+        (802, "Jabón Líquido Dove Original 250 ml", "Jabones y exfoliantes corporales"),
+    ]:
+        add_product(db, pid, name, 1, category)
+        add_price(db, 1, pid, 2990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    outcome = search_products(db, "supermercado", "acondicionador", ["higiene-personal"], agent.embedder)
+
+    assert {p.entity_id for p in outcome.products} == {"800", "801"}
+    # Con el concepto bien detectado, el foco sigue siendo el concepto (pedir cigarrillos no trae cerveza).
+    soap = search_products(db, "supermercado", "jabón", ["higiene-personal"], agent.embedder)
+    assert [p.entity_id for p in soap.products] == ["802"]
 
 
 def test_ambiguous_between_restaurant_and_store_asks(bigotes):

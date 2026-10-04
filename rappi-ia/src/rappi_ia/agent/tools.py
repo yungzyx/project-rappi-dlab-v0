@@ -99,13 +99,15 @@ def search_products(
         conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), mode=mode, concepts=concepts
     )
     concepts = result.query_concepts
-    hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts)], concepts, result.unmet)
+    capped = price_max is not None
+    hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts)], concepts, result.unmet, capped)
     products = _dedupe(_within_budget(_with_prices(conn, vertical, hits), price_max))[:k]
     cheapest = None
-    if not products and price_max is not None:
+    if not products and capped:
         unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, mode=mode, concepts=concepts)
         allowed = [h for h in unfiltered.hits if _allowed(h.concept_id, concepts)]
-        candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet))
+        # «El más barato» es de lo pedido: el mismo foco que con tope.
+        candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet, capped))
         priced = [p for p in candidates if p.price_value is not None]
         cheapest = min(priced, key=lambda p: p.price_value) if priced else None
     return SearchOutcome(result, products, cheapest)
@@ -164,18 +166,29 @@ def _dedupe(products: list[Product]) -> list[Product]:
     return unique
 
 
-def _focus(hits, concepts: list[str], unmet: bool):
+def _focus(hits, concepts: list[str], unmet: bool, capped: bool = False):
     """Si la consulta nombra conceptos, solo esos: pedir cigarrillos no debe traer cerveza.
 
-    Si ningún resultado es del concepto pedido y la búsqueda quedó "sin resultado", no se muestra nada
-    (mostrar una pizza a quien pidió kebab sería inventar una respuesta).
+    - "Sin resultado" no muestra nada, nombre o no un concepto: mostrar una pizza a quien pidió kebab, o los vecinos
+      de un coseno bajo τ, sería inventar una respuesta (y la demanda no se anotaría).
+    - Con tope de precio (`capped`), si nada del concepto pedido cabe bajo el tope tampoco se muestra otra cosa:
+      Bigotes dice cuánto cuesta lo más barato de lo pedido.
+    - El concepto de la consulta sale de las keywords y el de cada producto de su categoría, y pueden no coincidir
+      ("acondicionador" era keyword de higiene personal y devolvía jabones). Si ninguno del concepto pedido calza
+      todas las palabras de la consulta y los de otro concepto que sí calzan son más, mandan las palabras. Si alguno
+      del pedido calza, no ("té verde" no cambia por una crema de té verde); tampoco con tope: los resultados ya
+      vienen filtrados por precio y esa mayoría no dice nada de la consulta.
     """
     if not concepts:
-        return hits
+        return [] if unmet else hits
     matching = [h for h in hits if h.concept_id in concepts]
+    strict_elsewhere = [h for h in hits if h.strict and h.concept_id not in concepts]
+    words_point_elsewhere = not any(h.strict for h in matching) and len(strict_elsewhere) > len(matching)
+    if matching and not capped and words_point_elsewhere:
+        return strict_elsewhere
     if matching:
         return matching
-    return [] if unmet else hits
+    return [] if unmet or capped else hits
 
 
 def _allowed(concept_id: str | None, requested: list[str]) -> bool:
