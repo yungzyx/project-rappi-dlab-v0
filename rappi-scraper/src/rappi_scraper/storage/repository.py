@@ -20,6 +20,18 @@ def start_run(conn: Connection, kind: str, params: dict) -> int:
     return row[0]
 
 
+def set_run_param(conn: Connection, run_id: int, key: str, value) -> None:
+    conn.execute(
+        "UPDATE scrape_runs SET params = params || jsonb_build_object(%s::text, %s::jsonb) WHERE run_id = %s",
+        (key, Jsonb(value), run_id),
+    )
+    conn.commit()
+
+
+def run_params(conn: Connection, run_id: int) -> dict:
+    return conn.execute("SELECT params FROM scrape_runs WHERE run_id = %s", (run_id,)).fetchone()[0]
+
+
 def open_run(conn: Connection, kind: str) -> int | None:
     """Última corrida sin terminar de ese tipo (para reanudar)."""
     row = conn.execute(

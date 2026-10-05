@@ -214,6 +214,8 @@ def build_search_documents(conn: Connection) -> dict[str, int]:
         conn.execute("ANALYZE staged_documents")
         counts["escritos"] = conn.execute(_UPSERT).rowcount
         counts["eliminados"] = conn.execute(_DELETE_STALE).rowcount
+        # Estadísticas al día: /health de la API estima con ellas cuántos documentos hay, y el planificador también.
+        conn.execute("ANALYZE search_documents")
     return counts
 
 

@@ -163,6 +163,10 @@ def build_run_report(conn: Connection, run_id: int, alert: str | None = None) ->
         report["totals"], checks = _restaurant_section(conn, params)
     else:
         report["verticals"], report["totals"], checks = _store_section(conn, params, jobs)
+        # Un listado que falla no deja jobs fallidos: sus tiendas nunca entran a la cola (licores, 04-10).
+        failed = conn.execute("SELECT params->'listados_fallidos' FROM scrape_runs WHERE run_id = %s", (run_id,))
+        report["failed_listings"] = sorted(tuple(pair) for pair in failed.fetchone()[0] or [])
+        checks.append(_check("Listados fallidos al descubrir", len(report["failed_listings"]), 0))
     # Sobre los intentados: los omitidos (marca ya descargada, ya no existe) diluían la tasa de fallas.
     attempted = jobs.get("done", 0) + jobs.get("failed", 0)
     if jobs:
@@ -218,6 +222,12 @@ def render_markdown(report: dict) -> str:
     for c in report["checks"]:
         bound = f"≥ {c['limit']}" if c["minimum"] else f"≤ {c['limit']}"
         lines.append(f"| {c['label']} | {c['value']} | {bound} | {'ok' if c['ok'] else '⚠'} |")
+    if report.get("failed_listings"):
+        by_vertical: dict[str, list[str]] = {}
+        for city, vertical in report["failed_listings"]:
+            by_vertical.setdefault(vertical, []).append(city)
+        lines += ["", "Listados que fallaron al descubrir (sus tiendas no se descargaron):"]
+        lines += [f"- {vertical}: {', '.join(sorted(cities))}" for vertical, cities in sorted(by_vertical.items())]
     if report["top_errors"]:
         lines += ["", "Errores más frecuentes:"]
         lines += [f"- ({e['count']}) {e['error']}" for e in report["top_errors"]]

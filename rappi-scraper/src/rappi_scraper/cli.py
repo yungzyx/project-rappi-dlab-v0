@@ -25,7 +25,13 @@ from .keep_awake import keep_awake
 from .legacy.csv_format import OUTPUT_DIR as LEGACY_CSV_DIR
 from .legacy.csv_io import export_catalog_csv, import_legacy_csv
 from .lock import DownloadInProgress, download_lock
-from .pipeline.discover import VERTICAL_LISTINGS, city_locations, discover_restaurants, discover_stores
+from .pipeline.discover import (
+    VERTICAL_LISTINGS,
+    city_locations,
+    discover_restaurants,
+    discover_stores,
+    failed_listings,
+)
 from .pipeline.queue import PossibleBlock
 from .pipeline.refresh import JOB_TYPES, finish_and_report, refresh
 from .pipeline.restaurants import process_restaurant_jobs
@@ -57,25 +63,25 @@ def _run_id(conn, kind: str, args) -> int:
 
 
 def _store_discoverer(client: RappiClient, verticals: list[str], city_filter: list[str] | None = None):
-    """`run` descubre; `run.retry` vuelve a pedir solo los listados que fallaron en `run` (0 si no falló ninguno)."""
-    failed: list[tuple[str, str]] = []
-    cities: list[dict] = []
+    """`run` descubre; `run.retry` vuelve a pedir solo los listados que fallaron (anotados en la corrida, así
+    sobrevive a un corte) y devuelve cuántos grupos quedaron en la cola."""
+
+    def cities() -> list[dict]:
+        found = city_locations(client.get_json(config.STORES_METADATA_URL))
+        return [c for c in found if not city_filter or any(x.lower() in c["city"].lower() for x in city_filter)]
 
     def run(conn, run_id: int) -> int:
-        found = city_locations(client.get_json(config.STORES_METADATA_URL))
-        cities[:] = [c for c in found if not city_filter or any(x.lower() in c["city"].lower() for x in city_filter)]
-        n = discover_stores(conn, client, run_id, verticals, cities, failed=failed)
+        n = discover_stores(conn, client, run_id, verticals, cities())
         log.info("%d grupos de tiendas en la cola (corrida %d)", n, run_id)
         return n
 
     def retry(conn, run_id: int) -> int:
-        if not failed:
+        pending = failed_listings(conn, run_id)
+        if not pending:
             return 0
-        pending, still_failed = set(failed), []
         log.info("Reintentando %d listados que fallaron al descubrir", len(pending))
-        n = discover_stores(conn, client, run_id, verticals, cities, failed=still_failed, only=pending)
-        failed[:] = still_failed
-        log.info("%d grupos de tiendas nuevos en la cola (%d listados siguen fallando)", n, len(still_failed))
+        n = discover_stores(conn, client, run_id, verticals, cities(), only=pending)
+        log.info("%d grupos de tiendas en la cola (%d listados siguen fallando)", n, len(failed_listings(conn, run_id)))
         return n
 
     run.retry = retry

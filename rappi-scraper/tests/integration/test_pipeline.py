@@ -275,18 +275,20 @@ def test_a_listing_that_failed_is_reported_and_can_be_retried_alone(db, monkeypa
     city = {"city": "Viña del Mar", "lat": -33.0, "lng": -71.5}
     licores = discover.VERTICAL_LISTINGS["licores"]
     client = FakeClient(failing_once={licores})
-    failed = []
 
-    discover.discover_stores(db, client, run, ["supermercado", "licores"], [city], failed=failed)
+    discover.discover_stores(db, client, run, ["supermercado", "licores"], [city])
 
-    assert failed == [("Viña del Mar", "licores")]
+    # queda guardado en la corrida: el reintento sobrevive a un corte y el reporte de calidad lo avisa
+    failed = discover.failed_listings(db, run)
+    assert failed == {("Viña del Mar", "licores")}
     assert db.execute("SELECT vertical FROM store_verticals").fetchall() == [("supermercado",)]
     client.requested.clear()
 
-    discover.discover_stores(db, client, run, ["supermercado", "licores"], [city], only=set(failed))
+    discover.discover_stores(db, client, run, ["supermercado", "licores"], [city], only=failed)
 
     assert client.requested == [licores]  # solo el que falló
     verticals = db.execute("SELECT vertical FROM store_verticals ORDER BY 1").fetchall()
     assert verticals == [("licores",), ("supermercado",)]
     payload = db.execute("SELECT payload FROM scrape_jobs WHERE job_key = 'type:boti'").fetchone()[0]
     assert payload["verticals"] == ["supermercado", "licores"]
+    assert discover.failed_listings(db, run) == set()  # ya no falla ninguno
