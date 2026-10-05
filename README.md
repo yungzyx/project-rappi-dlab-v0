@@ -72,37 +72,37 @@ Diseño completo del RAG, el agente y el panel: [docs/diseno-ia.md](docs/diseno-
 
 ## Resultados
 
-Cifras al 30-09-2026, tras la primera descarga semanal automática, salvo donde se indica otra fecha. Cada una indica qué tipo de dato es: real, evaluación automática, estimación o simulación.
+Cifras del catálogo al 04-10-2026, tras la segunda descarga semanal automática; las demás, a la fecha que indica cada fila. Cada una indica qué tipo de dato es: real, evaluación automática, estimación o simulación.
 
 | Ámbito | Métrica | Valor | Tipo de dato | Fuente |
 |---|---|---|---|---|
-| Catálogo | Documentos de búsqueda | 270.607: 93.823 productos, 172.278 platos y 4.506 tiendas | Real (catálogo público) | Base `rappi`, 30-09-2026 |
-| Catálogo | Documentos con embedding | 100 % (`intfloat/multilingual-e5-base`, 768 dim, HNSW por vertical) | Real | Base `rappi`, 30-09-2026 |
-| Catálogo | Grupos de tiendas (uno por marca y formato) | 753 descargados · 26 fallidos · 49 omitidos (marca ya descargada) | Real | Corrida 5 (tiendas), 29-09 |
-| Catálogo | Restaurantes | 3.259 descargados · 301 fallidos · 1.295 omitidos | Real | Corrida 6 (restaurantes), 29 y 30-09 |
+| Catálogo | Documentos de búsqueda | 253.749: 84.024 productos, 165.434 platos y 4.291 tiendas (solo ofertas y platos vigentes) | Real (catálogo público) | Base `rappi`, 04-10-2026 |
+| Catálogo | Documentos con embedding | 100 % (`intfloat/multilingual-e5-base`, 768 dim, HNSW por vertical) | Real | Base `rappi`, 04-10-2026 |
+| Catálogo | Grupos de tiendas (uno por marca y formato) | 652 descargados · 36 fallidos · 36 omitidos (marca ya descargada) | Real | Corrida 7 (tiendas), 04-10 |
+| Catálogo | Restaurantes | 3.059 descargados · 487 fallidos · 1.316 omitidos | Real | Corrida 8 (restaurantes), 04-10 |
 | Capa 2 | Taxonomía | 133 conceptos · 103 complementos curados · 757 categorías con mapeo revisado (131 nuevas sin mapear, con sugerencia en `rappi-ia map-categories`) | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 30-09-2026 |
-| Capa 2 | Ítems con concepto | 97,1 % a 100 % según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 30-09-2026 |
+| Capa 2 | Ítems con concepto | 96,8 % a 100 % según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 04-10-2026 |
 | Capa 2 | Precisión de la asignación | ≈88 % por categoría · ≈81 % platos · 55 % reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
 | Búsqueda | nDCG@10 | híbrido 0,910 · sin refuerzo por concepto 0,860 · vectorial 0,846 · léxico 0,778 | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests (pytest / Vitest) | scraper 140 · rappi-ia 424 · prototipo 169 · panel 90 | Verificación local, 04-10 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) y un job semanal que instala los modelos con las versiones fijadas |
+| Calidad | Tests (pytest / Vitest) | scraper 140 · rappi-ia 579 · prototipo 170 · panel 90 | Verificación local, 04-10 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) y un job semanal que instala los modelos con las versiones fijadas |
 | Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); auditoría del 28-09 con 4 bloques de mejoras (29 y 30-09); revisión integral del 03 y 04-10 (47 hallazgos, segunda revisión y prueba en vivo de la demo sobre una copia de la base) | Proceso | — |
 | Panel | Usuarios, eventos y pedidos | 1.500 usuarios × 26 semanas (semilla 7) | **Simulado** | `rappi-ia/src/rappi_ia/events/synth.py` |
 
 ### Catálogo por vertical
 
-Documentos de búsqueda al 30-09-2026, tras la primera descarga semanal automática (corridas 5 y 6).
+Documentos de búsqueda al 04-10-2026, tras la segunda descarga semanal automática (corridas 7 y 8).
 
 | Vertical | Tiendas | Productos | Con concepto |
 |---|---:|---:|---:|
-| Supermercado | 367 | 32.730 | 99,1 % |
-| Conveniencia | 59 | 9.240 | 99,8 % |
-| Turbo | 16 | 2.562 | 100 % |
-| Rappi Mall | 384 | 36.089 | 98,1 % |
-| Farmacia | 20 | 6.323 | 97,1 % |
-| Licores | 84 | 5.734 | 100 % |
-| Chocolatería | 27 | 1.145 | 100 % |
-| Restaurantes | 3.549 | 172.278 platos | 97,9 % |
+| Supermercado | 320 | 29.403 | 99,1 % |
+| Conveniencia | 38 | 7.848 | 99,8 % |
+| Turbo | 18 | 2.642 | 100 % |
+| Rappi Mall | 359 | 32.761 | 98,2 % |
+| Farmacia | 16 | 4.726 | 96,8 % |
+| Licores | 79 | 5.519 | 100 % |
+| Chocolatería | 24 | 1.125 | 100 % |
+| Restaurantes | 3.437 | 165.434 platos | 98,2 % |
 
 - «Tiendas» cuenta las tiendas del vertical en la búsqueda; de cada marca y formato se descarga una sucursal. Una misma tienda puede figurar en más de un vertical.
 - **Turbo quedó con los precios del 27-09:** en la descarga semanal, los listados públicos que recorre el scraper ya no traen sus tiendas como Turbo, así que no se descargaron (ver [Límites](#límites)).
@@ -130,6 +130,7 @@ P@10: proporción de resultados relevantes entre los 10 primeros. MRR: qué tan 
   - Las 12 no detectadas tienen tres causas, que el reporte explica una por una: 5 nombran un concepto que el vertical sí tiene (un iPhone en supermercado, que vende celulares), 4 calzan por casualidad con la regla léxica estricta («pizza familiar» → un horno para pizza en Rappi Mall) y 3 quedan sobre τ por coseno. Es un límite real de la regla.
   - τ por vertical: farmacia, Turbo, conveniencia y licores tienen τ calibrado; chocolatería y restaurantes no tienen negativas que dependan de τ y conservan el suyo; Rappi Mall conserva 0,70 y el reporte del 30-09 propone 0,82, pendiente de revisar. El 0,70 de chocolatería y Mall es el piso de la grilla, no una calibración: con él la regla del coseno casi no se dispara, y el reporte lo advierte.
   - Esas cifras son de la búsqueda (`retrieve`). Desde el 03-10 el reporte también mide lo que ve el usuario: la fila «híbrido mostrado» y el «sin resultado» que registra Bigotes (marcado, sin productos a la vista y sin síntomas). Hasta entonces, una consulta marcada por coseno bajo τ igual mostraba productos y la demanda no se anotaba.
+- **Reevaluación del 04-10** (catálogo de la segunda descarga semanal, [reporte](docs/resultados/busqueda-2026-10-04.md)): híbrido 0,917; lo que ve el usuario («híbrido mostrado») 0,928; sin refuerzo 0,858; vectorial 0,847; léxico 0,775. «Sin resultado» igual: 29 de 41 sin falsas alarmas; lo que registra Bigotes (marcado y sin productos a la vista), 22 de 41.
 - **Antes (28-09, set anterior sin farmacia ni Turbo):** híbrido 0,889; «sin resultado» con recall 0,33 (5 de 15). Tres de esas negativas estaban desactualizadas («kebab mixto» y «comida mexicana con tacos» sí existen en restaurantes).
 - **Antes (27-09, datos parciales):** híbrido 0,898; «sin resultado» con precisión 0,91 y recall 0,67. No es comparable directamente: cambió el catálogo.
 
@@ -232,7 +233,8 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 ## Límites
 
 - **Cobertura parcial en tiendas:** hasta 24 productos por sub-pasillo en la página pública, y una sucursal por marca o formato. Sirve para saber qué hay, no para comparar todas las sucursales.
-- **Fallidos:** en la descarga del 29 y 30-09 quedaron 26 grupos de tiendas («ninguna sucursal disponible») y 301 restaurantes («ninguna sucursal con menú») sin descargar.
+- **Fallidos:** en la descarga del 04-10 quedaron 36 grupos de tiendas («ninguna sucursal disponible») y 487 restaurantes («ninguna sucursal con menú», 13,7 %: sobre el 10 % que el reporte de calidad acepta) sin descargar.
+- **Licores fuera de Santiago:** el 04-10 el listado de licores falló en las otras 13 ciudades (la página vino sin el bloque de tiendas); se descargaron 4 grupos de licores y el resto conserva los precios del 29-09.
 - **Turbo sin actualizar:** sus tiendas ya no aparecen como Turbo en los listados públicos que recorre el scraper; sus precios son del 27-09 hasta revisar dónde las lista hoy Rappi.
 - **Evaluación automática:** no hay juicio humano, y el refuerzo por concepto favorece al híbrido (sin él, empata con el vectorial).
 - **«Sin resultado»:** detecta 29 de 41 negativas. Las que no, las explica el reporte: el vertical tiene el concepto nombrado, hay coincidencias casuales con la regla léxica estricta o el coseno queda sobre τ.
