@@ -270,6 +270,9 @@ SYMPTOMS = [
     "remedio",
     "acidez",
     "garganta",
+    "estrenido",
+    "estrenida",
+    "estrenimiento",
 ]
 
 # Un concepto en restaurantes y en otra tienda es ambiguo si, entre las dos verticales que compiten, la de menor

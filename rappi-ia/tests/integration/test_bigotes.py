@@ -1254,7 +1254,7 @@ def test_a_concept_this_vertical_barely_has_goes_where_it_is(bigotes, monkeypatc
 def test_a_remedy_for_a_symptom_searches_the_symptom_not_the_word_remedy(remedies_bigotes):
     """«remedio para la tos» traía remedios para el estómago: calzaban con la palabra «remedio»."""
     agent, db = remedies_bigotes
-    add_product(db, 806, "Remedio natural para el estómago 20 comprimidos", 11, "Analgésicos tópicos")
+    add_product(db, 806, "Remedio natural para el estómago 20 comprimidos", 11, "Antiácidos")
     add_price(db, 11, 806, 2990)
     db.commit()
     build_search_documents(db)
@@ -1325,3 +1325,21 @@ def test_free_from_shows_only_what_says_so_even_when_cheap(ice_creams):
     embed_search_documents(db, agent.embedder)
     r = agent.reply(db, "helado barato sin azúcar", Context(vertical="supermercado"))
     assert r["products"] and all("sin azúcar" in p["name"] for p in r["products"])
+
+
+def test_a_remedy_treats_the_symptom_not_just_mentions_it(remedies_bigotes):
+    """Con el catálogo del 04-10, «tengo fiebre» mostraba laxantes y antiácidos: su prospecto nombra la fiebre en las
+    advertencias. Y el paracetamol, que no la nombra, no aparecía."""
+    agent, db = remedies_bigotes
+    add_product(
+        db, 807, "Ciruelax laxante 75 mg. Advertencias: consulte a su médico si presenta fiebre", 11, "Laxantes"
+    )
+    add_product(db, 808, "Kitadol 500 mg 24 comprimidos", 11, "Analgésicos sistémicos")
+    for pid in (807, 808):
+        add_price(db, 11, pid, 2990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+    shown = {p["entity_id"] for p in agent.reply(db, "tengo fiebre", Context())["products"]}
+    assert "807" not in shown and {"800", "801", "808"} <= shown

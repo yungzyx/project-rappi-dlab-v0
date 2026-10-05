@@ -3,6 +3,7 @@
 Todo producto que Bigotes muestra pasa por aquí: sale de la base, con su precio vigente, nunca inventado.
 """
 
+import re
 from dataclasses import dataclass, field
 
 from psycopg import Connection
@@ -11,6 +12,7 @@ from rappi_scraper.storage.search import MIN_PRICE
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
 from ..retrieval.hybrid import Filters, RetrievalResult, _concepts_of, _hydrate, retrieve
+from ..text import FILLER_WORDS, normalize, tokens
 from .verticals import ranked_verticals
 
 
@@ -117,19 +119,55 @@ def search_products(
     return SearchOutcome(result, products, cheapest)
 
 
+CANDIDATE_REMEDIES = 30  # se filtran después: muchos calzan solo por las advertencias del prospecto
 MIN_REMEDIES = 2  # con menos, lo que calza el síntoma suele ser casualidad (un laxante para «me siento mal»)
+
+
+# La familia de remedios que trata cada síntoma: el paracetamol no dice «fiebre» en su ficha. Normalizado.
+SYMPTOM_REMEDIES = {
+    **dict.fromkeys(("fiebre", "cabeza", "dolor", "duele", "migrana"), "analgésico paracetamol ibuprofeno"),
+    **dict.fromkeys(("resfrio", "resfriado", "gripe"), "antigripal resfrío"),
+    **dict.fromkeys(("tos", "garganta"), "antitusivo jarabe expectorante"),
+    **dict.fromkeys(("acidez", "guata"), "antiácido"),
+    **dict.fromkeys(("diarrea",), "antidiarreico"),
+    **dict.fromkeys(("estrenido", "estrenida", "estrenimiento"), "laxante"),
+    **dict.fromkeys(("alergia",), "antialérgico antihistamínico"),
+    **dict.fromkeys(("nauseas",), "antináuseas"),
+}
+# Desde aquí el prospecto ya no dice para qué sirve: «consulte si presenta fiebre» no vuelve antipirético a un laxante.
+_LEAFLET_WARNINGS = re.compile(
+    r"\b(?:advertencias?|contraindicaciones|precauciones|efectos (?:adversos|secundarios)|reacciones adversas"
+    r"|sobredosis|interacciones|como debo usar|posologia)\b"
+)
+
+
+def _treats(content: str, words: set[str]) -> bool:
+    """El nombre, la categoría o la indicación (lo que va antes de las advertencias) dice alguna de esas palabras."""
+    said = normalize(content)
+    head = said[: m.start()] if (m := _LEAFLET_WARNINGS.search(said)) else said
+    return any(token[:7] in words for token in head.split())
 
 
 def search_remedies(
     conn: Connection, query: str, embedder: TextEmbedder | None, price_max: float | None = None, k: int = 6
 ) -> SearchOutcome:
-    """Remedios de farmacia para un síntoma: medicamentos sin receta cuyo texto nombra lo que se dijo (búsqueda por
-    palabras, no solo cercanía vectorial). Con menos de MIN_REMEDIES no devuelve ninguno."""
-    result = retrieve(conn, "farmacia", query, embedder, k=k * 2, filters=Filters(price_max), concepts=["medicamentos"])
+    """Remedios de farmacia para un síntoma: medicamentos sin receta cuya ficha (sin las advertencias) nombra el
+    síntoma o la familia que lo trata (búsqueda por palabras, no solo cercanía vectorial). Con menos de MIN_REMEDIES
+    no devuelve ninguno."""
+    families = " ".join(dict.fromkeys(SYMPTOM_REMEDIES[w] for w in tokens(query) if w in SYMPTOM_REMEDIES))
+    query = f"{query} {families}".strip()
+    skip = FILLER_WORDS | {"tengo", "para", "algo"}
+    words = {w[:7] for w in tokens(query) if len(w) >= 3 and w not in skip}
+    result = retrieve(
+        conn, "farmacia", query, embedder, k=CANDIDATE_REMEDIES, filters=Filters(price_max), concepts=["medicamentos"]
+    )
     hits = [
         h
         for h in result.hits
-        if h.concept_id == "medicamentos" and not h.metadata.get("receta") and "lexico" in h.ranks
+        if h.concept_id == "medicamentos"
+        and not h.metadata.get("receta")
+        and "lexico" in h.ranks
+        and _treats(h.content, words)
     ]
     products = _dedupe(_within_budget(_with_prices(conn, "farmacia", hits), price_max))[:k]
     return SearchOutcome(result, products if len(products) >= MIN_REMEDIES else [])
