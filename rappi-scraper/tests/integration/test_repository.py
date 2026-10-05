@@ -556,3 +556,21 @@ def test_filler_menu_prices_are_unknown_in_search(db):
         "SELECT entity_id, metadata ? 'precio', price_min FROM search_documents WHERE entity_type = 'menu_item'"
     ).fetchall()
     assert sorted(rows) == [("1", False, None), ("2", False, None), ("3", True, 2500)]
+
+
+def test_building_search_refreshes_the_table_statistics(db, page):
+    """/health de la API estima los documentos con las estadísticas de Postgres: tras rearmar la búsqueda decía
+    292.690 con 253.749 reales, hasta el siguiente autovacuum."""
+    _store(db, 1, "lider", "supermercado")
+    run = repository.start_run(db, "stores", {})
+    repository.save_products(db, run, 1, [_product("a", 100, "Pañales Babysec Premium G", 9990)])
+    repository.save_restaurant(db, run, parse_restaurant(page("restaurant")))
+    db.commit()
+    counts = build_search_documents(db)
+    db.commit()
+    total = db.execute("SELECT count(*) FROM search_documents").fetchone()[0]
+    estimate = db.execute(
+        """SELECT coalesce(sum(greatest(c.reltuples, 0)), 0)::bigint FROM pg_inherits i
+           JOIN pg_class c ON c.oid = i.inhrelid WHERE i.inhparent = 'search_documents'::regclass"""
+    ).fetchone()[0]
+    assert total == sum(counts[k] for k in ("catalog_item", "menu_item", "store")) and estimate == total

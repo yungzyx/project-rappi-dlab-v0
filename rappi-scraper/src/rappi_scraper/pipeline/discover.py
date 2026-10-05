@@ -37,6 +37,9 @@ PARTNER_SITEMAP = SITEMAP_BASE + "sitemap-restaurant-partner-cl-0.xml.gz"
 _RESTAURANT_ID_RE = re.compile(r"/restaurantes/(\d+)")
 
 
+FAILED_LISTINGS = "listados_fallidos"  # clave en scrape_runs.params
+
+
 def canonical_vertical(listing_vertical: str, store: dict) -> str:
     """Turbo es un vertical propio aunque Rappi lo muestre dentro de otros listados."""
     if store.get("subvertical") == "Turbo" or store.get("store_type", "").startswith("turbo"):
@@ -68,7 +71,6 @@ def discover_stores(
     run_id: int,
     verticals: list[str],
     cities: list[dict],
-    failed: list[tuple[str, str]] | None = None,
     only: set[tuple[str, str]] | None = None,
 ) -> int:
     """Recorre los listados de cada vertical en cada ciudad y crea un job por formato de tienda.
@@ -76,9 +78,11 @@ def discover_stores(
     Parte de los jobs pendientes de la corrida, así redescubrir algunas ciudades suma
     candidatas y verticales en vez de reemplazar lo ya descubierto.
 
-    En `failed` deja los listados que fallaron, como (ciudad, vertical); con `only` pide solo esos. A las 03:00 las
-    botillerías están cerradas y su listado llega sin tiendas: se reintenta al terminar la descarga de tiendas.
+    Los listados que fallan quedan anotados en la corrida (`failed_listings`), como (ciudad, vertical); con `only`
+    se piden solo esos. A las 03:00 las botillerías están cerradas y su listado llega sin tiendas: se reintenta al
+    terminar la descarga de tiendas, y el reporte de calidad avisa de los que sigan fallando.
     """
+    failed: list[list[str]] = []
     groups = repository.pending_payloads(conn, run_id, "store_group")
     for city in cities:
         wanted = [v for v in verticals if only is None or (city["city"], v) in only]
@@ -90,8 +94,7 @@ def discover_stores(
                 listing = parse_vertical_listing(client.get_next_data(VERTICAL_LISTINGS[vertical]))
             except (*PAGE_ERRORS, StoreUnavailable) as exc:
                 log.warning("Listado %s en %s falló: %s", vertical, city["city"], exc)
-                if failed is not None:
-                    failed.append((city["city"], vertical))
+                failed.append([city["city"], vertical])
                 continue
             log.info("%-22s %-13s %3d tiendas", city["city"], vertical, len(listing))
             for store in listing:
@@ -117,7 +120,13 @@ def discover_stores(
             run_id,
             [{"job_key": key, "job_type": "store_group", "payload": payload} for key, payload in groups.items()],
         )
+    repository.set_run_param(conn, run_id, FAILED_LISTINGS, failed)
     return len(groups)
+
+
+def failed_listings(conn: Connection, run_id: int) -> set[tuple[str, str]]:
+    """(ciudad, vertical) de los listados que fallaron la última vez que se descubrió en esa corrida."""
+    return {(city, vertical) for city, vertical in repository.run_params(conn, run_id).get(FAILED_LISTINGS, [])}
 
 
 def _add_candidate(groups: dict, store: dict, vertical: str, city: dict) -> None:

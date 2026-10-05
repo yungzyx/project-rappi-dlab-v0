@@ -7,7 +7,7 @@ import pytest
 from conftest import FakeClient, load_page
 from rappi_scraper.pipeline.queue import PossibleBlock, process_with_retry
 from rappi_scraper.pipeline.stores import process_store_jobs
-from rappi_scraper.reporting import build_run_report, write_run_report
+from rappi_scraper.reporting import build_run_report, render_markdown, write_run_report
 from rappi_scraper.scraping.restaurant_parser import parse_restaurant
 from rappi_scraper.storage import repository
 
@@ -244,3 +244,16 @@ def test_restaurant_report_and_written_files(db, tmp_path):
     assert "✓ Todas las validaciones" in path.read_text(encoding="utf-8")
     stored = db.execute("SELECT report->>'kind' FROM scrape_runs WHERE run_id = %s", (run,)).fetchone()[0]
     assert stored == "restaurants"
+
+
+def test_store_report_warns_about_listings_that_failed_at_discovery(db):
+    """El 04-10 el listado de licores falló en 13 de 14 ciudades y el reporte decía «ok»: no había jobs fallidos,
+    simplemente nunca se crearon."""
+    run = repository.start_run(db, "stores", {})
+    repository.set_run_param(db, run, "listados_fallidos", [["Viña del Mar", "licores"], ["Temuco", "licores"]])
+
+    report = build_run_report(db, run)
+
+    check = next(c for c in report["checks"] if c["label"] == "Listados fallidos al descubrir")
+    assert check["value"] == 2 and not check["ok"]
+    assert "licores: Temuco, Viña del Mar" in render_markdown(report)
