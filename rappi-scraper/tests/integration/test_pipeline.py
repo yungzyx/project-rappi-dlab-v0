@@ -261,3 +261,32 @@ def test_pending_jobs_filter_by_vertical(db, vertical):
     keys = [j["job_key"] for j in repository.pending_jobs(db, run, "store_group", vertical)]
 
     assert keys == (["type:a", "type:b"] if vertical == "mall" else ["type:b"])
+
+
+def test_a_listing_that_failed_is_reported_and_can_be_retried_alone(db, monkeypatch):
+    """A las 03:00 las botillerías están cerradas y el listado de licores llega sin tiendas (13 ciudades el 04-10):
+    el descubrimiento anota qué listados fallaron para volver a pedirlos, y solo esos, más tarde."""
+    store = {
+        "store_id": 900030001, "name": "Botillería", "store_type": "boti", "subvertical": "",
+        "landing_classification": "", "path": "/tiendas/900030001-boti", "filters": [],
+    }  # fmt: skip
+    monkeypatch.setattr(discover, "parse_vertical_listing", lambda data: [store])
+    run = repository.start_run(db, "stores", {})
+    city = {"city": "Viña del Mar", "lat": -33.0, "lng": -71.5}
+    licores = discover.VERTICAL_LISTINGS["licores"]
+    client = FakeClient(failing_once={licores})
+    failed = []
+
+    discover.discover_stores(db, client, run, ["supermercado", "licores"], [city], failed=failed)
+
+    assert failed == [("Viña del Mar", "licores")]
+    assert db.execute("SELECT vertical FROM store_verticals").fetchall() == [("supermercado",)]
+    client.requested.clear()
+
+    discover.discover_stores(db, client, run, ["supermercado", "licores"], [city], only=set(failed))
+
+    assert client.requested == [licores]  # solo el que falló
+    verticals = db.execute("SELECT vertical FROM store_verticals ORDER BY 1").fetchall()
+    assert verticals == [("licores",), ("supermercado",)]
+    payload = db.execute("SELECT payload FROM scrape_jobs WHERE job_key = 'type:boti'").fetchone()[0]
+    assert payload["verticals"] == ["supermercado", "licores"]

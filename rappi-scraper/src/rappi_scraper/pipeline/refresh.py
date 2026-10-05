@@ -65,6 +65,7 @@ def refresh(
     backup: Callable[[], Path] | None = None,
     reports_dir: Path = REPORTS_DIR,
     resume_only: bool = False,
+    retry_stores: Discoverer | None = None,
 ) -> tuple[list[dict], bool]:
     """Corre la actualización completa y devuelve los reportes (tiendas, restaurantes) y si falló el respaldo.
 
@@ -79,6 +80,10 @@ def refresh(
     ):
         run_id = ensure_run(conn, "stores", discover_stores)
         _scrape(conn, run_id, "stores", lambda: process_store_jobs(conn, client, run_id), reports_dir)
+        # Los listados que fallaron al descubrir (botillerías cerradas a las 03:00) se piden de nuevo ahora, horas
+        # después, y lo que aparezca se baja en la misma corrida.
+        if retry_stores is not None and retry_stores(conn, run_id):
+            _scrape(conn, run_id, "stores", lambda: process_store_jobs(conn, client, run_id), reports_dir)
         reports.append(finish_and_report(conn, run_id, "stores", reports_dir)[0])
 
     if not resume_only or repository.open_run(conn, "restaurants") is not None:
