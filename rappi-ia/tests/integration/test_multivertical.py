@@ -144,3 +144,14 @@ def test_typical_vertical_is_the_first_ranked_one(db):
     for concept in {c for (c,) in db.execute("SELECT DISTINCT concept_id FROM concept_assortment WHERE items > 0")}:
         ranked = verticals.ranked_verticals(db, [concept])
         assert homes.get(concept) == (ranked[0] if ranked else None), concept
+
+
+def test_the_page_says_the_date_of_the_last_finished_download(db):
+    """La fecha estaba escrita a mano en la plantilla: el mapa regenerado con el catálogo del 04-10 decía 30-09."""
+    _catalog(db)
+    db.execute(
+        "INSERT INTO scrape_runs (kind, status, finished_at) VALUES ('stores', 'done', '2026-10-04 22:22-03'),"
+        " ('restaurants', 'running', NULL)"
+    )
+    page = multivertical.render(multivertical.collect(db))
+    assert "04-10-2026." in page and "30-09-2026" not in page

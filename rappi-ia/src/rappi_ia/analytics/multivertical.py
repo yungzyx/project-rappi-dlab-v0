@@ -45,6 +45,10 @@ def collect(conn: Connection) -> dict:
     # Con todas las tiendas, como «Calidad del catálogo» en el panel.
     products = dict(conn.execute("SELECT vertical, count(*) FROM v_item_verticals GROUP BY 1").fetchall())
     products["restaurantes"] = conn.execute("SELECT count(*) FROM menu_items").fetchone()[0]
+    as_of = conn.execute(
+        "SELECT to_char(max(finished_at) AT TIME ZONE 'America/Santiago', 'DD-MM-YYYY') FROM scrape_runs"
+        " WHERE status = 'done'"
+    ).fetchone()[0]
     shared = conn.execute(
         f"""WITH pv AS ({_PRODUCT_VERTICALS})
             SELECT a.vertical, b.vertical, count(*) FROM pv a JOIN pv b USING (master_product_id)
@@ -110,6 +114,7 @@ def collect(conn: Connection) -> dict:
     ).fetchall()
     in_order = lambda verticals: sorted(verticals, key=ORDER.index)  # noqa: E731
     return {
+        "as_of": as_of,
         "order": ORDER,
         "labels": LABELS,
         "minItems": MIN_ITEMS,
@@ -138,7 +143,8 @@ def collect(conn: Connection) -> dict:
 def render(data: dict) -> str:
     # «</» escapado: un nombre del catálogo con «</script>» no puede cerrar el script (JSON lo lee igual).
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    return TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", payload)
+    page = TEMPLATE.read_text(encoding="utf-8").replace("__FECHA__", data.get("as_of") or "sin fecha de descarga")
+    return page.replace("/*__DATA__*/null", payload)
 
 
 def write(conn: Connection, path: Path = OUTPUT) -> dict:
