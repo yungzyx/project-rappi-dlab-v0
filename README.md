@@ -76,16 +76,16 @@ Cifras del catálogo al 04-10-2026, tras la segunda descarga semanal automática
 
 | Ámbito | Métrica | Valor | Tipo de dato | Fuente |
 |---|---|---|---|---|
-| Catálogo | Documentos de búsqueda | 253.749: 84.024 productos, 165.434 platos y 4.291 tiendas (solo ofertas y platos vigentes) | Real (catálogo público) | Base `rappi`, 04-10-2026 |
+| Catálogo | Documentos de búsqueda | 253.945: 84.024 productos, 165.623 platos y 4.298 tiendas (solo ofertas y platos vigentes) | Real (catálogo público) | Base `rappi`, 05-10-2026 |
 | Catálogo | Documentos con embedding | 100 % (`intfloat/multilingual-e5-base`, 768 dim, HNSW por vertical) | Real | Base `rappi`, 04-10-2026 |
 | Catálogo | Grupos de tiendas (uno por marca y formato) | 652 descargados · 36 fallidos · 36 omitidos (marca ya descargada) | Real | Corrida 7 (tiendas), 04-10 |
-| Catálogo | Restaurantes | 3.059 descargados · 487 fallidos · 1.316 omitidos | Real | Corrida 8 (restaurantes), 04-10 |
+| Catálogo | Restaurantes | 3.236 descargados · 307 fallidos · 1.319 omitidos | Real | Corrida 8 (restaurantes), 04-10, con los fallidos reintentados el 05-10 a mediodía |
 | Capa 2 | Taxonomía | 133 conceptos · 103 complementos curados · 818 categorías con mapeo revisado (71 nuevas sin mapear, con sugerencia en `rappi-ia map-categories`) | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 30-09-2026 |
-| Capa 2 | Ítems con concepto | 96,8 % a 100 % según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 04-10-2026 |
+| Capa 2 | Ítems con concepto | 98,2 % a 100 % según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 05-10-2026 |
 | Capa 2 | Precisión de la asignación | ≈88 % por categoría · ≈81 % platos · 55 % reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
 | Búsqueda | nDCG@10 | híbrido 0,910 · sin refuerzo por concepto 0,860 · vectorial 0,846 · léxico 0,778 | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests (pytest / Vitest) | scraper 140 · rappi-ia 579 · prototipo 170 · panel 90 | Verificación local, 04-10 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) y un job semanal que instala los modelos con las versiones fijadas |
+| Calidad | Tests (pytest / Vitest) | scraper 144 · rappi-ia 588 · prototipo 170 · panel 90 | Verificación local, 05-10 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) y un job semanal que instala los modelos con las versiones fijadas |
 | Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); auditoría del 28-09 con 4 bloques de mejoras (29 y 30-09); revisión integral del 03 y 04-10 (47 hallazgos, segunda revisión y prueba en vivo de la demo sobre una copia de la base) | Proceso | — |
 | Panel | Usuarios, eventos y pedidos | 1.500 usuarios × 26 semanas (semilla 7) | **Simulado** | `rappi-ia/src/rappi_ia/events/synth.py` |
 
@@ -95,14 +95,14 @@ Documentos de búsqueda al 04-10-2026, tras la segunda descarga semanal automát
 
 | Vertical | Tiendas | Productos | Con concepto |
 |---|---:|---:|---:|
-| Supermercado | 320 | 29.403 | 99,1 % |
-| Conveniencia | 38 | 7.848 | 99,8 % |
+| Supermercado | 320 | 29.403 | 99,9 % |
+| Conveniencia | 38 | 7.848 | 100 % |
 | Turbo | 18 | 2.642 | 100 % |
-| Rappi Mall | 359 | 32.761 | 98,2 % |
-| Farmacia | 16 | 4.726 | 96,8 % |
+| Rappi Mall | 359 | 32.761 | 99,7 % |
+| Farmacia | 16 | 4.726 | 99,8 % |
 | Licores | 79 | 5.519 | 100 % |
 | Chocolatería | 24 | 1.125 | 100 % |
-| Restaurantes | 3.437 | 165.434 platos | 98,2 % |
+| Restaurantes | 3.444 | 165.623 platos | 98,2 % |
 
 - «Tiendas» cuenta las tiendas del vertical en la búsqueda; de cada marca y formato se descarga una sucursal. Una misma tienda puede figurar en más de un vertical.
 - **Turbo quedó con los precios del 27-09:** en la descarga semanal, los listados públicos que recorre el scraper ya no traen sus tiendas como Turbo, así que no se descargaron (ver [Límites](#límites)).
@@ -233,7 +233,7 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 ## Límites
 
 - **Cobertura parcial en tiendas:** hasta 24 productos por sub-pasillo en la página pública, y una sucursal por marca o formato. Sirve para saber qué hay, no para comparar todas las sucursales.
-- **Fallidos:** en la descarga del 04-10 quedaron 36 grupos de tiendas («ninguna sucursal disponible») y 487 restaurantes («ninguna sucursal con menú», 13,7 %: sobre el 10 % que el reporte de calidad acepta) sin descargar.
+- **Fallidos:** en la descarga del 04-10 quedaron 36 grupos de tiendas («ninguna sucursal disponible») y 487 restaurantes («ninguna sucursal con menú», 13,7 %). Casi todos fallaron entre las 21:00 y las 22:22 del domingo, con los locales cerrando: un reintento el lunes a mediodía (`rappi retry-failed` y `refresh --resume-only`) recuperó 180 y dejó 307 (8,7 %, bajo el 10 % que acepta el reporte de calidad).
 - **Licores fuera de Santiago:** el 04-10 el listado de licores falló en las otras 13 ciudades: la descarga parte a las 03:00, con las botillerías cerradas, y la página llega sin tiendas. Se descargaron 4 grupos de licores y el resto conserva los precios del 29-09. Desde el 05-10 la actualización vuelve a pedir, al terminar las tiendas, los listados que fallaron.
 - **Turbo sin actualizar:** sus tiendas ya no aparecen como Turbo en los listados públicos que recorre el scraper; sus precios son del 27-09 hasta revisar dónde las lista hoy Rappi.
 - **Evaluación automática:** no hay juicio humano, y el refuerzo por concepto favorece al híbrido (sin él, empata con el vectorial).
