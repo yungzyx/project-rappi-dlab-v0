@@ -57,13 +57,28 @@ def _run_id(conn, kind: str, args) -> int:
 
 
 def _store_discoverer(client: RappiClient, verticals: list[str], city_filter: list[str] | None = None):
+    """`run` descubre; `run.retry` vuelve a pedir solo los listados que fallaron en `run` (0 si no falló ninguno)."""
+    failed: list[tuple[str, str]] = []
+    cities: list[dict] = []
+
     def run(conn, run_id: int) -> int:
-        cities = city_locations(client.get_json(config.STORES_METADATA_URL))
-        cities = [c for c in cities if not city_filter or any(x.lower() in c["city"].lower() for x in city_filter)]
-        n = discover_stores(conn, client, run_id, verticals, cities)
+        found = city_locations(client.get_json(config.STORES_METADATA_URL))
+        cities[:] = [c for c in found if not city_filter or any(x.lower() in c["city"].lower() for x in city_filter)]
+        n = discover_stores(conn, client, run_id, verticals, cities, failed=failed)
         log.info("%d grupos de tiendas en la cola (corrida %d)", n, run_id)
         return n
 
+    def retry(conn, run_id: int) -> int:
+        if not failed:
+            return 0
+        pending, still_failed = set(failed), []
+        log.info("Reintentando %d listados que fallaron al descubrir", len(pending))
+        n = discover_stores(conn, client, run_id, verticals, cities, failed=still_failed, only=pending)
+        failed[:] = still_failed
+        log.info("%d grupos de tiendas nuevos en la cola (%d listados siguen fallando)", n, len(still_failed))
+        return n
+
+    run.retry = retry
     return run
 
 
@@ -105,12 +120,14 @@ def _scrape_or_stop(conn, run_id: int, kind: str, process) -> None:
 
 def cmd_refresh(conn, args) -> None:
     client = RappiClient()
+    discover = _store_discoverer(client, list(VERTICAL_LISTINGS))
     try:
         reports, backup_failed = refresh(
             conn,
             client,
-            _store_discoverer(client, list(VERTICAL_LISTINGS)),
+            discover,
             _restaurant_discoverer(client),
+            retry_stores=discover.retry,
             backup=None if args.no_backup else lambda: backup_database(database_url()),
             resume_only=args.resume_only,
         )

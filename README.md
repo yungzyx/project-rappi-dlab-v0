@@ -234,7 +234,7 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 
 - **Cobertura parcial en tiendas:** hasta 24 productos por sub-pasillo en la página pública, y una sucursal por marca o formato. Sirve para saber qué hay, no para comparar todas las sucursales.
 - **Fallidos:** en la descarga del 04-10 quedaron 36 grupos de tiendas («ninguna sucursal disponible») y 487 restaurantes («ninguna sucursal con menú», 13,7 %: sobre el 10 % que el reporte de calidad acepta) sin descargar.
-- **Licores fuera de Santiago:** el 04-10 el listado de licores falló en las otras 13 ciudades (la página vino sin el bloque de tiendas); se descargaron 4 grupos de licores y el resto conserva los precios del 29-09.
+- **Licores fuera de Santiago:** el 04-10 el listado de licores falló en las otras 13 ciudades: la descarga parte a las 03:00, con las botillerías cerradas, y la página llega sin tiendas. Se descargaron 4 grupos de licores y el resto conserva los precios del 29-09. Desde el 05-10 la actualización vuelve a pedir, al terminar las tiendas, los listados que fallaron.
 - **Turbo sin actualizar:** sus tiendas ya no aparecen como Turbo en los listados públicos que recorre el scraper; sus precios son del 27-09 hasta revisar dónde las lista hoy Rappi.
 - **Evaluación automática:** no hay juicio humano, y el refuerzo por concepto favorece al híbrido (sin él, empata con el vectorial).
 - **«Sin resultado»:** detecta 29 de 41 negativas. Las que no, las explica el reporte: el vertical tiene el concepto nombrado, hay coincidencias casuales con la regla léxica estricta o el coseno queda sobre τ.

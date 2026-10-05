@@ -63,21 +63,35 @@ def city_locations(metadata: dict) -> list[dict]:
 
 
 def discover_stores(
-    conn: Connection, client: RappiClient, run_id: int, verticals: list[str], cities: list[dict]
+    conn: Connection,
+    client: RappiClient,
+    run_id: int,
+    verticals: list[str],
+    cities: list[dict],
+    failed: list[tuple[str, str]] | None = None,
+    only: set[tuple[str, str]] | None = None,
 ) -> int:
     """Recorre los listados de cada vertical en cada ciudad y crea un job por formato de tienda.
 
     Parte de los jobs pendientes de la corrida, así redescubrir algunas ciudades suma
     candidatas y verticales en vez de reemplazar lo ya descubierto.
+
+    En `failed` deja los listados que fallaron, como (ciudad, vertical); con `only` pide solo esos. A las 03:00 las
+    botillerías están cerradas y su listado llega sin tiendas: se reintenta al terminar la descarga de tiendas.
     """
     groups = repository.pending_payloads(conn, run_id, "store_group")
     for city in cities:
+        wanted = [v for v in verticals if only is None or (city["city"], v) in only]
+        if not wanted:
+            continue
         client.set_location(city["lat"], city["lng"], city["city"], city["city"])
-        for vertical in verticals:
+        for vertical in wanted:
             try:
                 listing = parse_vertical_listing(client.get_next_data(VERTICAL_LISTINGS[vertical]))
             except (*PAGE_ERRORS, StoreUnavailable) as exc:
                 log.warning("Listado %s en %s falló: %s", vertical, city["city"], exc)
+                if failed is not None:
+                    failed.append((city["city"], vertical))
                 continue
             log.info("%-22s %-13s %3d tiendas", city["city"], vertical, len(listing))
             for store in listing:

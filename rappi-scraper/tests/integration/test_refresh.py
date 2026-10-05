@@ -242,3 +242,28 @@ def test_build_search_by_hand_with_pending_migrations_asks_to_migrate(db, monkey
 
     with pytest.raises(SystemExit, match="rappi migrate"):
         cli.main(["build-search"])
+
+
+def test_refresh_retries_failed_listings_after_the_stores_and_scrapes_what_appears(db, tmp_path):
+    """Los listados que fallaron al descubrir (botillerías cerradas a las 03:00) se vuelven a pedir cuando termina la
+    descarga de tiendas, y lo que aparezca se baja en la misma corrida."""
+    late_job = {**STORE_JOB, "job_key": "type:boti"}
+    order = []
+
+    def retry(conn, run_id):
+        order.append(("retry", len(repository.pending_jobs(conn, run_id, "store_group"))))
+        repository.add_jobs(conn, run_id, [late_job])
+        return 1
+
+    reports, _ = refresh(
+        db,
+        FakeClient({"/restaurantes/384": "restaurant"}),
+        _discoverer(STORE_JOB, []),
+        _discoverer(RESTAURANT_JOB, []),
+        reports_dir=tmp_path,
+        retry_stores=retry,
+    )
+
+    assert order == [("retry", 0)]  # después de bajar las tiendas, no antes
+    # el job tardío se procesó en la misma corrida (aquí queda «omitido»: es la misma tienda del primero)
+    assert reports[0]["jobs"] == {"done": 1, "skipped": 1} and reports[0]["status"] == "done"
