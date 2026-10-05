@@ -24,6 +24,16 @@ MENU_GROUPS = frozenset({"alcohol", "bebidas", "snacks", "dulces", "despensa", "
 # Grupos cuya categoría manda aunque el nombre calce un sensible: ahí la palabra tiene otro sentido (un analgésico
 # veterinario, un insecto vibrador de juguete) y el concepto sensible los ocultaría.
 CATEGORY_WINS_GROUPS = frozenset({"mascotas", "juguetes"})
+# La categoría «Cigarrillos» de las tabaquerías de Rappi Mall trae también vapers, líquidos y papelillos. Dentro de
+# ella (y solo ahí: «Cereal Puffs» no es un vaper) estas palabras del nombre deciden el concepto.
+TOBACCONIST = KeywordMatcher(
+    [
+        *(("vapeo", kw) for kw in ("puff", "puffs", "e-liquid", "eliquid", "vape", "vaper", "vaporizador", "pod")),
+        *(("vapeo", kw) for kw in ("sales de nicotina", "nic salt", "desechable")),
+        *(("accesorios-fumador", kw) for kw in ("wrap", "blunt", "papelillo", "papel", "filtro", "boquilla")),
+        *(("accesorios-fumador", kw) for kw in ("tabaquera", "grinder", "moledor", "cenicero", "encendedor", "pipa")),
+    ]
+)
 
 
 @dataclass(frozen=True)
@@ -119,6 +129,11 @@ def assign_catalog_item(
         and mapped.concept_id not in _category_always_wins()
     )
     if mapped and mapped.confidence >= MIN_MAP_CONFIDENCE and not sensitive_name:
+        split = TOBACCONIST.best(name) if mapped.concept_id == "cigarrillos" else None
+        if split:
+            return Assignment(
+                "catalog_item", item_id, split.target, "regla", RULE_CONFIDENCE, None, f"nombre:{split.keyword}"
+            )
         return _from_map("catalog_item", item_id, mapped, f"categoria:{category}")
     if rule and not (mapped and keeps_sensitive(mapped.concept_id, rule.concept_id)):
         return rule
