@@ -112,3 +112,31 @@ def test_hot_dog_sections_of_the_real_map_make_the_dish_a_sandwich(matcher, csv_
     tomaba la cocina del local (pizza, hamburguesa, pastelería)."""
     a = assign_menu_item("24", name, section, cuisines, csv_maps["seccion_menu"], csv_maps["cocina"], matcher)
     assert (a.concept_id, a.source) == ("sandwiches", f"seccion:{section}"), a
+
+
+TOBACCO = {"cigarrillos": MappedName("cigarrillos", "llm", 0.8, "v1")}
+
+
+@pytest.mark.parametrize(
+    ("name", "concept"),
+    [
+        ("Vookbar 30000 Strawberry Banana", "cigarrillos"),  # sin palabra que lo delate, queda donde la categoría
+        ("Fume X Nicky Jam El Ganador 15000 Puff 4.5%", "vapeo"),
+        ("E-liquid King Crest Don Juan Tabaco Dulce 120ml 6mg", "vapeo"),
+        ("Blunt Wrap Watermelon", "accesorios-fumador"),
+        ("Tabaquera De Eco Cuero Con Amarre", "accesorios-fumador"),
+        ("Tabaco Ross Maracuya 45g", "cigarrillos"),
+        ("Marlboro Cigarrillos Red Box 20 u", "cigarrillos"),
+    ],
+)
+def test_the_tobacconist_category_is_split_by_name(matcher, name, concept):
+    """Rappi Mall lista vapers, líquidos y papelillos en la categoría «Cigarrillos»: 738 «cigarrillos» que dejaban a
+    Licores fuera de competencia («cigarros» mostraba puritos del Mall)."""
+    assert assign_catalog_item("1", name, "Cigarrillos", TOBACCO, matcher).concept_id == concept
+
+
+def test_tobacconist_words_mean_nothing_outside_that_category(matcher):
+    a = assign_catalog_item(
+        "1", "Cereal Puffs Plátano Zapallo", "Cereales", {"cereales": MappedName("cereales", "llm", 0.9)}, matcher
+    )
+    assert a.concept_id == "cereales"
