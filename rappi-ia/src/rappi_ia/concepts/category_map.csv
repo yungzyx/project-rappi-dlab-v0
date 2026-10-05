@@ -838,3 +838,64 @@ seccion_menu,Perro Caliente,sandwiches,0.8,curado,curado,Hot dogs: «Perro Espec
 seccion_menu,Hot Dog,sandwiches,0.8,curado,curado,Hot dogs y completos,20
 seccion_menu,Perros,sandwiches,0.8,curado,curado,Hot dogs en un menú de restaurante,4
 seccion_menu,Completos Venezolanos,sandwiches,0.8,curado,curado,Perros calientes venezolanos,4
+categoria,Laxantes,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Laxantes y purgantes,58
+categoria,Analgésicos sistémicos,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),"Paracetamol, ibuprofeno y similares",45
+categoria,Analgésicos infantiles,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Analgésicos para niños,3
+categoria,Antidiarréicos,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Antidiarreicos,28
+categoria,Antináuseas,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Antieméticos,25
+categoria,Antigases,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Antiflatulentos,9
+categoria,Antiparasitario,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Antiparasitarios y antimicóticos de uso humano,17
+categoria,Antimicóticos,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Antimicóticos,4
+categoria,Otros alivio del dolor,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Alivio del dolor,1
+categoria,Equipos Respiratorios,medicamentos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Inhaladores y aerocámaras,22
+categoria,"Glucómetros, Tiras y Lancetas",primeros-auxilios,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Control de glucosa,26
+categoria,Pruebas COVID-19,primeros-auxilios,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Test de antígenos,4
+categoria,Gastronomía y Nutrición,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Libros de cocina y nutrición,44
+categoria,Salud y Medicina,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Libros de salud,44
+categoria,Poesía y Teatro,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Libros,43
+categoria,Cómics,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Cómics,41
+categoria,Manga,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Manga,39
+categoria,Biografías y autobiografías,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Libros,36
+categoria,Literatura,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Libros,35
+categoria,Ciencias sociales y humanas,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Libros,30
+categoria,Derecho y Jurisprudencia,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Libros,12
+categoria,Otros Profesionales,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Libros técnicos y de divulgación,9
+categoria,Otros Cómics y Manga,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Cómics y manga,2
+categoria,Otros Textos Escolares,libros,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Textos escolares,19
+categoria,Riego,jardin,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Mangueras y riego,49
+categoria,Amarres y abrazaderas,ferreteria,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Abrazaderas y fittings,80
+categoria,Cerraduras y Videoportero,ferreteria,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Cerraduras,41
+categoria,Duchas,ferreteria,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Duchas y grifería,21
+categoria,Reguladores y supresores,ferreteria,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Reguladores de gas y electricidad,10
+categoria,Otros Seguridad,ferreteria,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Seguridad del hogar,8
+categoria,Plantillas,calzado,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Plantillas para zapatos,54
+categoria,Pesca Deportiva,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Pesca,46
+categoria,Equipos de resistencia y abdomen,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Ejercicio en casa,18
+categoria,Otros Máquinas Para Hacer Ejercicio,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Máquinas de ejercicio,12
+categoria,Protección Patinaje,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Protecciones de patinaje,11
+categoria,Canchas y banderines,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),"Fútbol: redes, petos y calcetas",14
+categoria,Beisbol y Sóftbol,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Béisbol,8
+categoria,Trajes de Ciclismo,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Ropa y accesorios de ciclismo,12
+categoria,Seguridad en el camping,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Camping,13
+categoria,Menaje para camping,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Camping,7
+categoria,Gorros de Natación,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Natación,10
+categoria,Guantes y Protección de boxeo,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Boxeo,6
+categoria,Barras y Discos,articulos-deportivos,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Pesas,5
+categoria,Otros Suministros de oficina,utiles,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Artículos de oficina,45
+categoria,Calculadoras,utiles,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Calculadoras,8
+categoria,Otros ambientadores,limpieza,0.85,curado,curado 05-10 (categorías nuevas del 04-10),"Sahumerios y aromatizantes, como «Ambientadores»",42
+categoria,Agujas,manualidades,0.85,curado,curado 05-10 (categorías nuevas del 04-10),"Agujas, palillos y crochet",38
+categoria,Polos,manualidades,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Lanas e hilos (no poleras),18
+categoria,Control Remoto,tv-video,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Controles remotos,27
+categoria,Pays caseros,pasteleria,0.85,curado,curado 05-10 (categorías nuevas del 04-10),"Queques, kuchenes y brownies",23
+categoria,Lociones y perfumes de mascotas,accesorios-mascota,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Higiene de mascotas,19
+categoria,Pañitos Húmedos para Mascotas,accesorios-mascota,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Higiene de mascotas,18
+categoria,Pañales y forros para Mascotas,accesorios-mascota,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Higiene de mascotas (no pañales de guagua),18
+categoria,Acuarios y accesorios,accesorios-mascota,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Acuarios,17
+categoria,Jaulas y Accesorios,accesorios-mascota,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Jaulas,15
+categoria,Corta uñas de mascotas,accesorios-mascota,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Higiene de mascotas,10
+categoria,Implementos de viaje,accesorios-mascota,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Bolsos y jaulas de transporte para mascotas,10
+categoria,Mascara De Cejas,maquillaje,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Cejas,19
+categoria,Delineador Y Lápiz De Cejas,maquillaje,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Cejas,10
+categoria,Dispositivos de Wifi,computacion,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Routers y repetidores,14
+categoria,Calefactores,electrohogar,0.85,curado,curado 05-10 (categorías nuevas del 04-10),Calefactores,10
