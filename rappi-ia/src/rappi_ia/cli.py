@@ -21,6 +21,7 @@ from . import config
 from .concepts.pipeline import build_concepts
 from .concepts.report import coverage_report, render_text, write_category_proposals
 from .db import connect, migrate
+from .layers.measures import build_measures
 from .retrieval.hybrid import MODES, Filters, retrieve
 
 log = logging.getLogger("rappi_ia")
@@ -43,6 +44,10 @@ def cmd_concepts(conn, args) -> None:
                 log.warning("Sin el extra `ml` (sentence-transformers): conceptos solo por categoría y reglas")
         build_concepts(conn, embedder)
     print(render_text(coverage_report(conn)))
+
+
+def cmd_measures(conn, args) -> None:
+    print(build_measures(conn))
 
 
 def cmd_map_categories(conn, args) -> None:
@@ -210,6 +215,7 @@ def cmd_multivertical(conn, args) -> None:
 
 
 COMMANDS = {
+    "measures": cmd_measures,
     "multivertical": cmd_multivertical,
     "synth": cmd_synth,
     "purge": cmd_purge,
@@ -236,6 +242,7 @@ def build_parser() -> argparse.ArgumentParser:
     concepts = sub.add_parser("concepts", help="capa 2: conceptos, complementos y mapeo de productos y platos")
     concepts.add_argument("--solo-reporte", action="store_true", help="solo muestra la cobertura actual")
     concepts.add_argument("--sin-knn", action="store_true", help="sin refinar con vecinos cercanos (embeddings)")
+    sub.add_parser("measures", help="capa de perfiles: tamaño, unidad y pack normalizados de cada ítem")
     sub.add_parser(
         "map-categories", help="exporta las categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar"
     )
