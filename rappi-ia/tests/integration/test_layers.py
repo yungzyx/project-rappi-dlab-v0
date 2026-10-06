@@ -1,9 +1,13 @@
 """Capa de perfiles (docs/superpowers/specs/2026-10-06-capa-perfiles-design.md) contra `rappi_ia_test`."""
 
+from dataclasses import replace
+
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_dish, add_price, add_product, add_store
 from rappi_ia.concepts.pipeline import build_concepts
+from rappi_ia.concepts.store import seed_taxonomy
+from rappi_ia.concepts.taxonomy import load_taxonomy
 from rappi_ia.layers import attributes as attributes_layer
 from rappi_ia.layers.attributes import build_attributes
 from rappi_ia.layers.brands import build_brands
@@ -374,3 +378,39 @@ def test_canonical_ids_are_stable_and_curated_rows_survive_the_rebuild(db, monke
     assert db.execute("SELECT canonical_id FROM item_canonical WHERE master_product_id = 90").fetchone()[0] == before
     assert db.execute("SELECT source FROM item_brands WHERE entity_id = '91'").fetchone()[0] == "curado"
     assert db.execute("SELECT method FROM item_canonical WHERE master_product_id = 91").fetchone()[0] == "curado"
+
+
+def test_concept_edges_is_a_compatible_view_over_the_knowledge_graph(db):
+    """`concept_edges` pasó a ser una vista de `knowledge_edges` (relación `complementa`): quien lee o escribe con la
+    tabla vieja sigue funcionando."""
+    build_concepts(db)
+
+    curated = db.execute("SELECT count(*) FROM concept_edges WHERE method = 'curado'").fetchone()[0]
+    graph = db.execute(
+        """SELECT count(*) FROM knowledge_edges WHERE relation = 'complementa' AND method = 'curado'
+           AND from_kind = 'concept' AND to_kind = 'concept'"""
+    ).fetchone()[0]
+    db.execute(
+        """INSERT INTO concept_edges (from_concept, to_concept, method, weight, support, data_source)
+           VALUES ('cerveza', 'pizza', 'coocurrencia', 0.7, 12, 'synthetic')"""
+    )
+    learned = db.execute(
+        "SELECT relation, from_kind, to_kind, weight FROM knowledge_edges WHERE method = 'coocurrencia'"
+    ).fetchone()
+
+    assert curated == graph and curated > 50
+    assert learned == ("complementa", "concept", "concept", 0.7)
+
+
+def test_removing_a_concept_removes_its_edges_from_the_graph(db):
+    build_concepts(db)
+    full = load_taxonomy()  # cacheada: no se muta, se arma una copia sin «cerveza»
+    taxonomy = replace(full, concepts={k: v for k, v in full.concepts.items() if k != "cerveza"})
+    db.execute(
+        "INSERT INTO knowledge_edges (from_id, to_id, method, weight, data_source)"
+        " VALUES ('cerveza', 'vino', 'curado', 0.5, 'curado') ON CONFLICT DO NOTHING"
+    )
+
+    seed_taxonomy(db, taxonomy)
+
+    assert db.execute("SELECT count(*) FROM knowledge_edges WHERE 'cerveza' IN (from_id, to_id)").fetchone()[0] == 0
