@@ -27,6 +27,7 @@ from .layers.canonical import build_canonical
 from .layers.graph import build_relations
 from .layers.measures import build_measures
 from .layers.report import layer_report
+from .layers.segments import build_segments
 from .retrieval.hybrid import MODES, Filters, retrieve
 
 log = logging.getLogger("rappi_ia")
@@ -68,6 +69,10 @@ def cmd_canonical(conn, args) -> None:
 
 def cmd_relations(conn, args) -> None:
     print(build_relations(conn))
+
+
+def cmd_segments(conn, args) -> None:
+    print(build_segments(conn, args.source, args.user))
 
 
 def cmd_brands(conn, args) -> None:
@@ -247,6 +252,7 @@ COMMANDS = {
     "brands": cmd_brands,
     "canonical": cmd_canonical,
     "relations": cmd_relations,
+    "segments": cmd_segments,
     "layer-report": cmd_layer_report,
     "attributes": cmd_attributes,
     "multivertical": cmd_multivertical,
@@ -285,6 +291,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "relations", help="capa de perfiles: grafo de conocimiento (sustituye, conflicto, tiene_atributo, co-búsqueda…)"
     )
+    sg = sub.add_parser("segments", help="capa de perfiles: segmentos de usuario por comportamiento (con historia)")
+    sg.add_argument("--source", choices=["synthetic", "prototype"], default="synthetic")
+    sg.add_argument("--user", help="recalcula solo a esta persona")
     sub.add_parser("measures", help="capa de perfiles: tamaño, unidad y pack normalizados de cada ítem")
     sub.add_parser(
         "map-categories", help="exporta las categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar"

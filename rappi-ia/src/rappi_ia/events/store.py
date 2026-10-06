@@ -289,6 +289,9 @@ def forget(conn: Connection, user_id: str, concept_id: str | None = None) -> int
         mentions = [event_id for event_id, query in rows if matcher.best(query)]
         if mentions:
             deleted += conn.execute("UPDATE app_events SET query = NULL WHERE event_id = ANY(%s)", (mentions,)).rowcount
+    from ..layers.segments import build_segments  # sus segmentos se recalculan sin lo que olvidó
+
+    build_segments(conn, "prototype", user_id, commit=False)
     return deleted
 
 

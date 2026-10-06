@@ -690,3 +690,189 @@ def test_tiene_atributo_only_counts_the_kind_of_item_the_attribute_applies_to(db
 
     edge = _edges(db, "tiene_atributo", to_id="economico")[("concept", "pizza", "attribute", "economico")]
     assert edge[0] == 0.75 and edge[1] == 3  # 3 de los 4 productos; los 40 platos no cuentan
+
+
+# ── segmentos de usuario ──
+from datetime import UTC, datetime, timedelta  # noqa: E402
+
+from rappi_ia.events import store as events_store  # noqa: E402
+from rappi_ia.layers.segments import build_segments, load_signals, user_metrics  # noqa: E402
+
+SEG_NOW = datetime(2026, 10, 7, 15, 0, tzinfo=UTC)  # miércoles; el lunes de su semana es el 5-10
+
+
+def _gluten_catalog(db):
+    add_store(db, 1, "supermercado")
+    add_product(db, 10, "Galletas Sin Gluten Mantequilla", 1, "Galletas")
+    add_product(db, 11, "Galletas Soda", 1, "Galletas")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+    build_brands(db)
+    build_attributes(db)
+    db.commit()
+
+
+def _buy(db, user, product, days_ago, source="synthetic", vertical="supermercado", **line):
+    order_line = {
+        "entity_type": "catalog_item",
+        "entity_id": str(product),
+        "concept_id": "galletas",
+        "unit_price": 2000,
+    }
+    events_store.record_order(
+        db, user, f"s-{days_ago}", f"c-{user}-{days_ago}-{product}", vertical, [{**order_line, **line}],
+        source=source, ts=SEG_NOW - timedelta(days=days_ago),
+    )  # fmt: skip
+
+
+def _segments(db, user):
+    return {r[0]: r[1] for r in db.execute("SELECT segment_id, level FROM user_segments WHERE user_id = %s", (user,))}
+
+
+def test_three_gluten_free_purchases_make_the_segment_and_two_do_not(db):
+    _gluten_catalog(db)
+    for days in (1, 3, 5):
+        _buy(db, "u-gf", 10, days)
+    for days in (1, 3):
+        _buy(db, "u-two", 10, days)
+    _buy(db, "u-plain", 11, 1)
+    db.commit()
+
+    counts = build_segments(db, "synthetic", now=SEG_NOW)
+
+    assert "compra-sin-gluten" in _segments(db, "u-gf")
+    assert "compra-sin-gluten" not in _segments(db, "u-two") and "compra-sin-gluten" not in _segments(db, "u-plain")
+    row = db.execute(
+        "SELECT signals, source, evidence FROM user_segments"
+        " WHERE user_id = 'u-gf' AND segment_id = 'compra-sin-gluten'"
+    ).fetchone()
+    assert row[0] == 3 and row[1] == "regla" and row[2]["top"][0]["id"] in ("galletas", "sin-gluten")
+    assert counts["usuarios"] == 3 and counts["filas"] == db.execute("SELECT count(*) FROM user_segments").fetchone()[0]
+    assert db.execute("SELECT sensitive FROM segment_defs WHERE segment_id = 'compra-sin-gluten'").fetchone()[0]
+
+
+def test_segments_never_mix_sources_and_prototype_rows_survive_a_synthetic_run(db):
+    _gluten_catalog(db)
+    for days in (1, 3, 5):
+        _buy(db, "u-proto", 10, days, source="prototype")
+        _buy(db, "u-syn", 10, days)
+    db.commit()
+    build_segments(db, "prototype", now=SEG_NOW)
+    proto_before = _segments(db, "u-proto")
+    assert proto_before and not _segments(db, "u-syn")
+
+    build_segments(db, "synthetic", now=SEG_NOW)
+
+    assert _segments(db, "u-proto") == proto_before and _segments(db, "u-syn")
+
+
+def test_build_segments_is_idempotent_within_a_week_and_keeps_curated_rows(db):
+    _gluten_catalog(db)
+    for days in (1, 3, 5):
+        _buy(db, "u-gf", 10, days)
+    db.commit()
+    build_segments(db, "synthetic", now=SEG_NOW)
+    db.execute(
+        "INSERT INTO user_segments (user_id, segment_id, score, level, signals, source)"
+        " VALUES ('u-gf', 'vegano', 9, 'alto', 0, 'curado')"
+    )
+
+    build_segments(db, "synthetic", now=SEG_NOW + timedelta(hours=3))
+    again = build_segments(db, "synthetic", now=SEG_NOW + timedelta(hours=3))
+
+    assert "vegano" in _segments(db, "u-gf")  # lo curado no se pisa
+    assert (
+        db.execute("SELECT count(*) FROM user_segment_history WHERE week = '2026-10-05'").fetchone()[0]
+        == (db.execute("SELECT count(*) FROM user_segments WHERE source = 'regla'").fetchone()[0])
+    )
+    assert again["filas"] == db.execute("SELECT count(*) FROM user_segments WHERE source = 'regla'").fetchone()[0]
+    assert db.execute("SELECT count(DISTINCT week) FROM user_segment_history").fetchone()[0] == 1
+
+    build_segments(db, "synthetic", now=SEG_NOW + timedelta(days=7))
+    assert db.execute("SELECT count(DISTINCT week) FROM user_segment_history").fetchone()[0] == 2
+
+
+def test_a_user_whose_events_name_no_concept_or_item_gets_no_taste_segments(db):
+    build_concepts(db)
+    events_store.record(
+        db,
+        [events_store.Event("ghost", "s1", "app_open", ts=SEG_NOW - timedelta(days=1)) for _ in range(5)],
+        source="synthetic",
+    )
+    db.commit()
+
+    build_segments(db, "synthetic", now=SEG_NOW)
+
+    families = {
+        r[0]
+        for r in db.execute(
+            "SELECT DISTINCT d.family FROM user_segments s JOIN segment_defs d USING (segment_id)"
+            " WHERE s.user_id = 'ghost'"
+        )
+    }
+    assert families <= {"relacion"}  # sí es «nuevo»; ningún gusto sale de eventos sin concepto ni ítem
+
+
+def test_relationship_segments_come_from_metrics(db):
+    _gluten_catalog(db)
+    _buy(db, "u-old", 10, 50)
+    _buy(db, "u-new", 10, 2)
+    db.commit()
+
+    metrics = user_metrics(db, "synthetic", now=SEG_NOW)
+    build_segments(db, "synthetic", now=SEG_NOW)
+
+    assert round(metrics["u-old"]["dias_sin_pedido"]) == 50 and round(metrics["u-new"]["dias_sin_pedido"]) == 2
+    assert "en-riesgo" in _segments(db, "u-old") and "activo" in _segments(db, "u-new")
+    assert "en-riesgo" not in _segments(db, "u-new")
+
+
+def test_load_signals_joins_attributes_brand_price_and_basket(db):
+    _gluten_catalog(db)
+    _buy(db, "u1", 10, 2)
+    _buy(db, "u1", 10, 4, from_suggestion=True)
+    db.commit()
+
+    signals = load_signals(db, "synthetic")["u1"]
+    order_lines = sorted((s for s in signals if s.type == "order_line"), key=lambda s: s.ts)
+
+    assert len(order_lines) == 2 and all("sin-gluten" in s.attributes for s in order_lines)
+    assert order_lines[0].concept == "galletas" and order_lines[0].group == "snacks"
+    assert order_lines[0].from_suggestion and not order_lines[1].from_suggestion
+    assert order_lines[0].basket_items == 1 and order_lines[0].basket_total == 2000
+    assert order_lines[0].vertical == "supermercado" and order_lines[0].event_key != order_lines[1].event_key
+    assert load_signals(db, "prototype") == {}
+
+
+def test_a_single_user_recalculation_touches_only_that_user(db):
+    _gluten_catalog(db)
+    for days in (1, 3, 5):
+        _buy(db, "u-a", 10, days)
+        _buy(db, "u-b", 10, days)
+    db.commit()
+    build_segments(db, "synthetic", now=SEG_NOW)
+    db.execute("DELETE FROM user_segments WHERE user_id = 'u-a'")
+    db.execute("UPDATE user_segments SET score = 99 WHERE user_id = 'u-b' AND segment_id = 'compra-sin-gluten'")
+
+    counts = build_segments(db, "synthetic", user_id="u-a", now=SEG_NOW)
+
+    assert "compra-sin-gluten" in _segments(db, "u-a") and counts["usuarios"] == 1
+    score = db.execute("SELECT score FROM user_segments WHERE user_id = 'u-b' AND segment_id = 'compra-sin-gluten'")
+    assert score.fetchone()[0] == 99  # el otro usuario no se recalculó
+
+
+def test_afin_a_edges_come_from_segment_rules_and_skip_the_sensitive_ones(db):
+    build_concepts(db)
+
+    build_relations(db)
+    total = db.execute("SELECT count(*) FROM knowledge_edges WHERE relation = 'afin_a'").fetchone()[0]
+    build_relations(db)
+
+    edges = _edges(db, "afin_a")
+    assert edges[("segment", "cervecero", "concept", "cerveza")][0] == 1.0
+    assert ("segment", "vegano", "attribute", "vegano") in edges
+    assert ("segment", "farmacia-frecuente", "vertical", "farmacia") not in edges  # sensible: no sirve para sugerir
+    assert not any(k[1] in {"compra-sin-gluten", "tabaco", "vapeo", "embarazo"} for k in edges)
+    assert db.execute("SELECT count(*) FROM knowledge_edges WHERE relation = 'afin_a'").fetchone()[0] == total > 100

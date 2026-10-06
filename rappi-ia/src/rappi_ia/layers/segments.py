@@ -9,19 +9,28 @@ import logging
 import re
 import tomllib
 from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
+from psycopg import Connection
+from psycopg.types.json import Jsonb
 from rappi_scraper.storage.search import VERTICALS
 
 from ..concepts.taxonomy import load_taxonomy
 from ..text import normalize
 from .attributes import _phrase_key, load_attribute_rules
+from .runs import finish_layer_run, rules_version, start_layer_run
 
 log = logging.getLogger(__name__)
 
 RULES_FILE = Path(__file__).resolve().parents[1] / "concepts" / "segments.toml"
+LOCAL_TZ = ZoneInfo("America/Santiago")  # las horas y los días de una regla son los de la persona
+SIGNAL_EVENT_TYPES = ("search", "chat", "view_item", "cart_add", "service_shown", "service_opened")
+MIN_CARTS_FOR_ABANDONMENT = 3
+MIN_SUGGESTIONS_SHOWN = 5
+MIN_BRANDED_LINES = 5
 CONTENT_PIECES = ("concepts", "groups", "attributes", "brands", "occasions", "services", "query_words")
 CONTEXT_PIECES = (
     *("verticals", "hours", "weekdays", "days_of_month", "price_percentile", "discount"),
@@ -355,3 +364,225 @@ def _context_hit(signal: Signal, key: str, wanted) -> bool:
         and ("lte_items" not in wanted or (items is not None and items <= wanted["lte_items"]))
         and ("gte_amount" not in wanted or (total is not None and total >= wanted["gte_amount"]))
     )
+
+
+# ── cálculo en la base ──
+
+_SIGNALS_SQL = """
+WITH raw AS (
+    SELECT e.user_id, 'e' || e.event_id AS event_key, e.ts, e.type, e.concept_id, e.vertical, e.query, e.modality,
+           e.entity_type, e.entity_id, coalesce((e.payload ->> 'from_suggestion')::boolean, false) AS from_suggestion,
+           e.payload ->> 'servicio' AS service, NULL::bigint AS basket_items, NULL::numeric AS basket_total
+    FROM app_events e
+    WHERE e.source = %(source)s AND e.type = ANY(%(types)s) AND (%(user)s::text IS NULL OR e.user_id = %(user)s)
+      AND (e.concept_id IS NOT NULL OR e.entity_id IS NOT NULL OR e.query IS NOT NULL OR e.payload ? 'servicio')
+    UNION ALL
+    SELECT o.user_id, 'l' || o.order_id || ':' || l.line_no, o.ts, 'order_line', l.concept_id, o.vertical, NULL, NULL,
+           l.entity_type, l.entity_id, l.from_suggestion, NULL, sum(l.qty) OVER (PARTITION BY l.order_id), o.total
+    FROM app_order_lines l JOIN app_orders o USING (order_id)
+    WHERE o.source = %(source)s AND (%(user)s::text IS NULL OR o.user_id = %(user)s)
+),
+located AS (
+    SELECT r.*, coalesce(r.concept_id, ic.concept_id) AS concept
+    FROM raw r LEFT JOIN item_concepts ic ON ic.entity_type = r.entity_type AND ic.entity_id = r.entity_id
+),
+needed AS (SELECT DISTINCT concept FROM located WHERE concept IS NOT NULL),
+ranked AS (
+    SELECT sd.entity_type, sd.entity_id, percent_rank() OVER (PARTITION BY ic.concept_id ORDER BY sd.price_min) AS pct
+    FROM search_documents sd
+    JOIN item_concepts ic ON ic.entity_type = sd.entity_type AND ic.entity_id = sd.entity_id
+    WHERE sd.price_min IS NOT NULL AND ic.concept_id IN (SELECT concept FROM needed)
+)
+SELECT l.user_id, u.city, l.event_key, l.ts, l.type, l.concept, c.parent_id, l.vertical, l.query, l.modality,
+       l.from_suggestion, l.service, l.basket_items, l.basket_total, ib.brand_key, rk.pct,
+       coalesce((SELECT array_agg(ia.attribute_id) FROM item_attributes ia
+                 WHERE ia.entity_type = l.entity_type AND ia.entity_id = l.entity_id), '{}') AS attributes
+FROM located l
+JOIN app_users u ON u.user_id = l.user_id
+LEFT JOIN concepts c ON c.concept_id = l.concept
+LEFT JOIN item_brands ib ON ib.entity_type = l.entity_type AND ib.entity_id = l.entity_id
+LEFT JOIN ranked rk ON rk.entity_type = l.entity_type AND rk.entity_id = l.entity_id
+"""
+
+
+def load_signals(conn: Connection, source: str, user_id: str | None = None) -> dict[str, list[Signal]]:
+    """Los eventos de cada persona de esa fuente (nunca mezcla fuentes) como señales: búsquedas, consultas, vistas,
+    carros, servicios y líneas de pedido, con el concepto, los atributos y la marca de su ítem y la posición de su
+    precio entre los ítems de su concepto. «Con descuento» es el descuento que el ítem tiene ahora."""
+    rows = conn.execute(_SIGNALS_SQL, {"source": source, "user": user_id, "types": list(SIGNAL_EVENT_TYPES)})
+    signals: dict[str, list[Signal]] = defaultdict(list)
+    for row in rows:
+        user, city, key, ts, kind, concept, group, vertical, query, modality = row[:10]
+        suggested, service, items, total, brand, pct, attributes = row[10:]
+        signals[user].append(
+            Signal(
+                ts=ts.astimezone(LOCAL_TZ),
+                type=kind,
+                concept=concept,
+                group=group,
+                attributes=frozenset(attributes),
+                vertical=vertical,
+                brand=brand,
+                query=query,
+                modality=modality,
+                price_percentile=pct,
+                discounted="con-descuento" in attributes,
+                basket_items=int(items) if items is not None else None,
+                basket_total=float(total) if total is not None else None,
+                from_suggestion=suggested,
+                event_key=key,
+                city=city,
+                service=service,
+            )
+        )
+    return dict(signals)
+
+
+_ORDERS_90 = "FROM app_orders o WHERE o.source = %(source)s AND o.ts >= %(now)s - interval '90 days'"
+_METRIC_SQL = {
+    "dias_sin_pedido": """SELECT user_id, extract(epoch FROM %(now)s - max(ts)) / 86400 FROM app_orders
+                          WHERE source = %(source)s GROUP BY 1""",
+    "dias_desde_alta": """SELECT u.user_id,
+                                 greatest(0, extract(epoch FROM %(now)s - least(u.created_at, min(e.ts))) / 86400)
+                          FROM app_users u JOIN app_events e ON e.user_id = u.user_id
+                          WHERE u.source = %(source)s GROUP BY u.user_id, u.created_at""",
+    "verticales_distintas": f"SELECT o.user_id, count(DISTINCT o.vertical) {_ORDERS_90} GROUP BY 1",
+    "pedidos_90d": f"SELECT o.user_id, count(*) {_ORDERS_90} GROUP BY 1",
+    "tasa_abandono": """SELECT s.user_id, 1 - count(o.cart_id)::float / count(*)
+                        FROM (SELECT DISTINCT user_id, cart_id FROM app_events
+                              WHERE source = %(source)s AND type = 'cart_add' AND cart_id IS NOT NULL
+                                AND ts >= %(now)s - interval '90 days') s
+                        LEFT JOIN app_orders o ON o.user_id = s.user_id AND o.cart_id = s.cart_id
+                        GROUP BY 1 HAVING count(*) >= %(min_carts)s""",
+    "aceptacion_sugerencias": """SELECT user_id, count(*) FILTER (WHERE type = 'suggestion_accepted')::float
+                                        / count(*) FILTER (WHERE type = 'suggestion_shown')
+                                 FROM app_events WHERE source = %(source)s AND ts >= %(now)s - interval '90 days'
+                                 GROUP BY 1
+                                 HAVING count(*) FILTER (WHERE type = 'suggestion_shown') >= %(min_shown)s""",
+    "gasto_90d_percentil": f"""SELECT user_id, percent_rank() OVER (ORDER BY spent) FROM (
+                                  SELECT o.user_id, sum(o.total) AS spent {_ORDERS_90} GROUP BY 1) t""",
+    "reactivado": """SELECT user_id, CASE WHEN ts >= %(now)s - interval '30 days' AND gap >= interval '60 days'
+                                          THEN 1 ELSE 0 END
+                     FROM (SELECT user_id, ts, ts - lag(ts) OVER w AS gap, row_number() OVER (PARTITION BY user_id
+                                                                                         ORDER BY ts DESC) AS rn
+                           FROM app_orders WHERE source = %(source)s AND ts <= %(now)s
+                           WINDOW w AS (PARTITION BY user_id ORDER BY ts)) t
+                     WHERE rn = 1 AND gap IS NOT NULL""",
+    "concentracion_marca": """SELECT user_id, max(n)::float / sum(n) FROM (
+                                 SELECT o.user_id, ib.brand_key, sum(l.qty) AS n
+                                 FROM app_order_lines l JOIN app_orders o USING (order_id)
+                                 JOIN item_brands ib ON ib.entity_type = l.entity_type AND ib.entity_id = l.entity_id
+                                 WHERE o.source = %(source)s AND o.ts >= %(now)s - interval '90 days'
+                                 GROUP BY 1, 2) t
+                              GROUP BY 1 HAVING sum(n) >= %(min_lines)s""",
+    "conceptos_distintos_90d": """SELECT user_id, count(DISTINCT concept_id) FROM (
+                                     SELECT o.user_id, l.concept_id
+                                     FROM app_order_lines l JOIN app_orders o USING (order_id)
+                                     WHERE o.source = %(source)s AND o.ts >= %(now)s - interval '90 days'
+                                     UNION ALL
+                                     SELECT user_id, concept_id FROM app_events
+                                     WHERE source = %(source)s AND type IN ('view_item', 'cart_add', 'search')
+                                       AND ts >= %(now)s - interval '90 days') t
+                                  WHERE concept_id IS NOT NULL GROUP BY 1""",
+    "ticket_creciente": """SELECT user_id, avg(total) FILTER (WHERE ts >= %(now)s - interval '45 days')
+                                         / avg(total) FILTER (WHERE ts < %(now)s - interval '45 days')
+                           FROM app_orders WHERE source = %(source)s AND ts >= %(now)s - interval '90 days'
+                           GROUP BY 1 HAVING count(*) FILTER (WHERE ts >= %(now)s - interval '45 days') >= 2
+                                         AND count(*) FILTER (WHERE ts < %(now)s - interval '45 days') >= 2""",
+}
+
+
+def user_metrics(
+    conn: Connection, source: str, user_id: str | None = None, now: datetime | None = None
+) -> dict[str, dict[str, float]]:
+    """Métricas por persona que no son una suma de eventos que calzan (días sin pedido, verticales distintas, tasa de
+    abandono…). Sin datos suficientes la métrica falta, y sin la métrica no hay segmento."""
+    params = {
+        "source": source,
+        "now": now or datetime.now(LOCAL_TZ),
+        "min_carts": MIN_CARTS_FOR_ABANDONMENT,
+        "min_shown": MIN_SUGGESTIONS_SHOWN,
+        "min_lines": MIN_BRANDED_LINES,
+    }
+    metrics: dict[str, dict[str, float]] = defaultdict(dict)
+    for name, sql in _METRIC_SQL.items():
+        for user, value in conn.execute(sql, params).fetchall():
+            if value is not None and (user_id is None or user == user_id):
+                metrics[user][name] = float(value)
+    return dict(metrics)
+
+
+def _monday(now: datetime):
+    local = now.astimezone(LOCAL_TZ).date()
+    return local - timedelta(days=local.weekday())
+
+
+def build_segments(
+    conn: Connection,
+    source: str = "synthetic",
+    user_id: str | None = None,
+    now: datetime | None = None,
+    commit: bool = True,
+) -> dict:
+    """Recalcula los segmentos de las personas de una fuente (o de una sola) y guarda la foto de la semana. Reemplaza
+    las filas `regla` de ese alcance; lo `curado` no se toca y las otras fuentes tampoco."""
+    now = now or datetime.now(LOCAL_TZ)
+    version, rules = load_segment_rules()
+    run = start_layer_run(conn, "segments", rules_version(version, RULES_FILE, Path(__file__)))
+    _seed_definitions(conn, version, rules)
+    signals = load_signals(conn, source, user_id)
+    metrics = user_metrics(conn, source, user_id, now)
+    users = sorted(set(signals) | set(metrics))
+    found = {user: score_user(signals.get(user, []), metrics.get(user, {}), rules, now) for user in users}
+    scope = "AND u.user_id = %(user)s" if user_id else ""
+    params = {"source": source, "user": user_id, "week": _monday(now)}
+    conn.execute(
+        f"""DELETE FROM user_segments s USING app_users u
+            WHERE s.user_id = u.user_id AND u.source = %(source)s AND s.source = 'regla' {scope}""",
+        params,
+    )
+    conn.execute(
+        f"""DELETE FROM user_segment_history h USING app_users u
+            WHERE h.user_id = u.user_id AND u.source = %(source)s AND h.week = %(week)s {scope}""",
+        params,
+    )
+    rows = [(user, m) for user, memberships in found.items() for m in memberships]
+    with conn.cursor() as cur:
+        cur.executemany(
+            """INSERT INTO user_segments (user_id, segment_id, score, level, signals, evidence, first_seen,
+                                          last_signal, source, run_id)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'regla', %s)
+               ON CONFLICT (user_id, segment_id) DO NOTHING""",  # lo curado (misma clave) gana
+            [(u, m.segment_id, m.score, m.level, m.signals, Jsonb(m.evidence), m.first_seen, m.last_signal, run)
+             for u, m in rows],
+        )  # fmt: skip
+        cur.executemany(
+            """INSERT INTO user_segment_history (week, user_id, segment_id, score, level)
+               VALUES (%s, %s, %s, %s, %s) ON CONFLICT (week, user_id, segment_id) DO NOTHING""",
+            [(params["week"], u, m.segment_id, m.score, m.level) for u, m in rows],
+        )
+    counts = {
+        "usuarios": len(users),
+        "con_segmento": sum(1 for memberships in found.values() if memberships),
+        "filas": len(rows),
+        "segmentos": len({m.segment_id for _u, m in rows}),
+    }
+    finish_layer_run(conn, run, counts)
+    if commit:
+        conn.commit()
+        conn.execute("ANALYZE user_segments")
+    log.info("Segmentos (%s): %s", source, counts)
+    return counts
+
+
+def _seed_definitions(conn: Connection, version: str, rules: list[SegmentRule]) -> None:
+    for r in rules:
+        conn.execute(
+            """INSERT INTO segment_defs (segment_id, name, family, sensitive, description, rule, rules_version)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)
+               ON CONFLICT (segment_id) DO UPDATE SET name = EXCLUDED.name, family = EXCLUDED.family,
+                 sensitive = EXCLUDED.sensitive, description = EXCLUDED.description, rule = EXCLUDED.rule,
+                 rules_version = EXCLUDED.rules_version""",
+            (r.id, r.name, r.family, r.sensitive, r.description, Jsonb(asdict(r)), version),
+        )
+    conn.execute("DELETE FROM segment_defs WHERE segment_id <> ALL(%s)", ([r.id for r in rules],))
