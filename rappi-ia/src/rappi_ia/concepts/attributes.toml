@@ -69,8 +69,8 @@ name = "Pescetariano"
 family = "dieta"
 applies_to = "menu_item"
 description = "Plato de pescado o mariscos, sin carne."
-phrases = ["pescetariano", "pescetariana", "pescado", "mariscos", "salmon", "atun", "camarones", "ceviche"]
-negations = ["pollo", "carne", "vacuno", "cerdo", "tocino", "jamon"]
+phrases = ["pescetariano", "pescetariana", "pescetarianos"]
+negations = ["con pollo", "con carne"]
 
 [[attribute]]
 id = "keto"
@@ -127,6 +127,7 @@ description = "Light, bajo en grasa o en calorías."
 rappi = [{ keys = ["is_light"] }]
 phrases = ["light", "lite", "bajo en grasa", "baja en grasa", "descremado", "descremada", "0 grasa", "sin grasa", "bajo en calorias", "diet"]
 negations = ["no light"]
+use_description = false
 
 [[attribute]]
 id = "organico"
@@ -240,7 +241,7 @@ applies_to = "both"
 description = "Producto para bebés (0 a 3 años)."
 rappi = [{ keys = ["baby_stage", "baby_stage_food", "formula_stage", "baby_food_type"], values = [] }, { keys = ["bb_gender"], values = ["Unisex", "Niña", "Niño"] }]
 phrases = ["bebe", "bebes", "baby", "recien nacido", "lactante", "formula infantil", "panal", "panales", "mamadera", "chupete", "colado", "papilla"]
-negations = ["adulto", "incontinencia", "adulto mayor", "perro", "gato", "mascota", "bebida", "bebible"]
+negations = ["adulto", "incontinencia", "adulto mayor", "perro", "gato", "mascota", "bebida", "bebible", "baby back", "ribs"]
 
 [[attribute]]
 id = "ninos"
@@ -308,6 +309,7 @@ description = "Producto para perros."
 rappi = [{ keys = ["type_of_pet"], values = ["Perro", "Perro y Gato"] }]
 phrases = ["perro", "perros", "canino", "dog", "dogs", "cachorro"]
 negations = ["perro caliente", "completo", "hot dog", "gato vino"]
+only_groups = ["mascotas"]
 
 [[attribute]]
 id = "gato"
@@ -318,6 +320,7 @@ description = "Producto para gatos."
 rappi = [{ keys = ["type_of_pet"], values = ["Gato", "Perro y Gato"] }]
 phrases = ["gato", "gatos", "felino", "cat", "cats", "kitten"]
 negations = ["vino", "cerveza", "tinto", "blanco", "queso", "cabra", "liebre"]
+only_groups = ["mascotas"]
 
 [[attribute]]
 id = "otras-mascotas"
@@ -328,6 +331,7 @@ description = "Productos para peces, aves, roedores, conejos u otras mascotas."
 rappi = [{ keys = ["type_of_pet"], values = ["Otros", "Otras Mascotas"] }]
 phrases = ["pez", "peces", "acuario", "pajaro", "aves", "hamster", "conejo", "roedor", "tortuga"]
 negations = ["perro", "gato"]
+only_groups = ["mascotas"]
 
 [[attribute]]
 id = "cachorro"
@@ -337,6 +341,7 @@ applies_to = "catalog_item"
 description = "Alimento o producto para cachorros y gatitos."
 rappi = [{ keys = ["dog_age", "cat_age", "pet_age", "lifestage_pets"], values = ["Cachorro", "Kitten", "Cachorros", "Cachorros y Perros Adultos"] }]
 phrases = ["cachorro", "cachorros", "puppy", "kitten", "gatito"]
+only_groups = ["mascotas"]
 
 [[attribute]]
 id = "mascota-senior"
@@ -348,13 +353,15 @@ rappi = [{ keys = ["dog_age", "cat_age", "pet_age", "lifestage_pets"], values = 
 phrases = ["perro senior", "gato senior", "dog senior", "cat senior", "senior dog", "senior cat"]
 
 # ─── formato ────────────────────────────────────────────────────────────────────────────────────────────────────────
+only_groups = ["mascotas"]
+
 [[attribute]]
 id = "familiar"
 name = "Familiar"
 family = "formato"
 applies_to = "both"
 description = "Tamaño familiar o para compartir."
-phrases = ["familiar", "tamano familiar", "formato familiar", "family", "para compartir", "xl", "gigante", "jumbo"]
+phrases = ["familiar", "tamano familiar", "formato familiar", "family", "para compartir", "gigante", "jumbo"]
 
 [[attribute]]
 id = "individual"
@@ -387,7 +394,7 @@ family = "formato"
 applies_to = "both"
 description = "Producto congelado."
 rappi = [{ keys = ["is_frozen"] }]
-phrases = ["congelado", "congelada", "congelados", "congeladas", "frozen", "ultracongelado"]
+phrases = ["congelado", "congelada", "congelados", "congeladas", "ultracongelado"]
 
 [[attribute]]
 id = "refrigerado"
@@ -403,7 +410,7 @@ name = "Listo para comer"
 family = "formato"
 applies_to = "both"
 description = "Listo para consumir, sin preparación."
-phrases = ["listo para comer", "listo para consumir", "ready to eat", "precocido", "precocida", "ready to drink", "listo para beber", "listo para tomar", "microondas"]
+phrases = ["listo para comer", "listo para consumir", "ready to eat", "precocido", "precocida", "ready to drink", "listo para beber", "listo para tomar"]
 
 [[attribute]]
 id = "para-preparar"
@@ -444,7 +451,7 @@ name = "En vidrio"
 family = "formato"
 applies_to = "catalog_item"
 description = "Envase de vidrio."
-phrases = ["botella de vidrio", "envase de vidrio", "frasco de vidrio", "vidrio", "botellin"]
+phrases = ["botella de vidrio", "envase de vidrio", "frasco de vidrio", "botellin"]
 
 [[attribute]]
 id = "retornable"
@@ -461,7 +468,7 @@ name = "Tamaño viaje"
 family = "formato"
 applies_to = "catalog_item"
 description = "Formato de viaje o muestra."
-phrases = ["tamano viaje", "travel size", "de viaje", "formato viaje", "mini size", "muestra", "sachet"]
+phrases = ["tamano viaje", "travel size", "de viaje", "formato viaje", "mini size"]
 
 [[attribute]]
 id = "en-polvo"
@@ -554,7 +561,7 @@ name = "Casero"
 family = "origen"
 applies_to = "menu_item"
 description = "Plato casero o de la casa."
-phrases = ["casero", "casera", "de la casa", "estilo casero", "como en casa"]
+phrases = ["casero", "casera", "hecho en casa", "estilo casero", "receta casera"]
 
 # ─── sustentable ────────────────────────────────────────────────────────────────────────────────────────────────────
 [[attribute]]
@@ -599,7 +606,7 @@ name = "Eco"
 family = "sustentable"
 applies_to = "catalog_item"
 description = "Producto ecológico o sustentable."
-phrases = ["ecologico", "ecologica", "eco friendly", "ecofriendly", "sustentable", "amigable con el medio ambiente"]
+phrases = ["eco friendly", "ecofriendly", "sustentable", "amigable con el medio ambiente"]
 
 # ─── ocasión ────────────────────────────────────────────────────────────────────────────────────────────────────────
 [[attribute]]
@@ -648,7 +655,7 @@ name = "Cumpleaños"
 family = "ocasion"
 applies_to = "catalog_item"
 description = "Artículo de cumpleaños y fiestas infantiles."
-phrases = ["cumpleanos", "pinata", "globos", "torta de cumpleanos", "velas de cumpleanos", "fiesta infantil"]
+phrases = ["cumpleanos", "pinata", "torta de cumpleanos", "velas de cumpleanos", "fiesta infantil", "globos de cumpleanos"]
 
 # ─── platos ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 [[attribute]]
@@ -682,7 +689,7 @@ name = "Saludable"
 family = "platos"
 applies_to = "both"
 description = "Plato o producto declarado saludable o liviano."
-phrases = ["saludable", "healthy", "liviano", "liviana", "fit", "fitness", "detox", "bowl", "ensalada"]
+phrases = ["saludable", "healthy", "liviano", "liviana", "fitness", "detox"]
 
 [[attribute]]
 id = "frito"

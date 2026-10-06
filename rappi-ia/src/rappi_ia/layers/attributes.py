@@ -8,7 +8,6 @@ from pathlib import Path
 
 from psycopg import Connection
 
-from ..concepts.matcher import KeywordMatcher
 from ..text import LEAFLET_WARNINGS, normalize
 from .runs import finish_layer_run, start_layer_run
 
@@ -20,6 +19,9 @@ RULE_CONFIDENCE = 0.8
 FAMILIES = {"dieta", "alergenos", "publico", "formato", "precio", "origen", "sustentable", "ocasion", "platos"}
 _TRUE = {"true", "si", "sí", "yes", "1"}
 DERIVED_CONFIDENCE = 0.9
+# Las descripciones son largas y mencionan de todo («apta para vidrio», «con papas fritas»): solo son fiables en lo
+# que el producto declara ser (dieta, alérgenos, sustentabilidad). El resto sale del nombre y la categoría.
+DESCRIPTION_FAMILIES = {"dieta", "alergenos", "sustentable"}
 MIN_CONCEPT_ITEMS_FOR_PRICE = 8  # «económico» exige al menos tantos ítems del concepto en la vertical para comparar
 
 
@@ -35,6 +37,8 @@ class AttributeRule:
     phrases: tuple[str, ...] = ()
     negations: tuple[str, ...] = ()
     derived: bool = False
+    use_description: bool | None = None  # None: según la familia (DESCRIPTION_FAMILIES)
+    only_groups: tuple[str, ...] = ()  # las frases solo valen si el concepto del ítem es de uno de estos grupos
 
     def applies(self, entity_type: str) -> bool:
         return self.applies_to in ("both", entity_type)
@@ -63,20 +67,54 @@ def load_attribute_rules(path: Path | None = None) -> tuple[str, list[AttributeR
             phrases=tuple(a.get("phrases", ())),
             negations=tuple(a.get("negations", ())),
             derived=a.get("derived", False),
+            use_description=a.get("use_description"),
+            only_groups=tuple(a.get("only_groups", ())),
         )
         for a in raw["attribute"]
     ]
     return raw["version"], rules
 
 
+def _stem(word: str) -> str:
+    """Raíz para comparar singular y plural («ninos» = «nino», «panales» = «panal», «mujeres» = «mujer»)."""
+    if len(word) > 4 and word.endswith("es") and word[-3] not in "aeiou":
+        return word[:-2]
+    if len(word) > 3 and word.endswith("s"):
+        return word[:-1]
+    return word
+
+
+def _phrase_key(phrase: str) -> tuple[str, ...]:
+    return tuple(_stem(w) for w in normalize(phrase).split())
+
+
 class _Detector:
-    """Los matchers se arman una vez por juego de reglas."""
+    """Cada atributo se busca por separado: a diferencia de los conceptos, dos atributos pueden calzar las mismas
+    palabras («sin azúcar» y «zero»), y la negación de uno no debe tapar la frase de otro."""
 
     def __init__(self, rules: list[AttributeRule]):
         self.rules = [r for r in rules if not r.derived]
-        self.phrases = KeywordMatcher((r.attribute_id, p) for r in self.rules for p in r.phrases)
-        self.negations = KeywordMatcher((r.attribute_id, n) for r in self.rules for n in r.negations)
-        self.by_id = {r.attribute_id: r for r in self.rules}
+        self.phrases: dict[tuple[str, ...], list[tuple[str, str]]] = {}
+        self.negations: dict[tuple[str, ...], list[str]] = {}
+        for r in self.rules:
+            for p in r.phrases:
+                self.phrases.setdefault(_phrase_key(p), []).append((r.attribute_id, p))
+            for n in r.negations:
+                self.negations.setdefault(_phrase_key(n), []).append(r.attribute_id)
+        self.longest = max(len(k) for k in [*self.phrases, *self.negations])
+
+    def hits(self, text: str) -> tuple[dict[str, str], set[str]]:
+        """({atributo: primera frase que calzó}, atributos negados) en el texto."""
+        words = [_stem(w) for w in normalize(text).split()]
+        found: dict[str, str] = {}
+        negated: set[str] = set()
+        for start in range(len(words)):
+            for size in range(1, min(self.longest, len(words) - start) + 1):
+                key = tuple(words[start : start + size])
+                for attribute_id, phrase in self.phrases.get(key, ()):
+                    found.setdefault(attribute_id, phrase)
+                negated.update(self.negations.get(key, ()))
+        return found, negated
 
 
 _CACHE: dict[int, _Detector] = {}
@@ -119,15 +157,17 @@ def detect_attributes(
     description: str | None,
     rappi: dict | None,
     rules: list[AttributeRule],
+    group: str | None = None,
 ) -> list[Detected]:
+    """Los atributos de un ítem. `group` es el grupo de su concepto (para las reglas con `only_groups`). La descripción
+    solo cuenta para las familias de DESCRIPTION_FAMILIES (o las reglas que lo piden con `use_description`)."""
     detector = _detector(rules)
     rappi = rappi or {}
     head = description or ""
     if m := LEAFLET_WARNINGS.search(normalize(head)):
         head = normalize(head)[: m.start()]
-    text = ". ".join(part for part in (name, category, head) if part)
-    phrase_hits = {m.target: m.keyword for m in detector.phrases.matches(text)}
-    negated = {m.target for m in detector.negations.matches(text)}
+    name_hits, name_neg = detector.hits(". ".join(part for part in (name, category) if part))
+    full_hits, full_neg = detector.hits(". ".join(part for part in (name, category, head) if part))
     found = []
     for rule in detector.rules:
         if not rule.applies(entity_type):
@@ -135,8 +175,15 @@ def detect_attributes(
         key, blocked = _rappi_says(rule, rappi)
         if key is not None:
             found.append(Detected(rule.attribute_id, None, "rappi", RAPPI_CONFIDENCE, key))
-        elif not blocked and rule.attribute_id in phrase_hits and rule.attribute_id not in negated:
-            found.append(Detected(rule.attribute_id, None, "regla", RULE_CONFIDENCE, phrase_hits[rule.attribute_id]))
+            continue
+        if blocked or (rule.only_groups and group not in rule.only_groups):
+            continue
+        uses_description = (
+            rule.use_description if rule.use_description is not None else rule.family in DESCRIPTION_FAMILIES
+        )
+        hits, negated = (full_hits, full_neg) if uses_description else (name_hits, name_neg)
+        if rule.attribute_id in hits and rule.attribute_id not in negated:
+            found.append(Detected(rule.attribute_id, None, "regla", RULE_CONFIDENCE, hits[rule.attribute_id]))
     return found
 
 
@@ -218,6 +265,12 @@ def build_attributes(conn: Connection) -> dict:
     curated = {
         (e, i, a) for e, i, a in conn.execute("SELECT entity_type, entity_id, attribute_id FROM item_attributes")
     }
+    groups = {
+        (e, i): g
+        for e, i, g in conn.execute(
+            "SELECT ic.entity_type, ic.entity_id, c.parent_id FROM item_concepts ic JOIN concepts c USING (concept_id)"
+        )
+    }
     counts = {"definiciones": len(rules), "productos": 0, "platos": 0}
     sources = {"catalog_item": """SELECT ci.master_product_id::text, ci.name, c.name, ci.description, ci.attributes
                                   FROM catalog_items ci LEFT JOIN categories c USING (category_id)""",
@@ -226,7 +279,9 @@ def build_attributes(conn: Connection) -> dict:
         rows = conn.execute(sql).fetchall()  # antes del COPY: la conexión no admite otra consulta mientras copia
         with conn.cursor().copy(f"COPY item_attributes ({_COLUMNS}) FROM STDIN") as copy:
             for item_id, name, category, description, rappi in rows:
-                found = detect_attributes(entity_type, name or "", category, description, rappi, rules)
+                found = detect_attributes(
+                    entity_type, name or "", category, description, rappi, rules, groups.get((entity_type, item_id))
+                )
                 counts["productos" if entity_type == "catalog_item" else "platos"] += bool(found)
                 for d in found:
                     if (entity_type, item_id, d.attribute_id) not in curated:
@@ -236,6 +291,7 @@ def build_attributes(conn: Connection) -> dict:
                         )  # fmt: skip
     params = {"conf": DERIVED_CONFIDENCE, "version": version, "run": run, "min_items": MIN_CONCEPT_ITEMS_FOR_PRICE}
     counts["derivados"] = sum(conn.execute(sql, params).rowcount for sql in (_DISCOUNTED, _CHEAP, _FROM_MEASURES))
+    conn.execute("ANALYZE item_attributes")
     finish_layer_run(conn, run, counts)
     log.info("Atributos: %s", counts)
     return counts

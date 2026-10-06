@@ -7,6 +7,7 @@ from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.layers import attributes as attributes_layer
 from rappi_ia.layers.attributes import build_attributes
 from rappi_ia.layers.measures import build_measures
+from rappi_ia.layers.report import layer_report
 from rappi_ia.layers.runs import finish_layer_run, start_layer_run
 
 
@@ -55,7 +56,7 @@ def test_build_measures_fills_products_and_dishes_and_is_idempotent(db):
     ).fetchall()
     second = build_measures(db)
 
-    assert first == {"productos": 2, "platos": 1, "corregidos": 1}
+    assert first == {"productos": 2, "platos": 1, "corregidos": 1, "sospechosas": 0}
     assert rows == [
         ("catalog_item", "10", "ml", 1, 3000.0, None),
         ("catalog_item", "11", "ml", 6, 2100.0, None),
@@ -139,7 +140,8 @@ def test_capa_views_expose_attributes_and_unit_prices(db):
     build_attributes(db)
 
     attrs = db.execute(
-        "SELECT attribute_name, family FROM capa.item_attributes WHERE entity_id = '21' AND attribute_id = 'sin-lactosa'"
+        "SELECT attribute_name, family FROM capa.item_attributes"
+        " WHERE entity_id = '21' AND attribute_id = 'sin-lactosa'"
     ).fetchone()
     per_l = db.execute(
         "SELECT price, price_per_l FROM capa.item_unit_prices WHERE entity_id = '21' AND vertical = 'supermercado'"
@@ -147,3 +149,46 @@ def test_capa_views_expose_attributes_and_unit_prices(db):
 
     assert attrs == ("Sin lactosa", "dieta")
     assert per_l == (1000, 1000.0)  # $1.000 por 1 L
+
+
+def test_layer_report_lists_coverage_sources_and_a_sample(db):
+    _attribute_catalog(db)
+    build_attributes(db)
+
+    report = layer_report(db, sample=2)
+
+    assert "# Capas de perfiles" in report
+    assert "sin-gluten" in report and "rappi" in report  # cobertura por atributo y fuente
+    assert "Leche sin lactosa 1 L" in report  # muestra revisable con el nombre del ítem
+    assert layer_report(db, sample=2) == report  # muestra con semilla fija: mismo reporte
+
+
+def test_pet_attributes_come_from_the_concept_group(db):
+    add_store(db, 1, "supermercado")
+    add_product(db, 30, "Gato Vino Cabernet Sauvignon 1 L", 1, "Vinos")
+    add_product(db, 31, "Alimento para gato adulto 1 kg", 1, "Alimento para gatos")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+
+    build_attributes(db)
+
+    assert ("30", "gato") not in _attrs(db) and _attrs(db)[("31", "gato")] == "regla"
+
+
+def test_unit_price_ratios_flag_a_mispriced_item(db):
+    add_store(db, 1, "supermercado")
+    for pid, price in [(40, 1000), (41, 1100), (42, 1200), (43, 1300), (44, 250000)]:
+        add_product(db, pid, "Coca-Cola 2 L", 1, "Gaseosas")
+        add_price(db, 1, pid, price)
+        db.execute("UPDATE catalog_items SET quantity = 2, unit_type = 'l' WHERE master_product_id = %s", (pid,))
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+
+    rows = db.execute(
+        "SELECT entity_id, round(ratio::numeric, 1) FROM capa.unit_price_ratios WHERE ratio > 5 ORDER BY 1"
+    ).fetchall()
+
+    assert [r[0] for r in rows] == ["44"] and rows[0][1] > 100

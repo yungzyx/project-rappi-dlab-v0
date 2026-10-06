@@ -6,7 +6,7 @@ dice «1 und» pero el nombre trae «3 L». Para los platos solo se extrae una e
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from psycopg import Connection
 
@@ -29,18 +29,25 @@ _UNITS = {
 }  # fmt: skip
 # Del nombre solo se leen peso y volumen (mg, lb o mm en un nombre suelen ser dosis o medidas de otra cosa).
 _NAME_MEASURE = re.compile(
-    r"(?<![\w.,\-])(\d+(?:[.,]\d+)?)\s*(kg|kilos?|grs?|gr|g|gramos?|ml|cc|lts?|l|litros?)(?![a-z0-9])", re.IGNORECASE
+    r"(?<![\w.,\-])(\d+(?:[.,]\d+)?)\s*(kg|kilos?|grs?|gr|g|gramos?|ml|cc|lts?|l|litros?)(?![\w/])", re.IGNORECASE
 )
 _THOUSANDS = re.compile(r"^\d{1,3}\.\d{3}$")
 _PACK_WORDS = {"six": 6, "doce": 12, "tres": 3}
 _NAME_PACK = [
-    re.compile(r"\b(\d+)\s*x\s*\d", re.IGNORECASE),
+    # «6 x 350 ml» sí; «70 x 50 cm» o «12x15cm» son dimensiones, no un pack de 70 o de 12
+    re.compile(
+        r"\b(\d{1,2})\s*x\s*\d++(?:[.,]\d++)?+\s*+(?:ml|cc|lts?|l|gr?s?|kg|oz|und|unid\w*|un|pzs?|piezas)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\b(\d+)\s*-?\s*pack\b", re.IGNORECASE),
     re.compile(r"\bpack\s*(?:de\s*)?(\d+)\b", re.IGNORECASE),
     re.compile(r"\b(six|doce|tres)\s*pack\b", re.IGNORECASE),
 ]
 _PRESENTATION_PACK = re.compile(r"^\s*(\d+)\s*x\s*\d", re.IGNORECASE)
 _PACK_SIZE = re.compile(r"^x(\d+)$", re.IGNORECASE)
+# Medidas que casi seguro son un error de carga de Rappi («Almendra Tostada: 1 mg», «Mix Frutas: 44.682 kg»)
+MAX_PLAUSIBLE = {"g": 100_000, "ml": 100_000, "und": 1_000}
+MIN_PLAUSIBLE_G = 0.001
 MAX_UND_AS_PACK = 24  # «4Und» en un producto con medida en el nombre: 4 envases; más que esto es un conteo de dosis
 
 
@@ -53,6 +60,7 @@ class Measure:
     size_label: str | None
     source: str
     evidence: str
+    suspect: str | None = None
 
 
 def _to_base(quantity: float | None, unit: str | None) -> tuple[float | None, str | None]:
@@ -76,7 +84,9 @@ def _name_measure(name: str) -> tuple[float, str, str] | None:
         else:
             value = float(digits.replace(",", "."))
         quantity, base = _to_base(value, unit)
-        if quantity:
+        if (
+            quantity and quantity <= MAX_PLAUSIBLE[base]
+        ):  # «600 L» de una tetera o «3028 L» de un filtro: no es el tamaño
             return quantity, base, match.group(0).strip()
     return None
 
@@ -95,7 +105,16 @@ def _pack(name: str, pack_size: str | None, presentation: str | None) -> int:
     return 1
 
 
-def parse_measure(
+def _suspect(m: Measure) -> Measure:
+    reason = None
+    if m.total is not None and m.unit in MAX_PLAUSIBLE and m.total > MAX_PLAUSIBLE[m.unit]:
+        reason = f"más de {MAX_PLAUSIBLE[m.unit]:,} {m.unit}".replace(",", ".")
+    elif m.total is not None and m.unit == "g" and m.total <= MIN_PLAUSIBLE_G:
+        reason = "un miligramo o menos"
+    return replace(m, suspect=reason) if reason else m
+
+
+def _parse_measure(
     name: str,
     quantity: float | None,
     unit_type: str | None,
@@ -103,6 +122,8 @@ def parse_measure(
     presentation: str | None = None,
 ) -> Measure:
     pack = _pack(name, pack_size, presentation)
+    if quantity is not None and quantity <= 0:  # «0 Und» y «0 cm» de Rappi: no es una medida
+        quantity = None
     rappi_qty, rappi_unit = _to_base(quantity, unit_type or ("und" if quantity is not None else None))
     from_name = _name_measure(name)
     # El nombre corrige a Rappi cuando éste dice «und» o una dimensión distinta («Coca-Cola 3 L» con 1 und).
@@ -111,9 +132,21 @@ def parse_measure(
         if rappi_unit == "und" and rappi_qty and 1 < rappi_qty <= MAX_UND_AS_PACK and pack == 1:
             pack = int(rappi_qty)  # «Shampoo 1 L» con 4Und: cuatro envases
         return Measure(name_qty, name_unit, pack, round(name_qty * pack, 6), None, "regla", text)
+    if rappi_unit == "und" and rappi_qty == pack:  # «Pack 50» con 50Und: el pack ya es la cantidad
+        pack = 1
     if rappi_qty is None:
         return Measure(None, None, pack, None, None, "rappi", "")
     return Measure(rappi_qty, rappi_unit, pack, round(rappi_qty * pack, 6), None, "rappi", f"{quantity:g} {unit_type}")
+
+
+def parse_measure(
+    name: str,
+    quantity: float | None,
+    unit_type: str | None,
+    pack_size: str | None,
+    presentation: str | None = None,
+) -> Measure:
+    return _suspect(_parse_measure(name, quantity, unit_type, pack_size, presentation))
 
 
 _DISH_SIZES = [
@@ -148,22 +181,26 @@ def build_measures(conn: Connection) -> dict:
     for item_id, name, quantity, unit_type, presentation, pack_size in rows:
         m = parse_measure(name or "", quantity, unit_type, pack_size, presentation)
         fixed += m.source == "regla"
-        out.append(("catalog_item", item_id, m.quantity, m.unit, m.pack, m.total, None, m.source, m.evidence, run))
+        out.append(
+            ("catalog_item", item_id, m.quantity, m.unit, m.pack, m.total, None, m.suspect, m.source, m.evidence, run)
+        )
     dishes = 0
     for item_id, name in conn.execute("SELECT item_id::text, name FROM menu_items").fetchall():
         label = parse_dish_size(name or "")
         if label:
             dishes += 1
-            out.append(("menu_item", item_id, None, None, 1, None, label, "regla", label, run))
+            out.append(("menu_item", item_id, None, None, 1, None, label, None, "regla", label, run))
     conn.execute("DELETE FROM item_measures")
     with conn.cursor() as cur:
         cur.executemany(
-            """INSERT INTO item_measures (entity_type, entity_id, quantity, unit, pack, total, size_label, source,
-                                          evidence, run_id)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            """INSERT INTO item_measures (entity_type, entity_id, quantity, unit, pack, total, size_label, suspect,
+                                          source, evidence, run_id)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             out,
         )
-    counts = {"productos": len(rows), "platos": dishes, "corregidos": fixed}
+    suspects = sum(1 for o in out if o[7])
+    conn.execute("ANALYZE item_measures")  # sin estadísticas, las vistas de `capa` tardan minutos en un plan malo
+    counts = {"productos": len(rows), "platos": dishes, "corregidos": fixed, "sospechosas": suspects}
     finish_layer_run(conn, run, counts)
     log.info("Medidas: %s", counts)
     return counts
