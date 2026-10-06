@@ -7,7 +7,8 @@
 # price_percentile { gte | lte }, discount, basket_size { gte_items | lte_items | gte_amount }, modality,
 # from_suggestion, cities. `min_share` (0 a 1): parte mínima de la actividad de la persona, en los tipos de evento de la
 # regla, que debe calzar: un contexto que cualquiera cumple de vez en cuando (un fin de semana) no es un perfil.
-# Una regla con `metric` { name, min?, max? } no suma eventos: la persona es del segmento si min ≤ valor < max.
+# Una regla con `metric` { name, min?, max?, stronger? } no suma eventos: la persona es del segmento si min ≤ valor < max;
+# con `stronger = "lower"` (nuevo, activo, gasto-bajo…) un valor menor es más fuerte y los niveles decrecen.
 # Los sensibles se nombran por lo que la persona compra (nunca por una condición) y llevan `sensitive = true`.
 # Las palabras de consulta van en minúsculas y sin tildes: el motor normaliza antes de comparar.
 version = "2026-10-06"
@@ -521,7 +522,7 @@ id = "familia-con-ninos"
 name = "Familia con niños"
 family = "hogar"
 description = "Compra juguetes, útiles o productos infantiles."
-signals = { concepts = ["juguetes-infantiles"], attributes = ["ninos"], query_words = ["infantil", "lonchera", "colegio"] }
+signals = { concepts = ["juguetes-infantiles"], query_words = ["infantil", "lonchera", "colegio"] }
 
 [[segment]]
 id = "familia-con-adolescentes"
@@ -671,6 +672,7 @@ signals = { concepts = ["fragancias"], query_words = ["perfume", "colonia", "fra
 id = "higiene-bebe"
 name = "Higiene de bebé"
 family = "cuidado"
+sensitive = true
 description = "Compra toallitas, cremas y shampoo de bebé."
 signals = { attributes = ["bebe"], concepts = ["panales"], query_words = ["toallitas humedas", "crema para panal", "shampoo bebe"] }
 
@@ -1035,8 +1037,8 @@ id = "gasto-bajo"
 name = "Gasto bajo"
 family = "valor"
 description = "Está entre quienes menos gastan."
-metric = { name = "gasto_90d_percentil", max = 0.2 }
-levels = { bajo = 0.05, medio = 0.1, alto = 0.15 }
+metric = { name = "gasto_90d_percentil", max = 0.2, stronger = "lower" }
+levels = { bajo = 0.2, medio = 0.1, alto = 0.05 }
 
 [[segment]]
 id = "ticket-creciente"
@@ -1051,16 +1053,16 @@ id = "nuevo"
 name = "Nuevo"
 family = "relacion"
 description = "Se registró hace poco."
-metric = { name = "dias_desde_alta", min = 0, max = 14 }
-levels = { bajo = 1.0, medio = 3.0, alto = 7.0 }
+metric = { name = "dias_desde_alta", min = 0, max = 14, stronger = "lower" }
+levels = { bajo = 14.0, medio = 7.0, alto = 3.0 }
 
 [[segment]]
 id = "activo"
 name = "Activo"
 family = "relacion"
 description = "Pidió en el último mes."
-metric = { name = "dias_sin_pedido", min = 0, max = 30 }
-levels = { bajo = 1.0, medio = 10.0, alto = 20.0 }
+metric = { name = "dias_sin_pedido", min = 0, max = 30, stronger = "lower" }
+levels = { bajo = 30.0, medio = 14.0, alto = 3.0 }
 
 [[segment]]
 id = "leal"
@@ -1131,8 +1133,8 @@ id = "ignora-sugerencias"
 name = "Ignora sugerencias"
 family = "relacion"
 description = "Casi nunca acepta lo que Bigotes sugiere."
-metric = { name = "aceptacion_sugerencias", max = 0.05 }
-levels = { bajo = 0.01, medio = 0.02, alto = 0.03 }
+metric = { name = "aceptacion_sugerencias", max = 0.05, stronger = "lower" }
+levels = { bajo = 0.05, medio = 0.03, alto = 0.01 }
 
 [[segment]]
 id = "usa-chat"

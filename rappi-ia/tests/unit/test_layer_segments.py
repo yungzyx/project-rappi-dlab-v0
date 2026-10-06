@@ -22,9 +22,13 @@ def test_ids_are_unique_and_the_twelve_families_are_all_used():
     assert {r.family for r in RULES} == set(FAMILIES) and len(FAMILIES) == 12
 
 
-def test_exactly_the_thirteen_sensitive_segments_are_flagged():
+def test_exactly_the_fourteen_sensitive_segments_are_flagged():
+    """Los 13 de la spec más `higiene-bebe`, que mira lo mismo que `mama-papa-bebe`."""
     assert {r.id for r in RULES if r.sensitive} == SENSITIVE_SEGMENTS
-    assert len(SENSITIVE_SEGMENTS) == 13 and {"compra-sin-gluten", "embarazo", "tabaco", "vapeo"} <= SENSITIVE_SEGMENTS
+    assert (
+        len(SENSITIVE_SEGMENTS) == 14
+        and {"compra-sin-gluten", "embarazo", "tabaco", "higiene-bebe"} <= SENSITIVE_SEGMENTS
+    )
 
 
 def test_sensitive_segments_are_named_by_behaviour_never_by_condition():
@@ -57,7 +61,8 @@ def test_no_rule_leans_on_occasions_or_on_species_attributes():
 def test_levels_are_increasing_and_complete():
     for r in RULES:
         values = [r.levels[level] for level in LEVELS]
-        assert list(r.levels) == list(LEVELS) and values == sorted(set(values)) and values[0] > 0, r.id
+        lower = bool(r.metric) and r.metric.get("stronger") == "lower"  # menos es más fuerte: niveles decrecientes
+        assert list(r.levels) == list(LEVELS) and values == sorted(set(values), reverse=lower) and min(values) > 0, r.id
         assert r.min_signals >= 1 and r.window_days >= 1 and r.half_life_days > 0, r.id
 
 
@@ -290,3 +295,52 @@ def test_every_broad_rule_asks_for_a_share_of_the_activity():
     """Un contexto que cualquiera cumple de vez en cuando (un fin de semana, un precio alto) no es un perfil."""
     for rule_id in ("fin-de-semana", "dia-de-pago", "nocturno", "premium", "sensible-al-precio", "reposicion-rapida"):
         assert 0.2 <= BY_ID[rule_id].min_share <= 1, rule_id
+
+
+def test_for_metrics_where_lower_is_stronger_the_smaller_value_gets_the_higher_level():
+    new = BY_ID["nuevo"]
+    level = lambda rule, value, name: score_user([], {name: value}, [rule], NOW)[0].level  # noqa: E731
+    assert [level(new, d, "dias_desde_alta") for d in (2.4, 5.0, 13.0)] == ["alto", "medio", "bajo"]
+    active = BY_ID["activo"]
+    assert [level(active, d, "dias_sin_pedido") for d in (2.0, 12.0, 25.0)] == ["alto", "medio", "bajo"]
+    assert level(BY_ID["gasto-bajo"], 0.03, "gasto_90d_percentil") == "alto"
+    assert level(BY_ID["gasto-bajo"], 0.18, "gasto_90d_percentil") == "bajo"
+    assert level(BY_ID["en-riesgo"], 75, "dias_sin_pedido") == "alto"  # donde más es más fuerte, no cambia
+
+
+def test_a_lower_is_stronger_metric_needs_decreasing_levels(tmp_path):
+    body = """
+[[segment]]
+id = "x"
+name = "X"
+family = "relacion"
+description = "d"
+metric = { name = "dias_sin_pedido", min = 0, max = 30, stronger = "lower" }
+window_days = 30
+half_life_days = 10
+min_signals = 1
+levels = { bajo = 5.0, medio = 10.0, alto = 20.0 }
+"""
+    with pytest.raises(ValueError, match=r"Segmento x.*decrecientes"):
+        load_segment_rules(_write(tmp_path, body))
+
+
+def test_no_plain_segment_shares_what_it_looks_at_with_a_sensitive_one():
+    """Un segmento común que mira lo mismo que uno sensible es el mismo dato sin sus protecciones (sin filas por persona
+    en `capa`, k ≥ 5): `higiene-bebe` era `mama-papa-bebe` con otro nombre."""
+    taxonomy = load_taxonomy()
+
+    def looked_at(rule):
+        pieces = rule.signals
+        concepts = set(pieces.get("concepts", ()))
+        for group in pieces.get("groups", ()):
+            concepts |= {c.id for c in taxonomy.concepts.values() if c.parent == group}
+        return concepts, set(pieces.get("attributes", ())), set(pieces.get("verticals", ()))
+
+    sensitive = [looked_at(r) for r in RULES if r.sensitive]
+    for r in RULES:
+        if r.sensitive or not r.signals:
+            continue
+        concepts, attributes, verticals = looked_at(r)
+        for s_concepts, s_attributes, s_verticals in sensitive:
+            assert not (concepts & s_concepts or attributes & s_attributes or verticals & s_verticals), r.id

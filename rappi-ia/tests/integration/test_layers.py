@@ -929,8 +929,36 @@ def test_synthetic_population_fills_most_families(db):
         )
     }
     assert len(families) >= 8, sorted(families)
+
+
+def test_the_gluten_free_persona_prefers_items_with_the_attribute(db, monkeypatch):
+    from dataclasses import replace
+    from datetime import date
+
+    from rappi_ia.events import synth
+
+    add_store(db, 1, "supermercado")
+    for pid, name in enumerate(
+        ["Galletas sin gluten mantequilla", "Galletas sin gluten chips", "Galletas soda", "Galletas dulces"], start=100
+    ):
+        add_product(db, pid, name, 1, "Galletas")
+        add_price(db, 1, pid, 1000 + pid)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+    build_brands(db)
+    build_attributes(db)
+    persona = replace(
+        next(p for p in synth.PERSONAS if p.id == "sin-gluten"), share=1.0, interests={"supermercado": {"galletas": 1}}
+    )
+    monkeypatch.setattr(synth, "PERSONAS", [persona])
+    synth.generate(db, users=60, weeks=20, seed=5, until=date(2026, 9, 27))
+
+    build_segments(db, "synthetic", now=datetime(2026, 9, 27, 12, tzinfo=UTC))
+
     gluten = db.execute("SELECT count(*) FROM user_segments WHERE segment_id = 'compra-sin-gluten'").fetchone()[0]
-    assert gluten > 0  # la persona sin gluten elige ítems con el atributo y el segmento aparece
+    assert gluten > 10  # elige ítems con el atributo y el segmento aparece
 
 
 def test_layer_report_summarizes_segments_and_hides_small_sensitive_groups(db):
@@ -945,3 +973,151 @@ def test_layer_report_summarizes_segments_and_hides_small_sensitive_groups(db):
     assert "## Segmentos por familia" in report and "## Segmentos sin ningún usuario" in report
     assert "cervecero" in report.split("## Segmentos sin ningún usuario")[1]  # nadie lo cumple
     assert "compra-sin-gluten" not in report.split("## Segmentos más grandes")[1].split("## Segmentos sin")[0]  # k < 5
+
+
+# ── correcciones de la revisión de la etapa 4 ──
+
+
+def test_forgetting_a_concept_also_forgets_the_segments_its_items_gave(db):
+    """Las líneas de pedido conservan su ítem aunque «Olvidar» les quite el concepto: el ítem (y su atributo sin gluten)
+    no puede devolverle a la persona el segmento que pidió borrar."""
+    _gluten_catalog(db)
+    for days in (1, 3, 5):
+        _buy(db, "u-proto", 10, days, source="prototype")
+    db.commit()
+    build_segments(db, "prototype", now=SEG_NOW)
+    assert "compra-sin-gluten" in _segments(db, "u-proto")
+
+    events_store.forget(db, "u-proto", "galletas")
+
+    assert "compra-sin-gluten" not in _segments(db, "u-proto")
+
+
+def test_events_from_rappi_hoy_mode_never_become_signals(db):
+    """«Rappi hoy» no deja huella de gusto: el prototipo le quita el concepto al evento y deja el ítem y el texto."""
+    _gluten_catalog(db)
+    events_store.record(
+        db,
+        [
+            events_store.Event(
+                "u-hoy", f"s{i}", "view_item", ts=SEG_NOW - timedelta(days=i), entity_type="catalog_item",
+                entity_id="10", payload={"mode": "actual"},
+            )
+            for i in range(1, 5)
+        ]
+        + [
+            events_store.Event("u-hoy", f"c{i}", "chat", ts=SEG_NOW - timedelta(days=i), query="test de embarazo",
+                               payload={"mode": "actual"})
+            for i in range(1, 5)
+        ]
+        + [events_store.Event("u-hoy", "z1", "chat", ts=SEG_NOW - timedelta(days=1), query="test de embarazo")],
+        source="prototype",
+    )  # fmt: skip
+    db.commit()
+
+    assert load_signals(db, "prototype") == {}
+    build_segments(db, "prototype", now=SEG_NOW)
+    assert "embarazo" not in _segments(db, "u-hoy") and "compra-sin-gluten" not in _segments(db, "u-hoy")
+
+
+def test_one_checkout_is_one_occasion_however_many_items_it_has(db):
+    _gluten_catalog(db)
+    add_product(db, 12, "Galletas Sin Gluten Avena", 1, "Galletas")
+    add_product(db, 13, "Galletas Sin Gluten Coco", 1, "Galletas")
+    db.commit()
+    build_search_documents(db)
+    build_attributes(db)
+    lines = [
+        {"entity_type": "catalog_item", "entity_id": str(p), "concept_id": "galletas", "unit_price": 2000}
+        for p in (10, 12, 13)
+    ]
+    events_store.record_order(
+        db, "u-one", "s-one", "c-one", "supermercado", lines, source="synthetic", ts=SEG_NOW - timedelta(days=1)
+    )
+    for p in (10, 12, 13):  # lo que el mismo pedido dejó en el registro: vista y carro de cada ítem
+        events_store.record(
+            db,
+            [
+                events_store.Event("u-one", "s-one", kind, ts=SEG_NOW - timedelta(days=1), concept_id="galletas",
+                                   entity_type="catalog_item", entity_id=str(p), cart_id="c-one")
+                for kind in ("view_item", "cart_add")
+            ],
+            source="synthetic",
+        )  # fmt: skip
+    for days in (3, 5):
+        _buy(db, "u-three", 10, days)
+    _buy(db, "u-three", 10, 1)
+    db.commit()
+
+    build_segments(db, "synthetic", now=SEG_NOW)
+
+    assert "compra-sin-gluten" not in _segments(db, "u-one")  # nueve eventos, una sola ocasión
+    assert "compra-sin-gluten" in _segments(db, "u-three")  # tres pedidos en tres días
+    assert db.execute(
+        "SELECT signals FROM user_segments WHERE user_id = 'u-three' AND segment_id = 'compra-sin-gluten'"
+    ).fetchone() == (3,)
+
+
+def test_price_percentile_is_measured_in_the_vertical_of_the_event(db):
+    """Un producto en dos verticales se compara con los de cada una; antes se duplicaba y valía cualquiera."""
+    add_store(db, 1, "supermercado")
+    add_store(db, 2, "conveniencia")
+    for pid, price in [(10, 5000), (11, 1000), (12, 2000), (13, 3000)]:
+        add_product(db, pid, f"Galletas {pid}", 1, "Galletas")
+        add_price(db, 1, pid, price)
+    for pid, price in [(14, 1000), (15, 2000), (16, 3000)]:
+        add_product(db, pid, f"Galletas {pid}", 2, "Galletas")
+        add_price(db, 2, pid, price)
+    db.execute("INSERT INTO store_products (store_id, sku, master_product_id) VALUES (2, 'sku-10-b', 10)")
+    db.execute(
+        "INSERT INTO price_snapshots (run_id, store_id, sku, price, in_stock)"
+        " SELECT run_id, 2, 'sku-10-b', 500, true FROM price_snapshots LIMIT 1"
+    )
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    _buy(db, "u1", 10, 2, vertical="supermercado")
+    _buy(db, "u1", 10, 4, vertical="conveniencia")
+    db.commit()
+
+    percentile = {s.vertical: s.price_percentile for s in load_signals(db, "synthetic")["u1"] if s.type == "order_line"}
+
+    assert percentile == {"supermercado": 1.0, "conveniencia": 0.0}
+    assert len([s for s in load_signals(db, "synthetic")["u1"] if s.type == "order_line"]) == 2  # sin filas duplicadas
+
+
+def test_a_malformed_event_payload_cannot_break_the_segment_build(db):
+    _gluten_catalog(db)
+    events_store.record(
+        db,
+        [events_store.Event("u-bad", "s1", "cart_add", concept_id="galletas", payload={"from_suggestion": "si"})],
+        source="prototype",
+    )
+    db.commit()
+
+    assert "u-bad" in load_signals(db, "prototype")
+    build_segments(db, "prototype", now=SEG_NOW)  # no revienta
+
+
+def test_forgetting_a_concept_also_clears_the_users_earlier_history(db):
+    _gluten_catalog(db)
+    for days in (1, 3, 5):
+        _buy(db, "u-proto", 10, days, source="prototype")
+    db.commit()
+    build_segments(db, "prototype", now=SEG_NOW)
+    db.execute(
+        "INSERT INTO user_segment_history (week, user_id, segment_id, score, level)"
+        " VALUES ('2026-09-28', 'u-proto', 'compra-sin-gluten', 9, 'alto')"
+    )
+
+    events_store.forget(db, "u-proto", "galletas")
+
+    assert (
+        db.execute(
+            "SELECT count(*) FROM user_segment_history WHERE user_id = 'u-proto' AND week < '2026-10-05'"
+        ).fetchone()[0]
+        == 0
+    )
+    assert db.execute(
+        "SELECT count(*) FROM user_segment_history WHERE user_id = 'u-proto' AND segment_id = 'compra-sin-gluten'"
+    ).fetchone() == (0,)

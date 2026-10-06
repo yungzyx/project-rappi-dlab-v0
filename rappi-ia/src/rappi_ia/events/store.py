@@ -291,6 +291,8 @@ def forget(conn: Connection, user_id: str, concept_id: str | None = None) -> int
             deleted += conn.execute("UPDATE app_events SET query = NULL WHERE event_id = ANY(%s)", (mentions,)).rowcount
     from ..layers.segments import build_segments  # sus segmentos se recalculan sin lo que olvidó
 
+    # La historia semanal también dice «tenía este segmento»: tras olvidar un concepto no queda nada anterior.
+    conn.execute("DELETE FROM user_segment_history WHERE user_id = %s", (user_id,))
     build_segments(conn, "prototype", user_id, commit=False)
     return deleted
 

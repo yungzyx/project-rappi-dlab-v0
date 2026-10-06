@@ -63,7 +63,7 @@ SENSITIVE_SEGMENTS = frozenset(
     {
         *("compra-sin-gluten", "compra-sin-lactosa", "compra-sin-azucar", "bajo-sodio", "alergia-frutos-secos"),
         *("mama-papa-bebe", "embarazo", "adulto-mayor", "salud-sexual", "farmacia-frecuente", "cuidado-cronico"),
-        *("tabaco", "vapeo"),
+        *("tabaco", "vapeo", "higiene-bebe"),  # `higiene-bebe` mira lo mismo que `mama-papa-bebe`
     }
 )
 _SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -138,8 +138,9 @@ def _build(entry: dict) -> SegmentRule:
     values = [levels.get(level) for level in LEVELS]
     if list(levels) != list(LEVELS) or None in values:
         fail(f"`levels` debe traer {', '.join(LEVELS)} en ese orden")
-    if values[0] <= 0 or values != sorted(set(values)):
-        fail("`levels` debe ser positivo y estrictamente creciente")
+    lower = bool(metric) and metric.get("stronger") == "lower"
+    if min(values) <= 0 or values != sorted(set(values), reverse=lower):
+        fail("`levels` debe ser positivo y estrictamente " + ("decrecientes" if lower else "creciente"))
     if int(entry["min_signals"]) < 1 or int(entry["window_days"]) < 1 or float(entry["half_life_days"]) <= 0:
         fail("min_signals y window_days deben ser ≥ 1 y half_life_days > 0")
     return SegmentRule(
@@ -209,8 +210,10 @@ def _check_pieces(pieces: dict, fail, where: str) -> None:
 def _check_metric(metric: dict, fail) -> None:
     if metric.get("name") not in METRICS:
         fail(f"métrica desconocida `{metric.get('name')}`")
-    if not ({"min", "max"} & set(metric)) or set(metric) - {"name", "min", "max"}:
-        fail("`metric` es { name, min?, max? } con al menos un límite")
+    if not ({"min", "max"} & set(metric)) or set(metric) - {"name", "min", "max", "stronger"}:
+        fail("`metric` es { name, min?, max?, stronger? } con al menos un límite")
+    if metric.get("stronger", "higher") not in ("higher", "lower"):
+        fail("`metric.stronger` es `higher` (por defecto) o `lower`")
     if "min" in metric and "max" in metric and metric["min"] >= metric["max"]:
         fail("`metric.min` debe ser menor que `metric.max`")
 
@@ -236,6 +239,7 @@ class Signal:
     event_key: str  # identifica el evento: dos filas con la misma clave cuentan una sola vez
     city: str | None = None
     service: str | None = None
+    unit_key: str | None = None  # la ocasión (sesión o pedido): `min_signals` cuenta ocasiones, no eventos
 
 
 @dataclass(frozen=True)
@@ -263,8 +267,15 @@ def score_user(
     return found
 
 
+def _lower_is_stronger(rule: SegmentRule) -> bool:
+    return bool(rule.metric) and rule.metric.get("stronger") == "lower"
+
+
 def _level(rule: SegmentRule, score: float) -> str | None:
-    reached = [level for level in LEVELS if score >= rule.levels[level]]
+    if _lower_is_stronger(rule):  # «nuevo», «activo», «gasto-bajo»: menos días o menos gasto es más fuerte
+        reached = [level for level in LEVELS if score <= rule.levels[level]]
+    else:
+        reached = [level for level in LEVELS if score >= rule.levels[level]]
     return reached[-1] if reached else None
 
 
@@ -293,7 +304,8 @@ def _by_signals(rule: SegmentRule, signals: list[Signal], now: datetime) -> Memb
         activity += points
         if _matches(signal, rule.signals, taxonomy) and not (rule.exclude and _matches(signal, rule.exclude, taxonomy)):
             counted[signal.event_key] = (signal, points)
-    if len(counted) < rule.min_signals:
+    occasions = {signal.unit_key or signal.event_key for signal, _points in counted.values()}
+    if len(occasions) < rule.min_signals:
         return None
     score = sum(points for _signal, points in counted.values())
     level = _level(rule, score)
@@ -302,7 +314,7 @@ def _by_signals(rule: SegmentRule, signals: list[Signal], now: datetime) -> Memb
     seen_at = [signal.ts for signal, _points in counted.values()]
     evidence = _evidence(rule, counted.values())
     evidence["share"] = round(score / activity, 3)
-    return Membership(rule.id, score, level, len(counted), evidence, min(seen_at), max(seen_at))
+    return Membership(rule.id, score, level, len(occasions), evidence, min(seen_at), max(seen_at))
 
 
 def _evidence(rule: SegmentRule, counted) -> dict:
@@ -381,38 +393,41 @@ def _context_hit(signal: Signal, key: str, wanted) -> bool:
 
 _SIGNALS_SQL = """
 WITH raw AS (
-    SELECT e.user_id, 'e' || e.event_id AS event_key, e.ts, e.type, e.concept_id, e.vertical, e.query, e.modality,
-           e.entity_type, e.entity_id, coalesce((e.payload ->> 'from_suggestion')::boolean, false) AS from_suggestion,
+    -- Solo lo que dice un concepto: «Rappi hoy» le quita el concepto al evento (y marca payload.mode = 'actual'), y
+    -- «Olvidar» un concepto se lo quita a las líneas de pedido; sin concepto no hay huella de gusto.
+    SELECT e.user_id, 'e' || e.event_id AS event_key, e.session_id AS unit_key, e.ts, e.type, e.concept_id,
+           e.vertical, e.query, e.modality, e.entity_type, e.entity_id,
+           coalesce(e.payload ->> 'from_suggestion', '') = 'true' AS from_suggestion,
            e.payload ->> 'servicio' AS service, NULL::bigint AS basket_items, NULL::numeric AS basket_total
     FROM app_events e
     WHERE e.source = %(source)s AND e.type = ANY(%(types)s) AND (%(user)s::text IS NULL OR e.user_id = %(user)s)
-      AND (e.concept_id IS NOT NULL OR e.entity_id IS NOT NULL OR e.query IS NOT NULL OR e.payload ? 'servicio')
+      AND coalesce(e.payload ->> 'mode', '') <> 'actual'
+      AND (e.concept_id IS NOT NULL OR e.payload ? 'servicio')
     UNION ALL
-    SELECT o.user_id, 'l' || o.order_id || ':' || l.line_no, o.ts, 'order_line', l.concept_id, o.vertical, NULL, NULL,
-           l.entity_type, l.entity_id, l.from_suggestion, NULL, sum(l.qty) OVER (PARTITION BY l.order_id), o.total
+    SELECT o.user_id, 'l' || o.order_id || ':' || l.line_no, coalesce(o.session_id, o.order_id), o.ts, 'order_line',
+           l.concept_id, o.vertical, NULL, NULL, l.entity_type, l.entity_id, l.from_suggestion, NULL,
+           sum(l.qty) OVER (PARTITION BY l.order_id), o.total
     FROM app_order_lines l JOIN app_orders o USING (order_id)
-    WHERE o.source = %(source)s AND (%(user)s::text IS NULL OR o.user_id = %(user)s)
+    WHERE o.source = %(source)s AND l.concept_id IS NOT NULL AND (%(user)s::text IS NULL OR o.user_id = %(user)s)
 ),
-located AS (
-    SELECT r.*, coalesce(r.concept_id, ic.concept_id) AS concept
-    FROM raw r LEFT JOIN item_concepts ic ON ic.entity_type = r.entity_type AND ic.entity_id = r.entity_id
-),
-needed AS (SELECT DISTINCT concept FROM located WHERE concept IS NOT NULL),
-ranked AS (
-    SELECT sd.entity_type, sd.entity_id, percent_rank() OVER (PARTITION BY ic.concept_id ORDER BY sd.price_min) AS pct
+needed AS (SELECT DISTINCT concept_id FROM raw WHERE concept_id IS NOT NULL),
+ranked AS (  -- posición del precio entre los ítems de su concepto en esa vertical (un ítem puede estar en varias)
+    SELECT sd.vertical, sd.entity_type, sd.entity_id,
+           percent_rank() OVER (PARTITION BY ic.concept_id, sd.vertical ORDER BY sd.price_min) AS pct
     FROM search_documents sd
     JOIN item_concepts ic ON ic.entity_type = sd.entity_type AND ic.entity_id = sd.entity_id
-    WHERE sd.price_min IS NOT NULL AND ic.concept_id IN (SELECT concept FROM needed)
+    WHERE sd.price_min IS NOT NULL AND ic.concept_id IN (SELECT concept_id FROM needed)
 )
-SELECT l.user_id, u.city, l.event_key, l.ts, l.type, l.concept, c.parent_id, l.vertical, l.query, l.modality,
-       l.from_suggestion, l.service, l.basket_items, l.basket_total, ib.brand_key, rk.pct,
+SELECT r.user_id, u.city, r.event_key, r.ts, r.type, r.concept_id, c.parent_id, r.vertical, r.query, r.modality,
+       r.from_suggestion, r.service, r.basket_items, r.basket_total, ib.brand_key, rk.pct,
        coalesce((SELECT array_agg(ia.attribute_id) FROM item_attributes ia
-                 WHERE ia.entity_type = l.entity_type AND ia.entity_id = l.entity_id), '{}') AS attributes
-FROM located l
-JOIN app_users u ON u.user_id = l.user_id
-LEFT JOIN concepts c ON c.concept_id = l.concept
-LEFT JOIN item_brands ib ON ib.entity_type = l.entity_type AND ib.entity_id = l.entity_id
-LEFT JOIN ranked rk ON rk.entity_type = l.entity_type AND rk.entity_id = l.entity_id
+                 WHERE ia.entity_type = r.entity_type AND ia.entity_id = r.entity_id), '{}') AS attributes,
+       r.unit_key
+FROM raw r
+JOIN app_users u ON u.user_id = r.user_id
+LEFT JOIN concepts c ON c.concept_id = r.concept_id
+LEFT JOIN item_brands ib ON ib.entity_type = r.entity_type AND ib.entity_id = r.entity_id
+LEFT JOIN ranked rk ON rk.vertical = r.vertical AND rk.entity_type = r.entity_type AND rk.entity_id = r.entity_id
 """
 
 
@@ -424,7 +439,7 @@ def load_signals(conn: Connection, source: str, user_id: str | None = None) -> d
     signals: dict[str, list[Signal]] = defaultdict(list)
     for row in rows:
         user, city, key, ts, kind, concept, group, vertical, query, modality = row[:10]
-        suggested, service, items, total, brand, pct, attributes = row[10:]
+        suggested, service, items, total, brand, pct, attributes, unit = row[10:]
         signals[user].append(
             Signal(
                 ts=ts.astimezone(LOCAL_TZ),
@@ -444,6 +459,7 @@ def load_signals(conn: Connection, source: str, user_id: str | None = None) -> d
                 event_key=key,
                 city=city,
                 service=service,
+                unit_key=unit,
             )
         )
     return dict(signals)
