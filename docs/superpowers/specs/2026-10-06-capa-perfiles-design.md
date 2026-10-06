@@ -214,8 +214,9 @@ Comandos de `rappi-ia`, en este orden dentro de `make post-refresh` (después de
 5. `relations` → `relation_defs`, `knowledge_edges` (salvo `curado`, que siembra el TOML)
 6. `segments` → `segment_defs`, `user_segments`, `user_segment_history` (foto de la semana)
 
-`make layers` corre los seis. Cada uno: una transacción, `layer_runs` con conteos, idempotente. Los ítems que no
-cambiaron (mismo `content_hash` de `search_documents`) no se reprocesan en `attributes`.
+`make layers` corre los seis. Cada uno: una transacción, `layer_runs` con conteos, idempotente. Se recalcula todo en
+cada corrida (≈ 250 mil ítems); si algún día tarda más de 5 minutos, `attributes` pasa a incremental por
+`content_hash` de `search_documents`.
 
 Fuera del repo de reglas no hay nada: `attributes.toml`, `brands.toml`, `segments.toml`, `relations.toml` viven junto
 a `taxonomy.toml` y llevan `version` (fecha), que se copia a `rules_version`.
