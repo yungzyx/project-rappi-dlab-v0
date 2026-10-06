@@ -6,6 +6,9 @@ supuestos explícitos. El panel muestra la mecánica, no evidencia: por construc
 
 SUPUESTOS (editables aquí):
 - Personas con verticales, conceptos y ritmo de compra propios (PERSONAS); dos compran en una sola vertical.
+- Personas pequeñas que ejercitan los segmentos de la capa de perfiles (sin gluten, vegana, mamá con bebé, perro, gato,
+  fitness, nocturno, cazaofertas, gamer, cafetera, chocolatera, parrillera); algunas prefieren ítems con un atributo.
+  La oficinista ya existe como «oficina». Los pesos (`share`) se normalizan al sortear: no hace falta que sumen 1.
 - 26 semanas: la retención (días 61 a 120) necesita usuarios con 120 días de historia.
 - Quien no encuentra lo que busca (demanda no satisfecha) o abandona carros, se va antes (CHURN_*).
 - Parte de quienes encuentran productos se va sin agregar nada al carro (BROWSE_ONLY).
@@ -43,6 +46,7 @@ class Persona:
     interests: dict[str, dict[str, float]]  # vertical → concepto → peso
     abandon: float  # probabilidad de abandonar un carro
     churn: float  # riesgo semanal base
+    prefer: str | None = None  # atributo que prefiere al elegir ítem (`sin-gluten`, `vegano`…) si el concepto lo tiene
 
 
 PERSONAS = [
@@ -150,6 +154,168 @@ PERSONAS = [
         0.3,
         0.035,
     ),
+    Persona(
+        "sin-gluten",
+        0.02,
+        8,
+        (10, 11, 18, 19),
+        {
+            "supermercado": {
+                "galletas": 3,
+                "panaderia": 3,
+                "pastas": 2,
+                "cereales": 2,
+                "snacks-salados": 1.5,
+                "chocolates": 1,
+                "lacteos": 1.5,
+                "frutas": 1,
+            }
+        },
+        0.25,
+        0.02,
+        "sin-gluten",
+    ),
+    Persona(
+        "vegana",
+        0.02,
+        8,
+        (11, 12, 19, 20),
+        {
+            "supermercado": {
+                "vegano": 4,
+                "verduras": 3,
+                "frutas": 3,
+                "arroz-legumbres": 2,
+                "frutos-secos": 1.5,
+                "cereales": 1.5,
+            },
+            "restaurantes": {"ensaladas-bowls": 2, "asiatica": 1.5},
+        },
+        0.25,
+        0.02,
+        "vegano",
+    ),
+    Persona(
+        "mama-bebe",
+        0.03,
+        7,
+        (9, 10, 16, 17),
+        {
+            "supermercado": {"panales": 5, "alimentacion-bebe": 4, "articulos-bebe": 2, "lacteos": 2},
+            "farmacia": {"panales": 1.5, "articulos-bebe": 1},
+        },
+        0.2,
+        0.015,
+    ),
+    Persona(
+        "perro",
+        0.03,
+        14,
+        (8, 9, 18, 19),
+        {"supermercado": {"alimento-perro": 5, "accesorios-mascota": 2}, "conveniencia": {"alimento-perro": 1}},
+        0.2,
+        0.015,
+    ),
+    Persona(
+        "gato",
+        0.025,
+        14,
+        (9, 10, 19, 20),
+        {"supermercado": {"alimento-gato": 5, "accesorios-mascota": 2}, "conveniencia": {"alimento-gato": 1}},
+        0.2,
+        0.015,
+    ),
+    Persona(
+        "fitness",
+        0.025,
+        7,
+        (7, 8, 18, 19),
+        {
+            "supermercado": {"frutas": 3, "lacteos": 2, "carnes": 2, "cereales": 1.5, "barras-cereal": 2},
+            "farmacia": {"vitaminas": 3},
+            "mall": {"articulos-deportivos": 2},
+        },
+        0.25,
+        0.02,
+        "alto-proteina",
+    ),
+    Persona(
+        "nocturno",
+        0.025,
+        8,
+        (22, 23, 0, 1, 2),
+        {
+            "licores": {"cerveza": 3, "pisco": 1, "snacks-salados": 1.5},
+            "restaurantes": {"pizza": 3, "hamburguesa": 3, "sushi": 1.5},
+            "conveniencia": {"gaseosas": 2, "snacks-salados": 2},
+        },
+        0.3,
+        0.03,
+    ),
+    Persona(
+        "cazaofertas",
+        0.025,
+        6,
+        (10, 11, 17, 18),
+        {
+            "supermercado": {"lacteos": 2, "limpieza": 2, "carnes": 2, "frutas": 1.5, "snacks-salados": 1.5},
+            "mall": {"electrohogar": 1},
+        },
+        0.35,
+        0.03,
+        "con-descuento",
+    ),
+    Persona(
+        "gamer",
+        0.02,
+        12,
+        (21, 22, 23),
+        {
+            "mall": {"videojuegos": 4, "audio": 2, "computacion": 2, "celulares": 1},
+            "restaurantes": {"pizza": 2, "hamburguesa": 2},
+            "conveniencia": {"energizantes": 3, "snacks-salados": 2},
+        },
+        0.3,
+        0.03,
+    ),
+    Persona(
+        "cafetera",
+        0.025,
+        8,
+        (8, 9, 16, 17),
+        {
+            "conveniencia": {"cafe": 4, "galletas": 1.5, "snacks-salados": 1},
+            "supermercado": {"cafe": 3, "te": 1.5, "cereales": 1},
+            "restaurantes": {"desayuno": 1.5},
+        },
+        0.25,
+        0.025,
+    ),
+    Persona(
+        "chocolatera",
+        0.025,
+        10,
+        (15, 16, 20, 21),
+        {
+            "chocolateria": {"chocolates": 4, "pasteleria": 2},
+            "supermercado": {"chocolates": 3, "helados": 1.5, "postres": 1.5, "golosinas": 1.5},
+        },
+        0.25,
+        0.025,
+    ),
+    Persona(
+        "parrillero",
+        0.03,
+        14,
+        (11, 12, 17, 18),
+        {
+            "supermercado": {"carnes": 4, "carbon": 2.5, "aceites-condimentos": 1},
+            "licores": {"cerveza": 3, "vino": 2.5, "pisco": 1},
+            "conveniencia": {"carbon": 1.5, "hielo": 1},
+        },
+        0.3,
+        0.025,
+    ),
 ]
 
 # Antojos que el catálogo no tiene (o casi): (vertical, texto, concepto, peso inicial, crecimiento semanal)
@@ -174,6 +340,8 @@ BROWSE_ONLY = 0.12  # encuentra productos y se va sin agregar nada al carro
 SUGGESTION_ACCEPT = 0.22  # probabilidad base de aceptar una sugerencia cruzada (× peso de la arista)
 SUGGESTION_CADENCE_BOOST = 0.93  # aceptar una sugerencia acorta el ritmo 7%
 MODALITIES = (("texto", 0.8), ("voz", 0.12), ("foto", 0.08))
+PREFERRED_ATTRIBUTES = ("sin-gluten", "vegano", "alto-proteina", "con-descuento")
+PREFER_SHARE = 0.85  # con qué frecuencia elige un ítem con su atributo cuando el concepto tiene alguno
 
 
 @dataclass
@@ -184,10 +352,19 @@ class Catalog:
     edges: dict[str, list[tuple[str, float]]]
     names: dict[str, str]
     ranked: dict[str, list[str]]  # concepto sugerible → verticales en el orden de Bigotes (`ranked_verticals`)
+    # (vertical, concepto, atributo) → ítems con ese atributo: solo los usa quien lo prefiere. Aparte de `items` para no
+    # inflar el surtido de las demás personas (una muestra al azar casi no trae ítems sin gluten o veganos).
+    preferred: dict[tuple[str, str, str], list[tuple[str, str, float]]] = field(default_factory=dict)
 
-    def pick(self, rng: random.Random, vertical: str, concept: str):
+    def pick(self, rng: random.Random, vertical: str, concept: str, prefer: str | None = None):
         options = self.items.get((vertical, concept))
-        return rng.choice(options) if options else None
+        if not options:
+            return None
+        if prefer and rng.random() < PREFER_SHARE:
+            liked = self.preferred.get((vertical, concept, prefer))
+            if liked:
+                return rng.choice(liked)
+        return rng.choice(options)
 
 
 @dataclass
@@ -218,6 +395,22 @@ def load_catalog(conn: Connection, per_concept: int = 40) -> Catalog:
     items: dict[tuple[str, str], list] = {}
     for vertical, concept, etype, eid, price in rows:
         items.setdefault((vertical, concept), []).append((etype, eid, float(price)))
+    preferred: dict[tuple[str, str, str], list] = {}
+    for vertical, concept, etype, eid, price, attribute in conn.execute(
+        """SELECT vertical, concept_id, entity_type, entity_id, price, attribute_id FROM (
+               SELECT d.vertical, ic.concept_id, d.entity_type, d.entity_id, ia.attribute_id,
+                      coalesce((d.metadata->>'precio_min')::numeric, (d.metadata->>'precio')::numeric) AS price,
+                      row_number() OVER (PARTITION BY d.vertical, ic.concept_id, ia.attribute_id
+                                         ORDER BY md5(d.entity_id)) AS rn
+               FROM search_documents d
+               JOIN item_concepts ic USING (entity_type, entity_id)
+               JOIN item_attributes ia ON ia.entity_type = d.entity_type AND ia.entity_id = d.entity_id
+               WHERE d.entity_type IN ('catalog_item', 'menu_item') AND ia.attribute_id = ANY(%s)
+           ) s
+           WHERE rn <= 15 AND price IS NOT NULL""",
+        (list(PREFERRED_ATTRIBUTES),),
+    ):
+        preferred.setdefault((vertical, concept, attribute), []).append((etype, eid, float(price)))
     edges: dict[str, list] = {}
     for source, target, weight in conn.execute(
         "SELECT from_concept, to_concept, weight FROM concept_edges WHERE method = 'curado'"
@@ -226,7 +419,7 @@ def load_catalog(conn: Connection, per_concept: int = 40) -> Catalog:
     names = dict(conn.execute("SELECT concept_id, name FROM concepts").fetchall())
     targets = {target for options in edges.values() for target, _ in options}
     ranked = {target: ranked_verticals(conn, [target]) for target in targets}
-    return Catalog(items, edges, names, ranked)
+    return Catalog(items, edges, names, ranked, preferred)
 
 
 def generate(conn: Connection, users: int = 1500, weeks: int = 26, seed: int = 7, until: date | None = None) -> dict:
@@ -360,7 +553,8 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
 
     vertical = _weighted(rng, {v: sum(c.values()) for v, c in s.persona.interests.items()})
     concept = _weighted(rng, s.persona.interests[vertical])
-    item = catalog.pick(rng, vertical, concept)
+    prefer = s.persona.prefer
+    item = catalog.pick(rng, vertical, concept, prefer)
     kind = "chat" if rng.random() < 0.3 else "search"
     emit(
         kind,
@@ -380,7 +574,7 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
     cart_id = uuid.UUID(int=rng.getrandbits(128)).hex[:12]
     lines = []
     for _ in range(1 + int(rng.random() < 0.5) + int(rng.random() < 0.2)):
-        item = catalog.pick(rng, vertical, concept) or item
+        item = catalog.pick(rng, vertical, concept, prefer) or item
         clock += timedelta(seconds=rng.randint(10, 90))
         emit("view_item", clock, vertical=vertical, concept=concept, etype=item[0], eid=item[1], value=item[2])
         emit(

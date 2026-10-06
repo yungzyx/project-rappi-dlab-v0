@@ -13,6 +13,8 @@ from ..concepts.taxonomy import load_taxonomy
 from ..text import normalize
 from .attributes import load_attribute_rules
 from .runs import finish_layer_run, rules_version, start_layer_run
+from .segments import RULES_FILE as SEGMENTS_FILE
+from .segments import load_segment_rules
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +32,12 @@ MIN_VERTICAL_SHARE = 0.05  # …y el 5 % de lo que tiene en la vertical donde m�
 MIN_SESSIONS = 30  # sesiones mínimas para aprender que dos conceptos se buscan juntos…
 MIN_USERS = 5  # …de al menos tantas personas distintas: una sola no hace una relación (y no se re-identifica)
 SEARCH_TYPES = ("search", "chat", "view_item")  # lo que la persona hace; el carro puede venir de una sugerencia
-DERIVED_RELATIONS = ("es_tipo_de", "de_ocasion", "se_vende_en", "tiene_atributo", "marca_de", "equivale", "sinonimo")
+DERIVED_RELATIONS = ("es_tipo_de", "de_ocasion", "se_vende_en", "tiene_atributo") + (
+    "marca_de",
+    "equivale",
+    "sinonimo",
+    "afin_a",
+)
 KEYWORD_WEIGHT = 1.0  # las keywords asignan productos
 QUERY_KEYWORD_WEIGHT = 0.8  # las de consulta solo ayudan a entender lo que la persona escribe
 
@@ -129,7 +136,9 @@ def build_relations(conn: Connection) -> dict:
     Idempotente: borra y vuelve a escribir solo lo que esta capa gestiona."""
     taxonomy = load_taxonomy()
     version, relations, curated = load_relation_rules()
-    run = start_layer_run(conn, "relations", rules_version(version, RULES_FILE, TAXONOMY_FILE, Path(__file__)))
+    run = start_layer_run(
+        conn, "relations", rules_version(version, RULES_FILE, TAXONOMY_FILE, SEGMENTS_FILE, Path(__file__))
+    )
     for r in relations:
         conn.execute(
             """INSERT INTO relation_defs (relation, name, from_kinds, to_kinds, is_symmetric, description)
@@ -152,7 +161,7 @@ def build_relations(conn: Connection) -> dict:
         if e.relation in symmetric:
             rows.append((tk, tid, e.relation, fk, fid, e.weight, "curado", "curado", "relations.toml", run))
     counts = {"curadas": len(rows)}
-    _insert(conn, rows + _taxonomy_rows(taxonomy, run))
+    _insert(conn, rows + _taxonomy_rows(taxonomy, run) + _segment_rows(run))
     counts.update(_derive_from_catalog(conn, run))
     counts.update(_learn_co_search(conn, run))
     counts["sinonimos"] = conn.execute("SELECT count(*) FROM knowledge_edges WHERE relation = 'sinonimo'").fetchone()[0]
@@ -199,6 +208,19 @@ def _taxonomy_rows(taxonomy, run: int) -> list[tuple]:
         for (term, concept), weight in terms.items()
     ]
     return rows
+
+
+def _segment_rows(run: int) -> list[tuple]:
+    """Qué mirar primero para cada segmento, leído de su propia regla. Los sensibles no tienen aristas: nada que los
+    nombre debe servir para sugerir."""
+    kinds = {"concepts": "concept", "groups": "group", "attributes": "attribute", "verticals": "vertical"}
+    return [
+        ("segment", r.id, "afin_a", kind, target, 1.0, "derivado", "curado", "segments.toml", run)
+        for r in load_segment_rules()[1]
+        if not r.sensitive
+        for piece, kind in kinds.items()
+        for target in r.signals.get(piece, ())
+    ]
 
 
 def _derive_from_catalog(conn: Connection, run: int) -> dict:

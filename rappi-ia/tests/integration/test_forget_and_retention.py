@@ -116,3 +116,34 @@ def test_opportunities_never_list_sensitive_concepts(db):
     events.record(db, rows)
     found = {r["concept_id"] for r in queries.opportunities(db, "prototype")}
     assert found == {"peruana"}
+
+
+def test_forget_everything_also_deletes_the_users_segments_and_history(db):
+    from rappi_ia.layers.segments import build_segments
+
+    _user_with_beer(db)
+    for i in range(4):  # cerveza ×4: suficiente para `cervecero`
+        events.record(db, [events.Event("u1", f"s{i}", "cart_add", ts=NOW - timedelta(days=i), concept_id="cerveza")])
+    build_segments(db, "prototype", now=NOW)
+    assert db.execute("SELECT count(*) FROM user_segments WHERE user_id = 'u1'").fetchone()[0] > 0
+
+    events.forget(db, "u1")
+
+    for table in ("user_segments", "user_segment_history"):
+        assert db.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0, table
+
+
+def test_forget_one_concept_recalculates_the_users_segments(db):
+    from rappi_ia.layers.segments import build_segments
+
+    _user_with_beer(db)
+    for i in range(4):
+        events.record(db, [events.Event("u1", f"s{i}", "cart_add", ts=NOW - timedelta(days=i), concept_id="cerveza")])
+    build_segments(db, "prototype", now=NOW)
+    before = {r[0] for r in db.execute("SELECT segment_id FROM user_segments WHERE user_id = 'u1'")}
+    assert "cervecero" in before
+
+    events.forget(db, "u1", "cerveza")
+
+    after = {r[0] for r in db.execute("SELECT segment_id FROM user_segments WHERE user_id = 'u1'")}
+    assert "cervecero" not in after

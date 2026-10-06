@@ -102,6 +102,8 @@ layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las 
 	$(PY) -m rappi_ia canonical
 	$(PY) -m rappi_ia attributes
 	$(PY) -m rappi_ia relations
+	$(PY) -m rappi_ia segments --source synthetic
+	$(PY) -m rappi_ia segments --source prototype
 
 layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.md)
 	$(PY) -m rappi_ia layer-report

@@ -73,7 +73,7 @@ description = "Marca → conceptos donde vende; peso = parte de sus productos."
 id = "afin_a"
 name = "Afín a"
 from_kinds = ["segment"]
-to_kinds = ["concept", "attribute", "vertical"]
+to_kinds = ["concept", "group", "attribute", "vertical"]
 is_symmetric = false
 description = "Qué mirar primero para cada segmento; sale de la regla del segmento."
 
