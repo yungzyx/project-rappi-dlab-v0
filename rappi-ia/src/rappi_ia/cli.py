@@ -21,6 +21,9 @@ from . import config
 from .concepts.pipeline import build_concepts
 from .concepts.report import coverage_report, render_text, write_category_proposals
 from .db import connect, migrate
+from .layers.attributes import build_attributes
+from .layers.measures import build_measures
+from .layers.report import layer_report
 from .retrieval.hybrid import MODES, Filters, retrieve
 
 log = logging.getLogger("rappi_ia")
@@ -43,6 +46,21 @@ def cmd_concepts(conn, args) -> None:
                 log.warning("Sin el extra `ml` (sentence-transformers): conceptos solo por categoría y reglas")
         build_concepts(conn, embedder)
     print(render_text(coverage_report(conn)))
+
+
+def cmd_attributes(conn, args) -> None:
+    print(build_attributes(conn))
+
+
+def cmd_layer_report(conn, args) -> None:
+    out = config.DATA_DIR / "eval" / "capas.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(layer_report(conn, args.muestra), encoding="utf-8")
+    print(f"Reporte en {out}")
+
+
+def cmd_measures(conn, args) -> None:
+    print(build_measures(conn))
 
 
 def cmd_map_categories(conn, args) -> None:
@@ -210,6 +228,9 @@ def cmd_multivertical(conn, args) -> None:
 
 
 COMMANDS = {
+    "measures": cmd_measures,
+    "layer-report": cmd_layer_report,
+    "attributes": cmd_attributes,
     "multivertical": cmd_multivertical,
     "synth": cmd_synth,
     "purge": cmd_purge,
@@ -236,6 +257,10 @@ def build_parser() -> argparse.ArgumentParser:
     concepts = sub.add_parser("concepts", help="capa 2: conceptos, complementos y mapeo de productos y platos")
     concepts.add_argument("--solo-reporte", action="store_true", help="solo muestra la cobertura actual")
     concepts.add_argument("--sin-knn", action="store_true", help="sin refinar con vecinos cercanos (embeddings)")
+    sub.add_parser("attributes", help="capa de perfiles: atributos de cada ítem (sin gluten, vegano, familiar…)")
+    lr = sub.add_parser("layer-report", help="reporte de calidad de las capas de perfiles (data/eval/capas.md)")
+    lr.add_argument("--muestra", type=int, default=20, help="ítems de muestra por atributo")
+    sub.add_parser("measures", help="capa de perfiles: tamaño, unidad y pack normalizados de cada ítem")
     sub.add_parser(
         "map-categories", help="exporta las categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar"
     )

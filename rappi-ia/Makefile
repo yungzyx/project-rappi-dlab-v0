@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat images purge post-refresh
+.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat images purge post-refresh layers layer-report
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -96,7 +96,14 @@ purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/
 
 # purge va primero, para que la retención de 90 días se cumpla aunque falle un paso posterior, y otra vez al final
 # para los eventos simulados que synth acaba de generar.
+layers:  ## Capa de perfiles: medidas y atributos de ítem (crece con las etapas del plan)
+	$(PY) -m rappi_ia measures
+	$(PY) -m rappi_ia attributes
+
+layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.md)
+	$(PY) -m rappi_ia layer-report
+
 post-refresh: migrate purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
-	$(MAKE) concepts embed eval synth
+	$(MAKE) concepts embed eval synth layers
 	$(MAKE) purge
 	@echo "Listo: conceptos, embeddings, evaluación y datos simulados al día."
