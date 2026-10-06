@@ -155,3 +155,21 @@ def test_the_page_says_the_date_of_the_last_finished_download(db):
     )
     page = multivertical.render(multivertical.collect(db))
     assert "04-10-2026." in page and "30-09-2026" not in page
+
+
+def test_the_concept_map_carries_substitutes_and_never_together_pairs(db):
+    from rappi_ia.layers.graph import build_relations
+
+    _catalog(db)
+    build_relations(db)
+    data = multivertical.collect(db)
+
+    substitutes = {frozenset(pair) for *pair, _w in data["substitutes"]}
+    assert frozenset(("cafe", "te")) in substitutes and len(substitutes) == len(data["substitutes"])  # una vez por par
+    conflicts = {tuple(pair) for pair in data["conflicts"]}
+    assert ("cerveza", "panales") in conflicts and (
+        "cigarrillos",
+        "alimentacion-bebe",
+    ) in conflicts  # grupo → conceptos
+    page = multivertical.render(data)
+    assert 'id="showSubs"' in page and 'id="showConf"' in page
