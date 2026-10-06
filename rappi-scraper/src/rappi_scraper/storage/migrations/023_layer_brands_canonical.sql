@@ -5,7 +5,6 @@ CREATE TABLE product_brands (
     name           text NOT NULL,                          -- la escritura más común
     kind           text NOT NULL DEFAULT 'marca' CHECK (kind IN ('marca', 'cadena')),
     is_store_brand boolean NOT NULL DEFAULT false,         -- marca propia de una tienda (Líder, Great Value…)
-    parent_key     text REFERENCES product_brands (brand_key) ON DELETE SET NULL,  -- «Soprole Next» → soprole
     curated        boolean NOT NULL DEFAULT false,
     items          integer NOT NULL DEFAULT 0
 );
@@ -48,7 +47,7 @@ CREATE TABLE item_canonical (
 );
 CREATE INDEX item_canonical_canonical_idx ON item_canonical (canonical_id);
 
-COMMENT ON TABLE product_brands IS 'Marcas canónicas (slug estable) con su escritura más común, si son marca propia de una tienda y su marca padre.';
+COMMENT ON TABLE product_brands IS 'Marcas canónicas (slug estable) con su escritura más común y si son marca propia de una tienda. Las líneas («Soprole Next») son alias de su marca.';
 COMMENT ON TABLE brand_aliases IS 'Escrituras normalizadas de cada marca («coca cola», «cocacola» → coca-cola).';
 COMMENT ON TABLE item_brands IS 'Marca de cada producto (declarada por Rappi o deducida del nombre) y cadena de cada plato.';
 COMMENT ON TABLE canonical_products IS 'Producto canónico: el mismo producto (marca + nombre + tamaño) aunque Rappi lo liste con distintos ids.';
@@ -71,4 +70,4 @@ JOIN store_products sp ON sp.master_product_id = ic.master_product_id
 JOIN v_store_verticals sv ON sv.store_id = sp.store_id
 GROUP BY c.canonical_id, c.brand_key, b.name, c.label, c.total, c.unit, c.items;
 
-COMMENT ON VIEW capa.canonical_products IS 'Producto canónico con las verticales donde se vende y los ids de Rappi que lo componen.';
+COMMENT ON VIEW capa.canonical_products IS 'Producto canónico con las verticales donde se vende y los ids de Rappi que lo componen. Las verticales se inflan con las tiendas listadas en varias (Express Líder): lo que Rappi lista con ids distintos es `items > 1`.';

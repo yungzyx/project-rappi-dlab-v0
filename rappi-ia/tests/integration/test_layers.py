@@ -161,7 +161,7 @@ def test_layer_report_lists_coverage_sources_and_a_sample(db):
     assert "# Capas de perfiles" in report
     assert "sin-gluten" in report and "rappi" in report  # cobertura por atributo y fuente
     assert "Leche sin lactosa 1 L" in report  # muestra revisable con el nombre del ítem
-    assert "Marcas y producto canónico por vertical" in report and "Productos canónicos en 3 o más" in report
+    assert "Marcas y producto canónico por vertical" in report and "Productos canónicos con ids distintos" in report
     assert layer_report(db, sample=2) == report  # muestra con semilla fija: mismo reporte
 
 
@@ -345,3 +345,32 @@ def test_canonical_products_join_the_same_product_across_ids_and_never_across_si
     assert "84" not in canon  # sin marca ni medida no se puede unir: no se inventa
     assert counts == {"canonicos": 3, "items": 4, "compartidos": 1}
     assert build_canonical(db) == counts
+
+
+def test_canonical_ids_are_stable_and_curated_rows_survive_the_rebuild(db, monkeypatch):
+    from rappi_ia.layers import brands as brands_layer
+    from rappi_ia.layers.canonical import build_canonical
+
+    monkeypatch.setattr(brands_layer, "MIN_INDEX_ITEMS", 1)
+    add_store(db, 1, "supermercado")
+    for pid in (90, 91):
+        add_product(db, pid, "Coca-Cola Original 1.5 L", 1, "Gaseosas")
+        db.execute(
+            "UPDATE catalog_items SET trademark = 'Coca-Cola', quantity = 1.5, unit_type = 'l'"
+            " WHERE master_product_id = %s",
+            (pid,),
+        )
+    db.commit()
+    build_measures(db)
+    build_brands(db)
+    build_canonical(db)
+    before = db.execute("SELECT canonical_id FROM item_canonical WHERE master_product_id = 90").fetchone()[0]
+    db.execute("UPDATE item_brands SET source = 'curado' WHERE entity_id = '91'")
+    db.execute("UPDATE item_canonical SET method = 'curado' WHERE master_product_id = 91")
+
+    build_brands(db)
+    build_canonical(db)
+
+    assert db.execute("SELECT canonical_id FROM item_canonical WHERE master_product_id = 90").fetchone()[0] == before
+    assert db.execute("SELECT source FROM item_brands WHERE entity_id = '91'").fetchone()[0] == "curado"
+    assert db.execute("SELECT method FROM item_canonical WHERE master_product_id = 91").fetchone()[0] == "curado"

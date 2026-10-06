@@ -26,3 +26,25 @@ def test_model_numbers_are_kept():
 
 def test_word_order_does_not_matter():
     assert name_key("Original Coca-Cola 1.5 L", COCA) == name_key("Coca-Cola Original 1.5 L", COCA)
+
+
+def test_dimensions_and_model_numbers_survive_the_pack_noise_removal():
+    assert name_key("Pizarra Blanca 20 x 30 cm", set()) != name_key("Pizarra Blanca 40 x 30 cm", set())
+    assert name_key("Hoco Audífonos X12", {"hoco"}) != name_key("Hoco Audífonos X15", {"hoco"})
+    assert name_key("Pañal Talla 1 x 50", set()) != name_key("Pañal Talla 2 x 50", set())
+
+
+def test_unit_counts_are_part_of_the_product():
+    """«12 Unidades» y «4 Unidades» (o un pack y la unidad) no son el mismo producto aunque ambos midan «1 und»."""
+    assert name_key("Your Goal 12 Unidades", {"your", "goal"}) != name_key("Your Goal 4 Unidades", {"your", "goal"})
+    assert name_key("Duracell Aa 1 Unidad", {"duracell"}) != name_key("Duracell Aa 2 Unidades", {"duracell"})
+    assert name_key("Soprole Yoghurt Pack", {"soprole"}) != name_key("Soprole Yoghurt", {"soprole"})
+
+
+def test_filler_words_and_the_run_together_brand_do_not_split_a_product():
+    brand = {"coca", "cola", "cocacola"}
+    assert name_key("Coca-Cola Bebida Gaseosa Original 1.5L", brand) == name_key("Cocacola Original 1,5 L", brand)
+
+
+def test_a_combo_has_no_canonical_key():
+    assert name_key("Alto 1lt + Coca 1.5lt", set()) == ""

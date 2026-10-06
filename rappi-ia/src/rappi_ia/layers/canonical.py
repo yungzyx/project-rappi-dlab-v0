@@ -15,22 +15,24 @@ from .runs import finish_layer_run, rules_version, start_layer_run
 log = logging.getLogger(__name__)
 
 RULES_VERSION = "2026-10-06"
-_PACK_NOISE = [
-    re.compile(r"\b\d{1,2}\s*x\b", re.IGNORECASE),  # «6 x» de «6 x 350 ml», ya sin la medida
-    re.compile(r"\bx\s*\d{1,2}\b", re.IGNORECASE),
-    re.compile(r"\b(?:tri|six|doce)?\s*pack\b", re.IGNORECASE),
-    re.compile(r"\b\d+\s*(?:und|un|unid\w*|uds?)\b", re.IGNORECASE),
-]
+# «6 x» de «6 x 350 ml» solo es un pack cuando una medida lo sigue; «20 x 30 cm», «X12» o «Talla 1 x 50» no se tocan.
+_PACK_BEFORE_MEASURE = re.compile(
+    r"\b\d{1,2}\s*x\s*(?=\d+(?:[.,]\d+)?\s*(?:ml|cc|lts?|l|gr?s?|kg|oz)\b)", re.IGNORECASE
+)
 _ARTICLES = {"de", "la", "el", "los", "las", "y"}
+# Palabras que describen sin distinguir: «Coca-Cola Bebida Gaseosa Original» es «Coca-Cola Original».
+_FILLER = {"bebida", "gaseosa", "sabor", "refresco", "botella", "en", "a"}
 
 
 def name_key(name: str, brand_words: set[str]) -> str:
-    """El nombre sin marca, tamaño ni pack, con las palabras ordenadas: «Coca-Cola Original 1.5L» y «Coca Cola
-    Original 1,5 L» dan la misma clave; «Zero» u «Original», «con» y «sin lactosa» o «20W» y «35W», no."""
-    text = _NAME_MEASURE.sub(" ", name)
-    for pattern in _PACK_NOISE:
-        text = pattern.sub(" ", text)
-    words = [w for w in normalize(text).split() if w not in brand_words and w not in _ARTICLES]
+    """El nombre sin marca ni tamaño, con las palabras ordenadas: «Coca-Cola Original 1.5L» y «Coca Cola Original
+    1,5 L» dan la misma clave; «Zero» u «Original», «con» y «sin lactosa», «20W» y «35W», «12 Unidades» y «4 Unidades»,
+    o un pack y la unidad, no. Un combo («Alto 1lt + Coca 1.5lt») no tiene clave."""
+    if "+" in name:
+        return ""
+    text = _NAME_MEASURE.sub(" ", _PACK_BEFORE_MEASURE.sub(" ", name))
+    ignored = brand_words | _ARTICLES | _FILLER
+    words = [w for w in normalize(text).split() if w not in ignored]
     return " ".join(sorted(words))
 
 
@@ -39,7 +41,8 @@ def build_canonical(conn: Connection) -> dict:
     sospechosa); los demás no se unen. Idempotente."""
     run = start_layer_run(conn, "canonical", rules_version(RULES_VERSION, Path(__file__)))
     brand_words = {
-        key: set(normalize(name).split()) for key, name in conn.execute("SELECT brand_key, name FROM product_brands")
+        key: {*normalize(name).split(), normalize(name).replace(" ", "")}  # «coca cola» y «cocacola»
+        for key, name in conn.execute("SELECT brand_key, name FROM product_brands")
     }
     rows = conn.execute(
         """SELECT ci.master_product_id, ci.name, b.brand_key, m.total, m.unit
@@ -53,21 +56,32 @@ def build_canonical(conn: Connection) -> dict:
         key = (brand_key, name_key(name or "", brand_words.get(brand_key, set())), total, unit)
         if key[1]:
             groups[key].append((master_id, name))
-    conn.execute("DELETE FROM canonical_products")  # en cascada: item_canonical
-    members = []
+    # En el lugar: el mismo producto conserva su canonical_id entre corridas (otras tablas y herramientas lo citan).
+    conn.execute("DELETE FROM item_canonical WHERE method <> 'curado'")
+    curated = {r[0] for r in conn.execute("SELECT master_product_id FROM item_canonical")}
+    members, seen = [], []
     with conn.cursor() as cur:
         for (brand_key, key, total, unit), items in groups.items():
             label = Counter(name for _id, name in items).most_common(1)[0][0]
             canonical_id = cur.execute(
                 """INSERT INTO canonical_products (brand_key, name_key, total, unit, label, items)
-                   VALUES (%s, %s, %s, %s, %s, %s) RETURNING canonical_id""",
+                   VALUES (%s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (brand_key, name_key, total, unit) DO UPDATE SET label = EXCLUDED.label,
+                     items = EXCLUDED.items
+                   RETURNING canonical_id""",
                 (brand_key, key, total, unit, label, len(items)),
             ).fetchone()[0]
-            members += [(master_id, canonical_id, "exacto", 0.9, run) for master_id, _name in items]
+            seen.append(canonical_id)
+            members += [(m, canonical_id, "exacto", 0.9, run) for m, _name in items if m not in curated]
         cur.executemany(
             "INSERT INTO item_canonical (master_product_id, canonical_id, method, confidence, run_id) "
             "VALUES (%s, %s, %s, %s, %s)",
             members,
+        )
+        conn.execute(
+            """DELETE FROM canonical_products c WHERE c.canonical_id <> ALL(%s)
+               AND NOT EXISTS (SELECT 1 FROM item_canonical i WHERE i.canonical_id = c.canonical_id)""",
+            (seen,),
         )
     conn.execute("ANALYZE canonical_products")
     conn.execute("ANALYZE item_canonical")

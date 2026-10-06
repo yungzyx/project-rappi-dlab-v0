@@ -95,9 +95,9 @@ def layer_report(conn: Connection, sample: int = 20) -> str:
     )
     shared = conn.execute(
         """SELECT label, items, array_to_string(verticals, ', ') FROM capa.canonical_products
-           WHERE cardinality(verticals) >= 3 ORDER BY items DESC, label LIMIT 15"""
+           WHERE cardinality(verticals) >= 3 AND items > 1 ORDER BY items DESC, label LIMIT 15"""
     ).fetchall()
-    out += ["## Productos canónicos en 3 o más verticales", ""]
+    out += ["## Productos canónicos con ids distintos de Rappi en 3 o más verticales", ""]
     out += _table(["Producto", "Ids de Rappi", "Verticales"], shared) + [""]
 
     out += [f"## Muestra revisable ({sample} ítems por atributo, orden fijo)", ""]
