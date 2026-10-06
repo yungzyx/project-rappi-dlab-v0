@@ -1301,3 +1301,24 @@ def test_capa_layer_runs_and_segment_defs_expose_lineage_and_rules(db):
 
     assert run[0] == "segments" and run[1] == "done" and run[2].startswith(load_segment_rules()[0] + "+")
     assert rule.fetchone() == (True, "3")
+
+
+def test_quality_sample_is_fixed_and_carries_what_a_judge_needs(db):
+    from rappi_ia.layers.quality import build_quality_sample
+
+    _gluten_catalog(db)
+    add_store(db, 2, "restaurantes", "La Pizzería")
+    add_dish(db, 500, "Pizza Napolitana", 2, "Pizzas")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+
+    sample = build_quality_sample(db)
+
+    assert sample == build_quality_sample(db)  # semilla fija
+    gluten = next(r for r in sample if r["kind"] == "atributo" and r["clave"] == "sin-gluten")
+    assert gluten["nombre"] == "Galletas Sin Gluten Mantequilla" and gluten["categoria"] == "Galletas"
+    assert gluten["afirmacion"].startswith("Sin gluten")
+    dish = next(r for r in sample if r["kind"] == "concepto" and r["entity_type"] == "menu_item")
+    assert dish["tienda"] == "La Pizzería" and dish["categoria"] == "Pizzas" and "Pizza" in dish["afirmacion"]
+    assert len({r["id"] for r in sample}) == len(sample)

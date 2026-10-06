@@ -92,6 +92,23 @@ Cada paso corre en una transacción, es **idempotente** (correrlo dos veces deja
 - «Olvidar» borra a la persona (y con ella sus segmentos e historia); olvidar un concepto recalcula sus segmentos sin él.
 - Una sola persona no crea una relación en el grafo: `co_busqueda` exige sesiones de 5 o más personas distintas.
 
+## Calidad medida
+
+La cobertura dice cuánto se etiquetó, no si está bien. `rappi-ia layer-sample` arma una muestra fija (semilla 7) de lo que la capa afirma: 10 ítems por atributo y regla, 3 por atributo declarado por Rappi, 140 marcas y 440 conceptos repartidos por método. La muestra y sus juicios están versionados en `rappi-ia/src/rappi_ia/eval/` (`capas-muestra.json` y `capas-juicios.json`). `rappi-ia layer-precision` calcula la precisión por regla, con el mínimo que se puede asegurar (límite de Wilson al 95 %), y lista las reglas bajo 80 %. Después de cambiar reglas, el mismo comando mide sin volver a juzgar cuántos errores se eliminaron y cuántos aciertos se perdieron.
+
+Primera medición (06-10-2026), con jueces de modelos de lenguaje (10 agentes independientes; coinciden en 77 de 80 filas juzgadas dos veces):
+
+| Qué | Antes de corregir | Después (estimado) |
+|---|---|---|
+| Atributos por reglas propias | 92 % | 96 % |
+| Atributos declarados por Rappi | 86 % | 87 % |
+| Marcas deducidas del nombre / declaradas | 99 % / 97 % | igual |
+| Conceptos por regla de nombre | 81 % | 91 % |
+| Conceptos por mapeo de categoría, sección o cocina | 82 % | 92 % |
+| Conceptos por vecinos (embeddings) | 57 % | 82 % |
+
+Las correcciones: los vecinos solo deciden con 80 % de acuerdo; la cocina del local cuenta solo con un mapeo muy confiable («Asiática» ya no es sushi); un ingrediente en el nombre de un plato («Macarrón Frutilla») no lo vuelve fruta; y se acotaron reglas de atributos que calzaban fuera de su ámbito (fibra en papelillos, «BBQ» como parrilla, «instant» en maquillaje). El costo: el 8 % de los platos que antes recibía un concepto adivinado ahora queda sin concepto. Cifras sin textos del catálogo en [resultados/capas-precision-2026-10-06.md](resultados/capas-precision-2026-10-06.md).
+
 ## Cómo agregar algo
 
 | Quiero… | Qué hago |

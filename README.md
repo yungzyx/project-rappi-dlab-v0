@@ -82,8 +82,9 @@ Cifras del catálogo al 04-10-2026, tras la segunda descarga semanal automática
 | Catálogo | Restaurantes | 3.236 descargados · 307 fallidos · 1.319 omitidos | Real | Corrida 8 (restaurantes), 04-10, con los fallidos reintentados el 05-10 a mediodía |
 | Capa 2 | Taxonomía | 133 conceptos · 103 complementos curados · 818 categorías con mapeo revisado (71 nuevas sin mapear, con sugerencia en `rappi-ia map-categories`) | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 30-09-2026 |
 | Capa 2 | Ítems con concepto | 98,2 % a 100 % según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 05-10-2026 |
-| Capa 2 | Precisión de la asignación | ≈88 % por categoría · ≈81 % platos · 55 % reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
+| Capa 2 | Precisión de la asignación | Medida sobre 440 asignaciones: 95 % por categoría de producto · 85 % por nombre de plato · 62 % por cocina del local · 57 % por vecinos (embeddings). Tras corregir las reglas, estimada sobre lo ya juzgado: 91 % por regla, 92 % por mapeo y 82 % por vecinos, a cambio de dejar sin concepto el 8 % de los platos que antes se adivinaban | **Estimación**: jueces LLM (10 agentes independientes; coinciden en 77 de 80 filas juzgadas dos veces) | [`docs/resultados/capas-precision-2026-10-06.md`](docs/resultados/capas-precision-2026-10-06.md), muestra fija versionada |
 | Capa de datos | Atributos y medidas | 83 atributos en 9 familias sobre 79.617 ítems (111.032 asignaciones; las declara Rappi, las dicen el nombre o la descripción, o se derivan de precios y marcas) · 71.598 ítems con medida normalizada y 41 con medida sospechosa aparte | Real (catálogo) con reglas propias; la precisión no está medida (hay una muestra revisable por atributo en `make layer-report`) | `make layers`, 06-10-2026 |
+| Capa de datos | Precisión de atributos y marcas | Atributos: 92 % los que deciden reglas propias (96 % tras corregirlas) y 86 % los que declara Rappi · marcas: 99 % deducidas del nombre y 97 % declaradas | **Estimación**: jueces LLM sobre 984 afirmaciones de la misma muestra | [`docs/resultados/capas-precision-2026-10-06.md`](docs/resultados/capas-precision-2026-10-06.md) |
 | Capa de datos | Marcas y producto canónico | 6.359 marcas · 204.253 ítems con marca (en los platos, la cadena) · 23.534 productos canónicos | Real, con reglas propias | `make layers`, 06-10-2026 |
 | Capa de datos | Grafo de conocimiento | 32.105 aristas en 12 relaciones (curadas, derivadas del catálogo y aprendidas de uso) | Real y curado; lo aprendido de datos simulados no se expone | `make layers`, 06-10-2026 |
 | Capa de datos | Segmentos de usuario | 146 definidos (14 sensibles, nombrados por conducta) · 101 con personas | **Simulado** | `make layers`, 06-10-2026 |
@@ -99,15 +100,16 @@ Documentos de búsqueda al 04-10-2026, tras la segunda descarga semanal automát
 
 | Vertical | Tiendas | Productos | Con concepto |
 |---|---:|---:|---:|
-| Supermercado | 320 | 29.403 | 99,9 % |
+| Supermercado | 320 | 29.403 | 99,8 % |
 | Conveniencia | 38 | 7.848 | 100 % |
 | Turbo | 18 | 2.642 | 100 % |
 | Rappi Mall | 359 | 32.761 | 99,7 % |
 | Farmacia | 16 | 4.726 | 99,8 % |
 | Licores | 79 | 5.519 | 100 % |
 | Chocolatería | 24 | 1.125 | 100 % |
-| Restaurantes | 3.444 | 165.623 platos | 98,2 % |
+| Restaurantes | 3.444 | 165.623 platos | 90,2 % |
 
+- «Con concepto» es del 06-10-2026: desde entonces un plato que no se puede clasificar con confianza queda sin concepto en vez de recibir uno adivinado (por ejemplo, el de la cocina del local).
 - «Tiendas» cuenta las tiendas del vertical en la búsqueda; de cada marca y formato se descarga una sucursal. Una misma tienda puede figurar en más de un vertical.
 - **Turbo quedó con los precios del 27-09:** en la descarga semanal, los listados públicos que recorre el scraper ya no traen sus tiendas como Turbo, así que no se descargaron (ver [Límites](#límites)).
 - En tiendas es una muestra: la página pública muestra hasta 24 productos por sub-pasillo. Los restaurantes traen el menú completo.

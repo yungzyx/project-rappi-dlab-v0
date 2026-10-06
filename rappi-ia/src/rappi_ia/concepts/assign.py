@@ -20,7 +20,16 @@ from .taxonomy import Concept, Taxonomy, keeps_sensitive, load_taxonomy
 
 MIN_MAP_CONFIDENCE = 0.6  # bajo esto, el mapeo de categoría se considera dudoso y se prueban las reglas
 RULE_CONFIDENCE = 0.7  # confianza de una regla por palabra clave sobre el nombre
-MENU_GROUPS = frozenset({"alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida"})  # lo de un menú
+# Lo que un nombre de plato impone sobre su sección. Sin «frescos»: un ingrediente en el nombre («Mechada palta mayo»,
+# «Phad Kee Maoo Vacuno») no dice qué plato es; la sección sí (juicio de precisión del 06-10-2026).
+MENU_GROUPS = frozenset({"alcohol", "bebidas", "snacks", "dulces", "despensa", "comida"})
+# La cocina del local es la pista más débil: solo cuenta con un mapeo muy confiable (Sushi → sushi). Con mapeos
+# dudosos (Americana → pizza, Asiática → sushi) acertaba el 62 %.
+CUISINE_MIN_CONFIDENCE = 0.85
+# Un plato no es el ingrediente crudo que nombra («Macarrón Frutilla», «Papas Familiar», «Queso» en Empanadas): por el
+# nombre acertaban 1 de cada 3. Los que nombran la proteína (pescados, pollo, carnes) sí se quedan.
+INGREDIENT_CONCEPTS = frozenset({"frutas", "verduras", "lacteos", "quesos", "fiambres", "huevos"})
+PROTEIN_CONCEPTS = frozenset({"pollo", "pescados-mariscos"})
 # Grupos cuya categoría manda aunque el nombre calce un sensible: ahí la palabra tiene otro sentido (un analgésico
 # veterinario, un insecto vibrador de juguete) y el concepto sensible los ocultaría.
 CATEGORY_WINS_GROUPS = frozenset({"mascotas", "juguetes"})
@@ -151,9 +160,29 @@ def assign_menu_item(
     matcher: KeywordMatcher,
 ) -> Assignment | None:
     by_name = _from_rule("menu_item", item_id, name, matcher)
-    if by_name and by_name.concept_id in _name_wins_in_menus():
+    if by_name and by_name.concept_id in INGREDIENT_CONCEPTS:
+        by_name = None
+    if by_name and by_name.concept_id in name_wins_in_menus():
         return by_name
-    return _from_menu_maps(item_id, section, cuisines, section_map, cuisine_map) or by_name
+    mapped = _from_menu_maps(item_id, section, cuisines, section_map, cuisine_map, CUISINE_MIN_CONFIDENCE)
+    if mapped:
+        return mapped
+    if by_name and by_name.concept_id in _food_concepts():
+        return by_name
+    by_section = _from_section_name(item_id, section, matcher)
+    if by_section or by_name is None:
+        return by_section
+    # Un nombre que no es comida («Aros de Calamar» → joyería) en un local de cocina conocida: la cocina, aunque sea
+    # una pista dudosa, acierta más que la palabra suelta.
+    return _from_menu_maps(item_id, None, cuisines, {}, cuisine_map, MIN_MAP_CONFIDENCE) or by_name
+
+
+def _from_section_name(item_id: str, section: str | None, matcher: KeywordMatcher) -> Assignment | None:
+    """Una sección sin mapeo que nombra un plato («Empanadas de Horno», «Pizzas Familiares») dice qué son sus platos."""
+    match = matcher.best(section) if section else None
+    if match is None or match.target not in _food_concepts() or match.target in INGREDIENT_CONCEPTS:
+        return None
+    return Assignment("menu_item", item_id, match.target, "regla", RULE_CONFIDENCE, None, f"seccion-nombre:{section}")
 
 
 @cache
@@ -162,10 +191,25 @@ def _category_always_wins() -> frozenset[str]:
 
 
 @cache
-def _name_wins_in_menus() -> frozenset[str]:
-    """Conceptos que el nombre de un plato impone sobre la sección: lo que vende un restaurante y los sensibles
-    (un cigarrillo en la sección «Bebidas» no pasa a gaseosas). «Perro», «calzones» o «aros» sueltos ceden."""
-    return frozenset(c.id for c in load_taxonomy().concepts.values() if c.parent in MENU_GROUPS or c.sensitive)
+def _food_concepts() -> frozenset[str]:
+    return frozenset(c.id for c in load_taxonomy().concepts.values() if c.parent in MENU_GROUPS | {"frescos"})
+
+
+@cache
+def dish_name_concepts() -> frozenset[str]:
+    """Conceptos que el nombre de un plato fija aunque los vecinos digan otra cosa: un plato preparado («Pollo asado
+    + Bebida») o su proteína («Pescado frito»). Un sabor («Pistacho» en una heladería) no: ahí los vecinos corrigen."""
+    return frozenset(c.id for c in load_taxonomy().concepts.values() if c.parent == "comida") | PROTEIN_CONCEPTS
+
+
+@cache
+def name_wins_in_menus() -> frozenset[str]:
+    """Conceptos que el nombre de un plato impone sobre la sección: lo que vende un restaurante, la proteína del plato
+    («Combo pollo para 1» no es sushi aunque la sección «Combos» lo diga) y los sensibles."""
+    return (
+        frozenset(c.id for c in load_taxonomy().concepts.values() if c.parent in MENU_GROUPS or c.sensitive)
+        | PROTEIN_CONCEPTS
+    )
 
 
 def _from_menu_maps(
@@ -174,13 +218,14 @@ def _from_menu_maps(
     cuisines: list[str],
     section_map: dict[str, MappedName],
     cuisine_map: dict[str, MappedName],
+    cuisine_min: float,
 ) -> Assignment | None:
     mapped = section_map.get(_key(section)) if section else None
     if mapped and mapped.confidence >= MIN_MAP_CONFIDENCE:
         return _from_map("menu_item", item_id, mapped, f"seccion:{section}")
     for cuisine in cuisines:
         mapped = cuisine_map.get(_key(cuisine))
-        if mapped and mapped.confidence >= MIN_MAP_CONFIDENCE:
+        if mapped and mapped.confidence >= cuisine_min:
             # La cocina solo dice qué tipo de local es: menos confianza que la sección o el nombre.
             return _from_map("menu_item", item_id, mapped, f"cocina:{cuisine}", factor=0.8)
     return None

@@ -280,6 +280,7 @@ parent = "snacks"
 name = "Frutos secos"
 emoji = "🥜"
 keywords = ["frutos secos", "almendra", "nuez", "nueces", "maní", "pistacho", "castaña de cajú", "cajú", "avellana", "mix de frutos", "semillas de", "pasas", "arándanos deshidratados", "fruta deshidratada"]
+avoid = ["bebida", "leche"]
 
 [[concept]]
 id = "galletas"
@@ -355,6 +356,7 @@ parent = "despensa"
 name = "Arroz, legumbres y granos"
 emoji = "🍚"
 keywords = ["arroz", "porotos", "lentejas", "garbanzos", "quinoa", "quínoa", "legumbres", "granos", "cuscús", "chía"]
+avoid = ["bebida", "leche"]
 
 [[concept]]
 id = "aceites-condimentos"
@@ -390,6 +392,7 @@ parent = "despensa"
 name = "Azúcar y endulzantes"
 emoji = "🍬"
 keywords = ["azúcar", "azucar", "endulzante", "stevia", "sucralosa", "sacarina", "chancaca"]
+avoid = ["sin azucar", "sin azúcar"]
 
 [[concept]]
 id = "cereales"
@@ -404,6 +407,7 @@ parent = "despensa"
 name = "Sopas y caldos"
 emoji = "🍜"
 keywords = ["sopa", "crema de", "caldo", "cubo de caldo", "sopa instantánea", "sopaipa", "consomé", "cazuela", "carbonada", "sopa de pollo"]
+avoid = ["manos", "corporal", "facial", "cuerpo", "pies", "labios", "peinar", "afeitar", "dental", "leche", "mani", "avellana", "chocolate"]
 
 # Frescos
 [[concept]]
@@ -412,6 +416,7 @@ parent = "frescos"
 name = "Frutas"
 emoji = "🍎"
 keywords = ["fruta", "frutas", "manzana", "plátano", "platano", "frutilla", "uva", "pera", "limón", "limon", "kiwi", "palta", "arándano", "frambuesa", "mango", "piña", "sandía", "melón", "durazno", "cereza", "mandarina", "naranja fresca", "frutas y verduras"]
+avoid = ["sabor", "sabores", "aroma", "esencia", "fragancia", "vela", "shampoo", "jabon", "rasuradora", "hilo", "lana", "ergonomico", "polvo", "manos", "corporal"]
 
 [[concept]]
 id = "verduras"
@@ -482,7 +487,7 @@ id = "vegano"
 parent = "frescos"
 name = "Alternativas vegetales"
 emoji = "🌱"
-keywords = ["vegano", "vegana", "leche vegetal", "leche de almendras", "bebida de avena", "vegetariano", "vegetariana", "veggie", "plant based", "tofu", "seitán", "seitan", "soya texturizada", "hamburguesa vegetal", "carne vegetal", "not burger", "notco"]
+keywords = ["vegano", "vegana", "leche vegetal", "leche de almendras", "bebida de avena", "bebida de almendras", "bebida de almendra", "bebida de arroz", "bebida arroz", "bebida vegetal", "vegetariano", "vegetariana", "veggie", "plant based", "tofu", "seitán", "seitan", "soya texturizada", "hamburguesa vegetal", "carne vegetal", "not burger", "notco"]
 query_keywords = ["leche de almendra", "leche de avena", "leche de soya", "bebida vegetal", "sin carne"]
 
 # Comida preparada
@@ -685,7 +690,7 @@ id = "dermocosmetica"
 parent = "salud"
 name = "Dermocosmética y cuidado de la piel"
 emoji = "🧴"
-keywords = ["protector solar", "bloqueador", "crema facial", "humectante", "sérum", "serum", "agua micelar", "eucerin", "la roche-posay", "la roche posay", "vichy", "cerave", "avène", "antiacné", "contorno de ojos", "crema corporal", "exfoliante", "limpiador facial", "bálsamo labial"]
+keywords = ["crema de manos", "crema para manos", "crema corporal", "crema hidratante", "protector solar", "bloqueador", "crema facial", "humectante", "sérum", "serum", "agua micelar", "eucerin", "la roche-posay", "la roche posay", "vichy", "cerave", "avène", "antiacné", "contorno de ojos", "exfoliante", "limpiador facial", "bálsamo labial"]
 
 # Belleza
 [[concept]]

@@ -765,14 +765,14 @@ cocina,Internacional,ninguno,0.6,llm,juez,"Arepas, pastelitos; faltaría comida 
 cocina,Desayunos,desayuno,0.55,llm,acuerdo,Cocina de desayunos,90
 cocina,Pescados y Mariscos,pescados-mariscos,0.7,llm,juez,"Cocina de pescados fritos, ceviche, camarones",76
 cocina,Pastelería y Postres,pasteleria,0.85,llm,acuerdo,Tortas y pastelería,46
-cocina,Asiática,sushi,0.7,llm,juez,Ejemplos son rolls y combos de sushi,44
+cocina,Asiática,asiatica,0.85,curado,precision-06-10,"Comida china, thai, india y japonesa: un local asiático no es una sushería",44
 cocina,Carnes,carnes,0.6,llm,juez,Cocina de carnes/parrilla; ejemplos mixtos,44
 cocina,Hamburguesa,hamburguesa,0.6,llm,acuerdo,Cocina de hamburguesas,44
 cocina,Sushi,sushi,0.97,llm,acuerdo,Cocina sushi,44
 cocina,Americana,pizza,0.6,llm,acuerdo,Pizzería americana; ejemplos mayormente bebidas,36
 seccion_menu,Bebidas,gaseosas,0.85,llm,acuerdo,Gaseosas y algo de Red Bull,37
 seccion_menu,Postres,postres,0.93,llm,acuerdo,Postres de restaurante,27
-seccion_menu,Combos,sushi,0.85,llm,acuerdo,Combos de piezas de sushi,21
+seccion_menu,Combos,ninguno,0.85,curado,precision-06-10,"Combos de todo tipo (pollo, carne, sushi): la sección no dice el plato",21
 seccion_menu,Para Compartir,picoteo,0.75,llm,acuerdo,"Ceviches, tablas, empanadas para compartir",19
 seccion_menu,Cervezas,cerveza,0.95,llm,acuerdo,Cervezas,17
 seccion_menu,Pizza,pizza,0.95,llm,acuerdo,Pizzas,17
