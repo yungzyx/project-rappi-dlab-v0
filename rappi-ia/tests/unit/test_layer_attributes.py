@@ -1,5 +1,3 @@
-import pytest
-
 from rappi_ia.layers.attributes import detect_attributes, load_attribute_rules
 
 VERSION, RULES = load_attribute_rules()

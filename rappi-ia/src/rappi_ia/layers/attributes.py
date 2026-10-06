@@ -1,18 +1,26 @@
 """Atributos de ítem (sin gluten, vegano, familiar…): lo que Rappi declara, lo que dicen el nombre y la descripción,
 y lo derivado de precios y marcas. Las reglas viven en `concepts/attributes.toml`."""
 
+import logging
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from psycopg import Connection
+
 from ..concepts.matcher import KeywordMatcher
 from ..text import LEAFLET_WARNINGS, normalize
+from .runs import finish_layer_run, start_layer_run
+
+log = logging.getLogger(__name__)
 
 RULES_FILE = Path(__file__).resolve().parents[1] / "concepts" / "attributes.toml"
 RAPPI_CONFIDENCE = 0.95
 RULE_CONFIDENCE = 0.8
 FAMILIES = {"dieta", "alergenos", "publico", "formato", "precio", "origen", "sustentable", "ocasion", "platos"}
 _TRUE = {"true", "si", "sí", "yes", "1"}
+DERIVED_CONFIDENCE = 0.9
+MIN_CONCEPT_ITEMS_FOR_PRICE = 8  # «económico» exige al menos tantos ítems del concepto en la vertical para comparar
 
 
 @dataclass(frozen=True)
@@ -130,3 +138,104 @@ def detect_attributes(
         elif not blocked and rule.attribute_id in phrase_hits and rule.attribute_id not in negated:
             found.append(Detected(rule.attribute_id, None, "regla", RULE_CONFIDENCE, phrase_hits[rule.attribute_id]))
     return found
+
+
+_COLUMNS = "entity_type, entity_id, attribute_id, value, source, confidence, evidence, rules_version, run_id"
+
+# Precio y descuento vigentes, como los ve la búsqueda (última foto de la tienda, última corrida de su formato).
+_DISCOUNTED = f"""
+INSERT INTO item_attributes ({_COLUMNS})
+SELECT 'catalog_item', sp.master_product_id::text, 'con-descuento', NULL, 'derivado', %(conf)s,
+       '-' || round(max(100 * (1 - lp.price / lp.real_price)))::int || '%%', %(version)s, %(run)s
+FROM store_products sp
+JOIN v_latest_prices lp ON lp.store_id = sp.store_id AND lp.sku = sp.sku
+JOIN v_store_format_runs f ON f.store_id = lp.store_id AND f.format_run_id = lp.run_id
+WHERE sp.master_product_id IS NOT NULL AND lp.real_price > 0 AND lp.price > 0 AND lp.price < lp.real_price
+GROUP BY sp.master_product_id
+ON CONFLICT DO NOTHING
+"""
+
+_CHEAP = f"""
+WITH priced AS (
+    SELECT sd.entity_id, sd.vertical, ic.concept_id, sd.price_min
+    FROM search_documents sd
+    JOIN item_concepts ic ON ic.entity_type = sd.entity_type AND ic.entity_id = sd.entity_id
+    WHERE sd.entity_type = 'catalog_item' AND sd.price_min > 0
+), cutoffs AS (
+    SELECT concept_id, vertical, percentile_cont(0.25) WITHIN GROUP (ORDER BY price_min) AS p25
+    FROM priced GROUP BY concept_id, vertical HAVING count(*) >= %(min_items)s
+)
+INSERT INTO item_attributes ({_COLUMNS})
+SELECT DISTINCT ON (p.entity_id) 'catalog_item', p.entity_id, 'economico', NULL, 'derivado', %(conf)s,
+       'p25 de ' || p.concept_id || ' en ' || p.vertical, %(version)s, %(run)s
+FROM priced p JOIN cutoffs c USING (concept_id, vertical)
+WHERE p.price_min <= c.p25
+ORDER BY p.entity_id
+ON CONFLICT DO NOTHING
+"""
+
+_FROM_MEASURES = f"""
+INSERT INTO item_attributes ({_COLUMNS})
+SELECT entity_type, entity_id, 'pack', NULL, 'derivado', %(conf)s, 'x' || pack, %(version)s, %(run)s
+FROM item_measures WHERE entity_type = 'catalog_item' AND pack > 1
+UNION ALL
+SELECT entity_type, entity_id,
+       CASE WHEN size_label = 'familiar' THEN 'familiar'
+            WHEN size_label LIKE 'para %%' THEN 'para-compartir'
+            WHEN size_label = 'individual' THEN 'individual' END,
+       NULL, 'regla', 0.8, size_label, %(version)s, %(run)s
+FROM item_measures
+WHERE entity_type = 'menu_item' AND (size_label IN ('familiar', 'individual') OR size_label LIKE 'para %%')
+ON CONFLICT DO NOTHING
+"""
+
+
+def _seed_definitions(conn: Connection, rules: list[AttributeRule], version: str) -> None:
+    for r in rules:
+        conn.execute(
+            """INSERT INTO attribute_defs
+                 (attribute_id, name, family, applies_to, value_type, description, rules_version)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)
+               ON CONFLICT (attribute_id) DO UPDATE SET name = EXCLUDED.name, family = EXCLUDED.family,
+                 applies_to = EXCLUDED.applies_to, value_type = EXCLUDED.value_type,
+                 description = EXCLUDED.description, rules_version = EXCLUDED.rules_version""",
+            (r.attribute_id, r.name, r.family, r.applies_to, r.value_type, r.description, version),
+        )
+    conn.execute(
+        """DELETE FROM attribute_defs d WHERE d.attribute_id <> ALL(%s)
+           AND NOT EXISTS (
+             SELECT 1 FROM item_attributes i WHERE i.attribute_id = d.attribute_id AND i.source = 'curado')""",
+        ([r.attribute_id for r in rules],),
+    )
+
+
+def build_attributes(conn: Connection) -> dict:
+    """Recalcula `item_attributes` de todos los productos y platos (idempotente). Lo `curado` a mano no se toca."""
+    version, rules = load_attribute_rules()
+    run = start_layer_run(conn, "attributes", version)
+    _seed_definitions(conn, rules, version)
+    conn.execute("DELETE FROM item_attributes WHERE source <> 'curado'")
+    curated = {
+        (e, i, a) for e, i, a in conn.execute("SELECT entity_type, entity_id, attribute_id FROM item_attributes")
+    }
+    counts = {"definiciones": len(rules), "productos": 0, "platos": 0}
+    sources = {"catalog_item": """SELECT ci.master_product_id::text, ci.name, c.name, ci.description, ci.attributes
+                                  FROM catalog_items ci LEFT JOIN categories c USING (category_id)""",
+               "menu_item": "SELECT item_id::text, name, NULL, description, NULL FROM menu_items"}  # fmt: skip
+    for entity_type, sql in sources.items():
+        rows = conn.execute(sql).fetchall()  # antes del COPY: la conexión no admite otra consulta mientras copia
+        with conn.cursor().copy(f"COPY item_attributes ({_COLUMNS}) FROM STDIN") as copy:
+            for item_id, name, category, description, rappi in rows:
+                found = detect_attributes(entity_type, name or "", category, description, rappi, rules)
+                counts["productos" if entity_type == "catalog_item" else "platos"] += bool(found)
+                for d in found:
+                    if (entity_type, item_id, d.attribute_id) not in curated:
+                        copy.write_row(
+                            (entity_type, item_id, d.attribute_id, d.value, d.source, d.confidence, d.evidence,
+                             version, run)
+                        )  # fmt: skip
+    params = {"conf": DERIVED_CONFIDENCE, "version": version, "run": run, "min_items": MIN_CONCEPT_ITEMS_FOR_PRICE}
+    counts["derivados"] = sum(conn.execute(sql, params).rowcount for sql in (_DISCOUNTED, _CHEAP, _FROM_MEASURES))
+    finish_layer_run(conn, run, counts)
+    log.info("Atributos: %s", counts)
+    return counts

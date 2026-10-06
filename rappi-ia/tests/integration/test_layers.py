@@ -1,6 +1,11 @@
 """Capa de perfiles (docs/superpowers/specs/2026-10-06-capa-perfiles-design.md) contra `rappi_ia_test`."""
 
-from conftest import add_dish, add_product, add_store
+from rappi_scraper.storage.search import build_search_documents
+
+from conftest import add_dish, add_price, add_product, add_store
+from rappi_ia.concepts.pipeline import build_concepts
+from rappi_ia.layers import attributes as attributes_layer
+from rappi_ia.layers.attributes import build_attributes
 from rappi_ia.layers.measures import build_measures
 from rappi_ia.layers.runs import finish_layer_run, start_layer_run
 
@@ -59,3 +64,86 @@ def test_build_measures_fills_products_and_dishes_and_is_idempotent(db):
     assert second == first
     assert db.execute("SELECT count(*) FROM item_measures").fetchone()[0] == 3
     assert db.execute("SELECT count(*) FROM layer_runs WHERE layer = 'measures'").fetchone()[0] == 2
+
+
+def _attribute_catalog(db):
+    add_store(db, 1, "supermercado")
+    items = [
+        (20, "Pan de molde", "Panes", 3000, '{"gluten_free": true}'),
+        (21, "Leche sin lactosa 1 L", "Leches", 1000, "{}"),
+        (22, "Leche entera 1 L", "Leches", 2000, "{}"),
+        (23, "Leche descremada 1 L", "Leches", 3000, "{}"),
+        (24, "Leche semidescremada 1 L", "Leches", 9000, "{}"),
+    ]
+    for pid, name, category, price, attrs in items:
+        add_product(db, pid, name, 1, category)
+        add_price(db, 1, pid, price)
+        db.execute("UPDATE catalog_items SET attributes = %s::jsonb WHERE master_product_id = %s", (attrs, pid))
+    db.execute("UPDATE price_snapshots SET real_price = 3600, discount_pct = 17 WHERE sku = 'sku-20'")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+
+
+def _attrs(db):
+    rows = db.execute("SELECT entity_id, attribute_id, source FROM item_attributes ORDER BY 1, 2").fetchall()
+    return {(i, a): s for i, a, s in rows}
+
+
+def test_build_attributes_from_rappi_text_and_prices(db, monkeypatch):
+    monkeypatch.setattr(attributes_layer, "MIN_CONCEPT_ITEMS_FOR_PRICE", 4)  # la base de prueba es chica
+    _attribute_catalog(db)
+
+    build_attributes(db)
+    found = _attrs(db)
+
+    assert found[("20", "sin-gluten")] == "rappi"
+    assert found[("21", "sin-lactosa")] == "regla"
+    assert found[("20", "con-descuento")] == "derivado"
+    assert {i for (i, a) in found if a == "economico"} == {"21"}  # el 25 % más barato de «leche»
+    assert db.execute("SELECT count(*) FROM attribute_defs").fetchone()[0] > 70
+
+
+def test_build_attributes_is_idempotent_and_keeps_curated_rows(db):
+    _attribute_catalog(db)
+    build_attributes(db)
+    db.execute(
+        """INSERT INTO item_attributes (entity_type, entity_id, attribute_id, source, confidence, rules_version)
+           VALUES ('catalog_item', '22', 'organico', 'curado', 1, 'a mano')"""
+    )
+
+    build_attributes(db)
+    first = _attrs(db)
+    build_attributes(db)
+
+    assert _attrs(db) == first
+    assert first[("22", "organico")] == "curado"
+    assert db.execute("SELECT count(*) FROM layer_runs WHERE layer = 'attributes'").fetchone()[0] == 3
+
+
+def test_dish_size_comes_from_the_measures(db):
+    add_store(db, 2, "restaurantes")
+    add_dish(db, 500, "Pizza Familiar", 2, "Pizzas")
+    db.commit()
+    build_search_documents(db)
+    build_measures(db)
+
+    build_attributes(db)
+
+    assert _attrs(db)[("500", "familiar")] == "regla"
+
+
+def test_capa_views_expose_attributes_and_unit_prices(db):
+    _attribute_catalog(db)
+    build_attributes(db)
+
+    attrs = db.execute(
+        "SELECT attribute_name, family FROM capa.item_attributes WHERE entity_id = '21' AND attribute_id = 'sin-lactosa'"
+    ).fetchone()
+    per_l = db.execute(
+        "SELECT price, price_per_l FROM capa.item_unit_prices WHERE entity_id = '21' AND vertical = 'supermercado'"
+    ).fetchone()
+
+    assert attrs == ("Sin lactosa", "dieta")
+    assert per_l == (1000, 1000.0)  # $1.000 por 1 L

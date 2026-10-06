@@ -55,3 +55,25 @@ COMMENT ON TABLE layer_runs IS 'Linaje: cada corrida de cada capa derivada (qué
 COMMENT ON TABLE attribute_defs IS 'Vocabulario de atributos de ítem (sin gluten, vegano, familiar…), sembrado desde attributes.toml.';
 COMMENT ON TABLE item_attributes IS 'Atributos de cada producto o plato, con fuente (rappi, regla, derivado), confianza y evidencia.';
 COMMENT ON TABLE item_measures IS 'Tamaño normalizado de cada ítem: cantidad por unidad, unidad base (g, ml, und), pack y total.';
+
+-- Contrato estable para herramientas externas (esquema `capa`): las tablas internas pueden cambiar, estas vistas no.
+CREATE VIEW capa.item_attributes AS
+SELECT a.entity_type, a.entity_id, a.attribute_id, d.name AS attribute_name, d.family, a.value, a.source,
+       a.confidence, a.evidence
+FROM item_attributes a JOIN attribute_defs d USING (attribute_id);
+
+CREATE VIEW capa.item_unit_prices AS
+SELECT s.vertical, s.entity_type, s.entity_id, s.price_min AS price, m.unit, m.pack, m.total,
+       CASE WHEN m.unit = 'g' THEN s.price_min / m.total * 1000 END AS price_per_kg,
+       CASE WHEN m.unit = 'ml' THEN s.price_min / m.total * 1000 END AS price_per_l,
+       CASE WHEN m.unit = 'und' THEN s.price_min / m.total END AS price_per_unit
+FROM search_documents s
+JOIN item_measures m ON m.entity_type = s.entity_type AND m.entity_id = s.entity_id
+WHERE s.price_min > 0 AND m.total > 0;
+
+COMMENT ON VIEW capa.item_attributes IS 'Atributos de cada producto o plato (sin gluten, vegano, familiar…) con nombre, familia, fuente y evidencia.';
+COMMENT ON VIEW capa.item_unit_prices IS 'Precio vigente por vertical y precio por kilo, litro o unidad (precio ÷ tamaño total normalizado).';
+COMMENT ON COLUMN capa.item_unit_prices.price IS 'Precio vigente más bajo del ítem en esa vertical (CLP).';
+COMMENT ON COLUMN capa.item_unit_prices.price_per_kg IS 'CLP por kilo, solo para ítems medidos en gramos.';
+COMMENT ON COLUMN capa.item_unit_prices.price_per_l IS 'CLP por litro, solo para ítems medidos en mililitros.';
+COMMENT ON COLUMN capa.item_unit_prices.price_per_unit IS 'CLP por unidad, solo para ítems medidos en unidades.';
