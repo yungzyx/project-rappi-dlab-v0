@@ -1,7 +1,8 @@
 # Segmentos de usuario por comportamiento (docs/superpowers/specs/2026-10-06-capa-perfiles-design.md §4.2 y §5).
 #
 # Cada regla combina piezas genéricas; el motor (layers/segments.py) no conoce segmentos por nombre.
-# Contenido (basta una): concepts, groups, attributes, brands, occasions, services, query_words.
+# Contenido (basta una): concepts, groups, attributes, brands, occasions, services, query_words. Ninguna regla usa
+# `occasions`: una ocasión agrupa conceptos cotidianos (chocolate, café, cerveza) y volvía «estudiante» o «regalador» a medio mundo.
 # Contexto (todas): verticals, hours [desde, hasta] (puede cruzar medianoche), weekdays (1 = lunes), days_of_month,
 # price_percentile { gte | lte }, discount, basket_size { gte_items | lte_items | gte_amount }, modality,
 # from_suggestion, cities. `min_share` (0 a 1): parte mínima de la actividad de la persona, en los tipos de evento de la
@@ -270,7 +271,7 @@ id = "parrilla"
 name = "Parrilla y asados"
 family = "comida"
 description = "Compra carnes, carbón o arma asados de forma repetida."
-signals = { occasions = ["asado"], concepts = ["carbon", "carnes"], attributes = ["parrilla"], query_words = ["asado", "parrilla", "carbon", "choripan"] }
+signals = { concepts = ["carbon"], attributes = ["parrilla"], query_words = ["asado", "parrilla", "carbon", "choripan"] }
 min_share = 0.25
 
 [[segment]]
@@ -520,7 +521,7 @@ id = "familia-con-ninos"
 name = "Familia con niños"
 family = "hogar"
 description = "Compra juguetes, útiles o productos infantiles."
-signals = { concepts = ["juguetes-infantiles"], attributes = ["ninos"], occasions = ["regalo-nino"], query_words = ["infantil", "lonchera", "colegio"] }
+signals = { concepts = ["juguetes-infantiles"], attributes = ["ninos"], query_words = ["infantil", "lonchera", "colegio"] }
 
 [[segment]]
 id = "familia-con-adolescentes"
@@ -535,14 +536,14 @@ id = "tiene-perro"
 name = "Tiene perro"
 family = "hogar"
 description = "Compra alimento o accesorios para perros de forma repetida."
-signals = { concepts = ["alimento-perro"], attributes = ["perro", "cachorro"], query_words = ["perro", "perros", "dog chow", "pedigree"] }
+signals = { concepts = ["alimento-perro"], query_words = ["perro", "perros", "dog chow", "pedigree"] }
 
 [[segment]]
 id = "tiene-gato"
 name = "Tiene gato"
 family = "hogar"
 description = "Compra alimento, arena o accesorios para gatos de forma repetida."
-signals = { concepts = ["alimento-gato"], attributes = ["gato"], query_words = ["gato", "gatos", "cat chow", "whiskas", "arena sanitaria"] }
+signals = { concepts = ["alimento-gato"], query_words = ["gato", "gatos", "cat chow", "whiskas", "arena sanitaria"] }
 
 [[segment]]
 id = "otras-mascotas"
@@ -583,7 +584,7 @@ id = "pareja"
 name = "Pareja"
 family = "hogar"
 description = "Pide o busca productos para dos o para una cita."
-signals = { occasions = ["cita"], attributes = ["san-valentin"], query_words = ["para dos", "cena romantica"] }
+signals = { attributes = ["san-valentin"], query_words = ["para dos", "cena romantica"] }
 
 [[segment]]
 id = "hogar-grande"
@@ -619,7 +620,7 @@ id = "anfitrion"
 name = "Anfitrión"
 family = "hogar"
 description = "Compra hielo, picoteo y desechables para recibir gente."
-signals = { concepts = ["hielo", "picoteo", "papeles-desechables", "cocteles"], occasions = ["carrete"] }
+signals = { concepts = ["hielo", "picoteo", "papeles-desechables", "cocteles"] }
 min_signals = 4
 min_share = 0.2
 
@@ -772,7 +773,7 @@ id = "estudiante"
 name = "Estudiante"
 family = "intereses"
 description = "Compra o busca estudiante de forma repetida."
-signals = { concepts = ["utiles"], query_words = ["cuaderno", "lapiz", "utiles escolares", "calculadora"], occasions = ["estudiar"] }
+signals = { concepts = ["utiles"], query_words = ["cuaderno", "lapiz", "utiles escolares", "calculadora"] }
 min_share = 0.2
 
 [[segment]]
@@ -797,7 +798,7 @@ id = "regalador"
 name = "Regalador"
 family = "intereses"
 description = "Compra o busca regalos de forma repetida."
-signals = { occasions = ["regalo", "regalo-nino", "cumpleanos"], concepts = ["flores-regalos"], attributes = ["para-regalo"], query_words = ["regalo", "regalar"] }
+signals = { concepts = ["flores-regalos"], attributes = ["para-regalo"], query_words = ["regalo", "regalar"] }
 min_share = 0.15
 
 [[segment]]
@@ -805,7 +806,7 @@ id = "fiestero"
 name = "Fiestero"
 family = "intereses"
 description = "Compra o busca para fiestas y carretes."
-signals = { occasions = ["carrete", "panorama"], concepts = ["cocteles", "espumante", "hielo"], query_words = ["fiesta", "carrete", "previa"] }
+signals = { concepts = ["cocteles", "espumante", "hielo"], query_words = ["fiesta", "carrete", "previa"] }
 min_share = 0.2
 
 [[segment]]
@@ -813,7 +814,7 @@ id = "aire-libre"
 name = "Aire libre"
 family = "intereses"
 description = "Compra para asados, playa o camping."
-signals = { concepts = ["carbon", "articulos-deportivos"], occasions = ["asado", "panorama"], query_words = ["camping", "playa", "bloqueador solar", "picnic"] }
+signals = { concepts = ["carbon", "articulos-deportivos"], query_words = ["camping", "playa", "bloqueador solar", "picnic"] }
 min_share = 0.3
 
 [[segment]]
@@ -853,7 +854,7 @@ id = "once"
 name = "Hora del té"
 family = "momentos"
 description = "Compra o pide para la once."
-signals = { occasions = ["once"], concepts = ["panaderia", "te", "cafe", "quesos", "fiambres"], hours = [16, 20] }
+signals = { concepts = ["panaderia", "te", "cafe", "quesos", "fiambres"], hours = [16, 20] }
 events = { order_line = 2.0, cart_add = 1.0 }
 min_share = 0.3
 
@@ -942,7 +943,7 @@ id = "celebraciones"
 name = "Celebraciones"
 family = "momentos"
 description = "Compra para cumpleaños y celebraciones."
-signals = { occasions = ["cumpleanos", "regalo", "carrete"], attributes = ["cumpleanos", "para-regalo"], concepts = ["pasteleria", "espumante", "flores-regalos"] }
+signals = { attributes = ["cumpleanos", "para-regalo"], concepts = ["flores-regalos"], query_words = ["cumpleanos", "celebracion", "torta de cumpleanos"] }
 min_share = 0.3
 
 [[segment]]
@@ -960,7 +961,7 @@ id = "temporada-fiestas-patrias"
 name = "Fiestas Patrias"
 family = "momentos"
 description = "Compra para el Dieciocho."
-signals = { occasions = ["fiestas-patrias"], attributes = ["fiestas-patrias"], query_words = ["dieciocho", "fiestas patrias", "ramada"] }
+signals = { attributes = ["fiestas-patrias"], query_words = ["dieciocho", "fiestas patrias", "ramada"] }
 window_days = 45
 half_life_days = 15.0
 min_share = 0.2

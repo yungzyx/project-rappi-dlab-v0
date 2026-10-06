@@ -45,6 +45,15 @@ def test_every_rule_has_a_signal_or_a_metric_but_not_both_and_known_pieces_only(
             assert r.metric["name"] in METRICS, r.id
 
 
+def test_no_rule_leans_on_occasions_or_on_species_attributes():
+    """Una ocasión agrupa conceptos cotidianos (chocolate, café, cerveza) y un producto «para perros y gatos» lleva los
+    dos atributos de especie: con ellos «estudiante» y «tiene-gato» alcanzaban a media población simulada."""
+    for r in RULES:
+        assert "occasions" not in r.signals, r.id
+    for rule_id in ("tiene-perro", "tiene-gato"):
+        assert "attributes" not in BY_ID[rule_id].signals
+
+
 def test_levels_are_increasing_and_complete():
     for r in RULES:
         values = [r.levels[level] for level in LEVELS]
