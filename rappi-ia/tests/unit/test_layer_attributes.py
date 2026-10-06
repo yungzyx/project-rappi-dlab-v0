@@ -185,3 +185,74 @@ def test_no_contiene_is_a_positive_claim_not_a_negation():
     found = _detect(name="Bebida de almendra", description="No contiene azúcar añadida. No contiene gluten.")
     assert {"sin-azucar", "sin-gluten"} <= set(found)
     assert "sin-gluten" not in _detect(name="Galletas", description="Contiene gluten de trigo.")
+
+
+@pytest.mark.parametrize(
+    ("name", "category", "description", "group", "absent"),
+    [  # falsos positivos del juicio de precisión del 06-10-2026
+        ("Papelillo Ocb Virgin 1 1/4", "Papel", "Papel de fibra vegetal con fibra natural", "tabaco", "alto-fibra"),
+        ("Mascara De Pestañas Microfibras", "Máscaras", "Con fibra que alarga", "belleza", "alto-fibra"),
+        ("Ama Jugo Tetra Manzana 200 mL", "Jugos", "Contiene ácidos orgánicos naturales", "bebidas", "organico"),
+        ("Maybelline Corrector Instant Anti Age", "Correctores", None, "belleza", "instantaneo"),
+        ("Smart Bracelet W9 Fitness Negro", "Relojes", None, "tecnologia", "saludable"),
+        ("Herbal Acondicionador Detox Té Verde", "Acondicionador", None, "belleza", "saludable"),
+    ],
+)
+def test_attributes_stay_with_what_the_product_is(name, category, description, group, absent):
+    assert absent not in _detect(name=name, category=category, description=description, group=group)
+
+
+@pytest.mark.parametrize(
+    ("name", "absent"),
+    [
+        ("Pizza Pollo BBQ", "parrilla"),
+        ("Costillas bbq 15cm", "parrilla"),
+        ("Asado a la Olla con Agregado", "parrilla"),
+        ("Camarón Enamorado", "san-valentin"),
+        ("Fetuccini Enamorado", "san-valentin"),
+    ],
+)
+def test_dish_names_that_only_sound_like_an_attribute(name, absent):
+    assert absent not in _detect(entity_type="menu_item", name=name, group="comida")
+
+
+def test_the_real_attributes_still_match():
+    assert "alto-fibra" in _detect(name="Pan integral alto en fibra", group="despensa")
+    assert "organico" in _detect(name="Quinoa orgánica 500 g", group="despensa")
+    assert "instantaneo" in _detect(name="Café instantáneo 170 g", group="bebidas")
+    assert "parrilla" in _detect(entity_type="menu_item", name="Lomo a la parrilla", group="comida")
+    assert "san-valentin" in _detect(name="Caja de bombones San Valentín", group="dulces")
+
+
+@pytest.mark.parametrize(
+    ("name", "description", "group", "rappi", "absent"),
+    [  # segunda tanda del juicio de precisión del 06-10-2026
+        ("Gaseosa Coca-Cola 3 L", "Bebida sin alcohol", "bebidas", None, "sin-alcohol"),
+        ("Listerine Enjuague Bucal Zero Alcohol", None, "salud", {"alcohol_free_pharma": True}, "sin-alcohol"),
+        ("Aji-no-men Gallina Picante 80 G", None, "despensa", None, "hombre"),
+        ("Fanta Naranja 1.5 L", "Bebida sin alcohol", "bebidas", None, "sin-alcohol"),
+        ("Corte Criollo Tapapecho Premium", "Carne con fibra marcada", "frescos", None, "alto-fibra"),
+    ],
+)
+def test_second_round_of_false_positives(name, description, group, rappi, absent):
+    assert absent not in _detect(name=name, description=description, group=group, rappi=rappi)
+
+
+def test_alcohol_free_beer_and_men_products_still_match():
+    assert "sin-alcohol" in _detect(name="Cerveza Heineken 0.0 sin alcohol", group="alcohol")
+    assert "hombre" in _detect(name="Desodorante Old Spice for men", group="salud")
+
+
+@pytest.mark.parametrize("name", ["Nivea Men Crema Facial", "Dove Men+Care Desodorante", "Rexona Men Antitranspirante"])
+def test_men_products_keep_the_men_attribute(name):
+    assert "hombre" in _detect(name=name, group="belleza")
+
+
+def test_alcohol_free_beer_with_a_soft_drink_concept_is_still_alcohol_free():
+    assert "sin-alcohol" in _detect(name="Estrella Galicia Sin Alcohol 330 ml", group="bebidas")
+
+
+def test_a_dish_without_a_concept_is_still_food_for_food_attributes():
+    """Unos 14 mil platos quedaron sin concepto: sin grupo, «saludable» o «integral» no calzaban nunca."""
+    assert "saludable" in _detect(entity_type="menu_item", name="Bowl saludable de quinoa", group=None)
+    assert "saludable" not in _detect(entity_type="catalog_item", name="Pulsera fitness", group=None)

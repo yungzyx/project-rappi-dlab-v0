@@ -180,7 +180,7 @@ def detect_attributes(
         if key is not None:
             found.append(Detected(rule.attribute_id, None, "rappi", RAPPI_CONFIDENCE, key))
             continue
-        if blocked or (rule.only_groups and group not in rule.only_groups):
+        if blocked or (rule.only_groups and not _in_groups(rule, entity_type, group)):
             continue
         uses_description = (
             rule.use_description if rule.use_description is not None else rule.family in DESCRIPTION_FAMILIES
@@ -191,6 +191,16 @@ def detect_attributes(
     if any(d.attribute_id == "vegano" for d in found) and not any(d.attribute_id == "vegetariano" for d in found):
         found.append(Detected("vegetariano", None, "derivado", DERIVED_CONFIDENCE, "vegano"))  # todo vegano lo es
     return found
+
+
+# Un plato sin concepto sigue siendo comida: las reglas acotadas a grupos de comida valen para él.
+_FOOD_GROUPS = frozenset({"alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida"})
+
+
+def _in_groups(rule: AttributeRule, entity_type: str, group: str | None) -> bool:
+    if group is None and entity_type == "menu_item":
+        return bool(_FOOD_GROUPS & set(rule.only_groups))
+    return group in rule.only_groups
 
 
 _COLUMNS = "entity_type, entity_id, attribute_id, value, source, confidence, evidence, rules_version, run_id"

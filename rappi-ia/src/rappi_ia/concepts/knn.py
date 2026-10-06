@@ -17,7 +17,7 @@ import numpy as np
 from psycopg import Connection
 
 from ..embeddings.base import TextEmbedder, to_pgvector
-from .assign import Assignment
+from .assign import Assignment, dish_name_concepts
 from .taxonomy import keeps_sensitive, sensitive_concepts
 
 log = logging.getLogger(__name__)
@@ -26,7 +26,11 @@ NEIGHBORS = 15
 LABEL_MIN_CONFIDENCE = 0.8  # vecinos que votan: mapeo por categoría confiable
 MAX_LABELS_PER_CONCEPT = 400  # acota el costo (y evita que los conceptos enormes dominen la votación)
 OVERRIDE_SHARE = 0.75  # para contradecir a la categoría, los vecinos deben estar muy de acuerdo
-FALLBACK_SHARE = 0.5  # para reemplazar una regla o llenar un vacío basta mayoría
+# Para llenar un vacío o reemplazar una regla hace falta un acuerdo fuerte: con mayoría simple los vecinos acertaban
+# el 35 % en platos (juicio de precisión del 06-10-2026, `rappi-ia layer-precision`). Basta mayoría solo para que un
+# sensible no quede sin concepto (un remedio sin categoría) o pase a otro sensible: ahí ocultar de más es lo seguro.
+STRONG_SHARE = 0.8
+FALLBACK_SHARE = 0.5
 CHUNK = 1024
 FETCH_ROWS = 1000  # vectores del caché por viaje del cursor de servidor (~3 MB con 768 dimensiones)
 EMBED_BATCH = 512  # nombres nuevos por llamada al modelo (y por commit al caché)
@@ -155,6 +159,15 @@ def _decide(
         return replace(current, confidence=round(max(current.confidence, share), 3))
     if current and keeps_sensitive(current.concept_id, best):  # los vecinos no sacan a nadie de un sensible
         return current
+    # El nombre de un plato que nombra un plato o su proteína («Pollo asado + Bebida», «Pescado frito») manda: los
+    # combos con bebida se parecen entre sí y los vecinos los mandaban a sushi o a platos listos.
+    if (
+        current
+        and current.method == "regla"
+        and item.entity_type == "menu_item"
+        and current.concept_id in dish_name_concepts()
+    ):
+        return current
     knn = Assignment(
         item.entity_type,
         item.entity_id,
@@ -164,13 +177,15 @@ def _decide(
         model_version,
         f"vecinos:{best}" + (f" (antes {current.source})" if current else ""),
     )
+    sensitive = sensitive_concepts()
     if current is None:
-        return knn if share >= FALLBACK_SHARE else None
+        return knn if share >= (FALLBACK_SHARE if best in sensitive else STRONG_SHARE) else None
     # Meter en un sensible lo que una regla dejó en un concepto común exige el mismo acuerdo que contradecir a la
     # categoría: con mayoría simple, «Hand Rolls» o «Wrap» se parecían a papelillos y quedaban ocultos.
-    enters_sensitive = best in sensitive_concepts() and current.concept_id not in sensitive_concepts()
+    enters_sensitive = best in sensitive and current.concept_id not in sensitive
     if current.method == "regla" and not enters_sensitive:
-        return knn if share >= FALLBACK_SHARE else current
+        between_sensitive = best in sensitive and current.concept_id in sensitive
+        return knn if share >= (FALLBACK_SHARE if between_sensitive else STRONG_SHARE) else current
     return knn if share >= OVERRIDE_SHARE and len(sims) >= NEIGHBORS - 5 else current
 
 

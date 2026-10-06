@@ -109,7 +109,8 @@ family = "dieta"
 applies_to = "both"
 description = "Alto contenido de fibra."
 rappi = [{ keys = ["high_fiber"] }]
-phrases = ["alto en fibra", "alta en fibra", "high fiber", "rico en fibra", "con fibra"]
+phrases = ["alto en fibra", "alta en fibra", "high fiber", "rico en fibra"]  # «con fibra» describía carnes y telas
+only_groups = ["alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida", "bebe"]
 
 [[attribute]]
 id = "bajo-sodio"
@@ -142,6 +143,7 @@ description = "Certificación orgánica o declarado orgánico."
 rappi = [{ keys = ["organic", "pps_organic"] }]
 phrases = ["organico", "organica", "organicos", "organicas", "organic"]
 negations = ["no organico"]
+use_description = false  # «ácidos orgánicos», «orégano orgánico»: la descripción nombra ingredientes
 only_groups = ["alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida", "belleza", "salud", "mascotas", "bebe"]
 
 [[attribute]]
@@ -160,10 +162,11 @@ name = "Sin alcohol"
 family = "dieta"
 applies_to = "both"
 description = "Cerveza, vino o licor sin alcohol."
-rappi = [{ keys = ["is_zero_alcohol", "alcohol_free_pharma"] }]
+rappi = [{ keys = ["is_zero_alcohol"] }]  # «alcohol_free_pharma» marca enjuagues y remedios, no bebidas
 phrases = ["sin alcohol", "cero alcohol", "0 alcohol", "alcohol free", "desalcoholizado", "desalcoholizada", "no alcoholico", "non alcoholic"]
 negations = ["con alcohol"]
 only_groups = ["alcohol", "bebidas"]
+use_description = false  # la descripción de una gaseosa dice «sin alcohol»; el nombre de una cerveza 0,0 también
 
 [[attribute]]
 id = "natural"
@@ -294,7 +297,7 @@ applies_to = "catalog_item"
 description = "Producto declarado para hombre."
 rappi = [{ keys = ["gender", "pps_gender"], values = ["Masculino", "Hombre"] }]
 phrases = ["hombre", "hombres", "masculino", "caballero", "for men", "pour homme", "men"]
-negations = ["unisex", "mujer", "hombre y mujer"]
+negations = ["unisex", "mujer", "hombre y mujer", "aji no men"]  # «Aji-no-men» es una sopa
 
 [[attribute]]
 id = "mujer"
@@ -499,6 +502,7 @@ family = "formato"
 applies_to = "catalog_item"
 description = "Preparación instantánea."
 phrases = ["instantaneo", "instantanea", "instantaneos", "instant"]
+only_groups = ["alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida", "bebe"]
 
 # ─── precio y calidad ───────────────────────────────────────────────────────────────────────────────────────────────
 [[attribute]]
@@ -653,7 +657,7 @@ name = "San Valentín"
 family = "ocasion"
 applies_to = "both"
 description = "Artículo de San Valentín."
-phrases = ["san valentin", "dia de los enamorados", "enamorados"]
+phrases = ["san valentin", "dia de los enamorados"]  # «Camarón Enamorado» es el nombre del plato
 
 [[attribute]]
 id = "cumpleanos"
@@ -696,6 +700,7 @@ family = "platos"
 applies_to = "both"
 description = "Plato o producto declarado saludable o liviano."
 phrases = ["saludable", "healthy", "liviano", "liviana", "fitness", "detox"]
+only_groups = ["alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida", "bebe"]
 
 [[attribute]]
 id = "frito"
@@ -711,7 +716,7 @@ name = "A la parrilla"
 family = "platos"
 applies_to = "menu_item"
 description = "Plato a la parrilla o a las brasas."
-phrases = ["a la parrilla", "parrilla", "parrillada", "a las brasas", "grill", "grillado", "asado", "bbq", "barbecue"]
+phrases = ["a la parrilla", "parrilla", "parrillada", "a las brasas", "grill", "grillado", "asado de tira", "asado a la parrilla"]  # «bbq» es una salsa y «asado» también es a la olla
 
 [[attribute]]
 id = "horno"

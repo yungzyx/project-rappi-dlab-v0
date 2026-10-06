@@ -36,7 +36,7 @@ def test_catalog_item_without_anything_is_unassigned(matcher):
 
 
 SECTIONS = {"bebidas": MappedName("gaseosas", "llm", 0.9), "promos": MappedName("pizza", "llm", 0.3)}
-CUISINES = {"italiana": MappedName("pizza", "llm", 0.8)}
+CUISINES = {"italiana": MappedName("pizza", "llm", 0.9), "americana": MappedName("pizza", "llm", 0.6)}
 
 
 def test_menu_item_name_wins_over_section(matcher):
@@ -50,7 +50,21 @@ def test_menu_item_uses_section_then_cuisine(matcher):
     by_section = assign_menu_item("12", "Maracuyá sour sin alcohol", "Bebidas", [], SECTIONS, CUISINES, matcher)
     assert (by_section.concept_id, by_section.source) == ("gaseosas", "seccion:Bebidas")
     by_cuisine = assign_menu_item("13", "Especial de la casa", "Promos", ["Italiana"], SECTIONS, CUISINES, matcher)
-    assert (by_cuisine.concept_id, by_cuisine.confidence) == ("pizza", 0.64)  # 0.8 × 0.8: la cocina es pista débil
+    assert (by_cuisine.concept_id, by_cuisine.confidence) == ("pizza", 0.72)  # 0.9 × 0.8: la cocina es pista débil
+
+
+def test_a_doubtful_cuisine_gives_no_concept(matcher):
+    """La cocina dice qué local es, no qué es cada plato: con un mapeo dudoso (Americana → pizza) acertaba el 62 %."""
+    assert assign_menu_item("14", "Especial de la casa", "Promos", ["Americana"], SECTIONS, CUISINES, matcher) is None
+
+
+def test_an_ingredient_in_a_dish_name_does_not_beat_the_section(matcher):
+    """«Mechada palta mayo» es un sándwich aunque diga palta; «Phad Kee Maoo Vacuno», un plato asiático."""
+    sections = {"sandwiches": MappedName("sandwiches", "llm", 0.9), "wok": MappedName("asiatica", "llm", 0.9)}
+    assert (
+        assign_menu_item("15", "Mechada Palta Mayo", "Sandwiches", [], sections, {}, matcher).concept_id == "sandwiches"
+    )
+    assert assign_menu_item("16", "Phad Kee Maoo Vacuno", "Wok", [], sections, {}, matcher).concept_id == "asiatica"
 
 
 DISH_SECTIONS = {
@@ -140,3 +154,41 @@ def test_tobacconist_words_mean_nothing_outside_that_category(matcher):
         "1", "Cereal Puffs Plátano Zapallo", "Cereales", {"cereales": MappedName("cereales", "llm", 0.9)}, matcher
     )
     assert a.concept_id == "cereales"
+
+
+@pytest.mark.parametrize("name", ["Macarrón Frutilla", "Papas Familiar", "Queso", "Yogurt mango s/a"])
+def test_a_dish_is_not_the_raw_ingredient_its_name_mentions(matcher, name):
+    """Frutas, verduras, lácteos y quesos por el nombre de un plato acertaban 1 de cada 3 (juicio del 06-10)."""
+    a = assign_menu_item("30", name, "Sin mapeo", [], {}, {}, matcher)
+    assert a is None or a.concept_id not in {"frutas", "verduras", "lacteos", "quesos", "fiambres", "huevos"}
+
+
+@pytest.mark.parametrize(
+    ("name", "concept"), [("Ceviche de Camarones", "pescados-mariscos"), ("Pollo Chiten", "pollo")]
+)
+def test_a_dish_named_for_its_protein_keeps_it(matcher, name, concept):
+    assert assign_menu_item("31", name, "Sin mapeo", [], {}, {}, matcher).concept_id == concept
+
+
+@pytest.mark.parametrize(
+    ("name", "concept"),
+    [("Combo pollo para 1", "pollo"), ("Combo Ceviche Mixto", "pescados-mariscos")],
+)
+def test_a_protein_in_the_dish_name_beats_a_generic_section(matcher, name, concept):
+    """La sección «Combos» estaba mapeada a sushi: «Combo pollo para 1» quedaba como sushi y no salía al pedir pollo."""
+    combos = {"combos": MappedName("sushi", "llm", 0.85)}
+    assert assign_menu_item("40", name, "Combos", [], combos, {}, matcher).concept_id == concept
+
+
+@pytest.mark.parametrize(("section", "concept"), [("Empanadas de Horno", "empanadas"), ("Pizzas Familiares", "pizza")])
+def test_an_unmapped_section_that_names_a_dish_gives_the_concept(matcher, section, concept):
+    a = assign_menu_item("41", "La especial de la casa", section, [], {}, {}, matcher)
+    assert (a.concept_id, a.source) == (concept, f"seccion-nombre:{section}")
+
+
+def test_an_unmapped_section_that_names_an_ingredient_gives_nothing(matcher):
+    assert assign_menu_item("42", "La especial de la casa", "Quesos", [], {}, {}, matcher) is None
+
+
+def test_the_real_combos_section_is_no_longer_sushi(csv_maps):
+    assert "combos" not in csv_maps["seccion_menu"] or csv_maps["seccion_menu"]["combos"].concept_id != "sushi"

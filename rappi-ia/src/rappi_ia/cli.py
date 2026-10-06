@@ -71,6 +71,40 @@ def cmd_relations(conn, args) -> None:
     print(build_relations(conn))
 
 
+def cmd_layer_sample(conn, args) -> None:
+    from .layers import quality
+
+    versioned = quality.sample_file(args.seed)
+    if versioned.exists() and not args.force:
+        raise SystemExit(f"{versioned} ya existe y tiene juicios asociados; usa --force para reemplazarla.")
+    sample = quality.build_quality_sample(conn, args.seed)
+    quality.save_sample(sample, versioned, quality.local_sample_file(args.seed))
+    kinds = {k: sum(r["kind"] == k for r in sample) for k in ("atributo", "marca", "concepto")}
+    print(f"{len(sample)} afirmaciones ({kinds}) en {versioned}")
+    print(f"Textos para juzgar (fuera de git): {quality.local_sample_file(args.seed)}")
+
+
+def cmd_layer_precision(conn, args) -> None:
+    import json
+
+    from .layers import quality
+
+    judged = quality.judgments_file(args.seed)
+    if not judged.exists():
+        raise SystemExit(f"Todavía no hay juicios ({judged} no existe).")
+    sample = quality.with_names(conn, json.loads(quality.sample_file(args.seed).read_text(encoding="utf-8"))["filas"])
+    given = json.loads(judged.read_text(encoding="utf-8"))
+    text = quality.render_precision(quality.precision_report(sample, given["juicios"]), given["juez"])
+    after = quality.after_changes(sample, given["juicios"], quality.still_asserted(conn, sample))
+    text += "\n" + quality.render_after(after)
+    out = config.DATA_DIR / "eval" / f"capas-precision{quality._suffix(args.seed)}.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    print(text.split("## Reglas a revisar")[0])
+    print(quality.render_after(after))
+    print(f"Reporte en {out}")
+
+
 def cmd_segments(conn, args) -> None:
     print(build_segments(conn, args.source, args.user))
 
@@ -253,6 +287,8 @@ COMMANDS = {
     "canonical": cmd_canonical,
     "relations": cmd_relations,
     "segments": cmd_segments,
+    "layer-sample": cmd_layer_sample,
+    "layer-precision": cmd_layer_precision,
     "layer-report": cmd_layer_report,
     "attributes": cmd_attributes,
     "multivertical": cmd_multivertical,
@@ -291,6 +327,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "relations", help="capa de perfiles: grafo de conocimiento (sustituye, conflicto, tiene_atributo, co-búsqueda…)"
     )
+    ls = sub.add_parser("layer-sample", help="capa de datos: muestra fija de afirmaciones (atributo, marca, concepto)")
+    ls.add_argument("--seed", type=int, default=7, help="semilla (7 = la muestra original)")
+    ls.add_argument("--force", action="store_true", help="reemplaza una muestra que ya existe")
+    lp = sub.add_parser("layer-precision", help="capa de datos: precisión por regla según los juicios de la muestra")
+    lp.add_argument("--seed", type=int, default=7, help="semilla de la muestra juzgada")
     sg = sub.add_parser("segments", help="capa de perfiles: segmentos de usuario por comportamiento (con historia)")
     sg.add_argument("--source", choices=["synthetic", "prototype"], default="synthetic")
     sg.add_argument("--user", help="recalcula solo a esta persona")

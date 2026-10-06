@@ -97,9 +97,24 @@ def test_avoid_words_block_a_keyword_in_the_same_name_but_not_elsewhere():
         ("Collar Ajustable Para Gatos Casaideas", "accesorios-mascota"),
         ("Set De Arnés Y Correa Azul Marino Para Perros", "accesorios-mascota"),
         ("Alimento Seco Perro Adulto", "alimento-perro"),
+        ("Equate Rasuradora Desechable Con Mango Ergonómico", None),  # juicio de precisión del 06-10-2026
+        ("Twister Sandía 100 Gr Hilo", None),
+        ("Jugo En Polvo Sabor Mango", "jugos"),
+        ("Mango Tommy 1 kg", "frutas"),
+        ("Crema de Maní Natural 1 kg", "frutos-secos"),
+        ("Vilay Bebida de Almendras Sabor Original", "vegano"),
+        ("Vilay Bebida Arroz Y Chocolate Fun 200 Cc", "vegano"),
+        ("Caja De 6 Moai Sólidos Sin Azúcar", None),
+        ("Arroz Grado 1 1 kg", "arroz-legumbres"),
+        ("Crema de Zapallo Instantánea", "sopas"),
         ("Comida Para Gatos Adultos Salmón", "alimento-gato"),
     ],
 )
 def test_known_false_positives_of_name_rules(matcher, text, expected):
     match = matcher.best(text)
     assert (match.target if match else None) == expected
+
+
+def test_a_hand_cream_is_dermocosmetics_not_soup_or_fruit(matcher):
+    assert matcher.best("Crema De Manos Cartera Limon").target == "dermocosmetica"
+    assert matcher.best("Crema de Manos Nivea 75 ml").target == "dermocosmetica"
