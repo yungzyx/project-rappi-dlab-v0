@@ -4,7 +4,7 @@
 # Contenido (basta una): concepts, groups, attributes, brands, occasions, services, query_words.
 # Contexto (todas): verticals, hours [desde, hasta] (puede cruzar medianoche), weekdays (1 = lunes), days_of_month,
 # price_percentile { gte | lte }, discount, basket_size { gte_items | lte_items | gte_amount }, modality,
-# from_suggestion, cities. Una regla con `metric` { name, min?, max? } no suma eventos: el valor de la métrica decide.
+# from_suggestion, cities. Una regla con `metric` { name, min?, max? } no suma eventos: la persona es del segmento si min ≤ valor < max.
 # Los sensibles se nombran por lo que la persona compra (nunca por una condición) y llevan `sensitive = true`.
 # Las palabras de consulta van en minúsculas y sin tildes: el motor normaliza antes de comparar.
 version = "2026-10-06"

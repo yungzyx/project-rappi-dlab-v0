@@ -8,13 +8,16 @@ servicio, palabra de consulta; si la regla no tiene ninguna, basta el contexto) 
 import logging
 import re
 import tomllib
+from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from rappi_scraper.storage.search import VERTICALS
 
 from ..concepts.taxonomy import load_taxonomy
-from .attributes import load_attribute_rules
+from ..text import normalize
+from .attributes import _phrase_key, load_attribute_rules
 
 log = logging.getLogger(__name__)
 
@@ -196,3 +199,159 @@ def _check_metric(metric: dict, fail) -> None:
         fail("`metric` es { name, min?, max? } con al menos un límite")
     if "min" in metric and "max" in metric and metric["min"] >= metric["max"]:
         fail("`metric.min` debe ser menor que `metric.max`")
+
+
+@dataclass(frozen=True)
+class Signal:
+    """Un evento de una persona con lo que se sabe de su ítem: lo único que el motor mira."""
+
+    ts: datetime
+    type: str  # tipo de app_events o `order_line`
+    concept: str | None
+    group: str | None
+    attributes: frozenset[str]
+    vertical: str | None
+    brand: str | None
+    query: str | None
+    modality: str | None
+    price_percentile: float | None  # posición del precio entre los ítems de su concepto (0 a 1)
+    discounted: bool
+    basket_items: int | None
+    basket_total: float | None
+    from_suggestion: bool
+    event_key: str  # identifica el evento: dos filas con la misma clave cuentan una sola vez
+    city: str | None = None
+    service: str | None = None
+
+
+@dataclass(frozen=True)
+class Membership:
+    segment_id: str
+    score: float
+    level: str
+    signals: int
+    evidence: dict
+    first_seen: datetime | None
+    last_signal: datetime | None
+
+
+def score_user(
+    signals: list[Signal], metrics: dict[str, float], rules: list[SegmentRule], now: datetime
+) -> list[Membership]:
+    """Los segmentos de una persona. Puntaje = Σ peso(evento) × 0,5^(edad / vida media) sobre las señales de la
+    ventana que calzan la regla y ninguna exclusión; sin `min_signals` señales distintas o bajo el primer umbral no
+    hay segmento. Una regla con `metric` ignora los eventos: el valor de la métrica, en [min, max), decide."""
+    found = []
+    for rule in rules:
+        member = _by_metric(rule, metrics) if rule.metric else _by_signals(rule, signals, now)
+        if member:
+            found.append(member)
+    return found
+
+
+def _level(rule: SegmentRule, score: float) -> str | None:
+    reached = [level for level in LEVELS if score >= rule.levels[level]]
+    return reached[-1] if reached else None
+
+
+def _by_metric(rule: SegmentRule, metrics: dict[str, float]) -> Membership | None:
+    value = metrics.get(rule.metric["name"])
+    if value is None or value < rule.metric.get("min", float("-inf")) or value >= rule.metric.get("max", float("inf")):
+        return None
+    return Membership(
+        rule.id, value, _level(rule, value) or LEVELS[0], 0, {"metric": rule.metric["name"], "value": value}, None, None
+    )
+
+
+def _by_signals(rule: SegmentRule, signals: list[Signal], now: datetime) -> Membership | None:
+    window = rule.window_days * 86400
+    taxonomy = load_taxonomy()
+    counted: dict[str, tuple[Signal, float]] = {}
+    for signal in signals:
+        age = max(0.0, (now - signal.ts).total_seconds())
+        weight = rule.events.get(signal.type)
+        if weight is None or age > window or signal.event_key in counted:
+            continue
+        if not _matches(signal, rule.signals, taxonomy) or (rule.exclude and _matches(signal, rule.exclude, taxonomy)):
+            continue
+        counted[signal.event_key] = (signal, weight * 0.5 ** (age / 86400 / rule.half_life_days))
+    if len(counted) < rule.min_signals:
+        return None
+    score = sum(points for _signal, points in counted.values())
+    level = _level(rule, score)
+    if level is None:
+        return None
+    seen = [signal.ts for signal, _points in counted.values()]
+    return Membership(rule.id, score, level, len(counted), _evidence(rule, counted.values()), min(seen), max(seen))
+
+
+def _evidence(rule: SegmentRule, counted) -> dict:
+    """Los 3 conceptos o atributos que más aportan al puntaje."""
+    by_item: dict[tuple[str, str], float] = defaultdict(float)
+    named = set(rule.signals.get("attributes", ()))
+    for signal, points in counted:
+        if signal.concept:
+            by_item[("concepto", signal.concept)] += points
+        for attribute in signal.attributes & named:
+            by_item[("atributo", attribute)] += points
+    top = sorted(by_item.items(), key=lambda item: (-item[1], item[0]))[:3]
+    return {"top": [{"kind": kind, "id": ident, "score": round(points, 3)} for (kind, ident), points in top]}
+
+
+def _matches(signal: Signal, pieces: dict, taxonomy) -> bool:
+    """Alguna pieza de contenido (si la regla trae) y todas las de contexto."""
+    content = [key for key in CONTENT_PIECES if key in pieces]
+    if content and not any(_content_hit(signal, key, pieces[key], taxonomy) for key in content):
+        return False
+    return all(_context_hit(signal, key, pieces[key]) for key in CONTEXT_PIECES if key in pieces)
+
+
+def _content_hit(signal: Signal, key: str, wanted: list[str], taxonomy) -> bool:
+    if key == "concepts":
+        return signal.concept in wanted
+    if key == "groups":
+        return signal.group in wanted
+    if key == "attributes":
+        return bool(signal.attributes & set(wanted))
+    if key == "brands":
+        return signal.brand in wanted
+    if key == "services":
+        return signal.service in wanted
+    if key == "occasions":
+        return any(signal.concept in taxonomy.occasions[o].concepts for o in wanted)
+    return signal.query is not None and any(_has_phrase(signal.query, phrase) for phrase in wanted)
+
+
+def _has_phrase(text: str, phrase: str) -> bool:
+    words, target = [_phrase_key(w)[0] for w in normalize(text).split()], _phrase_key(phrase)
+    return any(tuple(words[i : i + len(target)]) == target for i in range(len(words) - len(target) + 1))
+
+
+def _context_hit(signal: Signal, key: str, wanted) -> bool:
+    if key == "verticals":
+        return signal.vertical in wanted
+    if key == "cities":
+        return signal.city in wanted
+    if key == "modality":
+        return signal.modality in wanted
+    if key == "hours":
+        start, end = wanted
+        hour = signal.ts.hour
+        return start <= hour <= end if start <= end else hour >= start or hour <= end
+    if key == "weekdays":
+        return signal.ts.isoweekday() in wanted
+    if key == "days_of_month":
+        return signal.ts.day in wanted
+    if key == "discount":
+        return signal.discounted == wanted
+    if key == "from_suggestion":
+        return signal.from_suggestion == wanted
+    if key == "price_percentile":
+        value = signal.price_percentile
+        return value is not None and value >= wanted.get("gte", 0) and value <= wanted.get("lte", 1)
+    items, total = signal.basket_items, signal.basket_total  # basket_size
+    return (
+        ("gte_items" not in wanted or (items is not None and items >= wanted["gte_items"]))
+        and ("lte_items" not in wanted or (items is not None and items <= wanted["lte_items"]))
+        and ("gte_amount" not in wanted or (total is not None and total >= wanted["gte_amount"]))
+    )

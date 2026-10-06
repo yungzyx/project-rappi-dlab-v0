@@ -125,3 +125,133 @@ def test_defaults_fill_what_a_segment_omits(tmp_path):
     )
     rule = load_segment_rules(_write(tmp_path, body + segment))[1][0]
     assert (rule.window_days, rule.min_signals, rule.events) == (99, 2, {"search": 1.0})
+
+
+# ── motor de puntaje ──
+from dataclasses import replace  # noqa: E402
+from datetime import UTC, datetime, timedelta  # noqa: E402
+
+from rappi_ia.layers.segments import Signal, score_user  # noqa: E402
+
+NOW = datetime(2026, 10, 6, 15, 0, tzinfo=UTC)
+
+
+def _signal(days_ago=1.0, type="order_line", key=None, hour=None, **fields):
+    ts = NOW - timedelta(days=days_ago)
+    if hour is not None:
+        ts = ts.replace(hour=hour)
+    base = dict(
+        ts=ts, type=type, concept=None, group=None, attributes=frozenset(), vertical=None, brand=None, query=None,
+        modality=None, price_percentile=None, discounted=False, basket_items=None, basket_total=None,
+        from_suggestion=False, event_key=key or f"{type}-{days_ago}-{hour}-{fields}",
+    )  # fmt: skip
+    return Signal(**{**base, **fields})
+
+
+def _rule(**changes):
+    base = replace(BY_ID["compra-sin-gluten"], signals={"concepts": ["galletas"]}, events={"order_line": 4.0})
+    return replace(base, **changes)
+
+
+_LOW = {"bajo": 0.5, "medio": 5.0, "alto": 10.0}
+
+
+def _gluten(days_ago, **fields):
+    return _signal(days_ago, concept="galletas", attributes=frozenset({"sin-gluten"}), **fields)
+
+
+def test_two_gluten_free_purchases_are_not_a_segment_but_three_are():
+    rule = BY_ID["compra-sin-gluten"]
+    gf = lambda d, k: _signal(d, attributes=frozenset({"sin-gluten"}), concept="galletas", key=k)  # noqa: E731
+    assert score_user([gf(1, "a"), gf(2, "b")], {}, [rule], NOW) == []
+
+    found = score_user([gf(1, "a"), gf(2, "b"), gf(3, "c")], {}, [rule], NOW)
+    assert [m.segment_id for m in found] == ["compra-sin-gluten"]
+    assert found[0].signals == 3 and found[0].level == "medio"  # ≈ 3 × 3.0 × decaimiento ≈ 8,4 (medio ≥ 5, alto ≥ 10)
+
+
+def test_level_is_the_highest_threshold_reached_and_below_the_first_there_is_no_row():
+    rule = _rule(min_signals=1, levels={"bajo": 2.0, "medio": 5.0, "alto": 10.0}, half_life_days=1e9)
+    one, two, three = ([_gluten(1, key=str(i)) for i in range(n)] for n in (1, 2, 3))  # 4, 8 y 12 puntos
+    assert score_user(one, {}, [rule], NOW)[0].level == "bajo"
+    assert score_user(two, {}, [rule], NOW)[0].level == "medio"
+    assert score_user(three, {}, [rule], NOW)[0].level == "alto"
+    weak = _rule(min_signals=1, levels={"bajo": 5.0, "medio": 6.0, "alto": 7.0}, half_life_days=1e9)
+    assert score_user(one, {}, [weak], NOW) == []
+
+
+def test_a_signal_at_half_life_age_is_worth_half():
+    rule = _rule(min_signals=1, half_life_days=30.0, window_days=365, levels={"bajo": 0.1, "medio": 5.0, "alto": 10.0})
+    fresh = score_user([_gluten(0.0, key="a")], {}, [rule], NOW)[0].score
+    old = score_user([_gluten(30.0, key="b")], {}, [rule], NOW)[0].score
+    assert fresh == pytest.approx(4.0) and old == pytest.approx(2.0)
+
+
+def test_signals_outside_the_window_do_not_count():
+    rule = _rule(min_signals=1, window_days=30, half_life_days=1e9)
+    assert score_user([_gluten(31, key="a")], {}, [rule], NOW) == []
+    assert score_user([_gluten(29, key="a")], {}, [rule], NOW) != []
+
+
+def test_the_same_event_key_counts_once_for_min_signals():
+    rule = _rule(min_signals=2)
+    assert score_user([_gluten(1, key="x"), _gluten(2, key="x")], {}, [rule], NOW) == []
+
+
+def test_exclude_drops_the_signals_it_matches():
+    rule = _rule(min_signals=1, half_life_days=1e9, exclude={"concepts": ["pizza"]})
+    pizza = _signal(1, concept="pizza", key="p")
+    assert score_user([_gluten(1, key="a"), pizza], {}, [rule], NOW)[0].signals == 1
+    only_excluded = _rule(signals={"groups": ["comida"]}, min_signals=1, exclude={"concepts": ["pizza"]})
+    assert score_user([_signal(1, concept="pizza", group="comida", key="p")], {}, [only_excluded], NOW) == []
+
+
+def test_hours_can_cross_midnight():
+    rule = replace(BY_ID["nocturno"], signals={"hours": [22, 4]}, min_signals=1, half_life_days=1e9, levels=_LOW)
+    at = lambda hour: score_user([_signal(1, hour=hour, key=str(hour))], {}, [rule], NOW)  # noqa: E731
+    assert at(23) and at(3) and at(22) and at(4)
+    assert not at(12) and not at(5)
+
+
+def test_context_pieces_must_all_hold_and_content_pieces_need_only_one():
+    rule = _rule(
+        signals={"concepts": ["cafe"], "attributes": ["organico"], "weekdays": [1, 2, 3, 4, 5], "discount": True},
+        min_signals=1, half_life_days=1e9, levels=_LOW,
+    )  # fmt: skip
+    monday = NOW - timedelta(days=NOW.weekday())  # lunes de esta semana
+    days_ago = (NOW - monday).total_seconds() / 86400
+    cafe = _signal(days_ago, concept="cafe", discounted=True, key="a")
+    organic = _signal(days_ago, attributes=frozenset({"organico"}), discounted=True, key="b")
+    full_price = _signal(days_ago, concept="cafe", discounted=False, key="c")
+    assert score_user([cafe], {}, [rule], NOW) and score_user([organic], {}, [rule], NOW)
+    assert score_user([full_price], {}, [rule], NOW) == []
+
+
+def test_query_words_match_whole_words_and_plurals():
+    rule = _rule(
+        signals={"query_words": ["sin gluten"]}, events={"search": 1.0}, min_signals=1, half_life_days=1e9, levels=_LOW
+    )
+    search = lambda text: score_user([_signal(1, type="search", query=text, key=text)], {}, [rule], NOW)  # noqa: E731
+    assert search("galletas SIN gluten por favor") and not search("singluten") and not search("gluten sin")
+
+
+def test_a_relationship_metric_decides_by_its_range():
+    rules = [BY_ID[i] for i in ("activo", "en-riesgo", "dormido")]
+    ids = lambda days: [m.segment_id for m in score_user([], {"dias_sin_pedido": days}, rules, NOW)]  # noqa: E731
+    assert ids(10) == ["activo"] and ids(30) == ["en-riesgo"] and ids(89) == ["en-riesgo"] and ids(90) == ["dormido"]
+    assert score_user([], {}, rules, NOW) == []  # sin la métrica no hay segmento
+    risk = score_user([], {"dias_sin_pedido": 55}, [BY_ID["en-riesgo"]], NOW)[0]
+    assert risk.score == 55 and risk.level == "medio" and risk.evidence == {"metric": "dias_sin_pedido", "value": 55}
+
+
+def test_evidence_lists_the_three_biggest_contributors_and_the_extreme_dates():
+    rule = _rule(signals={"groups": ["comida"]}, min_signals=1, half_life_days=1e9)
+    signals = [
+        *(_signal(5, group="comida", concept="pizza", key=f"p{i}") for i in range(3)),
+        *(_signal(2, group="comida", concept="sushi", key=f"s{i}") for i in range(2)),
+        _signal(1, group="comida", concept="empanadas", key="e"),
+        _signal(9, group="comida", concept="pastas", key="x"),
+    ]
+    found = score_user(signals, {}, [rule], NOW)[0]
+    assert [t["id"] for t in found.evidence["top"]] == ["pizza", "sushi", "empanadas"]
+    assert found.first_seen == NOW - timedelta(days=9) and found.last_signal == NOW - timedelta(days=1)
