@@ -94,20 +94,20 @@ Cada paso corre en una transacción, es **idempotente** (correrlo dos veces deja
 
 ## Calidad medida
 
-La cobertura dice cuánto se etiquetó, no si está bien. `rappi-ia layer-sample` arma una muestra fija (semilla 7) de lo que la capa afirma: 10 ítems por atributo y regla, 3 por atributo declarado por Rappi, 140 marcas y 440 conceptos repartidos por método. La muestra y sus juicios están versionados en `rappi-ia/src/rappi_ia/eval/` (`capas-muestra.json` y `capas-juicios.json`). `rappi-ia layer-precision` calcula la precisión por regla, con el mínimo que se puede asegurar (límite de Wilson al 95 %), y lista las reglas bajo 80 %. Después de cambiar reglas, el mismo comando mide sin volver a juzgar cuántos errores se eliminaron y cuántos aciertos se perdieron.
+La cobertura dice cuánto se etiquetó, no si está bien. `rappi-ia layer-sample [--seed N]` arma una muestra fija de lo que la capa afirma: 10 ítems por atributo y regla, 3 por atributo declarado por Rappi, 140 marcas y 440 conceptos repartidos por método. En git van solo los ids y las afirmaciones (`rappi-ia/src/rappi_ia/eval/capas-muestra*.json`, con sus juicios en `capas-juicios*.json`); los nombres y descripciones para juzgar quedan en `rappi-ia/data/eval/`, fuera de git. `rappi-ia layer-precision [--seed N]` calcula la precisión por regla con el mínimo que se puede asegurar (límite de Wilson al 95 %), la cifra si los «dudoso» fueran errores, y lista las reglas bajo 80 %.
 
-Primera medición (06-10-2026), con jueces de modelos de lenguaje (10 agentes independientes; coinciden en 77 de 80 filas juzgadas dos veces):
+Se midió dos veces con jueces de modelos de lenguaje (10 agentes independientes por muestra): con las reglas originales (semilla 7) y, después de corregirlas, con una muestra nueva de otros ítems (semilla 11), para no medir con los mismos casos que guiaron los cambios.
 
-| Qué | Antes de corregir | Después (estimado) |
-|---|---|---|
-| Atributos por reglas propias | 92 % | 96 % |
-| Atributos declarados por Rappi | 86 % | 87 % |
-| Marcas deducidas del nombre / declaradas | 99 % / 97 % | igual |
-| Conceptos por regla de nombre | 81 % | 91 % |
-| Conceptos por mapeo de categoría, sección o cocina | 82 % | 92 % |
-| Conceptos por vecinos (embeddings) | 57 % | 82 % |
+| Qué | Antes | Después, muestra nueva | Después, si los dudosos fueran errores |
+|---|---|---|---|
+| Conceptos por regla de nombre | 81 % | 86 % | 83 % |
+| Conceptos por mapeo de categoría, sección o cocina | 82 % | 88 % | 85 % |
+| Conceptos por vecinos (embeddings) | 57 % | 88 % | 84 % |
+| Atributos por reglas propias | 92 % | 92 % | 86 % |
+| Atributos declarados por Rappi | 86 % | 86 % | 67 % |
+| Marcas deducidas del nombre / declaradas | 99 % / 97 % | 98 % / 97 % | 97 % / 95 % |
 
-Las correcciones: los vecinos solo deciden con 80 % de acuerdo; la cocina del local cuenta solo con un mapeo muy confiable («Asiática» ya no es sushi); un ingrediente en el nombre de un plato («Macarrón Frutilla») no lo vuelve fruta; y se acotaron reglas de atributos que calzaban fuera de su ámbito (fibra en papelillos, «BBQ» como parrilla, «instant» en maquillaje). El costo: el 8 % de los platos que antes recibía un concepto adivinado ahora queda sin concepto. Cifras sin textos del catálogo en [resultados/capas-precision-2026-10-06.md](resultados/capas-precision-2026-10-06.md).
+Las correcciones: los vecinos solo deciden con 80 % de acuerdo; la cocina del local cuenta solo con un mapeo muy confiable («Asiática» ya no es sushi y «Combos» no dice el plato); la proteína del nombre de un plato le gana a una sección genérica; un ingrediente en el nombre de un plato («Macarrón Frutilla») no lo vuelve fruta; una sección sin mapeo que nombra un plato («Empanadas de Horno») sí da concepto; y se acotaron reglas de atributos que calzaban fuera de su ámbito. Los atributos no mejoraron fuera de muestra: esas correcciones atacaron errores puntuales. El costo: los restaurantes con concepto bajaron de 98,2 % a 94,7 %. Los agregados siguen el diseño de la muestra (prioriza reglas propias y platos), no la proporción de cada fuente en la base.
 
 ## Cómo agregar algo
 

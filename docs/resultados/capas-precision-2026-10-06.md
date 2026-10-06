@@ -1,7 +1,8 @@
-<!-- Copia versionada de rappi-ia/data/eval/capas-precision.md (que no se versiona), para que las cifras de precisión de la capa
-     tengan una fuente. Generada el 06-10-2026 con `rappi-ia layer-precision` sobre la muestra fija de
-     rappi-ia/src/rappi_ia/eval/capas-muestra.json (1.424 afirmaciones) y sus juicios. Solo métricas: sin textos del catálogo
-     (los errores con nombre están en el reporte local). Los juicios son de modelos de lenguaje: es una estimación. -->
+<!-- Copia versionada de rappi-ia/data/eval/capas-precision.md (que no se versiona). Generada el 06-10-2026 con
+     `rappi-ia layer-precision --seed 7` sobre rappi-ia/src/rappi_ia/eval/capas-muestra.json y sus juicios.
+     Solo métricas: sin textos del catálogo ni filas por marca (los errores con nombre están en el reporte local).
+     Los juicios son de modelos de lenguaje: es una estimación. Los agregados siguen el diseño de la muestra
+     (prioriza reglas propias y platos), no la proporción de cada fuente en la base. -->
 
 # Precisión de la capa de datos
 
@@ -10,15 +11,15 @@ inferior del intervalo de Wilson al 95 %: con pocas muestras, lo que se puede as
 
 ## Por tipo y fuente
 
-| Tipo | Fuente | Juzgados | Precisión | Mínimo | Dudosos |
-|---|---|---|---|---|---|
-| atributo | rappi | 64 | 86 % | 75 % | 29 |
-| atributo | regla | 690 | 92 % | 90 % | 61 |
-| concepto | embedding | 115 | 57 % | 48 % | 5 |
-| concepto | llm | 134 | 82 % | 75 % | 6 |
-| concepto | regla | 172 | 81 % | 75 % | 8 |
-| marca | rappi | 38 | 97 % | 86 % | 2 |
-| marca | regla | 99 | 99 % | 94 % | 1 |
+| Tipo | Fuente | Juzgados | Precisión | Mínimo | Dudosos | Si los dudosos fueran errores |
+|---|---|---|---|---|---|---|
+| atributo | rappi | 64 | 86 % | 75 % | 29 | 59 % |
+| atributo | regla | 690 | 92 % | 90 % | 61 | 84 % |
+| concepto | embedding | 115 | 57 % | 48 % | 5 | 55 % |
+| concepto | llm | 134 | 82 % | 75 % | 6 | 79 % |
+| concepto | regla | 172 | 81 % | 75 % | 8 | 78 % |
+| marca | rappi | 38 | 97 % | 86 % | 2 | 92 % |
+| marca | regla | 99 | 99 % | 94 % | 1 | 98 % |
 
 ## Todas las reglas
 
@@ -182,7 +183,7 @@ inferior del intervalo de Wilson al 95 %: con pocas muestras, lo que se puede as
 | concepto | ferreteria | llm | 3 | 100 % | 44 % |
 | concepto | fiambres | embedding | 1 | 0 % | 0 % |
 | concepto | fiambres | regla | 1 | 0 % | 0 % |
-| concepto | frutas | regla | 5 | 0 % | -0 % |
+| concepto | frutas | regla | 5 | 0 % | 0 % |
 | concepto | frutos-secos | regla | 1 | 0 % | 0 % |
 | concepto | galletas | llm | 3 | 100 % | 44 % |
 | concepto | gaseosas | embedding | 7 | 14 % | 3 % |
@@ -276,128 +277,6 @@ inferior del intervalo de Wilson al 95 %: con pocas muestras, lo que se puede as
 | concepto | vitaminas | regla | 1 | 100 % | 21 % |
 | concepto | vodka | llm | 1 | 100 % | 21 % |
 | concepto | whisky | embedding | 1 | 100 % | 21 % |
-| marca | abuelo | rappi | 1 | 100 % | 21 % |
-| marca | acuenta | regla | 1 | 100 % | 21 % |
-| marca | alto-del-carmen | regla | 1 | 100 % | 21 % |
-| marca | ambrosia | regla | 1 | 100 % | 21 % |
-| marca | apple | rappi | 0 | — | — |
-| marca | arom | regla | 1 | 100 % | 21 % |
-| marca | artel | rappi | 1 | 100 % | 21 % |
-| marca | artel | regla | 8 | 100 % | 68 % |
-| marca | avene | regla | 2 | 100 % | 34 % |
-| marca | bacardi | regla | 1 | 100 % | 21 % |
-| marca | ballantines | regla | 1 | 100 % | 21 % |
-| marca | barcelo | regla | 1 | 100 % | 21 % |
-| marca | bavaria | regla | 1 | 100 % | 21 % |
-| marca | beauty-100 | regla | 1 | 100 % | 21 % |
-| marca | bestway | rappi | 1 | 100 % | 21 % |
-| marca | bon-o-bon | regla | 2 | 100 % | 34 % |
-| marca | brit-care | regla | 1 | 100 % | 21 % |
-| marca | buddy-pet | rappi | 1 | 100 % | 21 % |
-| marca | caldeval | rappi | 1 | 100 % | 21 % |
-| marca | casillero-del-diablo | regla | 1 | 100 % | 21 % |
-| marca | catit | regla | 1 | 100 % | 21 % |
-| marca | churu | regla | 1 | 100 % | 21 % |
-| marca | clorox | regla | 1 | 100 % | 21 % |
-| marca | coca-cola | regla | 1 | 100 % | 21 % |
-| marca | colgate | rappi | 1 | 100 % | 21 % |
-| marca | confort | regla | 2 | 100 % | 34 % |
-| marca | cotidian | regla | 1 | 100 % | 21 % |
-| marca | curaprox | regla | 1 | 100 % | 21 % |
-| marca | difem-pharma | rappi | 0 | — | — |
-| marca | dkora | regla | 2 | 100 % | 34 % |
-| marca | dove | rappi | 1 | 100 % | 21 % |
-| marca | ensure | regla | 1 | 100 % | 21 % |
-| marca | esmeralda | regla | 1 | 100 % | 21 % |
-| marca | essence | rappi | 1 | 100 % | 21 % |
-| marca | essence | regla | 1 | 100 % | 21 % |
-| marca | etienne | regla | 2 | 100 % | 34 % |
-| marca | evercrisp | regla | 1 | 100 % | 21 % |
-| marca | fanta | regla | 1 | 100 % | 21 % |
-| marca | fentimans | regla | 1 | 100 % | 21 % |
-| marca | flip | regla | 1 | 100 % | 21 % |
-| marca | franui | regla | 1 | 100 % | 21 % |
-| marca | fundo-sofruco | regla | 1 | 100 % | 21 % |
-| marca | garnier | rappi | 1 | 100 % | 21 % |
-| marca | geareek | rappi | 1 | 100 % | 21 % |
-| marca | gizeh | regla | 1 | 100 % | 21 % |
-| marca | gohard | regla | 1 | 100 % | 21 % |
-| marca | great-value | regla | 1 | 100 % | 21 % |
-| marca | haus | regla | 1 | 100 % | 21 % |
-| marca | havana-club | regla | 1 | 100 % | 21 % |
-| marca | hoco | regla | 1 | 100 % | 21 % |
-| marca | hot-wheels | regla | 1 | 100 % | 21 % |
-| marca | ilicit | rappi | 1 | 100 % | 21 % |
-| marca | isdin | rappi | 1 | 100 % | 21 % |
-| marca | isdin | regla | 1 | 100 % | 21 % |
-| marca | johnnie-walker | regla | 1 | 100 % | 21 % |
-| marca | jumex | rappi | 1 | 100 % | 21 % |
-| marca | kadus | regla | 1 | 100 % | 21 % |
-| marca | kantal | regla | 1 | 100 % | 21 % |
-| marca | kativa | regla | 1 | 100 % | 21 % |
-| marca | killer | regla | 1 | 100 % | 21 % |
-| marca | kong | regla | 1 | 100 % | 21 % |
-| marca | kross | regla | 1 | 100 % | 21 % |
-| marca | kunstmann | regla | 1 | 100 % | 21 % |
-| marca | la-roche-posay | regla | 1 | 100 % | 21 % |
-| marca | lady-speed-stick | rappi | 1 | 100 % | 21 % |
-| marca | lindt | regla | 1 | 100 % | 21 % |
-| marca | listerine | rappi | 1 | 100 % | 21 % |
-| marca | loncoleche | regla | 1 | 100 % | 21 % |
-| marca | m-pets | rappi | 1 | 100 % | 21 % |
-| marca | magnesio | regla | 1 | 0 % | 0 % |
-| marca | mainstays | regla | 1 | 100 % | 21 % |
-| marca | manare | rappi | 1 | 100 % | 21 % |
-| marca | mar-verde | rappi | 1 | 100 % | 21 % |
-| marca | marco-polo | rappi | 1 | 100 % | 21 % |
-| marca | marco-polo | regla | 1 | 100 % | 21 % |
-| marca | maxell | regla | 1 | 100 % | 21 % |
-| marca | maybelline | regla | 1 | 100 % | 21 % |
-| marca | merkat | regla | 1 | 100 % | 21 % |
-| marca | miniso | regla | 1 | 100 % | 21 % |
-| marca | minuto-verde | rappi | 1 | 100 % | 21 % |
-| marca | nespresso | rappi | 1 | 0 % | 0 % |
-| marca | nexcare | regla | 1 | 100 % | 21 % |
-| marca | nuestra-cocina | regla | 1 | 100 % | 21 % |
-| marca | nutrisa | regla | 1 | 100 % | 21 % |
-| marca | olaplex | rappi | 1 | 100 % | 21 % |
-| marca | palms | rappi | 1 | 100 % | 21 % |
-| marca | pentel | regla | 1 | 100 % | 21 % |
-| marca | pescaustral | rappi | 1 | 100 % | 21 % |
-| marca | petrizzio | regla | 4 | 100 % | 51 % |
-| marca | philips | rappi | 1 | 100 % | 21 % |
-| marca | pielarmina | regla | 1 | 100 % | 21 % |
-| marca | pilot | regla | 1 | 100 % | 21 % |
-| marca | pirulin | regla | 1 | 100 % | 21 % |
-| marca | prudence | regla | 1 | 100 % | 21 % |
-| marca | receta-del-abuelo | regla | 2 | 100 % | 34 % |
-| marca | rema | regla | 1 | 100 % | 21 % |
-| marca | royal-canin | regla | 2 | 100 % | 34 % |
-| marca | sabores-sin-culpa | rappi | 1 | 100 % | 21 % |
-| marca | san-jorge | regla | 1 | 100 % | 21 % |
-| marca | satisfyer | regla | 1 | 100 % | 21 % |
-| marca | schar | rappi | 1 | 100 % | 21 % |
-| marca | schick | rappi | 1 | 100 % | 21 % |
-| marca | secreto-peruano | regla | 1 | 100 % | 21 % |
-| marca | sedal | rappi | 1 | 100 % | 21 % |
-| marca | smart-clean | rappi | 1 | 100 % | 21 % |
-| marca | sony | regla | 1 | 100 % | 21 % |
-| marca | soprole | rappi | 1 | 100 % | 21 % |
-| marca | spirit | regla | 1 | 100 % | 21 % |
-| marca | stolichnaya | regla | 1 | 100 % | 21 % |
-| marca | supreme | rappi | 1 | 100 % | 21 % |
-| marca | sutil | regla | 1 | 100 % | 21 % |
-| marca | taragui | rappi | 1 | 100 % | 21 % |
-| marca | tarapaca | rappi | 1 | 100 % | 21 % |
-| marca | tena | rappi | 1 | 100 % | 21 % |
-| marca | tena | regla | 1 | 100 % | 21 % |
-| marca | tres-erres | regla | 1 | 100 % | 21 % |
-| marca | valdivieso | regla | 1 | 100 % | 21 % |
-| marca | virutex | regla | 1 | 100 % | 21 % |
-| marca | vogue | rappi | 1 | 100 % | 21 % |
-| marca | waka | regla | 1 | 100 % | 21 % |
-| marca | watts | rappi | 1 | 100 % | 21 % |
-| marca | wyn | rappi | 1 | 100 % | 21 % |
 
 ## Después de los cambios de reglas (sin volver a juzgar)
 
@@ -407,9 +286,9 @@ cambio; la precisión «después» es la de lo que sigue afirmándose.
 | Tipo | Fuente | Precisión antes | Después | Errores eliminados | Aciertos perdidos |
 |---|---|---|---|---|---|
 | atributo | rappi | 86 % | 87 % | 1 de 9 | 0 de 55 |
-| atributo | regla | 92 % | 96 % | 27 de 56 | 7 de 634 |
-| concepto | embedding | 57 % | 82 % | 40 de 49 | 24 de 66 |
-| concepto | llm | 82 % | 92 % | 15 de 24 | 12 de 110 |
-| concepto | regla | 81 % | 91 % | 19 de 32 | 13 de 140 |
+| atributo | regla | 92 % | 96 % | 27 de 56 | 9 de 634 |
+| concepto | embedding | 57 % | 82 % | 40 de 49 | 25 de 66 |
+| concepto | llm | 82 % | 95 % | 18 de 24 | 5 de 110 |
+| concepto | regla | 81 % | 91 % | 18 de 32 | 3 de 140 |
 | marca | rappi | 97 % | 97 % | 0 de 1 | 0 de 37 |
 | marca | regla | 99 % | 99 % | 0 de 1 | 1 de 98 |

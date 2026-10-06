@@ -209,11 +209,14 @@ def render_precision(report: dict, judge: str) -> str:
     out += [
         "## Por tipo y fuente",
         "",
-        "| Tipo | Fuente | Juzgados | Precisión | Mínimo | Dudosos |",
-        "|---|---|---|---|---|---|",
+        "| Tipo | Fuente | Juzgados | Precisión | Mínimo | Dudosos | Si los dudosos fueran errores |",
+        "|---|---|---|---|---|---|---|",
     ]
     for (kind, source), s in report["por_tipo"].items():
-        out.append(f"| {kind} | {source} | {s['n']} | {pct(s['precision'])} | {pct(s['minimo'])} | {s['dudosos']} |")
+        out.append(
+            f"| {kind} | {source} | {s['n']} | {pct(s['precision'])} | {pct(s['minimo'])} | {s['dudosos']} "
+            f"| {pct(s['pesimista'])} |"
+        )
     out += ["", f"## Reglas a revisar (precisión bajo {pct(REVIEW_BELOW)} con {MIN_TO_REVIEW} o más juicios)", ""]
     for kind, key, source in report["revisar"]:
         s = report["grupos"][(kind, key, source)]

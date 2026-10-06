@@ -47,6 +47,7 @@ def test_render_precision_is_markdown_with_the_rules_to_review():
 
     assert text.startswith("# Precisión de la capa de datos")
     assert "juez de prueba" in text and "| concepto | regla |" in text and "aceite roll-on" in text
+    assert "Si los dudosos fueran errores" in text
 
 
 def test_after_changes_counts_errors_removed_and_hits_lost():
