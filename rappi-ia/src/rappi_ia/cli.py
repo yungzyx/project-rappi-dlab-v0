@@ -22,6 +22,8 @@ from .concepts.pipeline import build_concepts
 from .concepts.report import coverage_report, render_text, write_category_proposals
 from .db import connect, migrate
 from .layers.attributes import build_attributes
+from .layers.brands import build_brands
+from .layers.canonical import build_canonical
 from .layers.measures import build_measures
 from .layers.report import layer_report
 from .retrieval.hybrid import MODES, Filters, retrieve
@@ -57,6 +59,14 @@ def cmd_layer_report(conn, args) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(layer_report(conn, args.muestra), encoding="utf-8")
     print(f"Reporte en {out}")
+
+
+def cmd_canonical(conn, args) -> None:
+    print(build_canonical(conn))
+
+
+def cmd_brands(conn, args) -> None:
+    print(build_brands(conn))
 
 
 def cmd_measures(conn, args) -> None:
@@ -229,6 +239,8 @@ def cmd_multivertical(conn, args) -> None:
 
 COMMANDS = {
     "measures": cmd_measures,
+    "brands": cmd_brands,
+    "canonical": cmd_canonical,
     "layer-report": cmd_layer_report,
     "attributes": cmd_attributes,
     "multivertical": cmd_multivertical,
@@ -260,6 +272,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("attributes", help="capa de perfiles: atributos de cada ítem (sin gluten, vegano, familiar…)")
     lr = sub.add_parser("layer-report", help="reporte de calidad de las capas de perfiles (data/eval/capas.md)")
     lr.add_argument("--muestra", type=int, default=20, help="ítems de muestra por atributo")
+    sub.add_parser("brands", help="capa de perfiles: marca canónica de cada ítem (declarada o deducida del nombre)")
+    sub.add_parser(
+        "canonical", help="capa de perfiles: el mismo producto (marca + nombre + tamaño) entre ids y verticales"
+    )
     sub.add_parser("measures", help="capa de perfiles: tamaño, unidad y pack normalizados de cada ítem")
     sub.add_parser(
         "map-categories", help="exporta las categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar"

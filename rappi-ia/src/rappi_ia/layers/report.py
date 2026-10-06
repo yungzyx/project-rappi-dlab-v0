@@ -72,6 +72,34 @@ def layer_report(conn: Connection, sample: int = 20) -> str:
     out += ["## Medidas sospechosas de Rappi (fuera de `capa.item_unit_prices`)", ""]
     out += _table(["Motivo", "Ítems", "Ejemplos"], suspects) + [""]
 
+    brands = conn.execute(
+        """SELECT d.vertical, count(*) AS items,
+                  round(100.0 * count(b.entity_id) / count(*), 1) AS con_marca,
+                  count(*) FILTER (WHERE b.source = 'regla') AS deducidas,
+                  count(c.master_product_id) AS con_canonico
+           FROM search_documents d
+           LEFT JOIN item_brands b ON b.entity_type = d.entity_type AND b.entity_id = d.entity_id
+           LEFT JOIN item_canonical c ON d.entity_type = 'catalog_item' AND c.master_product_id::text = d.entity_id
+           WHERE d.entity_type <> 'store' GROUP BY 1 ORDER BY 1"""
+    ).fetchall()
+    out += ["## Marcas y producto canónico por vertical", ""]
+    out += _table(["Vertical", "Ítems", "% con marca", "Marca deducida del nombre", "Con producto canónico"], brands)
+    out += [""]
+    top = conn.execute(
+        """SELECT p.name, p.kind, p.is_store_brand, p.items, count(a.alias) AS escrituras
+           FROM product_brands p LEFT JOIN brand_aliases a USING (brand_key)
+           GROUP BY p.brand_key, p.name, p.kind, p.is_store_brand, p.items ORDER BY p.items DESC LIMIT 15"""
+    ).fetchall()
+    out += (
+        ["## Marcas con más ítems", ""] + _table(["Marca", "Tipo", "Marca propia", "Ítems", "Escrituras"], top) + [""]
+    )
+    shared = conn.execute(
+        """SELECT label, items, array_to_string(verticals, ', ') FROM capa.canonical_products
+           WHERE cardinality(verticals) >= 3 ORDER BY items DESC, label LIMIT 15"""
+    ).fetchall()
+    out += ["## Productos canónicos en 3 o más verticales", ""]
+    out += _table(["Producto", "Ids de Rappi", "Verticales"], shared) + [""]
+
     out += [f"## Muestra revisable ({sample} ítems por atributo, orden fijo)", ""]
     for attribute_id, _family, *_ in coverage:
         rows = conn.execute(

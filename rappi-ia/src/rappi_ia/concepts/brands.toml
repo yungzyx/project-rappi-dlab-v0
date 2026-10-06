@@ -1,0 +1,41 @@
+# Marcas (capa de perfiles, docs/superpowers/specs/2026-10-06-capa-perfiles-design.md §3.4).
+#
+# Rappi declara `trademark` en el 32 % de los productos y con muchas escrituras («Coca-Cola», «COCA COLA»,
+# «Coca-Cola Zero»). La capa las junta por escritura normalizada, enrolla las líneas bajo la marca padre
+# (si «coca cola» tiene ≥ 10 productos, «coca cola zero» es la misma marca) y deduce la marca del inicio del nombre
+# de los productos sin marca declarada. Aquí va lo que el dato no puede decir solo.
+version = "2026-10-06"
+
+# Valores de `trademark` que no son una marca.
+not_brands = ["nan", "null", "none", "n a", "na", "s m", "sin marca", "generico", "generica", "otros", "otro", "varios", "marca", "propia"]
+
+# Familias: prefijos que son la marca aunque Rappi nunca declare la marca sola («Coca-Cola Original», «Coca-Cola Zero»,
+# pero ningún «Coca-Cola» a secas). Sus líneas se enrollan bajo ella.
+families = ["coca cola"]
+
+# Marcas propias de una tienda o cadena (atributo «marca-propia»). Normalizadas.
+store_brands = ["lider", "great value", "nuestra cocina", "acuenta", "cuisine co", "seleccion", "jumbo", "tottus", "unimarc", "mi mercado", "precio uno", "miniso", "casaideas"]
+
+# Palabras comunes que NO se deducen como marca desde el inicio de un nombre («Pan Hallulla» no es de la marca Pan).
+name_stop = ["pan", "mas", "vida", "gato", "perro", "sal", "te", "leche", "queso", "agua", "fork", "trim", "costa", "torre", "gourmet", "caramel", "lounge", "natural", "classic", "original", "premium", "sin", "con", "mix", "pack", "set", "kit", "caja", "bolsa", "cafe", "arroz"]
+
+# Escrituras que el normalizador no une solo.
+[[alias]]
+alias = "jack daniel s"
+brand = "jack daniels"
+
+[[alias]]
+alias = "brit"
+brand = "brit care"
+
+[[alias]]
+alias = "l oreal paris"
+brand = "loreal paris"
+
+[[alias]]
+alias = "loreal"
+brand = "loreal paris"
+
+[[alias]]
+alias = "l oreal"
+brand = "loreal paris"
