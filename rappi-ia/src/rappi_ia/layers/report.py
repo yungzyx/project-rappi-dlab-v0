@@ -100,6 +100,8 @@ def layer_report(conn: Connection, sample: int = 20) -> str:
     out += ["## Productos canónicos con ids distintos de Rappi en 3 o más verticales", ""]
     out += _table(["Producto", "Ids de Rappi", "Verticales"], shared) + [""]
 
+    out += _segment_sections(conn)
+
     out += [f"## Muestra revisable ({sample} ítems por atributo, orden fijo)", ""]
     for attribute_id, _family, *_ in coverage:
         rows = conn.execute(
@@ -115,3 +117,40 @@ def layer_report(conn: Connection, sample: int = 20) -> str:
         ]
         out.append("")
     return "\n".join(out)
+
+
+MIN_SENSITIVE_GROUP = 5  # los segmentos sensibles solo se muestran con al menos tantas personas
+
+
+def _segment_sections(conn: Connection) -> list[str]:
+    families = conn.execute(
+        """SELECT d.family, count(DISTINCT d.segment_id) AS definidos,
+                  count(DISTINCT s.segment_id) AS con_personas, count(DISTINCT s.user_id) AS personas
+           FROM segment_defs d LEFT JOIN user_segments s USING (segment_id)
+           GROUP BY 1 ORDER BY 1"""
+    ).fetchall()
+    out = ["## Segmentos por familia", ""]
+    out += _table(["Familia", "Definidos", "Con personas", "Personas distintas"], families) + [""]
+    biggest = conn.execute(
+        """SELECT source, segment_id, family, personas, pct FROM (
+               SELECT u.source, s.segment_id, d.family, count(*) AS personas,
+                      round(100.0 * count(*) / p.n, 1) AS pct,
+                      row_number() OVER (PARTITION BY u.source ORDER BY count(*) DESC, s.segment_id) AS rank
+               FROM user_segments s JOIN segment_defs d USING (segment_id)
+               JOIN app_users u USING (user_id)
+               JOIN (SELECT source, count(*) AS n FROM app_users GROUP BY 1) p ON p.source = u.source
+               GROUP BY u.source, s.segment_id, d.family, d.sensitive, p.n
+               HAVING NOT d.sensitive OR count(*) >= %s) t
+           WHERE rank <= 15 ORDER BY source, rank""",
+        (MIN_SENSITIVE_GROUP,),
+    ).fetchall()
+    out += ["## Segmentos más grandes (% de las personas de su fuente; sensibles solo con 5 o más)", ""]
+    out += _table(["Fuente", "Segmento", "Familia", "Personas", "%"], biggest) + [""]
+    empty = conn.execute(
+        """SELECT segment_id, family FROM segment_defs d
+           WHERE NOT EXISTS (SELECT 1 FROM user_segments s WHERE s.segment_id = d.segment_id)
+           ORDER BY family, segment_id"""
+    ).fetchall()
+    out += ["## Segmentos sin ningún usuario (regla muy estricta, o el simulador no cubre ese comportamiento)", ""]
+    out += _table(["Segmento", "Familia"], empty) + [""]
+    return out

@@ -25,6 +25,7 @@ family = "dieta"
 sensitive = true
 description = "Compra o busca productos sin gluten de forma repetida."
 signals = { attributes = ["sin-gluten"], query_words = ["celiaco", "sin gluten", "libre de gluten", "sin tacc"] }
+min_share = 0.2
 
 [[segment]]
 id = "compra-sin-lactosa"
@@ -33,6 +34,7 @@ family = "dieta"
 sensitive = true
 description = "Compra o busca productos sin lactosa de forma repetida."
 signals = { attributes = ["sin-lactosa"], query_words = ["sin lactosa", "deslactosada", "libre de lactosa"] }
+min_share = 0.15
 
 [[segment]]
 id = "compra-sin-azucar"
@@ -41,6 +43,7 @@ family = "dieta"
 sensitive = true
 description = "Compra o busca productos sin azúcar de forma repetida."
 signals = { attributes = ["sin-azucar"], query_words = ["sin azucar", "zero azucar", "cero azucar"] }
+min_share = 0.2
 
 [[segment]]
 id = "bajo-sodio"
@@ -64,6 +67,7 @@ name = "Vegetariano"
 family = "dieta"
 description = "Compra o pide opciones vegetarianas de forma repetida."
 signals = { attributes = ["vegetariano"], concepts = ["vegano"], query_words = ["vegetariano", "vegetariana", "sin carne"] }
+min_share = 0.25
 
 [[segment]]
 id = "vegano"
@@ -71,6 +75,7 @@ name = "Vegano"
 family = "dieta"
 description = "Compra o pide opciones veganas de forma repetida."
 signals = { attributes = ["vegano"], query_words = ["vegano", "vegana", "plant based"] }
+min_share = 0.2
 
 [[segment]]
 id = "pescetariano"
@@ -86,6 +91,7 @@ name = "Keto"
 family = "dieta"
 description = "Compra o busca productos keto o bajos en carbohidratos."
 signals = { attributes = ["keto"], query_words = ["keto", "cetogenico", "low carb"] }
+min_share = 0.15
 
 [[segment]]
 id = "fitness"
@@ -93,6 +99,7 @@ name = "Fitness"
 family = "dieta"
 description = "Compra proteína, productos light o de gimnasio."
 signals = { attributes = ["alto-proteina", "light"], query_words = ["proteina", "fitness", "gimnasio", "pre entreno", "creatina"] }
+min_share = 0.2
 
 [[segment]]
 id = "saludable"
@@ -110,6 +117,7 @@ name = "Orgánico"
 family = "dieta"
 description = "Compra o busca productos orgánicos."
 signals = { attributes = ["organico"], query_words = ["organico", "organica", "bio"] }
+min_share = 0.15
 
 [[segment]]
 id = "sin-cafeina"
@@ -263,7 +271,7 @@ name = "Parrilla y asados"
 family = "comida"
 description = "Compra carnes, carbón o arma asados de forma repetida."
 signals = { occasions = ["asado"], concepts = ["carbon", "carnes"], attributes = ["parrilla"], query_words = ["asado", "parrilla", "carbon", "choripan"] }
-min_share = 0.15
+min_share = 0.25
 
 [[segment]]
 id = "mariscos"
@@ -806,7 +814,7 @@ name = "Aire libre"
 family = "intereses"
 description = "Compra para asados, playa o camping."
 signals = { concepts = ["carbon", "articulos-deportivos"], occasions = ["asado", "panorama"], query_words = ["camping", "playa", "bloqueador solar", "picnic"] }
-min_share = 0.2
+min_share = 0.3
 
 [[segment]]
 id = "arte-manualidades"
@@ -907,7 +915,7 @@ description = "Hace pedidos chicos y seguidos."
 signals = { basket_size = { lte_items = 3 } }
 events = { order_line = 2.0 }
 min_signals = 6
-min_share = 0.5
+min_share = 0.7
 
 [[segment]]
 id = "impulsivo"

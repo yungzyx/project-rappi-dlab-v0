@@ -876,3 +876,72 @@ def test_afin_a_edges_come_from_segment_rules_and_skip_the_sensitive_ones(db):
     assert ("segment", "farmacia-frecuente", "vertical", "farmacia") not in edges  # sensible: no sirve para sugerir
     assert not any(k[1] in {"compra-sin-gluten", "tabaco", "vapeo", "embarazo"} for k in edges)
     assert db.execute("SELECT count(*) FROM knowledge_edges WHERE relation = 'afin_a'").fetchone()[0] == total > 100
+
+
+def test_synthetic_population_fills_most_families(db):
+    from datetime import date
+
+    from rappi_ia.events.synth import generate
+
+    for store_id, vertical in enumerate(
+        ["supermercado", "licores", "conveniencia", "mall", "farmacia", "chocolateria"], start=1
+    ):
+        add_store(db, store_id, vertical, vertical.title())
+    catalog = [  # (tienda, categoría, nombres)
+        (1, "Leche natural", ["Leche entera 1 L", "Leche descremada 1 L"]),
+        (1, "Frutas", ["Manzana 1 kg", "Plátano 1 kg"]),
+        (1, "Res", ["Posta rosada", "Lomo vetado"]),
+        (1, "Pañales", ["Pañales Huggies talla G", "Pañales Babysec talla M"]),
+        (1, "Alimento para perros", ["Dog Chow adulto 3 kg", "Pedigree adulto 8 kg"]),
+        (1, "Alimento para gatos", ["Whiskas adulto 1 kg", "Cat Chow adulto 1 kg"]),
+        (1, "Galletas", ["Galletas sin gluten mantequilla", "Galletas sin gluten chips", "Galletas soda"]),
+        (1, "Café", ["Café molido 250 g", "Café instantáneo 100 g"]),
+        (1, "Snacks salados", ["Papas fritas 180 g", "Ramitas 150 g"]),
+        (1, "Chocolates", ["Chocolate con leche 100 g", "Chocolate amargo 100 g"]),
+        (2, "Cervezas", ["Cerveza lata 470 cc", "Cerveza rubia 350 cc"]),
+        (2, "Pisco", ["Pisco 35 grados 1 L"]),
+        (3, "Cervezas", ["Cerveza express lata", "Cerveza express botella"]),
+        (3, "Energizantes", ["Energética 473 ml", "Energética sin azúcar 473 ml"]),
+        (3, "Gaseosas", ["Gaseosa cola 1,5 L", "Gaseosa cola zero 1,5 L"]),
+        (6, "Chocolates", ["Bombones surtidos", "Trufas de chocolate"]),
+    ]
+    pid = 100
+    for store, category, names in catalog:
+        for name in names:
+            pid += 1
+            add_product(db, pid, name, store, category)
+            add_price(db, store, pid, 1000 + pid)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+    build_brands(db)
+    build_attributes(db)
+    generate(db, users=400, weeks=20, seed=5, until=date(2026, 9, 27))
+
+    build_segments(db, "synthetic", now=datetime(2026, 9, 27, 12, tzinfo=UTC))
+
+    families = {
+        r[0]
+        for r in db.execute(
+            "SELECT DISTINCT d.family FROM user_segments s JOIN segment_defs d USING (segment_id)"
+            " JOIN app_users u USING (user_id) WHERE u.source = 'synthetic'"
+        )
+    }
+    assert len(families) >= 8, sorted(families)
+    gluten = db.execute("SELECT count(*) FROM user_segments WHERE segment_id = 'compra-sin-gluten'").fetchone()[0]
+    assert gluten > 0  # la persona sin gluten elige ítems con el atributo y el segmento aparece
+
+
+def test_layer_report_summarizes_segments_and_hides_small_sensitive_groups(db):
+    _gluten_catalog(db)
+    for days in (1, 3, 5):
+        _buy(db, "u-gf", 10, days)
+    db.commit()
+    build_segments(db, "synthetic", now=SEG_NOW)
+
+    report = layer_report(db, sample=1)
+
+    assert "## Segmentos por familia" in report and "## Segmentos sin ningún usuario" in report
+    assert "cervecero" in report.split("## Segmentos sin ningún usuario")[1]  # nadie lo cumple
+    assert "compra-sin-gluten" not in report.split("## Segmentos más grandes")[1].split("## Segmentos sin")[0]  # k < 5
