@@ -33,11 +33,18 @@ FROM user_segments s JOIN segment_defs d USING (segment_id) JOIN app_users u USI
 WHERE NOT d.sensitive;
 
 CREATE VIEW capa.segment_sizes AS
-SELECT u.source, h.week, h.segment_id, d.name AS segment_name, d.family, d.sensitive, h.level,
-       count(*) AS users
-FROM user_segment_history h JOIN segment_defs d USING (segment_id) JOIN app_users u USING (user_id)
-GROUP BY u.source, h.week, h.segment_id, d.name, d.family, d.sensitive, h.level
-HAVING NOT d.sensitive OR count(*) >= 5;
+WITH cells AS (
+    SELECT u.source, h.week, h.segment_id, h.level, count(*) AS users
+    FROM user_segment_history h JOIN app_users u USING (user_id)
+    GROUP BY u.source, h.week, h.segment_id, h.level
+),
+population AS (SELECT source, count(*) AS n FROM app_users GROUP BY source)
+SELECT c.source, c.week, c.segment_id, d.name AS segment_name, d.family, d.sensitive,
+       CASE WHEN d.sensitive THEN 'todos' ELSE c.level END AS level,
+       sum(c.users)::bigint AS users
+FROM cells c JOIN segment_defs d USING (segment_id) JOIN population p USING (source)
+GROUP BY c.source, c.week, c.segment_id, d.name, d.family, d.sensitive, CASE WHEN d.sensitive THEN 'todos' ELSE c.level END, p.n
+HAVING NOT d.sensitive OR (sum(c.users) >= 5 AND p.n - sum(c.users) >= 5);
 
 CREATE VIEW capa.layer_runs AS
 SELECT run_id, layer, rules_version, started_at, finished_at, status, counts FROM layer_runs;
@@ -45,7 +52,7 @@ SELECT run_id, layer, rules_version, started_at, finished_at, status, counts FRO
 COMMENT ON VIEW capa.items IS 'Un ítem (producto o plato) por vertical, con su concepto, marca, producto canónico, medida y precio vigente: el punto de entrada para buscar o analizar el catálogo.';
 COMMENT ON VIEW capa.segment_defs IS 'Definición de cada segmento de usuario por comportamiento (reglas de segments.toml).';
 COMMENT ON VIEW capa.user_segments IS 'Segmentos de cada persona con puntaje, nivel y evidencia. No incluye los segmentos sensibles. Ids de persona seudónimos; las filas de la fuente synthetic son simuladas (no son evidencia).';
-COMMENT ON VIEW capa.segment_sizes IS 'Cuántas personas hay en cada segmento, semana y nivel. Los segmentos sensibles solo aparecen con 5 o más personas.';
+COMMENT ON VIEW capa.segment_sizes IS 'Cuántas personas hay en cada segmento, semana y fuente. Un segmento sensible aparece una sola vez (nivel «todos») y solo si tiene 5 o más personas y el resto de su fuente también son 5 o más.';
 COMMENT ON VIEW capa.layer_runs IS 'Linaje de las capas: cuándo corrió cada una, con qué versión de reglas y cuántas filas produjo.';
 COMMENT ON COLUMN capa.items.entity_type IS 'catalog_item (producto) o menu_item (plato).';
 COMMENT ON COLUMN capa.items.entity_id IS 'Id del producto (master_product_id) o del plato (item_id), como texto.';
@@ -54,17 +61,17 @@ COMMENT ON COLUMN capa.items.name IS 'Nombre del producto o del plato.';
 COMMENT ON COLUMN capa.items.concept_id IS 'Concepto de la taxonomía propia (cerveza, pizza…); vacío si no tiene.';
 COMMENT ON COLUMN capa.items.concept_name IS 'Nombre del concepto.';
 COMMENT ON COLUMN capa.items.concept_group IS 'Grupo del concepto (alcohol, comida, mascotas…).';
-COMMENT ON COLUMN capa.items.brand_key IS 'Id de la marca canónica; vacío si no se pudo determinar.';
-COMMENT ON COLUMN capa.items.brand_name IS 'Nombre de la marca.';
+COMMENT ON COLUMN capa.items.brand_key IS 'Id de la marca canónica (en los platos, la de la cadena del restaurante); vacío si no se pudo determinar.';
+COMMENT ON COLUMN capa.items.brand_name IS 'Nombre de la marca o de la cadena.';
 COMMENT ON COLUMN capa.items.canonical_id IS 'Producto canónico (mismo producto entre ids y verticales); solo productos con marca y medida fiable.';
 COMMENT ON COLUMN capa.items.unit IS 'Unidad base de la medida: g, ml, und o cm.';
-COMMENT ON COLUMN capa.items.pack IS 'Unidades por pack; 1 si no es pack.';
+COMMENT ON COLUMN capa.items.pack IS 'Unidades por pack; 1 si no es pack; vacío en los platos sin medida.';
 COMMENT ON COLUMN capa.items.total IS 'Tamaño total normalizado en la unidad base; vacío si la medida es dudosa o falta.';
 COMMENT ON COLUMN capa.items.price IS 'Precio vigente más bajo en esa vertical (CLP).';
 COMMENT ON COLUMN capa.segment_defs.segment_id IS 'Id estable del segmento (compra-sin-gluten, hamburguesero…).';
 COMMENT ON COLUMN capa.segment_defs.name IS 'Nombre para mostrar; los sensibles se nombran por conducta, nunca por condición.';
 COMMENT ON COLUMN capa.segment_defs.family IS 'Familia: dieta, comida, dulces, bebidas, hogar, cuidado, intereses, momentos, valor, relacion, servicios o geografia.';
-COMMENT ON COLUMN capa.segment_defs.sensitive IS 'Segmento sensible: sus filas por persona no se exponen aquí y sus tamaños exigen 5 o más personas.';
+COMMENT ON COLUMN capa.segment_defs.sensitive IS 'Segmento sensible: capa.user_segments no trae sus filas por persona y capa.segment_sizes solo muestra su total con 5 o más personas.';
 COMMENT ON COLUMN capa.segment_defs.description IS 'Qué hace una persona para estar en el segmento.';
 COMMENT ON COLUMN capa.segment_defs.rule IS 'La regla sembrada (señales, pesos, ventana, umbrales) en JSON.';
 COMMENT ON COLUMN capa.segment_defs.rules_version IS 'Versión de las reglas con que se sembró.';
@@ -73,10 +80,10 @@ COMMENT ON COLUMN capa.user_segments.source IS 'synthetic (simulada) o prototype
 COMMENT ON COLUMN capa.user_segments.segment_id IS 'Id del segmento.';
 COMMENT ON COLUMN capa.user_segments.segment_name IS 'Nombre del segmento.';
 COMMENT ON COLUMN capa.user_segments.family IS 'Familia del segmento.';
-COMMENT ON COLUMN capa.user_segments.score IS 'Puntaje: suma de los eventos que calzan, con decaimiento por antigüedad (o el valor de la métrica en segmentos de relación).';
+COMMENT ON COLUMN capa.user_segments.score IS 'Puntaje: suma ponderada de los eventos que calzan, con decaimiento por antigüedad; en los segmentos por métrica (relación y valor), el valor de la métrica.';
 COMMENT ON COLUMN capa.user_segments.level IS 'bajo, medio o alto según los umbrales de la regla.';
-COMMENT ON COLUMN capa.user_segments.signals IS 'Eventos distintos que cuentan (0 en los segmentos por métrica).';
-COMMENT ON COLUMN capa.user_segments.evidence IS 'Los 3 conceptos o atributos que más aportan, la parte de su actividad que calza y las fechas extremas.';
+COMMENT ON COLUMN capa.user_segments.signals IS 'Ocasiones distintas (pedidos o sesiones) que cuentan; 0 en los segmentos por métrica.';
+COMMENT ON COLUMN capa.user_segments.evidence IS 'Los 3 conceptos o atributos que más aportan (`top`, sin lo que mira un segmento sensible) y la parte de su actividad que calza (`share`); en los segmentos por métrica, la métrica y su valor.';
 COMMENT ON COLUMN capa.user_segments.first_seen IS 'Fecha de la señal más antigua que cuenta.';
 COMMENT ON COLUMN capa.user_segments.last_signal IS 'Fecha de la señal más reciente que cuenta.';
 COMMENT ON COLUMN capa.user_segments.origin IS 'regla (calculado) o curado (puesto a mano).';
@@ -86,14 +93,14 @@ COMMENT ON COLUMN capa.segment_sizes.segment_id IS 'Id del segmento.';
 COMMENT ON COLUMN capa.segment_sizes.segment_name IS 'Nombre del segmento.';
 COMMENT ON COLUMN capa.segment_sizes.family IS 'Familia del segmento.';
 COMMENT ON COLUMN capa.segment_sizes.sensitive IS 'Si el segmento es sensible.';
-COMMENT ON COLUMN capa.segment_sizes.level IS 'bajo, medio o alto.';
-COMMENT ON COLUMN capa.segment_sizes.users IS 'Personas en ese segmento y nivel esa semana.';
+COMMENT ON COLUMN capa.segment_sizes.level IS 'bajo, medio o alto; «todos» en los segmentos sensibles, que no se separan por nivel.';
+COMMENT ON COLUMN capa.segment_sizes.users IS 'Personas en ese segmento (y nivel) esa semana.';
 COMMENT ON COLUMN capa.layer_runs.run_id IS 'Id de la corrida.';
 COMMENT ON COLUMN capa.layer_runs.layer IS 'measures, brands, canonical, attributes, relations o segments.';
 COMMENT ON COLUMN capa.layer_runs.rules_version IS 'Fecha de las reglas más una huella de su contenido.';
 COMMENT ON COLUMN capa.layer_runs.started_at IS 'Inicio de la corrida.';
-COMMENT ON COLUMN capa.layer_runs.finished_at IS 'Fin de la corrida; vacío si no terminó.';
-COMMENT ON COLUMN capa.layer_runs.status IS 'running, done o failed.';
+COMMENT ON COLUMN capa.layer_runs.finished_at IS 'Cuándo terminó la corrida.';
+COMMENT ON COLUMN capa.layer_runs.status IS 'done; una corrida que falla se deshace con su transacción y no queda registrada.';
 COMMENT ON COLUMN capa.layer_runs.counts IS 'Conteos de lo que produjo (JSON).';
 
 COMMENT ON COLUMN capa.item_attributes.entity_type IS 'catalog_item (producto) o menu_item (plato).';
