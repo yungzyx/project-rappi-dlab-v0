@@ -222,24 +222,6 @@ relation = "sustituye"
 to = "concept:cocteles"
 weight = 0.3
 
-[[edge]]
-from = "concept:lacteos"
-relation = "sustituye"
-to = "concept:vegano"
-weight = 0.3
-
-[[edge]]
-from = "concept:papeles-desechables"
-relation = "sustituye"
-to = "concept:higiene-personal"
-weight = 0.1
-
-[[edge]]
-from = "concept:alimento-perro"
-relation = "sustituye"
-to = "concept:alimento-gato"
-weight = 0.1
-
 # ─── conflicto (curadas): nunca sugerir juntos ───────────────────────────────────────────────────────────────────────
 [[edge]]
 from = "group:alcohol"
@@ -287,4 +269,22 @@ weight = 1.0
 from = "group:tabaco"
 relation = "conflicto"
 to = "concept:juguetes-infantiles"
+weight = 1.0
+
+[[edge]]
+from = "group:adultos"
+relation = "conflicto"
+to = "concept:juguetes-infantiles"
+weight = 1.0
+
+[[edge]]
+from = "group:adultos"
+relation = "conflicto"
+to = "concept:alimentacion-bebe"
+weight = 1.0
+
+[[edge]]
+from = "group:adultos"
+relation = "conflicto"
+to = "concept:articulos-bebe"
 weight = 1.0

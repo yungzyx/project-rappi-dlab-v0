@@ -42,3 +42,16 @@ def test_sensitive_groups_conflict_with_baby_items():
     assert ("group:alcohol", "concept:panales") in conflicts
     assert ("group:tabaco", "concept:alimentacion-bebe") in conflicts
     assert load_attribute_rules()[0]  # el vocabulario de atributos carga junto al de relaciones
+
+
+def test_no_substitute_leads_into_a_restricted_concept_or_a_different_animal():
+    """Un sustituto vale en un solo sentido si el destino restringe (vegano) o es de otra especie (perro ≠ gato)."""
+    pairs = {frozenset((e.source, e.target)) for e in EDGES if e.relation == "sustituye"}
+    assert not any("concept:vegano" in pair for pair in pairs)
+    assert frozenset(("concept:alimento-perro", "concept:alimento-gato")) not in pairs
+
+
+def test_adult_products_conflict_with_baby_and_kids_items():
+    conflicts = {(e.source, e.target) for e in EDGES if e.relation == "conflicto"}
+    for kids in ("juguetes-infantiles", "alimentacion-bebe", "articulos-bebe"):
+        assert ("group:adultos", f"concept:{kids}") in conflicts

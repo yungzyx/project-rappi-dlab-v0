@@ -27,7 +27,8 @@ MIN_BRAND_ITEMS = 5  # una marca «es de» un concepto si vende al menos tantos 
 MIN_BRAND_SHARE = 0.03  # …y son el 3 % de sus productos (una marca mal asignada no se cuela)
 MIN_VERTICAL_ITEMS = 3  # un concepto «se vende en» una vertical con al menos tantos ítems…
 MIN_VERTICAL_SHARE = 0.05  # …y el 5 % de lo que tiene en la vertical donde más vende
-MIN_SESSIONS = 30  # sesiones mínimas para aprender que dos conceptos se buscan juntos
+MIN_SESSIONS = 30  # sesiones mínimas para aprender que dos conceptos se buscan juntos…
+MIN_USERS = 5  # …de al menos tantas personas distintas: una sola no hace una relación (y no se re-identifica)
 SEARCH_TYPES = ("search", "chat", "view_item")  # lo que la persona hace; el carro puede venir de una sugerencia
 DERIVED_RELATIONS = ("es_tipo_de", "de_ocasion", "se_vende_en", "tiene_atributo", "marca_de", "equivale", "sinonimo")
 KEYWORD_WEIGHT = 1.0  # las keywords asignan productos
@@ -201,20 +202,32 @@ def _taxonomy_rows(taxonomy, run: int) -> list[tuple]:
 
 
 def _derive_from_catalog(conn: Connection, run: int) -> dict:
+    # Los platos de restaurante y los productos de catálogo no se pueden comparar (un menú cuenta cada plato de cada
+    # local): el peso es relativo dentro del catálogo, y «restaurantes» es presencia (1.0) si hay platos suficientes.
     sell = conn.execute(
-        """INSERT INTO knowledge_edges (from_kind, from_id, relation, to_kind, to_id, weight, method, data_source,
+        """WITH catalog AS (
+               SELECT concept_id, vertical, items, max(items) OVER (PARTITION BY concept_id) AS top
+               FROM concept_assortment WHERE vertical <> 'restaurantes')
+           INSERT INTO knowledge_edges (from_kind, from_id, relation, to_kind, to_id, weight, method, data_source,
                                         support, evidence, run_id)
-           SELECT 'concept', concept_id, 'se_vende_en', 'vertical', vertical,
-                  (items::real / max(items) OVER (PARTITION BY concept_id)), 'derivado', 'catalogo', items,
-                  'concept_assortment', %s
-           FROM concept_assortment
-           WHERE items >= %s AND items::real / (SELECT max(items) FROM concept_assortment a
-                                                WHERE a.concept_id = concept_assortment.concept_id) >= %s
+           SELECT 'concept', concept_id, 'se_vende_en', 'vertical', vertical, items::real / top, 'derivado',
+                  'catalogo', items, 'concept_assortment', %(run)s
+           FROM catalog WHERE items >= %(items)s AND items::real / top >= %(share)s
+           UNION ALL
+           SELECT 'concept', concept_id, 'se_vende_en', 'vertical', vertical, 1.0, 'derivado', 'catalogo', items,
+                  'concept_assortment', %(run)s
+           FROM concept_assortment WHERE vertical = 'restaurantes' AND items >= %(items)s
            ON CONFLICT DO NOTHING""",
-        (run, MIN_VERTICAL_ITEMS, MIN_VERTICAL_SHARE),
+        {"run": run, "items": MIN_VERTICAL_ITEMS, "share": MIN_VERTICAL_SHARE},
     ).rowcount
+    # La parte se mide sobre el tipo de ítem al que el atributo aplica: «económico» solo existe en productos, y 40
+    # platos no pueden bajar su parte en pizzas.
     has = conn.execute(
-        """WITH per_concept AS (SELECT concept_id, count(*) AS n FROM item_concepts GROUP BY 1),
+        """WITH per_type AS (SELECT concept_id, entity_type, count(*) AS n FROM item_concepts GROUP BY 1, 2),
+                denominator AS (
+                    SELECT d.attribute_id, t.concept_id, sum(t.n) AS n
+                    FROM attribute_defs d JOIN per_type t ON d.applies_to = 'both' OR d.applies_to = t.entity_type
+                    GROUP BY 1, 2),
                 per_attribute AS (
                     SELECT ic.concept_id, ia.attribute_id, count(*) AS n
                     FROM item_concepts ic
@@ -223,9 +236,9 @@ def _derive_from_catalog(conn: Connection, run: int) -> dict:
            INSERT INTO knowledge_edges (from_kind, from_id, relation, to_kind, to_id, weight, method, data_source,
                                         support, evidence, run_id)
            SELECT 'concept', pa.concept_id, 'tiene_atributo', 'attribute', pa.attribute_id,
-                  (pa.n::real / pc.n), 'derivado', 'catalogo', pa.n, 'item_attributes', %s
-           FROM per_attribute pa JOIN per_concept pc USING (concept_id)
-           WHERE pa.n >= %s AND pa.n::real / pc.n >= %s
+                  (pa.n::real / dn.n), 'derivado', 'catalogo', pa.n, 'item_attributes', %s
+           FROM per_attribute pa JOIN denominator dn USING (concept_id, attribute_id)
+           WHERE pa.n >= %s AND pa.n::real / dn.n >= %s
            ON CONFLICT DO NOTHING""",
         (run, MIN_ATTRIBUTE_ITEMS, MIN_ATTRIBUTE_SHARE),
     ).rowcount
@@ -265,18 +278,21 @@ def _derive_from_catalog(conn: Connection, run: int) -> dict:
 
 
 def _learn_co_search(conn: Connection, run: int) -> dict:
-    """P(B | A) entre sesiones que buscan, preguntan o miran A, por fuente de datos; sin conceptos sensibles."""
+    """P(B | A) entre sesiones que buscan, preguntan o miran A, por fuente de datos; sin conceptos sensibles. Una
+    sesión es (persona, id de sesión): el cliente elige el id, dos personas pueden repetirlo. No guarda a nadie: el
+    resultado son conceptos, con cuántas sesiones y cuántas personas distintas lo respaldan."""
     learned = conn.execute(
         """WITH used AS (
-               SELECT DISTINCT e.source, e.session_id, e.concept_id
+               SELECT DISTINCT e.source, e.user_id, e.session_id, e.concept_id
                FROM app_events e JOIN concepts c ON c.concept_id = e.concept_id
                WHERE e.type = ANY(%s) AND NOT c.sensitive),
            per_concept AS (SELECT source, concept_id, count(*) AS n FROM used GROUP BY 1, 2),
-           sessions AS (SELECT source, count(DISTINCT session_id)::real AS n FROM used GROUP BY 1),
+           sessions AS (SELECT source, count(DISTINCT (user_id, session_id))::real AS n FROM used GROUP BY 1),
            pairs AS (
-               SELECT a.source, a.concept_id AS a, b.concept_id AS b, count(*) AS both_n
-               FROM used a JOIN used b ON a.source = b.source AND a.session_id = b.session_id
-                                       AND a.concept_id <> b.concept_id
+               SELECT a.source, a.concept_id AS a, b.concept_id AS b, count(*) AS both_n,
+                      count(DISTINCT a.user_id) AS both_users
+               FROM used a JOIN used b ON a.source = b.source AND a.user_id = b.user_id
+                                       AND a.session_id = b.session_id AND a.concept_id <> b.concept_id
                GROUP BY 1, 2, 3)
            INSERT INTO knowledge_edges (from_kind, from_id, relation, to_kind, to_id, weight, method, data_source,
                                         support, evidence, run_id)
@@ -286,8 +302,8 @@ def _learn_co_search(conn: Connection, run: int) -> dict:
            JOIN per_concept pa ON pa.source = p.source AND pa.concept_id = p.a
            JOIN per_concept pb ON pb.source = p.source AND pb.concept_id = p.b
            JOIN sessions s ON s.source = p.source
-           WHERE p.both_n >= %s AND p.both_n::real / pa.n / (pb.n / s.n) > 1
+           WHERE p.both_n >= %s AND p.both_users >= %s AND p.both_n::real / pa.n / (pb.n / s.n) > 1
            ON CONFLICT DO NOTHING""",
-        (list(SEARCH_TYPES), run, MIN_SESSIONS),
+        (list(SEARCH_TYPES), run, MIN_SESSIONS, MIN_USERS),
     ).rowcount
     return {"co_busqueda": learned}
