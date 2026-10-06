@@ -96,11 +96,12 @@ purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/
 
 # purge va primero, para que la retención de 90 días se cumpla aunque falle un paso posterior, y otra vez al final
 # para los eventos simulados que synth acaba de generar.
-layers:  ## Capa de perfiles: medidas y atributos de ítem (crece con las etapas del plan)
+layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las etapas del plan)
 	$(PY) -m rappi_ia measures
 	$(PY) -m rappi_ia brands
 	$(PY) -m rappi_ia canonical
 	$(PY) -m rappi_ia attributes
+	$(PY) -m rappi_ia relations
 
 layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.md)
 	$(PY) -m rappi_ia layer-report

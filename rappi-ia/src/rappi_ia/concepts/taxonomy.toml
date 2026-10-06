@@ -216,6 +216,7 @@ parent = "bebidas"
 name = "Bebidas gaseosas"
 emoji = "🥤"
 keywords = ["bebida", "gaseosa", "coca cola", "coca-cola", "sprite", "fanta", "pepsi", "bilz", "pap", "ginger ale", "agua tónica", "tónica", "seven up", "7up", "kem", "canada dry", "limón soda"]
+avoid = ["vegetal", "vegetales", "avena", "coco", "arroz", "almendra", "almendras", "soya", "achocolatada", "polvo", "protein", "proteina", "proteica"]
 query_keywords = ["coca", "cocacola", "para tomar", "algo para tomar", "de tomar", "algo de tomar", "para beber"]
 
 [[concept]]
@@ -231,6 +232,7 @@ parent = "bebidas"
 name = "Agua"
 emoji = "💧"
 keywords = ["agua mineral", "agua purificada", "agua sin gas", "agua con gas", "agua saborizada", "benedictino", "cachantun", "cachantún", "vital"]
+avoid = ["bolsa", "dispensador", "gotas", "solucion", "purificador", "termo", "pistola", "pulverizador"]
 
 [[concept]]
 id = "energizantes"
@@ -247,6 +249,7 @@ name = "Café"
 emoji = "☕"
 prepared = true
 keywords = ["café", "cafe", "espresso", "cappuccino", "capuccino", "latte", "americano", "nescafé", "nescafe", "cápsulas de café", "moka", "frappé", "frappuccino", "mocaccino"]
+avoid = ["hilo", "hilos", "boton", "botones", "collar", "cotton", "lana", "moro", "bota", "botas", "tinte", "pintura", "cartulina", "color"]
 
 [[concept]]
 id = "te"
@@ -444,6 +447,7 @@ parent = "frescos"
 name = "Leche y yogur"
 emoji = "🥛"
 keywords = ["leche", "yogur", "yoghurt", "yogurt", "mantequilla", "margarina", "crema de leche", "kéfir", "leche en polvo", "leche cultivada", "quesillo"]
+avoid = ["te", "tableta", "saborizante", "corporal", "locion"]
 
 [[concept]]
 id = "quesos"
@@ -504,6 +508,7 @@ parent = "comida"
 name = "Sushi"
 emoji = "🍣"
 keywords = ["sushi", "roll", "rolls", "nigiri", "sashimi", "handroll", "hand roll", "maki", "gohan", "uramaki", "tempura roll", "california roll"]
+avoid = ["roll on", "aceite", "brazalete"]
 
 [[concept]]
 id = "sandwiches"
@@ -673,6 +678,7 @@ parent = "salud"
 name = "Higiene personal"
 emoji = "🧼"
 keywords = ["jabón", "jabon", "desodorante", "gel de ducha", "afeitadora", "máquina de afeitar", "crema de afeitar", "talco", "antitranspirante", "body wash", "rexona", "dove", "gillette"]
+avoid = ["dispensador", "porta", "jabonera", "bandeja", "bandejas", "soporte"]
 
 [[concept]]
 id = "dermocosmetica"
@@ -789,6 +795,7 @@ parent = "mascotas"
 name = "Alimento para perros"
 emoji = "🐕"
 keywords = ["alimento para perro", "comida para perro", "comida de perro", "perro", "perros", "cachorro", "dog chow", "pedigree", "master dog", "royal canin perro", "snack para perro"]
+avoid = ["collar", "arnes", "correa", "pretal", "pechera", "cama", "comedero", "bebedero", "rascador", "juguete", "juguetes", "shampoo", "antipulgas", "pipeta"]
 
 [[concept]]
 id = "alimento-gato"
@@ -796,13 +803,14 @@ parent = "mascotas"
 name = "Alimento para gatos"
 emoji = "🐈"
 keywords = ["alimento para gato", "comida para gato", "gato", "gatos", "felino", "whiskas", "cat chow", "gatito"]
+avoid = ["collar", "arnes", "correa", "pretal", "pechera", "cama", "comedero", "bebedero", "rascador", "juguete", "juguetes", "shampoo", "antipulgas", "pipeta"]
 
 [[concept]]
 id = "accesorios-mascota"
 parent = "mascotas"
 name = "Accesorios para mascotas"
 emoji = "🦴"
-keywords = ["mascota", "mascotas", "juguete para gato", "juguete para el gato", "juguetes para gatos", "arena para gatos", "arena sanitaria", "juguete para perro", "collar para perro", "correa para perro", "cama para perro", "rascador", "pipeta", "antipulgas", "comedero", "transportadora"]
+keywords = ["mascota", "mascotas", "juguete para gato", "juguete para el gato", "juguetes para gatos", "arena para gatos", "arena sanitaria", "juguete para perro", "collar para perro", "correa para perro", "cama para perro", "collar perro", "collar de perro", "collar gato", "collar de gato", "collar para gato", "arnes perro", "arnes para perro", "arnes gato", "arnes para gato", "correa perro", "correa de perro", "correa gato", "cama perro", "cama gato", "cama para gato", "collar para gatos", "collar para perros", "arnes para perros", "arnes para gatos", "arnes y correa", "set de arnes", "collar ajustable", "plato perro", "plato gato", "pretal", "rascador", "pipeta", "antipulgas", "comedero", "transportadora"]
 query_keywords = ["arena para gato", "arena para el gato", "arena de gato", "juguete para mi perro", "juguete para mi gato", "juguetes para perro"]
 
 # Tabaco

@@ -35,6 +35,7 @@ class AttributeRule:
     description: str
     rappi: tuple[dict, ...] = ()
     phrases: tuple[str, ...] = ()
+    catalog_phrases: tuple[str, ...] = ()  # como `phrases`, pero solo en productos: en un plato son un ingrediente
     negations: tuple[str, ...] = ()
     derived: bool = False
     use_description: bool | None = None  # None: según la familia (DESCRIPTION_FAMILIES)
@@ -65,6 +66,7 @@ def load_attribute_rules(path: Path | None = None) -> tuple[str, list[AttributeR
             description=a.get("description", ""),
             rappi=tuple(a.get("rappi", ())),
             phrases=tuple(a.get("phrases", ())),
+            catalog_phrases=tuple(a.get("catalog_phrases", ())),
             negations=tuple(a.get("negations", ())),
             derived=a.get("derived", False),
             use_description=a.get("use_description"),
@@ -94,16 +96,18 @@ class _Detector:
 
     def __init__(self, rules: list[AttributeRule]):
         self.rules = [r for r in rules if not r.derived]
-        self.phrases: dict[tuple[str, ...], list[tuple[str, str]]] = {}
+        self.phrases: dict[tuple[str, ...], list[tuple[str, str, bool]]] = {}
         self.negations: dict[tuple[str, ...], list[str]] = {}
         for r in self.rules:
             for p in r.phrases:
-                self.phrases.setdefault(_phrase_key(p), []).append((r.attribute_id, p))
+                self.phrases.setdefault(_phrase_key(p), []).append((r.attribute_id, p, False))
+            for p in r.catalog_phrases:
+                self.phrases.setdefault(_phrase_key(p), []).append((r.attribute_id, p, True))
             for n in r.negations:
                 self.negations.setdefault(_phrase_key(n), []).append(r.attribute_id)
         self.longest = max(len(k) for k in [*self.phrases, *self.negations])
 
-    def hits(self, text: str) -> tuple[dict[str, str], set[str]]:
+    def hits(self, text: str, entity_type: str = "catalog_item") -> tuple[dict[str, str], set[str]]:
         """({atributo: primera frase que calzó}, atributos negados) en el texto."""
         words = [_stem(w) for w in normalize(text).split()]
         found: dict[str, str] = {}
@@ -111,8 +115,9 @@ class _Detector:
         for start in range(len(words)):
             for size in range(1, min(self.longest, len(words) - start) + 1):
                 key = tuple(words[start : start + size])
-                for attribute_id, phrase in self.phrases.get(key, ()):
-                    found.setdefault(attribute_id, phrase)
+                for attribute_id, phrase, catalog_only in self.phrases.get(key, ()):
+                    if not catalog_only or entity_type == "catalog_item":
+                        found.setdefault(attribute_id, phrase)
                 if self.negations.get(key) and not (start and words[start - 1] in ("no", "sin")):
                     negated.update(self.negations[key])  # «no contiene azúcar» no es «contiene azúcar»
         return found, negated
@@ -165,8 +170,8 @@ def detect_attributes(
     head = description or ""
     if m := LEAFLET_WARNINGS.search(normalize(head)):
         head = normalize(head)[: m.start()]
-    name_hits, name_neg = detector.hits(". ".join(part for part in (name, category) if part))
-    full_hits, full_neg = detector.hits(". ".join(part for part in (name, category, head) if part))
+    name_hits, name_neg = detector.hits(". ".join(part for part in (name, category) if part), entity_type)
+    full_hits, full_neg = detector.hits(". ".join(part for part in (name, category, head) if part), entity_type)
     found = []
     for rule in detector.rules:
         if not rule.applies(entity_type):

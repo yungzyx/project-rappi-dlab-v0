@@ -24,6 +24,7 @@ from .db import connect, migrate
 from .layers.attributes import build_attributes
 from .layers.brands import build_brands
 from .layers.canonical import build_canonical
+from .layers.graph import build_relations
 from .layers.measures import build_measures
 from .layers.report import layer_report
 from .retrieval.hybrid import MODES, Filters, retrieve
@@ -63,6 +64,10 @@ def cmd_layer_report(conn, args) -> None:
 
 def cmd_canonical(conn, args) -> None:
     print(build_canonical(conn))
+
+
+def cmd_relations(conn, args) -> None:
+    print(build_relations(conn))
 
 
 def cmd_brands(conn, args) -> None:
@@ -241,6 +246,7 @@ COMMANDS = {
     "measures": cmd_measures,
     "brands": cmd_brands,
     "canonical": cmd_canonical,
+    "relations": cmd_relations,
     "layer-report": cmd_layer_report,
     "attributes": cmd_attributes,
     "multivertical": cmd_multivertical,
@@ -275,6 +281,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("brands", help="capa de perfiles: marca canónica de cada ítem (declarada o deducida del nombre)")
     sub.add_parser(
         "canonical", help="capa de perfiles: el mismo producto (marca + nombre + tamaño) entre ids y verticales"
+    )
+    sub.add_parser(
+        "relations", help="capa de perfiles: grafo de conocimiento (sustituye, conflicto, tiene_atributo, co-búsqueda…)"
     )
     sub.add_parser("measures", help="capa de perfiles: tamaño, unidad y pack normalizados de cada ítem")
     sub.add_parser(

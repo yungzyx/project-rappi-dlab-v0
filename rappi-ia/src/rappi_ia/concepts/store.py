@@ -45,6 +45,12 @@ def seed_taxonomy(conn: Connection, taxonomy: Taxonomy) -> int:
     # Primero las hojas (sus padres pueden estar en la misma lista de borrado).
     conn.execute("DELETE FROM concepts WHERE concept_id <> ALL(%s) AND parent_id IS NOT NULL", (ids,))
     conn.execute("DELETE FROM concepts WHERE concept_id <> ALL(%s)", (ids,))
+    # El grafo no tiene claves foráneas hacia los conceptos (sus nodos son de varios tipos): se limpia a mano.
+    conn.execute(
+        """DELETE FROM knowledge_edges e WHERE
+           (e.from_kind = 'concept' AND NOT EXISTS (SELECT 1 FROM concepts c WHERE c.concept_id = e.from_id))
+           OR (e.to_kind = 'concept' AND NOT EXISTS (SELECT 1 FROM concepts c WHERE c.concept_id = e.to_id))"""
+    )
     return len(ids)
 
 

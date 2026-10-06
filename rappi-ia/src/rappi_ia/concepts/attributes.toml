@@ -50,7 +50,8 @@ family = "dieta"
 applies_to = "both"
 description = "Sin ingredientes de origen animal."
 rappi = [{ keys = ["vegan"] }]
-phrases = ["vegano", "vegana", "veganos", "veganas", "100 vegetal", "plant based", "a base de plantas", "not burger", "not milk", "notco"]
+phrases = ["vegano", "vegana", "veganos", "veganas", "100 vegetal", "plant based", "a base de plantas", "not burger", "not milk", "notmilk", "veggimilk", "notco"]
+catalog_phrases = ["bebida vegetal", "bebida de almendras", "bebida de almendra", "bebida de avena", "bebida de aveia", "bebida de soya", "leche de almendras", "leche de almendra", "leche de avena", "leche de coco", "leche de soya", "seitan"]
 negations = ["no vegano", "no es vegano"]
 
 [[attribute]]
