@@ -4,7 +4,9 @@
 # Contenido (basta una): concepts, groups, attributes, brands, occasions, services, query_words.
 # Contexto (todas): verticals, hours [desde, hasta] (puede cruzar medianoche), weekdays (1 = lunes), days_of_month,
 # price_percentile { gte | lte }, discount, basket_size { gte_items | lte_items | gte_amount }, modality,
-# from_suggestion, cities. Una regla con `metric` { name, min?, max? } no suma eventos: la persona es del segmento si min ≤ valor < max.
+# from_suggestion, cities. `min_share` (0 a 1): parte mínima de la actividad de la persona, en los tipos de evento de la
+# regla, que debe calzar: un contexto que cualquiera cumple de vez en cuando (un fin de semana) no es un perfil.
+# Una regla con `metric` { name, min?, max? } no suma eventos: la persona es del segmento si min ≤ valor < max.
 # Los sensibles se nombran por lo que la persona compra (nunca por una condición) y llevan `sensitive = true`.
 # Las palabras de consulta van en minúsculas y sin tildes: el motor normaliza antes de comparar.
 version = "2026-10-06"
@@ -100,6 +102,7 @@ description = "Compra con frecuencia frutas, verduras e integrales."
 signals = { attributes = ["integral", "alto-fibra", "organico", "natural"], concepts = ["frutas", "verduras", "ensaladas-bowls"] }
 levels = { bajo = 4.0, medio = 10.0, alto = 20.0 }
 min_signals = 6
+min_share = 0.2
 
 [[segment]]
 id = "organico"
@@ -260,6 +263,7 @@ name = "Parrilla y asados"
 family = "comida"
 description = "Compra carnes, carbón o arma asados de forma repetida."
 signals = { occasions = ["asado"], concepts = ["carbon", "carnes"], attributes = ["parrilla"], query_words = ["asado", "parrilla", "carbon", "choripan"] }
+min_share = 0.15
 
 [[segment]]
 id = "mariscos"
@@ -283,6 +287,7 @@ description = "Pide con frecuencia hamburguesas, pizzas, pollo, sándwiches o em
 signals = { concepts = ["hamburguesa", "pizza", "pollo-preparado", "sandwiches", "empanadas"], query_words = ["comida rapida"] }
 levels = { bajo = 4.0, medio = 10.0, alto = 20.0 }
 min_signals = 6
+min_share = 0.3
 
 [[segment]]
 id = "gourmet"
@@ -291,6 +296,7 @@ family = "comida"
 description = "Pide comida de precio alto dentro de lo que ofrece cada categoría."
 signals = { groups = ["comida"], price_percentile = { gte = 0.8 } }
 events = { order_line = 3.0, cart_add = 1.5, view_item = 0.3 }
+min_share = 0.3
 
 [[segment]]
 id = "picante"
@@ -329,6 +335,7 @@ description = "Compra con frecuencia dulces de todo tipo."
 signals = { concepts = ["chocolates", "golosinas", "helados", "postres", "pasteleria", "untables-dulces"] }
 levels = { bajo = 4.0, medio = 10.0, alto = 20.0 }
 min_signals = 6
+min_share = 0.25
 
 [[segment]]
 id = "heladero"
@@ -379,6 +386,7 @@ family = "bebidas"
 description = "Compra café de precio alto o pide café de especialidad."
 signals = { concepts = ["cafe"], query_words = ["cafe de especialidad", "grano entero", "v60"], price_percentile = { gte = 0.75 } }
 events = { order_line = 3.0, cart_add = 1.5, view_item = 0.3 }
+min_share = 0.4
 
 [[segment]]
 id = "tetero"
@@ -438,6 +446,7 @@ description = "Compra con frecuencia ron, gin, vodka, tequila, whisky o pisco."
 signals = { concepts = ["ron", "gin", "vodka", "tequila", "whisky", "pisco", "licores"] }
 levels = { bajo = 4.0, medio = 10.0, alto = 20.0 }
 min_signals = 6
+min_share = 0.3
 
 [[segment]]
 id = "cocteles"
@@ -541,6 +550,7 @@ family = "hogar"
 description = "Compra alimento de mascota de precio alto."
 signals = { concepts = ["alimento-perro", "alimento-gato"], price_percentile = { gte = 0.75 } }
 events = { order_line = 3.0, cart_add = 1.5, view_item = 0.3 }
+min_share = 0.5
 
 [[segment]]
 id = "adulto-mayor"
@@ -574,6 +584,7 @@ family = "hogar"
 description = "Compra formatos familiares y carros grandes."
 signals = { attributes = ["familiar", "pack"], basket_size = { gte_items = 12 } }
 events = { order_line = 3.0, cart_add = 1.5, view_item = 0.3 }
+min_share = 0.3
 
 [[segment]]
 id = "cocina-en-casa"
@@ -583,6 +594,7 @@ description = "Compra ingredientes frescos y de despensa con frecuencia."
 signals = { groups = ["frescos", "despensa"], attributes = ["para-preparar"] }
 levels = { bajo = 6.0, medio = 15.0, alto = 30.0 }
 min_signals = 10
+min_share = 0.4
 
 [[segment]]
 id = "no-cocina"
@@ -592,6 +604,7 @@ description = "Compra o pide comida lista con frecuencia."
 signals = { groups = ["comida"], attributes = ["listo-para-comer"], concepts = ["platos-listos"] }
 levels = { bajo = 6.0, medio = 15.0, alto = 30.0 }
 min_signals = 8
+min_share = 0.4
 
 [[segment]]
 id = "anfitrion"
@@ -600,6 +613,7 @@ family = "hogar"
 description = "Compra hielo, picoteo y desechables para recibir gente."
 signals = { concepts = ["hielo", "picoteo", "papeles-desechables", "cocteles"], occasions = ["carrete"] }
 min_signals = 4
+min_share = 0.2
 
 [[segment]]
 id = "belleza"
@@ -751,6 +765,7 @@ name = "Estudiante"
 family = "intereses"
 description = "Compra o busca estudiante de forma repetida."
 signals = { concepts = ["utiles"], query_words = ["cuaderno", "lapiz", "utiles escolares", "calculadora"], occasions = ["estudiar"] }
+min_share = 0.2
 
 [[segment]]
 id = "oficinista"
@@ -759,6 +774,7 @@ family = "intereses"
 description = "Compra o pide comida y bebida en horario de oficina entre semana."
 signals = { groups = ["comida", "bebidas"], hours = [11, 15], weekdays = [1, 2, 3, 4, 5] }
 events = { order_line = 2.0, cart_add = 1.0 }
+min_share = 0.4
 
 [[segment]]
 id = "viajero"
@@ -774,6 +790,7 @@ name = "Regalador"
 family = "intereses"
 description = "Compra o busca regalos de forma repetida."
 signals = { occasions = ["regalo", "regalo-nino", "cumpleanos"], concepts = ["flores-regalos"], attributes = ["para-regalo"], query_words = ["regalo", "regalar"] }
+min_share = 0.15
 
 [[segment]]
 id = "fiestero"
@@ -781,6 +798,7 @@ name = "Fiestero"
 family = "intereses"
 description = "Compra o busca para fiestas y carretes."
 signals = { occasions = ["carrete", "panorama"], concepts = ["cocteles", "espumante", "hielo"], query_words = ["fiesta", "carrete", "previa"] }
+min_share = 0.2
 
 [[segment]]
 id = "aire-libre"
@@ -788,6 +806,7 @@ name = "Aire libre"
 family = "intereses"
 description = "Compra para asados, playa o camping."
 signals = { concepts = ["carbon", "articulos-deportivos"], occasions = ["asado", "panorama"], query_words = ["camping", "playa", "bloqueador solar", "picnic"] }
+min_share = 0.2
 
 [[segment]]
 id = "arte-manualidades"
@@ -810,6 +829,7 @@ family = "momentos"
 description = "Compra o pide temprano en la mañana."
 signals = { hours = [5, 8] }
 events = { order_line = 2.0, cart_add = 1.0 }
+min_share = 0.4
 
 [[segment]]
 id = "almuerzo-oficina"
@@ -818,6 +838,7 @@ family = "momentos"
 description = "Pide almuerzo entre semana al mediodía."
 signals = { groups = ["comida"], hours = [12, 14], weekdays = [1, 2, 3, 4, 5] }
 events = { order_line = 2.0, cart_add = 1.0 }
+min_share = 0.3
 
 [[segment]]
 id = "once"
@@ -826,6 +847,7 @@ family = "momentos"
 description = "Compra o pide para la once."
 signals = { occasions = ["once"], concepts = ["panaderia", "te", "cafe", "quesos", "fiambres"], hours = [16, 20] }
 events = { order_line = 2.0, cart_add = 1.0 }
+min_share = 0.3
 
 [[segment]]
 id = "nocturno"
@@ -834,6 +856,7 @@ family = "momentos"
 description = "Compra o pide de noche."
 signals = { hours = [21, 1] }
 events = { order_line = 2.0, cart_add = 1.0 }
+min_share = 0.4
 
 [[segment]]
 id = "trasnoche"
@@ -843,6 +866,7 @@ description = "Compra o pide de madrugada."
 signals = { hours = [1, 5] }
 events = { order_line = 2.0, cart_add = 1.0 }
 min_signals = 2
+min_share = 0.3
 
 [[segment]]
 id = "fin-de-semana"
@@ -853,6 +877,7 @@ signals = { weekdays = [6, 7] }
 events = { order_line = 2.0, cart_add = 1.0 }
 levels = { bajo = 3.0, medio = 8.0, alto = 16.0 }
 min_signals = 4
+min_share = 0.5
 
 [[segment]]
 id = "dia-de-pago"
@@ -862,6 +887,7 @@ description = "Compra a fin y a comienzos de mes."
 signals = { days_of_month = [28, 29, 30, 31, 1, 2, 3, 4, 5] }
 events = { order_line = 2.0, cart_add = 1.0 }
 min_signals = 4
+min_share = 0.5
 
 [[segment]]
 id = "compra-mensual"
@@ -871,6 +897,7 @@ description = "Hace pedidos grandes de despensa."
 signals = { basket_size = { gte_items = 25 } }
 events = { order_line = 2.0 }
 min_signals = 25
+min_share = 0.4
 
 [[segment]]
 id = "reposicion-rapida"
@@ -880,6 +907,7 @@ description = "Hace pedidos chicos y seguidos."
 signals = { basket_size = { lte_items = 3 } }
 events = { order_line = 2.0 }
 min_signals = 6
+min_share = 0.5
 
 [[segment]]
 id = "impulsivo"
@@ -889,6 +917,7 @@ description = "Acepta sugerencias y las agrega al carro."
 signals = { from_suggestion = true }
 events = { order_line = 2.0, cart_add = 1.0 }
 min_signals = 4
+min_share = 0.4
 
 [[segment]]
 id = "planificador"
@@ -898,6 +927,7 @@ description = "Hace pedidos grandes el domingo o el lunes."
 signals = { basket_size = { gte_items = 8 }, weekdays = [7, 1] }
 events = { order_line = 2.0 }
 min_signals = 8
+min_share = 0.4
 
 [[segment]]
 id = "celebraciones"
@@ -905,6 +935,7 @@ name = "Celebraciones"
 family = "momentos"
 description = "Compra para cumpleaños y celebraciones."
 signals = { occasions = ["cumpleanos", "regalo", "carrete"], attributes = ["cumpleanos", "para-regalo"], concepts = ["pasteleria", "espumante", "flores-regalos"] }
+min_share = 0.3
 
 [[segment]]
 id = "temporada-navidad"
@@ -914,6 +945,7 @@ description = "Compra productos navideños."
 signals = { attributes = ["navidad"], query_words = ["navidad", "pan de pascua", "cola de mono", "panettone"] }
 window_days = 60
 half_life_days = 20.0
+min_share = 0.2
 
 [[segment]]
 id = "temporada-fiestas-patrias"
@@ -923,6 +955,7 @@ description = "Compra para el Dieciocho."
 signals = { occasions = ["fiestas-patrias"], attributes = ["fiestas-patrias"], query_words = ["dieciocho", "fiestas patrias", "ramada"] }
 window_days = 45
 half_life_days = 15.0
+min_share = 0.2
 
 [[segment]]
 id = "cazaofertas"
@@ -932,6 +965,7 @@ description = "Compra sobre todo productos con descuento."
 signals = { discount = true }
 events = { order_line = 3.0, cart_add = 1.5, view_item = 0.3 }
 min_signals = 5
+min_share = 0.4
 
 [[segment]]
 id = "sensible-al-precio"
@@ -941,6 +975,7 @@ description = "Elige productos de precio bajo dentro de su categoría."
 signals = { price_percentile = { lte = 0.25 } }
 events = { order_line = 3.0, cart_add = 1.5, view_item = 0.3 }
 min_signals = 5
+min_share = 0.5
 
 [[segment]]
 id = "premium"
@@ -950,6 +985,7 @@ description = "Elige productos de precio alto dentro de su categoría."
 signals = { price_percentile = { gte = 0.8 } }
 events = { order_line = 3.0, cart_add = 1.5, view_item = 0.3 }
 min_signals = 5
+min_share = 0.4
 
 [[segment]]
 id = "fiel-a-marca"
@@ -975,6 +1011,7 @@ description = "Compra con frecuencia marcas propias de las tiendas."
 signals = { attributes = ["marca-propia"] }
 events = { order_line = 3.0, cart_add = 1.5, view_item = 0.3 }
 min_signals = 4
+min_share = 0.25
 
 [[segment]]
 id = "gasto-alto"

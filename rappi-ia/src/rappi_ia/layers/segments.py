@@ -87,6 +87,7 @@ class SegmentRule:
     levels: dict[str, float]
     exclude: dict = field(default_factory=dict)
     metric: dict | None = None
+    min_share: float = 0.0  # parte mínima de la actividad de la persona (en los tipos de evento de la regla) que calza
 
 
 def load_segment_rules(path: Path | None = None) -> tuple[str, list[SegmentRule]]:
@@ -130,6 +131,9 @@ def _build(entry: dict) -> SegmentRule:
         fail("el peso de un evento debe ser positivo")
     if metric is not None:
         _check_metric(metric, fail)
+    min_share = float(entry.get("min_share", 0.0))
+    if not 0 <= min_share <= 1:
+        fail("`min_share` debe estar entre 0 y 1")
     levels = entry["levels"]
     values = [levels.get(level) for level in LEVELS]
     if list(levels) != list(LEVELS) or None in values:
@@ -152,6 +156,7 @@ def _build(entry: dict) -> SegmentRule:
         levels={level: float(levels[level]) for level in LEVELS},
         exclude=exclude,
         metric=metric,
+        min_share=min_share,
     )
 
 
@@ -276,22 +281,28 @@ def _by_signals(rule: SegmentRule, signals: list[Signal], now: datetime) -> Memb
     window = rule.window_days * 86400
     taxonomy = load_taxonomy()
     counted: dict[str, tuple[Signal, float]] = {}
+    seen: set[str] = set()
+    activity = 0.0  # peso de todo lo que hizo la persona en los tipos que cuenta la regla, calce o no
     for signal in signals:
         age = max(0.0, (now - signal.ts).total_seconds())
         weight = rule.events.get(signal.type)
-        if weight is None or age > window or signal.event_key in counted:
+        if weight is None or age > window or signal.event_key in seen:
             continue
-        if not _matches(signal, rule.signals, taxonomy) or (rule.exclude and _matches(signal, rule.exclude, taxonomy)):
-            continue
-        counted[signal.event_key] = (signal, weight * 0.5 ** (age / 86400 / rule.half_life_days))
+        seen.add(signal.event_key)
+        points = weight * 0.5 ** (age / 86400 / rule.half_life_days)
+        activity += points
+        if _matches(signal, rule.signals, taxonomy) and not (rule.exclude and _matches(signal, rule.exclude, taxonomy)):
+            counted[signal.event_key] = (signal, points)
     if len(counted) < rule.min_signals:
         return None
     score = sum(points for _signal, points in counted.values())
     level = _level(rule, score)
-    if level is None:
+    if level is None or (rule.min_share and score < rule.min_share * activity):
         return None
-    seen = [signal.ts for signal, _points in counted.values()]
-    return Membership(rule.id, score, level, len(counted), _evidence(rule, counted.values()), min(seen), max(seen))
+    seen_at = [signal.ts for signal, _points in counted.values()]
+    evidence = _evidence(rule, counted.values())
+    evidence["share"] = round(score / activity, 3)
+    return Membership(rule.id, score, level, len(counted), evidence, min(seen_at), max(seen_at))
 
 
 def _evidence(rule: SegmentRule, counted) -> dict:

@@ -255,3 +255,29 @@ def test_evidence_lists_the_three_biggest_contributors_and_the_extreme_dates():
     found = score_user(signals, {}, [rule], NOW)[0]
     assert [t["id"] for t in found.evidence["top"]] == ["pizza", "sushi", "empanadas"]
     assert found.first_seen == NOW - timedelta(days=9) and found.last_signal == NOW - timedelta(days=1)
+
+
+def test_min_share_needs_the_rule_to_match_enough_of_the_persons_activity():
+    rule = _rule(signals={"concepts": ["cafe"]}, min_signals=1, half_life_days=1e9, min_share=0.5, levels=_LOW)
+    coffee = [_signal(1, concept="cafe", key=f"c{i}") for i in range(3)]
+    other = [_signal(1, concept="pizza", key=f"p{i}") for i in range(6)]
+    assert score_user(coffee + other[:2], {}, [rule], NOW)  # 3 de 5 = 60 %
+    assert score_user(coffee + other, {}, [rule], NOW) == []  # 3 de 9: es un cafetero ocasional
+
+
+def test_min_share_is_measured_on_the_event_types_the_rule_counts():
+    rule = _rule(signals={"concepts": ["cafe"]}, events={"order_line": 3.0}, min_signals=1, min_share=0.9, levels=_LOW)
+    views = [_signal(1, type="view_item", concept="pizza", key=f"v{i}") for i in range(20)]
+    assert score_user([_signal(1, concept="cafe", key="o"), *views], {}, [rule], NOW)  # solo cuentan las compras
+
+
+def test_a_rule_without_min_share_ignores_the_rest_of_the_activity():
+    rule = _rule(signals={"concepts": ["cafe"]}, min_signals=1, min_share=0.0, levels=_LOW)
+    noise = [_signal(1, concept="pizza", key=f"p{i}") for i in range(50)]
+    assert score_user([_signal(1, concept="cafe", key="c"), *noise], {}, [rule], NOW)
+
+
+def test_every_broad_rule_asks_for_a_share_of_the_activity():
+    """Un contexto que cualquiera cumple de vez en cuando (un fin de semana, un precio alto) no es un perfil."""
+    for rule_id in ("fin-de-semana", "dia-de-pago", "nocturno", "premium", "sensible-al-precio", "reposicion-rapida"):
+        assert 0.2 <= BY_ID[rule_id].min_share <= 1, rule_id
