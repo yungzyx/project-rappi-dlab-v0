@@ -65,6 +65,7 @@ def db():
     if not url.rstrip("/").endswith("rappi_test"):
         pytest.fail(f"Por seguridad los tests solo borran la base rappi_test, no {url}")
     with connect(url) as conn:
+        conn.execute("DROP SCHEMA IF EXISTS capa CASCADE")
         conn.execute("DROP SCHEMA public CASCADE")
         conn.execute("CREATE SCHEMA public")
         conn.commit()
