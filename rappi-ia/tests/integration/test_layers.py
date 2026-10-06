@@ -1121,3 +1121,115 @@ def test_forgetting_a_concept_also_clears_the_users_earlier_history(db):
     assert db.execute(
         "SELECT count(*) FROM user_segment_history WHERE user_id = 'u-proto' AND segment_id = 'compra-sin-gluten'"
     ).fetchone() == (0,)
+
+
+# ── contrato `capa` (etapa 5) ──
+
+
+def _seed_segment_defs(db):
+    build_segments(db, "synthetic", now=SEG_NOW)  # siembra segment_defs aunque no haya nadie
+
+
+def _person(db, user, source="synthetic"):
+    db.execute("INSERT INTO app_users (user_id, source) VALUES (%s, %s) ON CONFLICT DO NOTHING", (user, source))
+
+
+def test_capa_user_segments_never_returns_sensitive_segments(db):
+    _seed_segment_defs(db)
+    _person(db, "u1")
+    for segment in ("compra-sin-gluten", "tabaco", "cervecero"):
+        db.execute(
+            "INSERT INTO user_segments (user_id, segment_id, score, level, signals) VALUES ('u1', %s, 5, 'medio', 3)",
+            (segment,),
+        )
+
+    rows = db.execute("SELECT user_id, segment_id, segment_name, source FROM capa.user_segments").fetchall()
+
+    assert rows == [("u1", "cervecero", "Cervecero", "synthetic")]
+
+
+def test_capa_segment_sizes_hides_a_sensitive_segment_below_five_people(db):
+    _seed_segment_defs(db)
+
+    def add(n, segment):
+        for i in range(n):
+            _person(db, f"w{segment}{i}")
+            db.execute(
+                "INSERT INTO user_segment_history (week, user_id, segment_id, score, level)"
+                " VALUES ('2026-10-05', %s, %s, 5, 'medio') ON CONFLICT DO NOTHING",
+                (f"w{segment}{i}", segment),
+            )
+
+    add(4, "compra-sin-gluten")
+    add(1, "cervecero")
+    sizes = {r[0]: r[1] for r in db.execute("SELECT segment_id, users FROM capa.segment_sizes")}
+    assert sizes == {"cervecero": 1}  # el sensible con 4 personas no aparece; el común con 1 sí
+
+    add(5, "compra-sin-gluten")  # w…0 a w…3 ya existían: quedan 5 personas
+    sizes = {r[0]: r[1] for r in db.execute("SELECT segment_id, users FROM capa.segment_sizes")}
+    assert sizes == {"cervecero": 1, "compra-sin-gluten": 5}
+
+
+def test_every_capa_view_and_column_has_a_spanish_comment(db):
+    views = db.execute(
+        """SELECT c.oid, c.relname, obj_description(c.oid, 'pg_class') FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'capa' AND c.relkind = 'v'"""
+    ).fetchall()
+    assert {name for _oid, name, _c in views} >= {
+        *("items", "item_attributes", "item_unit_prices", "unit_price_ratios", "item_brands", "canonical_products"),
+        *("knowledge_edges", "segment_defs", "user_segments", "segment_sizes", "layer_runs"),
+    }
+    for oid, name, comment in views:
+        assert comment, f"capa.{name} sin comentario"
+        for column, text in db.execute(
+            """SELECT a.attname, col_description(a.attrelid, a.attnum) FROM pg_attribute a
+               WHERE a.attrelid = %s AND a.attnum > 0 AND NOT a.attisdropped""",
+            (oid,),
+        ):
+            assert text, f"capa.{name}.{column} sin comentario"
+
+
+def test_capa_items_describes_products_and_dishes_in_one_place(db):
+    add_store(db, 1, "supermercado")
+    add_store(db, 2, "restaurantes")
+    add_product(db, 10, "Coca-Cola Original 1.5 L", 1, "Gaseosas")
+    add_price(db, 1, 10, 2490)
+    db.execute(
+        "UPDATE catalog_items SET trademark = 'Coca-Cola', quantity = 1.5, unit_type = 'l' WHERE master_product_id = 10"
+    )
+    add_dish(db, 500, "Pizza Familiar", 2, "Pizzas")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+    build_brands(db)
+
+    rows = {
+        r[0]: r[1:]
+        for r in db.execute(
+            """SELECT entity_id, entity_type, vertical, name, concept_id, concept_group, brand_name, unit, total
+               FROM capa.items"""
+        )
+    }
+
+    assert rows["10"] == (
+        "catalog_item",
+        "supermercado",
+        "Coca-Cola Original 1.5 L",
+        "gaseosas",
+        "bebidas",
+        "Coca-Cola",
+        "ml",
+        1500.0,
+    )
+    assert rows["500"][:4] == ("menu_item", "restaurantes", "Pizza Familiar", "pizza")
+
+
+def test_capa_layer_runs_and_segment_defs_expose_lineage_and_rules(db):
+    _seed_segment_defs(db)
+
+    run = db.execute("SELECT layer, status, rules_version FROM capa.layer_runs WHERE layer = 'segments'").fetchone()
+    rule = db.execute("SELECT sensitive, rule ->> 'min_signals' FROM capa.segment_defs WHERE segment_id = 'tabaco'")
+
+    assert run[0] == "segments" and run[1] == "done" and run[2].startswith("2026-10-06+")
+    assert rule.fetchone() == (True, "3")

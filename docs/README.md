@@ -14,6 +14,7 @@ Las cifras vigentes están en [README.md#resultados](../README.md#resultados). S
 | Conocer el modelo de datos (capas 1 a 3) | [ecosistema-rappi.md §3](ecosistema-rappi.md#3-modelo-de-datos-del-ecosistema-propuesta) | 5 min |
 | Instalar el proyecto y dejarlo actualizándose cada semana | [instalacion.md](instalacion.md) | 10 min de lectura |
 | Consultar la base con SQL | [sql/README.md](sql/README.md) y [consultas.sql](sql/consultas.sql) | 5 min |
+| Usar el significado que la base le suma al catálogo (atributos, marcas, grafo, segmentos) desde otra herramienta | [capa-de-datos.md](capa-de-datos.md) | 8 min |
 | Saber qué se decidió y por qué | [decisiones.md](decisiones.md) | 5 min |
 | Usar o modificar el scraper | [rappi-scraper/README.md](../rappi-scraper/README.md) | 10 min |
 | Conocer la capa de IA, su API y cómo se evalúa | [rappi-ia/README.md](../rappi-ia/README.md) | 10 min |
