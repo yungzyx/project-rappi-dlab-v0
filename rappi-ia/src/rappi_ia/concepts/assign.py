@@ -63,10 +63,11 @@ def concept_matcher(taxonomy: Taxonomy, for_queries: bool = False) -> "KeywordMa
         for c in taxonomy.concepts.values()
         for kw in (*_name_keyword(c, for_queries), *c.keywords, *(c.query_keywords if for_queries else ()))
     ]
+    avoid = [(c.id, word) for c in taxonomy.concepts.values() for word in c.avoid]
     if not for_queries:
-        return KeywordMatcher(entries)
+        return KeywordMatcher(entries, avoid)
     alone = [(c.id, kw) for c in taxonomy.concepts.values() for kw in _query_only_words(c)]
-    return QueryMatcher(KeywordMatcher(e for e in entries if e not in alone), KeywordMatcher(alone))
+    return QueryMatcher(KeywordMatcher((e for e in entries if e not in alone), avoid), KeywordMatcher(alone))
 
 
 # Acompañan un pedido sin nombrar otra cosa («venden los medicamentos», «algún lubricante barato»).

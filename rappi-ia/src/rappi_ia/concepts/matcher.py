@@ -21,8 +21,13 @@ class Match:
 
 
 class KeywordMatcher:
-    def __init__(self, entries: Iterable[tuple[str, str]]):
-        """`entries`: pares (id, palabra clave)."""
+    def __init__(self, entries: Iterable[tuple[str, str]], avoid: Iterable[tuple[str, str]] = ()):
+        """`entries`: pares (id, palabra clave). `avoid`: pares (id, palabra o frase) que, si el texto las trae, impiden
+        que ese id calce («Bolsa para agua» no es agua)."""
+        self._avoid: dict[str, list[tuple[str, ...]]] = defaultdict(list)
+        for target, phrase in avoid:
+            if words := tuple(tokens(phrase)):
+                self._avoid[target].append(words)
         self._by_first: dict[str, list[tuple[tuple[str, ...], str, str]]] = defaultdict(list)
         for target, keyword in entries:
             words = tuple(tokens(keyword))
@@ -31,11 +36,12 @@ class KeywordMatcher:
 
     def matches(self, text: str) -> list[Match]:
         words = tokens(text)
+        forms = {form for word in words for form in self._candidates(word)}
         found: dict[str, Match] = {}
         for i, word in enumerate(words):
             for candidate in self._candidates(word):
                 for kw_words, target, keyword in self._by_first.get(candidate, ()):
-                    if _matches_at(words, i, kw_words):
+                    if _matches_at(words, i, kw_words) and not self._avoided(target, words, forms):
                         match = Match(target, keyword, len(kw_words), i)
                         best = found.get(target)
                         if best is None or _rank(match) > _rank(best):
@@ -55,6 +61,12 @@ class KeywordMatcher:
         found = self.matches(text)
         return found[0] if found else None
 
+    def _avoided(self, target: str, words: list[str], forms: set[str]) -> bool:
+        return any(
+            (phrase[0] in forms if len(phrase) == 1 else _contains(words, phrase))
+            for phrase in self._avoid.get(target, ())
+        )
+
     @staticmethod
     def _candidates(word: str) -> tuple[str, ...]:
         """La palabra tal cual y su posible singular (galletas → galleta, panes → pan)."""
@@ -72,6 +84,10 @@ def _matches_at(words: list[str], start: int, kw_words: tuple[str, ...]) -> bool
     if len(kw_words) == 1:
         return True  # la primera palabra ya calzó (con plural) en `matches`
     return tuple(words[start : start + len(kw_words)]) == kw_words
+
+
+def _contains(words: list[str], phrase: tuple[str, ...]) -> bool:
+    return any(tuple(words[i : i + len(phrase)]) == phrase for i in range(len(words) - len(phrase) + 1))
 
 
 def _rank(match: Match) -> tuple[int, int]:

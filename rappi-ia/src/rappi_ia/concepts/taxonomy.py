@@ -18,6 +18,7 @@ class Concept:
     parent: str | None
     keywords: tuple[str, ...] = ()
     query_keywords: tuple[str, ...] = ()  # solo para entender consultas, nunca para asignar productos
+    avoid: tuple[str, ...] = ()  # palabras que, en el nombre, impiden asignar este concepto por palabra clave
     sensitive: bool = False
     age_restricted: bool = False
     prepared: bool = False  # se pide hecho: también puede buscarse en restaurantes
@@ -93,6 +94,7 @@ def load_taxonomy(path: Path = DATA_DIR / "taxonomy.toml") -> Taxonomy:
             parent=c["parent"],
             keywords=tuple(c.get("keywords", ())),
             query_keywords=tuple(c.get("query_keywords", ())),
+            avoid=tuple(c.get("avoid", ())),
             sensitive=c.get("sensitive", False),
             age_restricted=c.get("age_restricted", False),
             prepared=c.get("prepared", groups[c["parent"]].prepared if c["parent"] in groups else False),
