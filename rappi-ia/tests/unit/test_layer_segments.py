@@ -344,3 +344,27 @@ def test_no_plain_segment_shares_what_it_looks_at_with_a_sensitive_one():
         concepts, attributes, verticals = looked_at(r)
         for s_concepts, s_attributes, s_verticals in sensitive:
             assert not (concepts & s_concepts or attributes & s_attributes or verticals & s_verticals), r.id
+
+
+def test_evidence_of_a_plain_segment_never_names_what_a_sensitive_segment_looks_at():
+    """`capa.user_segments` oculta los segmentos sensibles, pero la evidencia de uno común (cazaofertas) listaba lo que
+    la persona compró, pañales incluidos: el mismo dato por otra puerta."""
+    rule = BY_ID["cazaofertas"]
+    signals = [
+        *(_signal(2, concept="panales", discounted=True, key=f"p{i}", price_percentile=0.5) for i in range(4)),
+        *(_signal(3, concept="galletas", discounted=True, key=f"g{i}", price_percentile=0.5) for i in range(3)),
+    ]
+    found = score_user(signals, {}, [replace(rule, min_signals=1, min_share=0.0, levels=_LOW)], NOW)[0]
+    assert [t["id"] for t in found.evidence["top"]] == ["galletas"]
+
+    sensitive = score_user(
+        [_signal(2, concept="panales", key=f"b{i}") for i in range(4)], {}, [BY_ID["mama-papa-bebe"]], NOW
+    )[0]
+    assert [t["id"] for t in sensitive.evidence["top"]] == ["panales"]  # la propia evidencia del sensible se conserva
+
+
+def test_evidence_also_drops_taxonomy_sensitive_concepts():
+    sensitive_concept = min(c.id for c in load_taxonomy().concepts.values() if c.sensitive)
+    rule = replace(BY_ID["cazaofertas"], min_signals=1, min_share=0.0, levels=_LOW)
+    found = score_user([_signal(2, concept=sensitive_concept, discounted=True, price_percentile=0.5)], {}, [rule], NOW)
+    assert found and found[0].evidence["top"] == []

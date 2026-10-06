@@ -1121,3 +1121,183 @@ def test_forgetting_a_concept_also_clears_the_users_earlier_history(db):
     assert db.execute(
         "SELECT count(*) FROM user_segment_history WHERE user_id = 'u-proto' AND segment_id = 'compra-sin-gluten'"
     ).fetchone() == (0,)
+
+
+# ── contrato `capa` (etapa 5) ──
+
+
+def _seed_segment_defs(db):
+    build_segments(db, "synthetic", now=SEG_NOW)  # siembra segment_defs aunque no haya nadie
+
+
+def _person(db, user, source="synthetic"):
+    db.execute("INSERT INTO app_users (user_id, source) VALUES (%s, %s) ON CONFLICT DO NOTHING", (user, source))
+
+
+def test_capa_user_segments_never_returns_sensitive_segments(db):
+    _seed_segment_defs(db)
+    _person(db, "u1")
+    for segment in ("compra-sin-gluten", "tabaco", "cervecero"):
+        db.execute(
+            "INSERT INTO user_segments (user_id, segment_id, score, level, signals) VALUES ('u1', %s, 5, 'medio', 3)",
+            (segment,),
+        )
+
+    rows = db.execute("SELECT user_id, segment_id, segment_name, source FROM capa.user_segments").fetchall()
+
+    assert rows == [("u1", "cervecero", "Cervecero", "synthetic")]
+
+
+def _members(db, segment, count, level="medio", source="synthetic", prefix="m", week="2026-10-05"):
+    for i in range(count):
+        user = f"{prefix}-{segment}-{source}-{level}-{i}"
+        _person(db, user, source)
+        db.execute(
+            "INSERT INTO user_segment_history (week, user_id, segment_id, score, level)"
+            " VALUES (%s, %s, %s, 5, %s) ON CONFLICT DO NOTHING",
+            (week, user, segment, level),
+        )
+
+
+def _sizes(db):
+    return {
+        (r[0], r[1], r[2]): r[3] for r in db.execute("SELECT source, segment_id, level, users FROM capa.segment_sizes")
+    }
+
+
+def test_capa_segment_sizes_hides_a_sensitive_segment_below_five_people(db):
+    _seed_segment_defs(db)
+    for i in range(8):  # personas de la fuente que no están en ningún segmento
+        _person(db, f"bystander-{i}")
+    _members(db, "compra-sin-gluten", 4)
+    _members(db, "cervecero", 1)
+
+    assert _sizes(db) == {("synthetic", "cervecero", "medio"): 1}  # el sensible con 4 no aparece; el común con 1 sí
+
+    _members(db, "compra-sin-gluten", 1, prefix="x")
+    assert _sizes(db)[("synthetic", "compra-sin-gluten", "todos")] == 5
+
+
+def test_capa_segment_sizes_counts_sensitive_people_across_levels_and_never_splits_them(db):
+    """5 personas repartidas 3 y 2 entre niveles son 5: se muestran juntas, sin revelar la división (con k por celda se
+    ocultaban 5 y se mostraban 18, y quien sumaba niveles obtenía menos que el total)."""
+    _seed_segment_defs(db)
+    for i in range(8):
+        _person(db, f"bystander-{i}")
+    _members(db, "compra-sin-gluten", 3, level="medio")
+    _members(db, "compra-sin-gluten", 2, level="alto")
+
+    assert _sizes(db) == {("synthetic", "compra-sin-gluten", "todos"): 5}
+
+
+def test_capa_segment_sizes_never_pools_sources_and_hides_a_segment_that_is_everyone(db):
+    _seed_segment_defs(db)
+    for i in range(8):
+        _person(db, f"bystander-{i}")
+    _members(db, "compra-sin-gluten", 3)  # synthetic: 3
+    _members(db, "compra-sin-gluten", 2, source="prototype")  # prototype: 2; juntas serían 5
+    assert _sizes(db) == {}
+
+    for i in range(6):  # toda una fuente en el segmento: el que lo ve sabe que cada persona lo tiene
+        _members(db, "tabaco", 1, source="prototype", prefix=f"all{i}")
+    assert not any(k[1] == "tabaco" for k in _sizes(db))
+
+
+def test_every_capa_view_and_column_has_a_spanish_comment(db):
+    views = db.execute(
+        """SELECT c.oid, c.relname, obj_description(c.oid, 'pg_class') FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'capa' AND c.relkind = 'v'"""
+    ).fetchall()
+    assert {name for _oid, name, _c in views} >= {
+        *("items", "item_attributes", "item_unit_prices", "unit_price_ratios", "item_brands", "canonical_products"),
+        *("knowledge_edges", "segment_defs", "user_segments", "segment_sizes", "layer_runs"),
+    }
+    for oid, name, comment in views:
+        assert comment, f"capa.{name} sin comentario"
+        for column, text in db.execute(
+            """SELECT a.attname, col_description(a.attrelid, a.attnum) FROM pg_attribute a
+               WHERE a.attrelid = %s AND a.attnum > 0 AND NOT a.attisdropped""",
+            (oid,),
+        ):
+            assert text, f"capa.{name}.{column} sin comentario"
+
+
+def test_capa_items_describes_products_and_dishes_in_one_place(db):
+    add_store(db, 1, "supermercado")
+    add_store(db, 2, "restaurantes")
+    add_product(db, 10, "Coca-Cola Original 1.5 L", 1, "Gaseosas")
+    add_price(db, 1, 10, 2490)
+    db.execute(
+        "UPDATE catalog_items SET trademark = 'Coca-Cola', quantity = 1.5, unit_type = 'l' WHERE master_product_id = 10"
+    )
+    add_dish(db, 500, "Pizza Familiar", 2, "Pizzas")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+    build_brands(db)
+
+    rows = {
+        r[0]: r[1:]
+        for r in db.execute(
+            """SELECT entity_id, entity_type, vertical, name, concept_id, concept_group, brand_name, unit, total
+               FROM capa.items"""
+        )
+    }
+
+    assert rows["10"] == (
+        "catalog_item",
+        "supermercado",
+        "Coca-Cola Original 1.5 L",
+        "gaseosas",
+        "bebidas",
+        "Coca-Cola",
+        "ml",
+        1500.0,
+    )
+    assert rows["500"][:4] == ("menu_item", "restaurantes", "Pizza Familiar", "pizza")
+
+
+def test_capa_user_segments_evidence_never_names_what_a_sensitive_segment_looks_at(db):
+    from rappi_ia.layers.segments import SENSITIVE_SEGMENTS, load_segment_rules
+
+    _gluten_catalog(db)
+    add_product(db, 20, "Pañales Huggies talla G", 1, "Pañales")
+    db.commit()
+    build_search_documents(db)
+    build_attributes(db)
+    for days in (1, 2, 3, 4, 5, 6):
+        _buy(db, "u-deal", 20, days, concept_id="panales", unit_price=9000)
+    db.commit()
+
+    build_segments(db, "synthetic", now=SEG_NOW)
+
+    hidden = {c for r in load_segment_rules()[1] if r.sensitive for c in r.signals.get("concepts", ())}
+    exposed = db.execute("SELECT evidence::text FROM capa.user_segments WHERE user_id = 'u-deal'").fetchall()
+    assert exposed  # tiene segmentos comunes (relación, momentos…)
+    assert not any(concept in text for (text,) in exposed for concept in hidden)
+    assert SENSITIVE_SEGMENTS  # y los sensibles siguen existiendo en la tabla interna
+
+
+def test_layer_run_records_when_it_really_finished(db):
+    run = start_layer_run(db, "measures", "2026-10-06")
+    db.execute("SELECT pg_sleep(0.05)")
+    finish_layer_run(db, run, {})
+
+    started, finished = db.execute(
+        "SELECT started_at, finished_at FROM layer_runs WHERE run_id = %s", (run,)
+    ).fetchone()
+
+    assert finished > started  # antes valían lo mismo: se tomaba `now()` de la misma transacción
+
+
+def test_capa_layer_runs_and_segment_defs_expose_lineage_and_rules(db):
+    _seed_segment_defs(db)
+
+    run = db.execute("SELECT layer, status, rules_version FROM capa.layer_runs WHERE layer = 'segments'").fetchone()
+    rule = db.execute("SELECT sensitive, rule ->> 'min_signals' FROM capa.segment_defs WHERE segment_id = 'tabaco'")
+
+    from rappi_ia.layers.segments import load_segment_rules
+
+    assert run[0] == "segments" and run[1] == "done" and run[2].startswith(load_segment_rules()[0] + "+")
+    assert rule.fetchone() == (True, "3")

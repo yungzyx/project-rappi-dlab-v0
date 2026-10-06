@@ -16,7 +16,7 @@ def start_layer_run(conn: Connection, layer: str, rules_version: str) -> int:
 
 def finish_layer_run(conn: Connection, run_id: int, counts: dict, status: str = "done") -> None:
     conn.execute(
-        "UPDATE layer_runs SET status = %s, counts = %s, finished_at = now() WHERE run_id = %s",
+        "UPDATE layer_runs SET status = %s, counts = %s, finished_at = clock_timestamp() WHERE run_id = %s",
         (status, Jsonb(counts), run_id),
     )
 

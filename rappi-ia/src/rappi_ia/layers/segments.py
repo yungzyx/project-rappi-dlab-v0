@@ -11,6 +11,7 @@ import tomllib
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
+from functools import cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -317,14 +318,31 @@ def _by_signals(rule: SegmentRule, signals: list[Signal], now: datetime) -> Memb
     return Membership(rule.id, score, level, len(occasions), evidence, min(seen_at), max(seen_at))
 
 
+@cache
+def _sensitive_names() -> tuple[frozenset[str], frozenset[str]]:
+    """(conceptos, atributos) que mira algún segmento sensible o que la taxonomía marca como sensibles."""
+    taxonomy = load_taxonomy()
+    concepts = {c.id for c in taxonomy.concepts.values() if c.sensitive}
+    attributes: set[str] = set()
+    for rule in load_segment_rules()[1]:
+        if rule.sensitive:
+            concepts |= set(rule.signals.get("concepts", ()))
+            attributes |= set(rule.signals.get("attributes", ()))
+            for group in rule.signals.get("groups", ()):
+                concepts |= {c.id for c in taxonomy.concepts.values() if c.parent == group}
+    return frozenset(concepts), frozenset(attributes)
+
+
 def _evidence(rule: SegmentRule, counted) -> dict:
-    """Los 3 conceptos o atributos que más aportan al puntaje."""
+    """Los 3 conceptos o atributos que más aportan al puntaje. La evidencia de un segmento común no nombra lo que mira
+    un segmento sensible: `capa.user_segments` oculta los sensibles, y «cazaofertas» listaba los pañales comprados."""
+    hidden_concepts, hidden_attributes = ((), ()) if rule.sensitive else _sensitive_names()
     by_item: dict[tuple[str, str], float] = defaultdict(float)
     named = set(rule.signals.get("attributes", ()))
     for signal, points in counted:
-        if signal.concept:
+        if signal.concept and signal.concept not in hidden_concepts:
             by_item[("concepto", signal.concept)] += points
-        for attribute in signal.attributes & named:
+        for attribute in (signal.attributes & named) - set(hidden_attributes):
             by_item[("atributo", attribute)] += points
     top = sorted(by_item.items(), key=lambda item: (-item[1], item[0]))[:3]
     return {"top": [{"kind": kind, "id": ident, "score": round(points, 3)} for (kind, ident), points in top]}

@@ -16,6 +16,7 @@ Documentación: índice en [docs/README.md](docs/README.md) · cifras en [README
 - Datos de usuarios: solo `source = 'synthetic'` (generador con semilla) o `'prototype'`. Nunca presentar métricas simuladas como evidencia.
 - `build_search_documents` borra de `search_documents` todo lo que no regenera: los datos derivados (conceptos, caché de embeddings, imágenes) van en tablas propias.
 - Mover la carpeta del proyecto rompe los `.venv` (rutas absolutas): recrearlos con `make install` en rappi-scraper y `make install install-ml` en rappi-ia. No moverla con un proceso del scraper corriendo.
+- Capa de datos para otras herramientas (atributos, medidas, marcas, grafo, segmentos): código en `rappi-ia/src/rappi_ia/layers/`, reglas en TOML junto a `taxonomy.toml`, vistas estables en el esquema `capa` (migraciones 022 a 026); `make layers` la recalcula y [docs/capa-de-datos.md](docs/capa-de-datos.md) la explica. Cada vista y columna de `capa` lleva comentario en español.
 - Los datos descargados no se suben a git (`rappi-scraper/data/` está ignorado).
 - Diagramas: las fuentes JSON están en `docs/diagramas-fuente/`; el HTML y su PNG se regeneran con la skill Archify.
 - `Proyecto/` (ignorada) es un intento antiguo con LangChain: no usarlo ni moverlo al repo.

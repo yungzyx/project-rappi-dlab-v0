@@ -62,7 +62,7 @@ El panel de negocio muestra cómo se mediría el efecto (frecuencia, abandono, s
 
 1. **Descarga (semanal).** `rappi refresh` lee las páginas públicas y guarda catálogo, menús y precios.
 2. **Postgres + pgvector.** El catálogo (capa 1) y `search_documents`, una partición por vertical.
-3. **IA offline.** Cada producto y plato recibe un concepto (capa 2), y los conceptos se enlazan con sus complementos. Cada documento recibe un embedding: un vector que representa el significado del texto, calculado con un modelo local multilingüe (e5). Cada vertical tiene su propio índice vectorial. Una evaluación calibra el umbral de «sin resultado».
+3. **IA offline.** Cada producto y plato recibe un concepto (capa 2), y los conceptos se enlazan con sus complementos. Una capa de datos suma atributos, medidas, marcas, un grafo de conocimiento y segmentos de usuario, y los expone en el esquema `capa` para otras herramientas ([docs/capa-de-datos.md](docs/capa-de-datos.md)). Cada documento recibe un embedding: un vector que representa el significado del texto, calculado con un modelo local multilingüe (e5). Cada vertical tiene su propio índice vectorial. Una evaluación calibra el umbral de «sin resultado».
 4. **Consulta.** Búsqueda híbrida dentro del vertical: por palabras (léxica) y por significado (vectorial). Las dos listas se combinan según la posición de cada resultado (fusión RRF) y se refuerzan los resultados del concepto pedido. Bigotes arma la respuesta y la sugerencia cruzada.
 5. **Apps.** La API (puerto 8000) atiende al prototipo (5174) y al panel (5175). Los eventos del prototipo vuelven a la base marcados como tales.
 
@@ -83,9 +83,13 @@ Cifras del catálogo al 04-10-2026, tras la segunda descarga semanal automática
 | Capa 2 | Taxonomía | 133 conceptos · 103 complementos curados · 818 categorías con mapeo revisado (71 nuevas sin mapear, con sugerencia en `rappi-ia map-categories`) | Taxonomía y complementos: curados a mano · mapa de categorías: generado con LLM (dos etiquetadores y un juez en los desacuerdos), versionado en `category_map.csv` | `make concepts`, 30-09-2026 |
 | Capa 2 | Ítems con concepto | 98,2 % a 100 % según vertical ([tabla](#catálogo-por-vertical)) | Real | `make concepts`, 05-10-2026 |
 | Capa 2 | Precisión de la asignación | ≈88 % por categoría · ≈81 % platos · 55 % reglas por nombre | **Estimación**: jueces LLM sobre datos parciales | Muestra del 27-09, no versionada |
+| Capa de datos | Atributos y medidas | 83 atributos en 9 familias sobre 79.617 ítems (111.032 asignaciones; las declara Rappi, las dicen el nombre o la descripción, o se derivan de precios y marcas) · 71.598 ítems con medida normalizada y 41 con medida sospechosa aparte | Real (catálogo) con reglas propias; la precisión no está medida (hay una muestra revisable por atributo en `make layer-report`) | `make layers`, 06-10-2026 |
+| Capa de datos | Marcas y producto canónico | 6.359 marcas · 204.253 ítems con marca (en los platos, la cadena) · 23.534 productos canónicos | Real, con reglas propias | `make layers`, 06-10-2026 |
+| Capa de datos | Grafo de conocimiento | 32.105 aristas en 12 relaciones (curadas, derivadas del catálogo y aprendidas de uso) | Real y curado; lo aprendido de datos simulados no se expone | `make layers`, 06-10-2026 |
+| Capa de datos | Segmentos de usuario | 146 definidos (14 sensibles, nombrados por conducta) · 101 con personas | **Simulado** | `make layers`, 06-10-2026 |
 | Búsqueda | nDCG@10 | híbrido 0,910 · sin refuerzo por concepto 0,860 · vectorial 0,846 · léxico 0,778 | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [`docs/resultados/busqueda-2026-09-30.md`](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests (pytest / Vitest) | scraper 144 · rappi-ia 588 · prototipo 170 · panel 90 | Verificación local, 05-10 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) y un job semanal que instala los modelos con las versiones fijadas |
+| Calidad | Tests (pytest / Vitest) | scraper 144 · rappi-ia 839 · prototipo 170 · panel 90 | Verificación local, 06-10 | `make test` · `npm test`; [CI](.github/workflows/ci.yml): 4 jobs (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build) y un job semanal que instala los modelos con las versiones fijadas |
 | Calidad | Revisión adversarial automatizada (agentes de IA) | 3 pasadas, 66 hallazgos corregidos (27-09); auditoría del 28-09 con 4 bloques de mejoras (29 y 30-09); revisión integral del 03 y 04-10 (47 hallazgos, segunda revisión y prueba en vivo de la demo sobre una copia de la base) | Proceso | — |
 | Panel | Usuarios, eventos y pedidos | 1.500 usuarios × 26 semanas (semilla 7) | **Simulado** | `rappi-ia/src/rappi_ia/events/synth.py` |
 
@@ -249,6 +253,7 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 
 - Catálogo público completo (24 al 27-09-2026), recuperación de fallidos (28-09) y primera descarga semanal automática (29 y 30-09).
 - Capa 2 de conceptos, embeddings al 100 % y búsqueda híbrida evaluada.
+- Capa de datos para otras herramientas (06-10-2026): atributos, medidas, marcas y producto canónico, grafo de conocimiento y segmentos de usuario, con el esquema estable `capa`, corrección de falsos positivos por nombre y revisión independiente por etapa ([docs/capa-de-datos.md](docs/capa-de-datos.md)).
 - Bigotes con API (texto, voz y foto) y prototipo con modo «Rappi hoy» / «Propuesta».
 - Panel de negocio con datos simulados rotulados y la pestaña Catálogo real.
 - Actualización semanal automática y CI con 4 jobs más uno semanal de modelos.
