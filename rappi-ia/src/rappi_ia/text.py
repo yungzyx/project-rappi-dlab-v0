@@ -44,3 +44,11 @@ def normalize(text: str) -> str:
 
 def tokens(text: str) -> list[str]:
     return normalize(text).split()
+
+
+# Desde aquí el prospecto de un medicamento ya no dice para qué sirve: «consulte si presenta fiebre» no vuelve
+# antipirético a un laxante, ni «puede contener trazas de maní» a un producto «sin maní».
+LEAFLET_WARNINGS = re.compile(
+    r"\b(?:advertencias?|contraindicaciones|precauciones|efectos (?:adversos|secundarios)|reacciones adversas"
+    r"|sobredosis|interacciones|como debo usar|posologia)\b"
+)

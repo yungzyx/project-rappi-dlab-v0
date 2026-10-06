@@ -3,7 +3,6 @@
 Todo producto que Bigotes muestra pasa por aquí: sale de la base, con su precio vigente, nunca inventado.
 """
 
-import re
 from dataclasses import dataclass, field
 
 from psycopg import Connection
@@ -12,7 +11,7 @@ from rappi_scraper.storage.search import MIN_PRICE
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
 from ..retrieval.hybrid import Filters, RetrievalResult, _concepts_of, _hydrate, retrieve
-from ..text import FILLER_WORDS, normalize, tokens
+from ..text import FILLER_WORDS, LEAFLET_WARNINGS, normalize, tokens
 from .verticals import ranked_verticals
 
 
@@ -134,17 +133,12 @@ SYMPTOM_REMEDIES = {
     **dict.fromkeys(("alergia",), "antialérgico antihistamínico"),
     **dict.fromkeys(("nauseas",), "antináuseas"),
 }
-# Desde aquí el prospecto ya no dice para qué sirve: «consulte si presenta fiebre» no vuelve antipirético a un laxante.
-_LEAFLET_WARNINGS = re.compile(
-    r"\b(?:advertencias?|contraindicaciones|precauciones|efectos (?:adversos|secundarios)|reacciones adversas"
-    r"|sobredosis|interacciones|como debo usar|posologia)\b"
-)
 
 
 def _treats(content: str, words: set[str]) -> bool:
     """El nombre, la categoría o la indicación (lo que va antes de las advertencias) dice alguna de esas palabras."""
     said = normalize(content)
-    head = said[: m.start()] if (m := _LEAFLET_WARNINGS.search(said)) else said
+    head = said[: m.start()] if (m := LEAFLET_WARNINGS.search(said)) else said
     return any(token[:7] in words for token in head.split())
 
 
