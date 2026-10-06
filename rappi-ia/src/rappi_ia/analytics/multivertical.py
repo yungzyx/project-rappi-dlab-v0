@@ -91,6 +91,18 @@ def collect(conn: Connection) -> dict:
     complements = conn.execute(
         "SELECT from_concept, to_concept, weight FROM concept_edges WHERE method = 'curado' ORDER BY 1, 2"
     ).fetchall()
+    # Del grafo de conocimiento (relations.toml): sustitutos una vez por par y «nunca junto» de grupo a concepto,
+    # abierto a cada concepto del grupo (alcohol → cerveza, vino…) para dibujarlo entre puntos del mapa.
+    substitutes = conn.execute(
+        """SELECT from_id, to_id, weight FROM knowledge_edges
+           WHERE relation = 'sustituye' AND method = 'curado' AND from_kind = 'concept' AND to_kind = 'concept'
+             AND from_id < to_id ORDER BY 1, 2"""
+    ).fetchall()
+    conflicts = conn.execute(
+        """SELECT DISTINCT c.concept_id, e.to_id FROM knowledge_edges e
+           JOIN concepts c ON c.parent_id = e.from_id
+           WHERE e.relation = 'conflicto' AND e.from_kind = 'group' AND e.to_kind = 'concept' ORDER BY 1, 2"""
+    ).fetchall()
     bridges = conn.execute(
         f"""SELECT ci.name, array_agg(DISTINCT sv.vertical) FILTER (WHERE sv.vertical IS NOT NULL),
                    count(DISTINCT sp.store_id)
@@ -124,6 +136,8 @@ def collect(conn: Connection) -> dict:
         "spread": [[n, c] for n, c in spread],
         "concepts": concepts,
         "complements": [[a, b, float(w)] for a, b, w in complements],
+        "substitutes": [[a, b, float(w)] for a, b, w in substitutes],
+        "conflicts": [[a, b] for a, b in conflicts],
         "bridges": [[name, in_order(v), n] for name, v, n in bridges],
         "chains": [[name, in_order(v), n] for name, v, n in chains],
         # Servicios sin catálogo (RappiTravel, RappiFavor): se enganchan a conceptos, no tienen productos.
