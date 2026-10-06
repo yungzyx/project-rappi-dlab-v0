@@ -20,7 +20,7 @@ family = "dieta"
 applies_to = "both"
 description = "Apto para celíacos: sin gluten declarado."
 rappi = [{ keys = ["gluten_free", "pps_gluten_free"] }]
-phrases = ["sin gluten", "libre de gluten", "gluten free", "sin tacc", "libre de tacc", "apto celiacos", "para celiacos"]
+phrases = ["sin gluten", "libre de gluten", "gluten free", "sin tacc", "libre de tacc", "apto celiacos", "para celiacos", "no contiene gluten"]
 negations = ["contiene gluten", "con gluten", "trazas de gluten", "puede contener gluten"]
 
 [[attribute]]
@@ -30,7 +30,7 @@ family = "dieta"
 applies_to = "both"
 description = "Sin lactosa o deslactosado."
 rappi = [{ keys = ["lactose_free"] }]
-phrases = ["sin lactosa", "libre de lactosa", "deslactosado", "deslactosada", "lactose free", "zero lactosa", "cero lactosa"]
+phrases = ["sin lactosa", "libre de lactosa", "deslactosado", "deslactosada", "lactose free", "zero lactosa", "cero lactosa", "no contiene lactosa"]
 negations = ["contiene lactosa", "con lactosa", "trazas de leche"]
 
 [[attribute]]
@@ -40,8 +40,8 @@ family = "dieta"
 applies_to = "both"
 description = "Sin azúcar añadida: sin azúcar, zero, stevia o endulzado sin azúcar."
 rappi = [{ keys = ["sugar_free", "pps_sugar_free", "calorie_free"] }]
-phrases = ["sin azucar", "sin azucares", "libre de azucar", "cero azucar", "zero azucar", "0 azucar", "sugar free", "sin azucar anadida", "con stevia", "stevia", "sin endulzante"]
-negations = ["contiene azucar", "con azucar anadida"]
+phrases = ["sin azucar", "sin azucares", "libre de azucar", "cero azucar", "zero azucar", "0 azucar", "sugar free", "sin azucar anadida", "con stevia", "stevia", "sin endulzante", "no contiene azucar"]
+negations = ["contiene azucar", "con azucar anadida", "azucar light", "azucar con stevia"]
 
 [[attribute]]
 id = "vegano"
@@ -98,6 +98,8 @@ applies_to = "both"
 description = "Harina o grano integral."
 phrases = ["integral", "integrales", "multigrano", "whole grain"]
 negations = ["no integral"]
+only_groups = ["alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida"]
+use_description = false
 
 [[attribute]]
 id = "alto-fibra"
@@ -128,6 +130,7 @@ rappi = [{ keys = ["is_light"] }]
 phrases = ["light", "lite", "bajo en grasa", "baja en grasa", "descremado", "descremada", "0 grasa", "sin grasa", "bajo en calorias", "diet"]
 negations = ["no light"]
 use_description = false
+only_groups = ["alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida", "mascotas"]
 
 [[attribute]]
 id = "organico"
@@ -138,6 +141,7 @@ description = "Certificación orgánica o declarado orgánico."
 rappi = [{ keys = ["organic", "pps_organic"] }]
 phrases = ["organico", "organica", "organicos", "organicas", "organic"]
 negations = ["no organico"]
+only_groups = ["alcohol", "bebidas", "snacks", "dulces", "despensa", "frescos", "comida", "belleza", "salud", "mascotas", "bebe"]
 
 [[attribute]]
 id = "sin-cafeina"
@@ -158,6 +162,7 @@ description = "Cerveza, vino o licor sin alcohol."
 rappi = [{ keys = ["is_zero_alcohol", "alcohol_free_pharma"] }]
 phrases = ["sin alcohol", "cero alcohol", "0 alcohol", "alcohol free", "desalcoholizado", "desalcoholizada", "no alcoholico", "non alcoholic"]
 negations = ["con alcohol"]
+only_groups = ["alcohol", "bebidas"]
 
 [[attribute]]
 id = "natural"
@@ -240,8 +245,8 @@ family = "publico"
 applies_to = "both"
 description = "Producto para bebés (0 a 3 años)."
 rappi = [{ keys = ["baby_stage", "baby_stage_food", "formula_stage", "baby_food_type"], values = [] }, { keys = ["bb_gender"], values = ["Unisex", "Niña", "Niño"] }]
-phrases = ["bebe", "bebes", "baby", "recien nacido", "lactante", "formula infantil", "panal", "panales", "mamadera", "chupete", "colado", "papilla"]
-negations = ["adulto", "incontinencia", "adulto mayor", "perro", "gato", "mascota", "bebida", "bebible", "baby back", "ribs"]
+phrases = ["bebe", "bebes", "recien nacido", "lactante", "formula infantil", "panal", "panales", "mamadera", "chupete", "colado", "papilla"]
+negations = ["adulto", "incontinencia", "adulto mayor", "perro", "gato", "mascota", "bebida", "bebible", "baby back", "ribs", "munecas", "muneca", "doll", "baby back", "ribs"]
 
 [[attribute]]
 id = "ninos"
@@ -297,7 +302,7 @@ family = "publico"
 applies_to = "catalog_item"
 description = "Producto declarado para mujer."
 rappi = [{ keys = ["gender", "pps_gender"], values = ["Femenino", "Mujer"] }]
-phrases = ["mujer", "mujeres", "femenino", "dama", "women", "woman", "lady", "pour femme"]
+phrases = ["mujer", "mujeres", "femenino", "dama", "women", "woman", "pour femme"]
 negations = ["unisex", "hombre y mujer"]
 
 [[attribute]]
@@ -361,7 +366,7 @@ name = "Familiar"
 family = "formato"
 applies_to = "both"
 description = "Tamaño familiar o para compartir."
-phrases = ["familiar", "tamano familiar", "formato familiar", "family", "para compartir", "gigante", "jumbo"]
+phrases = ["familiar", "tamano familiar", "formato familiar", "para compartir"]
 
 [[attribute]]
 id = "individual"
@@ -468,7 +473,7 @@ name = "Tamaño viaje"
 family = "formato"
 applies_to = "catalog_item"
 description = "Formato de viaje o muestra."
-phrases = ["tamano viaje", "travel size", "de viaje", "formato viaje", "mini size"]
+phrases = ["tamano viaje", "travel size", "formato viaje", "mini size"]
 
 [[attribute]]
 id = "en-polvo"
@@ -552,7 +557,7 @@ family = "origen"
 applies_to = "both"
 description = "Elaboración artesanal."
 rappi = [{ keys = ["is_crafted_beer"] }]
-phrases = ["artesanal", "artesanales", "craft", "hecho a mano", "de autor"]
+phrases = ["artesanal", "artesanales", "craft", "hecho a mano"]
 negations = ["no artesanal", "industrial"]
 
 [[attribute]]
@@ -631,7 +636,7 @@ name = "Fiestas Patrias"
 family = "ocasion"
 applies_to = "both"
 description = "Artículo o producto de Fiestas Patrias."
-phrases = ["fiestas patrias", "dieciocho", "chilenidad", "terremoto", "ramada", "volantin", "bandera de chile", "empanada de pino"]
+phrases = ["fiestas patrias", "dieciocho", "chilenidad", "terremoto", "ramada", "volantin", "bandera de chile"]
 
 [[attribute]]
 id = "halloween"
@@ -681,7 +686,7 @@ name = "Para compartir"
 family = "platos"
 applies_to = "menu_item"
 description = "Pensado para dos o más personas."
-phrases = ["para compartir", "para 2", "para 3", "para 4", "para 5", "para 6", "familiar", "picada", "x2", "2 personas", "3 personas", "4 personas"]
+phrases = ["para compartir", "para 2", "para 3", "para 4", "para 5", "para 6", "familiar", "picada", "2 personas", "3 personas", "4 personas"]
 
 [[attribute]]
 id = "saludable"
@@ -729,7 +734,7 @@ name = "Con acompañamiento"
 family = "platos"
 applies_to = "menu_item"
 description = "Incluye papas, ensalada u otro acompañamiento."
-phrases = ["con papas", "con ensalada", "con arroz", "con acompanamiento", "con guarnicion", "mas papas", "+ papas", "y papas"]
+phrases = ["con papas", "con ensalada", "con arroz", "con acompanamiento", "con guarnicion", "mas papas", "y papas"]
 
 [[attribute]]
 id = "bebida-incluida"
@@ -737,7 +742,7 @@ name = "Bebida incluida"
 family = "platos"
 applies_to = "menu_item"
 description = "El combo o menú incluye bebida."
-phrases = ["con bebida", "mas bebida", "+ bebida", "bebida incluida", "incluye bebida", "con gaseosa", "con jugo", "con coca cola", "con refresco", "y bebida", "+ bebestible"]
+phrases = ["con bebida", "mas bebida", "bebida incluida", "incluye bebida", "con gaseosa", "con jugo", "con coca cola", "con refresco", "y bebida"]
 
 [[attribute]]
 id = "desayuno"
@@ -753,4 +758,4 @@ name = "Postre incluido"
 family = "platos"
 applies_to = "menu_item"
 description = "El combo o menú incluye postre."
-phrases = ["con postre", "mas postre", "+ postre", "postre incluido", "incluye postre", "y postre"]
+phrases = ["con postre", "mas postre", "postre incluido", "incluye postre", "y postre"]

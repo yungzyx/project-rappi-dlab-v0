@@ -88,6 +88,7 @@ WITH unit_prices AS (
            coalesce(u.price_per_kg, u.price_per_l, u.price_per_unit) AS unit_price
     FROM capa.item_unit_prices u
     JOIN item_concepts ic ON ic.entity_type = u.entity_type AND ic.entity_id = u.entity_id
+    WHERE coalesce(u.price_per_kg, u.price_per_l, u.price_per_unit) IS NOT NULL
 ), medians AS (
     SELECT vertical, concept_id, per, count(*) AS items,
            percentile_cont(0.5) WITHIN GROUP (ORDER BY unit_price) AS median_price

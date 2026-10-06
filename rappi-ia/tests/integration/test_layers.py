@@ -192,3 +192,64 @@ def test_unit_price_ratios_flag_a_mispriced_item(db):
     ).fetchall()
 
     assert [r[0] for r in rows] == ["44"] and rows[0][1] > 100
+
+
+def test_economico_compares_the_price_per_unit_not_the_shelf_price(db, monkeypatch):
+    """Un sobre de 15 g es barato en la góndola y caro por gramo: «económico» es lo segundo."""
+    monkeypatch.setattr(attributes_layer, "MIN_CONCEPT_ITEMS_FOR_PRICE", 4)
+    add_store(db, 1, "supermercado")
+    items = [(50, "Alimento perro 15 g", 500, 15), (51, "Alimento perro 1000 g", 4000, 1000),
+             (52, "Alimento perro 2000 g", 9000, 2000), (53, "Alimento perro 3000 g", 14000, 3000),
+             (54, "Alimento perro 5000 g", 30000, 5000)]  # fmt: skip
+    for pid, name, price, grams in items:
+        add_product(db, pid, name, 1, "Alimento para perros")
+        add_price(db, 1, pid, price)
+        db.execute(
+            "UPDATE catalog_items SET quantity = %s, unit_type = 'gr' WHERE master_product_id = %s", (grams, pid)
+        )
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+
+    build_attributes(db)
+
+    cheap = {i for (i, a) in _attrs(db) if a == "economico"}
+    assert "50" not in cheap and "51" in cheap  # $4,0/g contra $33,3/g del sobre
+
+
+def test_curated_rows_survive_even_when_a_rule_detects_the_same_attribute(db):
+    _attribute_catalog(db)
+    build_attributes(db)
+    db.execute(
+        "UPDATE item_attributes SET source = 'curado', rules_version = 'a mano' "
+        "WHERE entity_id = '21' AND attribute_id = 'sin-lactosa'"
+    )
+
+    build_attributes(db)
+
+    assert _attrs(db)[("21", "sin-lactosa")] == "curado"
+
+
+def test_unit_price_ratios_ignore_items_without_a_comparable_unit(db):
+    add_store(db, 1, "supermercado")
+    add_product(db, 60, "Cable 2 mt", 1, "Cables")
+    add_price(db, 1, 60, 3000)
+    db.execute("UPDATE catalog_items SET quantity = 2, unit_type = 'mt' WHERE master_product_id = 60")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+
+    assert db.execute("SELECT count(*) FROM capa.unit_price_ratios").fetchone()[0] == 0
+
+
+def test_rules_version_changes_when_the_rules_change(tmp_path):
+    from rappi_ia.layers.runs import rules_version
+
+    a, b = tmp_path / "a.toml", tmp_path / "b.toml"
+    a.write_text('version = "x"\nA = 1\n')
+    b.write_text('version = "x"\nA = 2\n')
+    assert rules_version("2026-10-06", a) != rules_version("2026-10-06", b)
+    assert rules_version("2026-10-06", a) == rules_version("2026-10-06", a)
+    assert rules_version("2026-10-06", a).startswith("2026-10-06+")

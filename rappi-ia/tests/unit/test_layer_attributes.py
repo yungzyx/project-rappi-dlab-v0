@@ -1,3 +1,5 @@
+import pytest
+
 from rappi_ia.layers.attributes import detect_attributes, load_attribute_rules
 
 VERSION, RULES = load_attribute_rules()
@@ -74,7 +76,7 @@ def test_a_dish_description_lists_ingredients_so_only_diet_uses_it():
 
 
 def test_two_attributes_can_share_the_same_words():
-    assert {"sin-azucar", "light"} <= set(_detect(name="Bebida Light sin azúcar"))
+    assert {"sin-azucar", "light"} <= set(_detect(name="Bebida Light sin azúcar", group="bebidas"))
 
 
 def test_plural_and_singular_are_the_same_word():
@@ -100,3 +102,57 @@ def test_baby_back_ribs_and_globe_bulbs_are_not_baby_or_birthday_items():
     assert "bebe" not in _detect("menu_item", name="Costillas Baby Back Ribs")
     assert "cumpleanos" not in _detect(name="Ampolleta Led Vintage Globo", category="Ampolletas")
     assert "cumpleanos" in _detect(name="Globos de cumpleaños x 20")
+
+
+def test_phrases_never_start_with_a_symbol():
+    """«+ papas» se normaliza a «papas»: todo plato con papas era «con acompañamiento»."""
+    for rule in RULES:
+        for phrase in (*rule.phrases, *rule.negations):
+            assert phrase[0].isalnum(), (rule.attribute_id, phrase)
+    assert "con-acompanamiento" not in _detect("menu_item", name="Papas Fritas (Caja Mediana)")
+    assert "bebida-incluida" not in _detect("menu_item", name="Bebida 250 ML")
+    assert "postre-incluido" not in _detect("menu_item", name="Postre de 3 Leches")
+    assert "bebida-incluida" in _detect("menu_item", name="Hamburguesa mas bebida")
+
+
+def test_one_person_is_not_shareable():
+    assert "para-compartir" not in _detect("menu_item", name="Tequeños (X2)")
+
+
+def test_diet_attributes_stay_inside_food_groups():
+    assert "sin-alcohol" not in _detect(name="Enjuague bucal sin alcohol", group="salud")
+    assert "sin-alcohol" in _detect(name="Cerveza sin alcohol", group="alcohol")
+    assert "integral" not in _detect(name="Carcasa Otterbox protección integral", group="tecnologia")
+    assert "integral" in _detect(name="Pan de molde integral", group="despensa")
+    assert "light" not in _detect(name="Corrector Fit me Light", group="belleza")
+    assert "light" in _detect(name="Mayonesa Light", group="despensa")
+    assert "organico" not in _detect(name="Bandeja Estilo Moderno Organico", group="hogar")
+
+
+def test_vegan_is_also_vegetarian():
+    found = _detect(name="Hamburguesa vegana de lentejas")
+    assert "vegano" in found and found["vegetariano"].source == "derivado"
+    assert found["vegetariano"].evidence == "vegano"
+
+
+@pytest.mark.parametrize(
+    ("name", "category", "absent"),
+    [
+        ("Family Set Pañuelos", None, "familiar"),
+        ("Muñeca Baby Alive", "Muñecas y Bebés", "bebe"),
+        ("Baby Doll Lencería", None, "bebe"),
+        ("Manzana Pink Lady", None, "mujer"),
+        ("Empanada de pino", None, "fiestas-patrias"),
+        ("Azúcar Light con Stevia", None, "sin-azucar"),
+        ("Bolso De Viaje", "Maletas y organizadores de viaje", "tamano-viaje"),
+        ("Jumbo Crayones Gigante", None, "familiar"),
+    ],
+)
+def test_phrases_that_matched_brands_and_proper_names_are_gone(name, category, absent):
+    assert absent not in _detect(name=name, category=category)
+
+
+def test_no_contiene_is_a_positive_claim_not_a_negation():
+    found = _detect(name="Bebida de almendra", description="No contiene azúcar añadida. No contiene gluten.")
+    assert {"sin-azucar", "sin-gluten"} <= set(found)
+    assert "sin-gluten" not in _detect(name="Galletas", description="Contiene gluten de trigo.")

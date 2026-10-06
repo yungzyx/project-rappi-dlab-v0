@@ -9,7 +9,7 @@ from pathlib import Path
 from psycopg import Connection
 
 from ..text import LEAFLET_WARNINGS, normalize
-from .runs import finish_layer_run, start_layer_run
+from .runs import finish_layer_run, rules_version, start_layer_run
 
 log = logging.getLogger(__name__)
 
@@ -113,19 +113,18 @@ class _Detector:
                 key = tuple(words[start : start + size])
                 for attribute_id, phrase in self.phrases.get(key, ()):
                     found.setdefault(attribute_id, phrase)
-                negated.update(self.negations.get(key, ()))
+                if self.negations.get(key) and not (start and words[start - 1] in ("no", "sin")):
+                    negated.update(self.negations[key])  # «no contiene azúcar» no es «contiene azúcar»
         return found, negated
 
 
-_CACHE: dict[int, _Detector] = {}
+_CACHE: list = []  # [(reglas, detector)]: se guarda la lista misma para que su id no se reutilice
 
 
 def _detector(rules: list[AttributeRule]) -> _Detector:
-    key = id(rules)
-    if key not in _CACHE:
-        _CACHE.clear()
-        _CACHE[key] = _Detector(rules)
-    return _CACHE[key]
+    if not _CACHE or _CACHE[0][0] is not rules:
+        _CACHE[:] = [(rules, _Detector(rules))]
+    return _CACHE[0][1]
 
 
 def _rappi_says(rule: AttributeRule, rappi: dict) -> tuple[str | None, bool]:
@@ -184,6 +183,8 @@ def detect_attributes(
         hits, negated = (full_hits, full_neg) if uses_description else (name_hits, name_neg)
         if rule.attribute_id in hits and rule.attribute_id not in negated:
             found.append(Detected(rule.attribute_id, None, "regla", RULE_CONFIDENCE, hits[rule.attribute_id]))
+    if any(d.attribute_id == "vegano" for d in found) and not any(d.attribute_id == "vegetariano" for d in found):
+        found.append(Detected("vegetariano", None, "derivado", DERIVED_CONFIDENCE, "vegano"))  # todo vegano lo es
     return found
 
 
@@ -202,22 +203,30 @@ GROUP BY sp.master_product_id
 ON CONFLICT DO NOTHING
 """
 
+# «Económico» compara el precio por unidad (kg, l, und) dentro del concepto, la vertical y la unidad: un sobre de 15 g
+# es barato en la góndola y caro por gramo. Sin medida comparable, se compara el precio de góndola.
 _CHEAP = f"""
 WITH priced AS (
-    SELECT sd.entity_id, sd.vertical, ic.concept_id, sd.price_min
+    SELECT sd.entity_id, sd.vertical, ic.concept_id,
+           coalesce(m.unit, 'precio') AS per,
+           CASE WHEN m.total > 0 AND m.suspect IS NULL THEN sd.price_min / m.total ELSE sd.price_min END AS metric,
+           CASE WHEN m.total > 0 AND m.suspect IS NULL THEN m.unit ELSE NULL END AS measured
     FROM search_documents sd
     JOIN item_concepts ic ON ic.entity_type = sd.entity_type AND ic.entity_id = sd.entity_id
+    LEFT JOIN item_measures m ON m.entity_type = sd.entity_type AND m.entity_id = sd.entity_id
     WHERE sd.entity_type = 'catalog_item' AND sd.price_min > 0
+), grouped AS (
+    SELECT entity_id, vertical, concept_id, coalesce(measured, 'precio') AS per, metric FROM priced
 ), cutoffs AS (
-    SELECT concept_id, vertical, percentile_cont(0.25) WITHIN GROUP (ORDER BY price_min) AS p25
-    FROM priced GROUP BY concept_id, vertical HAVING count(*) >= %(min_items)s
+    SELECT concept_id, vertical, per, percentile_cont(0.25) WITHIN GROUP (ORDER BY metric) AS p25
+    FROM grouped GROUP BY concept_id, vertical, per HAVING count(*) >= %(min_items)s
 )
 INSERT INTO item_attributes ({_COLUMNS})
-SELECT DISTINCT ON (p.entity_id) 'catalog_item', p.entity_id, 'economico', NULL, 'derivado', %(conf)s,
-       'p25 de ' || p.concept_id || ' en ' || p.vertical, %(version)s, %(run)s
-FROM priced p JOIN cutoffs c USING (concept_id, vertical)
-WHERE p.price_min <= c.p25
-ORDER BY p.entity_id
+SELECT DISTINCT ON (g.entity_id) 'catalog_item', g.entity_id, 'economico', NULL, 'derivado', %(conf)s,
+       'p25 de ' || g.concept_id || ' en ' || g.vertical || ' (' || g.per || ')', %(version)s, %(run)s
+FROM grouped g JOIN cutoffs c USING (concept_id, vertical, per)
+WHERE g.metric <= c.p25
+ORDER BY g.entity_id, g.vertical
 ON CONFLICT DO NOTHING
 """
 
@@ -259,6 +268,7 @@ def _seed_definitions(conn: Connection, rules: list[AttributeRule], version: str
 def build_attributes(conn: Connection) -> dict:
     """Recalcula `item_attributes` de todos los productos y platos (idempotente). Lo `curado` a mano no se toca."""
     version, rules = load_attribute_rules()
+    version = rules_version(version, RULES_FILE, Path(__file__))
     run = start_layer_run(conn, "attributes", version)
     _seed_definitions(conn, rules, version)
     conn.execute("DELETE FROM item_attributes WHERE source <> 'curado'")

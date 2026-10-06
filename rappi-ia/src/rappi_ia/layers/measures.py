@@ -7,11 +7,12 @@ dice «1 und» pero el nombre trae «3 L». Para los platos solo se extrae una e
 import logging
 import re
 from dataclasses import dataclass, replace
+from pathlib import Path
 
 from psycopg import Connection
 
 from ..text import normalize
-from .runs import finish_layer_run, start_layer_run
+from .runs import finish_layer_run, rules_version, start_layer_run
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ _UNITS = {
 }  # fmt: skip
 # Del nombre solo se leen peso y volumen (mg, lb o mm en un nombre suelen ser dosis o medidas de otra cosa).
 _NAME_MEASURE = re.compile(
-    r"(?<![\w.,\-])(\d+(?:[.,]\d+)?)\s*(kg|kilos?|grs?|gr|g|gramos?|ml|cc|lts?|l|litros?)(?![\w/])", re.IGNORECASE
+    r"(?<![\w.,\-+/])(\d+(?:[.,]\d+)?)\s*(kg|kilos?|grs?|gr|g|gramos?|ml|cc|lts?|l|litros?)(?![\w/])", re.IGNORECASE
 )
 _THOUSANDS = re.compile(r"^\d{1,3}\.\d{3}$")
 _PACK_WORDS = {"six": 6, "doce": 12, "tres": 3}
@@ -72,22 +73,23 @@ def _to_base(quantity: float | None, unit: str | None) -> tuple[float | None, st
     return round(quantity * base[1], 6), base[0]
 
 
-def _name_measure(name: str) -> tuple[float, str, str] | None:
-    """(cantidad, unidad base, texto que la dijo) de la primera medida de peso o volumen del nombre."""
+_RANGE_BEFORE = re.compile(r"\d\s*(?:a|-|–|al)\s*$")
+
+
+def _name_measure(name: str) -> tuple[float, str, str, str] | None:
+    """(cantidad, unidad base, texto que la dijo, unidad escrita) de la primera medida de peso o volumen del nombre."""
     for match in _NAME_MEASURE.finditer(name):
         before = name[: match.start()].lower().rstrip()
-        if before.endswith(("hasta", "talla")):  # «hasta 15 kg» es el peso del bebé, no del paquete
-            continue
+        if before.endswith(("hasta", "talla")) or _RANGE_BEFORE.search(before):
+            continue  # «hasta 15 kg», «3.5 a 7 kg»: son pesos de uso del producto, no su contenido
         digits, unit = match.group(1), match.group(2)
         if _THOUSANDS.match(digits) and unit.lower() in ("ml", "cc", "g", "gr", "grs"):
             value = float(digits.replace(".", ""))
         else:
             value = float(digits.replace(",", "."))
         quantity, base = _to_base(value, unit)
-        if (
-            quantity and quantity <= MAX_PLAUSIBLE[base]
-        ):  # «600 L» de una tetera o «3028 L» de un filtro: no es el tamaño
-            return quantity, base, match.group(0).strip()
+        if quantity and quantity <= MAX_PLAUSIBLE[base]:  # «600 L» de una tetera o «3028 L» de un filtro: no es tamaño
+            return quantity, base, match.group(0).strip(), unit
     return None
 
 
@@ -100,7 +102,7 @@ def _pack(name: str, pack_size: str | None, presentation: str | None) -> int:
         if m := pattern.search(name):
             token = m.group(1).lower()
             value = _PACK_WORDS.get(token) or int(token)
-            if value > 1:
+            if 1 < value <= MAX_UND_AS_PACK:  # «N°312 Pack 6» o «Doy Pack 500 Gr»: el número grande no es el pack
                 return value
     return 1
 
@@ -112,6 +114,13 @@ def _suspect(m: Measure) -> Measure:
     elif m.total is not None and m.unit == "g" and m.total <= MIN_PLAUSIBLE_G:
         reason = "un miligramo o menos"
     return replace(m, suspect=reason) if reason else m
+
+
+def _implausible(rappi_qty: float | None, name_qty: float) -> bool:
+    """El valor de Rappi es un relleno («1 g» de una yerba de 500 g) o un absurdo (1000 L de un vino)."""
+    if not rappi_qty:
+        return True
+    return (rappi_qty == 1 and name_qty > 1) or max(rappi_qty, name_qty) / min(rappi_qty, name_qty) >= 50
 
 
 def _parse_measure(
@@ -126,9 +135,14 @@ def _parse_measure(
         quantity = None
     rappi_qty, rappi_unit = _to_base(quantity, unit_type or ("und" if quantity is not None else None))
     from_name = _name_measure(name)
-    # El nombre corrige a Rappi cuando éste dice «und» o una dimensión distinta («Coca-Cola 3 L» con 1 und).
-    if from_name and (rappi_unit in (None, "und") or rappi_unit != from_name[1]):
-        name_qty, name_unit, text = from_name
+    if from_name and from_name[3].lower() == "g" and from_name[0] < 10 and rappi_unit == "und":
+        from_name = None  # «Honor 400 Pro 5g» es la red 5G, no cinco gramos
+    # El nombre corrige a Rappi cuando éste dice «und», una dimensión distinta («Coca-Cola 3 L» con 1 und) o, en la
+    # misma dimensión, un valor de relleno o absurdo.
+    if from_name and (
+        rappi_unit in (None, "und") or rappi_unit != from_name[1] or _implausible(rappi_qty, from_name[0])
+    ):
+        name_qty, name_unit, text, _written = from_name
         if rappi_unit == "und" and rappi_qty and 1 < rappi_qty <= MAX_UND_AS_PACK and pack == 1:
             pack = int(rappi_qty)  # «Shampoo 1 L» con 4Und: cuatro envases
         return Measure(name_qty, name_unit, pack, round(name_qty * pack, 6), None, "regla", text)
@@ -166,13 +180,14 @@ def parse_dish_size(name: str) -> str | None:
     said = normalize(name)
     for pattern, label in _DISH_SIZES:
         if m := pattern.search(said):
-            return label(m)
+            size = label(m)
+            return "individual" if size == "para 1" else size  # una persona no es «para compartir»
     return None
 
 
 def build_measures(conn: Connection) -> dict:
     """Recalcula `item_measures` de todos los productos y platos (idempotente)."""
-    run = start_layer_run(conn, "measures", RULES_VERSION)
+    run = start_layer_run(conn, "measures", rules_version(RULES_VERSION, Path(__file__)))
     rows = conn.execute(
         """SELECT master_product_id::text, name, quantity::float, unit_type, presentation, attributes->>'pack_size'
            FROM catalog_items"""
