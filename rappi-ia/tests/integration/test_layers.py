@@ -11,6 +11,7 @@ from rappi_ia.concepts.taxonomy import load_taxonomy
 from rappi_ia.layers import attributes as attributes_layer
 from rappi_ia.layers.attributes import build_attributes
 from rappi_ia.layers.brands import build_brands
+from rappi_ia.layers.graph import build_relations
 from rappi_ia.layers.measures import build_measures
 from rappi_ia.layers.report import layer_report
 from rappi_ia.layers.runs import finish_layer_run, start_layer_run
@@ -414,3 +415,186 @@ def test_removing_a_concept_removes_its_edges_from_the_graph(db):
     seed_taxonomy(db, taxonomy)
 
     assert db.execute("SELECT count(*) FROM knowledge_edges WHERE 'cerveza' IN (from_id, to_id)").fetchone()[0] == 0
+
+
+def _edges(db, relation, **where):
+    sql = (
+        "SELECT from_kind, from_id, to_kind, to_id, weight, support, data_source"
+        " FROM knowledge_edges WHERE relation = %s"
+    )
+    for column in where:
+        sql += f" AND {column} = %s"
+    rows = db.execute(sql + " ORDER BY 1, 2, 3, 4", (relation, *where.values())).fetchall()
+    return {(fk, fi, tk, ti): (w, sup, src) for fk, fi, tk, ti, w, sup, src in rows}
+
+
+def test_build_relations_writes_taxonomy_curated_and_synonym_edges_and_is_idempotent(db):
+    build_concepts(db)
+    complements = db.execute("SELECT count(*) FROM concept_edges WHERE method = 'curado'").fetchone()[0]
+
+    counts = build_relations(db)
+    total = db.execute("SELECT count(*) FROM knowledge_edges").fetchone()[0]
+    again = build_relations(db)
+
+    types = _edges(db, "es_tipo_de")
+    assert len(types) == len(load_taxonomy().concepts)
+    assert types[("concept", "cerveza", "group", "alcohol")][0] == 1.0
+    sustituye = _edges(db, "sustituye")  # simétrica: se guarda en las dos direcciones
+    assert ("concept", "cafe", "concept", "te") in sustituye and ("concept", "te", "concept", "cafe") in sustituye
+    assert ("group", "alcohol", "concept", "panales") in _edges(db, "conflicto")
+    assert ("concept", "panales", "group", "alcohol") in _edges(db, "conflicto")
+    assert ("term", "pizza", "concept", "pizza") in _edges(db, "sinonimo")
+    assert _edges(db, "de_ocasion")  # cada ocasión de la taxonomía arma sus conceptos
+    assert db.execute("SELECT count(*) FROM concept_edges WHERE method = 'curado'").fetchone()[0] == complements
+    assert counts["curadas"] > 40 and again == counts
+    assert db.execute("SELECT count(*) FROM knowledge_edges").fetchone()[0] == total
+    assert db.execute("SELECT count(*) FROM layer_runs WHERE layer = 'relations'").fetchone()[0] == 2
+
+
+def test_build_relations_keeps_complementa_and_what_other_layers_learned(db):
+    build_concepts(db)
+    db.execute(
+        """INSERT INTO concept_edges (from_concept, to_concept, method, weight, support, data_source)
+           VALUES ('cerveza', 'pizza', 'coocurrencia', 0.7, 40, 'prototype')"""
+    )
+
+    build_relations(db)
+
+    assert db.execute("SELECT count(*) FROM concept_edges WHERE method = 'coocurrencia'").fetchone()[0] == 1
+    assert db.execute("SELECT count(*) FROM concept_edges WHERE method = 'curado'").fetchone()[0] > 50
+
+
+def _graph_catalog(db):
+    add_store(db, 1, "supermercado")
+    add_store(db, 2, "licores")
+    items = [  # (id, nombre, marca, concepto, tienda)
+        (100, "Galletas sin gluten Mantequilla", "Gloria", "galletas", 1),
+        (101, "Galletas sin gluten Chips", "Gloria", "galletas", 1),
+        (102, "Galletas sin gluten Avena", "Gloria", "galletas", 1),
+        (103, "Galletas Soda", "Gloria", "galletas", 1),
+        (104, "Galletas Dulces", "Gloria", "galletas", 1),
+        (105, "Galletas Crema", "Gloria", "galletas", 1),
+        (106, "Cerveza Cristal 350 ml", "Cristal", "cerveza", 2),
+        (107, "Cerveza Escudo 350 ml", "Cristal", "cerveza", 2),
+        (108, "Cerveza Royal 350 ml", "Cristal", "cerveza", 1),
+        (109, "Cerveza Austral 350 ml", "Cristal", "cerveza", 2),
+    ]
+    for pid, name, trademark, _concept, store in items:
+        add_product(db, pid, name, store, "Varios")
+        db.execute("UPDATE catalog_items SET trademark = %s WHERE master_product_id = %s", (trademark, pid))
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    for pid, _name, _brand, concept, _store in items:
+        db.execute(
+            """INSERT INTO item_concepts (entity_type, entity_id, concept_id, method, confidence)
+               VALUES ('catalog_item', %s, %s, 'curado', 1)
+               ON CONFLICT (entity_type, entity_id) DO UPDATE SET concept_id = EXCLUDED.concept_id""",
+            (str(pid), concept),
+        )
+    db.execute("REFRESH MATERIALIZED VIEW concept_assortment")
+    build_measures(db)
+    build_brands(db)
+    build_attributes(db)
+    db.commit()
+
+
+def test_catalog_relations_respect_their_thresholds(db, monkeypatch):
+    from rappi_ia.layers import brands as brands_layer
+    from rappi_ia.layers import graph as graph_layer
+
+    monkeypatch.setattr(brands_layer, "MIN_INDEX_ITEMS", 1)
+    monkeypatch.setattr(graph_layer, "MIN_BRAND_ITEMS", 3)
+    monkeypatch.setattr(graph_layer, "MIN_VERTICAL_ITEMS", 1)
+    _graph_catalog(db)
+
+    build_relations(db)
+
+    gluten = _edges(db, "tiene_atributo", to_id="sin-gluten")
+    assert gluten == {("concept", "galletas", "attribute", "sin-gluten"): (0.5, 3, "catalogo")}  # 3 de 6, no cerveza
+    sells = _edges(db, "se_vende_en")
+    assert sells[("concept", "cerveza", "vertical", "licores")][0] == 1.0  # donde más tiene
+    assert round(sells[("concept", "cerveza", "vertical", "supermercado")][0], 3) == 0.333  # 1 de 3: relativo
+    brands = {k[1]: (k[3], v[0]) for k, v in _edges(db, "marca_de").items()}
+    assert brands == {"gloria": ("galletas", 1.0), "cristal": ("cerveza", 1.0)}
+
+
+def test_catalog_relations_drop_small_samples(db, monkeypatch):
+    from rappi_ia.layers import brands as brands_layer
+
+    monkeypatch.setattr(brands_layer, "MIN_INDEX_ITEMS", 1)
+    _graph_catalog(db)
+
+    build_relations(db)  # umbrales de producción: Cristal vende 4 ítems (< 5) y Gloria 6; 3 sin gluten alcanzan
+
+    assert ("concept", "cerveza", "vertical", "supermercado") not in _edges(db, "se_vende_en")  # 1 ítem < 3
+    assert ("concept", "cerveza", "vertical", "licores") in _edges(db, "se_vende_en")
+    assert {k[1] for k in _edges(db, "marca_de")} == {"gloria"}  # Cristal vende 4 < 5
+    assert ("concept", "galletas", "attribute", "sin-gluten") in _edges(db, "tiene_atributo")
+
+
+def test_equivale_links_a_canonical_product_to_every_vertical_that_sells_it(db, monkeypatch):
+    from rappi_ia.layers import brands as brands_layer
+    from rappi_ia.layers.canonical import build_canonical
+
+    monkeypatch.setattr(brands_layer, "MIN_INDEX_ITEMS", 1)
+    add_store(db, 1, "supermercado")
+    add_store(db, 2, "licores")
+    colas = [(80, "Coca-Cola Original 1.5 L", 1), (81, "Coca Cola Original 1,5 L", 2), (82, "Coca-Cola Zero 1.5 L", 1)]
+    for pid, name, store in colas:
+        add_product(db, pid, name, store, "Gaseosas")
+        db.execute(
+            "UPDATE catalog_items SET trademark = 'Coca-Cola', quantity = 1.5, unit_type = 'l'"
+            " WHERE master_product_id = %s",
+            (pid,),
+        )
+    db.commit()
+    build_measures(db)
+    build_brands(db)
+    build_canonical(db)
+
+    build_relations(db)
+
+    shared = db.execute("SELECT canonical_id FROM item_canonical WHERE master_product_id = 80").fetchone()[0]
+    assert _edges(db, "equivale") == {
+        ("canonical", str(shared), "vertical", "licores"): (1.0, 1, "catalogo"),
+        ("canonical", str(shared), "vertical", "supermercado"): (1.0, 1, "catalogo"),
+    }  # el producto que solo vende una vertical no tiene aristas
+
+
+def _co_search_events(db, sessions, source="synthetic"):
+    db.execute("INSERT INTO app_users (user_id, source) VALUES ('u1', %s) ON CONFLICT DO NOTHING", (source,))
+    for session, (kind, concept) in sessions:
+        db.execute(
+            "INSERT INTO app_events (user_id, session_id, type, concept_id, source) VALUES ('u1', %s, %s, %s, %s)",
+            (session, kind, concept, source),
+        )
+
+
+def test_co_search_is_learned_per_source_from_what_people_search_not_from_the_cart(db, monkeypatch):
+    from rappi_ia.layers import graph as graph_layer
+
+    monkeypatch.setattr(graph_layer, "MIN_SESSIONS", 2)
+    build_concepts(db)
+    sensitive = min(c.id for c in load_taxonomy().concepts.values() if c.sensitive)
+    _co_search_events(
+        db,
+        [
+            ("s1", ("search", "cerveza")), ("s1", ("chat", "pizza")), ("s1", ("search", sensitive)),
+            ("s2", ("search", "cerveza")), ("s2", ("view_item", "pizza")), ("s2", ("search", sensitive)),
+            ("s3", ("search", "vino")), ("s3", ("cart_add", "cerveza")),
+            ("s4", ("search", "vino")), ("s4", ("search", "pizza")),
+        ],
+    )  # fmt: skip
+
+    build_relations(db)
+
+    edges = _edges(db, "co_busqueda")
+    assert edges[("concept", "cerveza", "concept", "pizza")] == (1.0, 2, "synthetic")
+    pizza_to_beer = edges[("concept", "pizza", "concept", "cerveza")][0]
+    assert round(pizza_to_beer, 3) == 0.667  # dirigida: 2 de 3 sesiones con pizza
+    assert not any("vino" in (k[1], k[3]) and "cerveza" in (k[1], k[3]) for k in edges)  # el carro no cuenta
+    assert not any(sensitive in (k[1], k[3]) for k in edges)  # los sensibles no se aprenden
+    assert db.execute("SELECT DISTINCT method FROM knowledge_edges WHERE relation = 'co_busqueda'").fetchall() == [
+        ("coocurrencia",)
+    ]

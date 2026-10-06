@@ -136,6 +136,27 @@ def test_vegan_is_also_vegetarian():
 
 
 @pytest.mark.parametrize(
+    "name",
+    [
+        "Bebida Vegetal Barista Avena 1 L",
+        "Leche De Almendras 1lt Sabor Original",
+        "Vilay Bebida de Almendras Vainilla",
+        "Leche de Coco Tarro 400 ml",
+        "Notmilk Chocolate",
+        "Mr. Seitán Bistec de Seitán",
+    ],
+)
+def test_plant_drinks_and_seitan_are_vegan(name):
+    found = _detect(name=name, group="frescos")
+    assert "vegano" in found and "vegetariano" in found
+
+
+@pytest.mark.parametrize("name", ["Leche Condensada Azucarada", "Bombón Nutella de Cabra", "Leche Entera 1 L"])
+def test_milk_is_not_vegan_just_because_the_category_says_plant_milk(name):
+    assert "vegano" not in _detect(name=name, category="Leche vegetal", group="frescos")
+
+
+@pytest.mark.parametrize(
     ("name", "category", "absent"),
     [
         ("Family Set Pañuelos", None, "familiar"),
