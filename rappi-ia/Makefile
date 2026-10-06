@@ -98,6 +98,8 @@ purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/
 # para los eventos simulados que synth acaba de generar.
 layers:  ## Capa de perfiles: medidas y atributos de ítem (crece con las etapas del plan)
 	$(PY) -m rappi_ia measures
+	$(PY) -m rappi_ia brands
+	$(PY) -m rappi_ia canonical
 	$(PY) -m rappi_ia attributes
 
 layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.md)

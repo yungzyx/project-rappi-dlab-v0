@@ -6,6 +6,7 @@ from conftest import add_dish, add_price, add_product, add_store
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.layers import attributes as attributes_layer
 from rappi_ia.layers.attributes import build_attributes
+from rappi_ia.layers.brands import build_brands
 from rappi_ia.layers.measures import build_measures
 from rappi_ia.layers.report import layer_report
 from rappi_ia.layers.runs import finish_layer_run, start_layer_run
@@ -160,6 +161,7 @@ def test_layer_report_lists_coverage_sources_and_a_sample(db):
     assert "# Capas de perfiles" in report
     assert "sin-gluten" in report and "rappi" in report  # cobertura por atributo y fuente
     assert "Leche sin lactosa 1 L" in report  # muestra revisable con el nombre del ítem
+    assert "Marcas y producto canónico por vertical" in report and "Productos canónicos con ids distintos" in report
     assert layer_report(db, sample=2) == report  # muestra con semilla fija: mismo reporte
 
 
@@ -253,3 +255,122 @@ def test_rules_version_changes_when_the_rules_change(tmp_path):
     assert rules_version("2026-10-06", a) != rules_version("2026-10-06", b)
     assert rules_version("2026-10-06", a) == rules_version("2026-10-06", a)
     assert rules_version("2026-10-06", a).startswith("2026-10-06+")
+
+
+def _brand_catalog(db):
+    add_store(db, 1, "supermercado")
+    add_store(db, 2, "restaurantes")
+    items = [
+        (70, "Coca-Cola Original 1.5 L", "Coca-Cola"), (71, "Coca Cola Zero 1.5 L", "COCA COLA"),
+        (72, "Coca-Cola Sin Azúcar 1.5 L", "Coca-Cola Sin Azúcar"), (73, "Papas Fritas Lays 150 g", "Lays"),
+        (74, "Leche Entera 1 L", "Líder"), (75, "Leche Descremada 1 L", "Lider"),
+        (76, "Lays Papas Onduladas", ""), (77, "Cargador USB", "Nan"),
+    ]  # fmt: skip
+    for pid, name, trademark in items:
+        add_product(db, pid, name, 1, "Varios")
+        db.execute("UPDATE catalog_items SET trademark = %s WHERE master_product_id = %s", (trademark, pid))
+    add_dish(db, 500, "Combo Whopper", 2, "Combos")
+    db.execute("INSERT INTO brands (brand_id, name, kind) VALUES (9, 'Burger King', 'restaurant')")
+    db.execute("UPDATE stores SET brand_id = 9 WHERE store_id = 2")
+    db.commit()
+
+
+def test_build_brands_joins_writings_infers_from_the_name_and_flags_store_brands(db, monkeypatch):
+    from rappi_ia.layers import brands as brands_layer
+
+    monkeypatch.setattr(brands_layer, "MIN_PARENT_ITEMS", 2)  # la base de prueba es chica
+    monkeypatch.setattr(brands_layer, "MIN_INDEX_ITEMS", 1)
+    _brand_catalog(db)
+
+    counts = build_brands(db)
+    by_item = dict(db.execute("SELECT entity_id, brand_key FROM item_brands").fetchall())
+    sources = dict(db.execute("SELECT entity_id, source FROM item_brands").fetchall())
+
+    assert by_item["70"] == by_item["71"] == by_item["72"]  # tres escrituras y una línea: una marca
+    assert (
+        db.execute("SELECT name FROM product_brands WHERE brand_key = %s", (by_item["70"],)).fetchone()[0]
+        == "Coca-Cola"
+    )
+    assert by_item["74"] == by_item["75"]  # Líder = Lider
+    assert by_item["76"] == by_item["73"] and sources["76"] == "regla"  # «Lays Papas…» sin marca declarada
+    assert "77" not in by_item  # «Nan» no es una marca
+    assert by_item["500"] and sources["500"] == "cadena"
+    assert counts["marcas"] >= 4 and counts["deducidas_del_nombre"] == 1
+    assert db.execute("SELECT is_store_brand FROM product_brands WHERE brand_key = %s", (by_item["74"],)).fetchone()[0]
+    assert build_brands(db) == counts  # idempotente
+
+
+def test_store_brand_items_get_the_marca_propia_attribute(db):
+    _brand_catalog(db)
+    build_search_documents(db)
+    build_concepts(db)
+    build_measures(db)
+    build_brands(db)
+
+    build_attributes(db)
+
+    found = _attrs(db)
+    assert found[("74", "marca-propia")] == "derivado" and ("70", "marca-propia") not in found
+
+
+def test_canonical_products_join_the_same_product_across_ids_and_never_across_sizes(db, monkeypatch):
+    from rappi_ia.layers import brands as brands_layer
+    from rappi_ia.layers.canonical import build_canonical
+
+    monkeypatch.setattr(brands_layer, "MIN_INDEX_ITEMS", 1)
+    add_store(db, 1, "supermercado")
+    add_store(db, 2, "licores")
+    items = [
+        (80, "Coca-Cola Original 1.5 L", "Coca-Cola", 1, 1.5),
+        (81, "Coca Cola Original 1,5 L", "COCA COLA", 2, 1.5),
+        (82, "Coca-Cola Original 3 L", "Coca-Cola", 1, 3),
+        (83, "Coca-Cola Zero 1.5 L", "Coca-Cola", 1, 1.5),
+        (84, "Cargador USB", "", 1, None),
+    ]
+    for pid, name, trademark, store, liters in items:
+        add_product(db, pid, name, store, "Gaseosas")
+        db.execute(
+            "UPDATE catalog_items SET trademark = %s, quantity = %s, unit_type = %s WHERE master_product_id = %s",
+            (trademark, liters, "l" if liters else None, pid),
+        )
+    db.commit()
+    build_measures(db)
+    build_brands(db)
+
+    counts = build_canonical(db)
+    canon = dict(db.execute("SELECT master_product_id::text, canonical_id FROM item_canonical").fetchall())
+
+    assert canon["80"] == canon["81"]  # mismo producto, dos ids, dos verticales
+    assert len({canon["80"], canon["82"], canon["83"]}) == 3  # otro tamaño u otra variante: otro producto
+    assert "84" not in canon  # sin marca ni medida no se puede unir: no se inventa
+    assert counts == {"canonicos": 3, "items": 4, "compartidos": 1}
+    assert build_canonical(db) == counts
+
+
+def test_canonical_ids_are_stable_and_curated_rows_survive_the_rebuild(db, monkeypatch):
+    from rappi_ia.layers import brands as brands_layer
+    from rappi_ia.layers.canonical import build_canonical
+
+    monkeypatch.setattr(brands_layer, "MIN_INDEX_ITEMS", 1)
+    add_store(db, 1, "supermercado")
+    for pid in (90, 91):
+        add_product(db, pid, "Coca-Cola Original 1.5 L", 1, "Gaseosas")
+        db.execute(
+            "UPDATE catalog_items SET trademark = 'Coca-Cola', quantity = 1.5, unit_type = 'l'"
+            " WHERE master_product_id = %s",
+            (pid,),
+        )
+    db.commit()
+    build_measures(db)
+    build_brands(db)
+    build_canonical(db)
+    before = db.execute("SELECT canonical_id FROM item_canonical WHERE master_product_id = 90").fetchone()[0]
+    db.execute("UPDATE item_brands SET source = 'curado' WHERE entity_id = '91'")
+    db.execute("UPDATE item_canonical SET method = 'curado' WHERE master_product_id = 91")
+
+    build_brands(db)
+    build_canonical(db)
+
+    assert db.execute("SELECT canonical_id FROM item_canonical WHERE master_product_id = 90").fetchone()[0] == before
+    assert db.execute("SELECT source FROM item_brands WHERE entity_id = '91'").fetchone()[0] == "curado"
+    assert db.execute("SELECT method FROM item_canonical WHERE master_product_id = 91").fetchone()[0] == "curado"

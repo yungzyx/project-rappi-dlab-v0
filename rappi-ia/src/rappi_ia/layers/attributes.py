@@ -230,6 +230,14 @@ ORDER BY g.entity_id, g.vertical
 ON CONFLICT DO NOTHING
 """
 
+_STORE_BRAND = f"""
+INSERT INTO item_attributes ({_COLUMNS})
+SELECT b.entity_type, b.entity_id, 'marca-propia', NULL, 'derivado', %(conf)s, p.name, %(version)s, %(run)s
+FROM item_brands b JOIN product_brands p USING (brand_key)
+WHERE p.is_store_brand AND b.entity_type = 'catalog_item'
+ON CONFLICT DO NOTHING
+"""
+
 _FROM_MEASURES = f"""
 INSERT INTO item_attributes ({_COLUMNS})
 SELECT entity_type, entity_id, 'pack', NULL, 'derivado', %(conf)s, 'x' || pack, %(version)s, %(run)s
@@ -300,7 +308,9 @@ def build_attributes(conn: Connection) -> dict:
                              version, run)
                         )  # fmt: skip
     params = {"conf": DERIVED_CONFIDENCE, "version": version, "run": run, "min_items": MIN_CONCEPT_ITEMS_FOR_PRICE}
-    counts["derivados"] = sum(conn.execute(sql, params).rowcount for sql in (_DISCOUNTED, _CHEAP, _FROM_MEASURES))
+    counts["derivados"] = sum(
+        conn.execute(sql, params).rowcount for sql in (_DISCOUNTED, _CHEAP, _FROM_MEASURES, _STORE_BRAND)
+    )
     conn.execute("ANALYZE item_attributes")
     finish_layer_run(conn, run, counts)
     log.info("Atributos: %s", counts)
