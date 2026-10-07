@@ -27,6 +27,11 @@
   color: #fff;
 }
 
+.demo-toggle button.demo-toggle-replay {
+  background: #fff1ea;
+  color: #8f2c16;
+}
+
 .demo-toggle-hint {
   padding: 0 10px 0 6px;
   font-size: 12px;

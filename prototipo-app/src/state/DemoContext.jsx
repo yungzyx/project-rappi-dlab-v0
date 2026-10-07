@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-// "actual" = Rappi como es hoy; "propuesta" = con Bigotes y recomendaciones entre verticales.
+// "actual" = Rappi como es hoy; "propuesta" = con Bigotes y recomendaciones entre verticales; "vivo" = tercer
+// prototipo de prueba: Bigotes de cuerpo entero vive en la Home y la reordena para la persona, sin chat.
 const STORAGE_KEY = 'rappi-proto-demo-mode'
-const MODES = ['propuesta', 'actual']
-export const MODE_LABELS = { propuesta: 'Propuesta ✨', actual: 'Rappi hoy' }
+const MODES = ['propuesta', 'actual', 'vivo']
+export const MODE_LABELS = { propuesta: 'Propuesta ✨', actual: 'Rappi hoy', vivo: 'Bigotes vivo 🧡' }
 
 function load() {
   try {
@@ -22,7 +23,7 @@ function persist(mode) {
   }
 }
 
-const other = (mode) => (mode === 'propuesta' ? 'actual' : 'propuesta')
+export const nextMode = (mode) => MODES[(MODES.indexOf(mode) + 1) % MODES.length]
 
 const DemoContext = createContext(null)
 
@@ -36,8 +37,8 @@ export function DemoProvider({ children }) {
 
   const toggle = useCallback(() => {
     setModeState((prev) => {
-      persist(other(prev))
-      return other(prev)
+      persist(nextMode(prev))
+      return nextMode(prev)
     })
   }, [])
 
@@ -52,7 +53,11 @@ export function DemoProvider({ children }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [toggle])
 
-  const value = useMemo(() => ({ mode, isProposal: mode === 'propuesta', setMode, toggle }), [mode, setMode, toggle])
+  // El modo vivo usa el mismo cerebro que la propuesta (perfil, sugerencias, eventos); solo cambia cómo se muestra.
+  const value = useMemo(
+    () => ({ mode, isProposal: mode !== 'actual', isLive: mode === 'vivo', setMode, toggle }),
+    [mode, setMode, toggle],
+  )
 
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>
 }

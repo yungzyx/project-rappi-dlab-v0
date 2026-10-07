@@ -1,6 +1,7 @@
 import { cartEventFields, conceptOf } from '../api/orders'
 import { firstShowing } from '../api/useRemoteForYou'
 import { productTags } from '../assistant/tags'
+import { rememberAdded } from '../screens/home/live/memory'
 import { useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
 import { WEIGHTS, useProfile } from '../state/ProfileContext'
@@ -43,8 +44,10 @@ export default function AddButton({ product, className = '' }) {
         events.track('suggestion_shown', fields)
       events.track('suggestion_accepted', fields)
     }
+    // En «Bigotes vivo» no hay aviso ni chat: Bigotes lo comenta al volver a la Home.
+    if (demo.isLive) rememberAdded(item)
     // Dentro del chat Bigotes ya está recomendando: el aviso solo sale fuera.
-    if (demo.isProposal && !assistant.isOpen) nudge.offer(item)
+    else if (demo.isProposal && !assistant.isOpen) nudge.offer(item)
   }
 
   const stop = (handler) => (e) => {
