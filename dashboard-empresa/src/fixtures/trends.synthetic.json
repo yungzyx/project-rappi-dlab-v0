@@ -2,88 +2,88 @@
   "source": "synthetic",
   "data": [
     {
-      "concept_id": "carbon",
-      "concepto": "🔥 Carbón y leña",
-      "recientes": 15,
+      "concept_id": "articulos-deportivos",
+      "concepto": "⚽ Artículos deportivos",
+      "recientes": 2,
       "anteriores": 27,
+      "crecimiento_pct": -93
+    },
+    {
+      "concept_id": "decoracion",
+      "concepto": "🎉 Decoración y fiestas",
+      "recientes": 10,
+      "anteriores": 55,
+      "crecimiento_pct": -82
+    },
+    {
+      "concept_id": "vitaminas",
+      "concepto": "💪 Vitaminas y suplementos",
+      "recientes": 35,
+      "anteriores": 20,
+      "crecimiento_pct": 75
+    },
+    {
+      "concept_id": "espumante",
+      "concepto": "🥂 Espumante",
+      "recientes": 14,
+      "anteriores": 48,
+      "crecimiento_pct": -71
+    },
+    {
+      "concept_id": "ron",
+      "concepto": "🥃 Ron",
+      "recientes": 30,
+      "anteriores": 61,
+      "crecimiento_pct": -51
+    },
+    {
+      "concept_id": "vegano",
+      "concepto": "🌱 Alternativas vegetales",
+      "recientes": 22,
+      "anteriores": 39,
       "crecimiento_pct": -44
+    },
+    {
+      "concept_id": "jugos",
+      "concepto": "🧃 Jugos y néctares",
+      "recientes": 30,
+      "anteriores": 21,
+      "crecimiento_pct": 43
+    },
+    {
+      "concept_id": "videojuegos",
+      "concepto": "🎮 Videojuegos",
+      "recientes": 30,
+      "anteriores": 21,
+      "crecimiento_pct": 43
     },
     {
       "concept_id": "peruana",
       "concepto": "🇵🇪 Comida peruana",
-      "recientes": 457,
-      "anteriores": 320,
-      "crecimiento_pct": 43
+      "recientes": 458,
+      "anteriores": 323,
+      "crecimiento_pct": 42
     },
     {
-      "concept_id": "vodka",
-      "concepto": "🍸 Vodka",
-      "recientes": 19,
-      "anteriores": 32,
-      "crecimiento_pct": -41
+      "concept_id": "galletas",
+      "concepto": "🍪 Galletas",
+      "recientes": 128,
+      "anteriores": 211,
+      "crecimiento_pct": -39
     },
     {
-      "concept_id": "fiambres",
-      "concepto": "🥓 Fiambres y embutidos",
-      "recientes": 20,
-      "anteriores": 32,
+      "concept_id": "articulos-bebe",
+      "concepto": "🧸 Artículos de bebé",
+      "recientes": 47,
+      "anteriores": 76,
       "crecimiento_pct": -38
     },
     {
-      "concept_id": "ensaladas-bowls",
-      "concepto": "🥗 Ensaladas y bowls",
-      "recientes": 255,
-      "anteriores": 388,
-      "crecimiento_pct": -34
-    },
-    {
-      "concept_id": "alimento-gato",
-      "concepto": "🐈 Alimento para gatos",
-      "recientes": 84,
-      "anteriores": 123,
-      "crecimiento_pct": -32
-    },
-    {
-      "concept_id": "postres",
-      "concepto": "🍮 Postres",
-      "recientes": 98,
-      "anteriores": 142,
-      "crecimiento_pct": -31
-    },
-    {
-      "concept_id": "frutas",
-      "concepto": "🍎 Frutas",
-      "recientes": 409,
-      "anteriores": 559,
-      "crecimiento_pct": -27
-    },
-    {
-      "concept_id": "vino",
-      "concepto": "🍷 Vino",
-      "recientes": 77,
-      "anteriores": 102,
-      "crecimiento_pct": -25
-    },
-    {
-      "concept_id": "pisco",
-      "concepto": "🍸 Pisco",
-      "recientes": 103,
-      "anteriores": 136,
-      "crecimiento_pct": -24
-    },
-    {
-      "concept_id": "gaseosas",
-      "concepto": "🥤 Bebidas gaseosas",
-      "recientes": 141,
-      "anteriores": 186,
-      "crecimiento_pct": -24
-    },
-    {
-      "concept_id": "cereales",
-      "concepto": "🥣 Cereales y avena",
-      "recientes": 128,
-      "anteriores": 104,
-      "crecimiento_pct": 23
+      "concept_id": "textil-hogar",
+      "concepto": "🛏️ Textiles del hogar",
+      "recientes": 20,
+      "anteriores": 31,
+      "crecimiento_pct": -35
     }
   ]
 }

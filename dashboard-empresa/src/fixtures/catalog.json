@@ -51,28 +51,28 @@
         "productos": 38454,
         "sin_imagen_pct": 0.1,
         "sin_categoria_pct": 0,
-        "sin_concepto_pct": 1.9
+        "sin_concepto_pct": 0.3
       },
       {
         "vertical": "supermercado",
         "productos": 33503,
         "sin_imagen_pct": 0.4,
         "sin_categoria_pct": 2.5,
-        "sin_concepto_pct": 0.9
+        "sin_concepto_pct": 0.2
       },
       {
         "vertical": "conveniencia",
         "productos": 9404,
         "sin_imagen_pct": 0.6,
         "sin_categoria_pct": 2.2,
-        "sin_concepto_pct": 0.2
+        "sin_concepto_pct": 0
       },
       {
         "vertical": "farmacia",
         "productos": 6750,
         "sin_imagen_pct": 0.4,
         "sin_categoria_pct": 0,
-        "sin_concepto_pct": 2.9
+        "sin_concepto_pct": 0.3
       },
       {
         "vertical": "licores",
