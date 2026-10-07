@@ -60,14 +60,16 @@ Tests: 169 (Vitest, 04-10-2026). CI en GitHub Actions: lint, tests y build.
 
 **Accesibilidad:** el asistente y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), y cada respuesta de Bigotes se anuncia completa al lector de pantalla.
 
-## Modo demo: Rappi hoy vs. Propuesta
+## Modo demo: Rappi hoy, Propuesta y Bigotes vivo
 
-El interruptor junto al teléfono (tecla **D**, o Account → Modo demo en el celular) cambia entre la app como es hoy y la propuesta.
+El interruptor junto al teléfono (tecla **D**, o Account → Modo demo en el celular) cambia entre la app como es hoy, la propuesta y un tercer prototipo de prueba, **Bigotes vivo**.
 
 | Rappi hoy | Propuesta |
 |:---:|:---:|
 | <img src="docs/screenshots/02-home-rappi-hoy.jpg" width="300" alt="Home de Rappi hoy"> | <img src="docs/screenshots/01-home-propuesta.jpg" width="300" alt="Home con Bigotes"> |
 | Buscador original | Barra inteligente (chat, foto y voz) y Bigotes arriba a la derecha |
+
+**Bigotes vivo** no tiene chat: Bigotes de cuerpo entero vive en la Home (`src/screens/home/live/`). Al entrar dice qué notó («te encantan los chocolates») y sube ese bloque bajo el buscador con el resto oscurecido; al lado aparece una vertical donde nunca pediste. La Home suma un pasaporte de verticales, «¿Qué plan tienes hoy?» (un kit de varias verticales) y, al tocar a Bigotes, una vertical por probar. Bigotes saluda al llegar, salta, apunta y gira según lo que dice, y en espera mira alrededor, baila o se estira. «↺ Repetir escena», junto al interruptor, vuelve a empezar. Respeta «reducir movimiento» del sistema.
 
 ## Lo nuevo de la propuesta
 

@@ -162,7 +162,7 @@ cd prototipo-app && npm ci && npm run dev       # http://localhost:5174
 cd dashboard-empresa && npm ci && npm run dev   # http://localhost:5175
 ```
 
-- **Prototipo:** la tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Rappi hoy» y «Propuesta». Sin la API, Bigotes responde con reglas locales sobre los datos de las capturas y lo marca con «Respuesta local».
+- **Prototipo:** la tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Propuesta», «Rappi hoy» y «Bigotes vivo» (tercer prototipo: Bigotes vive en la Home y la ordena, sin chat). Sin la API, Bigotes responde con reglas locales sobre los datos de las capturas y lo marca con «Respuesta local».
 - **Panel:** sin la API usa respuestas guardadas (`src/fixtures/`) y lo avisa («Modo sin conexión (datos guardados)»). Cada bloque indica si su dato es simulado o real.
 
 ### Correr la demo completa (catálogo real)

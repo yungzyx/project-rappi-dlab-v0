@@ -1,24 +1,32 @@
+import { resetLive } from '../screens/home/live/memory'
 import { MODE_LABELS, useDemo } from '../state/DemoContext'
 import './demo-toggle.css'
 
-/** Interruptor "Rappi hoy / Propuesta" fuera del marco del teléfono (solo en notebook). */
+/** Interruptor de los tres modos fuera del marco del teléfono (solo en notebook). En «Bigotes vivo», repetir la escena. */
 export default function DemoToggle() {
   const demo = useDemo()
 
   return (
-    <div className="demo-toggle" role="radiogroup" aria-label="Modo de la demo">
-      {Object.entries(MODE_LABELS).map(([mode, label]) => (
-        <button
-          key={mode}
-          type="button"
-          role="radio"
-          aria-checked={demo.mode === mode}
-          className={demo.mode === mode ? 'is-active' : undefined}
-          onClick={() => demo.setMode(mode)}
-        >
-          {label}
+    <div className="demo-toggle">
+      <div className="demo-toggle-modes" role="radiogroup" aria-label="Modo de la demo">
+        {Object.entries(MODE_LABELS).map(([mode, label]) => (
+          <button
+            key={mode}
+            type="button"
+            role="radio"
+            aria-checked={demo.mode === mode}
+            className={demo.mode === mode ? 'is-active' : undefined}
+            onClick={() => demo.setMode(mode)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {demo.isLive && (
+        <button type="button" className="demo-toggle-replay" onClick={resetLive}>
+          ↺ Repetir escena
         </button>
-      ))}
+      )}
       <span className="demo-toggle-hint">Tecla D</span>
     </div>
   )

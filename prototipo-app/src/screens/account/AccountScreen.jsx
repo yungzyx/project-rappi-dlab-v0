@@ -3,7 +3,7 @@ import { useToast } from '../../components/Toast'
 import { ChevronLeft, ChevronRight } from '../../components/Icons'
 import { CardIcon, HeadsetIcon, LogoutIcon, OrdersIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
-import { MODE_LABELS, useDemo } from '../../state/DemoContext'
+import { MODE_LABELS, nextMode, useDemo } from '../../state/DemoContext'
 import { useOrders } from '../../state/OrdersContext'
 import { formatPrice } from '../../state/CartContext'
 import dealsCrown from '../../assets/deals-crown.webp'
@@ -26,7 +26,7 @@ export default function AccountScreen({ onBack, push }) {
     else if (row.action === 'loyalty') push('loyalty')
     else if (row.action === 'demo') {
       demo.toggle()
-      toast(`Modo demo: ${MODE_LABELS[demo.mode === 'propuesta' ? 'actual' : 'propuesta']}`)
+      toast(`Modo demo: ${MODE_LABELS[nextMode(demo.mode)]}`)
     } else if (row.action) setSheet(row.action)
     else toast()
   }

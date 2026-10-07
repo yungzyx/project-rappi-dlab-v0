@@ -12,6 +12,11 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
+.demo-toggle-modes {
+  display: flex;
+  gap: 4px;
+}
+
 .demo-toggle button {
   height: 34px;
   padding: 0 14px;
@@ -25,6 +30,11 @@
 .demo-toggle button.is-active {
   background: var(--ink);
   color: #fff;
+}
+
+.demo-toggle button.demo-toggle-replay {
+  background: #fff1ea;
+  color: #8f2c16;
 }
 
 .demo-toggle-hint {

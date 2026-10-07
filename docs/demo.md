@@ -31,6 +31,17 @@ cd dashboard-empresa && npm run dev  # http://localhost:5175
 | 6 | En el panel: **Entre verticales**, fuente Prototipo. Si el panel ya estaba ahí, toca **Actualizar** (junto a la fecha de corte). | «Bigotes entre verticales»: suben las mostradas, aceptadas y convertidas. | Cada sugerencia queda medida: se ve si se acepta y si termina en compra. |
 | 7 | En el panel, fuente **Simulados**: Resumen y Oportunidades. | Las decisiones de la semana y lo que la gente pide y no encuentra. | Con datos simulados: muestra la mecánica, no resultados. Con datos de Rappi se mide de verdad. |
 
+### Tercer prototipo: Bigotes vivo (2 minutos, opcional)
+
+Con la tecla **D** hasta «Bigotes vivo 🧡» (o el botón arriba a la izquierda). Para partir de cero: **↺ Repetir escena**.
+
+1. Bigotes entra caminando a la Home y dice qué notó («te encantan los chocolates»). Si nadie responde, a los 7 s sube el bloque solo.
+2. El bloque sube bajo el buscador, todo lo demás se oscurece y aparece al lado una vertical nueva (con chocolates, «Copete» en Licores). **Qué decir:** la personalización se ve en la pantalla misma, no en un chat aparte.
+3. Baja hasta «¿Qué plan tienes hoy?» y elige **Carrete**: un kit de tres verticales con un solo botón.
+4. Toca a Bigotes: propone una vertical que falta en el pasaporte. Ábrela y vuelve: celebra el sello.
+
+El pasaporte y su envío gratis son una idea para probar con usuarios, no una promoción real.
+
 ## Qué aclarar si preguntan
 
 - **De dónde salen los productos:** del catálogo público de rappi.cl (muestra de hasta 24 productos por sub-pasillo), con precios vigentes.

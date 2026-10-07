@@ -1,0 +1,782 @@
+/* «Bigotes vivo»: Bigotes de cuerpo entero dentro de la Home, bloques que se reordenan y foco con fondo oscuro. */
+/* La capa de Bigotes es hermana de la Home (no hija): las dos llevan las variables. */
+.home--live,
+.live-layer {
+  --live-accent: #c43d20; /* rojo Rappi más oscuro: texto blanco encima con 5,2:1 */
+  --live-accent-soft: #fff1ea;
+  --live-night: #17151a;
+  --live-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+  --live-glide: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home--live {
+  background-color: var(--surface);
+  transition: background-color 520ms var(--live-glide);
+}
+
+/* ---------- Foco: todo lo demás se apaga y el bloque elegido queda iluminado ---------- */
+.home--live.is-dim {
+  background-color: var(--live-night);
+}
+
+.live-dimmable {
+  transition:
+    opacity 520ms var(--live-glide),
+    filter 520ms var(--live-glide);
+}
+
+.live-dimmable.is-dimmed {
+  opacity: 0.18;
+  filter: grayscale(0.7) blur(1.5px);
+  pointer-events: none;
+}
+
+.live-block {
+  position: relative;
+}
+
+.live-block.is-focus {
+  z-index: 1;
+}
+
+.live-block.is-focus .live-card {
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.9),
+    0 18px 50px rgba(255, 120, 70, 0.35);
+}
+
+/* ---------- Bloques propios ---------- */
+.live-card {
+  position: relative;
+  margin: 32px 14px 0;
+  padding: 18px 0 20px;
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: 0 6px 22px rgba(60, 30, 20, 0.08);
+  transition: box-shadow 520ms var(--live-glide);
+}
+
+.live-block:first-child .live-card {
+  margin-top: 26px;
+}
+
+.live-card--interest {
+  background: linear-gradient(180deg, #fff3ec 0%, #ffffff 62%);
+}
+
+.live-card--discovery {
+  background: linear-gradient(180deg, #f1f6ff 0%, #ffffff 62%);
+}
+
+.live-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+}
+
+.live-card-head h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 24px;
+}
+
+.live-card-head p {
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: 13.5px;
+  line-height: 17px;
+}
+
+.live-card-emoji {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(60, 30, 20, 0.1);
+  font-size: 26px;
+  font-style: normal;
+}
+
+.live-items {
+  gap: 16px;
+  padding: 22px 18px 0;
+  scroll-padding-left: 18px;
+}
+
+.live-item {
+  flex: none;
+}
+
+/* Al aparecer, los ítems entran uno tras otro */
+.live-kit .live-item,
+.live-card--discovery .live-item,
+.is-focus .live-item {
+  animation: live-item-in 460ms var(--live-glide) backwards;
+  animation-delay: calc(var(--i) * 70ms + 120ms);
+}
+
+@keyframes live-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+}
+
+.live-store {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 139px;
+  text-align: left;
+}
+
+.live-store-logo {
+  display: grid;
+  place-items: center;
+  width: 139px;
+  height: 139px;
+  border-radius: 18px;
+  background: var(--tile);
+  overflow: hidden;
+}
+
+.live-store-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.live-store-logo.is-logo img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+
+.live-store-name {
+  margin-top: 9px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 19px;
+}
+
+.live-store-eta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.live-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 18px 18px 0;
+  padding: 8px 8px 8px 14px;
+  border-radius: 99px;
+  background: var(--live-accent-soft);
+  color: #8f2c16;
+  font-size: 13px;
+  font-weight: 600;
+  animation: live-item-in 420ms var(--live-glide) backwards;
+}
+
+.live-ribbon button {
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ---------- ¿Qué plan tienes hoy? ---------- */
+.live-plan-title {
+  padding: 0 18px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.live-plan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 18px 0;
+}
+
+.live-plan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 99px;
+  background: var(--chip);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    background-color 200ms,
+    color 200ms,
+    transform 200ms var(--live-spring);
+}
+
+.live-plan-chip.is-active {
+  background: var(--ink);
+  color: #fff;
+  transform: scale(1.04);
+}
+
+.live-plan-empty {
+  padding: 14px 18px 0;
+  color: var(--ink-3);
+  font-size: 13.5px;
+}
+
+.live-kit {
+  animation: live-item-in 380ms var(--live-glide);
+}
+
+.live-kit-meta {
+  padding: 14px 18px 0;
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
+
+.live-kit-add {
+  display: block;
+  width: calc(100% - 36px);
+  margin: 20px 18px 0;
+  padding: 13px 0;
+  border-radius: 14px;
+  background: var(--live-accent);
+  color: #fff;
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+/* ---------- Pasaporte de verticales ---------- */
+.live-passport {
+  margin: 30px 14px 0;
+  padding: 16px 0 16px;
+  border-radius: 22px;
+  background: linear-gradient(120deg, #fff8e8, #fff1ea);
+}
+
+.live-passport-head {
+  padding: 0 18px;
+}
+
+.live-passport-head h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.live-passport-head p {
+  margin-top: 2px;
+  color: #8f2c16;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.live-stamps {
+  gap: 10px;
+  padding: 12px 18px 0;
+  scroll-padding-left: 18px;
+}
+
+.live-stamp {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 58px;
+}
+
+.live-stamp-face {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 2px dashed #c98b72;
+  border-radius: 50%;
+  color: #9a5a43; /* 5,6:1 sobre el fondo del pasaporte */
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.live-stamp.has .live-stamp-face {
+  border: 2px solid var(--live-accent);
+  background: #fff;
+  font-size: 24px;
+  transform: rotate(-8deg);
+}
+
+.live-stamp.is-fresh .live-stamp-face {
+  animation: live-stamp-thud 700ms var(--live-spring);
+}
+
+@keyframes live-stamp-thud {
+  0% {
+    transform: scale(2.2) rotate(-30deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.9) rotate(-6deg);
+    opacity: 1;
+  }
+}
+
+.live-stamp-name {
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- Destellos al aterrizar ---------- */
+.live-sparkles {
+  position: absolute;
+  top: 36px;
+  left: 50%;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.live-sparkles span {
+  position: absolute;
+  color: #ff8a3d;
+  font-size: 16px;
+  opacity: 0;
+  animation: live-spark 950ms var(--live-glide) forwards;
+}
+
+@keyframes live-spark {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.3);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(1.1);
+  }
+}
+
+/* ---------- Bigotes y su globo ---------- */
+.live-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 25; /* sobre la Home, bajo la barra inferior y el carrito */
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.live-bigotes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 84px;
+  transition:
+    transform 680ms var(--live-spring),
+    opacity 300ms;
+  will-change: transform;
+}
+
+.live-bigotes.is-away {
+  opacity: 0;
+}
+
+.live-bigotes-body[hidden] {
+  display: none;
+}
+
+.live-bigotes-body {
+  display: block;
+  pointer-events: auto;
+  filter: drop-shadow(0 8px 10px rgba(40, 20, 10, 0.25));
+  transition: transform 200ms var(--live-spring);
+}
+
+.live-bigotes-body:active {
+  transform: scale(0.92) rotate(-5deg);
+}
+
+.live-bigotes.is-entering .live-bigotes-body {
+  animation: live-enter 900ms var(--live-spring) backwards;
+}
+
+@keyframes live-enter {
+  0% {
+    transform: translateX(130px) rotate(18deg);
+  }
+  55% {
+    transform: translateX(-10px) rotate(-6deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.live-hop {
+  display: block;
+  animation: live-hop 560ms var(--live-glide);
+}
+
+@keyframes live-hop {
+  0% {
+    transform: translateY(0) scale(1.08, 0.9);
+  }
+  40% {
+    transform: translateY(-22px) scale(0.95, 1.06);
+  }
+  80% {
+    transform: translateY(0) scale(1.06, 0.94);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* ---------- Gestos: cada frase trae uno y, en espera, va cambiando solo ---------- */
+.live-gesture {
+  display: block;
+  transform-origin: 50% 95%; /* desde los pies */
+}
+
+.live-bigotes .mascot-arm-left {
+  transform-box: view-box;
+  transform-origin: 18px 68px;
+}
+
+/* Saludo de entrada: llega, da un saltito y agita el brazo tres veces */
+.live-gesture--greet {
+  animation: live-hello-body 1.7s var(--live-glide) 0.75s;
+}
+
+.live-bigotes .live-gesture--greet .mascot-arm,
+.live-bigotes .live-gesture--wave .mascot-arm {
+  animation: live-arm-wave 1.5s ease-in-out 0.75s;
+}
+
+.live-bigotes .live-gesture--wave .mascot-arm {
+  animation-delay: 0s;
+}
+
+.live-gesture--wave {
+  animation: live-tilt 1.5s ease-in-out;
+}
+
+.live-gesture--hop {
+  animation: live-double-hop 950ms var(--live-glide);
+}
+
+.live-gesture--point {
+  animation: live-lean 1.8s var(--live-glide);
+}
+
+.live-bigotes .live-gesture--point .mascot-arm-left {
+  animation: live-arm-point 1.8s var(--live-glide);
+}
+
+.live-gesture--spin {
+  animation: live-spin 900ms var(--live-glide);
+}
+
+.live-bigotes .live-gesture--look .mascot-pupil {
+  animation: live-look 2.2s ease-in-out;
+}
+
+.live-gesture--look {
+  animation: live-tilt 2.2s ease-in-out;
+}
+
+.live-gesture--dance {
+  animation: live-dance 1.8s ease-in-out;
+}
+
+.live-bigotes .live-gesture--dance .mascot-arm,
+.live-bigotes .live-gesture--stretch .mascot-arm {
+  animation: live-arm-wave 1.8s ease-in-out;
+}
+
+.live-bigotes .live-gesture--dance .mascot-arm-left,
+.live-bigotes .live-gesture--stretch .mascot-arm-left {
+  animation: live-arm-up 1.8s ease-in-out;
+}
+
+.live-gesture--stretch {
+  animation: live-stretch 1.3s var(--live-glide);
+}
+
+/* Al hablar se mueve con lo que dice */
+.live-bigotes .mascot--talk .mascot-figure {
+  animation: live-talk-bob 0.36s ease-in-out infinite alternate;
+}
+
+@keyframes live-hello-body {
+  0%,
+  100% {
+    transform: none;
+  }
+  15% {
+    transform: translateY(-14px) scale(0.96, 1.05);
+  }
+  28% {
+    transform: translateY(0) scale(1.06, 0.94);
+  }
+  40% {
+    transform: rotate(-6deg);
+  }
+  70% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes live-arm-wave {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  15%,
+  45%,
+  75% {
+    transform: rotate(-62deg);
+  }
+  30%,
+  60%,
+  90% {
+    transform: rotate(-22deg);
+  }
+}
+
+/* Brazo izquierdo estirado hacia la izquierda: apunta al globo y al bloque */
+@keyframes live-arm-point {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  20%,
+  80% {
+    transform: rotate(-55deg);
+  }
+  50% {
+    transform: rotate(-45deg);
+  }
+}
+
+/* Brazo izquierdo arriba, para bailar y estirarse */
+@keyframes live-arm-up {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  30%,
+  70% {
+    transform: rotate(48deg);
+  }
+}
+
+@keyframes live-lean {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  80% {
+    transform: translateX(-5px) rotate(-7deg);
+  }
+}
+
+@keyframes live-tilt {
+  0%,
+  100% {
+    transform: none;
+  }
+  30% {
+    transform: rotate(-6deg);
+  }
+  65% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes live-double-hop {
+  0%,
+  45%,
+  90%,
+  100% {
+    transform: none;
+  }
+  8%,
+  52% {
+    transform: scale(1.08, 0.9);
+  }
+  22% {
+    transform: translateY(-24px) scale(0.94, 1.07);
+  }
+  68% {
+    transform: translateY(-13px) scale(0.97, 1.03);
+  }
+}
+
+@keyframes live-spin {
+  0%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateY(-18px) scaleX(0.15);
+  }
+  50% {
+    transform: translateY(-24px) scaleX(-1);
+  }
+  75% {
+    transform: translateY(-12px) scaleX(0.15);
+  }
+}
+
+@keyframes live-look {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  40% {
+    transform: translate(-3.5px, -1px);
+  }
+  60%,
+  80% {
+    transform: translate(3.5px, -1px);
+  }
+}
+
+@keyframes live-dance {
+  0%,
+  100% {
+    transform: none;
+  }
+  15%,
+  55% {
+    transform: translateX(-4px) rotate(-9deg);
+  }
+  35%,
+  75% {
+    transform: translateX(4px) translateY(-6px) rotate(9deg);
+  }
+}
+
+@keyframes live-stretch {
+  0%,
+  100% {
+    transform: none;
+  }
+  35%,
+  60% {
+    transform: scale(0.94, 1.12);
+  }
+  80% {
+    transform: scale(1.05, 0.95);
+  }
+}
+
+@keyframes live-talk-bob {
+  from {
+    transform: rotate(-2deg);
+  }
+  to {
+    transform: translateY(-2px) rotate(2deg);
+  }
+}
+
+.live-bubble {
+  position: absolute;
+  top: 6px;
+  right: 76px;
+  width: max-content;
+  max-width: 236px;
+  padding: 11px 14px 12px;
+  border-radius: 18px 6px 18px 18px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 10px 30px rgba(20, 10, 5, 0.22);
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 19px;
+  pointer-events: auto;
+  transform-origin: right top;
+  animation: live-bubble-in 360ms var(--live-spring);
+}
+
+/* Abajo en la pantalla, el globo crece hacia arriba desde la cabeza de Bigotes */
+.live-bigotes.is-low .live-bubble {
+  top: auto;
+  bottom: 46px;
+  border-radius: 18px 18px 6px 18px;
+  transform-origin: right bottom;
+}
+
+@keyframes live-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px) scale(0.85);
+  }
+}
+
+.live-bubble-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  animation: live-item-in 300ms var(--live-glide);
+}
+
+.live-chip {
+  padding: 7px 12px;
+  border-radius: 99px;
+  background: var(--chip);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.live-chip.is-primary {
+  background: #c43d20;
+  color: #fff;
+}
+
+/* ---------- Menos movimiento: sin saltos, deslizamientos ni destellos ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .home--live,
+  .live-dimmable,
+  .live-bigotes,
+  .live-card {
+    transition: none;
+  }
+
+  .live-bigotes.is-entering .live-bigotes-body,
+  .live-hop,
+  .live-gesture,
+  .live-bubble,
+  .live-bubble-actions,
+  .live-ribbon,
+  .live-kit,
+  .live-item,
+  .live-stamp.is-fresh .live-stamp-face {
+    animation: none !important;
+  }
+
+  .live-sparkles {
+    display: none;
+  }
+}
