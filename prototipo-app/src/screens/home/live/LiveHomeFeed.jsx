@@ -4,12 +4,14 @@ import HScroll from '../../../components/HScroll'
 import PlainSearchBar from '../../../components/PlainSearchBar'
 import { useToast } from '../../../components/Toast'
 import { ChevronDown, ChevronRight } from '../../../components/Icons'
-import { TAGS, tagsOf } from '../../../assistant/tags'
+import { TAGS, productTags, tagsOf } from '../../../assistant/tags'
+import { cartEventFields } from '../../../api/orders'
 import { VERTICAL_NAMES, routeForScreen } from '../../../data/verticals'
 import { useScrollState } from '../../../hooks/useScrollState'
 import { useAddress } from '../../../state/AddressContext'
 import { useCart } from '../../../state/CartContext'
-import { useProfile } from '../../../state/ProfileContext'
+import { useEvents } from '../../../state/EventsContext'
+import { WEIGHTS, useProfile } from '../../../state/ProfileContext'
 import turboRestaurantesTitle from '../../../assets/turbo-restaurantes-title.webp'
 import CreditsBanner from '../CreditsBanner'
 import { RestaurantCard, StoreTile } from '../StoreCards'
@@ -57,6 +59,7 @@ export default function LiveHomeFeed({ push }) {
   const address = useAddress()
   const cart = useCart()
   const profile = useProfile()
+  const events = useEvents()
   const reduceMotion = usePrefersReducedMotion()
   const [replays, setReplays] = useState(0)
 
@@ -82,19 +85,35 @@ export default function LiveHomeFeed({ push }) {
   const bigotesRef = useRef(null)
   const blockRefs = useRef(new Map())
   const timers = useRef([])
+  const hideTimer = useRef(null)
+  const run = useRef(0) // cambia al repetir la escena o al salir: lo que estaba esperando ya no sigue
   const [{ top }, onScroll] = useScrollState()
   const snapshot = useFlip(blockRefs, order, { focus: 'interest', reduceMotion })
 
   const later = useCallback((ms, fn) => timers.current.push(setTimeout(fn, ms)), [])
-  const clearTimers = () => {
+  const clearTimers = useCallback(() => {
     timers.current.forEach(clearTimeout)
     timers.current = []
-  }
-  useEffect(() => () => clearTimers(), [])
+  }, [])
+  useEffect(
+    () => () => {
+      run.current += 1
+      clearTimers()
+      clearTimeout(hideTimer.current)
+    },
+    [clearTimers],
+  )
 
-  const speak = useCallback((next, at = null) => {
+  /** Bigotes dice algo (o se calla con `null`); con `holdMs` el globo se va solo. Cada frase reemplaza a la anterior. */
+  const speak = useCallback((next, at = null, holdMs = 0) => {
+    clearTimeout(hideTimer.current)
     setSay(next)
     setTarget(at)
+    if (next && holdMs)
+      hideTimer.current = setTimeout(() => {
+        setSay(null)
+        setTarget(null)
+      }, holdMs)
   }, [])
 
   const getBlock = useCallback((id) => blockRefs.current.get(id) ?? null, [])
@@ -118,33 +137,48 @@ export default function LiveHomeFeed({ push }) {
   }
 
   const finishScene = useCallback(() => {
+    clearTimers()
     setScene('idle')
     setSparkle(false)
-    speak({ text: 'Listo. Si me tocas, te muestro algo nuevo 😉', mood: 'idle' }, 'interest')
-    later(4200, () => speak(null, null))
-  }, [later, speak])
+    speak(
+      { text: '¡Listo! Me quedo por aquí, por si te tinca descubrir algo nuevo 😉', mood: 'idle', gesture: 'wave' },
+      'interest',
+      4200,
+    )
+  }, [clearTimers, speak])
 
   const bringInterestUp = useCallback(async () => {
+    if (session.played) return // el botón y el «sí» automático no lo corren dos veces
     session.played = true
+    const current = run.current
     setScene('spotlight')
     speak(
-      { text: `¡Voy! Tus ${interest.label.toLowerCase()} ${interest.emoji} van primero.`, mood: 'wave' },
+      {
+        text: `¡Voy! Tus ${interest.label.toLowerCase()} ${interest.emoji} van primero.`,
+        mood: 'wave',
+        gesture: 'hop',
+      },
       'interest',
     )
     screenRef.current?.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
     await wait(reduceMotion ? 0 : T.scroll)
+    if (current !== run.current) return
     snapshot()
-    const next = moveToFront(order, 'interest', discovery ? 'discovery' : null)
+    // La escena solo corre con la Home recién abierta, en su orden de siempre.
+    const next = moveToFront(BASE_ORDER, 'interest', discovery ? 'discovery' : null)
     session.order = next
     setOrder(next)
     await wait(reduceMotion ? 0 : T.land)
+    if (current !== run.current) return
     setSparkle(true)
+    bigotesRef.current?.reposition() // el bloque ya aterrizó: Bigotes salta encima
     if (!discovery) return finishScene()
     setScene('reveal')
     speak(
       {
-        text: `Y para acompañar: ${discovery.label.toLowerCase()} ${discovery.emoji} en ${discovery.verticalName}, donde nunca has pedido. Pruébalo y te llevas un sello.`,
+        text: `Y para acompañar: ${discovery.label.toLowerCase()} ${discovery.emoji} en ${discovery.verticalName}, donde nunca has pedido. Ábrelo y te llevas un sello.`,
         mood: 'wave',
+        gesture: 'point',
         actions: [
           { label: `Ver ${discovery.verticalName}`, onClick: () => visit(discovery.vertical) },
           { label: 'Listo', onClick: finishScene },
@@ -153,14 +187,13 @@ export default function LiveHomeFeed({ push }) {
       'discovery',
     )
     later(T.revealHold, finishScene)
-  }, [discovery, finishScene, interest, later, order, reduceMotion, snapshot, speak, visit])
+  }, [discovery, finishScene, interest, later, reduceMotion, snapshot, speak, visit])
 
   const undo = () => {
     snapshot()
     session.order = BASE_ORDER
     setOrder(BASE_ORDER)
-    speak({ text: 'Hecho, lo dejé como estaba. Igual lo tengo en cuenta 👍', mood: 'idle' }, null)
-    later(3500, () => speak(null, null))
+    speak({ text: 'Hecho, lo dejé como estaba. Igual lo tengo en cuenta 👍', mood: 'idle' }, null, 3500)
   }
 
   // Primera vez en la Home: entra, saluda y cuenta lo que notó.
@@ -170,7 +203,10 @@ export default function LiveHomeFeed({ push }) {
     later(reduceMotion ? 0 : T.enter, () => {
       setPresent(true)
       setEntering(true)
-      speak({ text: '¡Hola! Ahora vivo en tu Home 👋 La voy a ordenar a tu gusto.', mood: 'wave' }, null)
+      speak(
+        { text: '¡Hola! Ahora vivo en tu Home 👋 La voy a ordenar a tu gusto.', mood: 'wave', gesture: 'greet' },
+        null,
+      )
     })
     later((reduceMotion ? 0 : T.enter) + T.greet, () => {
       setEntering(false)
@@ -180,7 +216,7 @@ export default function LiveHomeFeed({ push }) {
           mood: 'idle',
           actions: [
             { label: '¡Sí, tráelos!', onClick: () => (clearTimers(), bringInterestUp()) },
-            { label: 'Ahora no', onClick: () => (clearTimers(), (session.played = true), speak(null, null)) },
+            { label: 'Ahora no', onClick: () => (clearTimers(), (session.played = true), speak(null)) },
           ],
         },
         null,
@@ -195,28 +231,31 @@ export default function LiveHomeFeed({ push }) {
   // Al volver a la Home: celebra un sello nuevo o comenta lo último que se agregó al carro.
   useEffect(() => {
     if (!session.played) return
+    // Lo pendiente se borra de la sesión recién cuando Bigotes habla: en desarrollo, StrictMode monta dos veces y la
+    // primera vez se cancelan los timers.
     if (session.newStamp) {
       const name = VERTICAL_NAMES[session.newStamp]
       const left = Math.max(PASSPORT_GOAL - loadPassport().length, 0)
-      session.newStamp = null
-      later(T.notice, () =>
+      later(T.notice, () => {
+        session.newStamp = null
         speak(
           {
             text: left
               ? `¡Sello nuevo de ${name}! 🎉 Te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis.`
               : `¡Sello de ${name}! 🎉 Desbloqueaste el envío gratis.`,
             mood: 'wave',
+            gesture: 'spin',
           },
           null,
-        ),
-      )
-      later(T.notice + 4200, () => speak(null, null))
+          4200,
+        )
+      })
       later(1800, () => setFreshStamp(null))
     } else if (session.lastAdded) {
       const added = session.lastAdded
-      session.lastAdded = null
       const tag = tagsOf(`${added.name} ${added.store ?? ''}`).find((candidate) => TAGS[candidate])
       const pairing = tag ? discoveryFor({ tag, vertical: added.vertical }) : null
+      later(T.notice, () => (session.lastAdded = null))
       if (pairing) {
         later(T.notice, () =>
           speak(
@@ -225,7 +264,7 @@ export default function LiveHomeFeed({ push }) {
               mood: 'wave',
               actions: [
                 { label: `Ver ${pairing.verticalName}`, onClick: () => visit(pairing.vertical) },
-                { label: 'Ahora no', onClick: () => speak(null, null) },
+                { label: 'Ahora no', onClick: () => speak(null) },
               ],
             },
             null,
@@ -246,20 +285,25 @@ export default function LiveHomeFeed({ push }) {
         if (!entry.isIntersecting || session.planPrompted || !session.played || scene !== 'idle') return
         session.planPrompted = true
         speak(
-          { text: '¿Qué plan tienes hoy? Elige uno y armo todo, de las tiendas que hagan falta 👇', mood: 'wave' },
+          {
+            text: '¿Qué plan tienes hoy? Elige uno y armo todo, de las tiendas que hagan falta 👇',
+            mood: 'wave',
+            gesture: 'point',
+          },
           'plan',
+          5000,
         )
-        later(5000, () => speak(null, null))
       },
       { threshold: 0.6 },
     )
     observer.observe(element)
     return () => observer.disconnect()
-  }, [later, scene, speak])
+  }, [scene, speak])
 
   // «Repetir la escena» desde fuera del teléfono.
   useEffect(() => {
     const replay = () => {
+      run.current += 1
       clearTimers()
       setStamps(loadPassport())
       setFreshStamp(null)
@@ -267,14 +311,14 @@ export default function LiveHomeFeed({ push }) {
       setScene('idle')
       setSparkle(false)
       setPresent(false)
-      speak(null, null)
+      speak(null)
       setOrder(BASE_ORDER)
       screenRef.current?.scrollTo({ top: 0 })
       setReplays((n) => n + 1)
     }
     window.addEventListener(REPLAY_EVENT, replay)
     return () => window.removeEventListener(REPLAY_EVENT, replay)
-  }, [speak])
+  }, [clearTimers, speak])
 
   const pickPlan = (id) => {
     const chosen = PLANS.find((option) => option.id === id)
@@ -284,26 +328,38 @@ export default function LiveHomeFeed({ push }) {
     const next = planKit(id)
     const verticals = new Set(next.map((item) => item.vertical)).size
     speak(
-      { text: `${chosen.emoji} ${chosen.line} ${next.length} cosas de ${verticals} verticales.`, mood: 'wave' },
+      {
+        text: `${chosen.emoji} ${chosen.line} ${next.length} cosas de ${verticals} verticales.`,
+        mood: 'wave',
+        gesture: 'hop',
+      },
       'plan',
+      4500,
     )
-    later(4500, () => speak(null, null))
   }
 
+  // Igual que el «+» de cada producto: al carro, al perfil y a los eventos del panel.
   const addKit = () => {
-    const products = kit.filter((item) => item.kind === 'product')
-    products.forEach((item) => cart.add(item.product))
+    const products = kit.filter((item) => item.kind === 'product').map((item) => item.product)
+    for (const product of products) {
+      cart.add(product)
+      profile.trackTags(productTags(product), WEIGHTS.cart)
+      events.track('cart_add', cartEventFields(product, cart.id))
+    }
     toast(`Agregaste ${products.length} productos del kit`)
-    speak({ text: '¡Listo! Llega todo junto 🛵 Ve tu carro abajo.', mood: 'wave' }, 'plan')
-    later(3500, () => speak(null, null))
+    speak({ text: '¡Listo! Llega todo junto 🛵 Ve tu carro abajo.', mood: 'wave', gesture: 'spin' }, 'plan', 3500)
   }
 
   const poke = () => {
-    if (scene !== 'idle') return
-    const missing = PASSPORT.find(({ id }) => !stamps.includes(id) && id !== 'pharmacy')
+    // Mientras pregunta o mueve bloques, tocarlo no cambia de tema.
+    if (scene !== 'idle' || !session.played) return
+    const missing = PASSPORT.find(({ id }) => !stamps.includes(id))
     if (!missing) {
-      speak({ text: '¡Ya probaste de todo! Eres oficialmente multivertical 🏆', mood: 'wave' }, null)
-      later(3500, () => speak(null, null))
+      speak(
+        { text: '¡Ya probaste de todo! Eres oficialmente multivertical 🏆', mood: 'wave', gesture: 'spin' },
+        null,
+        3500,
+      )
       return
     }
     const name = VERTICAL_NAMES[missing.id]
@@ -311,9 +367,10 @@ export default function LiveHomeFeed({ push }) {
       {
         text: `¿Y si pruebas ${name} ${missing.emoji}? Es tu sello ${stamps.length + 1} de ${PASSPORT_GOAL} para el envío gratis.`,
         mood: 'wave',
+        gesture: 'hop',
         actions: [
           { label: `Abrir ${name}`, onClick: () => visit(missing.id) },
-          { label: 'Después', onClick: () => speak(null, null) },
+          { label: 'Después', onClick: () => speak(null) },
         ],
       },
       null,
@@ -458,7 +515,7 @@ export default function LiveHomeFeed({ push }) {
         }}
         data-top={top > 0 ? 'scrolled' : 'top'}
       >
-        <section className={`home-top ${dimClass('top')}`}>
+        <section className={`home-top ${dimClass('top')}`} inert={dim}>
           <button type="button" className="home-address tap" onClick={address.openSheet}>
             <span className="home-address-line">{address.selected.line}</span>
             <span className="home-address-label">
@@ -479,6 +536,7 @@ export default function LiveHomeFeed({ push }) {
                 key={id}
                 ref={setRef(id)}
                 className={`live-block live-block--${id} ${dimClass(id)}${dim && focused.has(id) ? ' is-focus' : ''}`}
+                inert={dim && !focused.has(id)}
               >
                 {blocks[id]}
               </div>

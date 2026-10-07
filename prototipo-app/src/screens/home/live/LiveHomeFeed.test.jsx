@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -24,8 +25,8 @@ beforeEach(async () => {
   const nudge = await import('../../../state/NudgeContext')
   memory = await import('./memory')
   HomeScreen = (await import('../HomeScreen')).default
-  Providers = function Providers({ children }) {
-    return (
+  Providers = function Providers({ children, strict }) {
+    const tree = (
       <demo.DemoProvider>
         <profile.ProfileProvider>
           <assistant.AssistantProvider>
@@ -40,6 +41,7 @@ beforeEach(async () => {
         </profile.ProfileProvider>
       </demo.DemoProvider>
     )
+    return strict ? <StrictMode>{tree}</StrictMode> : tree
   }
   vi.useFakeTimers()
 })
@@ -58,9 +60,9 @@ afterEach(() => {
   localStorage.clear()
 })
 
-const renderHome = () =>
+const renderHome = ({ strict = false } = {}) =>
   render(
-    <Providers>
+    <Providers strict={strict}>
       <div className="phone">
         <div className="screen-wrap">
           <HomeScreen push={vi.fn()} tab="home" setTab={vi.fn()} />
@@ -89,7 +91,7 @@ describe('Home con Bigotes vivo', () => {
     expect(container.querySelector('.live-block--discovery')).toBeNull()
 
     await advance(900 + 3400 + 3000) // entra, saluda, pregunta y termina de escribir
-    expect(screen.getByText(/^Noté que te encantan/)).toBeTruthy()
+    expect(container.querySelector('.live-bubble p').textContent).toMatch(/^Noté que te encantan los chocolates/)
     fireEvent.click(screen.getByRole('button', { name: '¡Sí, tráelos!' }))
     await advance(600 + 1200)
 
@@ -132,5 +134,34 @@ describe('Home con Bigotes vivo', () => {
     renderHome()
     fireEvent.click(screen.getByRole('radio', { name: /Carrete/ }))
     expect(screen.getByText(/^Tu kit en \d+ verticales:/)).toBeTruthy()
+  })
+
+  test('al volver con un sello nuevo lo celebra, también con StrictMode (como en npm run dev)', async () => {
+    memory.session.played = true
+    memory.stamp('liquor')
+    const { container } = renderHome({ strict: true })
+    await advance(2000)
+    expect(container.querySelector('.live-layer [role="status"]').textContent).toMatch(/^¡Sello nuevo de Licores!/)
+  })
+
+  test('tocar a Bigotes mientras pregunta no le quita a la persona el «Ahora no»', async () => {
+    const { container } = renderHome()
+    await advance(900 + 3400 + 3000)
+    fireEvent.click(screen.getByRole('button', { name: /^Bigotes:/ }))
+    expect(screen.getByRole('button', { name: 'Ahora no' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Ahora no' }))
+    await advance(10000)
+    expect(blockOrder(container)[0]).toBe('essentials')
+  })
+
+  test('«Repetir escena» a mitad del movimiento no deja la escena vieja corriendo', async () => {
+    const { container } = renderHome()
+    await advance(900 + 3400 + 3000)
+    fireEvent.click(screen.getByRole('button', { name: '¡Sí, tráelos!' }))
+    await advance(300) // aún subiendo
+    act(() => memory.resetLive())
+    await advance(3000) // antes de que vuelva a preguntar
+    expect(blockOrder(container)[0]).toBe('essentials')
+    expect(container.querySelector('.home--live').classList.contains('is-dim')).toBe(false)
   })
 })

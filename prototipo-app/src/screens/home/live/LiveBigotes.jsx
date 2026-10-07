@@ -8,6 +8,9 @@ const EDGE = 14 // margen derecho
 const TOP_LIMIT = 118 // bajo la dirección: nunca tapa la barra de estado
 const BOTTOM_RESERVE = 104 // sobre la barra inferior (y la del carrito)
 const TYPE_MS = 16 // ms por letra al «hablar»
+// Mientras nadie le habla, Bigotes no se queda quieto: cada tanto mira, baila, saluda o se estira (en este orden).
+const FIDGETS = ['look', 'dance', 'wave', 'stretch', 'hop']
+const FIDGET_MS = 6000
 
 /** Texto que aparece letra por letra mientras Bigotes habla (sin animación si se pidió reducir movimiento). */
 function useTypewriter(text, reduceMotion) {
@@ -43,6 +46,8 @@ const LiveBigotes = forwardRef(function LiveBigotes(
   const [hopKey, setHopKey] = useState(0)
   const lastY = useRef(null)
   const { shown, done } = useTypewriter(say?.text, reduceMotion)
+  const [fidget, setFidget] = useState(null)
+  const fidgets = useRef(0)
 
   const place = useCallback(() => {
     const layer = layerRef.current
@@ -82,18 +87,35 @@ const LiveBigotes = forwardRef(function LiveBigotes(
 
   useImperativeHandle(ref, () => ({ reposition: place }), [place])
 
+  useEffect(() => {
+    if (say || away || reduceMotion) return undefined
+    const timer = setInterval(() => {
+      setFidget({ name: FIDGETS[fidgets.current % FIDGETS.length], key: fidgets.current })
+      fidgets.current += 1
+    }, FIDGET_MS)
+    return () => clearInterval(timer)
+  }, [say, away, reduceMotion])
+
   const mood = say ? (done ? (say.mood ?? 'idle') : 'talk') : 'idle'
   const style = spot ? { transform: `translate3d(${spot.x}px, ${spot.y}px, 0)` } : { opacity: 0 }
+  // Cada frase trae su gesto (saludar, saltar, apuntar, girar); sin frase, el último gesto de espera. La llave nueva
+  // vuelve a montar el envoltorio y la animación corre otra vez.
+  const gesture = say ? say.gesture : fidget?.name
+  const gestureKey = say ? `say-${say.text}` : `fidget-${fidget?.key ?? 'none'}`
 
   return (
-    <div ref={layerRef} className="live-layer" aria-live="polite">
+    <div ref={layerRef} className="live-layer">
+      {/* Para lectores de pantalla, la frase entera una vez (el globo la escribe letra por letra). */}
+      <p className="sr-only" role="status">
+        {away ? '' : (say?.text ?? '')}
+      </p>
       <div
         className={`live-bigotes${entering ? ' is-entering' : ''}${away ? ' is-away' : ''}${spot?.low ? ' is-low' : ''}`}
         style={style}
       >
         {say && !away && (
-          <div className="live-bubble" role="status">
-            <p>{shown}</p>
+          <div className="live-bubble">
+            <p aria-hidden="true">{shown}</p>
             {say.actions?.length > 0 && done && (
               <div className="live-bubble-actions">
                 {say.actions.map((action, i) => (
@@ -113,12 +135,14 @@ const LiveBigotes = forwardRef(function LiveBigotes(
         <button
           type="button"
           className="live-bigotes-body"
-          aria-label="Bigotes: tócalo y te muestra algo nuevo"
+          aria-label="Bigotes: muéstrame algo nuevo para probar"
           hidden={away}
           onClick={onPoke}
         >
           <span key={hopKey} className={hopKey ? 'live-hop' : undefined}>
-            <Mascot size={SIZE} mood={mood} />
+            <span key={gestureKey} className={gesture ? `live-gesture live-gesture--${gesture}` : 'live-gesture'}>
+              <Mascot size={SIZE} mood={mood} />
+            </span>
           </span>
         </button>
       </div>

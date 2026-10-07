@@ -12,6 +12,11 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
+.demo-toggle-modes {
+  display: flex;
+  gap: 4px;
+}
+
 .demo-toggle button {
   height: 34px;
   padding: 0 14px;

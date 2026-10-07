@@ -7,19 +7,21 @@ export default function DemoToggle() {
   const demo = useDemo()
 
   return (
-    <div className="demo-toggle" role="radiogroup" aria-label="Modo de la demo">
-      {Object.entries(MODE_LABELS).map(([mode, label]) => (
-        <button
-          key={mode}
-          type="button"
-          role="radio"
-          aria-checked={demo.mode === mode}
-          className={demo.mode === mode ? 'is-active' : undefined}
-          onClick={() => demo.setMode(mode)}
-        >
-          {label}
-        </button>
-      ))}
+    <div className="demo-toggle">
+      <div className="demo-toggle-modes" role="radiogroup" aria-label="Modo de la demo">
+        {Object.entries(MODE_LABELS).map(([mode, label]) => (
+          <button
+            key={mode}
+            type="button"
+            role="radio"
+            aria-checked={demo.mode === mode}
+            className={demo.mode === mode ? 'is-active' : undefined}
+            onClick={() => demo.setMode(mode)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {demo.isLive && (
         <button type="button" className="demo-toggle-replay" onClick={resetLive}>
           ↺ Repetir escena

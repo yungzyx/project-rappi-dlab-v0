@@ -79,8 +79,8 @@ export default function Mascot({ size = 56, mood = 'idle', badge = false, classN
             </>
           )}
 
-          {/* Brazos: el izquierdo quieto, el derecho saluda */}
-          <g>
+          {/* Brazos: el izquierdo quieto (en la Home de «Bigotes vivo» apunta), el derecho saluda */}
+          <g className="mascot-arm-left">
             <ellipse cx="12" cy="60" rx="8" ry="11" transform="rotate(-18 12 60)" fill={url('body')} />
             <ellipse cx="7" cy="55" rx="3" ry="4.5" transform="rotate(-40 7 55)" fill="#ff8a5c" />
           </g>

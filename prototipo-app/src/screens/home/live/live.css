@@ -1,10 +1,15 @@
 /* «Bigotes vivo»: Bigotes de cuerpo entero dentro de la Home, bloques que se reordenan y foco con fondo oscuro. */
-.home--live {
+/* La capa de Bigotes es hermana de la Home (no hija): las dos llevan las variables. */
+.home--live,
+.live-layer {
   --live-accent: #c43d20; /* rojo Rappi más oscuro: texto blanco encima con 5,2:1 */
   --live-accent-soft: #fff1ea;
   --live-night: #17151a;
   --live-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
   --live-glide: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home--live {
   background-color: var(--surface);
   transition: background-color 520ms var(--live-glide);
 }
@@ -301,9 +306,9 @@
   place-items: center;
   width: 48px;
   height: 48px;
-  border: 2px dashed #e7b9a6;
+  border: 2px dashed #c98b72;
   border-radius: 50%;
-  color: #c08a74;
+  color: #9a5a43; /* 5,6:1 sobre el fondo del pasaporte */
   font-size: 20px;
   font-weight: 700;
 }
@@ -392,6 +397,10 @@
   opacity: 0;
 }
 
+.live-bigotes-body[hidden] {
+  display: none;
+}
+
 .live-bigotes-body {
   display: block;
   pointer-events: auto;
@@ -436,6 +445,257 @@
   }
   100% {
     transform: none;
+  }
+}
+
+/* ---------- Gestos: cada frase trae uno y, en espera, va cambiando solo ---------- */
+.live-gesture {
+  display: block;
+  transform-origin: 50% 95%; /* desde los pies */
+}
+
+.live-bigotes .mascot-arm-left {
+  transform-box: view-box;
+  transform-origin: 18px 68px;
+}
+
+/* Saludo de entrada: llega, da un saltito y agita el brazo tres veces */
+.live-gesture--greet {
+  animation: live-hello-body 1.7s var(--live-glide) 0.75s;
+}
+
+.live-bigotes .live-gesture--greet .mascot-arm,
+.live-bigotes .live-gesture--wave .mascot-arm {
+  animation: live-arm-wave 1.5s ease-in-out 0.75s;
+}
+
+.live-bigotes .live-gesture--wave .mascot-arm {
+  animation-delay: 0s;
+}
+
+.live-gesture--wave {
+  animation: live-tilt 1.5s ease-in-out;
+}
+
+.live-gesture--hop {
+  animation: live-double-hop 950ms var(--live-glide);
+}
+
+.live-gesture--point {
+  animation: live-lean 1.8s var(--live-glide);
+}
+
+.live-bigotes .live-gesture--point .mascot-arm-left {
+  animation: live-arm-point 1.8s var(--live-glide);
+}
+
+.live-gesture--spin {
+  animation: live-spin 900ms var(--live-glide);
+}
+
+.live-bigotes .live-gesture--look .mascot-pupil {
+  animation: live-look 2.2s ease-in-out;
+}
+
+.live-gesture--look {
+  animation: live-tilt 2.2s ease-in-out;
+}
+
+.live-gesture--dance {
+  animation: live-dance 1.8s ease-in-out;
+}
+
+.live-bigotes .live-gesture--dance .mascot-arm,
+.live-bigotes .live-gesture--stretch .mascot-arm {
+  animation: live-arm-wave 1.8s ease-in-out;
+}
+
+.live-bigotes .live-gesture--dance .mascot-arm-left,
+.live-bigotes .live-gesture--stretch .mascot-arm-left {
+  animation: live-arm-up 1.8s ease-in-out;
+}
+
+.live-gesture--stretch {
+  animation: live-stretch 1.3s var(--live-glide);
+}
+
+/* Al hablar se mueve con lo que dice */
+.live-bigotes .mascot--talk .mascot-figure {
+  animation: live-talk-bob 0.36s ease-in-out infinite alternate;
+}
+
+@keyframes live-hello-body {
+  0%,
+  100% {
+    transform: none;
+  }
+  15% {
+    transform: translateY(-14px) scale(0.96, 1.05);
+  }
+  28% {
+    transform: translateY(0) scale(1.06, 0.94);
+  }
+  40% {
+    transform: rotate(-6deg);
+  }
+  70% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes live-arm-wave {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  15%,
+  45%,
+  75% {
+    transform: rotate(-62deg);
+  }
+  30%,
+  60%,
+  90% {
+    transform: rotate(-22deg);
+  }
+}
+
+/* Brazo izquierdo estirado hacia la izquierda: apunta al globo y al bloque */
+@keyframes live-arm-point {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  20%,
+  80% {
+    transform: rotate(-55deg);
+  }
+  50% {
+    transform: rotate(-45deg);
+  }
+}
+
+/* Brazo izquierdo arriba, para bailar y estirarse */
+@keyframes live-arm-up {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  30%,
+  70% {
+    transform: rotate(48deg);
+  }
+}
+
+@keyframes live-lean {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  80% {
+    transform: translateX(-5px) rotate(-7deg);
+  }
+}
+
+@keyframes live-tilt {
+  0%,
+  100% {
+    transform: none;
+  }
+  30% {
+    transform: rotate(-6deg);
+  }
+  65% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes live-double-hop {
+  0%,
+  45%,
+  90%,
+  100% {
+    transform: none;
+  }
+  8%,
+  52% {
+    transform: scale(1.08, 0.9);
+  }
+  22% {
+    transform: translateY(-24px) scale(0.94, 1.07);
+  }
+  68% {
+    transform: translateY(-13px) scale(0.97, 1.03);
+  }
+}
+
+@keyframes live-spin {
+  0%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateY(-18px) scaleX(0.15);
+  }
+  50% {
+    transform: translateY(-24px) scaleX(-1);
+  }
+  75% {
+    transform: translateY(-12px) scaleX(0.15);
+  }
+}
+
+@keyframes live-look {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  40% {
+    transform: translate(-3.5px, -1px);
+  }
+  60%,
+  80% {
+    transform: translate(3.5px, -1px);
+  }
+}
+
+@keyframes live-dance {
+  0%,
+  100% {
+    transform: none;
+  }
+  15%,
+  55% {
+    transform: translateX(-4px) rotate(-9deg);
+  }
+  35%,
+  75% {
+    transform: translateX(4px) translateY(-6px) rotate(9deg);
+  }
+}
+
+@keyframes live-stretch {
+  0%,
+  100% {
+    transform: none;
+  }
+  35%,
+  60% {
+    transform: scale(0.94, 1.12);
+  }
+  80% {
+    transform: scale(1.05, 0.95);
+  }
+}
+
+@keyframes live-talk-bob {
+  from {
+    transform: rotate(-2deg);
+  }
+  to {
+    transform: translateY(-2px) rotate(2deg);
   }
 }
 
@@ -506,6 +766,7 @@
 
   .live-bigotes.is-entering .live-bigotes-body,
   .live-hop,
+  .live-gesture,
   .live-bubble,
   .live-bubble-actions,
   .live-ribbon,

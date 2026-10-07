@@ -38,6 +38,7 @@ export function interestFor(top) {
 
 /** Una vertical distinta de la del interés, con cosas que combinan con él: lo que se invita a descubrir. */
 export function discoveryFor(interest) {
+  if (NEVER_SUGGESTED.has(interest.tag)) return null // lo de salud no se combina con nada
   const candidates = [...new Set([...(COMPLEMENTS[interest.tag] ?? []), ...DISCOVERY_FALLBACK])].filter(
     (tag) => tag !== interest.tag && !NEVER_SUGGESTED.has(tag),
   )

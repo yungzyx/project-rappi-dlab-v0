@@ -2,7 +2,8 @@
 // persona agregó al carro (Bigotes lo comenta al volver). El pasaporte de verticales se guarda en el navegador.
 const PASSPORT_KEY = 'rappi-proto-pasaporte'
 
-/** Verticales del pasaporte, en el orden en que se muestran (ids de pantalla del prototipo). */
+/** Verticales del pasaporte, en el orden en que se muestran (ids de pantalla del prototipo). Sin Farmacia: la salud no
+ * se empuja (docs/diseno-ia.md §4, regla 6). */
 export const PASSPORT = [
   { id: 'restaurants', emoji: '🍔' },
   { id: 'grocery', emoji: '🛒' },
@@ -12,7 +13,6 @@ export const PASSPORT = [
   { id: 'express', emoji: '🏪' },
   { id: 'retail', emoji: '🛍️' },
   { id: 'pet', emoji: '🐶' },
-  { id: 'pharmacy', emoji: '💊' },
 ]
 const VALID = new Set(PASSPORT.map((stamp) => stamp.id))
 const STARTER = ['restaurants', 'grocery'] // lo que una persona típica ya usa

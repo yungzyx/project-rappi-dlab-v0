@@ -27,6 +27,11 @@ describe('discoveryFor', () => {
     expect(discovery.items.every((item) => item.vertical === discovery.vertical)).toBe(true)
     expect(discovery.verticalName).toBeTruthy()
   })
+
+  it('no combina nada con lo de salud (un remedio agregado al carro no abre otra vertical)', () => {
+    expect(discoveryFor({ tag: 'farmacia', vertical: 'pharmacy' })).toBeNull()
+    expect(discoveryFor({ tag: 'bebe', vertical: 'grocery' })).toBeNull()
+  })
 })
 
 describe('planKit', () => {

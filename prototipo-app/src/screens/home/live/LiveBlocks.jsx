@@ -139,7 +139,7 @@ export function DiscoveryBlock({ discovery, stamped, onOpen }) {
         </span>
         <div>
           <h2>Nuevo para ti: {discovery.verticalName}</h2>
-          <p>{stamped ? 'Ya tienes este sello' : 'Primer pedido aquí = sello nuevo en tu pasaporte'}</p>
+          <p>{stamped ? 'Ya tienes este sello' : 'Primera visita = sello nuevo en tu pasaporte'}</p>
         </div>
       </div>
       <ItemRow items={discovery.items} onOpen={onOpen} />
