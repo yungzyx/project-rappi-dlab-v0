@@ -23,6 +23,7 @@ beforeEach(async () => {
   const address = await import('../../../state/AddressContext')
   const toast = await import('../../../components/Toast')
   const nudge = await import('../../../state/NudgeContext')
+  const orders = await import('../../../state/OrdersContext')
   memory = await import('./memory')
   HomeScreen = (await import('../HomeScreen')).default
   Providers = function Providers({ children, strict }) {
@@ -33,7 +34,9 @@ beforeEach(async () => {
             <cart.CartProvider>
               <address.AddressProvider>
                 <toast.ToastProvider>
-                  <nudge.NudgeProvider>{children}</nudge.NudgeProvider>
+                  <nudge.NudgeProvider>
+                    <orders.OrdersProvider>{children}</orders.OrdersProvider>
+                  </nudge.NudgeProvider>
                 </toast.ToastProvider>
               </address.AddressProvider>
             </cart.CartProvider>
@@ -60,12 +63,12 @@ afterEach(() => {
   localStorage.clear()
 })
 
-const renderHome = ({ strict = false } = {}) =>
+const renderHome = ({ strict = false, tab = 'home' } = {}) =>
   render(
     <Providers strict={strict}>
       <div className="phone">
         <div className="screen-wrap">
-          <HomeScreen push={vi.fn()} tab="home" setTab={vi.fn()} />
+          <HomeScreen push={vi.fn()} tab={tab} setTab={vi.fn()} />
         </div>
       </div>
     </Providers>,
@@ -163,5 +166,36 @@ describe('Home con Bigotes vivo', () => {
     await advance(3000) // antes de que vuelva a preguntar
     expect(blockOrder(container)[0]).toBe('essentials')
     expect(container.querySelector('.home--live').classList.contains('is-dim')).toBe(false)
+  })
+
+  test('en reposo se asoma desde el borde y, al hacer scroll, se esconde hasta que se para', async () => {
+    const { container } = renderHome()
+    await advance(900 + 3400 + 3000)
+    fireEvent.click(screen.getByRole('button', { name: 'Ahora no' }))
+    const bigotes = container.querySelector('.live-bigotes')
+    expect(bigotes.classList.contains('is-resting')).toBe(true)
+    fireEvent.scroll(container.querySelector('.home--live'))
+    expect(bigotes.classList.contains('is-tucked')).toBe(true)
+    await advance(800)
+    expect(bigotes.classList.contains('is-tucked')).toBe(false)
+  })
+
+  test('el kit agregado cambia el botón a «En tu carro» y el pasaporte muestra su avance', async () => {
+    renderHome()
+    expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe(
+      '2',
+    )
+    fireEvent.click(screen.getByRole('radio', { name: /Carrete/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Agregar el kit/ }))
+    expect(screen.getByRole('button', { name: /En tu carro · Ir a pagar/ })).toBeTruthy()
+  })
+
+  test('en la cuenta, «Repetir escena de Bigotes» aparece solo en este modo', () => {
+    renderHome({ tab: 'account' })
+    expect(screen.getByRole('button', { name: /Repetir escena de Bigotes/ })).toBeTruthy()
+    cleanup()
+    localStorage.setItem('rappi-proto-demo-mode', 'propuesta')
+    renderHome({ tab: 'account' })
+    expect(screen.queryByRole('button', { name: /Repetir escena de Bigotes/ })).toBeNull()
   })
 })

@@ -148,7 +148,7 @@ export function DiscoveryBlock({ discovery, stamped, onOpen }) {
 }
 
 /** «¿Qué plan tienes hoy?»: Bigotes arma un kit de varias verticales para la ocasión. */
-export function PlanBlock({ plan, kit, onPick, onOpen, onAddKit }) {
+export function PlanBlock({ plan, kit, added, onPick, onOpen, onAddKit, onCheckout }) {
   const products = kit.filter((item) => item.kind === 'product')
   const total = products.reduce((sum, item) => sum + parsePrice(item.product.price), 0)
   const verticals = [...new Set(kit.map((item) => VERTICAL_NAMES[item.vertical] ?? item.vertical))]
@@ -176,11 +176,16 @@ export function PlanBlock({ plan, kit, onPick, onOpen, onAddKit }) {
             Tu kit en {verticals.length} {verticals.length === 1 ? 'vertical' : 'verticales'}: {verticals.join(', ')}
           </p>
           <ItemRow items={kit} onOpen={onOpen} />
-          {products.length > 0 && (
-            <button type="button" className="live-kit-add tap" onClick={onAddKit}>
-              Agregar el kit · {formatPrice(total)}
-            </button>
-          )}
+          {products.length > 0 &&
+            (added ? (
+              <button type="button" className="live-kit-add is-added tap" onClick={onCheckout}>
+                ✓ En tu carro · Ir a pagar
+              </button>
+            ) : (
+              <button type="button" className="live-kit-add tap" onClick={onAddKit}>
+                Agregar el kit · {formatPrice(total)}
+              </button>
+            ))}
         </div>
       ) : (
         <p className="live-plan-empty">Elige uno y te armo todo de una, de las tiendas que hagan falta.</p>
@@ -194,14 +199,24 @@ export function Passport({ stamps, fresh, onOpen }) {
   const count = stamps.length
   const left = Math.max(PASSPORT_GOAL - count, 0)
   return (
-    <section className="live-passport">
+    <section className={left > 0 ? 'live-passport' : 'live-passport is-complete'}>
       <div className="live-passport-head">
         <h2>Tu pasaporte Rappi</h2>
         <p>
           {left > 0
             ? `${count} sellos · te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis`
-            : `${count} sellos · ¡envío gratis desbloqueado!`}
+            : `${count} sellos · ¡envío gratis desbloqueado! 🎉`}
         </p>
+        <div
+          className="live-passport-bar"
+          role="progressbar"
+          aria-label="Sellos para el envío gratis"
+          aria-valuemin={0}
+          aria-valuemax={PASSPORT_GOAL}
+          aria-valuenow={Math.min(count, PASSPORT_GOAL)}
+        >
+          <span style={{ '--progress': Math.min(count / PASSPORT_GOAL, 1) }} />
+        </div>
       </div>
       <HScroll className="live-stamps">
         {PASSPORT.map(({ id, emoji }) => {

@@ -45,6 +45,15 @@
     0 18px 50px rgba(255, 120, 70, 0.35);
 }
 
+/* La barra inferior también se apaga durante la escena (está fuera de la Home, por eso :has) */
+.phone .bottom-nav {
+  transition: opacity 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.phone:has(.home--live.is-dim) .bottom-nav {
+  opacity: 0.25;
+}
+
 /* ---------- Bloques propios ---------- */
 .live-card {
   position: relative;
@@ -250,6 +259,11 @@
   font-size: 13.5px;
 }
 
+.live-kit-add.is-added {
+  background: var(--ink);
+  animation: live-item-in 320ms var(--live-glide);
+}
+
 .live-kit-add {
   display: block;
   width: calc(100% - 36px);
@@ -277,6 +291,28 @@
 .live-passport-head h2 {
   font-size: 16px;
   font-weight: 700;
+}
+
+.live-passport-bar {
+  height: 6px;
+  margin-top: 10px;
+  border-radius: 99px;
+  background: rgba(196, 61, 32, 0.14);
+  overflow: hidden;
+}
+
+.live-passport-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--live-accent);
+  transform: scaleX(var(--progress));
+  transform-origin: left;
+  transition: transform 700ms var(--live-spring);
+}
+
+.live-passport.is-complete {
+  background: linear-gradient(120deg, #fff3c4, #ffe1d2);
 }
 
 .live-passport-head p {
@@ -405,7 +441,17 @@
   display: block;
   pointer-events: auto;
   filter: drop-shadow(0 8px 10px rgba(40, 20, 10, 0.25));
-  transition: transform 200ms var(--live-spring);
+  transition: transform 450ms var(--live-spring);
+}
+
+/* En reposo se asoma desde el borde derecho: medio cuerpo, inclinado hacia la pantalla */
+.live-bigotes.is-resting .live-bigotes-body {
+  transform: translateX(44px) rotate(-10deg);
+}
+
+/* Mientras se hace scroll, casi se esconde */
+.live-bigotes.is-resting.is-tucked .live-bigotes-body {
+  transform: translateX(72px) rotate(-4deg);
 }
 
 .live-bigotes-body:active {
@@ -758,6 +804,7 @@
 /* ---------- Menos movimiento: sin saltos, deslizamientos ni destellos ---------- */
 @media (prefers-reduced-motion: reduce) {
   .home--live,
+  .live-passport-bar span,
   .live-dimmable,
   .live-bigotes,
   .live-card {
