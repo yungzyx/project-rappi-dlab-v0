@@ -115,10 +115,7 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
   if (message.from === 'user') {
     return (
       <div className="chat-row is-user">
-        <div className="chat-bubble is-user">
-          {message.image && <img className="chat-photo" src={message.image} alt="Foto enviada" />}
-          {message.text}
-        </div>
+        <div className="chat-bubble is-user">{message.text}</div>
       </div>
     )
   }

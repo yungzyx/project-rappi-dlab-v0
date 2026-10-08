@@ -13,7 +13,7 @@
   gap: 10px;
   width: 100%;
   height: 57px;
-  padding: 0 8px 0 17px;
+  padding: 0 17px;
   border-radius: 99px;
   box-shadow:
     0 8px 22px rgba(255, 90, 54, 0.14),
@@ -77,28 +77,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   animation: hint-up 420ms var(--ease-out);
-}
-
-.smart-bar-action {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #fff1eb;
-  color: #f0532b;
-  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast);
-}
-
-.smart-bar.is-compact .smart-bar-action {
-  width: 34px;
-  height: 34px;
-}
-
-.smart-bar-action:active {
-  transform: scale(0.88);
-  background: #ffe0d3;
 }
 
 .sparkle {

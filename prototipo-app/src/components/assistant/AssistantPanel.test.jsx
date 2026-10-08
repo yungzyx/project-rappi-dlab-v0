@@ -10,8 +10,6 @@ import AssistantPanel from './AssistantPanel'
 const api = vi.hoisted(() => ({
   health: vi.fn(),
   chat: vi.fn(),
-  chatVoice: vi.fn(),
-  chatPhoto: vi.fn(),
   forget: vi.fn(),
   profile: vi.fn(),
 }))
@@ -26,35 +24,6 @@ function deferred() {
   let resolve
   const promise = new Promise((res) => (resolve = res))
   return { promise, resolve }
-}
-
-/** MediaRecorder de mentira: como el real, avisa el fin de la grabación después de stop(). */
-class FakeRecorder {
-  static instances = []
-  constructor(stream) {
-    this.stream = stream
-    this.state = 'inactive'
-    this.mimeType = 'audio/webm'
-    FakeRecorder.instances.push(this)
-  }
-  start() {
-    this.state = 'recording'
-  }
-  stop() {
-    this.state = 'inactive'
-    queueMicrotask(() => this.onstop?.())
-  }
-}
-
-function fakeStream() {
-  const track = { stop: vi.fn() }
-  return { track, getTracks: () => [track] }
-}
-
-function mockMic(getUserMedia) {
-  vi.stubGlobal('isSecureContext', true)
-  vi.stubGlobal('MediaRecorder', FakeRecorder)
-  Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true })
 }
 
 const apiAnswer = (text, concept) => ({
@@ -127,8 +96,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
   vi.clearAllMocks()
   Object.values(api).forEach((mock) => mock.mockReset())
-  delete navigator.mediaDevices
-  FakeRecorder.instances = []
   localStorage.clear()
   sessionStorage.clear() // cada test es una pestaña nueva (otra sesión)
 })
@@ -316,94 +283,6 @@ describe('temas ya sugeridos', () => {
 
     expect(api.chat.mock.calls[1][0].shown_topics).toEqual(['jugos'])
   })
-
-  test('voz y foto saben qué sugirió el chat de texto (no repiten la sugerencia)', async () => {
-    mockMic(vi.fn(async () => fakeStream()))
-    api.health.mockResolvedValue({ voz: true, fotos: true })
-    api.chat.mockResolvedValueOnce(apiAnswer('Cervezas', 'snacks-salados'))
-    api.chatPhoto.mockResolvedValueOnce(apiAnswer('Parece cerveza'))
-    api.chatVoice.mockResolvedValueOnce(apiAnswer('Más cervezas'))
-    URL.createObjectURL = () => 'blob:foto'
-    await renderPanel()
-    say('cerveza')
-    await runUntilIdle()
-
-    const photo = new File(['x'], 'foto.jpg', { type: 'image/jpeg' })
-    fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [photo] } })
-    await runUntilIdle()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Listo'))
-    await runUntilIdle()
-
-    expect(api.chatPhoto.mock.calls[0][1].shown_topics).toEqual(['snacks-salados'])
-    expect(api.chatVoice.mock.calls[0][1].shown_topics).toEqual(['snacks-salados'])
-    delete URL.createObjectURL
-  })
-})
-
-describe('voz', () => {
-  test('un segundo toque no abre otra grabación, y cerrar antes de dar permiso no graba', async () => {
-    const permission = deferred()
-    const getUserMedia = vi.fn(() => permission.promise)
-    mockMic(getUserMedia)
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    expect(getUserMedia).toHaveBeenCalledTimes(1)
-
-    fireEvent.click(screen.getByLabelText('Cerrar'))
-    const stream = fakeStream()
-    permission.resolve(stream)
-    await runUntilIdle()
-    expect(FakeRecorder.instances).toHaveLength(0)
-    expect(stream.track.stop).toHaveBeenCalled() // el micrófono no queda abierto
-    expect(api.chatVoice).not.toHaveBeenCalled()
-  })
-
-  test('Cancelar mientras transcribe aborta la subida, descarta el resultado y no pisa una grabación nueva', async () => {
-    mockMic(vi.fn(async () => fakeStream()))
-    const transcription = deferred()
-    api.chatVoice.mockReturnValueOnce(transcription.promise)
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Listo'))
-    await advance(10)
-    expect(screen.getByText('Transcribiendo…')).toBeTruthy()
-
-    fireEvent.click(screen.getByText('Cancelar'))
-    expect(api.chatVoice.mock.calls[0][2]?.signal?.aborted).toBe(true)
-
-    fireEvent.click(screen.getByLabelText('Hablar')) // grabación nueva
-    await advance(10)
-    transcription.resolve({ text: 'Respuesta vieja', products: [], transcript: { text: 'lo que dije antes' } })
-    await advance(3000)
-    expect(screen.queryByText('lo que dije antes')).toBeNull()
-    expect(bubbles().some((text) => text.includes('Respuesta vieja'))).toBe(false)
-    expect(screen.getByText('Listo')).toBeTruthy() // la grabación nueva sigue en pantalla
-  })
-
-  test('la voz simulada responde con el cerebro local: la frase de ejemplo no va a la API', async () => {
-    // Sin micrófono (p. ej. el iPhone por http), aunque la API esté arriba.
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await runUntilIdle()
-    expect(bubbles()).toContain('Arma un carrete para cuatro')
-    expect(api.chat).not.toHaveBeenCalled()
-  })
-
-  test('si el usuario niega el micrófono no se inventa una frase: se le avisa', async () => {
-    mockMic(vi.fn(async () => Promise.reject(new DOMException('Permiso denegado', 'NotAllowedError'))))
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await runUntilIdle()
-    expect(bubbles().some((text) => /micrófono está bloqueado/.test(text))).toBe(true)
-    expect(bubbles()).not.toContain('Arma un carrete para cuatro')
-    expect(api.chat).not.toHaveBeenCalled()
-  })
 })
 
 describe('lo aprendido y Olvidar', () => {
@@ -447,63 +326,6 @@ describe('lo aprendido y Olvidar', () => {
 
     pendingFlush.resolve()
     await advance(0)
-    expect(api.forget).toHaveBeenCalledTimes(1)
-  })
-
-  test('Olvidar espera la foto en camino antes del DELETE (el servidor la registra al responder)', async () => {
-    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
-    api.health.mockResolvedValue({ voz: true, fotos: true })
-    const pendingPhoto = deferred()
-    api.chatPhoto.mockReturnValueOnce(pendingPhoto.promise)
-    URL.createObjectURL = () => 'blob:foto'
-    await renderPanel()
-    const photo = new File(['x'], 'foto.jpg', { type: 'image/jpeg' })
-    fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [photo] } })
-    await advance(100)
-    expect(api.chatPhoto).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByText('Olvidar'))
-    await advance(100)
-    expect(api.forget).not.toHaveBeenCalled()
-
-    pendingPhoto.resolve(apiAnswer('Parece cerveza'))
-    await runUntilIdle()
-    expect(api.forget).toHaveBeenCalledTimes(1)
-    delete URL.createObjectURL
-  })
-
-  test('Olvidar con audio ya subido espera al servidor (sin abortar) e ignora su respuesta', async () => {
-    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
-    mockMic(vi.fn(async () => fakeStream()))
-    const transcription = deferred()
-    api.chatVoice.mockReturnValueOnce(transcription.promise)
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Listo'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Olvidar'))
-    await advance(100)
-    expect(api.forget).not.toHaveBeenCalled()
-    expect(api.chatVoice.mock.calls[0][2].signal.aborted).toBe(false)
-
-    transcription.resolve({ text: 'Mira estas cervezas', products: [], transcript: { text: 'quiero cerveza' } })
-    await runUntilIdle()
-    expect(api.forget).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText('quiero cerveza')).toBeNull()
-    expect(bubbles().some((text) => text.includes('Mira estas cervezas'))).toBe(false)
-  })
-
-  test('Olvidar mientras graba descarta la grabación sin subirla', async () => {
-    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
-    const stream = fakeStream()
-    mockMic(vi.fn(async () => stream))
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Olvidar'))
-    await runUntilIdle()
-    expect(stream.track.stop).toHaveBeenCalled()
-    expect(api.chatVoice).not.toHaveBeenCalled()
     expect(api.forget).toHaveBeenCalledTimes(1)
   })
 

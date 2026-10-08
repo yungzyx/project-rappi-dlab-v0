@@ -176,14 +176,6 @@
   transform-origin: bottom right;
 }
 
-.chat-photo {
-  width: 170px;
-  height: 170px;
-  margin: -4px -8px 0;
-  border-radius: 14px;
-  object-fit: cover;
-}
-
 .chat-typing {
   display: flex;
   gap: 5px;
@@ -435,7 +427,6 @@
   font-size: 16px;
 }
 
-.assistant-icon-btn,
 .assistant-send {
   flex: none;
   display: grid;
@@ -453,51 +444,8 @@
   animation: pop-in 240ms var(--ease-out);
 }
 
-.assistant-icon-btn:active,
 .assistant-send:active {
   transform: scale(0.88);
-}
-
-/* ---------- Voz ---------- */
-.assistant-voice {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  margin: 0 var(--gutter);
-  padding: 16px;
-  border-radius: 26px;
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(255, 90, 54, 0.14);
-  animation: pop-in 300ms var(--ease-out);
-}
-
-.assistant-wave {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 34px;
-}
-
-.assistant-wave span {
-  width: 5px;
-  height: 34px;
-  border-radius: 3px;
-  background: linear-gradient(#ff9a3d, #ff3d7f);
-  animation: wave-bar 0.9s ease-in-out infinite;
-  transform-origin: center;
-}
-
-.assistant-voice p {
-  min-height: 21px;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.assistant-voice-cancel {
-  font-size: 14px;
-  color: var(--ink-2);
-  text-decoration: underline;
 }
 
 /* ---------- Keyframes ---------- */
@@ -546,16 +494,6 @@
   30% {
     transform: translateY(-5px);
     opacity: 1;
-  }
-}
-
-@keyframes wave-bar {
-  0%,
-  100% {
-    transform: scaleY(0.25);
-  }
-  50% {
-    transform: scaleY(1);
   }
 }
 

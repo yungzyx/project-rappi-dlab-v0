@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import BackToTop from '../../components/BackToTop'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
-import HomeMascot from '../../components/assistant/HomeMascot'
 import ForYouRow from '../../components/assistant/ForYouRow'
 import SmartBar from '../../components/assistant/SmartBar'
 import PlainSearchBar from '../../components/PlainSearchBar'
@@ -92,7 +91,6 @@ export default function HomeFeed({ push }) {
 
       <div ref={screenRef} className="screen home" onScroll={onScroll}>
         <section className="home-top">
-          {demo.isProposal && <HomeMascot />}
           <button type="button" className="home-address tap" onClick={address.openSheet}>
             <span className="home-address-line">{address.selected.line}</span>
             <span className="home-address-label">

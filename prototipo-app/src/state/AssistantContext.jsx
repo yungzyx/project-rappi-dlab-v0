@@ -3,10 +3,9 @@ import { createContext, useContext, useMemo, useState } from 'react'
 const AssistantContext = createContext(null)
 
 /**
- * Abre y cierra el asistente. `open({ mode, origin, photo })`:
- *  - mode: 'chat' | 'voice' | 'photo'
+ * Abre y cierra el asistente. `open({ origin, query })`:
  *  - origin: rectángulo (relativo al teléfono) desde donde crece la animación
- *  - photo: URL local de la foto elegida
+ *  - query: pregunta que se envía al abrir
  */
 export function AssistantProvider({ children }) {
   const [session, setSession] = useState(null)

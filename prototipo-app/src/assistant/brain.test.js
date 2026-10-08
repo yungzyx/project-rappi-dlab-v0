@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { forVertical, forYou, greeting, photoReply, reply, suggestions } from './brain'
+import { forVertical, forYou, greeting, reply, suggestions } from './brain'
 import { TAGS, productsForTags } from './tags'
 import { ALL_PRODUCTS } from '../data/catalog'
 
@@ -93,10 +93,6 @@ describe('personalización', () => {
     expect(personal[0]).toMatch(/Más cerveza/)
     expect(personal[1]).toMatch(/Snacks para acompañar/)
     expect(personal.length).toBeLessThanOrEqual(6)
-  })
-
-  test('la respuesta a una foto avisa que el reconocimiento es simulado', () => {
-    expect(photoReply(EMPTY_PROFILE).reason).toMatch(/simulado/)
   })
 })
 

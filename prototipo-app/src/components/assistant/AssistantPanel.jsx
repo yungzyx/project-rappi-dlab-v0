@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { chat, chatPhoto, chatVoice, forget, health, profile as remoteProfile, toMessage } from '../../api/client'
+import { chat, forget, health, profile as remoteProfile, toMessage } from '../../api/client'
 import { conceptOf } from '../../api/orders'
 import { firstShowing } from '../../api/useRemoteForYou'
-import { forYou, greeting, photoReply, reply, suggestions, ASSISTANT_NAME, VOICE_SAMPLES } from '../../assistant/brain'
+import { forYou, greeting, reply, suggestions, ASSISTANT_NAME } from '../../assistant/brain'
 import { TAGS } from '../../assistant/tags'
 import { useDemo } from '../../state/DemoContext'
 import { clearShownTopics, noteShownTopic, sessionId, shownTopics, useEvents, userId } from '../../state/EventsContext'
@@ -13,16 +13,12 @@ import { WEIGHTS, useProfile } from '../../state/ProfileContext'
 import { ChevronDown } from '../Icons'
 import ChatMessage from './ChatMessage'
 import Mascot from './Mascot'
-import { CameraIcon, MicIcon } from './SmartBar'
 import './assistant.css'
 
 const OPEN_MS = 460
 const CLOSE_MS = 320
 const TYPING_MS = 850
 const MIN_TYPING_MS = 450
-const VOICE_LISTEN_MS = 2600
-const MAX_RECORDING_MS = 7000
-const WAVE_BARS = 7
 
 /** clip-path que recorta el panel al rectángulo de origen (la barra o la mascota). */
 function clipFrom(origin) {
@@ -35,13 +31,6 @@ function clipFrom(origin) {
 let nextId = 1
 
 /** Chat del asistente. Siempre montado (para no perder la conversación); se muestra al abrirlo. */
-/** ¿Se puede grabar de verdad? El micrófono solo funciona en localhost o https (en el iPhone por http, no). */
-const canRecord = () =>
-  typeof window !== 'undefined' &&
-  window.isSecureContext &&
-  Boolean(navigator.mediaDevices?.getUserMedia) &&
-  'MediaRecorder' in window
-
 export default function AssistantPanel({ push, vertical }) {
   const assistant = useAssistant()
   const profile = useProfile()
@@ -52,20 +41,10 @@ export default function AssistantPanel({ push, vertical }) {
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [mood, setMood] = useState('idle')
-  const [voice, setVoice] = useState(null)
   const [chipRound, setChipRound] = useState(0)
   const rootRef = useRef(null)
   const scrollRef = useRef(null)
-  const fileRef = useRef(null)
-  const voiceIndex = useRef(0)
   const timers = useRef([])
-  const voiceTimers = useRef([])
-  const recorder = useRef(null)
-  // Cada intento de voz lleva un número: cancelar (o cerrar) lo sube, y lo que llegue de un intento viejo se ignora.
-  const voiceAttempt = useRef(0)
-  const voicePending = useRef(false) // pidiendo el micrófono: los toques extra se ignoran
-  const voiceUpload = useRef(null)
-  const voiceRequest = useRef(null) // audio ya subido: "Olvidar" espera a que el servidor termine
   // Preguntas en fila: la siguiente sale cuando la respuesta anterior ya está en pantalla.
   const chatQueue = useRef(Promise.resolve())
   const lastTurn = useRef(null) // pedido anterior de la conversación (para los seguimientos)
@@ -73,8 +52,8 @@ export default function AssistantPanel({ push, vertical }) {
   const [learnedRemote, setLearnedRemote] = useState(null)
   const [forgetting, setForgetting] = useState(false)
 
-  const later = (fn, ms, bucket = timers) => bucket.current.push(setTimeout(fn, ms))
-  useEffect(() => () => [...timers.current, ...voiceTimers.current].forEach(clearTimeout), [])
+  const later = (fn, ms) => timers.current.push(setTimeout(fn, ms))
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
   const addMessage = (message) => setMessages((prev) => [...prev, { id: nextId++, ...message }])
 
@@ -110,7 +89,7 @@ export default function AssistantPanel({ push, vertical }) {
     user_id: userId(),
     session_id: sessionId(),
     mode: demo.isProposal ? 'propuesta' : 'actual',
-    shown_topics: shownTopics(), // texto, voz, foto y «Para ti»: una sugerencia por tema en la sesión
+    shown_topics: shownTopics(), // chat y «Para ti»: una sugerencia por tema en la sesión
     ...extra,
   })
 
@@ -184,144 +163,14 @@ export default function AssistantPanel({ push, vertical }) {
   }
 
   // En orden: la pregunta N+1 sale cuando la respuesta N ya está en pantalla, así sus shown_topics incluyen
-  // lo que N sugirió. `local`: responde el cerebro local, sin la API (voz simulada).
-  const send = (text, askVertical, { local = false } = {}) => {
+  // lo que N sugirió.
+  const send = (text, askVertical) => {
     const clean = text.trim()
     if (!clean || forgetting) return
     setDraft('')
     addMessage({ from: 'user', text: clean })
     profile.track(clean, WEIGHTS.query)
-    chatQueue.current = chatQueue.current.then(() =>
-      botSays(local ? localReply(reply(clean, profile)) : answer(clean, askVertical)),
-    )
-  }
-
-  const sendPhoto = (file) => {
-    if (forgetting) return
-    const url = URL.createObjectURL(file)
-    addMessage({ from: 'user', image: url })
-    const run = async () => {
-      if ((await health())?.fotos) {
-        try {
-          return noteSuggestion(toMessage(await chatPhoto(file, apiContext())))
-        } catch {
-          // cae a la respuesta simulada
-        }
-      }
-      return localReply(photoReply(profile))
-    }
-    // En la misma fila que las preguntas: "Olvidar" la espera (el servidor registra la foto al responder).
-    chatQueue.current = chatQueue.current.then(() => botSays(run()))
-  }
-
-  /** Voz real: graba hasta 7 s (o hasta "Listo") y la API la transcribe con Whisper. El audio no se guarda. */
-  const record = (stream, attempt) => {
-    const chunks = []
-    const media = new MediaRecorder(stream)
-    recorder.current = media
-    media.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data)
-    media.onstop = async () => {
-      stream.getTracks().forEach((track) => track.stop())
-      if (recorder.current === media) recorder.current = null
-      if (attempt !== voiceAttempt.current) return // cancelada
-      setVoice({ transcript: 'Transcribiendo…' })
-      const upload = new AbortController()
-      voiceUpload.current = upload
-      try {
-        const blob = new Blob(chunks, { type: media.mimeType || 'audio/webm' })
-        const file = new File([blob], 'voz.webm', { type: blob.type })
-        const request = chatVoice(file, apiContext(), { signal: upload.signal })
-        voiceRequest.current = request
-        const message = toMessage(await request)
-        if (attempt !== voiceAttempt.current) return // se canceló (o se olvidó) mientras transcribía
-        setVoice(null)
-        if (message.transcript && !message.transcript.discarded)
-          addMessage({ from: 'user', text: message.transcript.text })
-        botSays(noteSuggestion(message))
-      } catch {
-        if (attempt !== voiceAttempt.current) return
-        setVoice(null)
-        botSays({ text: 'No pude procesar el audio 🙉 ¿Me lo escribes?' })
-      }
-    }
-    media.start()
-    setMood('listen')
-    setVoice({ transcript: '', recording: true })
-    later(() => media.state === 'recording' && media.stop(), MAX_RECORDING_MS, voiceTimers)
-  }
-
-  const stopRecording = () => recorder.current?.state === 'recording' && recorder.current.stop()
-
-  /** Voz real si se puede; si no, la simulada. Un intento a la vez: los toques mientras se pide el micrófono se ignoran. */
-  const listen = async () => {
-    if (forgetting || voicePending.current || recorder.current) return
-    voicePending.current = true
-    const attempt = ++voiceAttempt.current
-    const stale = () => attempt !== voiceAttempt.current // se canceló o se cerró el panel mientras tanto
-    try {
-      if (!canRecord() || !(await health())?.voz) {
-        if (!stale()) simulateVoice()
-        return
-      }
-      let stream
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      } catch (error) {
-        if (stale()) return
-        // Si el usuario negó el permiso no se inventa una frase como si la hubiera dicho: se le avisa.
-        if (error?.name === 'NotAllowedError')
-          botSays({ text: 'Tu micrófono está bloqueado 🙊 Actívalo en el navegador o escríbeme.' })
-        else simulateVoice()
-        return
-      }
-      if (stale() || recorder.current) {
-        stream.getTracks().forEach((track) => track.stop())
-        return
-      }
-      record(stream, attempt)
-    } finally {
-      if (!stale()) voicePending.current = false
-    }
-  }
-
-  // Voz simulada (sin micrófono o sin voz en la API): recorre frases de ejemplo. Las contesta el cerebro local:
-  // no son del usuario, así que no van a la API (no ensucian su perfil ni el panel).
-  const simulateVoice = () => {
-    const sample = VOICE_SAMPLES[voiceIndex.current++ % VOICE_SAMPLES.length]
-    setMood('listen')
-    setVoice({ transcript: '' })
-    const words = sample.split(' ')
-    words.forEach((_, i) => {
-      later(
-        () => setVoice({ transcript: words.slice(0, i + 1).join(' ') }),
-        700 + (i * (VOICE_LISTEN_MS - 900)) / words.length,
-        voiceTimers,
-      )
-    })
-    later(
-      () => {
-        setVoice(null)
-        send(sample, undefined, { local: true })
-      },
-      VOICE_LISTEN_MS,
-      voiceTimers,
-    )
-  }
-
-  const cancelVoice = () => {
-    voiceAttempt.current++ // lo que llegue después (permiso, grabación, transcripción) es de un intento viejo
-    voicePending.current = false
-    voiceUpload.current?.abort()
-    const media = recorder.current
-    recorder.current = null
-    if (media) {
-      media.stream.getTracks().forEach((track) => track.stop())
-      if (media.state !== 'inactive') media.stop()
-    }
-    voiceTimers.current.forEach(clearTimeout)
-    voiceTimers.current = []
-    setVoice(null)
-    setMood('idle')
+    chatQueue.current = chatQueue.current.then(() => botSays(answer(clean, askVertical)))
   }
 
   // Abrir, paso 1: recorta el panel al rectángulo de origen.
@@ -359,9 +208,7 @@ export default function AssistantPanel({ push, vertical }) {
         }),
       )
     }
-    if (session.mode === 'voice') later(listen, OPEN_MS, voiceTimers)
     if (session.query) later(() => send(session.query), OPEN_MS)
-    if (session.mode === 'photo' && session.photo) later(() => sendPhoto(session.photo), OPEN_MS)
     setChipRound((r) => r + 1)
     // Solo al abrir una sesión nueva; el resto del estado se lee en ese momento.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -377,7 +224,6 @@ export default function AssistantPanel({ push, vertical }) {
   }, [phase])
 
   const close = ({ viaHistory = false } = {}) => {
-    cancelVoice()
     setPhase('closing')
     later(() => {
       setPhase('closed')
@@ -411,7 +257,7 @@ export default function AssistantPanel({ push, vertical }) {
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-  }, [messages, voice])
+  }, [messages])
 
   const markStreamed = useCallback((id) => {
     setMood((m) => (m === 'talk' ? 'idle' : m))
@@ -441,16 +287,9 @@ export default function AssistantPanel({ push, vertical }) {
     lastTurn.current = null
     profile.reset()
     setLearnedRemote(null)
-    // Voz: si está grabando se descarta sin subirla; si ya se subió, se espera al servidor y su respuesta se ignora.
-    const voiceInFlight = voiceRequest.current
-    if (recorder.current || voicePending.current) cancelVoice()
-    else {
-      voiceAttempt.current++
-      setVoice(null)
-    }
-    // Lo que ya salió (preguntas y fotos pendientes, audio, un lote de eventos) podría recrear lo olvidado en el
-    // servidor: se espera antes del DELETE, y lo que haya dejado en cola se descarta.
-    await Promise.allSettled([chatQueue.current, voiceInFlight])
+    // Lo que ya salió (preguntas pendientes, un lote de eventos) podría recrear lo olvidado en el servidor: se
+    // espera antes del DELETE, y lo que haya dejado en cola se descarta.
+    await Promise.allSettled([chatQueue.current])
     events.clear()
     clearShownTopics()
     await events.settled()
@@ -549,80 +388,38 @@ export default function AssistantPanel({ push, vertical }) {
           ))}
         </div>
 
-        {voice ? (
-          <div className="assistant-voice">
-            <div className="assistant-wave" aria-hidden="true">
-              {Array.from({ length: WAVE_BARS }, (_, i) => (
-                <span key={i} style={{ animationDelay: `${i * 90}ms` }} />
-              ))}
-            </div>
-            <p role="status">{voice.transcript || 'Te escucho…'}</p>
-            {voice.recording && (
-              <button type="button" className="assistant-voice-cancel" onClick={stopRecording}>
-                Listo
-              </button>
-            )}
-            <button type="button" className="assistant-voice-cancel" onClick={cancelVoice}>
-              Cancelar
+        <form
+          className="assistant-input"
+          onSubmit={(e) => {
+            e.preventDefault()
+            send(draft)
+          }}
+        >
+          <input
+            data-autofocus
+            aria-label={`Mensaje para ${ASSISTANT_NAME}`}
+            value={draft}
+            disabled={forgetting}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={`Escríbele a ${ASSISTANT_NAME}…`}
+            maxLength={500}
+            enterKeyHint="send"
+          />
+          {draft.trim() && (
+            <button type="submit" className="assistant-send" aria-label="Enviar">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 19V5M5.5 11.5 12 5l6.5 6.5"
+                  fill="none"
+                  stroke="#fff"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
-          </div>
-        ) : (
-          <form
-            className="assistant-input"
-            onSubmit={(e) => {
-              e.preventDefault()
-              send(draft)
-            }}
-          >
-            <button
-              type="button"
-              className="assistant-icon-btn"
-              aria-label="Enviar foto"
-              onClick={() => fileRef.current.click()}
-            >
-              <CameraIcon />
-            </button>
-            <input
-              data-autofocus
-              aria-label={`Mensaje para ${ASSISTANT_NAME}`}
-              value={draft}
-              disabled={forgetting}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={`Escríbele a ${ASSISTANT_NAME}…`}
-              maxLength={500}
-              enterKeyHint="send"
-            />
-            {draft.trim() ? (
-              <button type="submit" className="assistant-send" aria-label="Enviar">
-                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M12 19V5M5.5 11.5 12 5l6.5 6.5"
-                    fill="none"
-                    stroke="#fff"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            ) : (
-              <button type="button" className="assistant-icon-btn" aria-label="Hablar" onClick={listen}>
-                <MicIcon />
-              </button>
-            )}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                e.target.value = ''
-                if (file) sendPhoto(file)
-              }}
-            />
-          </form>
-        )}
+          )}
+        </form>
       </div>
     </div>
   )
