@@ -131,7 +131,7 @@ function Delivered({ order }) {
         <button
           type="button"
           className="tracking-next tap"
-          onClick={() => assistant.open({ mode: 'chat', query: next.label })}
+          onClick={() => assistant.open({ query: next.label })}
         >
           <span>
             ✨ ¿Y ahora {next.emoji} {next.label.toLowerCase()}?

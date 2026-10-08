@@ -97,8 +97,8 @@ async function runUntilIdle() {
 function OpenAssistant() {
   const assistant = useAssistant()
   return (
-    <button type="button" onClick={() => assistant.open()}>
-      abrir
+    <button type="button" onClick={() => assistant.open({ query: 'lomo de las condes' })}>
+      preguntar
     </button>
   )
 }
@@ -159,11 +159,7 @@ describe('sucursales con el mismo nombre (menús reales)', () => {
       </>,
       { wrapper: Providers },
     )
-    fireEvent.click(screen.getByText('abrir'))
-    await runUntilIdle()
-    const input = screen.getByPlaceholderText('Escríbele a Bigotes…')
-    fireEvent.change(input, { target: { value: 'lomo de las condes' } })
-    fireEvent.submit(input.closest('form'))
+    fireEvent.click(screen.getByText('preguntar')) // sin chat escrito: se abre con la consulta
     await runUntilIdle()
     fireEvent.click(screen.getByText('Lomo de Las Condes'))
     await openPushed(push)

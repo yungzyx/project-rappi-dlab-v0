@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
-import { rectInPhone, useAssistant } from '../../state/AssistantContext'
+import { useEffect, useId, useState } from 'react'
+import { useAssistant } from '../../state/AssistantContext'
 import './smart-bar.css'
 
 const HINTS = ['Pregúntale a Bigotes…', '¿Qué se te antoja hoy?', 'Arma un carrete 🍻']
@@ -31,10 +31,9 @@ export function SparkleIcon({ size = 22 }) {
   )
 }
 
-/** Barra de búsqueda inteligente de la Home: tocarla abre el asistente, que crece desde el rectángulo de la barra. */
+/** Barra de búsqueda inteligente de la Home: tocarla abre el buscador con Bigotes. */
 export default function SmartBar({ compact = false }) {
   const assistant = useAssistant()
-  const barRef = useRef(null)
   const [hint, setHint] = useState(0)
 
   useEffect(() => {
@@ -42,18 +41,16 @@ export default function SmartBar({ compact = false }) {
     return () => clearInterval(timer)
   }, [])
 
-  const open = () => assistant.open({ mode: 'chat', origin: rectInPhone(barRef.current) })
+  const open = () => assistant.open()
 
   return (
     <div
-      ref={barRef}
       className={compact ? 'smart-bar is-compact' : 'smart-bar'}
       role="button"
       tabIndex={0}
       aria-label="Abrir asistente"
       onClick={open}
       onKeyDown={(e) => {
-        // Como pressable(), pero en línea: el linter no permite pasar funciones que leen refs durante el render.
         if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
         e.preventDefault()
         open()

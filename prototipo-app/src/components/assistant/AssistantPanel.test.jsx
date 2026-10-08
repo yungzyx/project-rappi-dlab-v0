@@ -42,18 +42,24 @@ async function runUntilIdle() {
 }
 const bubbles = () => [...document.querySelectorAll('.chat-bubble')].map((el) => el.textContent)
 
+/** Sin chat escrito, a Bigotes se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
 function say(text) {
-  const input = screen.getByPlaceholderText('Escríbele a Bigotes…')
-  fireEvent.change(input, { target: { value: text } })
-  fireEvent.submit(input.closest('form'))
+  const ask = screen.getByText('preguntar')
+  ask.dataset.query = text
+  fireEvent.click(ask)
 }
 
 function OpenButton() {
   const assistant = useAssistant()
   return (
-    <button type="button" onClick={() => assistant.open()}>
-      abrir
-    </button>
+    <>
+      <button type="button" onClick={() => assistant.open()}>
+        abrir
+      </button>
+      <button type="button" onClick={(e) => assistant.open({ query: e.currentTarget.dataset.query })}>
+        preguntar
+      </button>
+    </>
   )
 }
 
@@ -106,6 +112,7 @@ describe('chat en orden', () => {
     api.chat.mockReturnValueOnce(first.promise).mockResolvedValueOnce(apiAnswer('Respuesta B'))
     await renderPanel()
     say('pregunta A')
+    await advance(10) // cada apertura lleva su hora: con el reloj simulado, dos en el mismo instante serían una
     say('pregunta B')
     await advance(1000)
     expect(api.chat).toHaveBeenCalledTimes(1) // B sale cuando A ya está en pantalla
@@ -113,10 +120,11 @@ describe('chat en orden', () => {
     first.resolve(apiAnswer('Respuesta A', 'snacks-salados'))
     await runUntilIdle()
     expect(api.chat).toHaveBeenCalledTimes(2)
+    expect(api.chat.mock.calls[0][0].message).toBe('pregunta A')
     expect(api.chat.mock.calls[1][0].shown_topics).toEqual(['snacks-salados'])
-    const texts = bubbles()
-    expect(texts).toContain('Respuesta A')
-    expect(texts.indexOf('Respuesta A')).toBeLessThan(texts.indexOf('Respuesta B'))
+    // Bigotes muestra su última respuesta (no un historial de chat)
+    expect(bubbles()).toContain('Respuesta B')
+    expect(bubbles()).not.toContain('Respuesta A')
   })
 })
 
@@ -225,9 +233,9 @@ describe('también en otras verticales', () => {
 })
 
 describe('teclado y lector de pantalla', () => {
-  test('al abrir, el foco entra al chat; Escape lo cierra y el foco vuelve a quien lo abrió', async () => {
+  test('al abrir, el foco entra al buscador (sin abrir el teclado); Escape lo cierra y el foco vuelve a quien lo abrió', async () => {
     await renderPanel()
-    expect(document.activeElement).toBe(screen.getByPlaceholderText('Escríbele a Bigotes…'))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Volver' }))
 
     fireEvent.keyDown(document.activeElement, { key: 'Escape' })
     await runUntilIdle()
@@ -263,10 +271,10 @@ describe('qué Bigotes contestó', () => {
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
+    expect(screen.getByText('Respuesta local')).toBeTruthy()
     say('pisco')
     await runUntilIdle()
-
-    expect(screen.getAllByText('Respuesta local')).toHaveLength(1) // solo la primera; la segunda vino de la API
+    expect(screen.queryByText('Respuesta local')).toBeNull() // la segunda vino de la API
   })
 })
 
@@ -299,7 +307,7 @@ describe('lo aprendido y Olvidar', () => {
     expect(screen.getAllByText(/Vi que te gusta/).length).toBeGreaterThan(0)
     fireEvent.click(screen.getByText('Olvidar'))
     await runUntilIdle()
-    expect(document.querySelector('.assistant-messages').textContent).not.toMatch(/Vi que te gusta/)
+    expect(document.querySelector('.bigotes-card').textContent).not.toMatch(/Vi que te gusta/)
     expect(screen.getAllByText(/olvidé lo que aprendí de ti/).length).toBeGreaterThan(0)
   })
 
@@ -311,11 +319,11 @@ describe('lo aprendido y Olvidar', () => {
     events.settled.mockReturnValueOnce(pendingFlush.promise)
     await renderPanel()
     say('pregunta A')
-    await advance(100)
+    await advance(500) // sale al terminar de abrir
     fireEvent.click(screen.getByText('Olvidar'))
     await advance(100)
     say('pregunta mientras se olvida')
-    await advance(100)
+    await advance(500)
     expect(api.chat).toHaveBeenCalledTimes(1)
     expect(api.forget).not.toHaveBeenCalled()
 
@@ -342,10 +350,49 @@ describe('lo aprendido y Olvidar', () => {
   })
 })
 
-describe('mensaje', () => {
-  test('el campo corta en 500 caracteres, como la API (más largo, la API responde 422 y el chat caía al cerebro local)', async () => {
+describe('sin chat escrito', () => {
+  test('no hay dónde escribirle a Bigotes: se le pide con un toque y se ve lo elegido', async () => {
+    api.chat.mockResolvedValueOnce(apiAnswer('Para el carrete'))
     await renderPanel()
-    expect(screen.getByPlaceholderText('Escríbele a Bigotes…').maxLength).toBe(500)
+    expect(screen.queryByPlaceholderText(/Escríbele/)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '🍻 Arma un carrete' }))
+    await runUntilIdle()
+    expect(api.chat.mock.calls[0][0].message).toBe('Arma un carrete')
+    expect(screen.getByText('Elegiste «Arma un carrete»')).toBeTruthy()
+    expect(bubbles()).toContain('Para el carrete')
+  })
+
+  test('lo escrito en el buscador busca en el catálogo (como en «Rappi hoy»), no le pregunta a Bigotes', async () => {
+    await renderPanel()
+    const field = screen.getByLabelText('Buscar en Rappi')
+    expect(field.maxLength).toBe(500)
+    fireEvent.change(field, { target: { value: 'cerveza' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    await runUntilIdle()
+
+    expect(api.chat).not.toHaveBeenCalled()
+    expect(screen.getByText('Products')).toBeTruthy()
+    expect(screen.queryByText('Descubre con Bigotes')).toBeNull()
+    expect(events.track).toHaveBeenCalledWith('search', expect.objectContaining({ query: 'cerveza', modality: 'texto' }))
+  })
+})
+
+describe('Descubre con Bigotes', () => {
+  test('muestra lo explorado y cada tarjeta abre una vertical que aún no abre', async () => {
+    const push = vi.fn()
+    sessionStorage.setItem('rappi-explored', JSON.stringify(['liquor']))
+    await renderPanel({ push })
+
+    expect(screen.getByRole('progressbar', { name: 'Verticales exploradas' }).getAttribute('aria-valuenow')).toBe('1')
+    expect(screen.getByRole('button', { name: 'Licores, ya la exploraste' })).toBeTruthy()
+
+    const [card] = document.querySelectorAll('.discover-card')
+    fireEvent.click(card)
+    await runUntilIdle()
+    const [[name, params]] = push.mock.calls
+    expect(name === 'vertical' ? params.id : name).not.toBe('liquor')
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 

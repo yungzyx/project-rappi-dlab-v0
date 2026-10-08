@@ -17,7 +17,7 @@ export function AssistantProvider({ children }) {
       // Abrir agrega una entrada al historial: el gesto "volver" de Safari cierra el asistente.
       open: (options = {}) => {
         window.history.pushState({ ...window.history.state, assistant: true }, '')
-        setSession({ mode: 'chat', ...options, openedAt: Date.now() })
+        setSession({ ...options, openedAt: Date.now() })
       },
       // viaHistory: el cierre ya vino del historial (gesto volver o una pantalla que reemplazó la entrada).
       close: ({ viaHistory = false } = {}) => {

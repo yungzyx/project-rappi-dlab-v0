@@ -19,6 +19,7 @@ import TravelScreen from './screens/travel/TravelScreen'
 import TurboScreen from './screens/turbo/TurboScreen'
 import VerticalScreen from './screens/vertical/VerticalScreen'
 import { useNavigation } from './hooks/useNavigation'
+import { markExplored } from './assistant/explored'
 import { AddressProvider } from './state/AddressContext'
 import { AssistantProvider } from './state/AssistantContext'
 import { CartProvider } from './state/CartContext'
@@ -80,6 +81,12 @@ export default function App() {
   const current = stack[stack.length - 1]
   // Un enlace viejo o un nombre desconocido no rompe la app: vuelve a la Home.
   const Screen = SCREENS[current.name] ?? HomeScreen
+  const vertical = screenVertical(current)
+
+  // Bigotes invita a descubrir las verticales que la persona todavía no abre.
+  useEffect(() => {
+    if (vertical) markExplored(vertical)
+  }, [vertical])
 
   return (
     <DemoProvider>
@@ -111,7 +118,7 @@ export default function App() {
                                   <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
                                 </>
                               )}
-                              <AssistantPanel push={push} vertical={screenVertical(current)} />
+                              <AssistantPanel push={push} vertical={vertical} />
                               <AddressSheet />
                               <StatusBar />
                             </NudgeProvider>

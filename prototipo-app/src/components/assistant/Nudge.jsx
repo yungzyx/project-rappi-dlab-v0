@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { TAG_TO_CONCEPT } from '../../api/orders'
 import { TAGS, productsForTags } from '../../assistant/tags'
-import { rectInPhone, useAssistant } from '../../state/AssistantContext'
+import { useAssistant } from '../../state/AssistantContext'
 import { useEvents } from '../../state/EventsContext'
 import { useNudge } from '../../state/NudgeContext'
 import Mascot from './Mascot'
@@ -19,7 +19,6 @@ export default function Nudge({ raised }) {
   const { nudge, dismiss } = useNudge()
   const assistant = useAssistant()
   const events = useEvents()
-  const ref = useRef(null)
   const shownId = useRef(null)
   const visible = Boolean(nudge) && !assistant.isOpen
 
@@ -38,11 +37,11 @@ export default function Nudge({ raised }) {
   const open = () => {
     events.track('suggestion_accepted', suggestionFields(nudge))
     dismiss()
-    assistant.open({ mode: 'chat', origin: rectInPhone(ref.current), query: to.label })
+    assistant.open({ query: to.label })
   }
 
   return (
-    <div key={nudge.id} ref={ref} className={raised ? 'nudge is-raised' : 'nudge'} role="status">
+    <div key={nudge.id} className={raised ? 'nudge is-raised' : 'nudge'} role="status">
       <Mascot size={40} badge mood="wave" />
       <p>
         <strong>

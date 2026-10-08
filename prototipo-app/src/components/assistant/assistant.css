@@ -1,73 +1,147 @@
-/* Panel del asistente. Abre con clip-path desde la barra: se anima en la GPU, sin mover el layout. */
+/*
+ * Buscador con Bigotes (Propuesta). Entra deslizándose desde la derecha, como el buscador de «Rappi hoy»; lo nuevo:
+ * el borde con degradado de la barra de la Home da una vuelta en el campo, Bigotes aparece saludando y los bloques
+ * suben uno tras otro. Todo con transform y opacity: corre en la GPU, sin mover el layout.
+ */
 .assistant {
   position: absolute;
   inset: 0;
   z-index: 38;
   display: flex;
   flex-direction: column;
-  background: #fffaf7;
-  transition-property: clip-path;
-  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  background: var(--surface);
+  transition-property: transform;
+  transition-timing-function: var(--ease-out);
+}
+
+.assistant.is-entering,
+.assistant.is-closing {
+  transform: translateX(100%);
 }
 
 .assistant.is-closing {
   transition-timing-function: cubic-bezier(0.4, 0, 0.8, 0.4);
 }
 
-/* Luz cálida arriba, como un reflejo del naranjo de marca */
-.assistant-glow {
-  position: absolute;
-  inset: -80px -60px auto;
-  height: 360px;
-  background:
-    radial-gradient(closest-side at 70% 55%, rgba(255, 122, 74, 0.28), transparent),
-    radial-gradient(closest-side at 25% 45%, rgba(255, 61, 127, 0.14), transparent);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 500ms 150ms;
-}
-
-.assistant.is-open .assistant-glow {
-  opacity: 1;
-}
-
-/* ---------- Encabezado ---------- */
-.assistant-header {
+/* ---------- Encabezado: el de «Rappi hoy», con el campo de Bigotes ---------- */
+.bigotes-search-header {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 62px var(--gutter) 10px;
+  margin: 0;
 }
 
-.assistant-close {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+.bigotes-search-field {
+  --ring: 1.5px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 0;
+  box-shadow: 0 6px 18px rgba(255, 90, 54, 0.12);
 }
 
-.assistant-hero {
+/* Borde con degradado (mismo truco que la barra de la Home): un cuadrado que gira detrás y un relleno blanco encima */
+.bigotes-search-field::before {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  left: 50%;
+  top: 50%;
+  width: 130%;
+  aspect-ratio: 1;
+  background: conic-gradient(#ffd9cb 0deg 150deg, #ffc2a6 190deg, #ff9a3d 250deg, #ff5a36 300deg, #ff3d7f 335deg, #ffd9cb);
+  transform: translate(-50%, -50%) rotate(0deg);
+}
+
+.bigotes-search-field::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: var(--ring);
+  border-radius: 99px;
+  background: #fff;
+}
+
+.assistant.is-open .bigotes-search-field::before {
+  animation: ring-turn 1100ms 120ms var(--ease-out) both;
+}
+
+/* ---------- Cuerpo ---------- */
+.bigotes-search-body {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 120px;
+  scrollbar-width: none;
+}
+
+.bigotes-search-body::-webkit-scrollbar {
+  display: none;
+}
+
+.bigotes-block {
+  padding: 0 var(--gutter);
+}
+
+/* Los bloques suben uno tras otro al abrir */
+.assistant.is-open .bigotes-card,
+.assistant.is-open .bigotes-block {
+  animation: fade-up 460ms var(--ease-out) both;
+}
+
+.assistant.is-open .bigotes-card {
+  animation-delay: 140ms;
+}
+
+.assistant.is-open .bigotes-block:nth-of-type(2) {
+  animation-delay: 230ms;
+}
+
+.assistant.is-open .bigotes-block:nth-of-type(3) {
+  animation-delay: 310ms;
+}
+
+.assistant.is-open .bigotes-block:nth-of-type(4) {
+  animation-delay: 390ms;
+}
+
+/* ---------- Franja de Bigotes: lo que sabe de ti, su respuesta y los botones ---------- */
+.bigotes-card {
+  position: relative;
+  margin-top: 6px;
+  padding: 14px 0 6px;
+  border-radius: 0 0 28px 28px;
+  background:
+    radial-gradient(120% 90% at 85% 0%, rgba(255, 122, 74, 0.2), transparent 60%),
+    radial-gradient(90% 70% at 10% 10%, rgba(255, 61, 127, 0.1), transparent 60%),
+    linear-gradient(#fff6f1, #fffaf7);
+}
+
+.bigotes-card-head {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 0 var(--gutter);
 }
 
-.assistant-hero strong {
+.bigotes-card-head strong {
   display: block;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
 }
 
-.assistant-hero small {
+.bigotes-card-head small {
   display: flex;
   align-items: center;
   gap: 5px;
   font-size: 13px;
   color: var(--ink-2);
+}
+
+.bigotes-card-mascot {
+  display: block;
+}
+
+.assistant.is-open .bigotes-card-mascot {
+  animation: mascot-pop 620ms 200ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .assistant-online {
@@ -78,19 +152,32 @@
   box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.18);
 }
 
-/* La mascota "salta" desde la esquina de la Home al encabezado */
-.assistant.is-open .assistant-hero-mascot {
-  display: block;
-  animation: mascot-hop 620ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+.bigotes-asked {
+  margin: 10px var(--gutter) 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c2410c;
 }
 
-@keyframes mascot-hop {
+.bigotes-picks-label {
+  margin: 6px var(--gutter) 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+@keyframes ring-turn {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes mascot-pop {
   0% {
-    transform: translate(230px, -10px) scale(0.6) rotate(12deg);
+    transform: scale(0.4) rotate(-14deg);
     opacity: 0;
   }
   60% {
-    transform: translate(-6px, -14px) scale(1.08) rotate(-6deg);
+    transform: scale(1.1) rotate(6deg);
     opacity: 1;
   }
   100% {
@@ -98,8 +185,17 @@
   }
 }
 
-.assistant-hero > span:last-child {
-  animation: fade-up 400ms 200ms var(--ease-out) both;
+@media (prefers-reduced-motion: reduce) {
+  .assistant {
+    transition: none;
+  }
+
+  .assistant.is-open .bigotes-search-field::before,
+  .assistant.is-open .bigotes-card,
+  .assistant.is-open .bigotes-block,
+  .assistant.is-open .bigotes-card-mascot {
+    animation: none;
+  }
 }
 
 /* ---------- "Aprendiendo de ti" ---------- */
@@ -109,10 +205,9 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 2px var(--gutter) 4px;
+  margin: 12px var(--gutter) 2px;
   font-size: 12.5px;
   color: var(--ink-2);
-  animation: fade-up 400ms 250ms var(--ease-out) both;
 }
 
 .assistant-learning b {
@@ -131,18 +226,6 @@
 }
 
 /* ---------- Mensajes ---------- */
-.assistant-messages {
-  position: relative;
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 0 16px;
-  scrollbar-width: none;
-}
-
-.assistant-messages::-webkit-scrollbar {
-  display: none;
-}
-
 .chat-row {
   display: flex;
   padding: 5px var(--gutter);
@@ -366,13 +449,7 @@
   font-weight: 600;
 }
 
-/* ---------- Parte de abajo: sugerencias + campo ---------- */
-.assistant-bottom {
-  position: relative;
-  padding: 8px 0 30px;
-  background: linear-gradient(to top, #fffaf7 70%, rgba(255, 250, 247, 0));
-}
-
+/* ---------- Botones de Bigotes ---------- */
 .assistant-chips {
   display: flex;
   gap: 8px;
@@ -404,50 +481,6 @@
   background: #fff1eb;
 }
 
-.assistant-input {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 var(--gutter);
-  padding: 6px;
-  border-radius: 99px;
-  background: #fff;
-  box-shadow:
-    0 0 0 1.5px #ffe1d6,
-    0 8px 24px rgba(255, 90, 54, 0.12);
-}
-
-.assistant-input input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  background: none;
-  font: inherit;
-  font-size: 16px;
-}
-
-.assistant-send {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #fff1eb;
-  color: #f0532b;
-  transition: transform var(--duration-fast);
-}
-
-.assistant-send {
-  background: linear-gradient(135deg, #ff7a45, #f0532b);
-  animation: pop-in 240ms var(--ease-out);
-}
-
-.assistant-send:active {
-  transform: scale(0.88);
-}
-
 /* ---------- Keyframes ---------- */
 @keyframes fade-up {
   from {
@@ -473,13 +506,6 @@
 @keyframes chip-in {
   from {
     transform: translateY(16px);
-    opacity: 0;
-  }
-}
-
-@keyframes pop-in {
-  from {
-    transform: scale(0.85);
     opacity: 0;
   }
 }
