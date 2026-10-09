@@ -69,7 +69,22 @@ El interruptor junto al teléfono (tecla **D**, o Account → Modo demo en el ce
 | <img src="docs/screenshots/02-home-rappi-hoy.jpg" width="300" alt="Home de Rappi hoy"> | <img src="docs/screenshots/01-home-final.jpg" width="300" alt="Home del prototipo final con Bigotes"> |
 | Buscador original | Bigotes vive en la Home y la misma barra abre su buscador |
 
-En el **prototipo final** Bigotes de cuerpo entero vive en la Home (`src/screens/home/live/`), sin ícono de chat. Al entrar saluda; no sugiere productos ni reordena la Home. La Home suma un pasaporte de verticales (bajo los accesos de siempre), «¿Qué plan tienes hoy?» (un kit de varias verticales) y, al tocar a Bigotes, una vertical por probar. Bigotes saluda al llegar, salta, apunta y gira según lo que dice, y en espera mira alrededor, baila o se estira; sin nada que decir se asoma desde el borde y al hacer scroll se esconde, para no tapar la Home. Lo que se agrega al carro fuera de la Home lo comenta al volver (no hay aviso flotante). La barra de la Home y la lupa de abajo abren el buscador con Bigotes (ver más abajo), y al entregar un pedido ofrece armar el próximo. En el celular, «Repetir escena de Bigotes» está en Account. «↺ Repetir escena», junto al interruptor, vuelve a empezar. Respeta «reducir movimiento» del sistema.
+En el **prototipo final** Bigotes de cuerpo entero vive en la Home (`src/screens/home/live/`), sin ícono de chat. Al entrar saluda; no sugiere productos ni reordena la Home. La Home suma el pasaporte del juego de verticales (bajo los accesos de siempre; ver «Juego de verticales»), «¿Qué plan tienes hoy?» (un kit de varias verticales) y, al tocar a Bigotes, una vertical por probar. Bigotes saluda al llegar, salta, apunta y gira según lo que dice, y en espera mira alrededor, baila o se estira; sin nada que decir se asoma desde el borde y al hacer scroll se esconde, para no tapar la Home. Lo que se agrega al carro fuera de la Home lo comenta al volver (no hay aviso flotante). La barra de la Home y la lupa de abajo abren el buscador con Bigotes (ver más abajo), y al entregar un pedido ofrece armar el próximo. En el celular, «Repetir escena de Bigotes» está en Account. «↺ Repetir escena», junto al interruptor, vuelve a empezar. Respeta «reducir movimiento» del sistema.
+
+## Juego de verticales
+
+En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de verticales (traído de `rappi-juego-verticales`, que queda como histórico): 8 sellos (Súper, Express, Turbo, Licores, Chocolatería, Restaurantes, Farmacia y Rappi Mall), uno por vertical en nivel Explorador o más. Un sello se gana jugando (descubrir un concepto) o abriendo la vertical en la app; Conocedor y Experto, solo jugando, y se ven en el borde del sello. Con 4 sellos, envío gratis en la demo.
+
+- **Desde la Home:** el título del pasaporte abre el pasaporte del juego; «Jugar», su camino de verticales; cada sello, su hoja con «Jugar» y «Abrir {vertical}». Bigotes, al tocarlo, propone jugar la primera vertical sin sello.
+- **Mientras llega el pedido:** el seguimiento ofrece «Juega mientras llega tu pedido», una ronda de 5 pasos en una vertical sin sello. Arriba, una franja con el tiempo que falta; si el pedido llega a mitad de ronda, avisa con «Ver pedido».
+- **El juego:** rondas (conceptos que se dan vuelta y desafíos de 4 opciones), XP y nivel, misión del día y racha, y un álbum de cartas «¿Sabías que…?». Los datos son agregados del catálogo del 05-10-2026 (`src/data/verticales.json`, sin conceptos sensibles; `npm run datos -- "<04 Mapa multivertical.html>"` los regenera).
+- **Farmacia** se puede jugar desde el pasaporte, pero ni Bigotes ni el seguimiento la proponen (la salud no se empuja). Licores lleva la marca «+18».
+- El progreso es de demo: se guarda solo en el navegador. «Repetir escena» lo deja como al empezar.
+
+| El juego | Mientras llega el pedido |
+|:---:|:---:|
+| <img src="docs/screenshots/31-juego-camino.jpg" width="240" alt="Camino de verticales del juego"> | <img src="docs/screenshots/32-juego-espera.jpg" width="240" alt="Ronda con la franja del pedido"> |
+| Camino de verticales, misión del día y nivel | La ronda muestra cuánto falta para el pedido |
 
 ## Lo nuevo de la propuesta
 
@@ -110,7 +125,7 @@ En la Home esa tarea la hace Bigotes de cuerpo entero (ver «Modo demo»): ya no
 | Checkout | Seguimiento | Entregado |
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/25-checkout.jpg" width="240" alt="Checkout"> | <img src="docs/screenshots/26-seguimiento.jpg" width="240" alt="Seguimiento"> | <img src="docs/screenshots/27-entregado.jpg" width="240" alt="Pedido entregado"> |
-| Delivery o retiro, propina y desglose (envío gratis con Pro). El medio de pago es un texto de ejemplo. | Simulado: los pasos avanzan solos y Bigotes recorre la ruta en el mapa. | Calificación y la siguiente sugerencia cruzada. |
+| Delivery o retiro, propina y desglose (envío gratis con Pro). El medio de pago es un texto de ejemplo. | Simulado: los pasos avanzan solos y Bigotes recorre la ruta en el mapa; se puede jugar mientras llega. | Calificación y la siguiente sugerencia cruzada. |
 
 También:
 
@@ -143,7 +158,7 @@ Además: Pharmacy, Retail, Express, Pet, Chocolates, Loyalty, buscador, página 
 
 - **Real:** las pantallas (recortes de las capturas), los precios y productos que se ven en ellas, los menús del scraper (si se exportan), el carrito, los pedidos y el historial del navegador.
   - **Con la API** también son reales: la búsqueda y los productos y precios que muestra Bigotes.
-- **Simulado:** el pago y el seguimiento.
+- **Simulado:** el pago y el seguimiento (el pedido «llega» a los 20 s), y el progreso del juego (solo en el navegador).
   - **Sin la API** también son simuladas las respuestas de Bigotes (reglas sobre los datos del prototipo).
 - **Privacidad:** el id de usuario es seudónimo (`proto-…`, guardado en este navegador). El carro, los favoritos, la dirección, Loyalty y los pedidos también se guardan solo en este navegador. "Olvidar" borra lo aprendido también en la API. En modo "Rappi hoy" no se aprende.
 - **Supuestos:** textos cortados en el borde de las capturas, algunos ratings y tiempos de entrega; están marcados como "supuesto" en los archivos `data.js`.
@@ -155,10 +170,11 @@ src/
 ├── api/            Cliente de la API de rappi-ia (chat, "Para ti", pedidos); si no responde, modo local
 ├── assistant/      Bigotes local: temas, respuestas y recomendaciones (lógica pura, con tests)
 ├── assets/         Recortes de las capturas
+├── game/           Lógica del juego de verticales: desafíos, cartas, XP, niveles, pasaporte (lógica pura, con tests)
 ├── components/     Piezas compartidas; assistant/ tiene la mascota, la barra de la Home, el buscador con Bigotes y Descubre
-├── data/           Catálogo y buscador; menús reales opcionales
+├── data/           Catálogo y buscador; menús reales opcionales; verticales.json del juego
 ├── hooks/          Navegación con historial, scroll
-├── screens/        Una carpeta por pantalla (home, deals, vertical, checkout, tracking…)
+├── screens/        Una carpeta por pantalla (home, deals, vertical, checkout, tracking, game…)
 ├── state/          Carrito, perfil, pedidos, hoja de producto, modo demo, dirección… (varios persisten en localStorage)
 └── styles/         Tokens de diseño y estilos globales
 design/bigotes.html Ficha del personaje

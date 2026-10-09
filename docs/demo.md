@@ -43,9 +43,15 @@ Es lo primero que se ve en el prototipo final. Para partir de cero: **↺ Repeti
 
 1. Bigotes entra caminando a la Home y saluda. No sugiere productos ni mueve la Home: la Home es la de siempre, con el pasaporte de verticales justo bajo los accesos. **Qué decir:** Bigotes es parte de la Home, no un canal aparte.
 2. Baja hasta «¿Qué plan tienes hoy?» y elige **Carrete**: un kit de tres verticales con un solo botón.
-3. Toca a Bigotes: propone una vertical que falta en el pasaporte. Ábrela y vuelve: celebra el sello.
+3. Toca a Bigotes: propone jugar una vertical que falta en el pasaporte. Con «Abrir» la sellas al entrar y, al volver, lo celebra.
 
 El pasaporte y su envío gratis son una idea para probar con usuarios, no una promoción real.
+
+### Juego de verticales (2 minutos, opcional)
+
+1. En el pasaporte de la Home, toca **Jugar**: el camino de las 8 verticales con la misión del día. Juega una ronda (5 pasos: conceptos que se dan vuelta y desafíos de 4 opciones). **Qué decir:** el catálogo y el grafo de conceptos sirven para que la persona conozca verticales que no usa, jugando y sin que se le pida comprar.
+2. Haz un pedido y, en el seguimiento, toca **«Juega mientras llega tu pedido»**: la ronda muestra arriba cuánto falta y avisa cuando llega (en la demo, a los 20 s). **Qué decir:** la espera se aprovecha para descubrir otra vertical y suma un sello.
+3. Vuelve a la Home: el sello nuevo está en el pasaporte.
 
 ## Qué aclarar si preguntan
 

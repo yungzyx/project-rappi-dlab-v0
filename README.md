@@ -162,7 +162,7 @@ cd prototipo-app && npm ci && npm run dev       # http://localhost:5174
 cd dashboard-empresa && npm ci && npm run dev   # http://localhost:5175
 ```
 
-- **Prototipo:** la tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Prototipo final» (Bigotes vive en la Home, con un pasaporte de verticales; la barra abre el buscador con Bigotes: lo aprendido con «Olvidar», ideas para tocar, búsqueda de tiendas y productos y «Descubre con Bigotes»; sin chat escrito, voz ni foto) y «Rappi hoy» (la app como es hoy). Sin la API, Bigotes responde con reglas locales sobre los datos de las capturas y lo marca con «Respuesta local».
+- **Prototipo:** la tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Prototipo final» (Bigotes vive en la Home, con el pasaporte del juego de verticales, que también se ofrece mientras llega el pedido; la barra abre el buscador con Bigotes: lo aprendido con «Olvidar», ideas para tocar, búsqueda de tiendas y productos y «Descubre con Bigotes»; sin chat escrito, voz ni foto) y «Rappi hoy» (la app como es hoy). Sin la API, Bigotes responde con reglas locales sobre los datos de las capturas y lo marca con «Respuesta local».
 - **Panel:** sin la API usa respuestas guardadas (`src/fixtures/`) y lo avisa («Modo sin conexión (datos guardados)»). Cada bloque indica si su dato es simulado o real.
 
 ### Correr la demo completa (catálogo real)

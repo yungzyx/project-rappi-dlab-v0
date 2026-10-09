@@ -105,6 +105,16 @@ async function run(page) {
   await back()
   await settle(400)
 
+  // Juego de verticales: se entra desde el pasaporte de la Home.
+  await center('.live-passport')
+  await tap('.live-passport-play')
+  await wait(900)
+  await tap('button', 'Ver el camino primero') // la bienvenida de Bigotes, la primera vez
+  await settle(600)
+  await shot('31-juego-camino')
+  await tap('[aria-label="Volver a Rappi"]')
+  await settle(400)
+
   await tab('Offers')
   await page.locator('.product-card', { hasText: 'Royal Guard' }).first().locator('.add-button').click()
   await wait(700)
@@ -116,8 +126,13 @@ async function run(page) {
   await shot('25-checkout')
   await tap('.checkout-place')
   await wait(13000)
-  await shot('26-seguimiento')
-  await wait(9000)
+  await shot('26-seguimiento') // con «Juega mientras llega tu pedido»
+  await tap('.tracking-game')
+  await wait(1200)
+  await shot('32-juego-espera')
+  await wait(8000) // el pedido llega a mitad de ronda
+  await tap('.game-order button', 'Ver pedido')
+  await wait(800)
   await shot('27-entregado')
   await back()
   await settle(400)
