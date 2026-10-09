@@ -1,3 +1,5 @@
+> **Historial.** Este repo conserva todas las etapas de [`rappi-dlab`](https://github.com/yungzyx/rappi-dlab) y el juego de verticales; la línea de tiempo está en [EVOLUCION.md](EVOLUCION.md). El proyecto vigente está en `rappi-dlab`.
+
 # rappi-dlab · Recomendaciones entre verticales para Rappi Chile
 
 Prototipo que muestra cómo lo que una persona hace en un vertical de Rappi (supermercado, licores, farmacia, restaurantes…) puede mejorar lo que se le recomienda en los demás. Reúne el catálogo público de rappi.cl en Postgres + pgvector, una búsqueda híbrida evaluada, el asistente **Bigotes** y un panel de negocio.
