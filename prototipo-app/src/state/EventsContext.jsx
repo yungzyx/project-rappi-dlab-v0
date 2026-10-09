@@ -3,7 +3,7 @@ import { beaconEvents, health, sendEvents } from '../api/client'
 import { useDemo } from './DemoContext'
 
 // Eventos de uso para el panel de la empresa (búsquedas, carrito, sugerencias, pedidos). Se envían en lotes a
-// rappi-ia; sin API, se descartan en silencio. En "Rappi hoy" se envían sin concepto: Bigotes no aprende.
+// rappi-ia; sin API, se descartan en silencio. En "Rappi hoy" se envían sin concepto: Mochi no aprende.
 const USER_KEY = 'rappi-proto-user'
 const SESSION_KEY = 'rappi-proto-session'
 const SESSION_IDLE_MS = 30 * 60 * 1000 // una sesión termina tras 30 min sin actividad
@@ -73,7 +73,7 @@ export function sessionId(now = Date.now()) {
 }
 
 /**
- * Temas que Bigotes ya sugirió en la sesión (chat y «Para ti»): una sugerencia por tema por sesión. Viven con la
+ * Temas que Mochi ya sugirió en la sesión (chat y «Para ti»): una sugerencia por tema por sesión. Viven con la
  * sesión, así que recargar la página no los olvida y una sesión nueva empieza sin ellos.
  */
 export function shownTopics(now = Date.now()) {

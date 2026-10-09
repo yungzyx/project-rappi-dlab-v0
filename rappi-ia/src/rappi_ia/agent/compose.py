@@ -16,6 +16,7 @@ from .. import config
 log = logging.getLogger(__name__)
 
 AGE_NOTICE = "Recuerda: estos productos se venden solo a mayores de 18."
+ASSISTANT_NAME = "Mochi"  # la mascota del prototipo: así se presenta ante el usuario
 
 
 @dataclass
@@ -50,14 +51,14 @@ class TemplateComposer:
     def main(self, d: Draft) -> str:
         if d.kind == "saludo":
             extra = f" Veo que te gusta {d.interest_label}." if d.interest_label else ""
-            return f"¡Hola! Soy Bigotes 😺.{extra} ¿Qué se te antoja hoy?"
+            return f"¡Hola! Soy {ASSISTANT_NAME} 🧡.{extra} ¿Qué se te antoja hoy?"
         if d.kind == "gracias":
-            return "¡De nada! Aquí estoy si necesitas algo más 😺"
+            return "¡De nada! Aquí estoy si necesitas algo más 🧡"
         if d.kind == "ayuda":
             return (
-                "Soy Bigotes 😺, tu asistente en Rappi. Pídeme lo que necesites («pañales talla G», «algo para el "
-                "carrete», «tengo fiebre») y te muestro lo que hay, aunque esté en otra vertical. También te llevo a "
-                "RappiTravel o RappiFavor."
+                f"Soy {ASSISTANT_NAME} 🧡, tu asistente en Rappi. Pídeme lo que necesites («pañales talla G», "
+                "«algo para el carrete», «tengo fiebre») y te muestro lo que hay, aunque esté en otra vertical. "
+                "También te llevo a RappiTravel o RappiFavor."
             )
         if d.kind == "envio":
             return (
@@ -121,7 +122,8 @@ class ClaudeComposer:
 
     name = "claude"
     SYSTEM = (
-        "Eres Bigotes, el gato asistente de compras de Rappi Chile: cercano, breve, chileno sin exagerar. "
+        f"Eres {ASSISTANT_NAME}, la mochila Rappi con bigote que asiste en las compras en Rappi Chile: "
+        "cercano, breve, chileno sin exagerar. "
         "Escribe UNA o DOS oraciones en español a partir de los hechos entregados. Reglas estrictas: "
         "1) Usa solo los hechos; no agregues productos, marcas, precios, cifras, descuentos, envíos ni atributos. "
         "2) Para nombrar un producto usa su marcador ({p1}, {p2}…), nunca el nombre escrito. "
@@ -206,7 +208,7 @@ def verify_llm_text(text: str, refs: dict[str, str], allowed: str = "") -> str |
     for sentence in re.split(r"(?<=[.!?¡¿])\s+", bare):
         words = re.findall(r"\w+", sentence)
         for word in words[1:]:  # la primera palabra de la oración va con mayúscula igual
-            if word[:1].isupper() and word.lower() not in known and word != "Bigotes":
+            if word[:1].isupper() and word.lower() not in known and word != ASSISTANT_NAME:
                 return None  # un nombre propio que no entregamos: posible producto o marca inventada
     return re.sub(r"\{(p\d+)\}", lambda m: refs[m.group(1)], text)
 

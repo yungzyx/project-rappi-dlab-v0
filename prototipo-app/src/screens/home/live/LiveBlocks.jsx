@@ -55,7 +55,7 @@ function ItemRow({ items, onOpen }) {
   )
 }
 
-/** «¿Qué plan tienes hoy?»: Bigotes arma un kit de varias verticales para la ocasión. */
+/** «¿Qué plan tienes hoy?»: Mochi arma un kit de varias verticales para la ocasión. */
 export function PlanBlock({ plan, kit, added, onPick, onOpen, onAddKit, onCheckout }) {
   const products = kit.filter((item) => item.kind === 'product')
   const total = products.reduce((sum, item) => sum + parsePrice(item.product.price), 0)

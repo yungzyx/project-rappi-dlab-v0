@@ -13,7 +13,7 @@
   --yellow: #f6dd52;
   --orange-bolt: #f39a2b;
 
-  /* Acento de la propuesta (Bigotes, foco de teclado, seguimiento): más claro que el rojo de marca muestreado */
+  /* Acento de la propuesta (Mochi, foco de teclado, seguimiento): más claro que el rojo de marca muestreado */
   --bigotes-orange: #f0532b;
   --bigotes-gradient: linear-gradient(135deg, #ff7a45, var(--bigotes-orange));
   --accent-soft: #fff1e8; /* chips naranja claros */
@@ -49,7 +49,7 @@
   --z-live-bigotes: 25; /* sobre la Home, bajo la barra inferior y el carrito */
   --z-nav: 30;
   --z-nudge: 36;
-  --z-panel: 38; /* buscador con Bigotes */
+  --z-panel: 38; /* buscador con Mochi */
   --z-cart: 39; /* sobre el panel: el carrito se ve y se abre desde ahí */
   --z-status: 40;
   --z-sheet: 60;

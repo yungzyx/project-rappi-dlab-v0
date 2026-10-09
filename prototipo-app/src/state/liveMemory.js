@@ -1,9 +1,9 @@
-// Memoria de Bigotes en la Home del prototipo final mientras dura la sesión: lo que ya mostró y lo último que la persona
-// agregó al carro (Bigotes lo comenta al volver). El pasaporte es el del juego de verticales (GameContext).
+// Memoria de Mochi en la Home del prototipo final mientras dura la sesión: lo que ya mostró y lo último que la persona
+// agregó al carro (Mochi lo comenta al volver). El pasaporte es el del juego de verticales (GameContext).
 
 export const session = { played: false, lastAdded: null, newStamp: null, plan: null, planPrompted: false }
 
-/** Lo último agregado al carro en el prototipo final (fuera de la Home): Bigotes lo comenta al volver. */
+/** Lo último agregado al carro en el prototipo final (fuera de la Home): Mochi lo comenta al volver. */
 export function rememberAdded(product) {
   session.lastAdded = product
 }

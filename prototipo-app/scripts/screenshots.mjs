@@ -58,7 +58,7 @@ async function run(page) {
   await reset()
 
   // --- Portada: modo demo y la Home en ambos modos (arranca en el prototipo final) ---
-  await wait(4200) // Bigotes entra a los 0,9 s y termina de escribir su saludo
+  await wait(4200) // Mochi entra a los 0,9 s y termina de escribir su saludo
   await shot('00-modo-demo', { full: true })
   await shot('01-home-final')
   await page.keyboard.press('d')
@@ -90,10 +90,10 @@ async function run(page) {
   await settle(400)
 
   // --- Lo nuevo del prototipo final ---
-  await tap('.home-top .smart-bar') // la barra de la Home abre el buscador con Bigotes
+  await tap('.home-top .smart-bar') // la barra de la Home abre el buscador con Mochi
   await wait(1200) // animación de entrada del panel
   await tap('.assistant-chip', 'carrete')
-  await wait(3800) // Bigotes responde
+  await wait(3800) // Mochi responde
   await shot('20-asistente')
   await tap('[role="dialog"] .search-back')
   await wait(600)
@@ -109,7 +109,7 @@ async function run(page) {
   await center('.live-passport')
   await tap('.live-passport-play')
   await wait(900)
-  await tap('button', 'Ver el camino primero') // la bienvenida de Bigotes, la primera vez
+  await tap('button', 'Ver el camino primero') // la bienvenida de Mochi, la primera vez
   await settle(600)
   await shot('31-juego-camino')
   await tap('[aria-label="Volver a Rappi"]')
@@ -145,12 +145,6 @@ async function run(page) {
   await tap('.loyalty-sheet-primary')
   await wait(900)
   await shot('28-loyalty-vinculado')
-
-  // --- Ficha del personaje ---
-  await page.setViewportSize({ width: 1100, height: 900 })
-  await page.goto(`${BASE}design/bigotes.html`)
-  await wait(1200)
-  await shot('30-ficha-bigotes', { full: true })
 }
 
 async function main() {

@@ -1,4 +1,4 @@
-# Diseño: RAG, agente Bigotes y panel para la empresa
+# Diseño: RAG, agente Mochi y panel para la empresa
 
 > Cómo se conectan el catálogo (scraper), la búsqueda semántica, el agente, el prototipo y un panel de negocio. Las etapas 0–8 están construidas (§7); lo que el código todavía no cubre se marca como pendiente.
 > Última actualización: 30-09-2026. Contexto: [contexto-y-problema.md](contexto-y-problema.md) · Modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Resultados vigentes: [README → Resultados](../README.md#resultados).
@@ -58,15 +58,15 @@ Decisiones:
   - el precio se compara contra `price_min`, una columna indexada con el precio vigente más bajo entre las tiendas del vertical (migración 013);
   - un precio bajo $10 cuenta como desconocido: son los $0 y $1 de relleno de los platos cuyo precio depende de las opciones. No pasa el tope ni se muestra;
   - en el vectorial, un pool de 200 candidatos con `hnsw.iterative_scan` de pgvector; si el tope de precio deja pocos documentos (hasta 5.000), se revisan todos, porque el índice filtrado podría devolver de menos.
-  - Si nada de lo pedido cabe bajo el tope, no se muestra otra cosa: Bigotes lo dice ("no hay bajo $X; el más barato cuesta $Y") y **no** registra demanda no satisfecha.
+  - Si nada de lo pedido cabe bajo el tope, no se muestra otra cosa: Mochi lo dice ("no hay bajo $X; el más barato cuesta $Y") y **no** registra demanda no satisfecha.
 - **"Sin resultado" bien definido.** La búsqueda vectorial siempre devuelve vecinos, así que "no encontrar" necesita una regla.
   - **Primera condición, siempre:** que nada calce todas las palabras de la consulta.
   - **Si la consulta nombra un concepto:** además, que el concepto no tenga surtido real en el vertical, es decir, menos de 3 ítems o del 0,05% del vertical.
   - **Si no nombra ninguno:** además, que el coseno máximo de e5 quede bajo τ del vertical. Como la coincidencia estricta, se mide sin el tope de precio: lo que existe a otro precio no es demanda no satisfecha. Una consulta sin palabras que buscar (solo stopwords y palabras de saludo, cortesía o pedido, como «té» o «quiero té porfa») no se marca: la primera condición no se puede evaluar y el coseno solo no basta.
-  - **Qué se muestra:** ni los vecinos del coseno ni productos de otro concepto (si el concepto pedido es testimonial, sus pocos productos sí). Sin productos a la vista, Bigotes anota la demanda, salvo si se habló de síntomas: ahí los medicamentos se ocultan por la regla 6d, no por falta de surtido.
+  - **Qué se muestra:** ni los vecinos del coseno ni productos de otro concepto (si el concepto pedido es testimonial, sus pocos productos sí). Sin productos a la vista, Mochi anota la demanda, salvo si se habló de síntomas: ahí los medicamentos se ocultan por la regla 6d, no por falta de surtido.
   - **Por qué no se usa solo el coseno:** en la evaluación, los cosenos de e5 se concentran en un rango estrecho (datos parciales) y separan mal; la presencia del concepto es mejor señal.
   - **Calibración:** τ se calibra por vertical con las consultas negativas del set de evaluación, pidiendo precisión ≥ 0,9. Solo cuentan las negativas que dependen de τ (sin coincidencia léxica ni concepto nombrado, y con palabras que buscar); un vertical sin ellas no recibe propuesta y conserva su τ (o 0,82 si nunca tuvo): pasarlo a 0,82 metía una falsa alarma en Mall. El reporte muestra el τ vigente y el propuesto, y advierte cuando un τ vigente está en el piso de la grilla (0,70): ahí la regla del coseno casi no se dispara.
-  - **Resultado vigente:** precisión 1,00 y recall 0,71 (29 de 41) en la búsqueda (`retrieve`), en [README → Resultados](../README.md#resultados). Bigotes anota 21 de las 41, sin falsas alarmas en las 124 positivas: en las otras 8 la búsqueda la marca, pero se muestran los pocos productos del concepto pedido (surtido testimonial). El set anterior (28-09) tenía negativas desactualizadas y se renovó el 29-09.
+  - **Resultado vigente:** precisión 1,00 y recall 0,71 (29 de 41) en la búsqueda (`retrieve`), en [README → Resultados](../README.md#resultados). Mochi anota 21 de las 41, sin falsas alarmas en las 124 positivas: en las otras 8 la búsqueda la marca, pero se muestran los pocos productos del concepto pedido (surtido testimonial). El set anterior (28-09) tenía negativas desactualizadas y se renovó el 29-09.
   - **Por qué no se detecta todo:** de las negativas no detectadas, unas nombran un concepto que el vertical sí tiene, otras calzan por casualidad con la regla léxica estricta («neumáticos» → un renovador de neumáticos en conveniencia) y otras quedan sobre τ. El reporte explica cada una.
   - **Límite conocido:** un iPhone en el súper no cuenta, porque hay accesorios del mismo concepto.
 - **Reranker:** no por ahora. Se agrega (p. ej. `bge-reranker-v2-m3`) solo si la evaluación lo justifica, porque suma latencia y otro modelo.
@@ -74,11 +74,11 @@ Decisiones:
   - **Set:** 124 consultas positivas en los 8 verticales y 41 negativas (al menos 5 por vertical, verificadas contra el catálogo completo), en `rappi-ia/src/rappi_ia/eval/queries.json`. Incluye consultas exactas, sin tildes y necesidades en lenguaje natural.
   - **Relevancia:** se juzga automáticamente por concepto (un resultado es relevante si su concepto está entre los esperados).
   - **Métricas:** P@10, MRR y nDCG@10, comparando léxico, vectorial, híbrido e híbrido sin refuerzo por concepto (ablación), con comparación pareada por consulta e intervalo de confianza por bootstrap. Recall@10 no se calcula.
-  - **Lo que ve el usuario:** la fila «híbrido mostrado» juzga los productos que devuelve `search_products` (/search y Bigotes: sin sensibles no pedidos, con foco en el concepto, precio vigente y sin repetidos). Su «sin resultado» usa la regla con que Bigotes registra la demanda: la búsqueda lo marca, no se muestra ningún producto y la consulta no habla de síntomas.
+  - **Lo que ve el usuario:** la fila «híbrido mostrado» juzga los productos que devuelve `search_products` (/search y Mochi: sin sensibles no pedidos, con foco en el concepto, precio vigente y sin repetidos). Su «sin resultado» usa la regla con que Mochi registra la demanda: la búsqueda lo marca, no se muestra ningún producto y la consulta no habla de síntomas.
   - **Resultado:** el híbrido quedó como modo por defecto. Cifras en [README → Resultados](../README.md#resultados); el reporte de cada corrida queda en `rappi-ia/data/eval/busqueda.md` y la copia que respalda las cifras, en [resultados/](resultados/).
   - **Salvedad:** el híbrido recibe un refuerzo por el mismo concepto con que se juzga la relevancia. Sin el refuerzo, 0,860 frente a 0,846 del vectorial: la diferencia no es concluyente (IC 95 % −0,012 a 0,042).
 - **Dos audiencias, un solo núcleo:**
-  - Bigotes, para clientes, en el prototipo;
+  - Mochi, para clientes, en el prototipo;
   - más adelante, preguntas del equipo interno (Marketing, Producto, BI), que usan las mismas herramientas más consultas SQL de análisis.
 
 ## 2. Qué datos se relacionan y cuáles no
@@ -124,7 +124,7 @@ Decisiones:
 
 **Control de calidad de la voz:**
 - Se descarta el audio si `no_speech_prob` > 0,6 o si el texto está en una lista de alucinaciones conocidas de Whisper (p. ej. "Subtítulos realizados por la comunidad de Amara.org").
-- Confianza = `exp(avg_logprob)`. Si es < 0,5 o si `compression_ratio` > 2,4, Bigotes pregunta "¿Dijiste…?".
+- Confianza = `exp(avg_logprob)`. Si es < 0,5 o si `compression_ratio` > 2,4, Mochi pregunta "¿Dijiste…?".
 
 **Cómo se combinan:**
 - Toda entrada termina en (vertical, conceptos, texto y, si hay foto, un vector de imagen).
@@ -134,7 +134,9 @@ Decisiones:
 
 **¿Por qué modelos locales?** No requieren claves de API, los datos no salen del equipo y no tienen costo por uso. Se pueden cambiar sin rehacer el diseño: el caché se separa por modelo.
 
-## 4. Comportamiento del agente (Bigotes)
+## 4. Comportamiento del agente (Mochi)
+
+Mochi es el nombre que ve el usuario (antes, Bigotes). En el código el agente conserva su nombre: `rappi_ia/agent/bigotes.py` y la clase `Bigotes`.
 
 **Flujo por turno:** entender → decidir herramienta(s) → recuperar → componer → verificar → registrar.
 
@@ -143,7 +145,7 @@ Decisiones:
 - `buscar_por_foto(imagen, vertical?)`: `photo.py` (los productos parecidos requieren haber corrido `make images`)
 - `recomendar_complementos(conceptos, vertical_actual)`: `suggest_complement` en `tools.py`
 - `buscar_remedios(sintoma)`: `search_remedies` en `tools.py` (remedios sin receta que nombran el síntoma)
-- **Servicios sin catálogo** (`[[service]]` en `taxonomy.toml`): RappiTravel (viajes, vuelos, hoteles) y RappiFavor (envíos, compras en cualquier tienda, trámites). Si la consulta los nombra y no nombra un producto, Bigotes lleva a su pantalla y, en «Propuesta», sugiere un gancho del catálogo (RappiTravel: protector solar, traje de baño o maleta). Lo que no está en el catálogo se ofrece con RappiFavor.
+- **Servicios sin catálogo** (`[[service]]` en `taxonomy.toml`): RappiTravel (viajes, vuelos, hoteles) y RappiFavor (envíos, compras en cualquier tienda, trámites). Si la consulta los nombra y no nombra un producto, Mochi lleva a su pantalla y, en «Propuesta», sugiere un gancho del catálogo (RappiTravel: protector solar, traje de baño o maleta). Lo que no está en el catálogo se ofrece con RappiFavor.
 - `detalle(entidad)`: pendiente
 - `historial_precio(producto)`: pendiente
 
@@ -162,13 +164,13 @@ Decisiones:
 5. **Aclara, no adivina.** Si la intención es ambigua entre verticales, hace una sola pregunta con opciones.
 6. **Categorías sensibles y restringidas.**
    - a. **Sensibles:** los conceptos marcados `sensitive` (medicamentos, salud sexual, bienestar sexual, tabaco y vapeo). **Restringidos por edad:** alcohol, tabaco, vapeo y adultos. Un producto es restringido si `is_alcoholic` o `age_restricted` es verdadero, o si su concepto es `age_restricted`.
-   - b. **Nunca por iniciativa propia.** Bigotes no sugiere un producto sensible, ni como sugerencia cruzada, recompra, reactivación o alerta. Las aristas hacia esos conceptos se ignoran. El alcohol se puede sugerir como complemento (cerveza con pizza), siempre con +18.
+   - b. **Nunca por iniciativa propia.** Mochi no sugiere un producto sensible, ni como sugerencia cruzada, recompra, reactivación o alerta. Las aristas hacia esos conceptos se ignoran. El alcohol se puede sugerir como complemento (cerveza con pizza), siempre con +18.
    - c. **Fuera del perfil.** Los conceptos sensibles no entran al perfil, no se muestran en "Aprendiendo de ti" y no sirven de origen ni de razón de una sugerencia.
    - d. **Síntomas.** Quien habla de un síntoma («tengo fiebre», «me siento mal») va a Farmacia con remedios **sin receta** cuyo texto nombra el síntoma (búsqueda por palabras), o con analgésicos si nada lo nombra; nunca un medicamento con receta (`requires_medical_prescription` de Rappi). Sin venta cruzada ni «También en». Si la farmacia no tiene nada, se muestra lo de cuidarse (sopas, jugos, té). No hay aviso aparte: cortaba la compra.
    - e. **Productos +18.** Siempre llevan el recordatorio. El tabaco y el vapeo solo se muestran si se piden por nombre, porque en Chile su publicidad está prohibida (Ley 20.105).
 7. **Memoria transparente.** Intereses por concepto con decaimiento (vida media de 14 días), visibles ("Aprendiendo de ti") y borrables ("Olvidar"). En modo "Rappi hoy" no aprende.
 8. **El código decide y el LLM solo redacta.**
-   - Sin clave de API, Bigotes responde con plantillas y las mismas reglas. Con `ANTHROPIC_API_KEY`, Claude redacta el texto en JSON estricto sobre lo recuperado.
+   - Sin clave de API, Mochi responde con plantillas y las mismas reglas. Con `ANTHROPIC_API_KEY`, Claude redacta el texto en JSON estricto sobre lo recuperado.
    - Entender la consulta: hoy son reglas + embeddings. Jev (el modelo "System One" de TypeSafe: juicios tipados con probabilidad y baja latencia) es una opción futura para esta etapa; no está implementado.
 
 **Contrato de respuesta.** Amplía el de `prototipo-app/src/assistant/brain.js` (`text`, `products`, `stores`, `reason`, `actions` y `tags`) sin romperlo:
@@ -204,22 +206,22 @@ Decisiones:
 | Retención | Hizo al menos un pedido entre los días 61 y 120 desde su primer pedido |
 | Usuarios multi-vertical | Pidieron en 2 o más verticales en 60 días. Su retención se compara **a igual número de compras (carros) y antigüedad**: quien pide más cae más en dos verticales y además retiene más, así que la comparación directa no mide el efecto |
 | Sugerencia aceptada / convertida | Aceptada: el producto sugerido (en el chat o en "Para ti") se agregó al carro; cuenta una vez por sugerencia (concepto, vertical y origen) en la pestaña, igual que la mostrada, así las aceptadas nunca superan a las mostradas: quitarlo y volver a agregarlo, o agregarlo otra vez en el carro siguiente, no es otra aceptación. Convertida: llegó a un pedido. El aviso sobre el carro se mide aparte: ahí aceptar es abrir el chat |
-| Servicios sin catálogo | Por servicio (RappiTravel, RappiFavor): veces que Bigotes lo ofreció (`service_shown`), que se abrió (`service_opened`) y ganchos del catálogo mostrados y aceptados (sugerencias con `origen` = el servicio). Vista «Entre verticales» |
+| Servicios sin catálogo | Por servicio (RappiTravel, RappiFavor): veces que Mochi lo ofreció (`service_shown`), que se abrió (`service_opened`) y ganchos del catálogo mostrados y aceptados (sugerencias con `origen` = el servicio). Vista «Entre verticales» |
 | Embudo por vertical | Sesiones que buscan (llegan a la vertical) → agregan al carro → inician pago → piden. La entrada (buscar, chatear, navegar, aceptar una sugerencia o agregar al carro desde una lista, que solo manda el agregado) se mira en toda la sesión, porque la sugerencia cruzada lleva el pedido a otra vertical. Una sesión cuenta en una vertical si tuvo ahí algún evento que no sea ver o descartar una sugerencia: ver una sugerencia sin aceptarla no la mete en esa vertical. Por eso una sesión puede contar en dos verticales: la conversión global (el titular) cuenta cada sesión una vez |
 
 **Vistas** (además de una pestaña Resumen con los indicadores y las palancas):
 
 1. **Oportunidades.**
-   - Demanda no satisfecha, agrupada por concepto, vertical y ciudad: cuántos usuarios la piden, su tendencia y una acción sugerida (sumar comercios o categoría, sinónimo de búsqueda, o avisar cuando llegue). «Que Bigotes lo ofrezca en otra vertical» solo se sugiere donde el agente lo haría: la misma regla de `available_elsewhere`.
+   - Demanda no satisfecha, agrupada por concepto, vertical y ciudad: cuántos usuarios la piden, su tendencia y una acción sugerida (sumar comercios o categoría, sinónimo de búsqueda, o avisar cuando llegue). «Que Mochi lo ofrezca en otra vertical» solo se sugiere donde el agente lo haría: la misma regla de `available_elsewhere`.
    - Conceptos que suben: últimas 4 semanas contra las 4 anteriores.
 2. **Frecuencia y abandono.** Embudo por vertical, retención por cohorte semanal, distribución de días entre pedidos y lista de usuarios en riesgo (id seudónimo) con la acción sugerida.
-3. **Entre verticales.** Afinidad concepto → concepto y rendimiento de las sugerencias de Bigotes (mostradas, aceptadas, convertidas, ignoradas).
+3. **Entre verticales.** Afinidad concepto → concepto y rendimiento de las sugerencias de Mochi (mostradas, aceptadas, convertidas, ignoradas).
 4. **Catálogo (muestra pública real).** Cobertura (obtenidos / declarados) por vertical y concepto, calidad (sin imagen o sin categoría) y cambios de precio. La comparación surtido vs. demanda va aparte, marcada "demanda simulada".
 
 **Aristas aprendidas** (alimentan al agente con `method = 'coocurrencia'`):
 - Usan la confianza dirigida P(B | A). El lift > 1 es solo un filtro: el lift es simétrico y no da dirección.
 - Requieren al menos 30 usuarios distintos con A y B. Suavizarlas hacia la arista curada queda pendiente: hoy su peso es la confianza P(B | A).
-- No cuentan co-ocurrencias en que B se agregó desde una sugerencia de Bigotes, para no retroalimentarse.
+- No cuentan co-ocurrencias en que B se agregó desde una sugerencia de Mochi, para no retroalimentarse.
 - Las aprendidas de datos `synthetic` quedan marcadas y **el agente no las usa**: solo se ven en el panel.
 - Nunca se aprenden aristas hacia conceptos sensibles.
 
@@ -278,7 +280,7 @@ Notas del modelo:
 | 0. Diseño | Este documento, los diagramas y docs sin contradicciones | Validación Archify y revisión adversarial | Hecha |
 | 1. Conceptos (capa 2) | `concepts`, `category_map`, `item_concepts`, `concept_edges` y `rappi-ia concepts` | Cobertura ≥ 85% y precisión revisada por muestreo | Hecha |
 | 2. Embeddings y búsqueda híbrida | `embed-text`, `embed-images`, `retrieve()` y set de evaluación | P@10, MRR y nDCG@10 (Recall@10 no se calcula): léxico vs vectorial vs híbrido; calibración de τ | Hecha |
-| 3. Agente | Bigotes en el backend (texto, foto, voz; el prototipo actual solo usa el texto) | Tests de reglas de conducta y escenarios | Hecha |
+| 3. Agente | Mochi en el backend (texto, foto, voz; el prototipo actual solo usa el texto) | Tests de reglas de conducta y escenarios | Hecha |
 | 4. API | FastAPI | Tests de endpoints | Hecha |
 | 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados | Hecha |
 | 6. Prototipo conectado | Cliente API con respaldo local, eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |

@@ -1,6 +1,6 @@
 # rappi-scraper
 
-Descarga el catálogo público de Rappi Chile de **todos los verticales** (productos, menús, tiendas y precios) y lo guarda en **Postgres + pgvector**. Con esa base arma los documentos de búsqueda por vertical que usa [`rappi-ia`](../rappi-ia/) para la búsqueda híbrida y el asistente Bigotes.
+Descarga el catálogo público de Rappi Chile de **todos los verticales** (productos, menús, tiendas y precios) y lo guarda en **Postgres + pgvector**. Con esa base arma los documentos de búsqueda por vertical que usa [`rappi-ia`](../rappi-ia/) para la búsqueda híbrida y el asistente Mochi.
 
 **Fuentes:** solo páginas públicas de rappi.cl (el JSON `__NEXT_DATA__` que trae cada página), los sitemaps públicos de restaurantes y el JSON público de metadatos de tiendas. No usa APIs internas ni login. Ver [Uso responsable](#uso-responsable).
 
@@ -194,7 +194,7 @@ Consultas de ejemplo y cómo conectarse: [docs/sql/](../docs/sql/).
 
 **Aislamiento por vertical:** las búsquedas siempre llevan `vertical` y cada vertical es su propia partición, así que un índice vectorial nunca mezcla verticales. Los análisis cruzados se hacen sobre las tablas núcleo.
 
-**Vigencia:** `search_documents` usa solo lo vigente. Una oferta o un plato cuenta si su último precio es de la última corrida que bajó su formato (`store_type`) o su cadena (`brand_id`); así salen las sucursales viejas y lo que ya no se vende. Un plato también sale si una corrida posterior ya no encontró su local o su cadena. Un formato que la última corrida no pudo bajar conserva su último dato. La corrida de cada formato sale de `v_store_format_runs`, que también usa `rappi-ia` para el precio que muestra Bigotes: el tope de precio y el precio mostrado salen de las mismas sucursales. Las tablas núcleo y las demás vistas `v_*` guardan todo el historial.
+**Vigencia:** `search_documents` usa solo lo vigente. Una oferta o un plato cuenta si su último precio es de la última corrida que bajó su formato (`store_type`) o su cadena (`brand_id`); así salen las sucursales viejas y lo que ya no se vende. Un plato también sale si una corrida posterior ya no encontró su local o su cadena. Un formato que la última corrida no pudo bajar conserva su último dato. La corrida de cada formato sale de `v_store_format_runs`, que también usa `rappi-ia` para el precio que muestra Mochi: el tope de precio y el precio mostrado salen de las mismas sucursales. Las tablas núcleo y las demás vistas `v_*` guardan todo el historial.
 
 **Embeddings:** `search_documents.content` no incluye precios (un cambio de precio no obliga a regenerar el embedding) y `content_hash` invalida el embedding solo si cambia el texto. El modelo es `intfloat/multilingual-e5-base` (768 dimensiones): `rappi-ia` llena `embedding`/`embedding_model` y crea un índice HNSW por partición con `embedding::vector(768)`. El ejemplo con `vector(1536)` de `003_search.sql` es anterior a la elección del modelo. Diseño completo en [docs/diseno-ia.md](../docs/diseno-ia.md).
 

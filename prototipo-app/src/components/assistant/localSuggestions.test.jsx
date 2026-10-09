@@ -58,7 +58,7 @@ const shownBy = (origin) => tracked('suggestion_shown').filter((fields) => field
 const countByPair = (list) =>
   list.reduce((counts, fields) => counts.set(pair(fields), (counts.get(pair(fields)) ?? 0) + 1), new Map())
 
-/** Sin chat escrito, a Bigotes se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
+/** Sin chat escrito, a Mochi se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
 async function send(text) {
   const ask = screen.getByText('preguntar')
   ask.dataset.query = text

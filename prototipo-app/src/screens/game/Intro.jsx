@@ -15,7 +15,7 @@ export default function Intro({ onStart, onClose }) {
     <Sheet label="Bienvenida" onClose={onClose}>
       <div className="intro">
         <Mascot size={96} mood="wave" />
-        <h2>¡Hola! Soy Bigotes</h2>
+        <h2>¡Hola! Soy Mochi</h2>
         <p className="intro-lede">Te muestro todo lo que hay en Rappi, más allá de lo que ya conoces.</p>
         <ul className="intro-points">
           {POINTS.map(({ Icon, text }) => (

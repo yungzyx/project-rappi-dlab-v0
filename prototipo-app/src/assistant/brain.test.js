@@ -76,7 +76,7 @@ describe('reply', () => {
 
 describe('personalización', () => {
   test('sin perfil, el saludo es genérico y "Para ti" muestra ofertas', () => {
-    expect(greeting(EMPTY_PROFILE)).toMatch(/Soy Bigotes/)
+    expect(greeting(EMPTY_PROFILE)).toMatch(/Soy Mochi/)
     expect(forYou(EMPTY_PROFILE).reason).toBeNull()
   })
 
@@ -140,12 +140,12 @@ describe('sugerencias del cerebro local', () => {
 describe('regresiones del cerebro local (se usa cuando no hay API)', () => {
   test('un saludo al inicio no tapa el pedido', () => {
     expect(reply('hola, quiero sushi', EMPTY_PROFILE).tags).toContain('sushi')
-    expect(reply('hola', EMPTY_PROFILE).text).toMatch(/Soy Bigotes/)
+    expect(reply('hola', EMPTY_PROFILE).text).toMatch(/Soy Mochi/)
   })
 
   test('saludos de varias palabras o encadenados son solo un saludo', () => {
     for (const text of ['buenas tardes', 'hola buenas', 'hola, buenas noches', 'Buenos días!']) {
-      expect(reply(text, EMPTY_PROFILE).text).toMatch(/Soy Bigotes/)
+      expect(reply(text, EMPTY_PROFILE).text).toMatch(/Soy Mochi/)
     }
     expect(reply('buenas tardes, quiero sushi', EMPTY_PROFILE).tags).toContain('sushi')
   })

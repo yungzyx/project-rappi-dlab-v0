@@ -8,12 +8,12 @@ const EDGE = 14 // margen derecho
 const TOP_LIMIT = 118 // bajo la dirección: nunca tapa la barra de estado
 const BOTTOM_RESERVE = 104 // sobre la barra inferior (y la del carrito)
 const TYPE_MS = 16 // ms por letra al «hablar»
-// Mientras nadie le habla, Bigotes no se queda quieto: cada tanto mira, baila, saluda o se estira (en este orden).
+// Mientras nadie le habla, Mochi no se queda quieto: cada tanto mira, baila, saluda o se estira (en este orden).
 const FIDGETS = ['look', 'dance', 'wave', 'stretch', 'hop']
 const FIDGET_MS = 6000
 const TUCK_MS = 700 // tras el último scroll, vuelve a asomarse
 
-/** Texto que aparece letra por letra mientras Bigotes habla (sin animación si se pidió reducir movimiento). */
+/** Texto que aparece letra por letra mientras Mochi habla (sin animación si se pidió reducir movimiento). */
 function useTypewriter(text, reduceMotion) {
   // El avance se guarda junto a su texto: un texto nuevo parte de cero sin reiniciar nada a mano.
   const [progress, setProgress] = useState({ text: null, count: 0 })
@@ -35,7 +35,7 @@ function useTypewriter(text, reduceMotion) {
 }
 
 /**
- * Bigotes de cuerpo entero viviendo en la Home: se para sobre el bloque del que habla (`target`, que `getBlock`
+ * Mochi de cuerpo entero viviendo en la Home: se para sobre el bloque del que habla (`target`, que `getBlock`
  * convierte en su elemento) o descansa sobre la barra inferior. Habla con un globo y, a veces, ofrece botones; no es un chat. Tocarlo dispara `onPoke`.
  */
 const LiveBigotes = forwardRef(function LiveBigotes(
@@ -171,8 +171,8 @@ const LiveBigotes = forwardRef(function LiveBigotes(
         <button
           type="button"
           className="live-bigotes-body"
-          aria-label="Bigotes: muéstrame algo nuevo para probar"
-          title="Bigotes"
+          aria-label="Mochi: muéstrame algo nuevo para probar"
+          title="Mochi"
           hidden={away}
           onClick={onPoke}
         >

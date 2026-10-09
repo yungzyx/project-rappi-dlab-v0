@@ -1,4 +1,4 @@
-// Verticales que la persona ya abrió en esta pestaña: Bigotes invita a descubrir las que faltan.
+// Verticales que la persona ya abrió en esta pestaña: Mochi invita a descubrir las que faltan.
 const KEY = 'rappi-explored'
 
 /** Las verticales que se pueden explorar, en el orden de la Home (ids de pantalla, los de VERTICAL_NAMES). */

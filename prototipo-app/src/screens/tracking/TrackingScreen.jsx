@@ -20,7 +20,7 @@ import './tracking.css'
 const TICK_MS = 500
 const STARS = [1, 2, 3, 4, 5]
 
-/** Seguimiento del pedido (funcionalidad agregada): pasos que avanzan solos y Bigotes recorriendo el mapa. */
+/** Seguimiento del pedido (funcionalidad agregada): pasos que avanzan solos y Mochi recorriendo el mapa. */
 export default function TrackingScreen({ back, reset, push, params }) {
   const orders = useOrders()
   const order = orders.find(params.orderId)
@@ -189,7 +189,7 @@ function Delivered({ order }) {
           <span>
             ✨ ¿Y ahora {next.emoji} {next.label.toLowerCase()}?
           </span>
-          <small>Bigotes te arma el próximo pedido</small>
+          <small>Mochi te arma el próximo pedido</small>
         </button>
       )}
     </>

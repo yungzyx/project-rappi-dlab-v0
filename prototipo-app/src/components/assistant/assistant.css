@@ -1,6 +1,6 @@
 /*
- * Buscador con Bigotes. Entra deslizándose desde la derecha, como el buscador de «Rappi hoy»; lo nuevo:
- * el borde con degradado de la barra de la Home da una vuelta en el campo, Bigotes aparece saludando y los bloques
+ * Buscador con Mochi. Entra deslizándose desde la derecha, como el buscador de «Rappi hoy»; lo nuevo:
+ * el borde con degradado de la barra de la Home da una vuelta en el campo, Mochi aparece saludando y los bloques
  * suben uno tras otro. Todo con transform y opacity: corre en la GPU, sin mover el layout.
  */
 .assistant {
@@ -23,7 +23,7 @@
   transition-timing-function: cubic-bezier(0.4, 0, 0.8, 0.4);
 }
 
-/* ---------- Encabezado: el de «Rappi hoy», con el campo de Bigotes ---------- */
+/* ---------- Encabezado: el de «Rappi hoy», con el campo de Mochi ---------- */
 .bigotes-search-header {
   position: relative;
   margin: 0;
@@ -109,7 +109,7 @@
   animation-delay: 390ms;
 }
 
-/* ---------- Franja de Bigotes: lo que sabe de ti, su respuesta y los botones ---------- */
+/* ---------- Franja de Mochi: lo que sabe de ti, su respuesta y los botones ---------- */
 .bigotes-card {
   position: relative;
   margin-top: 6px;
@@ -461,7 +461,7 @@
   font-weight: 600;
 }
 
-/* ---------- Botones de Bigotes ---------- */
+/* ---------- Botones de Mochi ---------- */
 .assistant-chips {
   display: flex;
   gap: 8px;

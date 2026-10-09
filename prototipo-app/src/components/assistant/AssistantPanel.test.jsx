@@ -44,7 +44,7 @@ async function runUntilIdle() {
 }
 const bubbles = () => [...document.querySelectorAll('.chat-bubble')].map((el) => el.textContent)
 
-/** Sin chat escrito, a Bigotes se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
+/** Sin chat escrito, a Mochi se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
 function say(text) {
   const ask = screen.getByText('preguntar')
   ask.dataset.query = text
@@ -128,7 +128,7 @@ describe('chat en orden', () => {
     expect(api.chat).toHaveBeenCalledTimes(2)
     expect(api.chat.mock.calls[0][0].message).toBe('pregunta A')
     expect(api.chat.mock.calls[1][0].shown_topics).toEqual(['snacks-salados'])
-    // Bigotes muestra su última respuesta (no un historial de chat)
+    // Mochi muestra su última respuesta (no un historial de chat)
     expect(bubbles()).toContain('Respuesta B')
     expect(bubbles()).not.toContain('Respuesta A')
   })
@@ -271,7 +271,7 @@ describe('teclado y lector de pantalla', () => {
   })
 })
 
-describe('qué Bigotes contestó', () => {
+describe('qué Mochi contestó', () => {
   test('si la API falla, la respuesta del cerebro local se marca en pantalla', async () => {
     api.chat.mockRejectedValueOnce(new Error('API 500')).mockResolvedValueOnce(apiAnswer('Desde la API'))
     await renderPanel()
@@ -357,7 +357,7 @@ describe('lo aprendido y Olvidar', () => {
 })
 
 describe('sin chat escrito', () => {
-  test('no hay dónde escribirle a Bigotes: se le pide con un toque y se ve lo elegido', async () => {
+  test('no hay dónde escribirle a Mochi: se le pide con un toque y se ve lo elegido', async () => {
     api.chat.mockResolvedValueOnce(apiAnswer('Para el carrete'))
     await renderPanel()
     expect(screen.queryByPlaceholderText(/Escríbele/)).toBeNull()
@@ -369,7 +369,7 @@ describe('sin chat escrito', () => {
     expect(bubbles()).toContain('Para el carrete')
   })
 
-  test('lo escrito en el buscador busca en el catálogo (como en «Rappi hoy»), no le pregunta a Bigotes', async () => {
+  test('lo escrito en el buscador busca en el catálogo (como en «Rappi hoy»), no le pregunta a Mochi', async () => {
     await renderPanel()
     const field = screen.getByLabelText('Buscar en Rappi')
     expect(field.maxLength).toBe(500)
@@ -379,12 +379,12 @@ describe('sin chat escrito', () => {
 
     expect(api.chat).not.toHaveBeenCalled()
     expect(screen.getByText('Products')).toBeTruthy()
-    expect(screen.queryByText('Descubre con Bigotes')).toBeNull()
+    expect(screen.queryByText('Descubre con Mochi')).toBeNull()
     expect(events.track).toHaveBeenCalledWith('search', expect.objectContaining({ query: 'cerveza', modality: 'texto' }))
   })
 })
 
-describe('Descubre con Bigotes', () => {
+describe('Descubre con Mochi', () => {
   test('muestra lo explorado y cada tarjeta abre una vertical que aún no abre', async () => {
     const push = vi.fn()
     sessionStorage.setItem('rappi-explored', JSON.stringify(['liquor']))
@@ -475,7 +475,7 @@ describe('conversación', () => {
   })
 })
 
-describe('volver a Bigotes desde una tienda', () => {
+describe('volver a Mochi desde una tienda', () => {
   test('abrir una tienda apila la pantalla y, al volver, el panel se reabre con la búsqueda que tenía', async () => {
     const push = vi.fn()
     await renderPanel({ push })

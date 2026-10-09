@@ -1,6 +1,6 @@
 # Pruebas como usuario del chat
 
-El chat de Bigotes falla sobre todo con frases que nadie escribió en la evaluación: chilenismos («un completo», «copete»,
+El chat de Mochi falla sobre todo con frases que nadie escribió en la evaluación: chilenismos («un completo», «copete»,
 «pa»), faltas («serbesa», «nesecito shampu»), preguntas sobre la app («hacen delivery?»), estados de ánimo («estoy
 triste») o encargos («que me compren algo en una ferretería»). Este proceso las encuentra y las deja como regresión.
 
@@ -47,4 +47,4 @@ nuevos o probando el flujo en el prototipo (botones, «También en», seguimient
 sueltas.
 
 Límite conocido: la muestra pública del catálogo no tiene algunas cosas (jarabes para la tos, tofu, bolsas de basura).
-Ahí Bigotes lo dice o muestra lo más cercano; no se arregla con palabras.
+Ahí Mochi lo dice o muestra lo más cercano; no se arregla con palabras.

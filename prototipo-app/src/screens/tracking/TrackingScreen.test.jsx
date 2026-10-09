@@ -63,17 +63,17 @@ describe('TrackingScreen', () => {
     expect(reset).toHaveBeenCalled()
   })
 
-  test('en el prototipo final, al entregar Bigotes ofrece armar el próximo pedido', () => {
+  test('en el prototipo final, al entregar Mochi ofrece armar el próximo pedido', () => {
     renderTracking()
     deliver()
-    expect(screen.getByText('Bigotes te arma el próximo pedido')).toBeTruthy()
+    expect(screen.getByText('Mochi te arma el próximo pedido')).toBeTruthy()
   })
 
-  test('en «Rappi hoy», al entregar no hay oferta de Bigotes', () => {
+  test('en «Rappi hoy», al entregar no hay oferta de Mochi', () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     renderTracking()
     deliver()
-    expect(screen.queryByText('Bigotes te arma el próximo pedido')).toBeNull()
+    expect(screen.queryByText('Mochi te arma el próximo pedido')).toBeNull()
   })
 
   describe('jugar mientras llega el pedido', () => {

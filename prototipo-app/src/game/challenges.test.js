@@ -38,7 +38,7 @@ function isClearlyFalse(ch, optionId) {
     return items(optionId, v) < DATA.minItems && c.home !== v
   }
   if (kind === 'combo' || kind === 'sustituto') return optionId !== anchor && !anyEdge(anchor, optionId)
-  // Un concepto sin relación tampoco lo sugeriría Bigotes: los distractores deben ser complementos del ancla.
+  // Un concepto sin relación tampoco lo sugeriría Mochi: los distractores deben ser complementos del ancla.
   if (kind === 'imposible')
     return pairIn(DATA.complements, anchor, optionId) && !pairIn(DATA.conflicts, anchor, optionId)
   return !isTrue(ch, optionId)

@@ -1,6 +1,6 @@
 # rappi-ia
 
-Conecta el catálogo que descarga [`rappi-scraper`](../rappi-scraper/) con el asistente **Bigotes** del [prototipo](../prototipo-app/). Diseño completo en [docs/diseno-ia.md](../docs/diseno-ia.md).
+Conecta el catálogo que descarga [`rappi-scraper`](../rappi-scraper/) con el asistente **Mochi** del [prototipo](../prototipo-app/). Diseño completo en [docs/diseno-ia.md](../docs/diseno-ia.md).
 
 **Regla:** *buscar dentro del vertical, entender al usuario a través de los verticales*. La búsqueda nunca mezcla verticales. El puente entre ellos son los **conceptos**: una taxonomía propia de 133 conceptos, con 103 complementos curados entre sí. Una recomendación cruzada va del concepto que le interesa al usuario a su complemento, y de ahí a una búsqueda en el otro vertical (p. ej., cerveza en licores → snacks salados de otra tienda).
 
@@ -13,7 +13,7 @@ Versión interactiva: [rag-datos.html](../docs/diagramas/rag-datos.html). Vista 
 | Conceptos (capa 2) | Cada producto y plato → un concepto, con procedencia: categoría (mapa de 757 categorías revisadas, generado con LLM: dos etiquetadores trabajan por separado y un juez decide cuando no coinciden; 21 ajustes a mano; versionado en `category_map.csv`), reglas por palabra o vecinos cercanos (kNN) | `concepts/` |
 | Embeddings | Texto con `intfloat/multilingual-e5-base` (768 dim, caché por contenido, índice HNSW por vertical); imágenes con CLIP; voz con Whisper → texto | `embeddings/`, `agent/audio.py` |
 | Búsqueda híbrida | Léxico (sin tildes ni ñ, IDF) + vectorial → RRF → refuerzo por concepto, con filtros dentro de cada lista y regla de "sin resultado" | `retrieval/hybrid.py` |
-| Bigotes | Entender → buscar → sugerir un complemento de otro vertical → redactar (plantillas o Claude) → verificar | `agent/` |
+| Mochi | Entender → buscar → sugerir un complemento de otro vertical → redactar (plantillas o Claude) → verificar | `agent/` |
 | Eventos y analítica | Usuarios y eventos (hoy **simulados**), métricas de frecuencia, abandono, oportunidades y afinidad | `events/`, `analytics/` |
 
 ## Instalar
@@ -28,7 +28,7 @@ make db-test      # base rappi_ia_test (los tests no tocan rappi ni rappi_test)
 make migrate
 ```
 
-Las versiones de las librerías están fijadas en `requirements.lock.txt` (las del equipo que calculó los embeddings de la base): `make install` e `install-ml` no instalan otras. Un job de CI semanal (`.github/workflows/modelos-semanal.yml`) instala los modelos con esas versiones y comprueba que e5 embebe. Los modelos (~2 GB) se descargan de Hugging Face la primera vez que se usan. La API los carga al arrancar: hay que esperar a «Application startup complete» (con los modelos ya en caché, `make serve` arranca sin consultar Hugging Face; `RAPPI_IA_LIGHT=1` arranca sin modelos). Para que Claude redacte las respuestas, agrega `ANTHROPIC_API_KEY` en `.env`; sin clave, Bigotes responde con plantillas y las mismas reglas. Otras variables en `.env.example`.
+Las versiones de las librerías están fijadas en `requirements.lock.txt` (las del equipo que calculó los embeddings de la base): `make install` e `install-ml` no instalan otras. Un job de CI semanal (`.github/workflows/modelos-semanal.yml`) instala los modelos con esas versiones y comprueba que e5 embebe. Los modelos (~2 GB) se descargan de Hugging Face la primera vez que se usan. La API los carga al arrancar: hay que esperar a «Application startup complete» (con los modelos ya en caché, `make serve` arranca sin consultar Hugging Face; `RAPPI_IA_LIGHT=1` arranca sin modelos). Para que Claude redacte las respuestas, agrega `ANTHROPIC_API_KEY` en `.env`; sin clave, Mochi responde con plantillas y las mismas reglas. Otras variables en `.env.example`.
 
 ## Correr
 
@@ -60,7 +60,7 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 - `rappi-ia map-categories`: exporta las categorías sin mapeo revisado a `data/concepts/categorias-sin-mapear.csv`, con el formato de `category_map.csv` y un concepto sugerido cuando al menos la mitad de sus productos ya lo tiene (reglas o kNN). Se revisa cada fila, se cambia el método a «curado» y se copia al mapa versionado.
 - `rappi-ia eval-sample`: arma la muestra de 200 pares (consulta, producto) para juzgar a mano (`src/rappi_ia/eval/judgments-sample.json`, con semilla fija): 120 donde el híbrido con y sin refuerzo por concepto difieren en el top 10 y 80 al azar. Se juzga a ciegas en una página privada del autor (sin mostrar el juez automático ni el modo); los juicios se copian a `src/rappi_ia/eval/judgments.json`, que todavía no existe.
 - `rappi-ia eval-human`: con esos juicios, cuánto acierta el juez automático (precisión, recall, acuerdo) y si los ítems que solo trae el refuerzo son relevantes más o menos seguido que los que solo trae sin él.
-- `rappi-ia multivertical`: regenera el mapa multivertical (`docs/mapas/mapa-multivertical.html`): productos compartidos entre verticales, conceptos junto a la vertical donde son más típicos (la regla de Bigotes) y los productos y cadenas en más verticales. Página autocontenida, sin internet. La imagen `mapa-conceptos.jpg` se captura de esa página con `#figura` al final de la URL.
+- `rappi-ia multivertical`: regenera el mapa multivertical (`docs/mapas/mapa-multivertical.html`): productos compartidos entre verticales, conceptos junto a la vertical donde son más típicos (la regla de Mochi) y los productos y cadenas en más verticales. Página autocontenida, sin internet. La imagen `mapa-conceptos.jpg` se captura de esa página con `#figura` al final de la URL.
 - `rappi-ia embed-images --limit 50 --forzar`: una tanda chica de imágenes; `--forzar` se salta el candado del scraper y es solo para pruebas.
 
 ## API (`make serve` → http://localhost:8000/docs)
@@ -68,7 +68,7 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | Endpoint | Para qué |
 |---|---|
 | `GET /health` | Capacidades disponibles (búsqueda semántica, voz, fotos, redacción) y documentos indexados |
-| `POST /chat` | Bigotes: `{message, vertical?, user_id?, session_id?, profile?, shown_topics?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
+| `POST /chat` | Mochi: `{message, vertical?, user_id?, session_id?, profile?, shown_topics?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
 | `POST /chat/voice`, `POST /chat/photo` | Voz (Whisper, audio ≤ 20 s medido al decodificar) y foto (JPEG/PNG/WebP), con `shown_topics` (ids separados por coma). No se guardan |
 | `GET /search` | Búsqueda híbrida en un vertical, con precios vigentes |
 | `GET /recommendations` | "Para ti, de otras tiendas": intereses → complementos → otro vertical |
@@ -126,7 +126,7 @@ Sin el refuerzo, el híbrido no se distingue del vectorial: consulta por consult
 | Supermercado | 30 | 0,896 |
 | Licores | 18 | 0,847 |
 
-**"Sin resultado"** (demanda no satisfecha), sobre las 41 consultas negativas y con los τ recalibrados el 29-09 (`src/rappi_ia/eval/thresholds.json`): precisión 1,00 (0 falsas alarmas) y recall 0,71 (29 de 41) con el catálogo del 30-09 (31 de 41 con el del 28-09: el catálogo cambia y dos negativas dejaron de serlo). El reporte dice por qué se detecta o no cada una. Esas cifras son de la búsqueda (`retrieve`); Bigotes anota la demanda en 21 de las 41, sin falsas alarmas en las 124 positivas (03-10, mismo catálogo): en las otras 8 la búsqueda la marca, pero se muestran los pocos productos del concepto pedido (surtido testimonial), así que no se anota.
+**"Sin resultado"** (demanda no satisfecha), sobre las 41 consultas negativas y con los τ recalibrados el 29-09 (`src/rappi_ia/eval/thresholds.json`): precisión 1,00 (0 falsas alarmas) y recall 0,71 (29 de 41) con el catálogo del 30-09 (31 de 41 con el del 28-09: el catálogo cambia y dos negativas dejaron de serlo). El reporte dice por qué se detecta o no cada una. Esas cifras son de la búsqueda (`retrieve`); Mochi anota la demanda en 21 de las 41, sin falsas alarmas en las 124 positivas (03-10, mismo catálogo): en las otras 8 la búsqueda la marca, pero se muestran los pocos productos del concepto pedido (surtido testimonial), así que no se anota.
 
 - **Regla:** es un "sin resultado" cuando nada calza todas las palabras y, además, se cumple la condición que corresponda:
   - si la consulta nombra un concepto, ese concepto no tiene surtido real en el vertical;
@@ -195,7 +195,7 @@ rappi-ia/
 │   ├── concepts/      taxonomía (taxonomy.toml), complementos (complements.toml), mapa de categorías (category_map.csv), reglas, kNN
 │   ├── embeddings/    e5 y CLIP, caché de texto, imágenes, índices HNSW
 │   ├── retrieval/     búsqueda híbrida por vertical
-│   ├── agent/         Bigotes: entender, herramientas, redactar, voz, foto
+│   ├── agent/         Mochi: entender, herramientas, redactar, voz, foto
 │   ├── events/        eventos, perfil con decaimiento, "olvidar", generador simulado
 │   ├── analytics/     métricas de negocio y mapa multivertical
 │   ├── eval/          set de evaluación (queries.json), τ (thresholds.json) y muestra de juicio a mano (judgments-sample.json)

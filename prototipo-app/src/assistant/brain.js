@@ -14,7 +14,7 @@ import {
   variedDiscounts,
 } from './tags'
 
-export const ASSISTANT_NAME = 'Bigotes'
+export const ASSISTANT_NAME = 'Mochi'
 
 // Frases que no nombran un producto pero sí una ocasión.
 const OCCASIONS = [
@@ -109,7 +109,7 @@ const GREETINGS = /^((buenas tardes|buenas noches|buenos dias|buenas|holi|hola|h
 const GENERIC_OCCASIONS = new Set(['hambre'])
 
 /**
- * Productos que Bigotes sugiere por iniciativa propia (copias marcadas, como los de la API): lo que se pida desde
+ * Productos que Mochi sugiere por iniciativa propia (copias marcadas, como los de la API): lo que se pida desde
  * ahí no cuenta como compra orgánica para aprender afinidad, y su aceptación lleva el origen.
  */
 const asSuggestion = (products, origin) =>

@@ -21,7 +21,7 @@ const almostDone = () =>
   seed({ cards: [FACTS[0].id], daily: { date: today(), discovered: 2, correct: 1, opened: 0, done: false } })
 
 describe('bienvenida', () => {
-  test('la primera vez Bigotes da la bienvenida y «Empezar» abre la primera ronda', () => {
+  test('la primera vez Mochi da la bienvenida y «Empezar» abre la primera ronda', () => {
     render(<App />)
     const intro = screen.getByRole('dialog', { name: 'Bienvenida' })
     fireEvent.click(within(intro).getByRole('button', { name: 'Empezar' }))

@@ -7,7 +7,7 @@
 | Si quieres… | Lee | Tiempo |
 |---|---|---|
 | Entender el problema y por qué existe el proyecto | [contexto-y-problema.md](contexto-y-problema.md) | 5 min |
-| Ver el prototipo final: Bigotes, buscador, pasaporte y juego | [prototipo-app/README.md](../prototipo-app/README.md) | 5 min |
+| Ver el prototipo final: Mochi, buscador, pasaporte y juego | [prototipo-app/README.md](../prototipo-app/README.md) | 5 min |
 | Mostrarlo a alguien del negocio (guion de 10 minutos) | [demo.md](demo.md) | 3 min |
 | Saber qué se decidió y por qué | [decisiones.md](decisiones.md) | 5 min |
 | Ver cómo llegó a ser lo que es (todas las etapas) | [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto) | 5 min |
@@ -17,7 +17,7 @@
 | Si quieres… | Lee | Tiempo |
 |---|---|---|
 | Ver el sistema de un vistazo | [Diagramas y mapas](#diagramas-y-mapas) | 2 min |
-| Entender el diseño del RAG y del agente Bigotes | [diseno-ia.md](diseno-ia.md) | 20 min |
+| Entender el diseño del RAG y del agente Mochi | [diseno-ia.md](diseno-ia.md) | 20 min |
 | Conocer el modelo de datos (capas 1 a 3) | [ecosistema-rappi.md §3](ecosistema-rappi.md#3-modelo-de-datos-del-ecosistema-propuesta) | 5 min |
 | Usar desde otra herramienta lo que la base le suma al catálogo (atributos, marcas, grafo, segmentos) | [capa-de-datos.md](capa-de-datos.md) | 8 min |
 | Conocer la capa de IA, su API y cómo se evalúa | [rappi-ia/README.md](../rappi-ia/README.md) | 10 min |
@@ -31,7 +31,7 @@ GitHub muestra las imágenes; las versiones interactivas (HTML) hay que descarga
 | Qué | Qué muestra | Imagen | Interactivo |
 |---|---|---|---|
 | Flujo de datos | Las etapas de punta a punta: descarga → Postgres → IA offline → consulta → prototipo | [rag-datos.png](diagramas/rag-datos.png) | [rag-datos.html](diagramas/rag-datos.html) |
-| Arquitectura de la IA | Catálogo y agente Bigotes por carriles: datos offline, conversación online y entre verticales | [arquitectura-ia.png](diagramas/arquitectura-ia.png) | [arquitectura-ia.html](diagramas/arquitectura-ia.html) |
+| Arquitectura de la IA | Catálogo y agente Mochi por carriles: datos offline, conversación online y entre verticales | [arquitectura-ia.png](diagramas/arquitectura-ia.png) | [arquitectura-ia.html](diagramas/arquitectura-ia.html) |
 | Scraper | Cómo `rappi refresh` descubre, descarga y guarda el catálogo | [scraper-flujo.png](diagramas/scraper-flujo.png) | [scraper-flujo.html](diagramas/scraper-flujo.html) |
 | Mapa multivertical | Qué productos y conceptos comparten las verticales, con complementos, sustitutos y «nunca junto»; se regenera con `rappi-ia multivertical` | [mapa-conceptos.jpg](mapas/mapa-conceptos.jpg) | [mapa-multivertical.html](mapas/mapa-multivertical.html) |
 
@@ -51,7 +51,7 @@ Las fuentes JSON de los diagramas están en [diagramas-fuente/](diagramas-fuente
 |---|---|---|
 | Instalar el proyecto y dejarlo actualizándose cada semana | [instalacion.md](instalacion.md) | 10 min de lectura |
 | Consultar la base con SQL | [sql/README.md](sql/README.md) y [consultas.sql](sql/consultas.sql) | 5 min |
-| Probar a Bigotes (API) como usuario y dejar cada fallo como test | [pruebas-de-usuario.md](pruebas-de-usuario.md) | 3 min |
+| Probar a Mochi (API) como usuario y dejar cada fallo como test | [pruebas-de-usuario.md](pruebas-de-usuario.md) | 3 min |
 | Trabajar en el código con un asistente de IA | [CLAUDE.md](../CLAUDE.md) | 2 min |
 | Usar el panel de negocio (herramienta para más adelante, datos simulados) | [dashboard-empresa/README.md](../dashboard-empresa/README.md) | 5 min |
 

@@ -140,7 +140,7 @@ describe('sucursales con el mismo nombre (menús reales)', () => {
     expect(screen.queryByText('Torta de Providencia')).toBeNull()
   })
 
-  test('un plato que trae Bigotes (tienda con su nombre completo) abre el menú de esa sucursal', async () => {
+  test('un plato que trae Mochi (tienda con su nombre completo) abre el menú de esa sucursal', async () => {
     await openStore({ store: { name: 'Délice - Las Condes' } })
     expect(screen.getByText('Torta de Las Condes')).toBeTruthy()
     expect(screen.queryByText('El menú completo de esta tienda todavía no está en el prototipo.')).toBeNull()

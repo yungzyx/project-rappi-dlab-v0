@@ -6,7 +6,7 @@ const VISIBLE_MS = 6000
 const NudgeContext = createContext(null)
 
 /**
- * Aviso de Bigotes al agregar al carrito: sugiere el complemento del producto (de otra vertical).
+ * Aviso de Mochi al agregar al carrito: sugiere el complemento del producto (de otra vertical).
  * Al salir un aviso, todos los temas del producto y el complemento sugerido cuentan como vistos:
  * dos cervezas seguidas (que también son "copete" por la botillería) no repiten el aviso.
  */

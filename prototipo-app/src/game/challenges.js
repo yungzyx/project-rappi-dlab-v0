@@ -23,7 +23,7 @@ const notIn = (v) => DATA.concepts.filter((c) => !belongs(c, v) && c.home !== v)
 const withRelation = (v, kind) => conceptsOf(v).filter((c) => related(c.id)[kind].size > 0)
 const bridgesOf = (v) => DATA.bridges.filter(([, vs]) => vs.includes(v))
 // Complementos que no son pareja imposible: los únicos distractores seguros de «pareja imposible»
-// (un concepto sin relación tampoco lo sugeriría Bigotes, así que también sería correcto).
+// (un concepto sin relación tampoco lo sugeriría Mochi, así que también sería correcto).
 const safeComplements = (id) => [...related(id).complements].filter((x) => !related(id).conflicts.has(x)).sort()
 const TRIVIA_POOL = DATA.order.filter((v) => v !== 'restaurantes') // Restaurantes cuenta platos, no productos
 
@@ -39,7 +39,7 @@ const GENERATORS = {
         question: `¿Cuál de estos es típico de ${label(v)}?`,
         correct: option(correct),
         distractors: sample(r, notIn(v), 3).map(option),
-        explanation: `Bigotes asocia ${name(correct)} con ${label(v)}, donde tiene ${formatNumber(correct.items[v])} ${unit(v)}. Las otras opciones tienen menos de ${DATA.minItems} ahí.`,
+        explanation: `Mochi asocia ${name(correct)} con ${label(v)}, donde tiene ${formatNumber(correct.items[v])} ${unit(v)}. Las otras opciones tienen menos de ${DATA.minItems} ahí.`,
       }
     },
   },
@@ -54,7 +54,7 @@ const GENERATORS = {
         question: `¿Qué combina con ${name(anchor)}?`,
         correct: option(correct),
         distractors: sample(r, unrelatedTo(anchor.id), 3).map(option),
-        explanation: `Bigotes sugiere ${name(anchor)} y ${name(correct)} juntos.${elsewhere}`,
+        explanation: `Mochi sugiere ${name(anchor)} y ${name(correct)} juntos.${elsewhere}`,
       }
     },
   },
@@ -65,10 +65,10 @@ const GENERATORS = {
       const correct = conceptById(pickOne(r, [...related(anchor.id).substitutes].sort()))
       return {
         anchor: anchor.id,
-        question: `Si no hay ${name(anchor)}, ¿qué ofrece Bigotes en su lugar?`,
+        question: `Si no hay ${name(anchor)}, ¿qué ofrece Mochi en su lugar?`,
         correct: option(correct),
         distractors: sample(r, unrelatedTo(anchor.id), 3).map(option),
-        explanation: `Cuando no hay ${name(anchor)}, Bigotes ofrece ${name(correct)} en su lugar.`,
+        explanation: `Cuando no hay ${name(anchor)}, Mochi ofrece ${name(correct)} en su lugar.`,
       }
     },
   },
@@ -79,10 +79,10 @@ const GENERATORS = {
       const correct = conceptById(pickOne(r, [...related(anchor.id).conflicts].sort()))
       return {
         anchor: anchor.id,
-        question: `¿Cuál nunca sugeriría Bigotes junto a ${name(anchor)}?`,
+        question: `¿Cuál nunca sugeriría Mochi junto a ${name(anchor)}?`,
         correct: option(correct),
         distractors: sample(r, safeComplements(anchor.id), 3).map(conceptById).map(option),
-        explanation: `Bigotes nunca sugiere ${name(anchor)} y ${name(correct)} juntos. Las otras opciones sí las sugiere con ${name(anchor)}.`,
+        explanation: `Mochi nunca sugiere ${name(anchor)} y ${name(correct)} juntos. Las otras opciones sí las sugiere con ${name(anchor)}.`,
       }
     },
   },

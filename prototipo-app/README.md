@@ -1,13 +1,13 @@
 # Prototipo de la app
 
-Maqueta navegable de la app de Rappi Chile, hecha a partir de capturas y videos del iPhone, para **mostrar la propuesta del proyecto**. Desde fuera, lo que un usuario hace en un vertical no parece influir en lo que se le recomienda en los demás. Aquí el asistente **Bigotes** aprende de lo que haces y recomienda **entre verticales** (cerveza → snacks, pizza → postre, pañales → farmacia).
+Maqueta navegable de la app de Rappi Chile, hecha a partir de capturas y videos del iPhone, para **mostrar la propuesta del proyecto**. Desde fuera, lo que un usuario hace en un vertical no parece influir en lo que se le recomienda en los demás. Aquí el asistente **Mochi** aprende de lo que haces y recomienda **entre verticales** (cerveza → snacks, pizza → postre, pañales → farmacia).
 
 > Imágenes, logos y marcas pertenecen a Rappi y a sus dueños; se usan solo como maqueta de demostración. Proyecto independiente, no afiliado ni respaldado por Rappi.
 
 Hecho con Vite + React 19. Funciona de dos maneras:
 
-- **Sin backend (modo local):** todo corre en el navegador. Bigotes responde con reglas locales sobre los datos del prototipo y las imágenes que no cargan muestran un respaldo neutro.
-- **Con la API de [`rappi-ia`](../rappi-ia/):** Bigotes busca en el catálogo real. Si la API no responde o tarda más de 8 s, contestan las reglas locales y la respuesta lo marca con «Respuesta local».
+- **Sin backend (modo local):** todo corre en el navegador. Mochi responde con reglas locales sobre los datos del prototipo y las imágenes que no cargan muestran un respaldo neutro.
+- **Con la API de [`rappi-ia`](../rappi-ia/):** Mochi busca en el catálogo real. Si la API no responde o tarda más de 8 s, contestan las reglas locales y la respuesta lo marca con «Respuesta local».
 
 ![Modo demo: la misma app en el prototipo final y en «Rappi hoy» (modo local)](docs/screenshots/00-modo-demo.jpg)
 
@@ -24,11 +24,11 @@ npm run dev              # http://localhost:5174
 npm run dev -- --host    # para abrirlo en el iPhone (misma red wifi o su hotspot)
 ```
 
-En el iPhone, desde Safari: **Compartir → Agregar a pantalla de inicio**. Se abre a pantalla completa con el ícono de Bigotes y el gesto "volver" funciona.
+En el iPhone, desde Safari: **Compartir → Agregar a pantalla de inicio**. Se abre a pantalla completa con el ícono de Mochi y el gesto "volver" funciona.
 
 ### Con la API de `rappi-ia`
 
-Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000; carga los modelos antes de aceptar peticiones, así que conviene abrir el prototipo después de «Application startup complete»), Bigotes deja de ser un conjunto de reglas:
+Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000; carga los modelos antes de aceptar peticiones, así que conviene abrir el prototipo después de «Application startup complete»), Mochi deja de ser un conjunto de reglas:
 
 - busca en el **catálogo real** con búsqueda híbrida por vertical, con precios vigentes;
 - sugiere un complemento **de otra tienda** en un bloque aparte;
@@ -37,9 +37,9 @@ Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000; carga los m
 
 La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el prototipo actual no los usa: el prototipo final tiene un buscador, sin micrófono ni cámara.
 
-<img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Bigotes con la API: cervezas reales bajo $3.000 y snacks de otra tienda">
+<img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Con la API: cervezas reales bajo $3.000 y snacks de otra tienda (captura anterior, con Bigotes y el chat escrito)">
 
-*Con la API de rappi-ia: cervezas del catálogo real bajo $3.000 y, en un bloque aparte, snacks de otra tienda.*
+*Con la API de rappi-ia: cervezas del catálogo real bajo $3.000 y, en un bloque aparte, snacks de otra tienda. Es una captura anterior: todavía con Bigotes y el chat escrito, que ya no existe.*
 
 - **Dónde busca la API:** en el mismo host desde el que se abrió la página, puerto 8000; desde el iPhone no hace falta configurar nada. Para apuntar a otra API, crea `.env.local` con `VITE_API_URL=http://localhost:8001`.
 - **Desde el iPhone:** arranca la API con `make serve-lan` (abre la API a la red; solo en una red de confianza). Sirve en la wifi de casa, con el hotspot del iPhone y con `http://nombre-del-mac.local:5174`. macOS pedirá permiso de red la primera vez.
@@ -48,7 +48,7 @@ La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el p
 
 | Comando | Para qué |
 |---|---|
-| `npm test` | Tests (Vitest): Bigotes, buscador, carrito, perfil, navegación, precios, seguimiento, pedidos, hoja de producto, cliente de la API, accesibilidad del buscador |
+| `npm test` | Tests (Vitest): Mochi, buscador, carrito, perfil, navegación, precios, seguimiento, pedidos, hoja de producto, cliente de la API, accesibilidad del buscador |
 | `npm run lint` | ESLint (reglas de React Hooks) |
 | `npm run format` | Formato con Prettier |
 | `npm run build` | Build de producción en `dist/` |
@@ -58,27 +58,27 @@ La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el p
 
 Tests: 232 (Vitest, 09-10-2026). CI en GitHub Actions: lint, tests y build.
 
-**Accesibilidad:** el buscador con Bigotes y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), cada respuesta de Bigotes se anuncia completa al lector de pantalla y las áreas táctiles miden al menos 40 px.
+**Accesibilidad:** el buscador con Mochi y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), cada respuesta de Mochi se anuncia completa al lector de pantalla y las áreas táctiles miden al menos 40 px.
 
 ## Modo demo: Rappi hoy y Prototipo final
 
-El interruptor junto al teléfono (tecla **D**, o Account → Modo demo en el celular) cambia entre la app como es hoy (**Rappi hoy**, «para hoy») y el **Prototipo final**, que arranca por defecto. Antes eran tres modos («Propuesta», «Rappi hoy» y «Bigotes vivo»); los dos con Bigotes se juntaron en uno. Quien tenía guardado un modo viejo entra al prototipo final.
+El interruptor junto al teléfono (tecla **D**, o Account → Modo demo en el celular) cambia entre la app como es hoy (**Rappi hoy**, «para hoy») y el **Prototipo final**, que arranca por defecto. Antes eran tres modos («Propuesta», «Rappi hoy» y «Bigotes vivo»); los dos con el asistente se juntaron en uno. Quien tenía guardado un modo viejo entra al prototipo final.
 
 | Rappi hoy | Prototipo final |
 |:---:|:---:|
-| <img src="docs/screenshots/02-home-rappi-hoy.jpg" width="300" alt="Home de Rappi hoy"> | <img src="docs/screenshots/01-home-final.jpg" width="300" alt="Home del prototipo final con Bigotes"> |
-| Buscador original | Bigotes vive en la Home y la misma barra abre su buscador |
+| <img src="docs/screenshots/02-home-rappi-hoy.jpg" width="300" alt="Home de Rappi hoy"> | <img src="docs/screenshots/01-home-final.jpg" width="300" alt="Home del prototipo final con Mochi"> |
+| Buscador original | Mochi vive en la Home y la misma barra abre su buscador |
 
-En el **prototipo final** Bigotes de cuerpo entero vive en la Home (`src/screens/home/live/`), sin ícono de chat. Al entrar saluda; no sugiere productos ni reordena la Home. La Home suma el pasaporte del juego de verticales (bajo los accesos de siempre; ver «Juego de verticales»), «¿Qué plan tienes hoy?» (un kit de varias verticales) y, al tocar a Bigotes, una vertical por probar. Bigotes saluda al llegar, salta, apunta y gira según lo que dice, y en espera mira alrededor, baila o se estira; sin nada que decir se asoma desde el borde y al hacer scroll se esconde, para no tapar la Home. Lo que se agrega al carro fuera de la Home lo comenta al volver (no hay aviso flotante). La barra de la Home y la lupa de abajo abren el buscador con Bigotes (ver más abajo), y al entregar un pedido ofrece armar el próximo. En el celular, «Repetir escena de Bigotes» está en Account. «↺ Repetir escena», junto al interruptor, vuelve a empezar. Respeta «reducir movimiento» del sistema.
+En el **prototipo final** Mochi de cuerpo entero vive en la Home (`src/screens/home/live/`), sin ícono de chat. Al entrar saluda; no sugiere productos ni reordena la Home. La Home suma el pasaporte del juego de verticales (bajo los accesos de siempre; ver «Juego de verticales»), «¿Qué plan tienes hoy?» (un kit de varias verticales) y, al tocar a Mochi, una vertical por probar. Mochi saluda al llegar, salta, apunta y gira según lo que dice, y en espera mira alrededor, baila o se estira; sin nada que decir se asoma desde el borde y al hacer scroll se esconde, para no tapar la Home. Lo que se agrega al carro fuera de la Home lo comenta al volver (no hay aviso flotante). La barra de la Home y la lupa de abajo abren el buscador con Mochi (ver más abajo), y al entregar un pedido ofrece armar el próximo. En el celular, «Repetir escena de Mochi» está en Account. «↺ Repetir escena», junto al interruptor, vuelve a empezar. Respeta «reducir movimiento» del sistema.
 
 ## Juego de verticales
 
 En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de verticales (traído de `rappi-juego-verticales`, que queda como histórico): 8 sellos (Súper, Express, Turbo, Licores, Chocolatería, Restaurantes, Farmacia y Rappi Mall), uno por vertical en nivel Explorador o más. Un sello se gana jugando (descubrir un concepto) o abriendo la vertical en la app; Conocedor y Experto, solo jugando, y se ven en el borde del sello. Con 4 sellos, envío gratis en la demo.
 
-- **Desde la Home:** el título del pasaporte abre el pasaporte del juego; «Jugar», su camino de verticales; cada sello, su hoja con «Jugar» y «Abrir {vertical}». Bigotes, al tocarlo, propone jugar la primera vertical sin sello.
+- **Desde la Home:** el título del pasaporte abre el pasaporte del juego; «Jugar», su camino de verticales; cada sello, su hoja con «Jugar» y «Abrir {vertical}». Mochi, al tocarlo, propone jugar la primera vertical sin sello.
 - **Mientras llega el pedido:** el seguimiento ofrece «Juega mientras llega tu pedido», una ronda de 5 pasos en una vertical sin sello. Arriba, una franja con el tiempo que falta; si el pedido llega a mitad de ronda, avisa con «Ver pedido».
 - **El juego:** rondas (conceptos que se dan vuelta y desafíos de 4 opciones), XP y nivel, misión del día y racha, y un álbum de cartas «¿Sabías que…?». Los datos son agregados del catálogo del 05-10-2026 (`src/data/verticales.json`, sin conceptos sensibles; `npm run datos -- "<04 Mapa multivertical.html>"` los regenera).
-- **Farmacia** se puede jugar desde el pasaporte, pero ni Bigotes ni el seguimiento la proponen (la salud no se empuja). Licores lleva la marca «+18».
+- **Farmacia** se puede jugar desde el pasaporte, pero ni Mochi ni el seguimiento la proponen (la salud no se empuja). Licores lleva la marca «+18».
 - El progreso es de demo: se guarda solo en el navegador. «Repetir escena» lo deja como al empezar.
 
 | El juego | Mientras llega el pedido |
@@ -88,26 +88,26 @@ En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de vert
 
 ## Lo nuevo de la propuesta
 
-### Bigotes, el buscador
+### Mochi, el buscador
 
-En el prototipo final no hay chat escrito, voz ni foto: la barra de la Home («¿Qué se te antoja hoy?») abre el buscador con Bigotes, que reúne el buscador de siempre y lo que Bigotes sabe de ti:
+En el prototipo final no hay chat escrito, voz ni foto: la barra de la Home («¿Qué se te antoja hoy?») abre el buscador con Mochi, que reúne el buscador de siempre y lo que Mochi sabe de ti:
 
 - **Aprendiendo de ti:** arriba muestra lo que va aprendiendo («🍺 Cerveza · 🥃 Copete») y un botón **Olvidar** que lo borra, también en la API.
-- **Toca y te armo algo:** botones con ideas («¿Qué almuerzo hoy?», «Arma un carrete», «Algo dulce») que cambian según lo aprendido. Al tocar uno, Bigotes responde con productos y tiendas; si abres una tienda desde ahí y vuelves, la búsqueda sigue donde estaba.
+- **Toca y te armo algo:** botones con ideas («¿Qué almuerzo hoy?», «Arma un carrete», «Algo dulce») que cambian según lo aprendido. Al tocar uno, Mochi responde con productos y tiendas; si abres una tienda desde ahí y vuelves, la búsqueda sigue donde estaba.
 - **El campo de búsqueda** encuentra tiendas y productos; debajo siguen «Recent searches» y «Popular stores», como en la app.
-- **Descubre con Bigotes:** las verticales que todavía no exploraste («Exploraste 3 de 9»), cada una con una entrada para probarla.
+- **Descubre con Mochi:** las verticales que todavía no exploraste («Exploraste 3 de 9»), cada una con una entrada para probarla.
 
-<img src="docs/screenshots/20-asistente.jpg" width="300" alt="Buscador con Bigotes tras tocar «Arma un carrete»">
+<img src="docs/screenshots/20-asistente.jpg" width="300" alt="Buscador con Mochi tras tocar «Arma un carrete»">
 
-*Buscador con Bigotes tras tocar «Arma un carrete» (modo local).*
+*Buscador con Mochi tras tocar «Arma un carrete» (modo local).*
 
 La captura `docs/screenshots/21-voz.jpg` es de una versión anterior del prototipo (voz), que ya no existe.
 
-Diseño y animaciones del personaje: [`design/bigotes.html`](design/bigotes.html) (descargar y abrir en el navegador).
+Mochi es la mochila Rappi con bigote. En la app usa 4 poses de una sola imagen (`src/assets/mochi-poses.webp`): frontal (quieto), feliz (saluda o lo señalas con el mouse), tímido (piensa o escucha) y saltando (al tocarlo). Respira, se inclina hacia el mouse y, en la Home, salta, gira y baila según lo que dice.
 
-<img src="docs/screenshots/30-ficha-bigotes.jpg" width="640" alt="Ficha de Bigotes">
+<img src="docs/screenshots/30-ficha-mochi.jpg" width="640" alt="Ficha de Mochi: giro, expresiones y poses">
 
-*Ficha del personaje: diseño y animaciones.*
+*Ficha del personaje: giro, expresiones y poses.*
 
 ### Recomendaciones entre verticales
 
@@ -118,14 +118,14 @@ Capturas en modo local: las reglas locales usan los productos del prototipo. Con
 | <img src="docs/screenshots/22-para-ti-vertical.jpg" width="240" alt="Para ti en Liquor"> |
 | "Para ti, de otras tiendas": en Liquor recomienda carnes y snacks del súper, con la razón visible. |
 
-En la Home esa tarea la hace Bigotes de cuerpo entero (ver «Modo demo»): ya no hay fila «Para ti» en la Home ni aviso flotante al agregar al carrito.
+En la Home esa tarea la hace Mochi de cuerpo entero (ver «Modo demo»): ya no hay fila «Para ti» en la Home ni aviso flotante al agregar al carrito.
 
 ### Compra completa
 
 | Checkout | Seguimiento | Entregado |
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/25-checkout.jpg" width="240" alt="Checkout"> | <img src="docs/screenshots/26-seguimiento.jpg" width="240" alt="Seguimiento"> | <img src="docs/screenshots/27-entregado.jpg" width="240" alt="Pedido entregado"> |
-| Delivery o retiro, propina y desglose (envío gratis con Pro). El medio de pago es un texto de ejemplo. | Simulado: los pasos avanzan solos y Bigotes recorre la ruta en el mapa; se puede jugar mientras llega. | Calificación y la siguiente sugerencia cruzada. |
+| Delivery o retiro, propina y desglose (envío gratis con Pro). El medio de pago es un texto de ejemplo. | Simulado: los pasos avanzan solos y Mochi recorre la ruta en el mapa; se puede jugar mientras llega. | Calificación y la siguiente sugerencia cruzada. |
 
 También:
 
@@ -157,9 +157,9 @@ Además: Pharmacy, Retail, Express, Pet, Chocolates, Loyalty, buscador, página 
 ## Qué es real y qué es simulado
 
 - **Real:** las pantallas (recortes de las capturas), los precios y productos que se ven en ellas, los menús del scraper (si se exportan), el carrito, los pedidos y el historial del navegador.
-  - **Con la API** también son reales: la búsqueda y los productos y precios que muestra Bigotes.
+  - **Con la API** también son reales: la búsqueda y los productos y precios que muestra Mochi.
 - **Simulado:** el pago y el seguimiento (el pedido «llega» a los 20 s), y el progreso del juego (solo en el navegador).
-  - **Sin la API** también son simuladas las respuestas de Bigotes (reglas sobre los datos del prototipo).
+  - **Sin la API** también son simuladas las respuestas de Mochi (reglas sobre los datos del prototipo).
 - **Privacidad:** el id de usuario es seudónimo (`proto-…`, guardado en este navegador). El carro, los favoritos, la dirección, Loyalty y los pedidos también se guardan solo en este navegador. "Olvidar" borra lo aprendido también en la API. En modo "Rappi hoy" no se aprende.
 - **Supuestos:** textos cortados en el borde de las capturas, algunos ratings y tiempos de entrega; están marcados como "supuesto" en los archivos `data.js`.
 
@@ -168,16 +168,15 @@ Además: Pharmacy, Retail, Express, Pet, Chocolates, Loyalty, buscador, página 
 ```text
 src/
 ├── api/            Cliente de la API de rappi-ia (chat, "Para ti", pedidos); si no responde, modo local
-├── assistant/      Bigotes local: temas, respuestas y recomendaciones (lógica pura, con tests)
+├── assistant/      Mochi local: temas, respuestas y recomendaciones (lógica pura, con tests)
 ├── assets/         Recortes de las capturas
 ├── game/           Lógica del juego de verticales: desafíos, cartas, XP, niveles, pasaporte (lógica pura, con tests)
-├── components/     Piezas compartidas; assistant/ tiene la mascota, la barra de la Home, el buscador con Bigotes y Descubre
+├── components/     Piezas compartidas; assistant/ tiene la mascota, la barra de la Home, el buscador con Mochi y Descubre
 ├── data/           Catálogo y buscador; menús reales opcionales; verticales.json del juego
 ├── hooks/          Navegación con historial, scroll
 ├── screens/        Una carpeta por pantalla (home, deals, vertical, checkout, tracking, game…)
 ├── state/          Carrito, perfil, pedidos, hoja de producto, modo demo, dirección… (varios persisten en localStorage)
 └── styles/         Tokens de diseño y estilos globales
-design/bigotes.html Ficha del personaje
 docs/screenshots/   Capturas de este README
 public/             Íconos y manifiesto para "Agregar a pantalla de inicio"
 scripts/            Menús, íconos y capturas

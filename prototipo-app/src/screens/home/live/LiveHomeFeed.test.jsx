@@ -89,13 +89,13 @@ const blockOrder = (container) =>
   [...container.querySelectorAll('.live-block')].map((block) => block.className.match(/live-block--(\w+)/)[1])
 
 describe('Home del prototipo final', () => {
-  test('no tiene ícono de chat: Bigotes vive en la Home de cuerpo entero', () => {
+  test('no tiene ícono de chat: Mochi vive en la Home de cuerpo entero', () => {
     renderHome()
-    expect(screen.queryByRole('button', { name: 'Hablar con Bigotes' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Hablar con Mochi' })).toBeNull()
     expect(screen.getByText('Tu pasaporte Rappi')).toBeTruthy()
   })
 
-  test('la barra de la Home es el buscador con Bigotes (no el plano) y tocarla lo abre', () => {
+  test('la barra de la Home es el buscador con Mochi (no el plano) y tocarla lo abre', () => {
     function Probe() {
       return <output data-testid="assistant">{useAssistant().isOpen ? 'abierto' : 'cerrado'}</output>
     }
@@ -111,11 +111,11 @@ describe('Home del prototipo final', () => {
     )
     expect(container.querySelector('.search-bar')).toBeNull()
     expect(screen.getByTestId('assistant').textContent).toBe('cerrado')
-    fireEvent.click(screen.getByRole('button', { name: 'Abrir buscador con Bigotes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir buscador con Mochi' }))
     expect(screen.getByTestId('assistant').textContent).toBe('abierto')
   })
 
-  test('Bigotes entra y saluda sin sugerir productos ni reordenar ni oscurecer la Home', async () => {
+  test('Mochi entra y saluda sin sugerir productos ni reordenar ni oscurecer la Home', async () => {
     const { container } = renderHome()
     expect(blockOrder(container)).toEqual(['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'lower'])
 
@@ -152,10 +152,10 @@ describe('Home del prototipo final', () => {
     expect(container.querySelector('.live-layer [role="status"]').textContent).toMatch(/^¡Sello nuevo de Licores!/)
   })
 
-  test('tocar a Bigotes después del saludo propone una vertical que falta en el pasaporte', async () => {
+  test('tocar a Mochi después del saludo propone una vertical que falta en el pasaporte', async () => {
     const { container } = renderHome()
     await advance(900 + 3400)
-    fireEvent.click(screen.getByRole('button', { name: /^Bigotes:/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
     await advance(3000) // termina de escribir
     expect(container.querySelector('.live-bubble p').textContent).toMatch(/^¿Y si pruebas/)
   })
@@ -189,13 +189,13 @@ describe('Home del prototipo final', () => {
     expect(screen.getByRole('button', { name: /En tu carro · Ir a pagar/ })).toBeTruthy()
   })
 
-  test('en la cuenta, «Repetir escena de Bigotes» aparece solo en el prototipo final', () => {
+  test('en la cuenta, «Repetir escena de Mochi» aparece solo en el prototipo final', () => {
     renderHome({ tab: 'account' })
-    expect(screen.getByRole('button', { name: /Repetir escena de Bigotes/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Repetir escena de Mochi/ })).toBeTruthy()
     cleanup()
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     renderHome({ tab: 'account' })
-    expect(screen.queryByRole('button', { name: /Repetir escena de Bigotes/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Repetir escena de Mochi/ })).toBeNull()
   })
 
   describe('pasaporte del juego', () => {
@@ -228,20 +228,20 @@ describe('Home del prototipo final', () => {
       expect(push).toHaveBeenLastCalledWith('game', { vertical: 'turbo' })
     })
 
-    test('Bigotes nunca propone Farmacia, aunque sea la única sin sello', async () => {
+    test('Mochi nunca propone Farmacia, aunque sea la única sin sello', async () => {
       seed({ visited: DATA.order.filter((v) => v !== 'farmacia') })
       const { container } = renderHome()
       await advance(900 + 3400)
-      fireEvent.click(screen.getByRole('button', { name: /^Bigotes:/ }))
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
       await advance(3000)
       expect(container.querySelector('.live-bubble p').textContent).toMatch(/^¡Ya probaste de todo!/)
     })
 
-    test('Bigotes propone jugar la primera vertical sin sello', async () => {
+    test('Mochi propone jugar la primera vertical sin sello', async () => {
       const push = vi.fn()
       const { container } = renderHome({ push })
       await advance(900 + 3400)
-      fireEvent.click(screen.getByRole('button', { name: /^Bigotes:/ }))
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
       await advance(3000)
       expect(container.querySelector('.live-bubble p').textContent).toMatch(/Express/)
       fireEvent.click(screen.getByRole('button', { name: 'Jugar Express' }))

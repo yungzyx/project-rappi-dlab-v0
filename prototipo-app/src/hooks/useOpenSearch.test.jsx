@@ -25,7 +25,7 @@ describe('useOpenSearch', () => {
     return { push, result }
   }
 
-  test('en el prototipo final abre el buscador con Bigotes con la vertical', () => {
+  test('en el prototipo final abre el buscador con Mochi con la vertical', () => {
     const { push, result } = setup('final')
     act(() => result.current.open('liquor'))
     expect(push).not.toHaveBeenCalled()

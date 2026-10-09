@@ -77,9 +77,9 @@ Estado al 30-09-2026:
 | Fase | Qué es | Estado |
 |---|---|---|
 | **1. Datos** | Scraper → Postgres: catálogo, menús, precios e historial por vertical (`rappi-scraper/`) | **Hecha.** Primera descarga completa del 24 al 27-09-2026, recuperación de fallidos el 28-09 y primera descarga semanal automática el 29 y 30-09 (`make schedule`). Cifras en [README → Resultados](../README.md#resultados) |
-| **Prototipo** | App navegable: Bigotes en la Home, buscador con Bigotes, pasaporte y juego de verticales (`prototipo-app/`) | **Listo para demo.** Con la API usa el catálogo real; sin ella, reglas locales. Sin chat escrito, voz ni foto (ver [decisiones.md](decisiones.md#agente-bigotes)) |
+| **Prototipo** | App navegable: Mochi en la Home, buscador con Mochi, pasaporte y juego de verticales (`prototipo-app/`) | **Listo para demo.** Con la API usa el catálogo real; sin ella, reglas locales. Sin chat escrito, voz ni foto (ver [decisiones.md](decisiones.md#agente-bigotes)) |
 | **2. RAG** | Conceptos (capa 2), embeddings de texto e imagen, búsqueda híbrida por vertical y evaluación (`rappi-ia/`) | **Construido.** Todos los documentos de búsqueda con embedding de texto. Evaluación en [README → Resultados](../README.md#resultados) |
-| **3. Agente** | Bigotes en el backend y API: herramientas de búsqueda, reglas de conducta, voz y foto; LLM opcional | **Construido.** Voz y foto siguen en la API (`/chat/voice`, `/chat/photo`), pero el prototipo actual no los usa |
+| **3. Agente** | Mochi en el backend y API: herramientas de búsqueda, reglas de conducta, voz y foto; LLM opcional | **Construido.** Voz y foto siguen en la API (`/chat/voice`, `/chat/photo`), pero el prototipo actual no los usa |
 | **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono | **Construido** (`dashboard-empresa/`), como herramienta para más adelante: usuarios simulados, salvo la pestaña Catálogo (real) |
 | **Cierre** | CI, documentación y validación final (etapa 8 de [diseno-ia.md](diseno-ia.md#7-etapas)) | **Hecha.** CI en verde y corrida post-refresh sobre el catálogo completo (30-09-2026) |
 

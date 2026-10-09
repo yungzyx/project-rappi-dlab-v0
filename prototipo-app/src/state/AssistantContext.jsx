@@ -12,7 +12,7 @@ export function AssistantProvider({ children }) {
   const [session, setSession] = useState(null)
 
   // Volver (o avanzar) a la entrada del historial del asistente lo reabre con la búsqueda que tenía: así, abrir una
-  // tienda desde Bigotes y volver no deja la Home con el panel cerrado y la búsqueda perdida.
+  // tienda desde Mochi y volver no deja la Home con el panel cerrado y la búsqueda perdida.
   useEffect(() => {
     const onPopState = (event) => {
       if (!event.state?.assistant) return

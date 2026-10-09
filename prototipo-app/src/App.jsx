@@ -45,13 +45,13 @@ const SCREENS = {
 // Mientras una pantalla se baja: el fondo del teléfono, sin spinner (dura un instante).
 const LOADING = <div className="screen screen-loading" aria-hidden="true" />
 
-// En el checkout, el seguimiento y el juego no se muestran la barra del carrito ni el aviso de Bigotes.
+// En el checkout, el seguimiento y el juego no se muestran la barra del carrito ni el aviso de Mochi.
 const SCREENS_WITHOUT_CART = new Set(['checkout', 'tracking', 'game'])
 
 // Pantallas con barra inferior: ahí la barra del carrito flota más arriba.
 const SCREENS_WITH_NAV = new Set(['home', 'turbo'])
 
-// Vertical de la pantalla actual (ids del prototipo): Bigotes busca ahí primero. Turbo va con su código del
+// Vertical de la pantalla actual (ids del prototipo): Mochi busca ahí primero. Turbo va con su código del
 // backend: el 'express' del prototipo es conveniencia para la API.
 export const screenVertical = (screen) =>
   screen.name === 'vertical' ? screen.params?.id : { restaurants: 'restaurants', turbo: 'turbo' }[screen.name]
@@ -80,7 +80,7 @@ export default function App() {
   const current = stack[stack.length - 1]
   const vertical = screenVertical(current)
 
-  // Bigotes invita a descubrir las verticales que la persona todavía no abre.
+  // Mochi invita a descubrir las verticales que la persona todavía no abre.
   useEffect(() => {
     if (vertical) markExplored(vertical)
   }, [vertical])

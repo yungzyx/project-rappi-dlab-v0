@@ -278,3 +278,17 @@ def test_services_are_recognized_when_no_product_is_named():
     # Si nombra un producto, manda el producto: «paquete de pañales» no es un envío.
     assert u.understand(None, "un paquete de pañales", "supermercado").service is None
     assert u.understand(None, "bloqueador para el viaje", "farmacia").concepts[:1] == ["dermocosmetica"]
+
+
+def test_la_mascota_se_presenta_como_mochi():
+    """La mascota del prototipo es Mochi (una mochila, no un gato): así se presenta en el saludo y en la ayuda."""
+    for kind in ("saludo", "ayuda"):
+        text = TemplateComposer().compose(Draft(kind=kind))
+        assert "Soy Mochi" in text and "Bigotes" not in text and "😺" not in text, text
+
+
+def test_claude_puede_nombrar_a_mochi():
+    """«Mochi» es el nombre de la mascota, no un producto inventado: la verificación no descarta el texto por él."""
+    refs = {"p1": "Cerveza Escudo 470 cc"}
+    text = verify_llm_text("¡Hola! Aquí Mochi: te recomiendo {p1}.", refs)
+    assert text == "¡Hola! Aquí Mochi: te recomiendo Cerveza Escudo 470 cc."

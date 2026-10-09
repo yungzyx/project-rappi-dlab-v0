@@ -60,21 +60,21 @@ describe('AddButton (extra)', () => {
     expect(events.track).toHaveBeenCalledWith('cart_remove', expect.objectContaining({ concept_id: 'cerveza' }))
   })
 
-  test('en el prototipo final no hay aviso al agregar: Bigotes lo comenta al volver a la Home', () => {
+  test('en el prototipo final no hay aviso al agregar: Mochi lo comenta al volver a la Home', () => {
     render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
     add()
     expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
     expect(session.lastAdded).toMatchObject({ id: heineken.id })
   })
 
-  test('con el buscador con Bigotes abierto tampoco hay aviso', () => {
+  test('con el buscador con Mochi abierto tampoco hay aviso', () => {
     render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
     fireEvent.click(screen.getByText('abrir chat'))
     add()
     expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
   })
 
-  test('en «Rappi hoy» no hay aviso ni memoria de Bigotes', () => {
+  test('en «Rappi hoy» no hay aviso ni memoria de Mochi', () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
     add()

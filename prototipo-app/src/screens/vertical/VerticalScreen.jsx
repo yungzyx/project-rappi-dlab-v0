@@ -33,7 +33,7 @@ export default function VerticalScreen({ back, push, params }) {
   const forYouRow = demo.isFinal
     ? forVertical(params.id, profile, new Set(allProducts.map((item) => item.id)))
     : null
-  // La fila es una sugerencia de Bigotes: cuenta como mostrada una vez por pestaña, por concepto y vertical.
+  // La fila es una sugerencia de Mochi: cuenta como mostrada una vez por pestaña, por concepto y vertical.
   const pairs = (forYouRow?.products ?? []).map((item) => `${conceptOf(item)}|${item.vertical}`)
   const shownPairs = [...new Set(pairs)].join(',')
   useEffect(() => {

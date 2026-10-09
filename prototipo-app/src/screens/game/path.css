@@ -190,7 +190,7 @@
   right: 100%;
 }
 
-.game .path-here span {
+.game .path-here-label {
   font-size: 12px;
   font-weight: 900;
   color: var(--rappi-red-ink);

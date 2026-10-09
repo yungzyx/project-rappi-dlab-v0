@@ -4,7 +4,7 @@ import { ROUTE, pointOnRoute } from './progress'
 const ROUTE_PATH = ROUTE.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x} ${y}`).join(' ')
 const MARKER = 40
 
-/** Mapa ilustrado (no es un mapa real): cuadras, parque, río, la ruta y Bigotes avanzando por ella. */
+/** Mapa ilustrado (no es un mapa real): cuadras, parque, río, la ruta y Mochi avanzando por ella. */
 export default function TrackingMap({ progress, delivered }) {
   const [x, y] = pointOnRoute(progress)
   const [homeX, homeY] = ROUTE[ROUTE.length - 1]
@@ -65,10 +65,12 @@ export default function TrackingMap({ progress, delivered }) {
         <path d="M-7 1 0 -6 7 1V8H-7Z" fill="#fff" />
       </g>
 
-      {/* Bigotes como repartidor: la transición CSS suaviza el salto entre ticks */}
+      {/* Mochi como repartidor: la transición CSS suaviza el salto entre ticks. Es HTML, así que va en un foreignObject */}
       <g className="tracking-rider" style={{ transform: `translate(${x - MARKER / 2}px, ${y - MARKER / 2 - 8}px)` }}>
         <ellipse cx={MARKER / 2} cy={MARKER + 4} rx="12" ry="3" fill="#000" opacity="0.15" />
-        <Mascot size={MARKER} badge mood={delivered ? 'wave' : 'idle'} />
+        <foreignObject width={MARKER} height={MARKER} overflow="visible">
+          <Mascot size={MARKER} badge mood={delivered ? 'wave' : 'idle'} />
+        </foreignObject>
       </g>
     </svg>
   )
