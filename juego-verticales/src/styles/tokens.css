@@ -1,0 +1,40 @@
+/* Paleta y medidas de prototipo-app (tokens.css), más un color por vertical para sellos y mapa. */
+:root {
+  --ink: #161616;
+  --ink-2: #4b4b4b;
+  --ink-3: #767676; /* 4,5:1 sobre blanco (AA) */
+  --surface: #ffffff;
+  --surface-muted: #f4f4f4;
+  --chip: #edeff3;
+  --line: #e9e9ec;
+
+  --rappi-red: #db492a;
+  --rappi-red-ink: #b8361b; /* texto rojo sobre blanco: 5,3:1 */
+  --rappi-red-soft: #fdeee9;
+  --rappi-red-deep: #a8341a; /* sombra inferior de los botones de juego */
+  --good: #2f8a48;
+  --good-ink: #1f6634; /* texto verde sobre verde claro: 5,2:1 */
+  --good-soft: #e6f5ea;
+  --bad-soft: #fdeceb;
+
+  /* Un tono por vertical (sellos, puntos del mapa). Todos con 4,5:1 o más sobre blanco para texto pequeño. */
+  --v-supermercado: #2f7d4a;
+  --v-conveniencia: #b4590f;
+  --v-turbo: #1c7c7c;
+  --v-licores: #8b2f4e;
+  --v-chocolateria: #7a4a2a;
+  --v-restaurantes: #c03a20;
+  --v-farmacia: #2a65a8;
+  --v-mall: #5a4a9c;
+
+  --gutter: 20px;
+  --radius: 16px;
+  --radius-pill: 999px;
+  --status-zone: 54px;
+  --nav-height: 76px;
+  --font: 'Figtree Variable', -apple-system, system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 320ms;
+  --shadow-card: 0 4px 18px rgba(60, 30, 20, 0.08);
+}

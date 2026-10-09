@@ -1,0 +1,49 @@
+.album-count {
+  margin-top: -6px;
+  font-size: 14px;
+}
+
+.album-group-count {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.album-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Las cartas leídas van a lo ancho; bloqueadas y por leer, de a dos. */
+.album-wide {
+  grid-column: 1 / -1;
+}
+
+.album-grid .fact-card {
+  height: 100%;
+}
+
+.album-grid .fact-card.is-locked,
+.album-grid .fact-card.is-closed {
+  padding: 12px;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.fact-card.is-closed {
+  background: color-mix(in srgb, var(--fact-color) 8%, #fff);
+}
+
+.fact-card.is-closed .fact-card-topic {
+  font-size: 15px;
+}
+
+.album-empty {
+  margin: 4px 0 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--rappi-red-soft);
+  color: var(--rappi-red-ink);
+  font-weight: 700;
+}

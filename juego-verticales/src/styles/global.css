@@ -1,0 +1,247 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: #e6e6ea;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* Sin zoom por doble toque ni menú de selección al mantener: se siente como app nativa. */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--rappi-red);
+  outline-offset: 2px;
+}
+
+svg {
+  flex: none;
+}
+
+/* ---------- Marco del teléfono (como prototipo-app) ---------- */
+.stage {
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.phone {
+  position: relative;
+  width: 402px;
+  height: 874px;
+  overflow: hidden;
+  border-radius: 56px;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 11px #111,
+    0 0 0 13px #3a3a3c,
+    0 40px 90px rgba(0, 0, 0, 0.35);
+  zoom: var(--phone-scale, 1);
+  isolation: isolate;
+}
+
+/* Teléfono real: la app ocupa toda la pantalla y la barra de estado falsa queda fuera. */
+@media (max-width: 500px) {
+  body {
+    background: var(--surface);
+  }
+
+  .stage {
+    display: block;
+  }
+
+  :root {
+    --nav-height: calc(58px + max(18px, env(safe-area-inset-bottom)));
+  }
+
+  .phone {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    zoom: 1;
+  }
+}
+
+/* ---------- Pantallas ---------- */
+.screen {
+  position: absolute;
+  inset: var(--status-zone) 0 var(--nav-height);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  padding: 8px var(--gutter) 28px;
+}
+
+.screen.no-nav {
+  bottom: 0;
+}
+
+@media (max-width: 500px) {
+  .screen {
+    top: 0;
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+}
+
+.screen::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .screen {
+    animation: screen-in var(--duration-normal) var(--ease-out);
+  }
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.screen-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 12px;
+}
+
+.screen-head h1 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  flex: 1;
+}
+
+.icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  background: var(--surface-muted);
+}
+
+.icon-button:active {
+  transform: scale(0.96);
+}
+
+h2.section-title {
+  font-size: 17px;
+  font-weight: 750;
+  margin: 22px 0 10px;
+}
+
+.muted {
+  color: var(--ink-3);
+}
+
+/* ---------- Botones ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 22px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--rappi-red);
+  color: #fff;
+}
+
+.btn-secondary {
+  background: var(--chip);
+  color: var(--ink);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+
+/* ---------- Botones de juego: gruesos, con sombra inferior que se «hunde» al tocar ---------- */
+.btn-game {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 56px;
+  border-radius: var(--radius);
+  font-weight: 900;
+  font-size: 19px; /* texto grande: blanco sobre el rojo de Rappi cumple 3:1 */
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: var(--btn, var(--rappi-red));
+  box-shadow: 0 5px 0 var(--btn-deep, var(--rappi-red-deep));
+  transition:
+    transform 90ms ease-out,
+    box-shadow 90ms ease-out;
+}
+
+.btn-game:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--btn-deep, var(--rappi-red-deep));
+}
+
+.btn-game.is-good {
+  --btn: var(--good);
+  --btn-deep: #1f6634;
+}
+
+.btn-game.is-bad {
+  --btn: var(--rappi-red);
+}
+
+.btn-ghost {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--radius);
+  font-weight: 800;
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
