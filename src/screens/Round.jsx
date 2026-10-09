@@ -239,7 +239,12 @@ export default function Round({ vertical, back }) {
       cards: result.card ? [...t.cards, result.card.id] : t.cards,
     }))
     setOutcome({ ok, selected: optionId, xp: result.xp - result.bonus })
-    navigator.vibrate?.(ok ? 12 : [30, 40, 30])
+    // Vibración leve en teléfono; el navegador la rechaza si aún no hubo un toque (no es un error del juego).
+    try {
+      navigator.vibrate?.(ok ? 12 : [30, 40, 30])
+    } catch {
+      /* sin vibración */
+    }
   }
 
   const next = () => {
