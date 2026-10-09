@@ -96,6 +96,11 @@ img {
   inset: 0;
 }
 
+/* Pantallas debajo de la actual: montadas (conservan búsqueda y scroll) pero invisibles e inertes */
+.screen-wrap.is-under {
+  visibility: hidden;
+}
+
 .screen-wrap.enter-push {
   animation: slide-in var(--duration-normal) var(--ease-out);
 }

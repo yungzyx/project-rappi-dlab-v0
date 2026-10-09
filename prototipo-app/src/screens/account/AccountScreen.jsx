@@ -7,6 +7,7 @@ import { MODE_LABELS, nextMode, useDemo } from '../../state/DemoContext'
 import { resetLive } from '../home/live/memory'
 import { useOrders } from '../../state/OrdersContext'
 import { formatPrice } from '../../state/CartContext'
+import { relativeDay } from '../orders/dates'
 import dealsCrown from '../../assets/deals-crown.webp'
 import logoStreetWrap from '../../assets/logo-streetwrap.webp'
 import footer from '../../assets/account-footer.webp'
@@ -73,7 +74,12 @@ export default function AccountScreen({ onBack, push }) {
               { id: 'help', label: 'Help', Icon: HeadsetIcon },
               { id: 'payment', label: 'Payment methods', Icon: CardIcon },
             ].map(({ id, label, Icon }) => (
-              <button key={id} type="button" className="account-quick-tile tap" onClick={() => toast()}>
+              <button
+                key={id}
+                type="button"
+                className="account-quick-tile tap"
+                onClick={() => (id === 'orders' ? push('orders') : toast())}
+              >
                 <Icon size={27} />
                 <span>{label}</span>
               </button>
@@ -84,7 +90,7 @@ export default function AccountScreen({ onBack, push }) {
         <section className="account-body">
           <div className="account-section-head">
             <h2>Recent orders</h2>
-            <button type="button" className="see-more tap" onClick={() => toast()}>
+            <button type="button" className="see-more tap" onClick={() => push('orders')}>
               See all
             </button>
           </div>
@@ -99,7 +105,9 @@ export default function AccountScreen({ onBack, push }) {
               <img src={order.items[0]?.img} alt="" className="account-order-photo" />
               <span>
                 <strong>{order.stores.join(', ') || 'Your order'}</strong>
-                <span>Today · {formatPrice(order.total)}</span>
+                <span>
+                  {relativeDay(order.placedAt)} · {formatPrice(order.total)}
+                </span>
               </span>
               <ChevronRight size={18} />
             </button>

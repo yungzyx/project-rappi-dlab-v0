@@ -75,10 +75,18 @@ afterEach(() => {
 })
 
 describe('entradas al embudo desde una vertical', () => {
-  test('el buscador se abre con la vertical de la pantalla', () => {
+  test('el buscador se abre con la vertical de la pantalla (en «Rappi hoy», el plano)', () => {
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
     const push = renderVertical('liquor')
     fireEvent.click(screen.getByText('Search stores or products'))
     expect(push).toHaveBeenCalledWith('search', { vertical: 'liquor' })
+  })
+
+  test('en la Propuesta, el buscador de la vertical es el de Bigotes', () => {
+    const push = renderVertical('liquor')
+    fireEvent.click(screen.getByText('Search stores or products'))
+    expect(push).not.toHaveBeenCalled()
+    expect(window.history.state).toMatchObject({ assistant: true })
   })
 
   test('las tiendas de una categoría o de «View more» llevan la vertical de la pantalla, como texto', () => {

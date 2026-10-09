@@ -11,6 +11,7 @@ import FavorScreen from './screens/favor/FavorScreen'
 import HomeScreen from './screens/home/HomeScreen'
 import ListScreen from './screens/list/ListScreen'
 import LoyaltyScreen from './screens/loyalty/LoyaltyScreen'
+import OrdersScreen from './screens/orders/OrdersScreen'
 import RestaurantsScreen from './screens/restaurants/RestaurantsScreen'
 import SearchScreen from './screens/search/SearchScreen'
 import StoreScreen from './screens/store/StoreScreen'
@@ -44,6 +45,7 @@ const SCREENS = {
   list: ListScreen,
   checkout: CheckoutScreen,
   tracking: TrackingScreen,
+  orders: OrdersScreen,
 }
 
 // En el checkout y el seguimiento no se muestran la barra del carrito ni el aviso de Bigotes.
@@ -75,12 +77,10 @@ function usePhoneScale() {
 
 export default function App() {
   // La pestaña de la Home vive en la navegación para no perderla al abrir una tienda y volver.
-  const { stack, homeTab, direction, push, back, setHomeTab } = useNavigation()
+  const { stack, homeTab, direction, push, back, reset, setHomeTab } = useNavigation()
   usePhoneScale()
 
   const current = stack[stack.length - 1]
-  // Un enlace viejo o un nombre desconocido no rompe la app: vuelve a la Home.
-  const Screen = SCREENS[current.name] ?? HomeScreen
   const vertical = screenVertical(current)
 
   // Bigotes invita a descubrir las verticales que la persona todavía no abre.
@@ -103,22 +103,36 @@ export default function App() {
                         <LoyaltyProvider>
                           <ToastProvider>
                             <NudgeProvider>
-                              <div key={`${stack.length}-${current.name}`} className={`screen-wrap enter-${direction}`}>
-                                <Screen
-                                  push={push}
-                                  back={back}
-                                  params={current.params}
-                                  tab={homeTab}
-                                  setTab={setHomeTab}
-                                />
-                              </div>
+                              {/* Toda la pila queda montada: al volver, cada pantalla conserva su búsqueda y su scroll.
+                                  Las de abajo quedan invisibles e inertes (no display:none, que pierde el scroll). */}
+                              {stack.map((entry, i) => {
+                                const isTop = i === stack.length - 1
+                                // Un enlace viejo o un nombre desconocido no rompe la app: vuelve a la Home.
+                                const Screen = SCREENS[entry.name] ?? HomeScreen
+                                return (
+                                  <div
+                                    key={`${i}-${entry.name}`}
+                                    className={isTop ? `screen-wrap enter-${direction}` : 'screen-wrap is-under'}
+                                    inert={!isTop}
+                                  >
+                                    <Screen
+                                      push={push}
+                                      back={back}
+                                      reset={reset}
+                                      params={entry.params}
+                                      tab={homeTab}
+                                      setTab={setHomeTab}
+                                    />
+                                  </div>
+                                )
+                              })}
                               {!SCREENS_WITHOUT_CART.has(current.name) && (
                                 <>
                                   <CartBar raised={SCREENS_WITH_NAV.has(current.name)} push={push} />
                                   <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
                                 </>
                               )}
-                              <AssistantPanel push={push} vertical={vertical} />
+                              <AssistantPanel push={push} vertical={vertical} depth={stack.length} />
                               <AddressSheet />
                               <StatusBar />
                             </NudgeProvider>

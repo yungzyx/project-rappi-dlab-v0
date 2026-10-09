@@ -12,6 +12,7 @@ import {
   StarIcon,
   TrophyIcon,
 } from '../../components/Icons'
+import { useOpenSearch } from '../../hooks/useOpenSearch'
 import { useAddress } from '../../state/AddressContext'
 import { REAL_RESTAURANTS } from '../../data/realMenus'
 import { RestaurantCard } from '../home/StoreCards'
@@ -27,6 +28,7 @@ const FILTER_ICONS = {
 export default function RestaurantsScreen({ back, push }) {
   const toast = useToast()
   const address = useAddress()
+  const openSearch = useOpenSearch(push)
   const [activeFilters, setActiveFilters] = useState(() => new Set())
   const [bannerIndex, setBannerIndex] = useState(0)
 
@@ -51,7 +53,7 @@ export default function RestaurantsScreen({ back, push }) {
       </header>
 
       <div className="rest-search-wrap">
-        <button type="button" className="search-bar tap" onClick={() => push('search', { vertical: 'restaurants' })}>
+        <button type="button" className="search-bar tap" onClick={() => openSearch('restaurants')}>
           <SearchIcon size={21} />
           <span className="search-hint">Search for dishes or restaurants</span>
         </button>

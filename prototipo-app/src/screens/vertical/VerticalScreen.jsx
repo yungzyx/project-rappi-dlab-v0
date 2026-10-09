@@ -8,6 +8,7 @@ import { conceptOf } from '../../api/orders'
 import { firstShowing } from '../../api/useRemoteForYou'
 import { useToast } from '../../components/Toast'
 import { BoltIcon, ChevronDown, ChevronLeft, ClockIcon, CrownIcon, SearchIcon } from '../../components/Icons'
+import { useOpenSearch } from '../../hooks/useOpenSearch'
 import { useAddress } from '../../state/AddressContext'
 import { useDemo } from '../../state/DemoContext'
 import { useEvents } from '../../state/EventsContext'
@@ -20,6 +21,7 @@ export default function VerticalScreen({ back, push, params }) {
   const vertical = VERTICALS[params.id]
   const toast = useToast()
   const address = useAddress()
+  const openSearch = useOpenSearch(push)
   const demo = useDemo()
   const profile = useProfile()
   const events = useEvents()
@@ -69,7 +71,7 @@ export default function VerticalScreen({ back, push, params }) {
       </header>
 
       <div className="vertical-search-wrap">
-        <button type="button" className="search-bar tap" onClick={() => push('search', { vertical: params.id })}>
+        <button type="button" className="search-bar tap" onClick={() => openSearch(params.id)}>
           <SearchIcon size={21} />
           <span className="vertical-search-hint">Search stores or products</span>
         </button>

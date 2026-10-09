@@ -91,6 +91,7 @@ afterAll(() => {
 })
 beforeEach(() => {
   vi.useFakeTimers()
+  window.history.replaceState(null, '', '/') // cada test parte sin una entrada del asistente debajo
   api.health.mockResolvedValue({ voz: true, fotos: false })
   api.profile.mockResolvedValue({ interests: [] })
   api.forget.mockResolvedValue({})
@@ -161,7 +162,7 @@ describe('sugerencia cruzada', () => {
     expect(screen.getByText('De Licores')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Ver más en Licores/ }))
     await runUntilIdle()
-    expect(push).toHaveBeenCalledWith('vertical', { id: 'liquor' }, expect.anything())
+    expect(push).toHaveBeenCalledWith('vertical', { id: 'liquor' })
   })
 
   test('tocar un producto abre su tienda con ese producto: la página registra que lo vio', async () => {
@@ -191,7 +192,6 @@ describe('sugerencia cruzada', () => {
     expect(push).toHaveBeenCalledWith(
       'store',
       expect.objectContaining({ item: expect.objectContaining({ entityId: '1', vertical: 'licores' }) }),
-      expect.anything(),
     )
   })
 })
@@ -228,7 +228,7 @@ describe('también en otras verticales', () => {
     expect(button.textContent).toContain('L') // Lider sin logo: su inicial
     fireEvent.click(button)
     await runUntilIdle()
-    expect(push).toHaveBeenCalledWith('vertical', { id: 'grocery' }, expect.anything())
+    expect(push).toHaveBeenCalledWith('vertical', { id: 'grocery' })
   })
 })
 
@@ -427,7 +427,7 @@ describe('servicios sin catálogo', () => {
     fireEvent.click(screen.getByText('Abrir RappiTravel →'))
     await runUntilIdle()
     expect(tracked('service_opened')).toEqual([{ payload: { servicio: 'rappitravel' } }])
-    expect(push).toHaveBeenCalledWith('travel', undefined, expect.anything())
+    expect(push).toHaveBeenCalledWith('travel', undefined)
   })
 })
 
@@ -466,5 +466,39 @@ describe('conversación', () => {
       vertical: 'licores',
       product_ids: ['1'],
     })
+  })
+})
+
+describe('volver a Bigotes desde una tienda', () => {
+  test('abrir una tienda apila la pantalla y, al volver, el panel se reabre con la búsqueda que tenía', async () => {
+    const push = vi.fn()
+    await renderPanel({ push })
+    const assistantEntry = window.history.state
+    expect(assistantEntry.assistant).toBe(true)
+
+    const input = screen.getByLabelText('Buscar en Rappi')
+    fireEvent.change(input, { target: { value: 'unimarc' } })
+    fireEvent.click(document.querySelector('.search-store'))
+    expect(push).toHaveBeenCalledWith('store', expect.objectContaining({ store: expect.anything() }))
+    // La entrada del asistente sigue en el historial, con su búsqueda; la tienda se apila encima (sin replace).
+    expect(window.history.state).toMatchObject({ assistant: true, assistantSearch: 'unimarc' })
+    await runUntilIdle()
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    // Gesto volver desde la tienda: el navegador vuelve a la entrada del asistente.
+    act(() => window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state })))
+    await runUntilIdle()
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByLabelText('Buscar en Rappi').value).toBe('unimarc')
+  })
+})
+
+describe('barra del carrito dentro del panel', () => {
+  test('con productos en el carro el panel deja espacio abajo para la barra', async () => {
+    await renderPanel()
+    expect(document.querySelector('.assistant.has-cart')).toBeNull()
+    fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: 'palta' } })
+    fireEvent.click(screen.getAllByLabelText(/^Agregar /)[0])
+    expect(document.querySelector('.assistant.has-cart')).toBeTruthy()
   })
 })

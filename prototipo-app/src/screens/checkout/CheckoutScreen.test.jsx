@@ -133,3 +133,31 @@ describe('inicio de pago', () => {
     await vi.waitFor(() => expect(api.sendOrder).toHaveBeenCalledTimes(2))
   })
 })
+
+describe('carrito vacío', () => {
+  test('ofrece seguir comprando (vuelve atrás)', () => {
+    const back = vi.fn()
+    render(
+      <DemoProvider>
+        <ProfileProvider>
+          <AssistantProvider>
+            <CartProvider>
+              <OrdersProvider>
+                <AddressProvider>
+                  <ToastProvider>
+                    <NudgeProvider>
+                      <CheckoutScreen back={back} push={() => {}} />
+                    </NudgeProvider>
+                  </ToastProvider>
+                </AddressProvider>
+              </OrdersProvider>
+            </CartProvider>
+          </AssistantProvider>
+        </ProfileProvider>
+      </DemoProvider>,
+    )
+    expect(screen.getByText('Your cart is empty.')).toBeTruthy()
+    fireEvent.click(screen.getByText('Seguir comprando'))
+    expect(back).toHaveBeenCalled()
+  })
+})

@@ -13,6 +13,7 @@ import { useDemo } from '../../state/DemoContext'
 import { clearShownTopics, noteShownTopic, sessionId, shownTopics, useEvents, userId } from '../../state/EventsContext'
 import { storeFor } from '../../data/catalog'
 import { useAssistant } from '../../state/AssistantContext'
+import { useCart } from '../../state/CartContext'
 import { useDialog } from '../../hooks/useDialog'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
 import { ChevronLeft } from '../Icons'
@@ -35,11 +36,12 @@ let nextId = 1
  * tocan (sin chat escrito) y una invitación a descubrir otras verticales. Siempre montado (para no perder lo que
  * Bigotes respondió); se muestra al abrirlo.
  */
-export default function AssistantPanel({ push, vertical }) {
+export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const assistant = useAssistant()
   const profile = useProfile()
   const demo = useDemo()
   const events = useEvents()
+  const cart = useCart()
   const [phase, setPhase] = useState('closed')
   const [messages, setMessages] = useState([])
   const [mood, setMood] = useState('idle')
@@ -182,7 +184,7 @@ export default function AssistantPanel({ push, vertical }) {
     // Paso 1 de la animación: hay que pintar la posición inicial antes de deslizar, así que el render extra es buscado.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhase('entering')
-    search.setQuery('')
+    search.setQuery(session.search ?? '')
     const explored = exploredVerticals()
     setDiscover({ cards: discoveries(profile.top, explored), explored })
     setMood('wave')
@@ -235,11 +237,31 @@ export default function AssistantPanel({ push, vertical }) {
     }, CLOSE_MS)
   }
 
-  // La pantalla que se abre desde el chat reemplaza la entrada del asistente en el historial.
+  // La pantalla que se abre desde Bigotes se apila sobre su entrada del historial, que guarda la búsqueda: al volver,
+  // el panel se reabre con ella (AssistantContext).
+  const leave = () => {
+    if (window.history.state?.assistant)
+      window.history.replaceState({ ...window.history.state, assistantSearch: search.query }, '')
+  }
   const go = (name, params) => {
-    push(name, params, { replace: Boolean(window.history.state?.assistant) })
+    leave()
+    push(name, params)
     close({ viaHistory: true })
   }
+
+  // Si otra cosa apila una pantalla con el panel abierto (la barra del carrito abre el checkout), el panel se cierra
+  // igual que con `go`, para no quedar encima de esa pantalla.
+  const depthRef = useRef(depth)
+  useEffect(() => {
+    const grew = depth > depthRef.current
+    depthRef.current = depth
+    if (grew && assistant.isOpen && phase === 'open') {
+      leave()
+      close({ viaHistory: true })
+    }
+    // Solo reacciona al cambio de profundidad.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [depth])
 
   // Gesto "volver" (o botón atrás) con el asistente abierto: se cierra con su animación.
   const closeRef = useRef(close)
@@ -321,7 +343,7 @@ export default function AssistantPanel({ push, vertical }) {
   return (
     <div
       ref={rootRef}
-      className={`assistant bigotes-search is-${phase}`}
+      className={`assistant bigotes-search is-${phase}${cart.count > 0 ? ' has-cart' : ''}`}
       style={style}
       role="dialog"
       aria-modal="true"

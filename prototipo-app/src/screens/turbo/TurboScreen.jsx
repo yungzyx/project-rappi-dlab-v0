@@ -3,6 +3,7 @@ import BottomNav from '../../components/BottomNav'
 import HScroll from '../../components/HScroll'
 import NotReplicated from '../../components/NotReplicated'
 import { useToast } from '../../components/Toast'
+import { useOpenSearch } from '../../hooks/useOpenSearch'
 import {
   BadgePercentIcon,
   ChevronLeft,
@@ -49,13 +50,14 @@ const FEE_REMAINING = '$29.900'
 
 export default function TurboScreen({ back, push }) {
   const toast = useToast()
+  const openSearch = useOpenSearch(push)
   const [tab, setTab] = useState('turbo')
   const tabLabel = NAV_ITEMS.find((item) => item.id === tab).label
 
   return (
     <>
       {tab === 'turbo' ? (
-        <TurboFeed back={back} toast={toast} onSearch={() => push('search', { vertical: 'turbo' })} />
+        <TurboFeed back={back} toast={toast} onSearch={() => openSearch('turbo')} />
       ) : (
         <NotReplicated title={tabLabel} />
       )}
@@ -63,7 +65,7 @@ export default function TurboScreen({ back, push }) {
         items={NAV_ITEMS}
         active={tab}
         onSelect={setTab}
-        onSearch={() => push('search', { vertical: 'turbo' })}
+        onSearch={() => openSearch('turbo')}
         className="bottom-nav--turbo"
       />
     </>

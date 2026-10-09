@@ -15,7 +15,7 @@ const TICK_MS = 500
 const STARS = [1, 2, 3, 4, 5]
 
 /** Seguimiento del pedido (funcionalidad agregada): pasos que avanzan solos y Bigotes recorriendo el mapa. */
-export default function TrackingScreen({ back, params }) {
+export default function TrackingScreen({ back, reset, params }) {
   const orders = useOrders()
   const order = orders.find(params.orderId)
   const [now, setNow] = useState(() => Date.now())
@@ -65,6 +65,12 @@ export default function TrackingScreen({ back, params }) {
         {delivered ? <Delivered order={order} /> : <Courier />}
 
         <OrderSummary order={order} />
+
+        {delivered && (
+          <button type="button" className="tracking-home-button tap" onClick={reset}>
+            Volver al inicio
+          </button>
+        )}
       </section>
     </div>
   )

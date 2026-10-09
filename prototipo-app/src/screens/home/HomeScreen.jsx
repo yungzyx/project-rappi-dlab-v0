@@ -1,5 +1,6 @@
 import BottomNav from '../../components/BottomNav'
 import { AccountIcon, FavoritesIcon, HomeIcon, OffersIcon } from '../../components/Icons'
+import { useOpenSearch } from '../../hooks/useOpenSearch'
 import { useDemo } from '../../state/DemoContext'
 import AccountScreen from '../account/AccountScreen'
 import DealsScreen from '../deals/DealsScreen'
@@ -17,13 +18,14 @@ const NAV_ITEMS = [
 /** Contenedor de las 4 pestañas de la barra inferior. La pestaña activa la guarda App. */
 export default function HomeScreen({ push, tab, setTab }) {
   const demo = useDemo()
+  const openSearch = useOpenSearch(push)
   return (
     <>
       {tab === 'home' && (demo.isLive ? <LiveHomeFeed push={push} /> : <HomeFeed push={push} />)}
       {tab === 'offers' && <DealsScreen push={push} />}
       {tab === 'favorites' && <FavoritesScreen push={push} />}
       {tab === 'account' && <AccountScreen onBack={() => setTab('home')} push={push} />}
-      <BottomNav items={NAV_ITEMS} active={tab} onSelect={setTab} onSearch={() => push('search')} />
+      <BottomNav items={NAV_ITEMS} active={tab} onSelect={setTab} onSearch={() => openSearch()} />
     </>
   )
 }

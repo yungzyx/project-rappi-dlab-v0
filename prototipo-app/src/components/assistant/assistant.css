@@ -77,6 +77,11 @@
   display: none;
 }
 
+/* Con productos en el carrito, su barra flota sobre el panel: el último bloque no queda detrás */
+.assistant.has-cart .bigotes-search-body {
+  padding-bottom: 180px;
+}
+
 .bigotes-block {
   padding: 0 var(--gutter);
 }

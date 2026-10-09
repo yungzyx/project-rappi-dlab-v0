@@ -47,6 +47,9 @@ export default function StoreScreen({ back, params }) {
   // Vertical de la tienda en los eventos: el embudo del panel cuenta como entrada lo que pasa en cada vertical.
   const vertical = storeVertical(store)
   const item = params.item
+  // Un producto que llegó por parámetro (p. ej. de la API) y no está en el catálogo local se muestra destacado arriba.
+  const listed = (candidate) => candidate.id === item?.id || candidate.name === item?.name
+  const chosen = item && !products.some(listed) && !menu?.some((section) => section.items.some(listed)) ? item : null
   // Una vez por tienda: StrictMode monta dos veces en desarrollo y contaría la visita doble.
   const tracked = useRef(null)
   useEffect(() => {
@@ -106,22 +109,31 @@ export default function StoreScreen({ back, params }) {
           ))}
         </div>
 
+        {chosen && (
+          <>
+            <h2 className="section-title store-title">Lo que elegiste</h2>
+            <ul className="store-products">
+              <ProductRow product={chosen} />
+            </ul>
+          </>
+        )}
+
         {menu ? (
           menuReady ? (
             <RealMenu sections={menu} scrollRef={scrollRef} />
           ) : (
             <MenuSkeleton />
           )
-        ) : (
+        ) : products.length > 0 || !chosen ? (
           <h2 className="section-title store-title">Deals</h2>
-        )}
+        ) : null}
         {menu ? null : products.length > 0 ? (
           <ul className="store-products">
             {products.map((product) => (
               <ProductRow key={product.id} product={product} />
             ))}
           </ul>
-        ) : (
+        ) : chosen ? null : (
           <p className="store-empty">El menú completo de esta tienda todavía no está en el prototipo.</p>
         )}
       </section>

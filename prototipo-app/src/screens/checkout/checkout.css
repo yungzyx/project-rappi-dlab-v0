@@ -29,6 +29,17 @@
   color: var(--ink-2);
 }
 
+.checkout-continue {
+  display: block;
+  margin: 16px auto 0;
+  padding: 12px 24px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
 .checkout-modes {
   display: grid;
   grid-template-columns: 1fr 1fr;

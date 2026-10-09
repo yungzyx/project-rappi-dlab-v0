@@ -1,14 +1,26 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 const AssistantContext = createContext(null)
 
 /**
- * Abre y cierra el asistente. `open({ origin, query })`:
+ * Abre y cierra el asistente. `open({ origin, query, search })`:
  *  - origin: rectángulo (relativo al teléfono) desde donde crece la animación
  *  - query: pregunta que se envía al abrir
+ *  - search: texto con el que arranca el buscador (al volver a una búsqueda que se dejó)
  */
 export function AssistantProvider({ children }) {
   const [session, setSession] = useState(null)
+
+  // Volver (o avanzar) a la entrada del historial del asistente lo reabre con la búsqueda que tenía: así, abrir una
+  // tienda desde Bigotes y volver no deja la Home con el panel cerrado y la búsqueda perdida.
+  useEffect(() => {
+    const onPopState = (event) => {
+      if (!event.state?.assistant) return
+      setSession((prev) => prev ?? { search: event.state.assistantSearch ?? '', openedAt: Date.now() })
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   const value = useMemo(
     () => ({
