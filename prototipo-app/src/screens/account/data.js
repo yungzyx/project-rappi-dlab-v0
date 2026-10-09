@@ -53,6 +53,8 @@ export const SECTIONS = [
       { id: 'icon', label: 'Change Rappi icon', Icon: MustacheIcon },
       // Solo del prototipo: alterna entre Rappi hoy y la propuesta (en notebook también con la tecla D).
       { id: 'demo', label: 'Modo demo', Icon: SparkleLineIcon, action: 'demo' },
+      // Solo en «Bigotes vivo»: en el celular no está el botón «Repetir escena» de la notebook.
+      { id: 'replay', label: 'Repetir escena de Bigotes', Icon: SparkleLineIcon, action: 'replay', liveOnly: true },
     ],
   },
   {

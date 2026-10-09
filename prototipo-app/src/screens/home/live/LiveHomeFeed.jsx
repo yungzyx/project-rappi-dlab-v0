@@ -37,6 +37,10 @@ const BASE_ORDER = ['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby
 const T = { enter: 900, greet: 3400, autoAccept: 7000, scroll: 520, land: 1150, revealHold: 7000, notice: 500 }
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const ACTIONS_HOLD = 12000 // un globo con botones se va solo después de esto (no queda tapando la Home)
+
+/** Un toque de vibración en los momentos clave (solo donde el navegador lo permite, como Android). */
+const buzz = () => navigator.vibrate?.(12)
 
 function usePrefersReducedMotion() {
   const query = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')
@@ -73,6 +77,7 @@ export default function LiveHomeFeed({ push }) {
   const [stamps, setStamps] = useState(loadPassport)
   const [freshStamp, setFreshStamp] = useState(() => session.newStamp)
   const [plan, setPlan] = useState(() => session.plan)
+  const [kitAdded, setKitAdded] = useState(null) // plan cuyo kit ya está en el carro
   const [scene, setScene] = useState('idle') // idle | spotlight | reveal
   const [say, setSay] = useState(null)
   const [target, setTarget] = useState(null) // id del bloque donde se para Bigotes
@@ -171,9 +176,15 @@ export default function LiveHomeFeed({ push }) {
     await wait(reduceMotion ? 0 : T.land)
     if (current !== run.current) return
     setSparkle(true)
+    buzz()
     bigotesRef.current?.reposition() // el bloque ya aterrizó: Bigotes salta encima
     if (!discovery) return finishScene()
     setScene('reveal')
+    // En un celular el bloque nuevo queda bajo la barra inferior: la Home baja lo justo para mostrarlo.
+    const screen = screenRef.current
+    const block = blockRefs.current.get('discovery')
+    if (screen && block && block.offsetTop + 200 > screen.scrollTop + screen.clientHeight - 110)
+      screen.scrollTo({ top: block.offsetTop - screen.clientHeight * 0.45, behavior: reduceMotion ? 'auto' : 'smooth' })
     speak(
       {
         text: `Y para acompañar: ${discovery.label.toLowerCase()} ${discovery.emoji} en ${discovery.verticalName}, donde nunca has pedido. Ábrelo y te llevas un sello.`,
@@ -238,6 +249,7 @@ export default function LiveHomeFeed({ push }) {
       const left = Math.max(PASSPORT_GOAL - loadPassport().length, 0)
       later(T.notice, () => {
         session.newStamp = null
+        buzz()
         speak(
           {
             text: left
@@ -268,6 +280,7 @@ export default function LiveHomeFeed({ push }) {
               ],
             },
             null,
+            ACTIONS_HOLD,
           ),
         )
       }
@@ -308,6 +321,7 @@ export default function LiveHomeFeed({ push }) {
       setStamps(loadPassport())
       setFreshStamp(null)
       setPlan(null)
+      setKitAdded(null)
       setScene('idle')
       setSparkle(false)
       setPresent(false)
@@ -346,6 +360,8 @@ export default function LiveHomeFeed({ push }) {
       profile.trackTags(productTags(product), WEIGHTS.cart)
       events.track('cart_add', cartEventFields(product, cart.id))
     }
+    setKitAdded(plan)
+    buzz()
     toast(`Agregaste ${products.length} productos del kit`)
     speak({ text: '¡Listo! Llega todo junto 🛵 Ve tu carro abajo.', mood: 'wave', gesture: 'spin' }, 'plan', 3500)
   }
@@ -374,6 +390,7 @@ export default function LiveHomeFeed({ push }) {
         ],
       },
       null,
+      ACTIONS_HOLD,
     )
   }
 
@@ -456,7 +473,17 @@ export default function LiveHomeFeed({ push }) {
         </HScroll>
       </>
     ),
-    plan: <PlanBlock plan={plan} kit={kit} onPick={pickPlan} onOpen={openFromBlock} onAddKit={addKit} />,
+    plan: (
+      <PlanBlock
+        plan={plan}
+        kit={kit}
+        added={kitAdded === plan}
+        onPick={pickPlan}
+        onOpen={openFromBlock}
+        onAddKit={addKit}
+        onCheckout={() => push('checkout')}
+      />
+    ),
     nearby: (
       <section className="home-nearby">
         <div className="home-section-head">
@@ -511,7 +538,7 @@ export default function LiveHomeFeed({ push }) {
         className={dim ? 'screen home home--live is-dim' : 'screen home home--live'}
         onScroll={(event) => {
           onScroll(event)
-          bigotesRef.current?.reposition()
+          bigotesRef.current?.scrolled()
         }}
         data-top={top > 0 ? 'scrolled' : 'top'}
       >

@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from '../../components/Icons'
 import { CardIcon, HeadsetIcon, LogoutIcon, OrdersIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
 import { MODE_LABELS, nextMode, useDemo } from '../../state/DemoContext'
+import { resetLive } from '../home/live/memory'
 import { useOrders } from '../../state/OrdersContext'
 import { formatPrice } from '../../state/CartContext'
 import dealsCrown from '../../assets/deals-crown.webp'
@@ -27,6 +28,9 @@ export default function AccountScreen({ onBack, push }) {
     else if (row.action === 'demo') {
       demo.toggle()
       toast(`Modo demo: ${MODE_LABELS[nextMode(demo.mode)]}`)
+    } else if (row.action === 'replay') {
+      resetLive()
+      onBack()
     } else if (row.action) setSheet(row.action)
     else toast()
   }
@@ -117,23 +121,25 @@ export default function AccountScreen({ onBack, push }) {
             <div key={section.title} className="account-section">
               <h2>{section.title}</h2>
               <ul>
-                {section.rows.map((row) => (
-                  <li key={row.id}>
-                    <button type="button" className="account-row" onClick={() => runRow(row)}>
-                      <span className="account-row-icon">
-                        <row.Icon size={24} />
-                      </span>
-                      <span className="account-row-label">{row.label}</span>
-                      {row.action === 'demo' ? (
-                        <strong className="account-demo-value">{MODE_LABELS[demo.mode]}</strong>
-                      ) : row.value ? (
-                        <strong>{row.value}</strong>
-                      ) : (
-                        <ChevronRight size={18} />
-                      )}
-                    </button>
-                  </li>
-                ))}
+                {section.rows
+                  .filter((row) => !row.liveOnly || demo.isLive)
+                  .map((row) => (
+                    <li key={row.id}>
+                      <button type="button" className="account-row" onClick={() => runRow(row)}>
+                        <span className="account-row-icon">
+                          <row.Icon size={24} />
+                        </span>
+                        <span className="account-row-label">{row.label}</span>
+                        {row.action === 'demo' ? (
+                          <strong className="account-demo-value">{MODE_LABELS[demo.mode]}</strong>
+                        ) : row.value ? (
+                          <strong>{row.value}</strong>
+                        ) : (
+                          <ChevronRight size={18} />
+                        )}
+                      </button>
+                    </li>
+                  ))}
               </ul>
             </div>
           ))}
