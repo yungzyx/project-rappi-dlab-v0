@@ -4,6 +4,7 @@ import { routeForScreen } from '../../data/verticals'
 import { nextVertical } from '../../game/progress.js'
 import { GAME_TO_SCREEN } from '../../game/verticals.js'
 import { useGame } from '../../state/GameContext'
+import { session } from '../../state/liveMemory'
 import Album from './Album.jsx'
 import Concept from './Concept.jsx'
 import BottomNav from './GameTabs.jsx'
@@ -54,7 +55,8 @@ function GameView({ back, push, params = {} }) {
     () => ({
       openInApp: (vertical) => {
         const id = GAME_TO_SCREEN[vertical]
-        game.visit(id)
+        // Como al abrirla desde la Home: si el sello es nuevo, Mochi lo celebra al volver a la Home.
+        if (game.visit(id)) session.newStamp = id
         push(...routeForScreen(id))
       },
     }),

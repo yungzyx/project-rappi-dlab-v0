@@ -7,7 +7,7 @@ const LOOK_MAX_DEG = 5
 /**
  * Mochi, la mascota del asistente: la mochila Rappi con bigote. Sus 4 poses están en una sola imagen
  * (frontal, feliz, tímido, saltando) y el estado elige cuál se ve.
- * mood: 'idle' | 'wave' | 'listen' | 'think' | 'talk'. `badge` lo pone en un círculo, como un avatar.
+ * mood: 'idle' | 'wave' | 'listen' | 'think' | 'talk' | 'jump' (salta una vez y queda feliz, para celebrar). `badge` lo pone en un círculo, como un avatar.
  */
 export default function Mascot({ size = 56, mood = 'idle', badge = false, className = '' }) {
   const [booping, setBooping] = useState(false)

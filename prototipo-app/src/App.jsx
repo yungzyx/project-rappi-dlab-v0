@@ -124,6 +124,7 @@ export default function App() {
                                             params={entry.params}
                                             tab={homeTab}
                                             setTab={setHomeTab}
+                                            active={isTop}
                                           />
                                         </Suspense>
                                       </ErrorBoundary>

@@ -71,16 +71,16 @@ afterEach(() => {
   localStorage.clear()
 })
 
-const renderHome = ({ strict = false, tab = 'home', push = vi.fn() } = {}) =>
-  render(
-    <Providers strict={strict}>
-      <div className="phone">
-        <div className="screen-wrap">
-          <HomeScreen push={push} tab={tab} setTab={vi.fn()} />
-        </div>
+const homeTree = ({ strict = false, tab = 'home', push = vi.fn(), active = true } = {}) => (
+  <Providers strict={strict}>
+    <div className="phone">
+      <div className="screen-wrap">
+        <HomeScreen push={push} tab={tab} setTab={vi.fn()} active={active} />
       </div>
-    </Providers>,
-  )
+    </div>
+  </Providers>
+)
+const renderHome = (options) => render(homeTree(options))
 // De a 100 ms, como en un navegador: entre paso y paso React aplica sus efectos (la máquina de escribir, por ejemplo).
 const advance = async (ms) => {
   for (let elapsed = 0; elapsed < ms; elapsed += 100) await act(() => vi.advanceTimersByTimeAsync(100))
@@ -150,6 +150,38 @@ describe('Home del prototipo final', () => {
     const { container } = renderHome({ strict: true })
     await advance(2000)
     expect(container.querySelector('.live-layer [role="status"]').textContent).toMatch(/^¡Sello nuevo de Licores!/)
+  })
+
+  test('la Home queda montada bajo la vertical abierta: al volver a estar arriba, celebra el sello nuevo', async () => {
+    seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
+    const { container, rerender } = renderHome()
+    await advance(900 + 3400 + 6000) // saluda y se calla
+    rerender(homeTree({ active: false })) // se abrió Licores encima de la Home
+    memory.session.newStamp = 'liquor'
+    rerender(homeTree({ active: true })) // volvió
+    await advance(2000)
+    expect(container.querySelector('.live-layer [role="status"]').textContent).toMatch(/^¡Sello nuevo de Licores!/)
+  })
+
+  test('al tocar a Mochi salta (aunque empiece a hablar) y después vuelve a su pose', async () => {
+    const { container } = renderHome()
+    await advance(900 + 3400)
+    const body = screen.getByRole('button', { name: /^Mochi:/ })
+    fireEvent.pointerDown(body)
+    fireEvent.click(body)
+    await advance(300)
+    expect(container.querySelector('.live-bigotes .mochi').classList).toContain('mascot--jump')
+    await advance(1000)
+    expect(container.querySelector('.live-bigotes .mochi').classList).not.toContain('mascot--jump')
+  })
+
+  test('al celebrar un sello nuevo, Mochi salta', async () => {
+    memory.session.played = true
+    memory.session.newStamp = 'liquor'
+    seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
+    const { container } = renderHome()
+    await advance(4000) // termina de escribir la celebración
+    expect(container.querySelector('.live-bigotes .mochi').classList).toContain('mascot--jump')
   })
 
   test('tocar a Mochi después del saludo propone una vertical que falta en el pasaporte', async () => {

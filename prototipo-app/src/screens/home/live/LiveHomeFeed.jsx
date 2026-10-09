@@ -48,7 +48,7 @@ function usePrefersReducedMotion() {
  * Home del prototipo final: sin ícono de chat; la barra abre el buscador con Mochi. Mochi de cuerpo entero vive en
  * la Home sin reordenarla: saluda, acompaña el pasaporte y el plan del día, y al tocarlo invita a una vertical nueva.
  */
-export default function LiveHomeFeed({ push }) {
+export default function LiveHomeFeed({ push, active = true }) {
   const toast = useToast()
   const address = useAddress()
   const { add: addToCart } = useAddToCart()
@@ -139,9 +139,10 @@ export default function LiveHomeFeed({ push }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replays])
 
-  // Al volver a la Home: celebra un sello nuevo o comenta lo último que se agregó al carro.
+  // Al volver a la Home: celebra un sello nuevo o comenta lo último que se agregó al carro. La Home queda montada bajo
+  // las pantallas que se abren encima (`active` es si está arriba), así que corre cada vez que vuelve a estar arriba.
   useEffect(() => {
-    if (!session.played) return
+    if (!active || !session.played) return
     // Lo pendiente se borra de la sesión recién cuando Mochi habla: en desarrollo, StrictMode monta dos veces y la
     // primera vez se cancelan los timers.
     if (session.newStamp) {
@@ -155,7 +156,7 @@ export default function LiveHomeFeed({ push }) {
             text: left
               ? `¡Sello nuevo de ${name}! 🎉 Te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis.`
               : `¡Sello de ${name}! 🎉 Desbloqueaste el envío gratis.`,
-            mood: 'wave',
+            mood: 'jump',
             gesture: 'spin',
           },
           null,
@@ -185,9 +186,9 @@ export default function LiveHomeFeed({ push }) {
         )
       }
     }
-    // Solo al montar.
+    // Solo al volver a estar arriba (y al montar).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [active])
 
   // Cuando el plan del día entra en pantalla, Mochi camina hasta él (una vez por sesión).
   useEffect(() => {

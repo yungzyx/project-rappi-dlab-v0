@@ -12,6 +12,7 @@ const TYPE_MS = 16 // ms por letra al «hablar»
 const FIDGETS = ['look', 'dance', 'wave', 'stretch', 'hop']
 const FIDGET_MS = 6000
 const TUCK_MS = 700 // tras el último scroll, vuelve a asomarse
+const JUMP_MS = 900 // al tocarlo salta; vive aquí porque cada frase nueva vuelve a montar la mascota
 
 /** Texto que aparece letra por letra mientras Mochi habla (sin animación si se pidió reducir movimiento). */
 function useTypewriter(text, reduceMotion) {
@@ -51,12 +52,15 @@ const LiveBigotes = forwardRef(function LiveBigotes(
   const fidgets = useRef(0)
   const [tucked, setTucked] = useState(false)
   const tuckTimer = useRef(null)
+  const [jumping, setJumping] = useState(false)
+  const jumpTimer = useRef(null)
   const frame = useRef(0)
   // Tamaño del teléfono: no cambia al hacer scroll (solo al cambiar la ventana), así que se mide una vez.
   const phoneSize = useRef(null)
   useEffect(
     () => () => {
       clearTimeout(tuckTimer.current)
+      clearTimeout(jumpTimer.current)
       cancelAnimationFrame(frame.current)
     },
     [],
@@ -174,11 +178,16 @@ const LiveBigotes = forwardRef(function LiveBigotes(
           aria-label="Mochi: muéstrame algo nuevo para probar"
           title="Mochi"
           hidden={away}
+          onPointerDown={() => {
+            setJumping(true)
+            clearTimeout(jumpTimer.current)
+            jumpTimer.current = setTimeout(() => setJumping(false), JUMP_MS)
+          }}
           onClick={onPoke}
         >
           <span key={hopKey} className={hopKey ? 'live-hop' : undefined}>
             <span key={gestureKey} className={gesture ? `live-gesture live-gesture--${gesture}` : 'live-gesture'}>
-              <Mascot size={SIZE} mood={mood} />
+              <Mascot size={SIZE} mood={jumping ? 'jump' : mood} />
             </span>
           </span>
         </button>

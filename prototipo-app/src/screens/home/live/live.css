@@ -509,6 +509,11 @@
   }
 }
 
+/* Al tocarlo o al celebrar, el salto gana sobre la pose del gesto */
+.live-bigotes .live-gesture .mochi.mascot--jump .mochi-sprite {
+  animation: none;
+}
+
 @keyframes live-pose-happy {
   0%,
   95% {
