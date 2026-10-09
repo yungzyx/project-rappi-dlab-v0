@@ -57,6 +57,7 @@ describe('guardado local', () => {
     odd({ daily: null }),
     odd({ streak: null }),
     odd({ streak: { count: 'dos', lastDate: null } }),
+    odd({ seenIntro: 'sí' }),
   ])('un valor roto (%s) parte en cero', (raw) => {
     expect(load(memoryStorage({ [KEY]: raw }))).toEqual(initialState())
   })

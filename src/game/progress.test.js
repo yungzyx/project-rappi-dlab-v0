@@ -9,6 +9,8 @@ import {
   discover,
   explorerLevel,
   initialState,
+  levelsGained,
+  markIntroSeen,
   nextVertical,
   openCard,
   today,
@@ -82,6 +84,20 @@ describe('experiencia', () => {
   })
 })
 
+describe('nivel de explorador', () => {
+  test('levelsGained lista los niveles nuevos al sumar XP', () => {
+    expect(levelsGained(90, 110)).toEqual([2])
+    expect(levelsGained(90, 99)).toEqual([])
+    expect(levelsGained(180, 420)).toEqual([3, 4, 5])
+  })
+
+  test('la bienvenida se marca vista sin mutar el estado', () => {
+    const s = deepFreeze(initialState())
+    expect(s.seenIntro).toBe(false)
+    expect(markIntroSeen(s).seenIntro).toBe(true)
+  })
+})
+
 describe('niveles de vertical', () => {
   test('Chocolatería (9 conceptos) sigue los umbrales', () => {
     expect(conceptsOf('chocolateria')).toHaveLength(9)
@@ -129,6 +145,8 @@ describe('racha', () => {
   })
 
   test('today usa la fecha local, no UTC', () => {
+    // Las pruebas corren con la hora de Chile (vite.config.js): las 23:30 locales ya son el día siguiente en UTC.
+    expect(new Date(2026, 9, 8, 23, 30).toISOString().slice(0, 10)).toBe('2026-10-09')
     expect(today(new Date(2026, 9, 8, 23, 30))).toBe('2026-10-08')
     expect(today(new Date(2026, 0, 1, 0, 5))).toBe('2026-01-01')
   })

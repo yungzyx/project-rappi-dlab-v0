@@ -15,7 +15,12 @@ export function initialState() {
     opened: [],
     daily: { date: null, discovered: 0, correct: 0, opened: 0, done: false },
     streak: { count: 0, lastDate: null },
+    seenIntro: false,
   }
+}
+
+export function markIntroSeen(state) {
+  return { ...state, seenIntro: true }
 }
 
 const pad = (n) => String(n).padStart(2, '0')
@@ -99,6 +104,13 @@ export function openCard(state, cardId, date) {
 
 export function explorerLevel(xp) {
   return 1 + Math.floor(xp / 100)
+}
+
+/** Niveles de explorador alcanzados al pasar de `before` a `after` XP (para celebrarlos). */
+export function levelsGained(before, after) {
+  const from = explorerLevel(before)
+  const to = explorerLevel(after)
+  return Array.from({ length: Math.max(0, to - from) }, (_, i) => from + i + 1)
 }
 
 export const LEVELS = ['ninguno', 'explorador', 'conocedor', 'experto']

@@ -23,7 +23,8 @@ const valid = (s) =>
   Array.isArray(s.cards) &&
   Array.isArray(s.opened) &&
   optional(s.daily, (d) => isRecord(d) && ['discovered', 'correct', 'opened'].every((k) => typeof d[k] === 'number')) &&
-  optional(s.streak, (r) => isRecord(r) && typeof r.count === 'number')
+  optional(s.streak, (r) => isRecord(r) && typeof r.count === 'number') &&
+  optional(s.seenIntro, (b) => typeof b === 'boolean')
 
 /** Progreso guardado en este navegador; si no hay, está roto o no se puede leer, parte en cero. */
 export function load(storage = browserStorage()) {
