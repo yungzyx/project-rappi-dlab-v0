@@ -21,7 +21,7 @@ function isTrue(ch, optionId) {
     case 'imposible':
       return pairIn(DATA.conflicts, anchor, optionId)
     case 'puente':
-      return Number(optionId) === DATA.bridges.find(([name]) => name === anchor)[1].length
+      return !DATA.bridges.find(([name]) => name === anchor)[1].includes(optionId)
     case 'trivia': {
       const max = Math.max(...ch.options.map((o) => DATA.products[o.id]))
       return DATA.products[optionId] === max
@@ -33,9 +33,14 @@ function isTrue(ch, optionId) {
 // Los distractores además deben ser claramente falsos para el jugador.
 function isClearlyFalse(ch, optionId) {
   const { kind, vertical: v, anchor } = ch
-  if (kind === 'tipico') return items(optionId, v) < DATA.minItems
+  if (kind === 'tipico') {
+    const c = DATA.concepts.find((x) => x.id === optionId)
+    return items(optionId, v) < DATA.minItems && c.home !== v
+  }
   if (kind === 'combo' || kind === 'sustituto') return optionId !== anchor && !anyEdge(anchor, optionId)
-  if (kind === 'imposible') return optionId !== anchor && !pairIn(DATA.conflicts, anchor, optionId)
+  // Un concepto sin relación tampoco lo sugeriría Bigotes: los distractores deben ser complementos del ancla.
+  if (kind === 'imposible')
+    return pairIn(DATA.complements, anchor, optionId) && !pairIn(DATA.conflicts, anchor, optionId)
   return !isTrue(ch, optionId)
 }
 
@@ -58,13 +63,46 @@ describe('desafíos', () => {
     expect(ids.size).toBeGreaterThanOrEqual(2)
   })
 
-  test('kindsFor solo ofrece tipos con datos y siempre trivia', () => {
+  test('kindsFor solo ofrece tipos con datos', () => {
     for (const v of DATA.order) {
       const kinds = kindsFor(v)
-      expect(kinds).toContain('trivia')
+      expect(kinds.length).toBeGreaterThan(0)
       for (const k of kinds) expect(KINDS).toContain(k)
+      if (v !== 'restaurantes') expect(kinds).toContain('trivia')
     }
     expect(kindsFor('restaurantes')).not.toContain('puente')
+    // Restaurantes cuenta platos, no productos: no entra en la trivia de productos.
+    expect(kindsFor('restaurantes')).not.toContain('trivia')
+  })
+
+  test('la trivia nunca compara Restaurantes (platos) con productos', () => {
+    for (const v of DATA.order) {
+      for (let s = 0; s < 200; s++) {
+        const ch = makeChallenge(v, String(s))
+        if (ch.kind === 'trivia') expect(ch.options.map((o) => o.id)).not.toContain('restaurantes')
+      }
+    }
+  })
+
+  test('producto puente pregunta dónde no se vende, con respuestas variadas', () => {
+    const answers = new Set()
+    for (const v of DATA.order) {
+      for (let s = 0; s < 200; s++) {
+        const ch = makeChallenge(v, String(s))
+        if (ch.kind === 'puente') answers.add(ch.answer)
+      }
+    }
+    expect(answers.size).toBeGreaterThanOrEqual(2)
+  })
+
+  test('el texto usa formas neutras y no habla de pedir', () => {
+    for (const v of DATA.order) {
+      for (let s = 0; s < 200; s++) {
+        const ch = makeChallenge(v, String(s))
+        expect(ch.question).not.toContain('lo reemplaza')
+        expect(ch.explanation).not.toMatch(/pedido|junto a/)
+      }
+    }
   })
 
   test('cada tipo disponible se puede generar en cada vertical', () => {

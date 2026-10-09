@@ -40,12 +40,26 @@ describe('guardado local', () => {
     expect(load(memoryStorage())).toEqual(initialState())
   })
 
-  test.each(['{', 'null', '42', '{"version":0,"xp":5}', '{"version":1,"xp":"mucho"}'])(
-    'un valor roto (%s) parte en cero',
-    (raw) => {
-      expect(load(memoryStorage({ [KEY]: raw }))).toEqual(initialState())
-    },
-  )
+  const base = { version: 1, xp: 5, discovered: {}, correct: {}, answered: {}, cards: [], opened: [] }
+  const odd = (patch) => JSON.stringify({ ...base, ...patch })
+  test.each([
+    '{',
+    'null',
+    '42',
+    '{"version":0,"xp":5}',
+    '{"version":1,"xp":"mucho"}',
+    odd({ discovered: null }),
+    odd({ discovered: [] }),
+    odd({ correct: null }),
+    odd({ answered: 'x' }),
+    odd({ cards: {} }),
+    odd({ opened: null }),
+    odd({ daily: null }),
+    odd({ streak: null }),
+    odd({ streak: { count: 'dos', lastDate: null } }),
+  ])('un valor roto (%s) parte en cero', (raw) => {
+    expect(load(memoryStorage({ [KEY]: raw }))).toEqual(initialState())
+  })
 
   test('si el navegador no deja leer ni escribir, el juego sigue', () => {
     expect(load(broken)).toEqual(initialState())

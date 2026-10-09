@@ -14,8 +14,12 @@ if (!match) {
   process.exit(1)
 }
 const data = JSON.parse(match[1])
+// Fuera: los sensibles y los que no pertenecen a ninguna vertical (menos de minItems productos en todas),
+// porque no se podrían descubrir en el juego.
+const playable = (c) => !c.sensitive && Object.values(c.items).some((n) => n >= data.minItems)
+const keep = new Set(data.concepts.filter(playable).map((c) => c.id))
 const sensitive = new Set(data.concepts.filter((c) => c.sensitive).map((c) => c.id))
-const clean = (edges) => edges.filter(([a, b]) => !sensitive.has(a) && !sensitive.has(b))
+const clean = (edges) => edges.filter(([a, b]) => keep.has(a) && keep.has(b))
 // Productos y cadenas no traen concepto en el 04: los de salud sexual y tabaco se descartan por nombre.
 const SENSITIVE_NAME = /preservativo|cond[oó]n|lubricante|sexual|cigarr|tabaco|vape|vaper|nicotina/i
 const cleanNamed = (rows) => rows.filter(([name]) => !SENSITIVE_NAME.test(name))
@@ -28,7 +32,7 @@ const out = {
   products: data.products,
   catalogTotal: data.catalogTotal,
   concepts: data.concepts
-    .filter((c) => !sensitive.has(c.id))
+    .filter((c) => keep.has(c.id))
     .map(({ id, name, emoji, group, home, items, total }) => ({ id, name, emoji, group, home, items, total })),
   complements: clean(data.complements),
   substitutes: clean(data.substitutes),
@@ -40,4 +44,6 @@ const out = {
 }
 const target = fileURLToPath(new URL('../src/data/verticales.json', import.meta.url))
 writeFileSync(target, JSON.stringify(out, null, 2) + '\n')
-console.log(`Listo: ${out.concepts.length} conceptos (${sensitive.size} sensibles descartados) → src/data/verticales.json`)
+console.log(
+  `Listo: ${out.concepts.length} conceptos (${sensitive.size} sensibles descartados) → src/data/verticales.json`,
+)

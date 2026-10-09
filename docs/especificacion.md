@@ -13,9 +13,9 @@ No reemplaza ni modifica los prototipos anteriores (02 App con Bigotes, 12 Bigot
 ## Datos
 
 - Fuente única: el objeto `DATA` del 04 (catálogo del 05-10-2026). `scripts/extraer-datos.mjs <ruta al 04>` lo lee y escribe `src/data/verticales.json`.
-- Al extraer se descartan los conceptos sensibles (`sensitive: true`, hoy 6) y toda relación que los toque: el repo del juego no los contiene.
+- Al extraer se descartan los conceptos sensibles (`sensitive: true`, hoy 6), los productos y cadenas con nombres de salud sexual o tabaco, los conceptos que no pertenecen a ninguna vertical (no se podrían descubrir) y toda relación que los toque: el repo del juego no los contiene.
 - Se guarda solo lo agregado que ya trae el 04: conteos por concepto y vertical, complementos, sustitutos, pares «nunca junto», productos y cadenas presentes en más verticales, pares de verticales que comparten productos, reparto de productos por número de verticales, fecha del catálogo. Sin precios, tiendas ni filas de productos.
-- Hoy: 107 conceptos, 100 complementos, 20 sustitutos, 44 pares «nunca junto».
+- Hoy: 106 conceptos jugables.
 - Un concepto **pertenece** a una vertical si tiene ahí 20 o más productos (`minItems` del 04, la misma regla de las líneas del mapa). Así cada vertical tiene entre 9 (Chocolatería) y 92 (Súper) conceptos por descubrir.
 - Ningún número se escribe a mano: cartas y desafíos se arman con plantillas sobre estos datos.
 
@@ -61,12 +61,12 @@ Cada desafío pertenece a una vertical, tiene 1 respuesta correcta y 3 distracto
 
 | Tipo | Pregunta | Correcta | Distractores |
 |---|---|---|---|
-| Típico | «¿Cuál de estos es típico de {vertical}?» | concepto con esa vertical como típica (`home`) | conceptos que no pertenecen a esa vertical |
+| Típico | «¿Cuál de estos es típico de {vertical}?» | concepto con esa vertical como típica (`home`) | conceptos que no pertenecen a esa vertical ni la tienen como típica |
 | Combo | «¿Qué combina con {concepto}?» | un complemento | conceptos que no son complementos ni sustitutos ni «nunca junto» de él |
-| Sustituto | «Si no hay {concepto}, ¿qué lo reemplaza?» | un sustituto | conceptos que no son sustitutos de él |
-| Pareja imposible | «¿Cuál nunca sugeriría Bigotes junto a {concepto}?» | un par «nunca junto» | complementos de él (o conceptos sin relación si faltan) |
-| Producto puente | «¿En cuántas verticales está {producto}?» | su número de verticales | otros números entre 1 y 8 |
-| Trivia | «¿Qué vertical tiene más productos?» y similares | según los conteos | otras verticales |
+| Sustituto | «Si no hay {concepto}, ¿qué ofrece Bigotes en su lugar?» | un sustituto | conceptos sin ninguna relación con él |
+| Pareja imposible | «¿Cuál nunca sugeriría Bigotes junto a {concepto}?» | un par «nunca junto» | 3 complementos de él (solo conceptos que tienen 3; uno sin relación tampoco se sugeriría y sería correcto) |
+| Producto puente | «{producto} está en N verticales. ¿En cuál de estas no está?» | una vertical donde no está | 3 verticales donde sí está |
+| Trivia | «¿Cuál de estas verticales tiene más productos?» | según los conteos | otras verticales (sin Restaurantes, que cuenta platos) |
 
 Un tipo solo se ofrece en una vertical si hay datos para armarlo (por ejemplo, Sustituto solo con conceptos que tienen sustitutos y pertenecen a esa vertical).
 

@@ -65,7 +65,7 @@ export default function Concept({ vertical, id, xp, back }) {
       </section>
 
       <ConceptChips title="Combina con" ids={sorted(rel.complements)} />
-      <ConceptChips title="Si no hay, lo reemplaza" ids={sorted(rel.substitutes)} />
+      <ConceptChips title="Si no hay, en su lugar" ids={sorted(rel.substitutes)} />
     </div>
   )
 }

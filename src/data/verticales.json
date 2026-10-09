@@ -1082,20 +1082,6 @@
       "total": 407
     },
     {
-      "id": "musica",
-      "name": "Música e instrumentos",
-      "emoji": "🎸",
-      "group": "Tecnología",
-      "home": "supermercado",
-      "items": {
-        "mall": 4,
-        "conveniencia": 5,
-        "farmacia": 1,
-        "supermercado": 6
-      },
-      "total": 11
-    },
-    {
       "id": "panaderia",
       "name": "Pan",
       "emoji": "🍞",

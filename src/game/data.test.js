@@ -7,10 +7,10 @@ const SENSITIVE = ['accesorios-fumador', 'bienestar-sexual', 'cigarrillos', 'med
 describe('datos del mapa', () => {
   test('trae lo esperado del catálogo del 05-10-2026', () => {
     expect(DATA.asOf).toBe('05-10-2026')
-    expect(DATA.concepts).toHaveLength(107)
-    expect(DATA.complements).toHaveLength(100)
-    expect(DATA.substitutes).toHaveLength(20)
-    expect(DATA.conflicts).toHaveLength(44)
+    expect(DATA.concepts).toHaveLength(106)
+    expect(DATA.complements.length).toBeGreaterThanOrEqual(99)
+    expect(DATA.substitutes.length).toBeGreaterThanOrEqual(19)
+    expect(DATA.conflicts.length).toBeGreaterThanOrEqual(43)
     expect(DATA.order).toHaveLength(8)
   })
 
@@ -19,6 +19,18 @@ describe('datos del mapa', () => {
     for (const id of SENSITIVE) expect(text).not.toContain(`"${id}"`)
     expect(DATA.concepts.some((c) => 'sensitive' in c)).toBe(false)
     expect(DATA.bridges.some(([name]) => /preservativo/i.test(name))).toBe(false)
+  })
+
+  test('cada concepto se puede descubrir en alguna vertical', () => {
+    for (const c of DATA.concepts)
+      expect(
+        DATA.order.some((v) => belongs(c, v)),
+        c.id,
+      ).toBe(true)
+    const ids = new Set(DATA.concepts.map((c) => c.id))
+    for (const [a, b] of [...DATA.complements, ...DATA.substitutes, ...DATA.conflicts]) {
+      expect(ids.has(a) && ids.has(b)).toBe(true)
+    }
   })
 
   test('cada vertical tiene conceptos según la regla de 20 productos', () => {

@@ -10,13 +10,20 @@ const browserStorage = () => {
   }
 }
 
+const isRecord = (x) => x !== null && typeof x === 'object' && !Array.isArray(x)
+const optional = (x, check) => x === undefined || check(x)
+
+// Cada campo con su forma: un valor raro guardado no puede romper Inicio en cada recarga.
 const valid = (s) =>
-  s !== null &&
-  typeof s === 'object' &&
+  isRecord(s) &&
   s.version === 1 &&
   typeof s.xp === 'number' &&
-  typeof s.discovered === 'object' &&
-  Array.isArray(s.cards)
+  ['discovered', 'correct', 'answered'].every((k) => isRecord(s[k])) &&
+  Object.values(s.discovered).every(Array.isArray) &&
+  Array.isArray(s.cards) &&
+  Array.isArray(s.opened) &&
+  optional(s.daily, (d) => isRecord(d) && ['discovered', 'correct', 'opened'].every((k) => typeof d[k] === 'number')) &&
+  optional(s.streak, (r) => isRecord(r) && typeof r.count === 'number')
 
 /** Progreso guardado en este navegador; si no hay, está roto o no se puede leer, parte en cero. */
 export function load(storage = browserStorage()) {

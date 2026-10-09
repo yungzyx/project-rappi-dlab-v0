@@ -14,14 +14,14 @@ const preload = (patch) => localStorage.setItem(KEY, JSON.stringify({ ...initial
 const tab = (name) => fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name }))
 
 describe('mapa con niebla', () => {
-  test('8 verticales y 107 puntos, todos apagados al empezar', () => {
+  test('8 verticales y 106 puntos, todos apagados al empezar', () => {
     render(<App />)
     tab('Mapa')
     const map = screen.getByRole('region', { name: 'Mapa de verticales' })
     for (const v of DATA.order)
       expect(within(map).getByRole('button', { name: new RegExp(DATA.labels[v]) })).toBeTruthy()
     const dots = map.querySelectorAll('[data-concept]')
-    expect(dots).toHaveLength(107)
+    expect(dots).toHaveLength(106)
     expect(map.querySelectorAll('[data-lit="true"]')).toHaveLength(0)
   })
 
@@ -33,7 +33,7 @@ describe('mapa con niebla', () => {
     const lit = screen.getByRole('region', { name: 'Mapa de verticales' }).querySelectorAll('[data-lit="true"]')
     expect(lit).toHaveLength(1)
     expect(lit[0].getAttribute('data-concept')).toBe(id)
-    expect(screen.getByText('Descubriste 1 de 107 conceptos')).toBeTruthy()
+    expect(screen.getByText('Descubriste 1 de 106 conceptos')).toBeTruthy()
   })
 
   test('tocar una vertical del mapa la abre', () => {

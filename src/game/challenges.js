@@ -18,9 +18,16 @@ function unrelatedTo(id) {
 }
 
 const typicalOf = (v) => conceptsOf(v).filter((c) => c.home === v)
-const notIn = (v) => DATA.concepts.filter((c) => !belongs(c, v))
+// Distractores de «típico»: ni pertenecen a la vertical ni la tienen como típica.
+const notIn = (v) => DATA.concepts.filter((c) => !belongs(c, v) && c.home !== v)
 const withRelation = (v, kind) => conceptsOf(v).filter((c) => related(c.id)[kind].size > 0)
 const bridgesOf = (v) => DATA.bridges.filter(([, vs]) => vs.includes(v))
+// Complementos que no son pareja imposible: los únicos distractores seguros de «pareja imposible»
+// (un concepto sin relación tampoco lo sugeriría Bigotes, así que también sería correcto).
+const safeComplements = (id) => [...related(id).complements].filter((x) => !related(id).conflicts.has(x)).sort()
+const TRIVIA_POOL = DATA.order.filter((v) => v !== 'restaurantes') // Restaurantes cuenta platos, no productos
+
+const imposibleAnchors = (v) => withRelation(v, 'conflicts').filter((c) => safeComplements(c.id).length >= 3)
 
 const GENERATORS = {
   tipico: {
@@ -47,7 +54,7 @@ const GENERATORS = {
         question: `¿Qué combina con ${name(anchor)}?`,
         correct: option(correct),
         distractors: sample(r, unrelatedTo(anchor.id), 3).map(option),
-        explanation: `Bigotes sugiere ${name(correct)} junto a ${name(anchor)}.${elsewhere}`,
+        explanation: `Bigotes sugiere ${name(anchor)} y ${name(correct)} juntos.${elsewhere}`,
       }
     },
   },
@@ -58,7 +65,7 @@ const GENERATORS = {
       const correct = conceptById(pickOne(r, [...related(anchor.id).substitutes].sort()))
       return {
         anchor: anchor.id,
-        question: `Si no hay ${name(anchor)}, ¿qué lo reemplaza?`,
+        question: `Si no hay ${name(anchor)}, ¿qué ofrece Bigotes en su lugar?`,
         correct: option(correct),
         distractors: sample(r, unrelatedTo(anchor.id), 3).map(option),
         explanation: `Cuando no hay ${name(anchor)}, Bigotes ofrece ${name(correct)} en su lugar.`,
@@ -66,21 +73,16 @@ const GENERATORS = {
     },
   },
   imposible: {
-    available: (v) => withRelation(v, 'conflicts').length > 0,
+    available: (v) => imposibleAnchors(v).length > 0,
     make(v, r) {
-      const anchor = pickOne(r, withRelation(v, 'conflicts'))
-      const rel = related(anchor.id)
-      const correct = conceptById(pickOne(r, [...rel.conflicts].sort()))
-      // Complementos del ancla primero (son lo contrario de una pareja imposible); si faltan, conceptos sin relación.
-      const complements = shuffle(r, [...rel.complements].filter((id) => !rel.conflicts.has(id)).sort())
-      const fill = sample(r, unrelatedTo(anchor.id), 3).map((c) => c.id)
-      const distractors = [...new Set([...complements, ...fill])].slice(0, 3).map(conceptById)
+      const anchor = pickOne(r, imposibleAnchors(v))
+      const correct = conceptById(pickOne(r, [...related(anchor.id).conflicts].sort()))
       return {
         anchor: anchor.id,
         question: `¿Cuál nunca sugeriría Bigotes junto a ${name(anchor)}?`,
         correct: option(correct),
-        distractors: distractors.map(option),
-        explanation: `Bigotes nunca sugiere ${name(correct)} junto a ${name(anchor)}: no van en el mismo pedido.`,
+        distractors: sample(r, safeComplements(anchor.id), 3).map(conceptById).map(option),
+        explanation: `Bigotes nunca sugiere ${name(anchor)} y ${name(correct)} juntos. Las otras opciones sí las sugiere con ${name(anchor)}.`,
       }
     },
   },
@@ -88,38 +90,31 @@ const GENERATORS = {
     available: (v) => bridgesOf(v).length > 0,
     make(v, r) {
       const [product, verticals] = pickOne(r, bridgesOf(v))
-      const n = verticals.length
-      const others = sample(
-        r,
-        [1, 2, 3, 4, 5, 6, 7, 8].filter((k) => k !== n),
-        3,
-      )
-      const asOption = (k) => ({ id: String(k), label: k === 1 ? '1 vertical' : `${k} verticales` })
+      const asOption = (x) => ({ id: x, label: label(x) })
+      const missing = DATA.order.filter((x) => !verticals.includes(x))
       return {
         anchor: product,
-        question: `¿En cuántas verticales se vende ${product}?`,
-        correct: asOption(n),
-        distractors: others.map(asOption),
-        explanation: `${product} se vende en ${n} verticales: ${list(verticals.map(label))}.`,
+        question: `${product} está en ${verticals.length} verticales. ¿En cuál de estas no está?`,
+        correct: asOption(pickOne(r, missing)),
+        distractors: sample(r, verticals, 3).map(asOption),
+        explanation: `${product} está en ${list(verticals.map(label))}.`,
       }
     },
   },
   trivia: {
-    available: () => true,
+    available: (v) => TRIVIA_POOL.includes(v),
     make(v, r) {
       const picked = [
         v,
         ...sample(
           r,
-          DATA.order.filter((x) => x !== v),
+          TRIVIA_POOL.filter((x) => x !== v),
           3,
         ),
       ]
       const top = picked.reduce((best, x) => (DATA.products[x] > DATA.products[best] ? x : best))
       const asOption = (x) => ({ id: x, label: label(x) })
-      const counts = picked
-        .map((x) => `${label(x)}: ${formatNumber(DATA.products[x])}${x === 'restaurantes' ? ' platos' : ''}`)
-        .join(' · ')
+      const counts = picked.map((x) => `${label(x)}: ${formatNumber(DATA.products[x])}`).join(' · ')
       return {
         anchor: null,
         question: '¿Cuál de estas verticales tiene más productos?',
