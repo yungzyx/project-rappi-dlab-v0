@@ -81,8 +81,8 @@ describe('ProductSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${beer.name}`) }))
     let dialog = within(screen.getByRole('dialog'))
 
-    fireEvent.click(dialog.getByRole('button', { name: 'Agregar uno' }))
-    fireEvent.click(dialog.getByRole('button', { name: 'Agregar uno' }))
+    fireEvent.click(dialog.getByRole('button', { name: /^Agregar uno de / }))
+    fireEvent.click(dialog.getByRole('button', { name: /^Agregar uno de / }))
     fireEvent.change(dialog.getByLabelText('Notas para la tienda'), { target: { value: 'Bien frías' } })
     fireEvent.click(dialog.getByRole('button', { name: 'Agregar 3 · $18.870' }))
 
@@ -92,7 +92,7 @@ describe('ProductSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${beer.name}`) }))
     dialog = within(screen.getByRole('dialog'))
-    fireEvent.click(dialog.getByRole('button', { name: 'Quitar uno' }))
+    fireEvent.click(dialog.getByRole('button', { name: /^Quitar uno de / }))
     fireEvent.click(dialog.getByRole('button', { name: 'Actualizar 2 · $12.580' }))
     expect(screen.getByTestId('cart').textContent).toBe('2|Bien frías')
     expect(events.track.mock.calls.filter(([type]) => type === 'cart_remove')).toHaveLength(1)

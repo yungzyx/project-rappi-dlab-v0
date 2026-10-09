@@ -1,34 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Carousel, { Dots } from '../../../components/Carousel'
-import HScroll from '../../../components/HScroll'
 import PlainSearchBar from '../../../components/PlainSearchBar'
 import { useToast } from '../../../components/Toast'
-import { ChevronDown, ChevronRight } from '../../../components/Icons'
-import { TAGS, productTags, tagsOf } from '../../../assistant/tags'
-import { cartEventFields } from '../../../api/orders'
+import { ChevronDown } from '../../../components/Icons'
+import { TAGS, tagsOf } from '../../../assistant/tags'
 import { VERTICAL_NAMES, routeForScreen } from '../../../data/verticals'
 import { useScrollState } from '../../../hooks/useScrollState'
 import { useAddress } from '../../../state/AddressContext'
-import { useCart } from '../../../state/CartContext'
-import { useEvents } from '../../../state/EventsContext'
-import { WEIGHTS, useProfile } from '../../../state/ProfileContext'
-import turboRestaurantesTitle from '../../../assets/turbo-restaurantes-title.webp'
+import { useAddToCart } from '../../../hooks/useAddToCart'
+import { useProfile } from '../../../state/ProfileContext'
 import CreditsBanner from '../CreditsBanner'
-import { RestaurantCard, StoreTile } from '../StoreCards'
-import {
-  CREDITS,
-  LOWER_FEES,
-  MAIN_TILES,
-  NEARBY_STORES,
-  PROMOS,
-  PROMO_START_INDEX,
-  SHORTCUTS,
-  TURBO_RESTAURANTS,
-} from '../data'
+import { LowerFees, MainTiles, NearbyStores, Promos, Shortcuts, TurboRestaurants } from '../HomeSections'
+import { CREDITS } from '../../../data/home'
 import '../home.css'
 import LiveBigotes from './LiveBigotes'
 import { DiscoveryBlock, InterestBlock, Passport, PlanBlock, openItem, useFlip } from './LiveBlocks'
-import { PASSPORT, PASSPORT_GOAL, REPLAY_EVENT, loadPassport, session, stamp } from './memory'
+import { PASSPORT, PASSPORT_GOAL, REPLAY_EVENT, loadPassport, session, stamp } from '../../../state/liveMemory'
 import { PLANS, discoveryFor, interestFor, moveToFront, planKit } from './script'
 import './live.css'
 
@@ -61,9 +47,8 @@ function usePrefersReducedMotion() {
 export default function LiveHomeFeed({ push }) {
   const toast = useToast()
   const address = useAddress()
-  const cart = useCart()
+  const { add: addToCart } = useAddToCart()
   const profile = useProfile()
-  const events = useEvents()
   const reduceMotion = usePrefersReducedMotion()
   const [replays, setReplays] = useState(0)
 
@@ -355,11 +340,7 @@ export default function LiveHomeFeed({ push }) {
   // Igual que el «+» de cada producto: al carro, al perfil y a los eventos del panel.
   const addKit = () => {
     const products = kit.filter((item) => item.kind === 'product').map((item) => item.product)
-    for (const product of products) {
-      cart.add(product)
-      profile.trackTags(productTags(product), WEIGHTS.cart)
-      events.track('cart_add', cartEventFields(product, cart.id))
-    }
+    for (const product of products) addToCart(product)
     setKitAdded(plan)
     buzz()
     toast(`Agregaste ${products.length} productos del kit`)
@@ -401,78 +382,13 @@ export default function LiveHomeFeed({ push }) {
   const blocks = {
     essentials: (
       <>
-        <section className="home-tiles">
-          {MAIN_TILES.map((tile) => (
-            <button
-              key={tile.id}
-              type="button"
-              className={`home-tile home-tile--${tile.id} tap`}
-              onClick={() => push(tile.screen)}
-            >
-              <img src={tile.img} alt="" />
-              <span>{tile.label}</span>
-            </button>
-          ))}
-        </section>
-
-        <HScroll className="home-shortcuts">
-          {SHORTCUTS.map((item) => {
-            const unavailable = item.unavailable && !item.proposalRoute
-            const route = item.proposalRoute ?? item.route
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={unavailable ? 'home-shortcut is-unavailable tap' : 'home-shortcut tap'}
-                aria-label={unavailable ? `${item.label} (no disponible)` : undefined}
-                onClick={() => {
-                  if (unavailable) toast(`${item.label} no está disponible`)
-                  else if (route) push(...route)
-                  else toast()
-                }}
-              >
-                {item.proposalRoute ? (
-                  <i className="home-shortcut-emoji" aria-hidden="true">
-                    {item.emoji}
-                  </i>
-                ) : (
-                  <img src={item.img} alt="" draggable="false" loading="lazy" />
-                )}
-                {!unavailable && <span>{item.label}</span>}
-              </button>
-            )
-          })}
-        </HScroll>
+        <MainTiles push={push} />
+        <Shortcuts push={push} proposal />
       </>
     ),
     passport: <Passport stamps={stamps} fresh={freshStamp} onOpen={(id) => visit(id)} />,
-    promos: (
-      <>
-        <Carousel className="home-promos" initialIndex={PROMO_START_INDEX} autoplayMs={dim ? 0 : 4500}>
-          {PROMOS.map((promo) => (
-            <button
-              key={promo.id}
-              type="button"
-              className={`home-promo home-promo--${promo.fit}`}
-              onClick={() => (promo.route ? push(...promo.route) : toast())}
-            >
-              <img src={promo.img} alt="" draggable="false" loading="lazy" />
-            </button>
-          ))}
-        </Carousel>
-        <Dots count={PROMOS.length} active={PROMO_START_INDEX} className="dots--wide home-promo-dots" />
-      </>
-    ),
-    turbo: (
-      <>
-        <img className="home-turbo-title" src={turboRestaurantesTitle} alt="En minutos · Turbo Restaurantes" loading="lazy" />
-        <HScroll className="home-cards">
-          {TURBO_RESTAURANTS.map((store) => (
-            <RestaurantCard key={store.id} store={store} onClick={() => push('store', { store })} />
-          ))}
-        </HScroll>
-      </>
-    ),
+    promos: <Promos push={push} autoplayMs={dim ? 0 : 4500} />,
+    turbo: <TurboRestaurants push={push} />,
     plan: (
       <PlanBlock
         plan={plan}
@@ -484,29 +400,7 @@ export default function LiveHomeFeed({ push }) {
         onCheckout={() => push('checkout')}
       />
     ),
-    nearby: (
-      <section className="home-nearby">
-        <div className="home-section-head">
-          <h2 className="section-title">Stores near by you</h2>
-          <button type="button" className="chevron-button tap" aria-label="Ver todas" onClick={() => toast()}>
-            <ChevronRight size={20} />
-          </button>
-        </div>
-        <div className="home-store-grid">
-          {NEARBY_STORES.map((store) => (
-            <StoreTile
-              key={store.id}
-              store={store}
-              onClick={() =>
-                push('store', {
-                  store: { ...store, eta: store.when, etaIcon: store.scheduled ? 'clock' : 'bolt', logo: true },
-                })
-              }
-            />
-          ))}
-        </div>
-      </section>
-    ),
+    nearby: <NearbyStores push={push} />,
     interest: (
       <InterestBlock
         interest={interest}
@@ -519,16 +413,7 @@ export default function LiveHomeFeed({ push }) {
     discovery: discovery && (
       <DiscoveryBlock discovery={discovery} stamped={stamps.includes(discovery.vertical)} onOpen={openFromBlock} />
     ),
-    lower: (
-      <>
-        <h2 className="section-title home-lower-title">Now with lower fees</h2>
-        <HScroll className="home-cards home-cards--lower">
-          {LOWER_FEES.map((store) => (
-            <RestaurantCard key={store.id} store={store} onClick={() => push('store', { store })} />
-          ))}
-        </HScroll>
-      </>
-    ),
+    lower: <LowerFees push={push} />,
   }
 
   return (

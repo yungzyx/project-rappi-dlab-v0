@@ -1,7 +1,7 @@
 import { cartEventFields, conceptOf } from '../api/orders'
 import { firstShowing } from '../api/useRemoteForYou'
 import { productTags } from '../assistant/tags'
-import { rememberAdded } from '../screens/home/live/memory'
+import { rememberAdded } from '../state/liveMemory'
 import { useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
 import { WEIGHTS, useProfile } from '../state/ProfileContext'

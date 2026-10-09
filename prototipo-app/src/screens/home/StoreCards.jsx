@@ -1,22 +1,7 @@
 import Img from '../../components/Img'
-import { BoltIcon, ClockIcon, CrownIcon, ScooterIcon, SpeedBoltIcon, StarIcon } from '../../components/Icons'
+import { BoltIcon, ClockIcon, StarIcon } from '../../components/Icons'
+import { StoreMeta } from '../../components/StoreMeta'
 import './home.css'
-
-const ETA_ICONS = {
-  turbo: (size) => <SpeedBoltIcon size={size} className="featured-bolt" />,
-  bolt: (size) => <BoltIcon size={size} className="featured-bolt featured-bolt--plain" />,
-  clock: (size) => <ClockIcon size={size} />,
-  none: () => null,
-}
-
-export function EtaIcon({ kind, size = 16 }) {
-  return (ETA_ICONS[kind] ?? ETA_ICONS.none)(size)
-}
-
-/** Separa los datos de la línea de metadatos con un punto gris, como en la app. */
-function joinWithDots(parts) {
-  return parts.filter(Boolean).flatMap((part, i) => (i === 0 ? [part] : [<span key={`sep-${i}`} className="meta-sep">•</span>, part]))
-}
 
 /**
  * Tarjeta ancha de restaurante o tienda (Home, Deals, Favorites).
@@ -40,32 +25,6 @@ export function RestaurantCard({ store, onClick }) {
       <StoreMeta store={store} />
     </button>
   )
-}
-
-/** Línea "⚡ 12 min • FREE SHIPPING • 1.4 km" de tarjetas y página de tienda. */
-export function StoreMeta({ store, className = '' }) {
-  const iconKind = store.etaIcon ?? (store.turbo ? 'turbo' : 'bolt')
-  const meta = joinWithDots([
-    <span key="eta" className="featured-eta">
-      <EtaIcon kind={iconKind} />
-      {store.eta}
-    </span>,
-    store.deliveryLabel && (
-      <span key="pill" className="free-delivery">
-        <CrownIcon size={13} />
-        {store.deliveryLabel}
-      </span>
-    ),
-    store.fee && (
-      <span key="fee" className="featured-eta">
-        <ScooterIcon size={16} />
-        {store.fee}
-      </span>
-    ),
-    store.distance && <span key="dist">{store.distance}</span>,
-  ])
-
-  return <span className={`featured-meta ${className}`}>{meta}</span>
 }
 
 /** Logo de tienda + nombre + horario, para la grilla "Stores near by you". */

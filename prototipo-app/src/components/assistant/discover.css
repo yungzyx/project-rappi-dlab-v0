@@ -13,7 +13,7 @@
 }
 
 .discover-count b {
-  color: #f0532b;
+  color: var(--bigotes-orange);
 }
 
 .discover-meter {
@@ -96,10 +96,10 @@
   place-items: center;
   width: 19px;
   height: 19px;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff7a45, #f0532b);
-  color: #fff;
+  background: var(--bigotes-gradient);
+  color: var(--surface);
   font-size: 10px;
   font-weight: 800;
 }
@@ -133,7 +133,7 @@
   padding: 12px 14px 12px 12px;
   border: 1px solid var(--line);
   border-radius: 22px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
   text-align: left;
   animation: card-in 460ms var(--ease-out) both;
@@ -196,7 +196,7 @@
   width: 28px;
   height: 28px;
   margin-left: -6px;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
   border-radius: 50%;
   background: var(--chip);
   object-fit: cover;
@@ -206,7 +206,7 @@
   padding: 5px 12px;
   border-radius: 99px;
   background: #fff1eb;
-  color: #f0532b;
+  color: var(--bigotes-orange);
   font-size: 13px;
   font-style: normal;
   font-weight: 600;

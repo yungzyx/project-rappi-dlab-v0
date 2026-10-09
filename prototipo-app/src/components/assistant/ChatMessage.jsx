@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import AddButton from '../AddButton'
 import HScroll from '../HScroll'
 import Img from '../Img'
-import { pressable } from '../pressable'
 import { useProductSheet } from '../../state/ProductSheetContext'
 
 const CHARS_PER_SECOND = 70
@@ -43,27 +42,28 @@ function ProductCards({ products, onOpenProduct, delay = 0 }) {
   return (
     <HScroll className="chat-products">
       {products.map((product, i) => (
-        <div
-          key={product.id}
-          className="chat-product tap"
-          style={{ animationDelay: `${delay + i * 60}ms` }}
-          {...pressable(() => sheet.open(product, { onOpenStore: () => onOpenProduct(product) }))}
-        >
-          <span className="chat-product-media">
-            <Img src={product.img} draggable="false" />
-            {product.ageRestricted && (
-              <span className="chat-product-age" aria-label="Solo mayores de 18">
-                +18
-              </span>
-            )}
-            <AddButton product={product} className="add-button--chat" />
-          </span>
-          <span className="chat-product-name">{product.name}</span>
-          <span className="chat-product-price">
-            <b>{product.price}</b>
-            {product.discount && <span>{product.discount}</span>}
-          </span>
-          <span className="chat-product-store">{product.store}</span>
+        <div key={product.id} className="chat-product" style={{ animationDelay: `${delay + i * 60}ms` }}>
+          <button
+            type="button"
+            className="chat-product-main tap"
+            onClick={() => sheet.open(product, { onOpenStore: () => onOpenProduct(product) })}
+          >
+            <span className="chat-product-media">
+              <Img src={product.img} draggable="false" />
+              {product.ageRestricted && (
+                <span className="chat-product-age" aria-label="Solo mayores de 18">
+                  +18
+                </span>
+              )}
+            </span>
+            <span className="chat-product-name">{product.name}</span>
+            <span className="chat-product-price">
+              <b>{product.price}</b>
+              {product.discount && <span>{product.discount}</span>}
+            </span>
+            <span className="chat-product-store">{product.store}</span>
+          </button>
+          <AddButton product={product} className="add-button--chat" />
         </div>
       ))}
     </HScroll>
@@ -111,17 +111,9 @@ function AlsoIn({ alsoIn, onAction }) {
   )
 }
 
-/** Un mensaje del chat: burbuja del usuario (texto o foto) o respuesta del asistente con tarjetas. */
+/** Un mensaje del chat: respuesta del asistente con tarjetas (lo elegido se muestra aparte, sin burbuja). */
 export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOpenStore, onAction }) {
   const [revealed, setRevealed] = useState(!message.animate)
-
-  if (message.from === 'user') {
-    return (
-      <div className="chat-row is-user">
-        <div className="chat-bubble is-user">{message.text}</div>
-      </div>
-    )
-  }
 
   if (message.typing) {
     return (

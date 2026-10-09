@@ -78,7 +78,7 @@
 }
 
 .loyalty-row svg {
-  color: #ed5230;
+  color: var(--bigotes-orange);
 }
 
 .loyalty-active {
@@ -116,7 +116,7 @@
   padding: 1px 8px;
   border-radius: 99px;
   background: #e7f7ea;
-  color: #1f8a3b;
+  color: var(--green-deep);
   font-size: 12.5px;
   font-weight: 600;
 }
@@ -124,7 +124,7 @@
 .loyalty-change {
   font-size: 14px;
   font-weight: 600;
-  color: #ed5230;
+  color: var(--bigotes-orange);
 }
 
 .loyalty-banner {
@@ -169,8 +169,8 @@
   width: 100%;
   height: 52px;
   border-radius: 99px;
-  background: #ed5230;
-  color: #fff;
+  background: var(--bigotes-orange);
+  color: var(--surface);
   font-size: 17px;
   font-weight: 700;
 }

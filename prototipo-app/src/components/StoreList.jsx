@@ -1,5 +1,5 @@
 import Img from './Img'
-import { StoreMeta } from '../screens/home/StoreCards'
+import { StoreMeta } from './StoreMeta'
 import './store-list.css'
 
 /** Lista vertical de tiendas (buscador y pantallas "View more"). */

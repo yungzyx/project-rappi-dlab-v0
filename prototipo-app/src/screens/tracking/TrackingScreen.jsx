@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import BackButton from '../../components/BackButton'
 import Sheet from '../../components/Sheet'
 import { useToast } from '../../components/Toast'
-import { ChevronLeft, StarIcon } from '../../components/Icons'
+import { StarIcon } from '../../components/Icons'
 import { HeadsetIcon } from '../../components/LineIcons'
 import { COMPLEMENTS, TAGS, tagsOf } from '../../assistant/tags'
 import { useAssistant } from '../../state/AssistantContext'
@@ -21,10 +22,16 @@ export default function TrackingScreen({ back, reset, params }) {
   const order = orders.find(params.orderId)
   const [now, setNow] = useState(() => Date.now())
 
+  const seconds = order ? (now - order.placedAt) / 1000 : 0
+  const step = stepAt(seconds)
+  const delivered = step === STEPS.length - 1
+
+  // El reloj avanza hasta la entrega: después ya no hay nada que mover.
   useEffect(() => {
+    if (delivered) return undefined
     const timer = setInterval(() => setNow(Date.now()), TICK_MS)
     return () => clearInterval(timer)
-  }, [])
+  }, [delivered])
 
   if (!order) {
     return (
@@ -37,17 +44,11 @@ export default function TrackingScreen({ back, reset, params }) {
     )
   }
 
-  const seconds = (now - order.placedAt) / 1000
-  const step = stepAt(seconds)
-  const delivered = step === STEPS.length - 1
-
   return (
     <div className="screen tracking">
       <div className="tracking-map-wrap">
         <TrackingMap progress={rideProgress(seconds)} delivered={delivered} />
-        <button type="button" className="tracking-back tap" aria-label="Volver" onClick={back}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="tracking-back" onClick={back} />
       </div>
 
       <section className="tracking-sheet">

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useToast } from '../../components/Toast'
-import { ChevronLeft } from '../../components/Icons'
+import BackButton from '../../components/BackButton'
 import { useAddress } from '../../state/AddressContext'
 import './favor.css'
 
@@ -45,9 +45,7 @@ export default function FavorScreen({ back }) {
   return (
     <div className="screen favor">
       <header className="favor-header">
-        <button type="button" className="favor-back tap" aria-label="Volver" onClick={back}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="favor-back" onClick={back} />
         <h1>RappiFavor</h1>
       </header>
 

@@ -24,11 +24,11 @@ export default function AddButton({ product, className = '' }) {
 
   return (
     <span className={`add-button is-open ${className}`}>
-      <span aria-label="Quitar uno" {...pressable(stop(remove))}>
+      <span aria-label={`Quitar uno de ${product.name}`} {...pressable(stop(remove))}>
         −
       </span>
       <strong aria-live="polite">{qty}</strong>
-      <span aria-label="Agregar uno" {...pressable(stop(add))}>
+      <span aria-label={`Agregar uno de ${product.name}`} {...pressable(stop(add))}>
         +
       </span>
     </span>

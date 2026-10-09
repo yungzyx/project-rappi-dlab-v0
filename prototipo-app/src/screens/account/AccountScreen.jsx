@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import BackButton from '../../components/BackButton'
 import { useToast } from '../../components/Toast'
 import Img from '../../components/Img'
-import { ChevronLeft, ChevronRight } from '../../components/Icons'
+import { ChevronRight } from '../../components/Icons'
 import { CardIcon, HeadsetIcon, LogoutIcon, OrdersIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
 import { MODE_LABELS, nextMode, useDemo } from '../../state/DemoContext'
-import { resetLive } from '../home/live/memory'
+import { resetLive } from '../../state/liveMemory'
 import { useOrders } from '../../state/OrdersContext'
 import { formatPrice } from '../../state/CartContext'
 import { relativeDay } from '../orders/dates'
@@ -41,9 +42,7 @@ export default function AccountScreen({ onBack, push }) {
     <>
       <div className="screen account">
         <header className="account-header">
-          <button type="button" className="account-back tap" aria-label="Volver" onClick={onBack}>
-            <ChevronLeft size={18} />
-          </button>
+          <BackButton className="account-back" onClick={onBack} size={18} />
           <h1>Account</h1>
         </header>
 

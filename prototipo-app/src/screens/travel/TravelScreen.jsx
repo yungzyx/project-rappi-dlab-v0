@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import BackButton from '../../components/BackButton'
 import { useToast } from '../../components/Toast'
 import hero1 from '../../assets/v/travel-hero1.webp'
 import hero2 from '../../assets/v/travel-hero2.webp'
@@ -66,7 +67,7 @@ export default function TravelScreen({ back }) {
         {HEROES.map((item, i) => (
           <img key={item.id} src={item.img} alt="" draggable="false" className={i === index ? 'is-active' : undefined} />
         ))}
-        <button type="button" className="travel-hit travel-hit--back" aria-label="Volver" onClick={back} />
+        <BackButton className="travel-hit travel-hit--back" icon={false} onClick={back} />
         <button type="button" className="travel-hit travel-hit--bell" aria-label="Notificaciones" onClick={() => toast('No tienes notificaciones')} />
         <button type="button" className="travel-hit travel-hit--help" aria-label="Ayuda" onClick={() => toast()} />
         <button type="button" className="travel-hit travel-hit--trips" aria-label="Mis Viajes" onClick={() => toast('Aún no tienes viajes')} />

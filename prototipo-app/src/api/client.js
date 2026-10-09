@@ -9,7 +9,7 @@ const HEALTH_TTL_MS = 30_000
 const HEALTH_TIMEOUT_MS = 1500
 const CHAT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: contesta el cerebro local
 
-export const API_URL =
+const API_URL =
   import.meta.env.VITE_API_URL ??
   (typeof window !== 'undefined' ? `http://${window.location.hostname || 'localhost'}:${DEFAULT_PORT}` : '')
 

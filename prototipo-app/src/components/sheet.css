@@ -1,7 +1,7 @@
 .sheet-layer {
   position: absolute;
   inset: 0;
-  z-index: 60;
+  z-index: var(--z-sheet);
 }
 
 .sheet-backdrop {

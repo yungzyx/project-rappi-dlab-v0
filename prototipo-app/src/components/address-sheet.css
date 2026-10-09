@@ -30,7 +30,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 2px solid #c9cdd3;
+  border: 2px solid var(--control-border);
   transition: border var(--duration-fast);
 }
 

@@ -156,7 +156,7 @@
 
 .menu-tab.is-active {
   background: var(--ink);
-  color: #fff;
+  color: var(--surface);
 }
 
 .menu-section {

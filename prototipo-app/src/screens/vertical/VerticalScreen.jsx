@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import BackButton from '../../components/BackButton'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
 import { ProductCard } from '../../components/ProductCard'
@@ -7,7 +8,7 @@ import { forVertical } from '../../assistant/brain'
 import { conceptOf } from '../../api/orders'
 import { firstShowing } from '../../api/useRemoteForYou'
 import { useToast } from '../../components/Toast'
-import { BoltIcon, ChevronDown, ChevronLeft, ClockIcon, CrownIcon, SearchIcon } from '../../components/Icons'
+import { BoltIcon, ChevronDown, ClockIcon, CrownIcon, SearchIcon } from '../../components/Icons'
 import { useOpenSearch } from '../../hooks/useOpenSearch'
 import { useAddress } from '../../state/AddressContext'
 import { useDemo } from '../../state/DemoContext'
@@ -42,8 +43,7 @@ export default function VerticalScreen({ back, push, params }) {
         events.track('suggestion_shown', {
           concept_id: concept,
           vertical: verticalId,
-          payload: { origen: 'vertical-para-ti' },
-        })
+          payload: { origen: 'vertical-para-ti' } })
     }
   }, [shownPairs, profile.resets, events])
   // Con la vertical de la pantalla (no `map(toStore)`: map le pasaría el índice como vertical).
@@ -56,17 +56,14 @@ export default function VerticalScreen({ back, push, params }) {
   const openProductStore = (item) =>
     push('store', {
       store: { name: item.store, img: item.storeLogo ?? item.img, logo: true, eta: item.eta, etaIcon: item.etaIcon },
-      item,
-    })
+      item })
   const openBanner = (banner) => (banner.store ? openStore(banner.store) : toast(banner.toast))
 
   if (!vertical)
     return (
       <div className="screen vertical">
         <header className="vertical-header">
-          <button type="button" className="round-button tap" aria-label="Volver" onClick={back}>
-            <ChevronLeft size={20} />
-          </button>
+          <BackButton className="round-button" onClick={back} />
         </header>
         <p className="vertical-empty">Esta categoría no está en el prototipo.</p>
       </div>
@@ -75,9 +72,7 @@ export default function VerticalScreen({ back, push, params }) {
   return (
     <div className="screen vertical">
       <header className="vertical-header">
-        <button type="button" className="round-button tap" aria-label="Volver" onClick={back}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="round-button" onClick={back} />
         <button type="button" className="vertical-address tap" onClick={address.openSheet}>
           <span>{address.selected.line}</span>
           <ChevronDown size={18} />
@@ -154,7 +149,13 @@ function BannerCarousel({ banners, onOpen }) {
     <>
       <Carousel className="vertical-banners" autoplayMs={banners.length > 1 ? 4500 : 0} onIndexChange={setIndex}>
         {banners.map((banner) => (
-          <button key={banner.id} type="button" className="vertical-banner" onClick={() => onOpen(banner)}>
+          <button
+            key={banner.id}
+            type="button"
+            className="vertical-banner"
+            aria-label={banner.label ?? banner.store?.name}
+            onClick={() => onOpen(banner)}
+          >
             <img src={banner.img} alt="" draggable="false" loading="lazy" />
           </button>
         ))}

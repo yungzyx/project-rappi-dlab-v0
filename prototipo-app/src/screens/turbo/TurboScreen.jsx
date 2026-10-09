@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import BackButton from '../../components/BackButton'
 import BottomNav from '../../components/BottomNav'
 import HScroll from '../../components/HScroll'
 import { ProductCard } from '../../components/ProductCard'
@@ -10,14 +11,12 @@ import { formatPrice, useCart } from '../../state/CartContext'
 import FavoritesScreen from '../favorites/FavoritesScreen'
 import {
   BadgePercentIcon,
-  ChevronLeft,
   GridIcon,
   HeartIcon,
   LampIcon,
   MoreIcon,
   SearchIcon,
-  SpeedBoltIcon,
-} from '../../components/Icons'
+  SpeedBoltIcon } from '../../components/Icons'
 import turboLogo from '../../assets/turbo-logo.webp'
 import turboHero from '../../assets/turbo-hero.webp'
 import turboCrown from '../../assets/turbo-crown.webp'
@@ -138,9 +137,7 @@ function TurboFeed({ back, toast, category, setCategory, onOpenStore, onSearch }
     <div className="screen turbo">
       <div className="turbo-green">
         <header className="turbo-header">
-          <button type="button" className="turbo-round tap" aria-label="Volver" onClick={back}>
-            <ChevronLeft size={20} />
-          </button>
+          <BackButton className="turbo-round" onClick={back} />
           <img className="turbo-logo" src={turboLogo} alt="Turbo" />
           <button type="button" className="turbo-round turbo-round--more tap" aria-label="Más" onClick={() => toast()}>
             <MoreIcon size={22} />

@@ -5,8 +5,8 @@ import { ProductCard } from '../../../components/ProductCard'
 import { formatPrice, parsePrice } from '../../../state/CartContext'
 import { storeFor } from '../../../data/catalog'
 import { VERTICAL_NAMES } from '../../../data/verticals'
-import { EtaIcon } from '../StoreCards'
-import { PASSPORT, PASSPORT_GOAL } from './memory'
+import { EtaIcon } from '../../../components/StoreMeta'
+import { PASSPORT, PASSPORT_GOAL } from '../../../state/liveMemory'
 import { PLANS } from './script'
 
 /**
@@ -87,7 +87,7 @@ function StoreItem({ store, onClick }) {
   )
 }
 
-export function ItemRow({ items, onOpen }) {
+function ItemRow({ items, onOpen }) {
   return (
     <HScroll className="live-items">
       {items.map((item, i) => (

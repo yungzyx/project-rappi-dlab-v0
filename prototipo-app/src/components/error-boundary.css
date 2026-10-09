@@ -24,7 +24,7 @@
   height: 48px;
   border-radius: 99px;
   background: var(--rappi-red);
-  color: #fff;
+  color: var(--surface);
   font-weight: 700;
 }
 

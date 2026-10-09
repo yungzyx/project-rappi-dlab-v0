@@ -21,13 +21,12 @@ export const CATEGORIES = [
   { id: 'culinaria', label: 'Experiencia Culinaria', img: rcatCulinaria, partial: true, query: 'restaurante' },
 ]
 
-// La captura muestra 8 puntos; solo el primer banner (Tung Fong) se ve.
+// En la captura solo se ve el primer banner (Tung Fong).
 export const BANNERS = [
   { id: 'tungfong', img: bannerTungFong, store: { name: 'Tung Fong', img: bannerTungFong, eta: '30 min', deliveryLabel: 'FREE DELIVERY' } },
   { id: 'streetwrap', title: 'Enjoy Up to 40% Off', place: 'at Street Wrap', img: againStreetWrap },
   { id: 'mcd', title: 'Enjoy Up to 33% Off', place: "at Mcdonald's - Turbo", img: againMcd },
 ]
-export const BANNER_DOTS = 8
 
 export const ORDER_AGAIN = [
   { id: 'streetwrap', name: 'Street Wrap', eta: '14 min', img: againStreetWrap },

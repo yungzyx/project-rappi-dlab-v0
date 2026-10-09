@@ -77,11 +77,11 @@ function ProductDetail({ product, onOpenStore }) {
       </p>
 
       <div className="product-sheet-qty" role="group" aria-label="Cantidad">
-        <button type="button" aria-label="Quitar uno" disabled={qty <= 1} onClick={() => setQty(qty - 1)}>
+        <button type="button" aria-label={`Quitar uno de ${product.name}`} disabled={qty <= 1} onClick={() => setQty(qty - 1)}>
           −
         </button>
         <strong aria-live="polite">{qty}</strong>
-        <button type="button" aria-label="Agregar uno" onClick={() => setQty(qty + 1)}>
+        <button type="button" aria-label={`Agregar uno de ${product.name}`} onClick={() => setQty(qty + 1)}>
           +
         </button>
       </div>

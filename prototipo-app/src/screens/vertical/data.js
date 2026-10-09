@@ -35,8 +35,8 @@ export const VERTICALS = {
     title: 'Grocery',
     categoryRows: [catRow('gro', ['Groceries', 'Express', 'Produce', 'Meat & Seafood', 'Drugstore'], true)],
     banners: [
-      { id: 'bancoestado', img: a('banner-bancoestado'), toast: 'Promoción válida con Tarjeta Visa BancoEstado' },
-      { id: 'bancobice', img: a('banner-bancobice'), toast: 'Cupón BSRAPPISEP26 copiado' },
+      { id: 'bancoestado', label: 'Promoción BancoEstado', img: a('banner-bancoestado'), toast: 'Promoción válida con Tarjeta Visa BancoEstado' },
+      { id: 'bancobice', label: 'Cupón Banco BICE', img: a('banner-bancobice'), toast: 'Cupón BSRAPPISEP26 copiado' },
     ],
     sections: [
       {
@@ -143,7 +143,7 @@ export const VERTICALS = {
   pet: {
     title: 'Pet',
     categoryRows: [catRow('pet', ['Food and snacks', 'Grooming and wellness', 'Health', 'Accessories'])],
-    banners: [{ id: 'bancobice', img: a('banner-bancobice'), toast: 'Cupón BSRAPPISEP26 copiado' }],
+    banners: [{ id: 'bancobice', label: 'Cupón Banco BICE', img: a('banner-bancobice'), toast: 'Cupón BSRAPPISEP26 copiado' }],
     sections: [
       {
         type: 'stores',

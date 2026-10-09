@@ -119,7 +119,7 @@
   height: 48px;
   border-radius: 24px;
   background: var(--rappi-red);
-  color: #fff;
+  color: var(--surface);
   font-size: 15px;
   font-weight: 700;
 }

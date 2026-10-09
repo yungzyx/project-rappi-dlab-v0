@@ -1,4 +1,4 @@
-import { resetLive } from '../screens/home/live/memory'
+import { resetLive } from '../state/liveMemory'
 import { MODE_LABELS, useDemo } from '../state/DemoContext'
 import './demo-toggle.css'
 

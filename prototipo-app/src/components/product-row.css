@@ -50,12 +50,12 @@
 }
 
 .product-row-prices s {
-  color: #747474;
+  color: var(--ink-strike);
 }
 
 .product-row-pct {
   padding: 0 4px;
-  background: #fadc24;
+  background: var(--price-yellow);
   font-size: 14px;
   font-weight: 700;
 }

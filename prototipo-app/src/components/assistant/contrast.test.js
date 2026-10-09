@@ -2,8 +2,10 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
 
-// La hoja real (en los tests, Vite no procesa el CSS importado).
+// La hoja real (en los tests, Vite no procesa el CSS importado) y sus tokens.
 const css = readFileSync(new URL('./assistant.css', import.meta.url), 'utf8')
+const tokens = readFileSync(new URL('../../styles/tokens.css', import.meta.url), 'utf8')
+const token = (name) => tokens.match(new RegExp(`${name}: (#[0-9a-f]{6})`, 'i'))[1]
 
 // Contraste WCAG entre dos colores #rrggbb.
 const luminance = (hex) => {
@@ -19,8 +21,11 @@ const contrast = (a, b) => {
 describe('contraste', () => {
   test('la etiqueta "De otra tienda" (11 px) cumple AA: 4,5:1 sobre su fondo', () => {
     const rule = css.match(/\.chat-suggestion-tag \{([^}]*)\}/)[1]
-    // Valor final de la propiedad (los tokens var(--x, #fallback) no están definidos: vale el respaldo).
-    const value = (property) => rule.match(new RegExp(`\\s${property}:[^;]*?(#[0-9a-f]{6})`, 'i'))[1]
+    // Valor final de la propiedad: un hex directo o el token de tokens.css.
+    const value = (property) => {
+      const raw = rule.match(new RegExp(`\\s${property}:\\s*([^;]+)`, 'i'))[1]
+      return raw.match(/#[0-9a-f]{6}/i)?.[0] ?? token(raw.match(/var\((--[\w-]+)/)[1])
+    }
     expect(contrast(value('color'), value('background'))).toBeGreaterThanOrEqual(4.5)
   })
 })

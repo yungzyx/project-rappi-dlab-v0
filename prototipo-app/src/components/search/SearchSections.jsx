@@ -1,5 +1,5 @@
-import ProductRow from '../../components/ProductRow'
-import StoreList from '../../components/StoreList'
+import ProductRow from '../ProductRow'
+import StoreList from '../StoreList'
 import { ALL_STORES } from '../../data/catalog'
 
 // Sugerencias sacadas de los textos que rota el buscador de la Home.

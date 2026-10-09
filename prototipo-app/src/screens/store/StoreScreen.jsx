@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
+import BackButton from '../../components/BackButton'
 import ProductRow from '../../components/ProductRow'
 import Img from '../../components/Img'
 import { useToast } from '../../components/Toast'
-import { ChevronLeft, HeartIcon } from '../../components/Icons'
+import { HeartIcon } from '../../components/Icons'
 import { cartEventFields } from '../../api/orders'
 import { productsOfStore, storeFor, storeVertical } from '../../data/catalog'
 import { useEvents } from '../../state/EventsContext'
 import { useFavorites } from '../../state/FavoritesContext'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
-import { StoreMeta } from '../home/StoreCards'
+import { StoreMeta } from '../../components/StoreMeta'
 import RealMenu from './RealMenu'
 import './store.css'
 
@@ -61,8 +62,7 @@ export default function StoreScreen({ back, params }) {
       vertical,
       entity_type: 'store',
       entity_id: store.id ? String(store.id) : undefined,
-      payload: { name: store.name },
-    })
+      payload: { name: store.name } })
     // Llegar tocando un producto es verlo (el prototipo no tiene página de producto): mismos campos que el carro.
     if (item) events.track('view_item', { ...cartEventFields(item), vertical: item.vertical ?? vertical })
   }, [store.name, store.id, vertical, item, track, events])
@@ -77,9 +77,7 @@ export default function StoreScreen({ back, params }) {
       <div className={store.logo ? 'store-hero is-logo' : 'store-hero'}>
         <Img src={store.img} eager />
       </div>
-      <button type="button" className="store-round store-round--back tap" aria-label="Volver" onClick={back}>
-        <ChevronLeft size={20} />
-      </button>
+      <BackButton className="store-round store-round--back" onClick={back} />
       <button
         type="button"
         className={isFavorite ? 'store-round store-round--fav is-on tap' : 'store-round store-round--fav tap'}

@@ -7,8 +7,8 @@ import { TAGS } from '../../assistant/tags'
 import { discoveries } from '../../assistant/discover'
 import { exploredVerticals } from '../../assistant/explored'
 import { routeForScreen } from '../../data/verticals'
-import { PopularStores, RecentSearches, SearchResults } from '../../screens/search/SearchSections'
-import { useSearch } from '../../screens/search/useSearch'
+import { PopularStores, RecentSearches, SearchResults } from '../search/SearchSections'
+import { useSearch } from '../search/useSearch'
 import { useDemo } from '../../state/DemoContext'
 import { clearShownTopics, noteShownTopic, sessionId, shownTopics, useEvents, userId } from '../../state/EventsContext'
 import { storeFor } from '../../data/catalog'
@@ -16,12 +16,12 @@ import { useAssistant } from '../../state/AssistantContext'
 import { useCart } from '../../state/CartContext'
 import { useDialog } from '../../hooks/useDialog'
 import { WEIGHTS, useProfile } from '../../state/ProfileContext'
-import { ChevronLeft } from '../Icons'
+import BackButton from '../BackButton'
 import ChatMessage from './ChatMessage'
 import DiscoverSection from './DiscoverSection'
 import Mascot from './Mascot'
 import { SparkleIcon } from './SmartBar'
-import '../../screens/search/search.css'
+import '../search/search.css'
 import './assistant.css'
 
 const OPEN_MS = 380
@@ -354,9 +354,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
       </p>
 
       <header className="search-header bigotes-search-header">
-        <button type="button" className="search-back tap" aria-label="Volver" onClick={() => close()}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="search-back" onClick={() => close()} />
         <label className="search-field bigotes-search-field">
           <SparkleIcon size={20} />
           <input

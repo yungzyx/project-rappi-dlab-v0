@@ -1,6 +1,6 @@
 import ProductRow from '../../components/ProductRow'
 import StoreList from '../../components/StoreList'
-import { ChevronLeft } from '../../components/Icons'
+import BackButton from '../../components/BackButton'
 import './list.css'
 
 /**
@@ -13,9 +13,7 @@ export default function ListScreen({ back, push, params }) {
   return (
     <div className="screen list">
       <header className="list-header">
-        <button type="button" className="round-button tap" aria-label="Volver" onClick={back}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="round-button" onClick={back} />
         <h1>{title}</h1>
       </header>
 

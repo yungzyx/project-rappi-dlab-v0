@@ -1,6 +1,6 @@
 import { EXPLORABLE } from '../../assistant/explored'
 import { VERTICAL_NAMES } from '../../data/verticals'
-import { MAIN_TILES, SHORTCUTS } from '../../screens/home/data'
+import { MAIN_TILES, SHORTCUTS } from '../../data/home'
 import HScroll from '../HScroll'
 import Img from '../Img'
 import './discover.css'

@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import BackButton from '../../components/BackButton'
 import Sheet from '../../components/Sheet'
 import { useToast } from '../../components/Toast'
-import { ChevronLeft, ChevronRight } from '../../components/Icons'
+import { ChevronRight } from '../../components/Icons'
 import { useLoyalty } from '../../state/LoyaltyContext'
 import latam from '../../assets/v/loy-latam.webp'
 import marriott from '../../assets/v/loy-marriott.webp'
@@ -36,9 +37,7 @@ export default function LoyaltyScreen({ back }) {
   return (
     <div className="screen loyalty">
       <header className="loyalty-header">
-        <button type="button" className="loyalty-back tap" aria-label="Volver" onClick={back}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="loyalty-back" onClick={back} />
         <h1>Loyalty</h1>
       </header>
 

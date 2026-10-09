@@ -34,7 +34,7 @@
 .deals-pizza-band {
   margin-top: 30px;
   padding: 20px 0 23px;
-  background: #f7f7f8;
+  background: var(--surface-soft);
 }
 
 .deals-pizzas .section-head {

@@ -26,7 +26,7 @@
   padding: 3px 8px;
   border-radius: 99px;
   background: var(--ink);
-  color: #fff;
+  color: var(--surface);
   font-size: 12px;
   font-weight: 700;
 }
@@ -63,7 +63,7 @@
 .product-sheet-store .store-badge {
   display: grid;
   place-items: center;
-  color: #fff;
+  color: var(--surface);
   font-weight: 700;
 }
 
@@ -86,12 +86,12 @@
 
 .product-sheet-prices s {
   font-size: 15px;
-  color: #747474;
+  color: var(--ink-strike);
 }
 
 .product-sheet-pct {
   padding: 0 5px;
-  background: #fadc24;
+  background: var(--price-yellow);
   font-size: 14px;
   font-weight: 700;
 }
@@ -148,7 +148,7 @@
   margin-top: 6px;
   border-radius: 99px;
   background: var(--rappi-red);
-  color: #fff;
+  color: var(--surface);
   font-size: 17px;
   font-weight: 600;
 }

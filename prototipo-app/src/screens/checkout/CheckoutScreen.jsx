@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import BackButton from '../../components/BackButton'
 import { health, sendOrder } from '../../api/client'
 import { buildOrders } from '../../api/orders'
 import ProductRow from '../../components/ProductRow'
 import { useToast } from '../../components/Toast'
-import { ChevronLeft, ChevronRight } from '../../components/Icons'
+import { ChevronRight } from '../../components/Icons'
 import { CardIcon, PinIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
 import { sessionId, useEvents, userId } from '../../state/EventsContext'
@@ -57,12 +58,10 @@ export default function CheckoutScreen({ back, push }) {
         name: product.name,
         img: product.img,
         price: product.price,
-        qty,
-      })),
+        qty })),
       total: price.total,
       pickup,
-      address: address.selected.line,
-    })
+      address: address.selected.line })
     cart.clear()
     // El seguimiento reemplaza al checkout en el historial: "volver" desde ahí no regresa a un carrito vacío.
     push('tracking', { orderId: id }, { swap: true })
@@ -174,9 +173,7 @@ export default function CheckoutScreen({ back, push }) {
 function CheckoutHeader({ back }) {
   return (
     <header className="checkout-header">
-      <button type="button" className="round-button tap" aria-label="Volver" onClick={back}>
-        <ChevronLeft size={20} />
-      </button>
+      <BackButton className="round-button" onClick={back} />
       <h1>Checkout</h1>
     </header>
   )

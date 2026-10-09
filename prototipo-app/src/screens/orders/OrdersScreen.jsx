@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight } from '../../components/Icons'
+import BackButton from '../../components/BackButton'
+import { ChevronRight } from '../../components/Icons'
 import Img from '../../components/Img'
 import { formatPrice } from '../../state/CartContext'
 import { useOrders } from '../../state/OrdersContext'
@@ -25,9 +26,7 @@ export default function OrdersScreen({ back, push, reset }) {
   return (
     <div className="screen orders">
       <header className="orders-header">
-        <button type="button" className="round-button tap" aria-label="Volver" onClick={back}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="round-button" onClick={back} />
         <h1>Mis pedidos</h1>
       </header>
 
