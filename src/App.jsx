@@ -1,5 +1,9 @@
 import { useState } from 'react'
 import BottomNav from './components/BottomNav.jsx'
+import Intro from './components/Intro.jsx'
+import StatusBar from './components/StatusBar.jsx'
+import Toast from './components/Toast.jsx'
+import { nextVertical } from './game/progress.js'
 import Album from './screens/Album.jsx'
 import Concept from './screens/Concept.jsx'
 import Passport from './screens/Passport.jsx'
@@ -7,7 +11,7 @@ import Path from './screens/Path.jsx'
 import Round from './screens/Round.jsx'
 import Settings from './screens/Settings.jsx'
 import Vertical from './screens/Vertical.jsx'
-import { GameProvider } from './state/GameContext.jsx'
+import { GameProvider, useGame } from './state/GameContext.jsx'
 import './styles/tokens.css'
 import './styles/global.css'
 
@@ -15,6 +19,7 @@ const TABS = ['jugar', 'pasaporte', 'album']
 
 /** Navegación con una pila de pantallas: la pestaña es la base y lo demás se apila encima. */
 function Game() {
+  const game = useGame()
   const [stack, setStack] = useState([{ name: 'jugar', params: {} }])
   const current = stack.at(-1)
   const tab = stack[0].name
@@ -24,6 +29,8 @@ function Game() {
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s))
   const switchTab = (name) => setStack([{ name, params: {} }])
   const nav = { go, replace, back, home: () => switchTab('jugar'), switchTab }
+
+  const unread = game.state.cards.filter((id) => !game.state.opened.includes(id)).length
 
   let screen
   switch (current.name) {
@@ -52,11 +59,24 @@ function Game() {
   return (
     <div className="stage">
       <div className="phone">
-        <div className="status-bar" aria-hidden="true">
-          <span>9:41</span>
-        </div>
+        <StatusBar />
         <main key={stack.length + current.name}>{screen}</main>
-        {current.name !== 'ronda' && <BottomNav active={TABS.includes(tab) ? tab : 'jugar'} onSelect={switchTab} />}
+        {current.name !== 'ronda' && (
+          <BottomNav active={TABS.includes(tab) ? tab : 'jugar'} onSelect={switchTab} badges={{ album: unread }} />
+        )}
+        {/* La ronda celebra sus propios logros al final: los avisos globales quedan para el resto. */}
+        {current.name !== 'ronda' && game.events.length > 0 && (
+          <Toast event={game.events[0]} onClose={game.dismissEvent} />
+        )}
+        {!game.state.seenIntro && current.name === 'jugar' && (
+          <Intro
+            onStart={() => {
+              game.seeIntro()
+              go('ronda', { vertical: nextVertical(game.state) })
+            }}
+            onClose={game.seeIntro}
+          />
+        )}
       </div>
     </div>
   )

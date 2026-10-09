@@ -60,16 +60,6 @@ svg {
   isolation: isolate;
 }
 
-.status-bar {
-  height: var(--status-zone);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 34px 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
 /* Teléfono real: la app ocupa toda la pantalla y la barra de estado falsa queda fuera. */
 @media (max-width: 500px) {
   body {
@@ -86,10 +76,6 @@ svg {
     border-radius: 0;
     box-shadow: none;
     zoom: 1;
-  }
-
-  .status-bar {
-    display: none;
   }
 }
 

@@ -1,11 +1,12 @@
 import { Star, X } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import FactCard from '../components/FactCard.jsx'
 import Mascot from '../components/Mascot.jsx'
+import Sheet from '../components/Sheet.jsx'
 import Stamp, { LEVEL_NAMES } from '../components/Stamp.jsx'
 import { DATA, belongs, conceptById, related } from '../game/data.js'
 import { FACTS } from '../game/facts.js'
-import { LEVELS, verticalLevel } from '../game/progress.js'
+import { LEVELS, explorerLevel, verticalLevel } from '../game/progress.js'
 import { makeRound, roundStars } from '../game/round.js'
 import { useGame } from '../state/GameContext.jsx'
 import './round.css'
@@ -109,7 +110,7 @@ function Feedback({ step, outcome, onNext }) {
   )
 }
 
-function RoundEnd({ vertical, tally, levelBefore, onDone }) {
+function RoundEnd({ vertical, tally, levelBefore, xpBefore, onDone }) {
   const { state, openCard } = useGame()
   const [opened, setOpened] = useState(false)
   const [lateBonus, setLateBonus] = useState(0)
@@ -118,6 +119,10 @@ function RoundEnd({ vertical, tally, levelBefore, onDone }) {
   const leveledUp = LEVELS.indexOf(levelAfter) > LEVELS.indexOf(levelBefore)
   const [card, ...more] = tally.cards.map((id) => FACTS.find((f) => f.id === id))
   const bonus = tally.bonus + lateBonus
+  const newLevel = explorerLevel(state.xp) > explorerLevel(xpBefore) ? explorerLevel(state.xp) : null
+  // Barra del nivel: parte donde estaba antes de la ronda (o en cero si subió de nivel) y se llena hasta ahora.
+  const from = newLevel ? 0 : (xpBefore % 100) / 100
+  const to = (state.xp % 100) / 100
 
   const open = () => {
     const result = openCard(card.id)
@@ -136,6 +141,15 @@ function RoundEnd({ vertical, tally, levelBefore, onDone }) {
         ))}
       </div>
       <p className="end-xp">+{tally.xp} XP</p>
+      <div className="end-level" aria-label={`Nivel ${explorerLevel(state.xp)}, ${state.xp % 100} de 100 XP`}>
+        <span className="end-level-badge" aria-hidden="true">
+          {explorerLevel(state.xp)}
+        </span>
+        <span className="end-level-bar" aria-hidden="true">
+          <span style={{ '--from': from, '--to': to }} />
+        </span>
+      </div>
+      {newLevel && <p className="end-newlevel">¡Subiste a nivel {newLevel}!</p>}
       <p className="muted end-hits">
         {tally.correct} de {tally.challenges} aciertos
       </p>
@@ -190,15 +204,16 @@ function Confetti() {
 /** Una ronda de 5 pasos en una vertical: dar vuelta conceptos nuevos y responder desafíos. */
 export default function Round({ vertical, back }) {
   const game = useGame()
+  const { clearEvents } = game
   const [steps] = useState(() => makeRound(game.state, vertical))
   const [levelBefore] = useState(() => verticalLevel(game.state, vertical))
+  const [xpBefore] = useState(() => game.state.xp)
   const [index, setIndex] = useState(0)
   const [outcome, setOutcome] = useState(null)
+  const [confirmExit, setConfirmExit] = useState(false)
   const [tally, setTally] = useState({ xp: 0, bonus: 0, correct: 0, challenges: 0, cards: [] })
 
-  if (index >= steps.length) {
-    return <RoundEnd vertical={vertical} tally={tally} levelBefore={levelBefore} onDone={back} />
-  }
+  const finished = index >= steps.length
   const step = steps[index]
 
   const record = (result, extra) =>
@@ -224,6 +239,7 @@ export default function Round({ vertical, back }) {
       cards: result.card ? [...t.cards, result.card.id] : t.cards,
     }))
     setOutcome({ ok, selected: optionId, xp: result.xp - result.bonus })
+    navigator.vibrate?.(ok ? 12 : [30, 40, 30])
   }
 
   const next = () => {
@@ -231,10 +247,36 @@ export default function Round({ vertical, back }) {
     setIndex((i) => i + 1)
   }
 
+  // Lo que se logra en la ronda lo celebra su pantalla final: al salir no se repite como aviso.
+  useEffect(() => clearEvents, [clearEvents])
+
+  // Teclado para la demo en computador: 1 a 4 responden, Enter o espacio dan vuelta la carta o siguen.
+  useEffect(() => {
+    if (finished || confirmExit) return undefined
+    const onKey = (e) => {
+      const go = e.key === 'Enter' || e.key === ' '
+      if (outcome && go) {
+        e.preventDefault()
+        next()
+      } else if (!outcome && step.type === 'descubrir' && go) {
+        e.preventDefault()
+        reveal()
+      } else if (!outcome && step.type === 'desafio' && /^[1-4]$/.test(e.key)) {
+        choose(step.challenge.options[Number(e.key) - 1].id)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  if (finished) {
+    return <RoundEnd vertical={vertical} tally={tally} levelBefore={levelBefore} xpBefore={xpBefore} onDone={back} />
+  }
+
   return (
     <div className="screen no-nav round" style={{ '--v': `var(--v-${vertical})` }}>
       <header className="round-top">
-        <button type="button" className="round-exit" aria-label="Salir" onClick={back}>
+        <button type="button" className="round-exit" aria-label="Salir" onClick={() => setConfirmExit(true)}>
           <X size={24} weight="bold" aria-hidden="true" />
         </button>
         <div
@@ -258,6 +300,22 @@ export default function Round({ vertical, back }) {
       </div>
 
       {outcome && <Feedback step={step} outcome={outcome} onNext={next} />}
+
+      {confirmExit && (
+        <Sheet label="¿Salir de la ronda?" onClose={() => setConfirmExit(false)}>
+          <div className="exit-sheet">
+            <Mascot size={70} mood="listen" />
+            <h2>¿Salir de la ronda?</h2>
+            <p className="muted">Lo que ganaste hasta ahora queda guardado.</p>
+            <button type="button" className="btn-game" onClick={() => setConfirmExit(false)}>
+              Seguir jugando
+            </button>
+            <button type="button" className="btn-ghost" onClick={back}>
+              Salir de la ronda
+            </button>
+          </div>
+        </Sheet>
+      )}
     </div>
   )
 }

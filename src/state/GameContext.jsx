@@ -48,6 +48,10 @@ export function GameProvider({ children }) {
     [commit],
   )
 
+  // Estables entre renders: el aviso usa dismissEvent en su temporizador.
+  const dismissEvent = useCallback(() => setEvents((list) => list.slice(1)), [])
+  const clearEvents = useCallback(() => setEvents([]), [])
+
   const value = useMemo(
     () => ({
       state,
@@ -57,7 +61,8 @@ export function GameProvider({ children }) {
       answer: (vertical, isCorrect) => run((s, d) => progress.answer(s, vertical, isCorrect, d)),
       openCard: (cardId) => run((s, d) => progress.openCard(s, cardId, d)),
       seeIntro: () => commit(progress.markIntroSeen(latest.current)),
-      dismissEvent: () => setEvents((list) => list.slice(1)),
+      dismissEvent,
+      clearEvents,
       reset: () => {
         clear()
         latest.current = progress.initialState()
@@ -65,7 +70,7 @@ export function GameProvider({ children }) {
         setEvents([])
       },
     }),
-    [state, date, events, run, commit],
+    [state, date, events, run, commit, dismissEvent, clearEvents],
   )
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

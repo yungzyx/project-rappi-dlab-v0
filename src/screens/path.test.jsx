@@ -2,21 +2,24 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import App from '../App.jsx'
 import { DATA, conceptsOf } from '../game/data.js'
-import { initialState } from '../game/progress.js'
 import { KEY } from '../game/storage.js'
+import { seed } from '../test/seed.js'
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  seed()
+})
 afterEach(cleanup)
 
-const preload = (patch) => localStorage.setItem(KEY, JSON.stringify({ ...initialState(), ...patch }))
+const preload = seed
 const path = () => screen.getByRole('region', { name: 'Camino de verticales' })
 
 describe('camino', () => {
   test('muestra la barra de juego, la misión del día y las 8 paradas', () => {
     render(<App />)
     expect(screen.getByText('Nivel 1')).toBeTruthy()
-    const mission = screen.getByRole('region', { name: 'Misión del día' })
-    const steps = within(mission).getAllByRole('listitem')
+    const mission = screen.getByRole('button', { name: 'Misión del día: 0 de 3' })
+    const steps = mission.querySelectorAll('[data-done]')
     expect(steps).toHaveLength(3)
     for (const s of steps) expect(s.getAttribute('data-done')).toBe('false')
     for (const v of DATA.order) {

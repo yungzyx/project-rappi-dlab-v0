@@ -3,15 +3,20 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import App from '../App.jsx'
 import { DATA, conceptsOf } from '../game/data.js'
 import { FACTS } from '../game/facts.js'
-import { initialState, today } from '../game/progress.js'
+import { today } from '../game/progress.js'
 import { KEY } from '../game/storage.js'
+import { seed } from '../test/seed.js'
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  seed()
+})
 afterEach(cleanup)
 
 const stored = () => JSON.parse(localStorage.getItem(KEY))
-const preload = (patch) => localStorage.setItem(KEY, JSON.stringify({ ...initialState(), ...patch }))
-const tab = (name) => fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name }))
+const preload = seed
+const tab = (name) =>
+  fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: new RegExp(`^${name}`) }))
 
 describe('mapa con niebla (en el pasaporte)', () => {
   test('106 puntos, todos apagados al empezar, y las 8 verticales', () => {

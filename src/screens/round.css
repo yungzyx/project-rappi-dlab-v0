@@ -414,3 +414,76 @@
     transform: translateY(700px) rotate(540deg);
   }
 }
+
+/* ---------- Nivel al final de la ronda ---------- */
+.end-level {
+  width: 100%;
+  max-width: 280px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.end-level-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  color: #fff;
+  background: var(--rappi-red);
+  box-shadow: 0 3px 0 var(--rappi-red-deep);
+}
+
+.end-level-bar {
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--rappi-red-soft);
+  overflow: hidden;
+}
+
+.end-level-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--rappi-red);
+  transform-origin: left;
+  transform: scaleX(var(--to));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .end-level-bar span {
+    animation: xp-fill 900ms var(--ease-out) 300ms backwards;
+  }
+}
+
+@keyframes xp-fill {
+  from {
+    transform: scaleX(var(--from));
+  }
+}
+
+.end-newlevel {
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--rappi-red-ink);
+}
+
+/* ---------- Confirmar salida ---------- */
+.exit-sheet {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.exit-sheet h2 {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.exit-sheet .muted {
+  margin-bottom: 8px;
+}

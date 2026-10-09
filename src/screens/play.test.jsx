@@ -6,12 +6,16 @@ import { factsOf } from '../game/facts.js'
 import { initialState } from '../game/progress.js'
 import { makeRound } from '../game/round.js'
 import { KEY } from '../game/storage.js'
+import { seed } from '../test/seed.js'
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  seed()
+})
 afterEach(cleanup)
 
 const stored = () => JSON.parse(localStorage.getItem(KEY))
-const preload = (patch) => localStorage.setItem(KEY, JSON.stringify({ ...initialState(), ...patch }))
+const preload = seed
 
 function startRound(vertical, level = 'Sin sello') {
   render(<App />)
@@ -102,6 +106,11 @@ describe('ronda', () => {
     startRound('turbo')
     fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
     fireEvent.click(screen.getByRole('button', { name: 'Salir' }))
+    const confirm = screen.getByRole('dialog', { name: '¿Salir de la ronda?' })
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Seguir jugando' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Salir' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salir de la ronda' }))
     expect(screen.getByRole('region', { name: 'Camino de verticales' })).toBeTruthy()
     expect(stored().xp).toBe(10)
   })

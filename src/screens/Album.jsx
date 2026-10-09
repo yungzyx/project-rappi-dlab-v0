@@ -23,6 +23,7 @@ export default function Album() {
       <p className="muted album-count">
         {unlocked.size} de {FACTS.length} cartas
       </p>
+      {unlocked.size === 0 && <p className="album-empty">Juega una ronda para ganar tus primeras cartas.</p>}
 
       {GROUPS.map((g) => (
         <section key={g.id} aria-label={g.label} className="album-group">

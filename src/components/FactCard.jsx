@@ -14,7 +14,7 @@ export default function FactCard({ fact, locked = false, isNew = false, onOpen }
   ) : (
     <>
       <span className="fact-card-kicker">¿Sabías que…?</span>
-      <p className="fact-card-text">{fact.text}</p>
+      <span className="fact-card-text">{fact.text}</span>
       <span className="fact-card-source">
         {fact.vertical ? DATA.labels[fact.vertical] : 'Todo Rappi'} · Catálogo del {DATA.asOf}
       </span>

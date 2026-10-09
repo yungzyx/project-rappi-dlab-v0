@@ -38,3 +38,12 @@
 .fact-card.is-closed .fact-card-topic {
   font-size: 15px;
 }
+
+.album-empty {
+  margin: 4px 0 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--rappi-red-soft);
+  color: var(--rappi-red-ink);
+  font-weight: 700;
+}
