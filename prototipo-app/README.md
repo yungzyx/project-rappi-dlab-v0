@@ -9,7 +9,7 @@ Hecho con Vite + React 19. Funciona de dos maneras:
 - **Sin backend (modo local):** todo corre en el navegador. Bigotes responde con reglas locales sobre los datos del prototipo y las imágenes que no cargan muestran un respaldo neutro.
 - **Con la API de [`rappi-ia`](../rappi-ia/):** Bigotes busca en el catálogo real. Si la API no responde o tarda más de 8 s, contestan las reglas locales y la respuesta lo marca con «Respuesta local».
 
-![Modo demo: la misma app en «Propuesta» y en «Rappi hoy» (modo local)](docs/screenshots/00-modo-demo.jpg)
+![Modo demo: la misma app en el prototipo final y en «Rappi hoy» (modo local)](docs/screenshots/00-modo-demo.jpg)
 
 *Salvo que se indique lo contrario, las capturas de este README están tomadas en modo local (sin API) y sin los menús reales del scraper.*
 
@@ -35,7 +35,7 @@ Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000; carga los m
 - arma la fila **"Para ti"** del inicio con lo que aprendió de ti (productos reales de otro vertical, con aviso +18 si corresponde);
 - registra eventos seudónimos y pedidos (uno por vertical) para el [panel de negocio](../dashboard-empresa/).
 
-La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el prototipo actual no los usa: la Propuesta es un buscador, sin micrófono ni cámara.
+La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el prototipo actual no los usa: el prototipo final tiene un buscador, sin micrófono ni cámara.
 
 <img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Bigotes con la API: cervezas reales bajo $3.000 y snacks de otra tienda">
 
@@ -60,22 +60,22 @@ Tests: 232 (Vitest, 09-10-2026). CI en GitHub Actions: lint, tests y build.
 
 **Accesibilidad:** el buscador con Bigotes y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), cada respuesta de Bigotes se anuncia completa al lector de pantalla y las áreas táctiles miden al menos 40 px.
 
-## Modo demo: Rappi hoy, Propuesta y Bigotes vivo
+## Modo demo: Rappi hoy y Prototipo final
 
-El interruptor junto al teléfono (tecla **D**, o Account → Modo demo en el celular) cambia entre la app como es hoy, la propuesta y un tercer prototipo de prueba, **Bigotes vivo**.
+El interruptor junto al teléfono (tecla **D**, o Account → Modo demo en el celular) cambia entre la app como es hoy (**Rappi hoy**, «para hoy») y el **Prototipo final**, que arranca por defecto. Antes eran tres modos («Propuesta», «Rappi hoy» y «Bigotes vivo»); los dos con Bigotes se juntaron en uno. Quien tenía guardado un modo viejo entra al prototipo final.
 
-| Rappi hoy | Propuesta |
+| Rappi hoy | Prototipo final |
 |:---:|:---:|
-| <img src="docs/screenshots/02-home-rappi-hoy.jpg" width="300" alt="Home de Rappi hoy"> | <img src="docs/screenshots/01-home-propuesta.jpg" width="300" alt="Home con Bigotes"> |
-| Buscador original | La misma barra abre el buscador con Bigotes |
+| <img src="docs/screenshots/02-home-rappi-hoy.jpg" width="300" alt="Home de Rappi hoy"> | <img src="docs/screenshots/01-home-final.jpg" width="300" alt="Home del prototipo final con Bigotes"> |
+| Buscador original | Bigotes vive en la Home y la misma barra abre su buscador |
 
-**Bigotes vivo** no tiene chat: Bigotes de cuerpo entero vive en la Home (`src/screens/home/live/`). Al entrar dice qué notó («te encantan los chocolates») y sube ese bloque bajo el buscador con el resto oscurecido; al lado aparece una vertical donde nunca pediste. La Home suma un pasaporte de verticales, «¿Qué plan tienes hoy?» (un kit de varias verticales) y, al tocar a Bigotes, una vertical por probar. Bigotes saluda al llegar, salta, apunta y gira según lo que dice, y en espera mira alrededor, baila o se estira; sin nada que decir se asoma desde el borde y al hacer scroll se esconde, para no tapar la Home. En el celular, «Repetir escena de Bigotes» está en Account. «↺ Repetir escena», junto al interruptor, vuelve a empezar. Respeta «reducir movimiento» del sistema.
+En el **prototipo final** Bigotes de cuerpo entero vive en la Home (`src/screens/home/live/`), sin ícono de chat. Al entrar saluda; no sugiere productos ni reordena la Home. La Home suma un pasaporte de verticales (bajo los accesos de siempre), «¿Qué plan tienes hoy?» (un kit de varias verticales) y, al tocar a Bigotes, una vertical por probar. Bigotes saluda al llegar, salta, apunta y gira según lo que dice, y en espera mira alrededor, baila o se estira; sin nada que decir se asoma desde el borde y al hacer scroll se esconde, para no tapar la Home. Lo que se agrega al carro fuera de la Home lo comenta al volver (no hay aviso flotante). La barra de la Home y la lupa de abajo abren el buscador con Bigotes (ver más abajo), y al entregar un pedido ofrece armar el próximo. En el celular, «Repetir escena de Bigotes» está en Account. «↺ Repetir escena», junto al interruptor, vuelve a empezar. Respeta «reducir movimiento» del sistema.
 
 ## Lo nuevo de la propuesta
 
 ### Bigotes, el buscador
 
-En la Propuesta no hay chat escrito, voz ni foto: la barra de la Home («¿Qué se te antoja hoy?») abre el buscador con Bigotes, que reúne el buscador de siempre y lo que Bigotes sabe de ti:
+En el prototipo final no hay chat escrito, voz ni foto: la barra de la Home («¿Qué se te antoja hoy?») abre el buscador con Bigotes, que reúne el buscador de siempre y lo que Bigotes sabe de ti:
 
 - **Aprendiendo de ti:** arriba muestra lo que va aprendiendo («🍺 Cerveza · 🥃 Copete») y un botón **Olvidar** que lo borra, también en la API.
 - **Toca y te armo algo:** botones con ideas («¿Qué almuerzo hoy?», «Arma un carrete», «Algo dulce») que cambian según lo aprendido. Al tocar uno, Bigotes responde con productos y tiendas; si abres una tienda desde ahí y vuelves, la búsqueda sigue donde estaba.
@@ -98,10 +98,12 @@ Diseño y animaciones del personaje: [`design/bigotes.html`](design/bigotes.html
 
 Capturas en modo local: las reglas locales usan los productos del prototipo. Con la API, las mismas filas se llenan con productos reales de otro vertical.
 
-| En cada vertical | En la Home | Al agregar al carrito |
-|:---:|:---:|:---:|
-| <img src="docs/screenshots/22-para-ti-vertical.jpg" width="240" alt="Para ti en Liquor"> | <img src="docs/screenshots/24-home-para-ti.jpg" width="240" alt="Para ti en la Home"> | <img src="docs/screenshots/23-aviso-bigotes.jpg" width="240" alt="Aviso de Bigotes"> |
-| "Para ti, de otras tiendas": en Liquor recomienda carnes y snacks del súper, con la razón visible. | "Para ti" parte de tu interés principal. | "¿Te tinca sumar 🍿 snacks?": uno por tema por sesión. |
+| En cada vertical |
+|:---:|
+| <img src="docs/screenshots/22-para-ti-vertical.jpg" width="240" alt="Para ti en Liquor"> |
+| "Para ti, de otras tiendas": en Liquor recomienda carnes y snacks del súper, con la razón visible. |
+
+En la Home esa tarea la hace Bigotes de cuerpo entero (ver «Modo demo»): ya no hay fila «Para ti» en la Home ni aviso flotante al agregar al carrito.
 
 ### Compra completa
 

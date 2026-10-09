@@ -32,7 +32,7 @@ const MIN_TYPING_MS = 450
 let nextId = 1
 
 /**
- * Buscador con Bigotes (Propuesta): el buscador de siempre, con lo que Bigotes sabe de la persona en bloques que se
+ * Buscador con Bigotes: el buscador de siempre, con lo que Bigotes sabe de la persona en bloques que se
  * tocan (sin chat escrito) y una invitación a descubrir otras verticales. Siempre montado (para no perder lo que
  * Bigotes respondió); se muestra al abrirlo.
  */
@@ -93,7 +93,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     vertical,
     user_id: userId(),
     session_id: sessionId(),
-    mode: demo.isProposal ? 'propuesta' : 'actual',
+    mode: demo.isFinal ? 'propuesta' : 'actual',
     shown_topics: shownTopics(), // chat y «Para ti»: una sugerencia por tema en la sesión
     ...extra,
   })
@@ -425,7 +425,8 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
               )}
 
               <p className="bigotes-picks-label">Toca y te armo algo 👇</p>
-              <div key={chipRound} className="assistant-chips bigotes-picks">
+              {/* Clave con prefijo: un número solo podría coincidir con la del mensaje de arriba (su id) y React lo duplicaría. */}
+              <div key={`chips-${chipRound}`} className="assistant-chips bigotes-picks">
                 {chips.map((chip, i) => (
                   <button
                     key={chip}

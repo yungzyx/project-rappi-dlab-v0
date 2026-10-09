@@ -25,11 +25,19 @@ describe('useOpenSearch', () => {
     return { push, result }
   }
 
-  test('en la Propuesta abre el buscador con Bigotes con la vertical', () => {
-    const { push, result } = setup('propuesta')
+  test('en el prototipo final abre el buscador con Bigotes con la vertical', () => {
+    const { push, result } = setup('final')
     act(() => result.current.open('liquor'))
     expect(push).not.toHaveBeenCalled()
     expect(result.current.assistant.session).toMatchObject({ vertical: 'liquor' })
+  })
+
+  test('en el prototipo final, desde la Home, lo abre sin vertical', () => {
+    const { push, result } = setup('final')
+    act(() => result.current.open())
+    expect(push).not.toHaveBeenCalled()
+    expect(result.current.assistant.isOpen).toBe(true)
+    expect(result.current.assistant.session.vertical).toBeUndefined()
   })
 
   test('en «Rappi hoy» abre el buscador plano', () => {
@@ -37,11 +45,5 @@ describe('useOpenSearch', () => {
     act(() => result.current.open('turbo'))
     expect(push).toHaveBeenCalledWith('search', { vertical: 'turbo' })
     expect(result.current.assistant.isOpen).toBe(false)
-  })
-
-  test('en «Bigotes vivo» sigue abriendo el buscador plano, sin vertical desde la Home', () => {
-    const { push, result } = setup('vivo')
-    act(() => result.current.open())
-    expect(push).toHaveBeenCalledWith('search', {})
   })
 })

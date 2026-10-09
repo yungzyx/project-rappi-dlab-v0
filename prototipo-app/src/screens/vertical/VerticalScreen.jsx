@@ -30,7 +30,7 @@ export default function VerticalScreen({ back, push, params }) {
   const events = useEvents()
 
   const allProducts = sections.filter((s) => s.type === 'products').flatMap((s) => s.products)
-  const forYouRow = demo.isProposal
+  const forYouRow = demo.isFinal
     ? forVertical(params.id, profile, new Set(allProducts.map((item) => item.id)))
     : null
   // La fila es una sugerencia de Bigotes: cuenta como mostrada una vez por pestaña, por concepto y vertical.

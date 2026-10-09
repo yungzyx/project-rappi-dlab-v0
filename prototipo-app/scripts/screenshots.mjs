@@ -57,14 +57,14 @@ async function run(page) {
   await page.goto(BASE)
   await reset()
 
-  // --- Portada: modo demo y la Home en ambos modos ---
-  await wait(1700) // el globo "¡Hola! Soy Bigotes" aparece a los 1,2 s
+  // --- Portada: modo demo y la Home en ambos modos (arranca en el prototipo final) ---
+  await wait(4200) // Bigotes entra a los 0,9 s y termina de escribir su saludo
   await shot('00-modo-demo', { full: true })
-  await shot('01-home-propuesta')
+  await shot('01-home-final')
   await page.keyboard.press('d')
   await shot('02-home-rappi-hoy')
 
-  // --- Pantallas replicadas de Rappi (modo "Rappi hoy": sin agregados de la propuesta) ---
+  // --- Pantallas replicadas de Rappi (modo "Rappi hoy": sin agregados del prototipo final) ---
   for (const [name, open] of [
     ['10-restaurants', () => tap('.home-tile--restaurants')],
     ['11-turbo', () => tap('.home-tile--turbo')],
@@ -86,11 +86,10 @@ async function run(page) {
     await shot(name)
   }
   await tab('Home')
-  await page.keyboard.press('d') // Rappi hoy → Bigotes vivo
-  await page.keyboard.press('d') // Bigotes vivo → Propuesta
+  await page.keyboard.press('d') // Rappi hoy → prototipo final
   await settle(400)
 
-  // --- Lo nuevo de la propuesta ---
+  // --- Lo nuevo del prototipo final ---
   await tap('.home-top .smart-bar') // la barra de la Home abre el buscador con Bigotes
   await wait(1200) // animación de entrada del panel
   await tap('.assistant-chip', 'carrete')
@@ -109,11 +108,6 @@ async function run(page) {
   await tab('Offers')
   await page.locator('.product-card', { hasText: 'Royal Guard' }).first().locator('.add-button').click()
   await wait(700)
-  await shot('23-aviso-bigotes')
-
-  await tab('Home')
-  await center('.for-you')
-  await shot('24-home-para-ti')
 
   await tap('.cart-bar')
   await wait(500)

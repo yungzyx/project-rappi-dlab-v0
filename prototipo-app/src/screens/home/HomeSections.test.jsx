@@ -24,7 +24,7 @@ test('los puntos de las promos siguen al carrusel y cada promo tiene nombre acce
   expect(push).toHaveBeenCalledWith('restaurants')
 })
 
-test('RappiFavor abre solo con `proposal` (Propuesta y Bigotes vivo); hoy sigue no disponible', () => {
+test('RappiFavor abre solo con `proposal` (el prototipo final); hoy sigue no disponible', () => {
   const push = vi.fn()
   const { unmount } = render(<Shortcuts push={push} />, { wrapper: ToastProvider })
   expect(screen.getByLabelText('RappiFavor (no disponible)')).toBeTruthy()

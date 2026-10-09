@@ -4,26 +4,37 @@ import { DemoProvider, MODE_LABELS, useDemo } from './DemoContext'
 
 const wrapper = ({ children }) => <DemoProvider>{children}</DemoProvider>
 
-describe('modo Bigotes vivo', () => {
+describe('modos de la demo: «Rappi hoy» y «Prototipo final»', () => {
   beforeEach(() => localStorage.clear())
 
-  it('es un tercer modo: con el cerebro de la propuesta, sin chat', () => {
-    localStorage.setItem('rappi-proto-demo-mode', 'vivo')
+  it('son dos: lo que hay hoy y el prototipo final, que arranca por defecto', () => {
     const { result } = renderHook(() => useDemo(), { wrapper })
-    expect(result.current.mode).toBe('vivo')
-    expect(result.current.isProposal).toBe(true)
-    expect(result.current.isLive).toBe(true)
-    expect(Object.keys(MODE_LABELS)).toEqual(['propuesta', 'actual', 'vivo'])
+    expect(result.current.mode).toBe('final')
+    expect(result.current.isFinal).toBe(true)
+    expect(Object.keys(MODE_LABELS)).toEqual(['final', 'actual'])
+    expect(MODE_LABELS).toEqual({ final: 'Prototipo final ✨', actual: 'Rappi hoy' })
   })
 
-  it('la tecla D y «toggle» recorren los tres modos', () => {
+  it('«Rappi hoy» guardado se respeta', () => {
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
+    const { result } = renderHook(() => useDemo(), { wrapper })
+    expect(result.current.mode).toBe('actual')
+    expect(result.current.isFinal).toBe(false)
+  })
+
+  it.each(['propuesta', 'vivo', 'otra-cosa'])('un modo viejo guardado («%s») entra al prototipo final', (saved) => {
+    localStorage.setItem('rappi-proto-demo-mode', saved)
+    const { result } = renderHook(() => useDemo(), { wrapper })
+    expect(result.current.mode).toBe('final')
+  })
+
+  it('la tecla D y «toggle» alternan entre los dos', () => {
     const { result } = renderHook(() => useDemo(), { wrapper })
     const seen = [result.current.mode]
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       act(() => result.current.toggle())
       seen.push(result.current.mode)
     }
-    expect(seen).toEqual(['propuesta', 'actual', 'vivo', 'propuesta'])
-    expect(result.current.isLive).toBe(false)
+    expect(seen).toEqual(['final', 'actual', 'final'])
   })
 })

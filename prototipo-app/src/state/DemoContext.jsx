@@ -1,17 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-// "actual" = Rappi como es hoy; "propuesta" = con Bigotes y recomendaciones entre verticales; "vivo" = tercer
-// prototipo de prueba: Bigotes de cuerpo entero vive en la Home y la reordena para la persona, sin chat.
+// "actual" = Rappi como es hoy; "final" = el prototipo final: Bigotes de cuerpo entero vive en la Home (con el
+// pasaporte de verticales) y el buscador es el de Bigotes. Reúne lo que antes eran «Propuesta» y «Bigotes vivo».
 const STORAGE_KEY = 'rappi-proto-demo-mode'
-const MODES = ['propuesta', 'actual', 'vivo']
-export const MODE_LABELS = { propuesta: 'Propuesta ✨', actual: 'Rappi hoy', vivo: 'Bigotes vivo 🧡' }
+const MODES = ['final', 'actual']
+export const MODE_LABELS = { final: 'Prototipo final ✨', actual: 'Rappi hoy' }
 
+// Cualquier otro valor guardado (los modos viejos «propuesta» y «vivo» incluidos) entra al prototipo final.
 function load() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    return MODES.includes(saved) ? saved : 'propuesta'
+    return localStorage.getItem(STORAGE_KEY) === 'actual' ? 'actual' : 'final'
   } catch {
-    return 'propuesta'
+    return 'final'
   }
 }
 
@@ -53,9 +53,8 @@ export function DemoProvider({ children }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [toggle])
 
-  // El modo vivo usa el mismo cerebro que la propuesta (perfil, sugerencias, eventos); solo cambia cómo se muestra.
   const value = useMemo(
-    () => ({ mode, isProposal: mode !== 'actual', isLive: mode === 'vivo', setMode, toggle }),
+    () => ({ mode, isFinal: mode === 'final', setMode, toggle }),
     [mode, setMode, toggle],
   )
 

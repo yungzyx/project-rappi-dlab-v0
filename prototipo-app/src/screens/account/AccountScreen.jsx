@@ -130,7 +130,7 @@ export default function AccountScreen({ onBack, push }) {
               <h2>{section.title}</h2>
               <ul>
                 {section.rows
-                  .filter((row) => !row.liveOnly || demo.isLive)
+                  .filter((row) => !row.finalOnly || demo.isFinal)
                   .map((row) => (
                     <li key={row.id}>
                       <button type="button" className="account-row" onClick={() => runRow(row)}>

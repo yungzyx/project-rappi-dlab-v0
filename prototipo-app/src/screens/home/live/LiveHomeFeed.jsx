@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import PlainSearchBar from '../../../components/PlainSearchBar'
+import SmartBar from '../../../components/assistant/SmartBar'
 import { useToast } from '../../../components/Toast'
 import { ChevronDown } from '../../../components/Icons'
 import { TAGS, tagsOf } from '../../../assistant/tags'
@@ -13,16 +13,16 @@ import { LowerFees, MainTiles, NearbyStores, Promos, Shortcuts, TurboRestaurants
 import { CREDITS } from '../../../data/home'
 import '../home.css'
 import LiveBigotes from './LiveBigotes'
-import { DiscoveryBlock, InterestBlock, Passport, PlanBlock, openItem, useFlip } from './LiveBlocks'
+import { Passport, PlanBlock, openItem } from './LiveBlocks'
 import { PASSPORT, PASSPORT_GOAL, REPLAY_EVENT, loadPassport, session, stamp } from '../../../state/liveMemory'
-import { PLANS, discoveryFor, interestFor, moveToFront, planKit } from './script'
+import { PLANS, discoveryFor, planKit } from './script'
 import './live.css'
 
-// El bloque del interés parte abajo, como en la Home de hoy: Bigotes lo sube justo bajo el buscador.
-const BASE_ORDER = ['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'interest', 'lower']
-const T = { enter: 900, greet: 3400, autoAccept: 7000, scroll: 520, land: 1150, revealHold: 7000, notice: 500 }
+// Las secciones de la Home de hoy, con el pasaporte justo bajo los accesos. Bigotes no sugiere productos aquí.
+const ORDER = ['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'lower']
+const T = { enter: 900, greet: 3400, greetHold: 6000, notice: 500 }
+const GREETING = '¡Hola! Ahora vivo en tu Home 👋 Prueba verticales nuevas y junta sellos en tu pasaporte.'
 
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const ACTIONS_HOLD = 12000 // un globo con botones se va solo después de esto (no queda tapando la Home)
 
 /** Un toque de vibración en los momentos clave (solo donde el navegador lo permite, como Android). */
@@ -41,8 +41,8 @@ function usePrefersReducedMotion() {
 }
 
 /**
- * Tercer prototipo («Bigotes vivo»): sin ícono de chat. Bigotes de cuerpo entero vive en la Home, se da cuenta de lo
- * que le gusta a la persona, sube ese bloque al primer lugar oscureciendo lo demás y le invita a verticales nuevas.
+ * Home del prototipo final: sin ícono de chat; la barra abre el buscador con Bigotes. Bigotes de cuerpo entero vive en
+ * la Home sin reordenarla: saluda, acompaña el pasaporte y el plan del día, y al tocarlo invita a una vertical nueva.
  */
 export default function LiveHomeFeed({ push }) {
   const toast = useToast()
@@ -52,23 +52,14 @@ export default function LiveHomeFeed({ push }) {
   const reduceMotion = usePrefersReducedMotion()
   const [replays, setReplays] = useState(0)
 
-  // El interés se decide al entrar: si cambiara mientras se mira la Home, los bloques saltarían solos.
-  // `replays` lo recalcula al repetir la escena (para eso se lee el perfil de ese momento).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const interest = useMemo(() => interestFor(profile.top), [replays])
-  const discovery = useMemo(() => discoveryFor(interest), [interest])
-
-  const [order, setOrder] = useState(() => session.order ?? BASE_ORDER)
   const [stamps, setStamps] = useState(loadPassport)
   const [freshStamp, setFreshStamp] = useState(() => session.newStamp)
   const [plan, setPlan] = useState(() => session.plan)
   const [kitAdded, setKitAdded] = useState(null) // plan cuyo kit ya está en el carro
-  const [scene, setScene] = useState('idle') // idle | spotlight | reveal
   const [say, setSay] = useState(null)
   const [target, setTarget] = useState(null) // id del bloque donde se para Bigotes
   const [present, setPresent] = useState(() => session.played) // aún no entra a escena
   const [entering, setEntering] = useState(false)
-  const [sparkle, setSparkle] = useState(false)
   const kit = useMemo(() => (plan ? planKit(plan) : []), [plan])
 
   const screenRef = useRef(null)
@@ -78,7 +69,6 @@ export default function LiveHomeFeed({ push }) {
   const hideTimer = useRef(null)
   const run = useRef(0) // cambia al repetir la escena o al salir: lo que estaba esperando ya no sigue
   const [{ scrolled }, onScroll] = useScrollState()
-  const snapshot = useFlip(blockRefs, order, { focus: 'interest', reduceMotion })
 
   const later = useCallback((ms, fn) => timers.current.push(setTimeout(fn, ms)), [])
   const clearTimers = useCallback(() => {
@@ -126,98 +116,18 @@ export default function LiveHomeFeed({ push }) {
     openItem(item, push)
   }
 
-  const finishScene = useCallback(() => {
-    clearTimers()
-    setScene('idle')
-    setSparkle(false)
-    speak(
-      { text: '¡Listo! Me quedo por aquí, por si te tinca descubrir algo nuevo 😉', mood: 'idle', gesture: 'wave' },
-      'interest',
-      4200,
-    )
-  }, [clearTimers, speak])
-
-  const bringInterestUp = useCallback(async () => {
-    if (session.played) return // el botón y el «sí» automático no lo corren dos veces
-    session.played = true
-    const current = run.current
-    setScene('spotlight')
-    speak(
-      {
-        text: `¡Voy! Tus ${interest.label.toLowerCase()} ${interest.emoji} van primero.`,
-        mood: 'wave',
-        gesture: 'hop',
-      },
-      'interest',
-    )
-    screenRef.current?.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
-    await wait(reduceMotion ? 0 : T.scroll)
-    if (current !== run.current) return
-    snapshot()
-    // La escena solo corre con la Home recién abierta, en su orden de siempre.
-    const next = moveToFront(BASE_ORDER, 'interest', discovery ? 'discovery' : null)
-    session.order = next
-    setOrder(next)
-    await wait(reduceMotion ? 0 : T.land)
-    if (current !== run.current) return
-    setSparkle(true)
-    buzz()
-    bigotesRef.current?.reposition() // el bloque ya aterrizó: Bigotes salta encima
-    if (!discovery) return finishScene()
-    setScene('reveal')
-    // En un celular el bloque nuevo queda bajo la barra inferior: la Home baja lo justo para mostrarlo.
-    const screen = screenRef.current
-    const block = blockRefs.current.get('discovery')
-    if (screen && block && block.offsetTop + 200 > screen.scrollTop + screen.clientHeight - 110)
-      screen.scrollTo({ top: block.offsetTop - screen.clientHeight * 0.45, behavior: reduceMotion ? 'auto' : 'smooth' })
-    speak(
-      {
-        text: `Y para acompañar: ${discovery.label.toLowerCase()} ${discovery.emoji} en ${discovery.verticalName}, donde nunca has pedido. Ábrelo y te llevas un sello.`,
-        mood: 'wave',
-        gesture: 'point',
-        actions: [
-          { label: `Ver ${discovery.verticalName}`, onClick: () => visit(discovery.vertical) },
-          { label: 'Listo', onClick: finishScene },
-        ],
-      },
-      'discovery',
-    )
-    later(T.revealHold, finishScene)
-  }, [discovery, finishScene, interest, later, reduceMotion, snapshot, speak, visit])
-
-  const undo = () => {
-    snapshot()
-    session.order = BASE_ORDER
-    setOrder(BASE_ORDER)
-    speak({ text: 'Hecho, lo dejé como estaba. Igual lo tengo en cuenta 👍', mood: 'idle' }, null, 3500)
-  }
-
-  // Primera vez en la Home: entra, saluda y cuenta lo que notó.
+  // Primera vez en la Home: entra y saluda. No sugiere nada ni mueve la Home.
   useEffect(() => {
     if (session.played) return undefined
     clearTimers()
     later(reduceMotion ? 0 : T.enter, () => {
       setPresent(true)
       setEntering(true)
-      speak(
-        { text: '¡Hola! Ahora vivo en tu Home 👋 La voy a ordenar a tu gusto.', mood: 'wave', gesture: 'greet' },
-        null,
-      )
+      speak({ text: GREETING, mood: 'wave', gesture: 'greet' }, null, T.greetHold)
     })
     later((reduceMotion ? 0 : T.enter) + T.greet, () => {
       setEntering(false)
-      speak(
-        {
-          text: `Noté que te encantan los ${interest.label.toLowerCase()} ${interest.emoji}. ¿Te los traigo arriba?`,
-          mood: 'idle',
-          actions: [
-            { label: '¡Sí, tráelos!', onClick: () => (clearTimers(), bringInterestUp()) },
-            { label: 'Ahora no', onClick: () => (clearTimers(), (session.played = true), speak(null)) },
-          ],
-        },
-        null,
-      )
-      later(T.autoAccept, () => bringInterestUp())
+      session.played = true
     })
     return clearTimers
     // Solo al montar (o al repetir la escena).
@@ -280,7 +190,7 @@ export default function LiveHomeFeed({ push }) {
     if (!element || typeof IntersectionObserver === 'undefined') return undefined
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting || session.planPrompted || !session.played || scene !== 'idle') return
+        if (!entry.isIntersecting || session.planPrompted || !session.played) return
         session.planPrompted = true
         speak(
           {
@@ -296,7 +206,7 @@ export default function LiveHomeFeed({ push }) {
     )
     observer.observe(element)
     return () => observer.disconnect()
-  }, [scene, speak])
+  }, [speak])
 
   // «Repetir la escena» desde fuera del teléfono.
   useEffect(() => {
@@ -307,11 +217,8 @@ export default function LiveHomeFeed({ push }) {
       setFreshStamp(null)
       setPlan(null)
       setKitAdded(null)
-      setScene('idle')
-      setSparkle(false)
       setPresent(false)
       speak(null)
-      setOrder(BASE_ORDER)
       screenRef.current?.scrollTo({ top: 0 })
       setReplays((n) => n + 1)
     }
@@ -348,8 +255,8 @@ export default function LiveHomeFeed({ push }) {
   }
 
   const poke = () => {
-    // Mientras pregunta o mueve bloques, tocarlo no cambia de tema.
-    if (scene !== 'idle' || !session.played) return
+    // Mientras saluda, tocarlo no cambia de tema.
+    if (!session.played) return
     const missing = PASSPORT.find(({ id }) => !stamps.includes(id))
     if (!missing) {
       speak(
@@ -375,10 +282,6 @@ export default function LiveHomeFeed({ push }) {
     )
   }
 
-  const dim = scene !== 'idle'
-  const focused = scene === 'reveal' ? new Set(['interest', 'discovery']) : new Set(['interest'])
-  const dimClass = (id) => (dim && !focused.has(id) ? 'live-dimmable is-dimmed' : 'live-dimmable')
-
   const blocks = {
     essentials: (
       <>
@@ -387,7 +290,7 @@ export default function LiveHomeFeed({ push }) {
       </>
     ),
     passport: <Passport stamps={stamps} fresh={freshStamp} onOpen={(id) => visit(id)} />,
-    promos: <Promos push={push} autoplayMs={dim ? 0 : 4500} />,
+    promos: <Promos push={push} />,
     turbo: <TurboRestaurants push={push} />,
     plan: (
       <PlanBlock
@@ -401,18 +304,6 @@ export default function LiveHomeFeed({ push }) {
       />
     ),
     nearby: <NearbyStores push={push} />,
-    interest: (
-      <InterestBlock
-        interest={interest}
-        promoted={order[0] === 'interest' && scene === 'idle'}
-        sparkle={sparkle}
-        onOpen={openFromBlock}
-        onUndo={undo}
-      />
-    ),
-    discovery: discovery && (
-      <DiscoveryBlock discovery={discovery} stamped={stamps.includes(discovery.vertical)} onOpen={openFromBlock} />
-    ),
     lower: <LowerFees push={push} />,
   }
 
@@ -420,14 +311,14 @@ export default function LiveHomeFeed({ push }) {
     <>
       <div
         ref={screenRef}
-        className={dim ? 'screen home home--live is-dim' : 'screen home home--live'}
+        className="screen home home--live"
         onScroll={(event) => {
           onScroll(event)
           bigotesRef.current?.scrolled()
         }}
         data-top={scrolled ? 'scrolled' : 'top'}
       >
-        <section className={`home-top ${dimClass('top')}`} inert={dim}>
+        <section className="home-top">
           <button type="button" className="home-address tap" onClick={address.openSheet}>
             <span className="home-address-line">{address.selected.line}</span>
             <span className="home-address-label">
@@ -437,23 +328,16 @@ export default function LiveHomeFeed({ push }) {
               </span>
             </span>
           </button>
-          <PlainSearchBar onClick={() => push('search')} />
+          <SmartBar />
           <CreditsBanner credits={CREDITS} onClick={() => push('vertical', { id: 'pharmacy' })} />
         </section>
 
         <div className="live-blocks">
-          {order.map((id) =>
-            blocks[id] ? (
-              <div
-                key={id}
-                ref={setRef(id)}
-                className={`live-block live-block--${id} ${dimClass(id)}${dim && focused.has(id) ? ' is-focus' : ''}`}
-                inert={dim && !focused.has(id)}
-              >
-                {blocks[id]}
-              </div>
-            ) : null,
-          )}
+          {ORDER.map((id) => (
+            <div key={id} ref={setRef(id)} className={`live-block live-block--${id}`}>
+              {blocks[id]}
+            </div>
+          ))}
         </div>
       </div>
 

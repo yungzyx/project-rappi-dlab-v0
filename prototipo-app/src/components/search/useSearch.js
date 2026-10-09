@@ -7,7 +7,7 @@ const SEARCH_SETTLE_MS = 900
 
 /**
  * Búsqueda en vivo en las tiendas y productos del prototipo. La comparten el buscador de «Rappi hoy» y el de
- * Bigotes (Propuesta). `vertical`: la de la pantalla desde la que se abrió (el embudo del panel se mide por vertical).
+ * Bigotes (prototipo final). `vertical`: la de la pantalla desde la que se abrió (el embudo del panel se mide por vertical).
  */
 export function useSearch({ initial = '', vertical } = {}) {
   const [query, setQuery] = useState(initial)

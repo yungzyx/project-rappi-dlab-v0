@@ -21,7 +21,7 @@ export default function HomeScreen({ push, tab, setTab }) {
   const openSearch = useOpenSearch(push)
   return (
     <>
-      {tab === 'home' && (demo.isLive ? <LiveHomeFeed push={push} /> : <HomeFeed push={push} />)}
+      {tab === 'home' && (demo.isFinal ? <LiveHomeFeed push={push} /> : <HomeFeed push={push} />)}
       {tab === 'offers' && <DealsScreen push={push} />}
       {tab === 'favorites' && <FavoritesScreen push={push} />}
       {tab === 'account' && <AccountScreen onBack={() => setTab('home')} push={push} />}
