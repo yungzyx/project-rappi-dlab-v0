@@ -1,0 +1,50 @@
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(22, 22, 22, 0.38);
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  padding: 26px var(--gutter) 30px;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+}
+
+.sheet-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet-backdrop {
+    animation: fade-in var(--duration-normal) var(--ease-out);
+  }
+
+  .sheet {
+    animation: sheet-up var(--duration-normal) var(--ease-out);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}

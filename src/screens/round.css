@@ -1,0 +1,416 @@
+.round {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+.round-top {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 18px;
+}
+
+.round-exit {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+}
+
+.round-progress {
+  height: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.round-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--good);
+  transform-origin: left;
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+
+.round-body {
+  flex: 1;
+}
+
+.step-kicker {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--v);
+  margin-bottom: 12px;
+}
+
+/* ---------- Descubrir: carta que se da vuelta ---------- */
+.flip-card {
+  width: 100%;
+  min-height: 360px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.flip-card.is-back {
+  color: #fff;
+  background: var(--v);
+  box-shadow: 0 8px 0 color-mix(in srgb, var(--v) 70%, #000);
+}
+
+.flip-card.is-back:active {
+  transform: translateY(5px);
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--v) 70%, #000);
+}
+
+.flip-q {
+  font-size: 110px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.flip-hint {
+  font-weight: 800;
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.flip-card.is-front {
+  background: color-mix(in srgb, var(--v) 8%, #fff);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--v) 30%, #fff);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .flip-card.is-front {
+    animation: flip-in 450ms var(--ease-out);
+  }
+}
+
+@keyframes flip-in {
+  from {
+    transform: perspective(700px) rotateY(90deg);
+  }
+}
+
+.flip-emoji {
+  font-size: 84px;
+  line-height: 1.1;
+}
+
+.flip-card h2 {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.flip-fact {
+  font-size: 15px;
+  line-height: 1.45;
+  max-width: 30ch;
+}
+
+.xp-pop {
+  font-weight: 900;
+  color: var(--rappi-red-ink);
+  background: var(--rappi-red-soft);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .xp-pop {
+    animation: xp-pop 500ms var(--ease-out);
+  }
+}
+
+@keyframes xp-pop {
+  from {
+    transform: translateY(10px) scale(0.7);
+    opacity: 0;
+  }
+}
+
+/* ---------- Desafío ---------- */
+.ask-bubble {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.ask-question {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.ask-options {
+  display: grid;
+  gap: 12px;
+}
+
+.ask-option {
+  min-height: 60px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+  font-size: 17px;
+  font-weight: 750;
+  box-shadow:
+    inset 0 0 0 2px var(--line),
+    0 4px 0 var(--line);
+  transition:
+    transform 90ms ease-out,
+    box-shadow 90ms ease-out;
+}
+
+.ask-option:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 0 0 2px var(--v),
+    0 1px 0 var(--line);
+}
+
+.ask-option:disabled {
+  cursor: default;
+  color: var(--ink-3);
+}
+
+.ask-option.is-right {
+  color: var(--good);
+  background: var(--good-soft);
+  box-shadow:
+    inset 0 0 0 2px var(--good),
+    0 4px 0 #b9dfc4;
+}
+
+.ask-option.is-wrong {
+  color: var(--rappi-red-ink);
+  background: var(--bad-soft);
+  box-shadow:
+    inset 0 0 0 2px var(--rappi-red),
+    0 4px 0 #f3c3b7;
+}
+
+/* ---------- Respuesta al instante ---------- */
+.feedback {
+  position: sticky;
+  bottom: 0;
+  margin: 16px calc(-1 * var(--gutter)) 0;
+  padding: 16px var(--gutter) 24px;
+  display: grid;
+  gap: 8px;
+  background: var(--surface);
+}
+
+.feedback.is-good {
+  background: var(--good-soft);
+}
+
+.feedback.is-bad {
+  background: var(--bad-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .feedback {
+    animation: sheet-up var(--duration-normal) var(--ease-out);
+  }
+}
+
+.feedback-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.feedback-head strong {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.feedback.is-good .feedback-head {
+  color: var(--good);
+}
+
+.feedback.is-bad .feedback-head {
+  color: var(--rappi-red-ink);
+}
+
+.feedback-xp {
+  font-weight: 900;
+}
+
+.feedback-answer {
+  font-weight: 800;
+}
+
+.feedback-text {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* ---------- Fin de ronda ---------- */
+.round-end {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 8px;
+  text-align: center;
+  padding-top: 24px;
+}
+
+.round-end h1 {
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.end-stars {
+  display: flex;
+  gap: 6px;
+  color: #d9d9de;
+}
+
+.end-stars .is-on {
+  color: #f2b01e;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .end-stars .is-on {
+    animation: star-pop 500ms var(--ease-out) backwards;
+  }
+  .end-stars .is-on:nth-child(2) {
+    animation-delay: 150ms;
+  }
+  .end-stars .is-on:nth-child(3) {
+    animation-delay: 300ms;
+  }
+}
+
+@keyframes star-pop {
+  from {
+    transform: scale(0.2) rotate(-30deg);
+    opacity: 0;
+  }
+}
+
+.end-xp {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--rappi-red-ink);
+}
+
+.end-hits {
+  font-size: 14px;
+}
+
+.end-levelup {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--v) 9%, #fff);
+  text-align: left;
+  font-weight: 900;
+  color: var(--v);
+}
+
+.end-card {
+  width: 100%;
+  min-height: 110px;
+  margin-top: 6px;
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 18px;
+  color: #fff;
+  background: var(--v-farmacia);
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--v-farmacia) 70%, #000);
+}
+
+.end-card:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--v-farmacia) 70%, #000);
+}
+
+.end-card-q {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.end-card-open {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.end-more {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.end-bonus {
+  font-weight: 900;
+  color: var(--good);
+}
+
+.end-done {
+  margin-top: 14px;
+}
+
+/* Confeti solo en una ronda perfecta: celebra el resultado. */
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti span {
+  position: absolute;
+  top: -20px;
+  left: calc(var(--i) * 5.5%);
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--v);
+  opacity: 0;
+}
+
+.confetti span:nth-child(3n) {
+  background: #f2b01e;
+}
+
+.confetti span:nth-child(3n + 1) {
+  background: var(--rappi-red);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .confetti span {
+    animation: confetti-fall 1.8s ease-in calc(var(--i) * 60ms) 1 forwards;
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(700px) rotate(540deg);
+  }
+}

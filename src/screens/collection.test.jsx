@@ -13,15 +13,13 @@ const stored = () => JSON.parse(localStorage.getItem(KEY))
 const preload = (patch) => localStorage.setItem(KEY, JSON.stringify({ ...initialState(), ...patch }))
 const tab = (name) => fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name }))
 
-describe('mapa con niebla', () => {
-  test('8 verticales y 106 puntos, todos apagados al empezar', () => {
+describe('mapa con niebla (en el pasaporte)', () => {
+  test('106 puntos, todos apagados al empezar, y las 8 verticales', () => {
     render(<App />)
-    tab('Mapa')
+    tab('Pasaporte')
     const map = screen.getByRole('region', { name: 'Mapa de verticales' })
-    for (const v of DATA.order)
-      expect(within(map).getByRole('button', { name: new RegExp(DATA.labels[v]) })).toBeTruthy()
-    const dots = map.querySelectorAll('[data-concept]')
-    expect(dots).toHaveLength(106)
+    for (const v of DATA.order) expect(within(map).getByText(DATA.labels[v])).toBeTruthy()
+    expect(map.querySelectorAll('[data-concept]')).toHaveLength(106)
     expect(map.querySelectorAll('[data-lit="true"]')).toHaveLength(0)
   })
 
@@ -29,18 +27,11 @@ describe('mapa con niebla', () => {
     const id = conceptsOf('turbo')[0].id
     preload({ discovered: { turbo: [id] } })
     render(<App />)
-    tab('Mapa')
+    tab('Pasaporte')
     const lit = screen.getByRole('region', { name: 'Mapa de verticales' }).querySelectorAll('[data-lit="true"]')
     expect(lit).toHaveLength(1)
     expect(lit[0].getAttribute('data-concept')).toBe(id)
     expect(screen.getByText('Descubriste 1 de 106 conceptos')).toBeTruthy()
-  })
-
-  test('tocar una vertical del mapa la abre', () => {
-    render(<App />)
-    tab('Mapa')
-    fireEvent.click(screen.getByRole('button', { name: /Farmacia/ }))
-    expect(screen.getByRole('heading', { level: 1, name: 'Farmacia' })).toBeTruthy()
   })
 })
 
@@ -48,7 +39,7 @@ describe('pasaporte', () => {
   test('muestra los 8 sellos y Conoce Rappi bloqueado', () => {
     render(<App />)
     tab('Pasaporte')
-    const stamps = screen.getAllByRole('button', { name: /Sin sello/ })
+    const stamps = within(screen.getByRole('region', { name: 'Sellos' })).getAllByRole('button', { name: /Sin sello/ })
     expect(stamps).toHaveLength(8)
     expect(screen.getByRole('region', { name: 'Conoce Rappi' }).getAttribute('data-earned')).toBe('false')
   })
@@ -66,7 +57,9 @@ describe('pasaporte', () => {
     preload({ discovered, correct })
     render(<App />)
     tab('Pasaporte')
-    expect(screen.getAllByRole('button', { name: /Conocedor/ })).toHaveLength(8)
+    expect(
+      within(screen.getByRole('region', { name: 'Sellos' })).getAllByRole('button', { name: /Conocedor/ }),
+    ).toHaveLength(8)
     expect(screen.getByRole('region', { name: 'Conoce Rappi' }).getAttribute('data-earned')).toBe('true')
   })
 })

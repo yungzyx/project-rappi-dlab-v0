@@ -34,6 +34,15 @@ Barra inferior con 4 pestañas: Inicio, Mapa, Pasaporte, Álbum.
 
 Ajustes (desde Inicio): «Reiniciar progreso».
 
+### Rediseño de juego (09-10-2026)
+
+Para que sea más simple y se sienta como un juego, las pantallas de arriba se reorganizan sin cambiar las reglas:
+
+- **Jugar** (inicio): camino de las 8 verticales con Bigotes en la de menor avance, barra de juego (nivel, racha, cartas) y cofre de la misión del día. Tocar una parada abre una hoja con su sello y el botón «Jugar».
+- **Ronda** de 5 pasos: hasta 2 conceptos nuevos que se dan vuelta, intercalados con desafíos; respuesta al instante abajo. Fin de ronda con estrellas (3 sin errores, 2 con 60 % o más, 1 con algún acierto), XP, sello nuevo y una carta para abrir.
+- La colección de conceptos de una vertical solo muestra lo descubierto (se descubre jugando). El mapa con niebla pasa al Pasaporte. Barra inferior con 3 pestañas: Jugar, Pasaporte, Álbum.
+- Ya no hay vertical destacada del día: la misión se cumple en cualquier vertical.
+
 ## Reglas del juego
 
 ### Experiencia

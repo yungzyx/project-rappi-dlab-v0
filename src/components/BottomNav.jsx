@@ -1,9 +1,8 @@
-import { BookOpen, House, IdentificationBadge, MapTrifold } from '@phosphor-icons/react'
+import { BookOpen, GameController, IdentificationBadge } from '@phosphor-icons/react'
 import './bottom-nav.css'
 
 const TABS = [
-  { id: 'inicio', label: 'Inicio', Icon: House },
-  { id: 'mapa', label: 'Mapa', Icon: MapTrifold },
+  { id: 'jugar', label: 'Jugar', Icon: GameController },
   { id: 'pasaporte', label: 'Pasaporte', Icon: IdentificationBadge },
   { id: 'album', label: 'Álbum', Icon: BookOpen },
 ]
@@ -19,7 +18,7 @@ export default function BottomNav({ active, onSelect }) {
           aria-current={id === active ? 'page' : undefined}
           onClick={() => onSelect(id)}
         >
-          <Icon size={26} weight={id === active ? 'fill' : 'regular'} aria-hidden="true" />
+          <Icon size={28} weight={id === active ? 'fill' : 'regular'} aria-hidden="true" />
           <span>{label}</span>
         </button>
       ))}

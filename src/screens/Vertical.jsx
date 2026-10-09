@@ -1,34 +1,13 @@
-import { CaretLeft, Question } from '@phosphor-icons/react'
-import Stamp, { LEVEL_NAMES } from '../components/Stamp.jsx'
+import { CaretLeft } from '@phosphor-icons/react'
 import { DATA, conceptsOf } from '../game/data.js'
-import { verticalLevel } from '../game/progress.js'
 import { useGame } from '../state/GameContext.jsx'
 import './vertical.css'
 
-/** Qué falta para el próximo nivel, en una frase. */
-function nextGoal(level, total, found, correct) {
-  const half = Math.ceil(total / 2)
-  if (level === 'experto') return 'Nivel máximo. Ya conoces esta vertical de punta a punta.'
-  if (level === 'conocedor') {
-    return `Para Experto: ${Math.max(0, total - found)} conceptos más y ${Math.max(0, 8 - correct)} desafíos acertados más.`
-  }
-  if (level === 'explorador') {
-    return `Para Conocedor: ${Math.max(0, half - found)} conceptos más y ${Math.max(0, 3 - correct)} desafíos acertados más.`
-  }
-  return 'Descubre tu primer concepto para ganar el sello.'
-}
-
+/** Colección de conceptos de una vertical: los descubiertos abren su ficha; los demás se ganan jugando. */
 export default function Vertical({ vertical, back, go }) {
-  const { state, discover } = useGame()
+  const { state } = useGame()
   const concepts = conceptsOf(vertical)
   const seen = new Set(state.discovered[vertical] ?? [])
-  const correct = state.correct[vertical] ?? 0
-  const level = verticalLevel(state, vertical)
-
-  const open = (concept) => {
-    const { xp } = discover(vertical, concept.id)
-    go('concepto', { vertical, id: concept.id, xp })
-  }
 
   return (
     <div className="screen vertical" style={{ '--v': `var(--v-${vertical})` }}>
@@ -37,35 +16,16 @@ export default function Vertical({ vertical, back, go }) {
           <CaretLeft size={22} aria-hidden="true" />
         </button>
         <h1>{DATA.labels[vertical]}</h1>
-        {vertical === 'licores' && (
-          <span className="age-badge" title="Solo para mayores de 18 años">
-            +18
-          </span>
-        )}
+        {vertical === 'licores' && <span className="age-badge">+18</span>}
       </header>
 
-      <section className="vertical-summary card">
-        <Stamp vertical={vertical} level={level} size={76} />
-        <div>
-          <p className={`vertical-level ${level === 'ninguno' ? 'is-none' : ''}`}>{LEVEL_NAMES[level]}</p>
-          <p className="vertical-counts">
-            {seen.size} de {concepts.length} conceptos · {correct}{' '}
-            {correct === 1 ? 'desafío acertado' : 'desafíos acertados'}
-          </p>
-          <p className="vertical-goal muted">{nextGoal(level, concepts.length, seen.size, correct)}</p>
-        </div>
-      </section>
+      <p className="vertical-count">
+        <strong>
+          {seen.size} de {concepts.length}
+        </strong>{' '}
+        conceptos descubiertos
+      </p>
 
-      <button
-        type="button"
-        className="btn btn-primary btn-block vertical-challenge"
-        onClick={() => go('desafio', { vertical })}
-      >
-        Desafío
-      </button>
-
-      <h2 className="section-title">Conceptos de {DATA.labels[vertical]}</h2>
-      <p className="muted vertical-hint">Toca uno para descubrirlo. Los ordenamos por cuántos productos tienen aquí.</p>
       <ul className="concept-grid">
         {concepts.map((c) => (
           <li key={c.id}>
@@ -74,7 +34,7 @@ export default function Vertical({ vertical, back, go }) {
                 type="button"
                 className="concept-tile is-found"
                 aria-label={`${c.emoji} ${c.name}`}
-                onClick={() => open(c)}
+                onClick={() => go('concepto', { vertical, id: c.id, xp: 0 })}
               >
                 <span className="concept-emoji" aria-hidden="true">
                   {c.emoji}
@@ -84,13 +44,17 @@ export default function Vertical({ vertical, back, go }) {
                 </span>
               </button>
             ) : (
-              <button type="button" className="concept-tile" aria-label="Descubrir un concepto" onClick={() => open(c)}>
-                <Question size={26} weight="bold" aria-hidden="true" />
-              </button>
+              <span className="concept-tile">?</span>
             )}
           </li>
         ))}
       </ul>
+
+      <div className="vertical-play">
+        <button type="button" className="btn-game" onClick={() => go('ronda', { vertical })}>
+          Jugar
+        </button>
+      </div>
     </div>
   )
 }

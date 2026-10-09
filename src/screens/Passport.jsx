@@ -1,10 +1,12 @@
 import { Crown } from '@phosphor-icons/react'
+import MapView from '../components/MapView.jsx'
 import Stamp, { LEVEL_NAMES } from '../components/Stamp.jsx'
 import { DATA } from '../game/data.js'
 import { conoceRappi, verticalLevel } from '../game/progress.js'
 import { useGame } from '../state/GameContext.jsx'
 import './passport.css'
 
+/** Pasaporte: el mapa con niebla, el sello especial y los 8 sellos. */
 export default function Passport({ go }) {
   const { state } = useGame()
   const earned = conoceRappi(state)
@@ -14,6 +16,10 @@ export default function Passport({ go }) {
       <header className="screen-head">
         <h1>Pasaporte</h1>
       </header>
+
+      <div className="card passport-map">
+        <MapView />
+      </div>
 
       <section
         className={`card passport-special ${earned ? 'is-earned' : ''}`}
@@ -31,28 +37,30 @@ export default function Passport({ go }) {
         </div>
       </section>
 
-      <ul className="passport-grid">
-        {DATA.order.map((v) => {
-          const level = verticalLevel(state, v)
-          return (
-            <li key={v}>
-              <button
-                type="button"
-                className="passport-entry"
-                aria-label={`${DATA.labels[v]}: ${LEVEL_NAMES[level]}`}
-                onClick={() => go('vertical', { vertical: v })}
-              >
-                <Stamp vertical={v} level={level} size={68} />
-                <span className="passport-name">
-                  {DATA.labels[v]}
-                  {v === 'licores' && <span className="passport-age">+18</span>}
-                </span>
-                <span className="passport-level muted">{LEVEL_NAMES[level]}</span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+      <section aria-label="Sellos">
+        <ul className="passport-grid">
+          {DATA.order.map((v) => {
+            const level = verticalLevel(state, v)
+            return (
+              <li key={v}>
+                <button
+                  type="button"
+                  className="passport-entry"
+                  aria-label={`${DATA.labels[v]}: ${LEVEL_NAMES[level]}`}
+                  onClick={() => go('coleccion', { vertical: v })}
+                >
+                  <Stamp vertical={v} level={level} size={68} />
+                  <span className="passport-name">
+                    {DATA.labels[v]}
+                    {v === 'licores' && <span className="passport-age">+18</span>}
+                  </span>
+                  <span className="passport-level muted">{LEVEL_NAMES[level]}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
     </div>
   )
 }

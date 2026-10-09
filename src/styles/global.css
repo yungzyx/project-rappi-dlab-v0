@@ -208,3 +208,46 @@ h2.section-title {
   box-shadow: var(--shadow-card);
   padding: 16px;
 }
+
+/* ---------- Botones de juego: gruesos, con sombra inferior que se «hunde» al tocar ---------- */
+.btn-game {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 56px;
+  border-radius: var(--radius);
+  font-weight: 900;
+  font-size: 19px; /* texto grande: blanco sobre el rojo de Rappi cumple 3:1 */
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: var(--btn, var(--rappi-red));
+  box-shadow: 0 5px 0 var(--btn-deep, var(--rappi-red-deep));
+  transition:
+    transform 90ms ease-out,
+    box-shadow 90ms ease-out;
+}
+
+.btn-game:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--btn-deep, var(--rappi-red-deep));
+}
+
+.btn-game.is-good {
+  --btn: var(--good);
+  --btn-deep: #1f6634;
+}
+
+.btn-game.is-bad {
+  --btn: var(--rappi-red);
+}
+
+.btn-ghost {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--radius);
+  font-weight: 800;
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 2px var(--line);
+}

@@ -1,23 +1,21 @@
 import { useState } from 'react'
 import BottomNav from './components/BottomNav.jsx'
 import Album from './screens/Album.jsx'
-import Challenge from './screens/Challenge.jsx'
 import Concept from './screens/Concept.jsx'
-import Home from './screens/Home.jsx'
-import MapScreen from './screens/Map.jsx'
 import Passport from './screens/Passport.jsx'
-import Result from './screens/Result.jsx'
+import Path from './screens/Path.jsx'
+import Round from './screens/Round.jsx'
 import Settings from './screens/Settings.jsx'
 import Vertical from './screens/Vertical.jsx'
 import { GameProvider } from './state/GameContext.jsx'
 import './styles/tokens.css'
 import './styles/global.css'
 
-const TABS = ['inicio', 'mapa', 'pasaporte', 'album']
+const TABS = ['jugar', 'pasaporte', 'album']
 
 /** Navegación con una pila de pantallas: la pestaña es la base y lo demás se apila encima. */
 function Game() {
-  const [stack, setStack] = useState([{ name: 'inicio', params: {} }])
+  const [stack, setStack] = useState([{ name: 'jugar', params: {} }])
   const current = stack.at(-1)
   const tab = stack[0].name
 
@@ -25,13 +23,10 @@ function Game() {
   const replace = (name, params = {}) => setStack((s) => [...s.slice(0, -1), { name, params }])
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s))
   const switchTab = (name) => setStack([{ name, params: {} }])
-  const nav = { go, replace, back, home: () => switchTab('inicio'), switchTab }
+  const nav = { go, replace, back, home: () => switchTab('jugar'), switchTab }
 
   let screen
   switch (current.name) {
-    case 'mapa':
-      screen = <MapScreen {...nav} />
-      break
     case 'pasaporte':
       screen = <Passport {...nav} />
       break
@@ -41,20 +36,17 @@ function Game() {
     case 'ajustes':
       screen = <Settings {...nav} />
       break
-    case 'vertical':
+    case 'coleccion':
       screen = <Vertical {...nav} {...current.params} />
       break
     case 'concepto':
       screen = <Concept {...nav} {...current.params} />
       break
-    case 'desafio':
-      screen = <Challenge {...nav} {...current.params} />
-      break
-    case 'resultado':
-      screen = <Result {...nav} {...current.params} />
+    case 'ronda':
+      screen = <Round {...nav} {...current.params} />
       break
     default:
-      screen = <Home {...nav} />
+      screen = <Path {...nav} />
   }
 
   return (
@@ -64,7 +56,7 @@ function Game() {
           <span>9:41</span>
         </div>
         <main key={stack.length + current.name}>{screen}</main>
-        <BottomNav active={TABS.includes(tab) ? tab : 'inicio'} onSelect={switchTab} />
+        {current.name !== 'ronda' && <BottomNav active={TABS.includes(tab) ? tab : 'jugar'} onSelect={switchTab} />}
       </div>
     </div>
   )

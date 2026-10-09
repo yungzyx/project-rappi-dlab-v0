@@ -1,7 +1,7 @@
-import { ICONS } from '../components/Stamp.jsx'
+import { ICONS } from './Stamp.jsx'
 import { DATA } from '../game/data.js'
 import { useGame } from '../state/GameContext.jsx'
-import './map.css'
+import './map-view.css'
 
 const SIZE = 360
 const C = SIZE / 2
@@ -22,19 +22,12 @@ const DOTS = DATA.order.flatMap((v, i) => {
 })
 
 /** Mapa con niebla: los conceptos se encienden cuando los descubres en cualquier vertical. */
-export default function MapScreen({ go }) {
+export default function MapView() {
   const { state } = useGame()
   const found = new Set(Object.values(state.discovered).flat())
 
   return (
-    <div className="screen map">
-      <header className="screen-head">
-        <h1>Mapa de Rappi</h1>
-      </header>
-      <p className="muted map-intro">
-        Cada punto es un concepto, junto a la vertical donde es más típico. Descúbrelos para encender el mapa.
-      </p>
-
+    <div className="map-view">
       <section className="map-canvas" aria-label="Mapa de verticales">
         <svg viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
           {DATA.order.map((v, i) => (
@@ -59,9 +52,7 @@ export default function MapScreen({ go }) {
                 r={lit ? 5 : 3.2}
                 className={lit ? 'map-dot is-lit' : 'map-dot'}
                 style={lit ? { fill: `var(--v-${d.home})` } : undefined}
-              >
-                <title>{lit ? d.name : 'Por descubrir'}</title>
-              </circle>
+              />
             )
           })}
         </svg>
@@ -69,25 +60,16 @@ export default function MapScreen({ go }) {
           const Icon = ICONS[v]
           const x = ((C + R_VERTICAL * Math.cos(angleOf(i))) / SIZE) * 100
           const y = ((C + R_VERTICAL * Math.sin(angleOf(i))) / SIZE) * 100
-          const n = state.discovered[v]?.length ?? 0
           return (
-            <button
-              key={v}
-              type="button"
-              className="map-vertical"
-              style={{ left: `${x}%`, top: `${y}%`, '--v': `var(--v-${v})` }}
-              aria-label={`${DATA.labels[v]}: ${n} descubiertos`}
-              onClick={() => go('vertical', { vertical: v })}
-            >
+            <span key={v} className="map-vertical" style={{ left: `${x}%`, top: `${y}%`, '--v': `var(--v-${v})` }}>
               <span className="map-vertical-icon">
-                <Icon size={20} weight="fill" aria-hidden="true" />
+                <Icon size={18} weight="fill" aria-hidden="true" />
               </span>
               <span className="map-vertical-label">{DATA.labels[v]}</span>
-            </button>
+            </span>
           )
         })}
       </section>
-
       <p className="map-count">
         Descubriste {found.size} de {DATA.concepts.length} conceptos
       </p>

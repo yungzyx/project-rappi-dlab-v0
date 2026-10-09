@@ -4,13 +4,11 @@ Prototipo de prueba, independiente y no afiliado a Rappi: un juego para celular 
 
 ## Cómo se juega
 
-- **Inicio**: tu nivel de explorador, la racha y la misión del día (descubrir 2 conceptos, acertar 1 desafío, abrir 1 carta; +50 XP). Una vertical destacada por día, la misma para todos.
-- **Vertical**: su sello y nivel (Explorador, Conocedor, Experto), sus conceptos por descubrir y el botón «Desafío».
-- **Ficha de concepto**: en cuántas verticales está, con qué combina y qué lo reemplaza (el grafo de conceptos del proyecto).
-- **Desafíos** de 4 opciones: lo típico de la vertical, arma el combo, qué lo reemplaza, la pareja imposible, el producto puente y trivia. Errar también enseña: muestra la regla real.
-- **Mapa con niebla**: cada concepto se enciende al descubrirlo, junto a la vertical donde es más típico.
-- **Pasaporte**: los 8 sellos y el sello especial «Conoce Rappi» (las 8 en Conocedor).
-- **Álbum**: las cartas «¿Sabías que…?» que vas desbloqueando con cada desafío.
+- **Jugar**: un camino con las 8 verticales. Bigotes marca dónde seguir. Arriba, la barra de juego (nivel, racha, cartas) y el cofre de la misión del día (2 conceptos, 1 acierto, 1 carta: +50 XP).
+- **Una ronda** son 5 pasos: dar vuelta conceptos nuevos y responder desafíos de 4 opciones, con la respuesta al instante (también enseña al errar). Al final: estrellas, XP, sello nuevo si subes de nivel y una carta para abrir. Una ronda alcanza para la misión del día.
+- **Desafíos**: lo típico de la vertical, arma el combo, qué ofrece Bigotes si falta algo, la pareja imposible, dónde no está un producto y trivia.
+- **Pasaporte**: el mapa con niebla (cada concepto se enciende al descubrirlo), el sello especial «Conoce Rappi» y los 8 sellos (Explorador, Conocedor, Experto); cada sello abre la colección de conceptos de su vertical.
+- **Álbum**: las cartas «¿Sabías que…?» que vas ganando.
 
 | Acción | XP |
 |---|---|
@@ -39,6 +37,6 @@ npm run build   # dist/juego-verticales.html, un solo archivo que abre sin inter
 ## Pruebas
 
 - Lógica (`src/game/`): cada desafío posible se comprueba contra los datos crudos (1 respuesta verdadera, 3 falsas, sin repetir); cada número de las cartas se recalcula; niveles, XP y racha (cambio de mes y de año, fecha local); progreso guardado roto o sin almacenamiento.
-- Pantallas (`src/screens/`): descubrir, acertar y errar, subir de sello, mapa, pasaporte, álbum y reinicio.
+- Pantallas (`src/screens/`): camino, ronda (descubrir, acertar, errar, salir a mitad), fin de ronda (estrellas, carta, sello, misión), pasaporte con mapa, álbum y reinicio.
 
 Diseño: [docs/especificacion.md](docs/especificacion.md) · plan: [docs/plan-implementacion.md](docs/plan-implementacion.md).

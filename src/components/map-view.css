@@ -1,14 +1,8 @@
-.map-intro {
-  font-size: 14px;
-  line-height: 1.45;
-  margin-top: -4px;
-}
-
 .map-canvas {
   position: relative;
   width: 100%;
   aspect-ratio: 1;
-  margin: 18px 0 6px;
+  margin: 4px 0 6px;
 }
 
 .map-canvas svg {
@@ -49,8 +43,8 @@
 }
 
 .map-vertical-icon {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: grid;
   place-items: center;

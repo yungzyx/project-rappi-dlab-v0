@@ -1,0 +1,242 @@
+.path {
+  background: linear-gradient(180deg, #fff 0%, #fff6f2 40%, #fff 100%);
+}
+
+/* ---------- Cofre de la misión del día ---------- */
+.chest {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow:
+    inset 0 0 0 2px #f6dfb4,
+    0 4px 0 #f1d39b;
+}
+
+.chest-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: #e8a317;
+  box-shadow: 0 3px 0 #b77d0a;
+}
+
+.chest.is-open .chest-icon {
+  background: var(--good);
+  box-shadow: 0 3px 0 #1f6634;
+}
+
+.chest-title {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.chest-count {
+  color: #a8700a;
+  margin-left: 4px;
+}
+
+.chest-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.chest-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  color: var(--ink-2);
+}
+
+.chest-steps li.is-done {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.chest-prize {
+  font-weight: 900;
+  color: #a8700a;
+}
+
+.chest.is-open .chest-prize {
+  color: var(--good);
+}
+
+/* ---------- Camino ---------- */
+.path-track {
+  position: relative;
+  margin-top: 26px;
+}
+
+.path-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.path-line polyline {
+  fill: none;
+  stroke: #f1d5cb;
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2 20;
+}
+
+.path-stop {
+  position: absolute;
+  left: 50%;
+  transform: translateX(calc(-50% + var(--x)));
+  display: grid;
+  justify-items: center;
+  width: 110px;
+}
+
+.path-node {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--v);
+  box-shadow:
+    0 7px 0 color-mix(in srgb, var(--v) 70%, #000),
+    inset 0 -6px 0 color-mix(in srgb, var(--v) 85%, #000);
+  transition:
+    transform 90ms ease-out,
+    box-shadow 90ms ease-out;
+}
+
+.path-node:active {
+  transform: translateY(5px);
+  box-shadow:
+    0 2px 0 color-mix(in srgb, var(--v) 70%, #000),
+    inset 0 -6px 0 color-mix(in srgb, var(--v) 85%, #000);
+}
+
+.path-node.is-here {
+  outline: 5px solid color-mix(in srgb, var(--v) 25%, #fff);
+  outline-offset: 5px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .path-node.is-here {
+    animation: node-bounce 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes node-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.path-stars {
+  display: flex;
+  gap: 1px;
+  margin-top: 10px;
+  color: #e3a008;
+}
+
+.path-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.path-here {
+  position: absolute;
+  top: 6px;
+  display: grid;
+  justify-items: center;
+  pointer-events: none;
+}
+
+.path-here.is-right {
+  left: 100%;
+}
+
+.path-here.is-left {
+  right: 100%;
+}
+
+.path-here span {
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--rappi-red-ink);
+  background: var(--surface);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  box-shadow: var(--shadow-card);
+}
+
+/* ---------- Hoja de vertical ---------- */
+.vsheet {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.vsheet-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.vsheet-level {
+  font-weight: 800;
+  color: var(--v);
+}
+
+.vsheet-level.is-none {
+  color: var(--ink-3);
+}
+
+.vsheet-stats {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vsheet-goal {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.vsheet .btn-ghost {
+  margin-top: 6px;
+}
+
+.age-badge {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--v-licores);
+  border: 2px solid var(--v-licores);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}

@@ -6,7 +6,6 @@ import {
   conoceRappi,
   currentStreak,
   dailyProgress,
-  dailyVertical,
   discover,
   explorerLevel,
   initialState,
@@ -166,11 +165,6 @@ describe('cartas', () => {
 })
 
 describe('ayudas', () => {
-  test('la vertical del día es estable y válida', () => {
-    expect(dailyVertical(D)).toBe(dailyVertical(D))
-    expect(DATA.order).toContain(dailyVertical(D))
-  })
-
   test('seguir explorando lleva a la vertical con menos avance', () => {
     let s = initialState()
     for (const v of DATA.order.filter((x) => x !== 'farmacia')) s = play(s, v, { discovered: 1 })

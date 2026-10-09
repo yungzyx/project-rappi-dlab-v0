@@ -1,6 +1,5 @@
 import { DATA, conceptsOf } from './data.js'
 import { factsOf } from './facts.js'
-import { pickOne, rng } from './rng.js'
 
 export const XP = { discover: 10, correct: 20, wrong: 5, daily: 50 }
 const DAILY_GOAL = { discovered: 2, correct: 1, opened: 1 }
@@ -122,11 +121,6 @@ export function conoceRappi(state) {
 export function currentStreak(state, date) {
   const { count, lastDate } = state.streak
   return lastDate === date || lastDate === previousDay(date) ? count : 0
-}
-
-/** Vertical destacada del día: la misma para todos esa fecha. */
-export function dailyVertical(date) {
-  return pickOne(rng(`dia|${date}`), DATA.order)
 }
 
 /** La vertical con menos avance (conceptos descubiertos sobre el total); empate, la primera del mapa. */

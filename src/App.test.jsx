@@ -5,7 +5,7 @@ import App from './App.jsx'
 
 afterEach(cleanup)
 
-test('muestra el nombre del juego', () => {
+test('abre en el camino de verticales', () => {
   render(<App />)
-  expect(screen.getByText('Juego de verticales')).toBeTruthy()
+  expect(screen.getByRole('region', { name: 'Camino de verticales' })).toBeTruthy()
 })

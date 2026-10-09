@@ -1,48 +1,11 @@
-.age-badge {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--v-licores);
-  border: 2px solid var(--v-licores);
-  border-radius: var(--radius-pill);
-  padding: 3px 9px;
+.vertical-count {
+  font-size: 15px;
+  margin: -4px 0 14px;
+  color: var(--ink-2);
 }
 
-.vertical-summary {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 16px;
-  align-items: center;
-}
-
-.vertical-level {
-  font-size: 20px;
-  font-weight: 800;
+.vertical-count strong {
   color: var(--v);
-}
-
-.vertical-level.is-none {
-  color: var(--ink-3);
-}
-
-.vertical-counts {
-  font-size: 14px;
-  font-weight: 600;
-  margin-top: 2px;
-}
-
-.vertical-goal {
-  font-size: 13px;
-  line-height: 1.4;
-  margin-top: 6px;
-}
-
-.vertical-challenge {
-  margin-top: 14px;
-}
-
-.vertical-hint {
-  font-size: 13px;
-  margin: -4px 0 12px;
 }
 
 .concept-grid {
@@ -62,18 +25,21 @@
   gap: 4px;
   padding: 6px;
   background: var(--surface-muted);
-  color: #b9b9c0;
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-
-.concept-tile:active {
-  transform: scale(0.96);
+  color: #c4c4cb;
+  font-size: 26px;
+  font-weight: 900;
 }
 
 .concept-tile.is-found {
   background: color-mix(in srgb, var(--v) 10%, #fff);
   color: var(--ink);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--v) 35%, #fff);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--v) 35%, #fff),
+    0 3px 0 color-mix(in srgb, var(--v) 25%, #fff);
+}
+
+.concept-tile.is-found:active {
+  transform: translateY(2px);
 }
 
 .concept-emoji {
@@ -83,11 +49,18 @@
 
 .concept-name {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.15;
   text-align: center;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.vertical-play {
+  position: sticky;
+  bottom: 0;
+  padding: 16px 0 8px;
+  background: linear-gradient(transparent, var(--surface) 30%);
 }
