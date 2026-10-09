@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import PlainSearchBar from '../../../components/PlainSearchBar'
+import SmartBar from '../../../components/assistant/SmartBar'
 import { useToast } from '../../../components/Toast'
 import { ChevronDown } from '../../../components/Icons'
 import { TAGS, tagsOf } from '../../../assistant/tags'
@@ -41,7 +41,7 @@ function usePrefersReducedMotion() {
 }
 
 /**
- * Tercer prototipo («Bigotes vivo»): sin ícono de chat. Bigotes de cuerpo entero vive en la Home, se da cuenta de lo
+ * Home del prototipo final: sin ícono de chat; la barra abre el buscador con Bigotes. Bigotes de cuerpo entero vive en la Home, se da cuenta de lo
  * que le gusta a la persona, sube ese bloque al primer lugar oscureciendo lo demás y le invita a verticales nuevas.
  */
 export default function LiveHomeFeed({ push }) {
@@ -437,7 +437,7 @@ export default function LiveHomeFeed({ push }) {
               </span>
             </span>
           </button>
-          <PlainSearchBar onClick={() => push('search')} />
+          <SmartBar />
           <CreditsBanner credits={CREDITS} onClick={() => push('vertical', { id: 'pharmacy' })} />
         </section>
 

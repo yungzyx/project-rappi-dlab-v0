@@ -16,7 +16,7 @@ import {
 } from '../../data/home'
 import './home.css'
 
-// Secciones de la Home que comparten «Rappi hoy», la Propuesta y «Bigotes vivo».
+// Secciones de la Home que comparten «Rappi hoy» y el prototipo final.
 
 /** Restaurantes y Turbo. */
 export function MainTiles({ push }) {
@@ -37,7 +37,7 @@ export function MainTiles({ push }) {
   )
 }
 
-/** Fila de verticales. `proposal`: RappiFavor (no disponible hoy) sí abre, como en la Propuesta y en «Bigotes vivo». */
+/** Fila de verticales. `proposal`: RappiFavor (no disponible hoy) sí abre, como en el prototipo final. */
 export function Shortcuts({ push, proposal = false }) {
   const toast = useToast()
   return (

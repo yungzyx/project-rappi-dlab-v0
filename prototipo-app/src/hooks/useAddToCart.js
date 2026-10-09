@@ -5,9 +5,7 @@ import { rememberAdded } from '../state/liveMemory'
 import { useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
 import { WEIGHTS, useProfile } from '../state/ProfileContext'
-import { useAssistant } from '../state/AssistantContext'
 import { useDemo } from '../state/DemoContext'
-import { useNudge } from '../state/NudgeContext'
 
 // Sugerencias ya aceptadas, por generación del perfil (generación|concepto|vertical|origen): una vez por pestaña, como
 // se cuenta la mostrada (firstShowing), así las aceptadas nunca superan a las mostradas, ni con un carro nuevo tras un
@@ -15,15 +13,13 @@ import { useNudge } from '../state/NudgeContext'
 const accepted = new Set()
 
 /**
- * Agregar y quitar una unidad del carrito con todo lo que eso implica (perfil, eventos, aviso de Bigotes).
+ * Agregar y quitar una unidad del carrito con todo lo que eso implica (perfil, eventos, memoria de Bigotes).
  * Lo usan el botón "+" de los productos y la hoja de producto.
  */
 export function useAddToCart() {
   const cart = useCart()
   const profile = useProfile()
   const demo = useDemo()
-  const nudge = useNudge()
-  const assistant = useAssistant()
   const events = useEvents()
   const cartEvent = (type, item) => events.track(type, cartEventFields(item, cart.id))
 
@@ -45,10 +41,8 @@ export function useAddToCart() {
         events.track('suggestion_shown', fields)
       events.track('suggestion_accepted', fields)
     }
-    // En «Bigotes vivo» no hay aviso ni chat: Bigotes lo comenta al volver a la Home.
-    if (demo.isLive) rememberAdded(item)
-    // Dentro del chat Bigotes ya está recomendando: el aviso solo sale fuera.
-    else if (demo.isProposal && !assistant.isOpen) nudge.offer(item)
+    // En el prototipo final no hay aviso: Bigotes lo comenta al volver a la Home.
+    if (demo.isFinal) rememberAdded(item)
   }
 
   const remove = (item) => {

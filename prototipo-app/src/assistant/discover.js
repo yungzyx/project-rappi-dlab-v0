@@ -1,4 +1,4 @@
-// «Descubre con Bigotes» (buscador de la Propuesta): cruza lo que le gusta a la persona con verticales que aún no
+// «Descubre con Bigotes» (buscador con Bigotes): cruza lo que le gusta a la persona con verticales que aún no
 // abre. Todo sale del catálogo del prototipo; un ítem es un producto o una tienda.
 import { VERTICAL_NAMES } from '../data/verticals'
 import { COMPLEMENTS, TAGS, productsForTags, storesForTags } from './tags'

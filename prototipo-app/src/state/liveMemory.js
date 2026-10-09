@@ -1,4 +1,4 @@
-// Memoria del modo «Bigotes vivo» mientras dura la sesión: lo que ya mostró, el orden de la Home y lo último que la
+// Memoria de Bigotes en la Home del prototipo final mientras dura la sesión: lo que ya mostró, el orden de la Home y lo último que la
 // persona agregó al carro (Bigotes lo comenta al volver). El pasaporte de verticales se guarda en el navegador.
 const PASSPORT_KEY = 'rappi-proto-pasaporte'
 
@@ -49,7 +49,7 @@ export function stamp(vertical) {
   return next
 }
 
-/** Lo último agregado al carro en modo vivo (fuera de la Home): Bigotes lo comenta al volver. */
+/** Lo último agregado al carro en el prototipo final (fuera de la Home): Bigotes lo comenta al volver. */
 export function rememberAdded(product) {
   session.lastAdded = product
 }

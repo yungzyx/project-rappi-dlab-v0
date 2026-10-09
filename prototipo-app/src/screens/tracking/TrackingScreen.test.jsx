@@ -31,24 +31,45 @@ afterEach(() => {
   localStorage.clear()
 })
 
+const renderTracking = (reset = vi.fn()) =>
+  render(
+    <DemoProvider>
+      <AssistantProvider>
+        <OrdersProvider>
+          <ToastProvider>
+            <Harness reset={reset} />
+          </ToastProvider>
+        </OrdersProvider>
+      </AssistantProvider>
+    </DemoProvider>,
+  )
+
+const deliver = () => {
+  fireEvent.click(screen.getByText('pedir'))
+  act(() => vi.advanceTimersByTime(21_000))
+}
+
 describe('TrackingScreen', () => {
   test('al entregar aparece «Volver al inicio», que reinicia la pila', () => {
     const reset = vi.fn()
-    render(
-      <DemoProvider>
-        <AssistantProvider>
-          <OrdersProvider>
-            <ToastProvider>
-              <Harness reset={reset} />
-            </ToastProvider>
-          </OrdersProvider>
-        </AssistantProvider>
-      </DemoProvider>,
-    )
+    renderTracking(reset)
     fireEvent.click(screen.getByText('pedir'))
     expect(screen.queryByText('Volver al inicio')).toBeNull()
     act(() => vi.advanceTimersByTime(21_000))
     fireEvent.click(screen.getByText('Volver al inicio'))
     expect(reset).toHaveBeenCalled()
+  })
+
+  test('en el prototipo final, al entregar Bigotes ofrece armar el próximo pedido', () => {
+    renderTracking()
+    deliver()
+    expect(screen.getByText('Bigotes te arma el próximo pedido')).toBeTruthy()
+  })
+
+  test('en «Rappi hoy», al entregar no hay oferta de Bigotes', () => {
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
+    renderTracking()
+    deliver()
+    expect(screen.queryByText('Bigotes te arma el próximo pedido')).toBeNull()
   })
 })

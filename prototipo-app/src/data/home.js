@@ -35,7 +35,7 @@ export const MAIN_TILES = [
   { id: 'turbo', label: 'Turbo', img: catTurbo, screen: 'turbo' },
 ]
 
-// RappiFavor aparece deshabilitado como en la app (la imagen trae el sello "Unavailable"); en «Propuesta» se habilita
+// RappiFavor aparece deshabilitado como en la app (la imagen trae el sello "Unavailable"); en el prototipo final se habilita
 // con su pantalla (`proposalRoute`).
 // `route` dice a qué pantalla lleva cada acceso (ver HomeFeed).
 export const SHORTCUTS = [

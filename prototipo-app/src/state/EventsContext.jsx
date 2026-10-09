@@ -96,10 +96,10 @@ export function EventsProvider({ children }) {
   const opened = useRef(false)
   // Lotes que ya salieron: "Olvidar" los espera para que no recreen en el servidor lo que se borra.
   const inFlight = useRef(Promise.resolve())
-  const proposal = useRef(demo.isProposal)
+  const proposal = useRef(demo.isFinal)
   useEffect(() => {
-    proposal.current = demo.isProposal
-  }, [demo.isProposal])
+    proposal.current = demo.isFinal
+  }, [demo.isFinal])
 
   const flush = useCallback(async () => {
     if (queue.current.length === 0) return

@@ -12,14 +12,14 @@ cd prototipo-app && npm run dev      # http://localhost:5174
 cd dashboard-empresa && npm run dev  # http://localhost:5175
 ```
 
-1. Abre el prototipo y deja el modo **Propuesta** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy»).
+1. Abre el prototipo y deja el modo **Prototipo final** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy», la app como es hoy).
 2. Abre el panel en otra pestaña y elige la fuente **Prototipo**: ahí aparece lo que se haga en la demo.
 3. Justo antes de presentar, con la API arriba: `cd rappi-ia && make warm`. Pasa por los botones del guion sin registrarlos: en frío la primera respuesta tarda de 2 a 5 s; después, menos de medio segundo. Repetirlo si la API pasó un rato sin uso.
 4. Para empezar sin rastros de pruebas anteriores, toca la barra de la Home («¿Qué se te antoja hoy?») para abrir el buscador con Bigotes y, arriba, en «Aprendiendo de ti», toca **Olvidar**: borra lo aprendido y los eventos del usuario de este navegador, y Bigotes lo confirma («Listo, olvidé lo que aprendí de ti»). El botón solo aparece si Bigotes ya aprendió algo. Lo que se probó desde otros navegadores sigue en la fuente Prototipo.
 
 ## Recorrido
 
-En la Propuesta no se escribe en un chat: la barra de la Home abre el buscador con Bigotes y se toca. El campo de arriba busca tiendas y productos; las ideas de Bigotes están en los botones de «Toca y te armo algo».
+En el prototipo final no se escribe en un chat: la barra de la Home abre el buscador con Bigotes y se toca. (Mientras Bigotes hace su escena en la Home, el resto se oscurece un momento: espera a que termine o toca «Ahora no» antes de usar la barra.) El campo de arriba busca tiendas y productos; las ideas de Bigotes están en los botones de «Toca y te armo algo».
 
 | # | Qué tocar | Qué mostrar | Qué decir |
 |---|---|---|---|
@@ -28,7 +28,6 @@ En la Propuesta no se escribe en un chat: la barra de la Home abre el buscador c
 | 3 | Arriba, «Aprendiendo de ti» ya muestra lo que Bigotes notó, y los botones cambiaron: toca **🍺 Más cerveza** | Cervezas y, aparte, un bloque **«¿Te tinca sumar snacks? Porque llevas 🍺 cerveza»** con productos de otra vertical y su botón «Ver más en …». | Cada toque enseña: las ideas siguientes salen de lo que la persona ya pidió. Lo de otra vertical va aparte, una sola vez y con su razón a la vista. |
 | 4 | Un producto de la respuesta → en la tienda, bajo **«Lo que elegiste»**, tócalo de nuevo. | Se abre la hoja del producto: cantidad, notas para la tienda y el total. **Agregar.** | Lo que Bigotes recomienda se compra con el mismo flujo de la app, sin salir a otra pantalla. |
 | 4b | Volver con la flecha del panel. | El buscador con Bigotes se reabre donde estaba, con la misma respuesta. | Bigotes no es otro canal: es parte del buscador, y se vuelve a él como a cualquier pantalla. |
-| 4c | Sobre la barra del carro aparece el aviso de Bigotes **«¿Te tinca sumar …?»**: tócalo. | Abre el buscador con ese complemento ya buscado. | Una sugerencia por tema por sesión: acompaña, no insiste. |
 | 5 | Abre el carro, revisa y recarga la página. | El carro sigue ahí (se guarda en el navegador). **Checkout** → delivery o retiro, propina y desglose → pagar. | El pedido se confirma; el pago es un texto de ejemplo. |
 | 5b | **Account → Orders** (o «See all» en Recent orders) | **Mis pedidos**: el pedido recién hecho con su seguimiento en curso; al tocarlo, el mapa con Bigotes recorriendo la ruta. | El seguimiento avanza solo, para la demo. |
 | 6 | En el panel: **Entre verticales**, fuente Prototipo. Si el panel ya estaba ahí, toca **Actualizar** (junto a la fecha de corte). | «Bigotes entre verticales»: suben las mostradas, aceptadas y convertidas. | Cada sugerencia queda medida: se ve si se acepta y si termina en compra. |
@@ -38,9 +37,9 @@ En la Propuesta no se escribe en un chat: la barra de la Home abre el buscador c
 
 Con la API, los productos y precios de los pasos 1 a 3 salen del catálogo real y la sugerencia de otra vertical la decide Bigotes en el servidor (con «Respuesta local» si la API no contestó). Los botones **🍫 Algo dulce**, **🎁 Un regalo** y **🔥 Ofertas de hoy**, y el campo de búsqueda (tiendas y productos, con «Recent searches» y «Popular stores» como en la app) quedan para preguntas del público.
 
-### Tercer prototipo: Bigotes vivo (2 minutos, opcional)
+### La Home con Bigotes de cuerpo entero (2 minutos, opcional)
 
-Con la tecla **D** hasta «Bigotes vivo 🧡» (o el botón arriba a la izquierda). Para partir de cero: **↺ Repetir escena**.
+Es lo primero que se ve en el prototipo final. Para partir de cero: **↺ Repetir escena** (junto al interruptor, arriba a la izquierda).
 
 1. Bigotes entra caminando a la Home y dice qué notó («te encantan los chocolates»). Si nadie responde, a los 7 s sube el bloque solo.
 2. El bloque sube bajo el buscador, todo lo demás se oscurece y aparece al lado una vertical nueva (con chocolates, «Copete» en Licores). **Qué decir:** la personalización se ve en la pantalla misma, no en un chat aparte.

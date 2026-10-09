@@ -12,9 +12,10 @@ vi.mock('../../../state/EventsContext', async (importOriginal) => ({
 let HomeScreen
 let Providers
 let memory
+let useAssistant
 beforeEach(async () => {
   vi.resetModules()
-  localStorage.setItem('rappi-proto-demo-mode', 'vivo')
+  localStorage.setItem('rappi-proto-demo-mode', 'final')
   await import('../../../state/EventsContext')
   const demo = await import('../../../state/DemoContext')
   const profile = await import('../../../state/ProfileContext')
@@ -25,6 +26,7 @@ beforeEach(async () => {
   const nudge = await import('../../../state/NudgeContext')
   const orders = await import('../../../state/OrdersContext')
   memory = await import('../../../state/liveMemory')
+  useAssistant = assistant.useAssistant
   HomeScreen = (await import('../HomeScreen')).default
   Providers = function Providers({ children, strict }) {
     const tree = (
@@ -80,12 +82,31 @@ const advance = async (ms) => {
 const blockOrder = (container) =>
   [...container.querySelectorAll('.live-block')].map((block) => block.className.match(/live-block--(\w+)/)[1])
 
-describe('Home con Bigotes vivo', () => {
+describe('Home del prototipo final', () => {
   test('no tiene ícono de chat: Bigotes vive en la Home de cuerpo entero', () => {
     renderHome()
     expect(screen.queryByRole('button', { name: 'Hablar con Bigotes' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Abrir buscador con Bigotes' })).toBeNull()
     expect(screen.getByText('Tu pasaporte Rappi')).toBeTruthy()
+  })
+
+  test('la barra de la Home es el buscador con Bigotes (no el plano) y tocarla lo abre', () => {
+    function Probe() {
+      return <output data-testid="assistant">{useAssistant().isOpen ? 'abierto' : 'cerrado'}</output>
+    }
+    const { container } = render(
+      <Providers>
+        <div className="phone">
+          <div className="screen-wrap">
+            <HomeScreen push={vi.fn()} tab="home" setTab={vi.fn()} />
+          </div>
+        </div>
+        <Probe />
+      </Providers>,
+    )
+    expect(container.querySelector('.search-bar')).toBeNull()
+    expect(screen.getByTestId('assistant').textContent).toBe('cerrado')
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir buscador con Bigotes' }))
+    expect(screen.getByTestId('assistant').textContent).toBe('abierto')
   })
 
   test('nota el interés, sube su bloque al primer lugar con el fondo oscuro y muestra una vertical nueva', async () => {
@@ -190,11 +211,11 @@ describe('Home con Bigotes vivo', () => {
     expect(screen.getByRole('button', { name: /En tu carro · Ir a pagar/ })).toBeTruthy()
   })
 
-  test('en la cuenta, «Repetir escena de Bigotes» aparece solo en este modo', () => {
+  test('en la cuenta, «Repetir escena de Bigotes» aparece solo en el prototipo final', () => {
     renderHome({ tab: 'account' })
     expect(screen.getByRole('button', { name: /Repetir escena de Bigotes/ })).toBeTruthy()
     cleanup()
-    localStorage.setItem('rappi-proto-demo-mode', 'propuesta')
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
     renderHome({ tab: 'account' })
     expect(screen.queryByRole('button', { name: /Repetir escena de Bigotes/ })).toBeNull()
   })

@@ -1,5 +1,5 @@
 /*
- * Buscador con Bigotes (Propuesta). Entra deslizándose desde la derecha, como el buscador de «Rappi hoy»; lo nuevo:
+ * Buscador con Bigotes. Entra deslizándose desde la derecha, como el buscador de «Rappi hoy»; lo nuevo:
  * el borde con degradado de la barra de la Home da una vuelta en el campo, Bigotes aparece saludando y los bloques
  * suben uno tras otro. Todo con transform y opacity: corre en la GPU, sin mover el layout.
  */

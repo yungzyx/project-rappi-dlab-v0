@@ -147,7 +147,7 @@ function Delivered({ order }) {
           ))}
         </div>
       </div>
-      {demo.isProposal && !demo.isLive && next && (
+      {demo.isFinal && next && (
         <button
           type="button"
           className="tracking-next tap"

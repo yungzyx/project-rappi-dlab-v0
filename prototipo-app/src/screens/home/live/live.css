@@ -1,4 +1,4 @@
-/* «Bigotes vivo»: Bigotes de cuerpo entero dentro de la Home, bloques que se reordenan y foco con fondo oscuro. */
+/* Prototipo final: Bigotes de cuerpo entero dentro de la Home, bloques que se reordenan y foco con fondo oscuro. */
 /* La capa de Bigotes es hermana de la Home (no hija): las dos llevan las variables. */
 .home--live,
 .live-layer {
