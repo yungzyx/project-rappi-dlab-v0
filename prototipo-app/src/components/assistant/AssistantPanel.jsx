@@ -425,7 +425,8 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
               )}
 
               <p className="bigotes-picks-label">Toca y te armo algo 👇</p>
-              <div key={chipRound} className="assistant-chips bigotes-picks">
+              {/* Clave con prefijo: un número solo podría coincidir con la del mensaje de arriba (su id) y React lo duplicaría. */}
+              <div key={`chips-${chipRound}`} className="assistant-chips bigotes-picks">
                 {chips.map((chip, i) => (
                   <button
                     key={chip}
