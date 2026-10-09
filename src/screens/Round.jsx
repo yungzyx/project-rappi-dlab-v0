@@ -11,6 +11,8 @@ import { makeRound, roundStars } from '../game/round.js'
 import { useGame } from '../state/GameContext.jsx'
 import './round.css'
 
+const list = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} y ${items.at(-1)}`)
+
 const KIND_TITLES = {
   tipico: 'Lo típico',
   combo: 'Arma el combo',
@@ -45,7 +47,7 @@ function Discover({ concept, outcome, onReveal }) {
             <strong>{DATA.labels[concept.home]}</strong>.
           </p>
           {combos.length > 0 && (
-            <p className="flip-fact">Combina con {combos.map((c) => `${c.emoji} ${c.name}`).join(', ')}.</p>
+            <p className="flip-fact">Combina con {list(combos.map((c) => `${c.emoji} ${c.name}`))}.</p>
           )}
         </div>
       )}
@@ -87,7 +89,7 @@ function Feedback({ step, outcome, onNext }) {
   if (step.type === 'descubrir') {
     return (
       <footer className="feedback">
-        <button type="button" className="btn-game" onClick={onNext}>
+        <button type="button" className="btn-game" onClick={onNext} autoFocus>
           Continuar
         </button>
       </footer>
@@ -103,7 +105,7 @@ function Feedback({ step, outcome, onNext }) {
       </div>
       {!outcome.ok && <p className="feedback-answer">La respuesta era {answer}.</p>}
       <p className="feedback-text">{challenge.explanation}</p>
-      <button type="button" className={`btn-game ${outcome.ok ? 'is-good' : 'is-bad'}`} onClick={onNext}>
+      <button type="button" className={`btn-game ${outcome.ok ? 'is-good' : 'is-bad'}`} onClick={onNext} autoFocus>
         Continuar
       </button>
     </footer>
@@ -259,6 +261,7 @@ export default function Round({ vertical, back }) {
   useEffect(() => {
     if (finished || confirmExit) return undefined
     const onKey = (e) => {
+      if (e.repeat) return
       const go = e.key === 'Enter' || e.key === ' '
       if (outcome && go) {
         e.preventDefault()

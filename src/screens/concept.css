@@ -17,28 +17,6 @@
   letter-spacing: -0.02em;
 }
 
-.xp-pop {
-  margin-top: 6px;
-  font-weight: 800;
-  color: var(--rappi-red-ink);
-  background: var(--rappi-red-soft);
-  border-radius: var(--radius-pill);
-  padding: 4px 12px;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .xp-pop {
-    animation: xp-pop 500ms var(--ease-out);
-  }
-}
-
-@keyframes xp-pop {
-  from {
-    transform: translateY(10px) scale(0.8);
-    opacity: 0;
-  }
-}
-
 .concept-fact {
   font-size: 15px;
   line-height: 1.45;

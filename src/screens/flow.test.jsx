@@ -63,7 +63,7 @@ describe('ronda', () => {
     render(<App />)
     fireEvent.click(
       within(screen.getByRole('region', { name: 'Camino de verticales' })).getByRole('button', {
-        name: 'Turbo: Sin sello',
+        name: /^Turbo: Sin sello/,
       }),
     )
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
@@ -80,7 +80,7 @@ describe('ronda', () => {
     render(<App />)
     fireEvent.click(
       within(screen.getByRole('region', { name: 'Camino de verticales' })).getByRole('button', {
-        name: 'Chocolatería: Explorador',
+        name: /^Chocolatería: Explorador/,
       }),
     )
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
@@ -98,7 +98,7 @@ describe('ronda', () => {
     render(<App />)
     fireEvent.click(
       within(screen.getByRole('region', { name: 'Camino de verticales' })).getByRole('button', {
-        name: 'Súper: Sin sello',
+        name: /^Súper: Sin sello/,
       }),
     )
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))

@@ -71,8 +71,9 @@
 
 .hud-gear {
   color: var(--ink-3);
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
+  margin-right: -6px;
   display: grid;
   place-items: center;
   border-radius: 50%;

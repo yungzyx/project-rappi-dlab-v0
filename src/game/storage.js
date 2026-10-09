@@ -19,7 +19,8 @@ const valid = (s) =>
   s.version === 1 &&
   typeof s.xp === 'number' &&
   ['discovered', 'correct', 'answered'].every((k) => isRecord(s[k])) &&
-  Object.values(s.discovered).every(Array.isArray) &&
+  Object.values(s.discovered).every((ids) => Array.isArray(ids) && ids.every((id) => typeof id === 'string')) &&
+  ['correct', 'answered'].every((k) => Object.values(s[k]).every(Number.isFinite)) &&
   Array.isArray(s.cards) &&
   Array.isArray(s.opened) &&
   optional(s.daily, (d) => isRecord(d) && ['discovered', 'correct', 'opened'].every((k) => typeof d[k] === 'number')) &&

@@ -2,6 +2,7 @@ import { CaretLeft } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { DATA } from '../game/data.js'
 import { useGame } from '../state/GameContext.jsx'
+import './settings.css'
 
 export default function Settings({ back, home }) {
   const { reset } = useGame()
@@ -20,7 +21,7 @@ export default function Settings({ back, home }) {
         <h2 className="section-title">Tu progreso</h2>
         <p className="muted">Se guarda solo en este navegador. Ningún dato sale del dispositivo.</p>
         {confirming ? (
-          <div className="settings-confirm" role="alertdialog" aria-label="Confirmar reinicio">
+          <div className="settings-confirm" role="group" aria-label="Confirmar reinicio">
             <p>Se borran tu nivel, tus sellos y tus cartas. No se puede deshacer.</p>
             <button
               type="button"

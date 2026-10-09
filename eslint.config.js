@@ -24,8 +24,7 @@ export default [
     languageOptions: { globals: { ...globals.node } },
   },
   {
-    // Scripts de Node que además mandan código al navegador (page.evaluate en las capturas).
     files: ['scripts/**/*.mjs'],
-    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+    languageOptions: { globals: { ...globals.node } },
   },
 ]

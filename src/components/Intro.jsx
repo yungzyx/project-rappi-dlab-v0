@@ -16,7 +16,7 @@ export default function Intro({ onStart, onClose }) {
       <div className="intro">
         <Mascot size={96} mood="wave" />
         <h2>¡Hola! Soy Bigotes</h2>
-        <p className="intro-lede">Te muestro todo lo que hay en Rappi, más allá de lo que siempre pides.</p>
+        <p className="intro-lede">Te muestro todo lo que hay en Rappi, más allá de lo que ya conoces.</p>
         <ul className="intro-points">
           {POINTS.map(({ Icon, text }) => (
             <li key={text}>

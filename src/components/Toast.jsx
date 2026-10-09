@@ -25,7 +25,7 @@ export default function Toast({ event, onClose }) {
 
   const { Icon, title, text } = content(event)
   return (
-    <div className={`toast toast--${event.type}`} role="status" aria-label="Aviso" onClick={onClose}>
+    <button type="button" className={`toast toast--${event.type}`} role="status" aria-label="Aviso" onClick={onClose}>
       <span className="toast-icon">
         <Icon size={26} weight="fill" aria-hidden="true" />
       </span>
@@ -33,6 +33,6 @@ export default function Toast({ event, onClose }) {
         <strong>{title}</strong>
         <span>{text}</span>
       </span>
-    </div>
+    </button>
   )
 }

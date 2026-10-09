@@ -95,6 +95,15 @@ describe('desafíos', () => {
     expect(answers.size).toBeGreaterThanOrEqual(2)
   })
 
+  test('producto puente nunca pregunta por Restaurantes (es obvio que no vende Red Bull)', () => {
+    for (const v of DATA.order) {
+      for (let s = 0; s < 200; s++) {
+        const ch = makeChallenge(v, String(s))
+        if (ch.kind === 'puente') expect(ch.options.map((o) => o.id)).not.toContain('restaurantes')
+      }
+    }
+  })
+
   test('el texto usa formas neutras y no habla de pedir', () => {
     for (const v of DATA.order) {
       for (let s = 0; s < 200; s++) {

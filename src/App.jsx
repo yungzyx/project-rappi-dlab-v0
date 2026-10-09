@@ -25,10 +25,9 @@ function Game() {
   const tab = stack[0].name
 
   const go = (name, params = {}) => setStack((s) => [...s, { name, params }])
-  const replace = (name, params = {}) => setStack((s) => [...s.slice(0, -1), { name, params }])
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s))
   const switchTab = (name) => setStack([{ name, params: {} }])
-  const nav = { go, replace, back, home: () => switchTab('jugar'), switchTab }
+  const nav = { go, back, home: () => switchTab('jugar'), switchTab }
 
   const unread = game.state.cards.filter((id) => !game.state.opened.includes(id)).length
 

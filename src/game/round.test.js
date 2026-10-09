@@ -46,6 +46,13 @@ describe('ronda', () => {
     }
   })
 
+  test('toda ronda tiene al menos un desafío', () => {
+    for (const v of DATA.order) {
+      const state = { ...initialState(), discovered: { [v]: conceptsOf(v).map((c) => c.id) }, answered: { [v]: 500 } }
+      expect(makeRound(state, v).filter((s) => s.type === 'desafio').length).toBeGreaterThanOrEqual(1)
+    }
+  })
+
   test('las estrellas dependen de los aciertos', () => {
     expect(roundStars(3, 3)).toBe(3)
     expect(roundStars(2, 3)).toBe(2)

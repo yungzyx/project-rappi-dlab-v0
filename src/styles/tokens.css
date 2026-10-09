@@ -6,7 +6,6 @@
   --surface: #ffffff;
   --surface-muted: #f4f4f4;
   --chip: #edeff3;
-  --tile: #f7f8f8;
   --line: #e9e9ec;
 
   --rappi-red: #db492a;
@@ -14,10 +13,9 @@
   --rappi-red-soft: #fdeee9;
   --rappi-red-deep: #a8341a; /* sombra inferior de los botones de juego */
   --good: #2f8a48;
+  --good-ink: #1f6634; /* texto verde sobre verde claro: 5,2:1 */
   --good-soft: #e6f5ea;
   --bad-soft: #fdeceb;
-  --yellow: #f6dd52;
-  --turbo-green: #478d66;
 
   /* Un tono por vertical (sellos, puntos del mapa). Todos con 4,5:1 o más sobre blanco para texto pequeño. */
   --v-supermercado: #2f7d4a;

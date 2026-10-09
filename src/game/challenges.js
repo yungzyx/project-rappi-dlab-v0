@@ -91,12 +91,14 @@ const GENERATORS = {
     make(v, r) {
       const [product, verticals] = pickOne(r, bridgesOf(v))
       const asOption = (x) => ({ id: x, label: label(x) })
-      const missing = DATA.order.filter((x) => !verticals.includes(x))
+      // Restaurantes queda fuera: que un energizante no se venda en un restaurante es obvio, no un dato.
+      const pool = verticals.filter((x) => x !== 'restaurantes')
+      const missing = DATA.order.filter((x) => x !== 'restaurantes' && !verticals.includes(x))
       return {
         anchor: product,
-        question: `${product} está en ${verticals.length} verticales. ¿En cuál de estas no está?`,
+        question: `${product} está en ${pool.length} verticales de productos. ¿En cuál de estas no está?`,
         correct: asOption(pickOne(r, missing)),
-        distractors: sample(r, verticals, 3).map(asOption),
+        distractors: sample(r, pool, 3).map(asOption),
         explanation: `${product} está en ${list(verticals.map(label))}.`,
       }
     },

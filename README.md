@@ -39,4 +39,4 @@ npm run build   # dist/juego-verticales.html, un solo archivo que abre sin inter
 - Lógica (`src/game/`): cada desafío posible se comprueba contra los datos crudos (1 respuesta verdadera, 3 falsas, sin repetir); cada número de las cartas se recalcula; niveles, XP y racha (cambio de mes y de año, fecha local); progreso guardado roto o sin almacenamiento.
 - Pantallas (`src/screens/`): camino, ronda (descubrir, acertar, errar, salir a mitad), fin de ronda (estrellas, carta, sello, misión), pasaporte con mapa, álbum y reinicio.
 
-Diseño: [docs/especificacion.md](docs/especificacion.md) · plan: [docs/plan-implementacion.md](docs/plan-implementacion.md).
+Diseño: [docs/especificacion.md](docs/especificacion.md). El plan original ([docs/plan-implementacion.md](docs/plan-implementacion.md)) es anterior al rediseño del 09-10 y queda como histórico.

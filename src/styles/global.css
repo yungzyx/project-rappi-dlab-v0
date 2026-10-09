@@ -27,6 +27,10 @@ button {
   border: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  /* Sin zoom por doble toque ni menú de selección al mantener: se siente como app nativa. */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 button:focus-visible {
@@ -68,6 +72,10 @@ svg {
 
   .stage {
     display: block;
+  }
+
+  :root {
+    --nav-height: calc(58px + max(18px, env(safe-area-inset-bottom)));
   }
 
   .phone {

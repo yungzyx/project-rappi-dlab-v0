@@ -34,7 +34,7 @@ export default function Vertical({ vertical, back, go }) {
                 type="button"
                 className="concept-tile is-found"
                 aria-label={`${c.emoji} ${c.name}`}
-                onClick={() => go('concepto', { vertical, id: c.id, xp: 0 })}
+                onClick={() => go('concepto', { vertical, id: c.id })}
               >
                 <span className="concept-emoji" aria-hidden="true">
                   {c.emoji}

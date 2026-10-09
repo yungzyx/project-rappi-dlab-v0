@@ -23,7 +23,7 @@ describe('camino', () => {
     expect(steps).toHaveLength(3)
     for (const s of steps) expect(s.getAttribute('data-done')).toBe('false')
     for (const v of DATA.order) {
-      expect(within(path()).getByRole('button', { name: `${DATA.labels[v]}: Sin sello` })).toBeTruthy()
+      expect(within(path()).getByRole('button', { name: new RegExp(`^${DATA.labels[v]}: Sin sello`) })).toBeTruthy()
     }
   })
 
@@ -47,7 +47,7 @@ describe('camino', () => {
 
   test('tocar una parada abre su ficha con «Jugar»', () => {
     render(<App />)
-    fireEvent.click(within(path()).getByRole('button', { name: 'Licores: Sin sello' }))
+    fireEvent.click(within(path()).getByRole('button', { name: /^Licores: Sin sello/ }))
     const sheet = screen.getByRole('dialog', { name: 'Licores' })
     expect(within(sheet).getByText('+18')).toBeTruthy()
     expect(within(sheet).getByRole('button', { name: 'Jugar' })).toBeTruthy()
@@ -59,7 +59,7 @@ describe('camino', () => {
     const first = conceptsOf('turbo')[0]
     preload({ discovered: { turbo: [first.id] } })
     render(<App />)
-    fireEvent.click(within(path()).getByRole('button', { name: 'Turbo: Explorador' }))
+    fireEvent.click(within(path()).getByRole('button', { name: /^Turbo: Explorador/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Ver conceptos' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Turbo' })).toBeTruthy()
     expect(screen.getAllByText('?').length).toBe(conceptsOf('turbo').length - 1)

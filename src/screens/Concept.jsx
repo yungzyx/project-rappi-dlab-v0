@@ -22,7 +22,7 @@ function ConceptChips({ title, ids }) {
 }
 
 /** Ficha de un concepto: dónde está y con qué se relaciona en el grafo. */
-export default function Concept({ vertical, id, xp, back }) {
+export default function Concept({ vertical, id, back }) {
   const c = conceptById(id)
   const rel = related(id)
   const where = DATA.order.filter((v) => belongs(c, v))
@@ -43,7 +43,6 @@ export default function Concept({ vertical, id, xp, back }) {
         </span>
         <h1>{c.name}</h1>
         <p className="muted">{c.group}</p>
-        {xp > 0 && <p className="xp-pop">+{xp} XP</p>}
       </div>
 
       <p className="concept-fact card">

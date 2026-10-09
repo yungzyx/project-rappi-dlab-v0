@@ -7,13 +7,20 @@ export default function Hud({ xp, streak, cards, onSettings }) {
   const inLevel = xp % 100
   return (
     <header className="hud">
-      <div className="hud-level" aria-label={`Nivel ${explorerLevel(xp)}, ${xp} XP`}>
+      <div className="hud-level">
         <span className="hud-level-badge" aria-hidden="true">
           {explorerLevel(xp)}
         </span>
         <div className="hud-level-body">
           <span className="hud-level-name">Nivel {explorerLevel(xp)}</span>
-          <span className="hud-level-bar" aria-hidden="true">
+          <span
+            className="hud-level-bar"
+            role="progressbar"
+            aria-label="Experiencia del nivel"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={inLevel}
+          >
             <span style={{ transform: `scaleX(${inLevel / 100})` }} />
           </span>
         </div>

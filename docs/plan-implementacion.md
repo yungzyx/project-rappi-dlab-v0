@@ -1,5 +1,7 @@
 # Juego de verticales: plan de implementación
 
+> **Histórico.** Este plan guió la primera versión (08-10-2026). El 09-10 las pantallas se rediseñaron como juego (camino, rondas, 3 pestañas): la fuente vigente es `docs/especificacion.md`, sección «Rediseño de juego».
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Un prototipo React para celular que convierte el mapa multivertical en un juego de misiones, sellos por vertical y cartas «¿Sabías que…?», entregado también como un solo HTML.

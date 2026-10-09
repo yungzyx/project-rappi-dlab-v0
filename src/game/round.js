@@ -27,6 +27,8 @@ export function makeRound(state, vertical) {
   }
 
   // Descubrir, desafío, descubrir, desafío...: así la ronda empieza fácil y alterna.
+  if (!challenges.length) challenges.push(makeChallenge(vertical, String(base)))
+
   const steps = []
   const pending = [...fresh]
   for (const challenge of challenges) {

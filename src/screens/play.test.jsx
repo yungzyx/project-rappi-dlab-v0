@@ -20,7 +20,7 @@ const preload = seed
 function startRound(vertical, level = 'Sin sello') {
   render(<App />)
   const path = screen.getByRole('region', { name: 'Camino de verticales' })
-  fireEvent.click(within(path).getByRole('button', { name: `${DATA.labels[vertical]}: ${level}` }))
+  fireEvent.click(within(path).getByRole('button', { name: new RegExp(`^${DATA.labels[vertical]}: ${level}`) }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
 }
 

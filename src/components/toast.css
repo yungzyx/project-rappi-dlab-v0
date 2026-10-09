@@ -13,6 +13,7 @@
   background: var(--ink);
   color: #fff;
   box-shadow: 0 10px 30px rgba(30, 15, 10, 0.25);
+  text-align: left;
   cursor: pointer;
 }
 
