@@ -7,6 +7,7 @@ import { initialState, today } from '../../game/progress.js'
 import { makeRound } from '../../game/round.js'
 import { seed, stored } from '../../game/testSeed.js'
 import { routeForScreen } from '../../data/verticals'
+import { REPLAY_EVENT } from '../../state/liveMemory'
 
 beforeEach(() => localStorage.clear())
 afterEach(() => {
@@ -182,5 +183,31 @@ describe('dentro del prototipo', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Abrir Turbo' }))
     expect(push).toHaveBeenCalledWith(...routeForScreen('turbo'))
     expect(stored().visited).toContain('turbo')
+  })
+
+  test('«Repetir escena» con una ronda a medias la empieza de nuevo', () => {
+    seed()
+    render(<App params={{ round: 'turbo' }} />)
+    const bar = () => screen.getByRole('progressbar', { name: 'Avance de la ronda' })
+    fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
+    expect(bar().getAttribute('aria-valuenow')).toBe('1')
+    act(() => window.dispatchEvent(new Event(REPLAY_EVENT)))
+    expect(bar().getAttribute('aria-valuenow')).toBe('0')
+    expect(stored()?.xp ?? 0).toBe(0)
+  })
+
+  test('«Repetir escena» devuelve el juego a su pantalla de entrada', () => {
+    seed()
+    render(<App params={{ tab: 'jugar' }} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Álbum/ }))
+    act(() => window.dispatchEvent(new Event(REPLAY_EVENT)))
+    expect(screen.getByRole('region', { name: 'Camino de verticales' })).toBeTruthy()
+  })
+
+  test('la primera vez, abrir un sello muestra solo su hoja (sin la bienvenida encima)', () => {
+    render(<App params={{ vertical: 'turbo' }} />)
+    const sheets = screen.getAllByRole('dialog')
+    expect(sheets).toHaveLength(1)
+    expect(within(sheets[0]).getByRole('button', { name: 'Abrir Turbo' })).toBeTruthy()
   })
 })

@@ -34,10 +34,13 @@ const valid = (s) =>
 
 const known = (ids) => ids.filter((id) => DATA.order.includes(id))
 
+/** Traspaso único: el pasaporte viejo queda guardado con la clave nueva y recién entonces se borra. */
 function fromLegacy(storage) {
   const old = JSON.parse(storage?.getItem(LEGACY_PASSPORT_KEY) ?? 'null')
   if (!Array.isArray(old)) return initialState()
-  return { ...initialState(), visited: known([...new Set(old.map((id) => SCREEN_TO_GAME[id]))]) }
+  const state = { ...initialState(), visited: known([...new Set(old.map((id) => SCREEN_TO_GAME[id]))]) }
+  if (save(state, storage)) storage.removeItem(LEGACY_PASSPORT_KEY)
+  return state
 }
 
 /** Progreso guardado en este navegador; si no hay, está roto o no se puede leer, parte en cero. */

@@ -33,7 +33,13 @@ function firstScreen({ tab, vertical, round, orderId }) {
  * para volver a la app. `params`: `{ tab, vertical, round, orderId }` (ids del juego; `orderId` muestra la franja del
  * pedido que se espera); salir de la base vuelve con `back`.
  */
-export default function GameScreen({ back, push, params = {} }) {
+export default function GameScreen(props) {
+  // Tras «Repetir escena» o «Reiniciar progreso» el juego vuelve a su pantalla de entrada (una ronda a medias no sigue).
+  const { generation } = useGame()
+  return <GameView key={generation} {...props} />
+}
+
+function GameView({ back, push, params = {} }) {
   const game = useGame()
   const [stack, setStack] = useState(() => [firstScreen(params)])
   const current = stack.at(-1)
@@ -100,7 +106,8 @@ export default function GameScreen({ back, push, params = {} }) {
         )}
         {/* La ronda celebra sus propios logros al final: los avisos globales quedan para el resto. */}
         {!inRound && game.events.length > 0 && <Toast event={game.events[0]} onClose={game.dismissEvent} />}
-        {!game.state.seenIntro && current.name === 'jugar' && (
+        {/* La bienvenida, solo al entrar por el camino: abierto en la hoja de un sello, no la tapa. */}
+        {!game.state.seenIntro && current.name === 'jugar' && !current.params.open && (
           <Intro
             onStart={() => {
               game.seeIntro()

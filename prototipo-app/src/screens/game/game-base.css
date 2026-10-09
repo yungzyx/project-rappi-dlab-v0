@@ -60,13 +60,6 @@
   bottom: 0;
 }
 
-@media (max-width: 500px) {
-  .game .game-screen {
-    top: 0;
-    padding-top: max(16px, env(safe-area-inset-top));
-  }
-}
-
 .game .game-screen::-webkit-scrollbar {
   display: none;
 }

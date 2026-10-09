@@ -17,6 +17,8 @@ export function GameProvider({ children }) {
   const latest = useRef(state)
   const [date, setDate] = useState(progress.today)
   const [events, setEvents] = useState([])
+  // Sube en cada reinicio: las pantallas del juego lo usan de `key` para no seguir con una ronda vieja.
+  const [generation, setGeneration] = useState(0)
 
   // La fecha se revisa cada 30 s y al volver a la pestaña: con la app abierta pasada la medianoche, la misión del
   // día y la racha pasan al día nuevo sin esperar a la próxima acción.
@@ -35,6 +37,7 @@ export function GameProvider({ children }) {
     latest.current = progress.initialState()
     setState(latest.current)
     setEvents([])
+    setGeneration((n) => n + 1)
   }, [])
 
   // «Repetir escena» (junto al teléfono o en Account) deja también el juego como al empezar.
@@ -72,6 +75,7 @@ export function GameProvider({ children }) {
       state,
       date,
       events,
+      generation,
       discover: (vertical, conceptId) => run((s, d) => progress.discover(s, vertical, conceptId, d)),
       answer: (vertical, isCorrect) => run((s, d) => progress.answer(s, vertical, isCorrect, d)),
       openCard: (cardId) => run((s, d) => progress.openCard(s, cardId, d)),
@@ -85,7 +89,7 @@ export function GameProvider({ children }) {
       clearEvents,
       reset,
     }),
-    [state, date, events, run, commit, dismissEvent, clearEvents, reset],
+    [state, date, events, generation, run, commit, dismissEvent, clearEvents, reset],
   )
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

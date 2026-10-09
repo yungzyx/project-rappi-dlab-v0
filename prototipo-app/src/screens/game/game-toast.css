@@ -17,12 +17,6 @@
   cursor: pointer;
 }
 
-@media (max-width: 500px) {
-  .game .game-toast {
-    top: max(10px, env(safe-area-inset-top));
-  }
-}
-
 .game .game-toast-icon {
   width: 42px;
   height: 42px;

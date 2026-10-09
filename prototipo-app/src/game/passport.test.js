@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { DATA } from './data.js'
 import { initialState, stampedVerticals, verticalLevel, visit, waitingRoundVertical } from './progress.js'
-import { load } from './storage.js'
+import { clear, load } from './storage.js'
 
 /** Almacenamiento de mentira con lo que ya había guardado. */
 const memoryStorage = (items = {}) => ({
@@ -47,5 +47,13 @@ describe('un solo pasaporte', () => {
       'rappi-proto-pasaporte': '["liquor"]',
     })
     expect(load(storage).visited).toEqual(['turbo'])
+  })
+
+  test('el traspaso es de una sola vez: no vuelve después de reiniciar', () => {
+    const storage = memoryStorage({ 'rappi-proto-pasaporte': '["grocery","liquor","turbo","express"]' })
+    expect(load(storage).visited).toHaveLength(4)
+    expect(storage.getItem('rappi-proto-pasaporte')).toBeNull()
+    clear(storage)
+    expect(load(storage)).toEqual(initialState())
   })
 })
