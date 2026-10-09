@@ -2,7 +2,7 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "Rappi: catálogo, agente Bigotes y panel de negocio",
+    "title": "Rappi: catálogo, agente Bigotes y capa de datos",
     "quality_profile": "showcase",
     "views": [
       {
@@ -42,14 +42,14 @@
       },
       {
         "id": "negocio",
-        "label": "Panel de negocio",
+        "label": "Eventos y segmentos",
         "focus": [
           "api",
           "eventos",
-          "dashboard",
+          "segmentos",
           "conceptos"
         ],
-        "note": "Eventos simulados y del prototipo alimentan tendencias, demanda no satisfecha, frecuencia y abandono."
+        "note": "Eventos simulados y del prototipo alimentan los segmentos y las métricas de negocio: muestran la mecánica, no evidencia."
       }
     ],
     "legend": {
@@ -93,7 +93,7 @@
     },
     {
       "id": "negocio_lane",
-      "label": "Negocio"
+      "label": "Eventos y segmentos"
     }
   ],
   "mainPath": [
@@ -146,7 +146,7 @@
       "col": 0,
       "type": "frontend",
       "label": "prototipo-app",
-      "sublabel": "texto · voz · foto",
+      "sublabel": "buscador · juego",
       "width": 150
     },
     {
@@ -197,12 +197,12 @@
       "width": 160
     },
     {
-      "id": "dashboard",
+      "id": "segmentos",
       "lane": "negocio_lane",
       "col": 2,
-      "type": "frontend",
-      "label": "dashboard-empresa",
-      "sublabel": "oportunidades · churn",
+      "type": "backend",
+      "label": "Segmentos y métricas",
+      "sublabel": "capa · /analytics",
       "width": 170
     }
   ],
@@ -289,9 +289,9 @@
       "role": "async"
     },
     {
-      "id": "eventos-dashboard",
+      "id": "eventos-segmentos",
       "from": "eventos",
-      "to": "dashboard",
+      "to": "segmentos",
       "label": "SQL",
       "role": "branch"
     }

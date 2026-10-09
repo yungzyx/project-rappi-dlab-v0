@@ -8,7 +8,7 @@ Después de clonar (paso 2), **todos los comandos parten de la raíz del reposit
 
 | Qué | Cómo llega |
 |---|---|
-| Código (scraper, rappi-ia, prototipo, panel, docs) | Este repositorio (privado): `gh repo clone` |
+| Código (scraper, rappi-ia, prototipo, docs) | Este repositorio (privado): `gh repo clone` |
 | Base de datos (catálogo, precios, menús, conceptos, embeddings) | Un respaldo de Postgres (`.dump`) hecho en otro equipo, o una descarga nueva. **No va al repositorio:** contiene datos de rappi.cl y de sus comercios, que se usan solo con fines de investigación y demostración |
 | Configuración (`.env`) | Se crea sola desde `.env.example` al instalar. `ANTHROPIC_API_KEY` es opcional y se agrega a mano |
 | Modelos de IA (e5, CLIP, Whisper; ~2 GB) | Se descargan de Hugging Face la primera vez que se usan |
@@ -80,18 +80,17 @@ caffeinate -i make post-refresh           # purga, conceptos, embeddings, evalua
 - **Evaluación:** el reporte queda en `data/eval/busqueda.md` (dentro de `rappi-ia/`).
 - **Memoria de los índices:** `make embed` (parte de `post-refresh`) construye un índice HNSW por vertical con 1 GB de `maintenance_work_mem`, solo durante esa transacción. Se ajusta con `HNSW_MAINTENANCE_WORK_MEM` en `rappi-ia/.env` (ver `.env.example`); bájalo si el equipo tiene poca memoria.
 
-## 5. Prototipo y panel
+## 5. Prototipo
 
 ```bash
 (cd prototipo-app && npm ci)
-(cd dashboard-empresa && npm ci)
 ```
 
 Para correr la demo, ver el [README](../README.md). Para abrirla desde un iPhone:
 
 - la API se levanta con `make serve-lan` en `rappi-ia/` (solo en una red de confianza: no tiene autenticación);
-- el prototipo y el panel se levantan con `npm run dev -- --host`, para que escuchen en la red y no solo en este Mac;
-- el prototipo busca la API en el mismo host desde el que se abrió (puerto 8000), así que no hace falta configurarlo; el panel usa `localhost:8000` y, para abrirlo desde el iPhone, necesita `VITE_API_URL` en `dashboard-empresa/.env.local`;
+- el prototipo se levanta con `npm run dev -- --host`, para que escuchen en la red y no solo en este Mac;
+- el prototipo busca la API en el mismo host desde el que se abrió (puerto 8000), así que no hace falta configurarlo;
 - sirve en la wifi de casa (192.168.x, 10.x), con el hotspot del iPhone (el Mac queda en 172.20.10.x) y con el nombre Bonjour del Mac (`http://nombre-del-mac.local:5174`).
 
 ## 6. Actualización semanal

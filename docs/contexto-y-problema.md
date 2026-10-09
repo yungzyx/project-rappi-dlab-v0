@@ -77,10 +77,10 @@ Estado al 30-09-2026:
 | Fase | Qué es | Estado |
 |---|---|---|
 | **1. Datos** | Scraper → Postgres: catálogo, menús, precios e historial por vertical (`rappi-scraper/`) | **Hecha.** Primera descarga completa del 24 al 27-09-2026, recuperación de fallidos el 28-09 y primera descarga semanal automática el 29 y 30-09 (`make schedule`). Cifras en [README → Resultados](../README.md#resultados) |
-| **Prototipo** | App navegable con el asistente Bigotes y recomendaciones entre verticales (`prototipo-app/`) | **Listo para demo.** Con la API usa el catálogo real; sin ella, reglas locales. La Propuesta es un buscador con Bigotes (sin chat escrito, voz ni foto; ver [decisiones.md](decisiones.md#agente-bigotes)) |
+| **Prototipo** | App navegable: Bigotes en la Home, buscador con Bigotes, pasaporte y juego de verticales (`prototipo-app/`) | **Listo para demo.** Con la API usa el catálogo real; sin ella, reglas locales. Sin chat escrito, voz ni foto (ver [decisiones.md](decisiones.md#agente-bigotes)) |
 | **2. RAG** | Conceptos (capa 2), embeddings de texto e imagen, búsqueda híbrida por vertical y evaluación (`rappi-ia/`) | **Construido.** Todos los documentos de búsqueda con embedding de texto. Evaluación en [README → Resultados](../README.md#resultados) |
 | **3. Agente** | Bigotes en el backend y API: herramientas de búsqueda, reglas de conducta, voz y foto; LLM opcional | **Construido.** Voz y foto siguen en la API (`/chat/voice`, `/chat/photo`), pero el prototipo actual no los usa |
-| **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono (`dashboard-empresa/`) | **Construido.** Usuarios, eventos y pedidos **simulados**; la pestaña Catálogo usa datos reales |
+| **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono | **Construido y archivado** en [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto) (usuarios simulados). Las métricas siguen en la API (`/analytics`) |
 | **Cierre** | CI, documentación y validación final (etapa 8 de [diseno-ia.md](diseno-ia.md#7-etapas)) | **Hecha.** CI en verde y corrida post-refresh sobre el catálogo completo (30-09-2026) |
 
 ## 7. Límites y riesgos
@@ -93,7 +93,7 @@ Estado al 30-09-2026:
   - **Fines:** investigación y demostración. Las descripciones, imágenes y marcas pertenecen a Rappi y a los comercios; un uso comercial requeriría autorización.
   - **Proyecto independiente:** no está afiliado a Rappi ni cuenta con su respaldo. Las marcas pertenecen a sus dueños.
 - **Métricas con salvedades:** la relevancia de la búsqueda se juzga automáticamente por concepto, y sin el refuerzo por concepto el híbrido no se distingue del vectorial (0,860 frente a 0,846). Falta el juicio humano. La precisión de los conceptos es una estimación con jueces LLM sobre datos parciales. Detalle en [README → Resultados](../README.md#resultados).
-- **Datos simulados:** el panel usa usuarios, eventos y pedidos simulados. Muestra la mecánica, no es evidencia.
+- **Datos simulados:** los segmentos y las métricas de negocio usan usuarios, eventos y pedidos simulados. Muestran la mecánica, no son evidencia.
 - **Cambios del sitio:** si rappi.cl cambia su frontend, hay que ajustar los parsers. El reporte de calidad de cada corrida marca con ⚠ las respuestas anómalas; con una página nueva guardada, los tests muestran qué cambió.
 
 ## 8. Preguntas abiertas

@@ -1,6 +1,6 @@
-"""Mapa multivertical de la presentación: qué productos y conceptos comparten las verticales del catálogo.
+"""Mapa multivertical: qué productos y conceptos comparten las verticales del catálogo.
 
-`rappi-ia multivertical` escribe una página autocontenida (sin internet) en dashboard-empresa/public/presentacion/:
+`rappi-ia multivertical` escribe una página autocontenida (sin internet) en docs/mapas/:
 productos compartidos entre verticales, el mapa radial de conceptos (cada uno junto a la vertical donde es más
 típico, la misma regla de Bigotes) y los productos y cadenas que están en más verticales.
 """
@@ -15,7 +15,7 @@ from ..agent.verticals import typical_verticals
 from ..concepts.taxonomy import load_taxonomy
 
 TEMPLATE = Path(__file__).resolve().parent / "multivertical.html"
-OUTPUT = config.PROJECT_ROOT.parent / "dashboard-empresa" / "public" / "presentacion" / "mapa-multivertical.html"
+OUTPUT = config.PROJECT_ROOT.parent / "docs" / "mapas" / "mapa-multivertical.html"
 ORDER = ["supermercado", "conveniencia", "turbo", "licores", "chocolateria", "restaurantes", "farmacia", "mall"]
 LABELS = {
     "supermercado": "Súper",
