@@ -1,0 +1,17 @@
+{
+  "source": "synthetic",
+  "data": {
+    "as_of": "2026-10-05T23:38:58.671026-03:00",
+    "usuarios_activos": 1031,
+    "pedidos_30d": 2413,
+    "frecuencia": 2.34,
+    "mediana_dias_entre_pedidos": 9.5,
+    "abandono_carrito_pct": 26.8,
+    "multi_vertical_pct": 66.3,
+    "en_riesgo": 230,
+    "perdidos": 254,
+    "busquedas_sin_resultado_pct": 22.7,
+    "conversion_sesiones_pct": 54.3,
+    "source": "synthetic"
+  }
+}

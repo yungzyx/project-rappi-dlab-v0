@@ -1,0 +1,98 @@
+import { describe, expect, test } from 'vitest'
+import { pickActions } from './actions.js'
+import { formatNumber, formatSignedPct } from '../../lib/format.js'
+import opportunities from '../../fixtures/opportunities.synthetic.json'
+import trends from '../../fixtures/trends.synthetic.json'
+import kpis from '../../fixtures/kpis.synthetic.json'
+
+const opportunity = (overrides) => ({
+  vertical: 'restaurantes',
+  concept_id: 'peruana',
+  que: '🇵🇪 Comida peruana',
+  busquedas: 10,
+  usuarios: 8,
+  recientes: 6,
+  anteriores: 5,
+  crecimiento_pct: 20,
+  accion: 'Oportunidad: sumar comercios o categoría',
+  ...overrides,
+})
+const trend = (concept_id, crecimiento_pct) => ({
+  concept_id,
+  concepto: concept_id,
+  recientes: 30,
+  anteriores: 20,
+  crecimiento_pct,
+})
+
+describe('pickActions', () => {
+  test('con los datos guardados elige peruana, el concepto con oferta que más sube y los usuarios en riesgo', () => {
+    const actions = pickActions({ opportunities: opportunities.data, trends: trends.data, kpis: kpis.data })
+    // La simulación cambia con cada `make synth`: lo esperado se lee del fixture, no se fija a mano.
+    const top = [...opportunities.data].sort((a, b) => b.usuarios - a.usuarios)[0]
+    const unmet = new Set(opportunities.data.map((row) => row.concept_id).filter(Boolean))
+    const rising = trends.data.filter((row) => row.crecimiento_pct > 0).sort((a, b) => b.crecimiento_pct - a.crecimiento_pct)
+    const actionable = rising.find((row) => !unmet.has(row.concept_id))
+
+    expect(actions.map((action) => action.id)).toEqual(['oportunidad', 'tendencia', 'riesgo'])
+    expect(top.concept_id).toBe('peruana')
+    expect(actions[0].title).toBe('🇵🇪 Comida peruana en Restaurantes')
+    expect(actions[0].figure).toBe(formatNumber(top.usuarios))
+    expect(actions[0].action).toBe(top.accion)
+    // Los que suben sin oferta (demanda no satisfecha) no se eligen: la tendencia accionable es la primera con oferta.
+    expect(rising.some((row) => unmet.has(row.concept_id))).toBe(true)
+    expect(unmet.has(actionable.concept_id)).toBe(false)
+    expect(actions[1].title).toBe(actionable.concepto)
+    expect(actions[1].figure).toBe(formatSignedPct(actionable.crecimiento_pct))
+    expect(actions[2].figure).toBe(formatNumber(kpis.data.en_riesgo))
+    expect(actions[2].detail).toContain(`${formatNumber(kpis.data.perdidos)} perdidos`)
+  })
+
+  test('la oportunidad top es la de más usuarios aunque la API la entregue en otro orden', () => {
+    const rows = [opportunity({ concept_id: 'a', que: 'A', usuarios: 3 }), opportunity({ concept_id: 'b', que: 'B', usuarios: 9 })]
+
+    const [top] = pickActions({ opportunities: rows })
+
+    expect(top.title).toBe('B en Restaurantes')
+  })
+
+  test('una consulta sin concepto va entre comillas y el crecimiento nulo se lee como demanda nueva', () => {
+    const rows = [
+      opportunity({ concept_id: null, que: 'kombucha', vertical: 'supermercado', anteriores: 0, crecimiento_pct: null }),
+    ]
+
+    const [top] = pickActions({ opportunities: rows })
+
+    expect(top.title).toBe('«kombucha» en Supermercado')
+    expect(top.detail).toContain('nueva')
+  })
+
+  test('una demanda sin búsquedas en 4 semanas no se presenta como nueva', () => {
+    const rows = [opportunity({ recientes: 0, anteriores: 0, crecimiento_pct: null })]
+
+    const [top] = pickActions({ opportunities: rows })
+
+    expect(top.detail).toContain('sin búsquedas en las últimas 4 semanas')
+    expect(top.detail).not.toContain('nueva')
+  })
+
+  test('si todos los conceptos que suben son demanda no satisfecha, no repite la oportunidad top', () => {
+    const rows = [opportunity({ concept_id: 'peruana' }), opportunity({ concept_id: 'desayuno', usuarios: 2 })]
+
+    const actions = pickActions({ opportunities: rows, trends: [trend('peruana', 43), trend('desayuno', 35)] })
+
+    expect(actions.find((action) => action.id === 'tendencia').title).toBe('desayuno')
+  })
+
+  test('ignora conceptos que bajan', () => {
+    const actions = pickActions({ trends: [trend('pisco', -34)] })
+
+    expect(actions).toEqual([])
+  })
+
+  test('sin usuarios en riesgo no agrega esa acción (datos del prototipo)', () => {
+    const actions = pickActions({ kpis: { en_riesgo: 0, perdidos: 0 } })
+
+    expect(actions).toEqual([])
+  })
+})

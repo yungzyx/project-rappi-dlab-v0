@@ -1,0 +1,89 @@
+{
+  "source": "synthetic",
+  "data": [
+    {
+      "concept_id": "articulos-deportivos",
+      "concepto": "⚽ Artículos deportivos",
+      "recientes": 2,
+      "anteriores": 27,
+      "crecimiento_pct": -93
+    },
+    {
+      "concept_id": "decoracion",
+      "concepto": "🎉 Decoración y fiestas",
+      "recientes": 10,
+      "anteriores": 55,
+      "crecimiento_pct": -82
+    },
+    {
+      "concept_id": "vitaminas",
+      "concepto": "💪 Vitaminas y suplementos",
+      "recientes": 35,
+      "anteriores": 20,
+      "crecimiento_pct": 75
+    },
+    {
+      "concept_id": "espumante",
+      "concepto": "🥂 Espumante",
+      "recientes": 14,
+      "anteriores": 48,
+      "crecimiento_pct": -71
+    },
+    {
+      "concept_id": "ron",
+      "concepto": "🥃 Ron",
+      "recientes": 30,
+      "anteriores": 61,
+      "crecimiento_pct": -51
+    },
+    {
+      "concept_id": "vegano",
+      "concepto": "🌱 Alternativas vegetales",
+      "recientes": 22,
+      "anteriores": 39,
+      "crecimiento_pct": -44
+    },
+    {
+      "concept_id": "jugos",
+      "concepto": "🧃 Jugos y néctares",
+      "recientes": 30,
+      "anteriores": 21,
+      "crecimiento_pct": 43
+    },
+    {
+      "concept_id": "videojuegos",
+      "concepto": "🎮 Videojuegos",
+      "recientes": 30,
+      "anteriores": 21,
+      "crecimiento_pct": 43
+    },
+    {
+      "concept_id": "peruana",
+      "concepto": "🇵🇪 Comida peruana",
+      "recientes": 458,
+      "anteriores": 323,
+      "crecimiento_pct": 42
+    },
+    {
+      "concept_id": "galletas",
+      "concepto": "🍪 Galletas",
+      "recientes": 128,
+      "anteriores": 211,
+      "crecimiento_pct": -39
+    },
+    {
+      "concept_id": "articulos-bebe",
+      "concepto": "🧸 Artículos de bebé",
+      "recientes": 47,
+      "anteriores": 76,
+      "crecimiento_pct": -38
+    },
+    {
+      "concept_id": "textil-hogar",
+      "concepto": "🛏️ Textiles del hogar",
+      "recientes": 20,
+      "anteriores": 31,
+      "crecimiento_pct": -35
+    }
+  ]
+}

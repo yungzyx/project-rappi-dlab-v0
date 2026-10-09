@@ -82,7 +82,7 @@ Cada cifra dice qué tipo de dato es: real, evaluación automática, estimación
 | Capa de datos | Atributos, marcas y grafo | 83 atributos sobre 79.617 ítems · 6.359 marcas · 23.534 productos canónicos · 32.105 aristas en 12 relaciones | Real, con reglas propias; atributos 92 % y marcas 97 a 99 % de precisión estimada | `make layers`, 06-10-2026 |
 | Búsqueda | nDCG@10 | híbrido 0,917 · sin refuerzo por concepto 0,860 · vectorial 0,849 · léxico 0,776 | Evaluación automática | [reporte del 06-10](docs/resultados/busqueda-2026-10-06.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [reporte del 30-09](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests | scraper 144 · rappi-ia 897 · prototipo 359 | Verificación local y CI | `make test` · `npm test` |
+| Calidad | Tests | scraper 144 · rappi-ia 897 · prototipo 359 · panel 90 | Verificación local y CI | `make test` · `npm test` |
 
 ### Catálogo por vertical
 
@@ -157,19 +157,28 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes. La API no t
 ├── prototipo-app/          el prototipo final (Vite + React): Bigotes, buscador, pasaporte y juego de verticales
 ├── rappi-ia/               conceptos, embeddings, búsqueda, capa de datos, Bigotes y API (comando `rappi-ia`)
 ├── rappi-scraper/          descarga del catálogo público → Postgres + pgvector (comando `rappi`; migraciones de toda la base)
+├── dashboard-empresa/      panel de negocio para más adelante (Vite + React; datos simulados)
 ├── docs/                   propuesta, diseño, decisiones, demo, instalación y resultados
 │   ├── diagramas/          diagramas (PNG e interactivos) y sus fuentes en diagramas-fuente/
 │   ├── mapas/              mapa multivertical y mapa de conceptos
 │   └── resultados/         reportes de evaluación versionados (fuente de las cifras)
-├── .github/workflows/      CI (scraper y rappi-ia contra Postgres + pgvector; prototipo con lint, tests y build)
+├── .github/workflows/      CI (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build)
 └── CLAUDE.md               convenciones para asistentes de código
 ```
 
 **Fuera del repositorio:** la base Postgres `rappi`, `rappi-scraper/data/` y `rappi-ia/data/`. Los datos descargados no se versionan.
 
+## Para más adelante: panel de negocio
+
+[`dashboard-empresa/`](dashboard-empresa/) es un panel para la empresa que no forma parte de la propuesta de hoy, pero queda en el repo para usarlo más adelante: convierte la conducta de compra y lo que la gente pide en decisiones (tendencias por concepto, demanda no satisfecha, usuarios en riesgo, rendimiento de las sugerencias cruzadas y salud del catálogo). Lee las métricas de la API (`/analytics`). Hoy usa **usuarios simulados**, salvo la pestaña Catálogo (real): muestra la mecánica, no un resultado.
+
+```bash
+cd dashboard-empresa && npm ci && npm run dev   # http://localhost:5175 (sin la API usa respuestas guardadas)
+```
+
 ## Historial del proyecto
 
-Este repo cuenta la propuesta vigente. Todas las etapas anteriores (el panel de negocio y la presentación, el chat escrito de Bigotes, los modos «Propuesta» y «Bigotes vivo») y el juego de verticales con su historial están en [**rappi-evolucion-proyecto**](https://github.com/yungzyx/rappi-evolucion-proyecto), con una etiqueta por etapa y su [línea de tiempo](https://github.com/yungzyx/rappi-evolucion-proyecto/blob/main/EVOLUCION.md).
+Este repo cuenta la propuesta vigente. Todas las etapas anteriores (la presentación al gerente, el chat escrito de Bigotes, los modos «Propuesta» y «Bigotes vivo») y el juego de verticales con su historial están en [**rappi-evolucion-proyecto**](https://github.com/yungzyx/rappi-evolucion-proyecto), con una etiqueta por etapa y su [línea de tiempo](https://github.com/yungzyx/rappi-evolucion-proyecto/blob/main/EVOLUCION.md).
 
 ## Documentación
 
