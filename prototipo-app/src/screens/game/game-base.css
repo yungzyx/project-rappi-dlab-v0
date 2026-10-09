@@ -237,3 +237,40 @@
   height: 40px;
   border-radius: 50%;
 }
+
+/* Ronda mientras llega un pedido: la franja ocupa el lugar de la barra de arriba. */
+.game.is-round.has-order {
+  --status-zone: 94px;
+}
+
+.game .game-order {
+  position: absolute;
+  top: 54px;
+  left: 12px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.game .game-order.is-delivered {
+  background: var(--good-soft);
+  color: var(--good-ink);
+}
+
+.game .game-order button {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--good);
+  color: #fff;
+  font-size: 13px;
+}

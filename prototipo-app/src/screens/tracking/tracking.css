@@ -324,3 +324,40 @@
   font-size: 13px;
   color: var(--ink-3);
 }
+
+/* «Juega mientras llega tu pedido»: una ronda del juego de verticales mientras se espera. */
+.tracking-game {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: linear-gradient(120deg, #fff8e8, #fff1ea);
+  text-align: left;
+}
+
+.tracking-game-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 22px;
+}
+
+.tracking-game strong {
+  display: block;
+  font-size: 15px;
+}
+
+.tracking-game small {
+  display: block;
+  margin-top: 2px;
+  color: var(--accent-deep);
+  font-size: 13px;
+  font-weight: 600;
+}

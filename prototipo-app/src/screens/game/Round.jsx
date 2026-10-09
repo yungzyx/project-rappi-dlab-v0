@@ -112,7 +112,7 @@ function Feedback({ step, outcome, onNext }) {
   )
 }
 
-function RoundEnd({ vertical, tally, levelBefore, xpBefore, onDone }) {
+function RoundEnd({ vertical, tally, levelBefore, xpBefore, onDone, doneLabel = 'Seguir' }) {
   const { state, openCard } = useGame()
   const [opened, setOpened] = useState(false)
   const [lateBonus, setLateBonus] = useState(0)
@@ -187,7 +187,7 @@ function RoundEnd({ vertical, tally, levelBefore, xpBefore, onDone }) {
       {bonus > 0 && <p className="end-bonus">Misión del día completa: +{bonus} XP</p>}
 
       <button type="button" className="btn-game end-done" onClick={onDone}>
-        Seguir
+        {doneLabel}
       </button>
     </div>
   )
@@ -204,7 +204,8 @@ function Confetti() {
 }
 
 /** Una ronda de 5 pasos en una vertical: dar vuelta conceptos nuevos y responder desafíos. */
-export default function Round({ vertical, back }) {
+/** `orderId`: se juega mientras llega un pedido; al final se vuelve a él. */
+export default function Round({ vertical, back, orderId }) {
   const game = useGame()
   const { clearEvents } = game
   const [steps] = useState(() => makeRound(game.state, vertical))
@@ -278,7 +279,16 @@ export default function Round({ vertical, back }) {
   })
 
   if (finished) {
-    return <RoundEnd vertical={vertical} tally={tally} levelBefore={levelBefore} xpBefore={xpBefore} onDone={back} />
+    return (
+      <RoundEnd
+        vertical={vertical}
+        tally={tally}
+        levelBefore={levelBefore}
+        xpBefore={xpBefore}
+        onDone={back}
+        doneLabel={orderId ? 'Volver a tu pedido' : 'Seguir'}
+      />
+    )
   }
 
   return (

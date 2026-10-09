@@ -9,6 +9,7 @@ import Concept from './Concept.jsx'
 import BottomNav from './GameTabs.jsx'
 import Toast from './GameToast.jsx'
 import Intro from './Intro.jsx'
+import OrderBanner from './OrderBanner.jsx'
 import Passport from './Passport.jsx'
 import Path from './Path.jsx'
 import Round from './Round.jsx'
@@ -21,15 +22,16 @@ import './game-base.css'
 const TABS = ['jugar', 'pasaporte', 'album']
 
 /** Pantalla con la que abre el juego: una ronda directa, la hoja de una vertical o una pestaña. */
-function firstScreen({ tab, vertical, round }) {
-  if (round) return { name: 'ronda', params: { vertical: round } }
+function firstScreen({ tab, vertical, round, orderId }) {
+  if (round) return { name: 'ronda', params: { vertical: round, orderId } }
   if (vertical) return { name: 'jugar', params: { open: vertical } }
   return { name: TABS.includes(tab) ? tab : 'jugar', params: {} }
 }
 
 /**
  * El juego de verticales dentro del prototipo: su propia pila de pantallas (la pestaña es la base) y una barra arriba
- * para volver a la app. `params`: `{ tab, vertical, round }` (ids del juego); salir de la base vuelve con `back`.
+ * para volver a la app. `params`: `{ tab, vertical, round, orderId }` (ids del juego; `orderId` muestra la franja del
+ * pedido que se espera); salir de la base vuelve con `back`.
  */
 export default function GameScreen({ back, push, params = {} }) {
   const game = useGame()
@@ -82,7 +84,7 @@ export default function GameScreen({ back, push, params = {} }) {
 
   return (
     <GameShellContext.Provider value={shell}>
-      <div className={inRound ? 'game is-round' : 'game'}>
+      <div className={`game${inRound ? ' is-round' : ''}${params.orderId ? ' has-order' : ''}`}>
         {!inRound && (
           <header className="game-header">
             <button type="button" className="game-header-back" aria-label="Volver a Rappi" onClick={back}>
@@ -91,6 +93,7 @@ export default function GameScreen({ back, push, params = {} }) {
             <span>Juego de verticales</span>
           </header>
         )}
+        {params.orderId && <OrderBanner orderId={params.orderId} onOpenOrder={back} />}
         <main key={stack.length + current.name}>{screen}</main>
         {!inRound && (
           <BottomNav active={TABS.includes(tab) ? tab : 'jugar'} onSelect={switchTab} badges={{ album: unread }} />

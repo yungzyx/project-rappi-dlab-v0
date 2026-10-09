@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ToastProvider } from '../../components/Toast'
 import { AssistantProvider } from '../../state/AssistantContext'
 import { DemoProvider } from '../../state/DemoContext'
+import { GameProvider } from '../../state/GameContext'
 import { OrdersProvider, useOrders } from '../../state/OrdersContext'
 import TrackingScreen from './TrackingScreen'
 
@@ -12,7 +13,7 @@ const ORDER = {
   total: 1000,
 }
 
-function Harness({ reset }) {
+function Harness({ reset, push }) {
   const orders = useOrders()
   const order = orders.orders[0]
   if (!order)
@@ -21,7 +22,7 @@ function Harness({ reset }) {
         pedir
       </button>
     )
-  return <TrackingScreen back={() => {}} reset={reset} params={{ orderId: order.id }} />
+  return <TrackingScreen back={() => {}} reset={reset} push={push} params={{ orderId: order.id }} />
 }
 
 beforeEach(() => vi.useFakeTimers())
@@ -31,14 +32,16 @@ afterEach(() => {
   localStorage.clear()
 })
 
-const renderTracking = (reset = vi.fn()) =>
+const renderTracking = (reset = vi.fn(), push = vi.fn()) =>
   render(
     <DemoProvider>
       <AssistantProvider>
         <OrdersProvider>
-          <ToastProvider>
-            <Harness reset={reset} />
-          </ToastProvider>
+          <GameProvider>
+            <ToastProvider>
+              <Harness reset={reset} push={push} />
+            </ToastProvider>
+          </GameProvider>
         </OrdersProvider>
       </AssistantProvider>
     </DemoProvider>,
@@ -71,5 +74,30 @@ describe('TrackingScreen', () => {
     renderTracking()
     deliver()
     expect(screen.queryByText('Bigotes te arma el próximo pedido')).toBeNull()
+  })
+
+  describe('jugar mientras llega el pedido', () => {
+    test('ofrece una ronda de la primera vertical sin sello (Express) y la abre con el pedido', () => {
+      const push = vi.fn()
+      renderTracking(vi.fn(), push)
+      fireEvent.click(screen.getByText('pedir'))
+      const card = screen.getByRole('button', { name: /Juega mientras llega tu pedido/ })
+      expect(card.textContent).toMatch(/gana el sello de Express/)
+      fireEvent.click(card)
+      expect(push).toHaveBeenCalledWith('game', { round: 'conveniencia', orderId: expect.stringMatching(/^order-/) })
+    })
+
+    test('al entregar, la tarjeta ya no está', () => {
+      renderTracking()
+      deliver()
+      expect(screen.queryByRole('button', { name: /Juega mientras llega tu pedido/ })).toBeNull()
+    })
+
+    test('en «Rappi hoy» no se ofrece', () => {
+      localStorage.setItem('rappi-proto-demo-mode', 'actual')
+      renderTracking()
+      fireEvent.click(screen.getByText('pedir'))
+      expect(screen.queryByRole('button', { name: /Juega mientras llega tu pedido/ })).toBeNull()
+    })
   })
 })
