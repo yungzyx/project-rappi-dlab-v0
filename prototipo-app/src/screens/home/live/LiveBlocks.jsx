@@ -1,4 +1,3 @@
-import { useLayoutEffect, useRef } from 'react'
 import HScroll from '../../../components/HScroll'
 import Img from '../../../components/Img'
 import { ProductCard } from '../../../components/ProductCard'
@@ -8,55 +7,6 @@ import { VERTICAL_NAMES } from '../../../data/verticals'
 import { EtaIcon } from '../../../components/StoreMeta'
 import { PASSPORT, PASSPORT_GOAL } from '../../../state/liveMemory'
 import { PLANS } from './script'
-
-/**
- * Reordena con FLIP: antes de cambiar el orden se toma la foto (`snapshot`) y, ya con el orden nuevo, cada bloque
- * vuelve a su lugar viejo y se desliza al nuevo. El bloque que sube va más lento y crece un poco a mitad de camino.
- */
-export function useFlip(refs, order, { focus, reduceMotion }) {
-  const before = useRef(null)
-  useLayoutEffect(() => {
-    const previous = before.current
-    before.current = null
-    if (!previous || reduceMotion) return
-    for (const [id, element] of refs.current) {
-      if (!element) continue
-      const top = element.getBoundingClientRect().top
-      const old = previous.get(id)
-      if (old === undefined) {
-        element.animate(
-          [
-            { opacity: 0, transform: 'translateY(28px) scale(0.92)' },
-            { opacity: 1, transform: 'none' },
-          ],
-          { duration: 640, delay: 560, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' },
-        )
-        continue
-      }
-      const dy = old - top
-      if (Math.abs(dy) < 1) continue
-      const lifted = id === focus
-      element.animate(
-        lifted
-          ? [
-              { transform: `translateY(${dy}px) scale(0.96)` },
-              { transform: `translateY(${dy * 0.3}px) scale(1.06)`, offset: 0.55 },
-              { transform: 'none' },
-            ]
-          : [{ transform: `translateY(${dy}px)` }, { transform: 'none' }],
-        { duration: lifted ? 1100 : 780, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
-      )
-    }
-  }, [order, refs, focus, reduceMotion])
-
-  return () => {
-    before.current = new Map(
-      [...refs.current]
-        .filter(([, element]) => element)
-        .map(([id, element]) => [id, element.getBoundingClientRect().top]),
-    )
-  }
-}
 
 /** Abre la tienda de un producto o una tienda (un plato real abre su sucursal por id). */
 export function openItem(item, push) {
@@ -100,51 +50,6 @@ function ItemRow({ items, onOpen }) {
         </div>
       ))}
     </HScroll>
-  )
-}
-
-/** El bloque del interés de la persona: Bigotes lo sube al primer lugar. */
-export function InterestBlock({ interest, promoted, sparkle, onOpen, onUndo }) {
-  return (
-    <section className="live-card live-card--interest">
-      {sparkle && <Sparkles emoji={interest.emoji} />}
-      <div className="live-card-head">
-        <span className="live-card-emoji" aria-hidden="true">
-          {interest.emoji}
-        </span>
-        <div>
-          <h2>Tu rincón de {interest.label.toLowerCase()}</h2>
-          <p>{VERTICAL_NAMES[interest.vertical] ?? 'Varias tiendas'} · lo que más te gusta, primero</p>
-        </div>
-      </div>
-      <ItemRow items={interest.items} onOpen={onOpen} />
-      {promoted && (
-        <div className="live-ribbon">
-          <span>Bigotes lo subió por ti</span>
-          <button type="button" className="tap" onClick={onUndo}>
-            Deshacer
-          </button>
-        </div>
-      )}
-    </section>
-  )
-}
-
-/** Vertical nueva que combina con el interés: con sello para el pasaporte. */
-export function DiscoveryBlock({ discovery, stamped, onOpen }) {
-  return (
-    <section className="live-card live-card--discovery">
-      <div className="live-card-head">
-        <span className="live-card-emoji" aria-hidden="true">
-          {discovery.emoji}
-        </span>
-        <div>
-          <h2>Nuevo para ti: {discovery.verticalName}</h2>
-          <p>{stamped ? 'Ya tienes este sello' : 'Primera visita = sello nuevo en tu pasaporte'}</p>
-        </div>
-      </div>
-      <ItemRow items={discovery.items} onOpen={onOpen} />
-    </section>
   )
 }
 
@@ -239,23 +144,5 @@ export function Passport({ stamps, fresh, onOpen }) {
         })}
       </HScroll>
     </section>
-  )
-}
-
-const SPARKS = Array.from({ length: 12 }, (_, i) => {
-  const angle = (i / 12) * Math.PI * 2
-  return { dx: Math.cos(angle) * (70 + (i % 3) * 22), dy: Math.sin(angle) * (46 + (i % 2) * 18), delay: (i % 4) * 40 }
-})
-
-/** Destellos al aterrizar el bloque en su lugar nuevo (solo decorativos). */
-function Sparkles({ emoji }) {
-  return (
-    <span className="live-sparkles" aria-hidden="true">
-      {SPARKS.map((spark, i) => (
-        <span key={i} style={{ '--dx': `${spark.dx}px`, '--dy': `${spark.dy}px`, animationDelay: `${spark.delay}ms` }}>
-          {i % 3 === 0 ? emoji : '✦'}
-        </span>
-      ))}
-    </span>
   )
 }

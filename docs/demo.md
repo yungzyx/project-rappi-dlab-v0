@@ -19,7 +19,7 @@ cd dashboard-empresa && npm run dev  # http://localhost:5175
 
 ## Recorrido
 
-En el prototipo final no se escribe en un chat: la barra de la Home abre el buscador con Bigotes y se toca. (Mientras Bigotes hace su escena en la Home, el resto se oscurece un momento: espera a que termine o toca «Ahora no» antes de usar la barra.) El campo de arriba busca tiendas y productos; las ideas de Bigotes están en los botones de «Toca y te armo algo».
+En el prototipo final no se escribe en un chat: la barra de la Home abre el buscador con Bigotes y se toca. El campo de arriba busca tiendas y productos; las ideas de Bigotes están en los botones de «Toca y te armo algo».
 
 | # | Qué tocar | Qué mostrar | Qué decir |
 |---|---|---|---|
@@ -41,10 +41,9 @@ Con la API, los productos y precios de los pasos 1 a 3 salen del catálogo real 
 
 Es lo primero que se ve en el prototipo final. Para partir de cero: **↺ Repetir escena** (junto al interruptor, arriba a la izquierda).
 
-1. Bigotes entra caminando a la Home y dice qué notó («te encantan los chocolates»). Si nadie responde, a los 7 s sube el bloque solo.
-2. El bloque sube bajo el buscador, todo lo demás se oscurece y aparece al lado una vertical nueva (con chocolates, «Copete» en Licores). **Qué decir:** la personalización se ve en la pantalla misma, no en un chat aparte.
-3. Baja hasta «¿Qué plan tienes hoy?» y elige **Carrete**: un kit de tres verticales con un solo botón.
-4. Toca a Bigotes: propone una vertical que falta en el pasaporte. Ábrela y vuelve: celebra el sello.
+1. Bigotes entra caminando a la Home y saluda. No sugiere productos ni mueve la Home: la Home es la de siempre, con el pasaporte de verticales justo bajo los accesos. **Qué decir:** Bigotes es parte de la Home, no un canal aparte.
+2. Baja hasta «¿Qué plan tienes hoy?» y elige **Carrete**: un kit de tres verticales con un solo botón.
+3. Toca a Bigotes: propone una vertical que falta en el pasaporte. Ábrela y vuelve: celebra el sello.
 
 El pasaporte y su envío gratis son una idea para probar con usuarios, no una promoción real.
 

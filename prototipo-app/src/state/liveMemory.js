@@ -19,7 +19,7 @@ const STARTER = ['restaurants', 'grocery'] // lo que una persona típica ya usa
 /** Sellos que dan el premio de la demo (envío gratis): un incentivo para probar verticales nuevas. */
 export const PASSPORT_GOAL = 4
 
-export const session = { played: false, order: null, lastAdded: null, newStamp: null, plan: null, planPrompted: false }
+export const session = { played: false, lastAdded: null, newStamp: null, plan: null, planPrompted: false }
 
 export function loadPassport() {
   try {
@@ -61,7 +61,6 @@ export const REPLAY_EVENT = 'bigotes-vivo-repetir'
 export function resetLive() {
   Object.assign(session, {
     played: false,
-    order: null,
     lastAdded: null,
     newStamp: null,
     plan: null,

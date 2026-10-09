@@ -58,7 +58,7 @@ async function run(page) {
   await reset()
 
   // --- Portada: modo demo y la Home en ambos modos (arranca en el prototipo final) ---
-  await wait(1700) // el globo "¡Hola! Soy Bigotes" aparece a los 1,2 s
+  await wait(4200) // Bigotes entra a los 0,9 s y termina de escribir su saludo
   await shot('00-modo-demo', { full: true })
   await shot('01-home-final')
   await page.keyboard.press('d')
