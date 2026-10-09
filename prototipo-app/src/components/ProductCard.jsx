@@ -1,5 +1,6 @@
 import { EtaIcon } from '../screens/home/StoreCards'
 import AddButton from './AddButton'
+import Img from './Img'
 import { pressable } from './pressable'
 import { useProductSheet } from '../state/ProductSheetContext'
 import './product-card.css'
@@ -10,7 +11,7 @@ export function ProductCard({ product, onOpenStore }) {
   return (
     <div className="product-card tap" {...pressable(() => sheet.open(product, { onOpenStore }))}>
       <span className={product.partial ? 'product-media is-partial' : 'product-media'}>
-        <img src={product.img} alt="" draggable="false" />
+        <Img src={product.img} draggable="false" />
         {product.ageRestricted && (
           <span className="product-age" aria-label="Solo mayores de 18">
             +18
@@ -36,7 +37,7 @@ export function DealCard({ deal, boxed = false, onClick }) {
   return (
     <div className={boxed ? 'deal-card is-boxed tap' : 'deal-card tap'} {...pressable(onClick)}>
       <span className="deal-media">
-        <img src={deal.img} alt="" draggable="false" />
+        <Img src={deal.img} draggable="false" />
         <AddButton product={deal} className={boxed ? 'add-button--boxed' : 'add-button--deal'} />
       </span>
       <span className="deal-price">{deal.price}</span>
@@ -59,7 +60,7 @@ export function DealCard({ deal, boxed = false, onClick }) {
 
 /** Logo de la tienda: imagen recortada o, si no hay, un círculo con la inicial (`storeBadge`). */
 export function StoreLogo({ item }) {
-  if (item.storeLogo) return <img src={item.storeLogo} alt="" />
+  if (item.storeLogo) return <Img src={item.storeLogo} />
   return (
     <span className="store-badge" style={{ background: item.storeBadge ?? '#8b8b8b' }}>
       {item.store.charAt(0)}

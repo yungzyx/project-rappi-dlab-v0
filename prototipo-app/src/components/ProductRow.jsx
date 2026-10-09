@@ -1,5 +1,6 @@
 import { useProductSheet } from '../state/ProductSheetContext'
 import AddButton from './AddButton'
+import Img from './Img'
 import './product-row.css'
 
 /** Producto en formato lista (página de tienda y resultados del buscador). Tocarlo abre su hoja; el "+" va aparte. */
@@ -19,7 +20,7 @@ export default function ProductRow({ product, showStore = false, showDescription
           </span>
         </span>
         <span className="product-row-media">
-          <img src={product.img} alt="" loading="lazy" />
+          <Img src={product.img} />
         </span>
       </button>
       <AddButton product={product} className="add-button--row" />

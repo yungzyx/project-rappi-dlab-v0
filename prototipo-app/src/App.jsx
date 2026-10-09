@@ -1,25 +1,14 @@
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import AddressSheet from './components/AddressSheet'
 import AssistantPanel from './components/assistant/AssistantPanel'
 import CartBar from './components/CartBar'
 import DemoToggle from './components/DemoToggle'
+import ErrorBoundary from './components/ErrorBoundary'
 import Nudge from './components/assistant/Nudge'
 import ProductSheet from './components/ProductSheet'
 import StatusBar from './components/StatusBar'
 import { ToastProvider } from './components/Toast'
-import CheckoutScreen from './screens/checkout/CheckoutScreen'
-import FavorScreen from './screens/favor/FavorScreen'
 import HomeScreen from './screens/home/HomeScreen'
-import ListScreen from './screens/list/ListScreen'
-import LoyaltyScreen from './screens/loyalty/LoyaltyScreen'
-import OrdersScreen from './screens/orders/OrdersScreen'
-import RestaurantsScreen from './screens/restaurants/RestaurantsScreen'
-import SearchScreen from './screens/search/SearchScreen'
-import StoreScreen from './screens/store/StoreScreen'
-import TrackingScreen from './screens/tracking/TrackingScreen'
-import TravelScreen from './screens/travel/TravelScreen'
-import TurboScreen from './screens/turbo/TurboScreen'
-import VerticalScreen from './screens/vertical/VerticalScreen'
 import { useNavigation } from './hooks/useNavigation'
 import { markExplored } from './assistant/explored'
 import { AddressProvider } from './state/AddressContext'
@@ -34,21 +23,25 @@ import { OrdersProvider } from './state/OrdersContext'
 import { ProductSheetProvider } from './state/ProductSheetContext'
 import { ProfileProvider } from './state/ProfileContext'
 
+// La Home va en el paquete principal (es la primera); el resto se baja al abrirse por primera vez.
 const SCREENS = {
   home: HomeScreen,
-  restaurants: RestaurantsScreen,
-  turbo: TurboScreen,
-  store: StoreScreen,
-  search: SearchScreen,
-  vertical: VerticalScreen,
-  travel: TravelScreen,
-  favor: FavorScreen,
-  loyalty: LoyaltyScreen,
-  list: ListScreen,
-  checkout: CheckoutScreen,
-  tracking: TrackingScreen,
-  orders: OrdersScreen,
+  restaurants: lazy(() => import('./screens/restaurants/RestaurantsScreen')),
+  turbo: lazy(() => import('./screens/turbo/TurboScreen')),
+  store: lazy(() => import('./screens/store/StoreScreen')),
+  search: lazy(() => import('./screens/search/SearchScreen')),
+  vertical: lazy(() => import('./screens/vertical/VerticalScreen')),
+  travel: lazy(() => import('./screens/travel/TravelScreen')),
+  favor: lazy(() => import('./screens/favor/FavorScreen')),
+  loyalty: lazy(() => import('./screens/loyalty/LoyaltyScreen')),
+  list: lazy(() => import('./screens/list/ListScreen')),
+  checkout: lazy(() => import('./screens/checkout/CheckoutScreen')),
+  tracking: lazy(() => import('./screens/tracking/TrackingScreen')),
+  orders: lazy(() => import('./screens/orders/OrdersScreen')),
 }
+
+// Mientras una pantalla se baja: el fondo del teléfono, sin spinner (dura un instante).
+const LOADING = <div className="screen screen-loading" aria-hidden="true" />
 
 // En el checkout y el seguimiento no se muestran la barra del carrito ni el aviso de Bigotes.
 const SCREENS_WITHOUT_CART = new Set(['checkout', 'tracking'])
@@ -118,14 +111,19 @@ export default function App() {
                                       className={isTop ? `screen-wrap enter-${direction}` : 'screen-wrap is-under'}
                                       inert={!isTop}
                                     >
-                                      <Screen
-                                        push={push}
-                                        back={back}
-                                        reset={reset}
-                                        params={entry.params}
-                                        tab={homeTab}
-                                        setTab={setHomeTab}
-                                      />
+                                      {/* Si una pantalla falla, el aviso queda dentro del teléfono y se vuelve al inicio. */}
+                                      <ErrorBoundary onReset={reset}>
+                                        <Suspense fallback={LOADING}>
+                                          <Screen
+                                            push={push}
+                                            back={back}
+                                            reset={reset}
+                                            params={entry.params}
+                                            tab={homeTab}
+                                            setTab={setHomeTab}
+                                          />
+                                        </Suspense>
+                                      </ErrorBoundary>
                                     </div>
                                   )
                                 })}

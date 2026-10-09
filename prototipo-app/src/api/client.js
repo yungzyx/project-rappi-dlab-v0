@@ -2,6 +2,7 @@
 // Si la API no responde, todo sigue funcionando con el cerebro local (src/assistant/brain.js).
 
 import { VERTICAL_NAMES, routeForScreen, screenForBackend } from '../data/verticals'
+import { PLACEHOLDER_IMG } from '../components/Img'
 
 const DEFAULT_PORT = 8000
 const HEALTH_TTL_MS = 30_000
@@ -81,8 +82,6 @@ export function beaconEvents(userId, events) {
 
 // ── De la API al formato del prototipo ──────────────────────────────────────
 
-const PLACEHOLDER_IMG =
-  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"%3E%3Crect width="1" height="1" fill="%23f1f1f1"/%3E%3C/svg%3E'
 
 /** Producto de la API → tarjeta del prototipo (mismo formato que src/data/catalog.js). */
 export function toPrototypeProduct(p) {

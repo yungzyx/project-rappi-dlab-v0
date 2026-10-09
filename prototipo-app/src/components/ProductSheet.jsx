@@ -4,6 +4,7 @@ import { formatPrice, lineKey, parsePrice, useCart } from '../state/CartContext'
 import { useProductSheet } from '../state/ProductSheetContext'
 import { StoreLogo } from './ProductCard'
 import Sheet from './Sheet'
+import Img from './Img'
 import './product-sheet.css'
 
 /** Hoja inferior de un producto (foto, descripción, cantidad, nota para la tienda). Se monta una vez en App. */
@@ -45,7 +46,7 @@ function ProductDetail({ product, onOpenStore }) {
   return (
     <div className="product-sheet">
       <div className="product-sheet-media">
-        <img src={product.img} alt="" />
+        <Img src={product.img} eager />
         {product.ageRestricted && (
           <span className="product-sheet-age" aria-label="Solo mayores de 18">
             +18

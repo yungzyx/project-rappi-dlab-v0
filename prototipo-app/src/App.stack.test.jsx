@@ -34,11 +34,13 @@ describe('pila de pantallas montada', () => {
     expect(home.classList.contains('is-under')).toBe(true)
     expect(home.hasAttribute('inert')).toBe(true)
 
-    const input = screen.getByPlaceholderText('What do you want today?')
+    // Las pantallas (salvo la Home) se bajan al abrirse: se espera a que el buscador aparezca.
+    const input = await screen.findByPlaceholderText('What do you want today?')
     fireEvent.change(input, { target: { value: 'unimarc' } })
     fireEvent.click(document.querySelector('.search-store'))
     expect(wraps()).toHaveLength(3)
     expect(wraps()[1].hasAttribute('inert')).toBe(true)
+    await screen.findByRole('heading', { level: 1 }) // la tienda ya cargó
 
     // Volver (como el gesto del navegador): la entrada de historial anterior es la del buscador.
     const searchEntry = {

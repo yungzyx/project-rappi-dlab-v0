@@ -65,10 +65,11 @@ export default function HomeFeed({ push }) {
   }, [localPairs, profile.resets, events])
   const openSearch = () => push('search')
   const screenRef = useRef(null)
-  const [{ top, goingUp }, onScroll] = useScrollState()
+  const [{ collapsed: isCollapsed, showBackToTop }, onScroll] = useScrollState({
+    collapseAt: COLLAPSE_AT_PX,
+    backToTopFrom: BACK_TO_TOP_FROM_PX,
+  })
   const [promoIndex, setPromoIndex] = useState(PROMO_START_INDEX)
-  const isCollapsed = top > COLLAPSE_AT_PX
-  const showBackToTop = goingUp && top > BACK_TO_TOP_FROM_PX
 
   const scrollToTop = () => screenRef.current.scrollTo({ top: 0, behavior: 'smooth' })
   const openStore = (store) => push('store', { store })
@@ -140,7 +141,7 @@ export default function HomeFeed({ push }) {
                     {item.emoji}
                   </i>
                 ) : (
-                  <img src={item.img} alt="" draggable="false" />
+                  <img src={item.img} alt="" draggable="false" loading="lazy" />
                 )}
                 {!unavailable && <span>{item.label}</span>}
               </button>
@@ -161,13 +162,13 @@ export default function HomeFeed({ push }) {
               className={`home-promo home-promo--${promo.fit}`}
               onClick={() => (promo.route ? push(...promo.route) : toast())}
             >
-              <img src={promo.img} alt="" draggable="false" />
+              <img src={promo.img} alt="" draggable="false" loading="lazy" />
             </button>
           ))}
         </Carousel>
         <Dots count={PROMOS.length} active={promoIndex} className="dots--wide home-promo-dots" />
 
-        <img className="home-turbo-title" src={turboRestaurantesTitle} alt="En minutos · Turbo Restaurantes" />
+        <img className="home-turbo-title" src={turboRestaurantesTitle} alt="En minutos · Turbo Restaurantes" loading="lazy" />
         <HScroll className="home-cards">
           {TURBO_RESTAURANTS.map((store) => (
             <RestaurantCard key={store.id} store={store} onClick={() => openStore(store)} />

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import ProductRow from '../../components/ProductRow'
+import Img from '../../components/Img'
 import { useToast } from '../../components/Toast'
 import { ChevronLeft, HeartIcon } from '../../components/Icons'
 import { cartEventFields } from '../../api/orders'
@@ -74,7 +75,7 @@ export default function StoreScreen({ back, params }) {
   return (
     <div ref={scrollRef} className="screen store">
       <div className={store.logo ? 'store-hero is-logo' : 'store-hero'}>
-        <img src={store.img} alt="" />
+        <Img src={store.img} eager />
       </div>
       <button type="button" className="store-round store-round--back tap" aria-label="Volver" onClick={back}>
         <ChevronLeft size={20} />

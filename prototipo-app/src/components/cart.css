@@ -2,7 +2,7 @@
   position: absolute;
   left: var(--gutter);
   right: var(--gutter);
-  bottom: 28px;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   z-index: 39; /* sobre el buscador con Bigotes (38): el carrito se ve y se abre desde ahí */
   display: flex;
   align-items: center;
@@ -20,7 +20,7 @@
 
 /* En pantallas con barra inferior, el carrito flota sobre ella */
 .cart-bar.is-raised {
-  bottom: 100px;
+  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
 }
 
 .cart-bar-count {

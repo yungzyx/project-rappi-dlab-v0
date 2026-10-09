@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import HScroll from '../../../components/HScroll'
+import Img from '../../../components/Img'
 import { ProductCard } from '../../../components/ProductCard'
 import { formatPrice, parsePrice } from '../../../state/CartContext'
 import { storeFor } from '../../../data/catalog'
@@ -75,7 +76,7 @@ function StoreItem({ store, onClick }) {
   return (
     <button type="button" className="live-store tap" onClick={onClick}>
       <span className={store.logo ? 'live-store-logo is-logo' : 'live-store-logo'}>
-        <img src={store.img} alt="" draggable="false" />
+        <Img src={store.img} draggable="false" />
       </span>
       <span className="live-store-name">{store.name}</span>
       <span className="live-store-eta">

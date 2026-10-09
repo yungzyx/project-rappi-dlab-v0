@@ -71,7 +71,7 @@ export default function LoyaltyScreen({ back }) {
         {others.map((program) => (
           <li key={program.id}>
             <button type="button" className="loyalty-row" onClick={() => setPendingId(program.id)}>
-              <img src={program.logo} alt="" />
+              <img src={program.logo} alt="" loading="lazy" />
               <strong>{program.name}</strong>
               <ChevronRight size={20} />
             </button>
@@ -80,7 +80,7 @@ export default function LoyaltyScreen({ back }) {
       </ul>
 
       <button type="button" className="loyalty-banner tap" onClick={() => setPendingId('iberia')}>
-        <img src={banner} alt="Europa te espera: vincula tu cuenta Iberia Club" />
+        <img src={banner} alt="Europa te espera: vincula tu cuenta Iberia Club" loading="lazy" />
       </button>
       <button type="button" className="loyalty-terms" onClick={() => toast()}>
         Ver términos y condiciones
@@ -89,7 +89,7 @@ export default function LoyaltyScreen({ back }) {
       <Sheet open={Boolean(pending)} onClose={() => setPendingId(null)} title={pending && `Vincular ${pending.name}`}>
         {pending && (
           <div className="loyalty-sheet">
-            <img src={pending.logo} alt="" />
+            <img src={pending.logo} alt="" loading="lazy" />
             <p>
               {active
                 ? `Dejarás de acumular en ${active.name} y empezarás a acumular ${pending.unit} en ${pending.name}.`

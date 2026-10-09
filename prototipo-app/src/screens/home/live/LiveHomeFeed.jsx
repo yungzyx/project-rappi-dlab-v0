@@ -92,7 +92,7 @@ export default function LiveHomeFeed({ push }) {
   const timers = useRef([])
   const hideTimer = useRef(null)
   const run = useRef(0) // cambia al repetir la escena o al salir: lo que estaba esperando ya no sigue
-  const [{ top }, onScroll] = useScrollState()
+  const [{ scrolled }, onScroll] = useScrollState()
   const snapshot = useFlip(blockRefs, order, { focus: 'interest', reduceMotion })
 
   const later = useCallback((ms, fn) => timers.current.push(setTimeout(fn, ms)), [])
@@ -436,7 +436,7 @@ export default function LiveHomeFeed({ push }) {
                     {item.emoji}
                   </i>
                 ) : (
-                  <img src={item.img} alt="" draggable="false" />
+                  <img src={item.img} alt="" draggable="false" loading="lazy" />
                 )}
                 {!unavailable && <span>{item.label}</span>}
               </button>
@@ -456,7 +456,7 @@ export default function LiveHomeFeed({ push }) {
               className={`home-promo home-promo--${promo.fit}`}
               onClick={() => (promo.route ? push(...promo.route) : toast())}
             >
-              <img src={promo.img} alt="" draggable="false" />
+              <img src={promo.img} alt="" draggable="false" loading="lazy" />
             </button>
           ))}
         </Carousel>
@@ -465,7 +465,7 @@ export default function LiveHomeFeed({ push }) {
     ),
     turbo: (
       <>
-        <img className="home-turbo-title" src={turboRestaurantesTitle} alt="En minutos · Turbo Restaurantes" />
+        <img className="home-turbo-title" src={turboRestaurantesTitle} alt="En minutos · Turbo Restaurantes" loading="lazy" />
         <HScroll className="home-cards">
           {TURBO_RESTAURANTS.map((store) => (
             <RestaurantCard key={store.id} store={store} onClick={() => push('store', { store })} />
@@ -540,7 +540,7 @@ export default function LiveHomeFeed({ push }) {
           onScroll(event)
           bigotesRef.current?.scrolled()
         }}
-        data-top={top > 0 ? 'scrolled' : 'top'}
+        data-top={scrolled ? 'scrolled' : 'top'}
       >
         <section className={`home-top ${dimClass('top')}`} inert={dim}>
           <button type="button" className="home-address tap" onClick={address.openSheet}>

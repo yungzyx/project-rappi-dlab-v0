@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import AddButton from '../AddButton'
 import HScroll from '../HScroll'
+import Img from '../Img'
 import { pressable } from '../pressable'
 import { useProductSheet } from '../../state/ProductSheetContext'
 
@@ -49,7 +50,7 @@ function ProductCards({ products, onOpenProduct, delay = 0 }) {
           {...pressable(() => sheet.open(product, { onOpenStore: () => onOpenProduct(product) }))}
         >
           <span className="chat-product-media">
-            <img src={product.img} alt="" draggable="false" />
+            <Img src={product.img} draggable="false" />
             {product.ageRestricted && (
               <span className="chat-product-age" aria-label="Solo mayores de 18">
                 +18
@@ -73,7 +74,7 @@ function ProductCards({ products, onOpenProduct, delay = 0 }) {
 function StoreLogo({ store }) {
   const [broken, setBroken] = useState(false)
   if (!store.logo || broken) return <span className="chat-also-initial">{store.name.trim().charAt(0)}</span>
-  return <img src={store.logo} alt="" onError={() => setBroken(true)} />
+  return <Img src={store.logo} onError={() => setBroken(true)} />
 }
 
 /** "También en": otras verticales con oferta de lo pedido y sus tiendas reales. Cada una abre su vertical. */
@@ -185,7 +186,7 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
                     style={{ animationDelay: `${120 + i * 60}ms` }}
                     onClick={() => onOpenStore(store)}
                   >
-                    <img src={store.img} alt="" className={store.logo ? 'is-logo' : undefined} />
+                    <Img src={store.img} className={store.logo ? 'is-logo' : undefined} />
                     <span>
                       <strong>{store.name}</strong>
                       {store.eta && <small>{store.eta}</small>}

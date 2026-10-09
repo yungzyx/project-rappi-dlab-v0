@@ -1,3 +1,4 @@
+import Img from './Img'
 import { StoreMeta } from '../screens/home/StoreCards'
 import './store-list.css'
 
@@ -8,7 +9,7 @@ export default function StoreList({ stores, onOpen }) {
       {stores.map((store) => (
         <li key={store.name}>
           <button type="button" className="search-store tap" onClick={() => onOpen(store)}>
-            <img src={store.img} alt="" className={store.logo ? 'is-logo' : undefined} />
+            <Img src={store.img} className={store.logo ? 'is-logo' : undefined} />
             <span>
               <strong>{store.name}</strong>
               {store.eta && <StoreMeta store={{ ...store, deliveryLabel: undefined }} className="search-store-meta" />}

@@ -51,14 +51,25 @@ const LiveBigotes = forwardRef(function LiveBigotes(
   const fidgets = useRef(0)
   const [tucked, setTucked] = useState(false)
   const tuckTimer = useRef(null)
-  useEffect(() => () => clearTimeout(tuckTimer.current), [])
+  const frame = useRef(0)
+  // Tamaño del teléfono: no cambia al hacer scroll (solo al cambiar la ventana), así que se mide una vez.
+  const phoneSize = useRef(null)
+  useEffect(
+    () => () => {
+      clearTimeout(tuckTimer.current)
+      cancelAnimationFrame(frame.current)
+    },
+    [],
+  )
 
   const place = useCallback(() => {
     const layer = layerRef.current
     if (!layer) return
-    const phone = rectInPhone(layer)
-    const height = phone.phoneHeight
-    const width = phone.phoneWidth
+    if (!phoneSize.current) {
+      const phone = rectInPhone(layer)
+      phoneSize.current = { height: phone.phoneHeight, width: phone.phoneWidth }
+    }
+    const { height, width } = phoneSize.current
     let y = height - BOTTOM_RESERVE - HEIGHT
     const block = target ? getBlock(target) : null
     if (block) {
@@ -85,13 +96,22 @@ const LiveBigotes = forwardRef(function LiveBigotes(
   }, [spot])
 
   useEffect(() => {
-    window.addEventListener('resize', place)
-    return () => window.removeEventListener('resize', place)
+    const onResize = () => {
+      phoneSize.current = null
+      place()
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [place])
 
   // Al hacer scroll se esconde tras el borde (no tapa lo que se está mirando) y vuelve a asomarse al parar.
+  // La posición se recalcula a lo más una vez por cuadro (mide el bloque con getBoundingClientRect).
   const scrolled = useCallback(() => {
-    place()
+    if (!frame.current)
+      frame.current = requestAnimationFrame(() => {
+        frame.current = 0
+        place()
+      })
     setTucked(true)
     clearTimeout(tuckTimer.current)
     tuckTimer.current = setTimeout(() => setTucked(false), TUCK_MS)

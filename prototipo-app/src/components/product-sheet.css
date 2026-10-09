@@ -139,7 +139,7 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px; /* desde 16px iOS no hace zoom al enfocar */
   resize: none;
 }
 

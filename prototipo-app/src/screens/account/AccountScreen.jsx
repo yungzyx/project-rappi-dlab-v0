@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useToast } from '../../components/Toast'
+import Img from '../../components/Img'
 import { ChevronLeft, ChevronRight } from '../../components/Icons'
 import { CardIcon, HeadsetIcon, LogoutIcon, OrdersIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
@@ -102,7 +103,7 @@ export default function AccountScreen({ onBack, push }) {
               className="account-order tap"
               onClick={() => push('tracking', { orderId: order.id })}
             >
-              <img src={order.items[0]?.img} alt="" className="account-order-photo" />
+              <Img src={order.items[0]?.img} className="account-order-photo" />
               <span>
                 <strong>{order.stores.join(', ') || 'Your order'}</strong>
                 <span>
@@ -117,7 +118,7 @@ export default function AccountScreen({ onBack, push }) {
             className="account-order tap"
             onClick={() => push('store', { store: { name: RECENT_ORDER.store, img: logoStreetWrap, logo: true } })}
           >
-            <img src={logoStreetWrap} alt="" />
+            <img src={logoStreetWrap} alt="" loading="lazy" />
             <span>
               <strong>{RECENT_ORDER.store}</strong>
               <span>{RECENT_ORDER.date}</span>
@@ -168,7 +169,7 @@ export default function AccountScreen({ onBack, push }) {
           <p className="account-version">Made with 🧡 in LATAM</p>
         </section>
 
-        <img className="account-footer" src={footer} alt="Made with Love in Latin America" />
+        <img className="account-footer" src={footer} alt="Made with Love in Latin America" loading="lazy" />
       </div>
 
       <AccountSheets sheet={sheet} onClose={() => setSheet(null)} />

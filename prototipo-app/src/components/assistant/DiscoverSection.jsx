@@ -2,6 +2,7 @@ import { EXPLORABLE } from '../../assistant/explored'
 import { VERTICAL_NAMES } from '../../data/verticals'
 import { MAIN_TILES, SHORTCUTS } from '../../screens/home/data'
 import HScroll from '../HScroll'
+import Img from '../Img'
 import './discover.css'
 
 // Las mismas ilustraciones de la Home: la persona reconoce cada vertical de un vistazo.
@@ -49,7 +50,7 @@ export default function DiscoverSection({ cards, explored, onOpen }) {
               onClick={() => onOpen(vertical)}
             >
               <span className="discover-stamp-art">
-                <img src={TILE_IMAGES[vertical]} alt="" draggable="false" />
+                <img src={TILE_IMAGES[vertical]} alt="" draggable="false" loading="lazy" />
               </span>
               <span className="discover-stamp-name">{VERTICAL_NAMES[vertical]}</span>
             </button>
@@ -67,7 +68,7 @@ export default function DiscoverSection({ cards, explored, onOpen }) {
             onClick={() => onOpen(card.vertical)}
           >
             <span className="discover-card-art" aria-hidden="true">
-              <img src={TILE_IMAGES[card.vertical]} alt="" draggable="false" />
+              <img src={TILE_IMAGES[card.vertical]} alt="" draggable="false" loading="lazy" />
             </span>
             <span className="discover-card-body">
               <small>
@@ -81,7 +82,7 @@ export default function DiscoverSection({ cards, explored, onOpen }) {
               <span className="discover-card-foot">
                 <span className="discover-thumbs" aria-hidden="true">
                   {card.items.map((item) => (
-                    <img key={item.key} src={itemImage(item)} alt="" draggable="false" />
+                    <Img key={item.key} src={itemImage(item)} draggable="false" />
                   ))}
                 </span>
                 <em>Explorar</em>

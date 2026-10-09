@@ -57,6 +57,7 @@ function renderWith(children) {
 afterEach(() => {
   cleanup()
   events.track.mockClear()
+  localStorage.clear() // el carro persiste: cada prueba parte vacío
 })
 
 describe('ProductSheet', () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from '../../components/Icons'
+import Img from '../../components/Img'
 import { formatPrice } from '../../state/CartContext'
 import { useOrders } from '../../state/OrdersContext'
 import { STEPS, stepAt } from '../tracking/progress'
@@ -49,7 +50,7 @@ export default function OrdersScreen({ back, push, reset }) {
                   className="orders-row tap"
                   onClick={() => push('tracking', { orderId: order.id })}
                 >
-                  <img src={order.items[0]?.img} alt="" />
+                  <Img src={order.items[0]?.img} />
                   <span className="orders-row-text">
                     <strong>{order.stores.join(', ') || 'Tu pedido'}</strong>
                     <span>

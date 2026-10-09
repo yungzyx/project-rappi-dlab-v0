@@ -3,7 +3,7 @@
   position: absolute;
   left: 16px;
   right: 16px;
-  bottom: 90px;
+  bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   z-index: 36;
   display: flex;
   align-items: center;
@@ -20,7 +20,7 @@
 }
 
 .nudge.is-raised {
-  bottom: 162px;
+  bottom: calc(162px + env(safe-area-inset-bottom, 0px));
 }
 
 .nudge p {

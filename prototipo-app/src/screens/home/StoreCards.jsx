@@ -1,3 +1,4 @@
+import Img from '../../components/Img'
 import { BoltIcon, ClockIcon, CrownIcon, ScooterIcon, SpeedBoltIcon, StarIcon } from '../../components/Icons'
 import './home.css'
 
@@ -25,7 +26,7 @@ export function RestaurantCard({ store, onClick }) {
   return (
     <button type="button" className="featured-card tap" onClick={onClick}>
       <span className={store.partial ? 'featured-media is-partial' : 'featured-media'}>
-        <img src={store.img} alt="" draggable="false" />
+        <Img src={store.img} draggable="false" />
       </span>
       <span className="featured-name">
         <span className="featured-title">{store.name}</span>
@@ -72,7 +73,7 @@ export function StoreTile({ store, onClick }) {
   const Icon = store.scheduled ? ClockIcon : BoltIcon
   return (
     <button type="button" className="store-tile tap" onClick={onClick}>
-      <img src={store.img} alt="" />
+      <Img src={store.img} />
       <span className="store-name">{store.name}</span>
       <span className="store-when">
         <Icon size={15} className={store.scheduled ? 'store-icon' : 'store-icon store-icon--bolt'} />

@@ -150,3 +150,14 @@ describe('«Para ti, de otras tiendas» (cerebro local)', () => {
     expect(fruits).toEqual([{ concept_id: 'frutas', vertical: 'grocery', payload: { origen: 'vertical-para-ti' } }])
   })
 })
+
+describe('vertical desconocida', () => {
+  test('un id que no existe muestra un estado vacío en vez de romper', () => {
+    render(
+      <Providers>
+        <VerticalScreen back={() => {}} push={() => {}} params={{ id: 'no-existe' }} />
+      </Providers>,
+    )
+    expect(screen.getByText('Esta categoría no está en el prototipo.')).toBeTruthy()
+  })
+})

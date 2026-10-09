@@ -21,7 +21,8 @@
   bottom: 0;
   max-height: 80%;
   overflow-y: auto;
-  padding: 10px var(--gutter) 34px;
+  overscroll-behavior-y: contain;
+  padding: 10px var(--gutter) calc(34px + env(safe-area-inset-bottom, 0px));
   border-radius: 28px 28px 0 0;
   background: var(--surface);
   transform: translateY(100%);

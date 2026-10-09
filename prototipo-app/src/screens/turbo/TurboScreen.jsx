@@ -179,7 +179,7 @@ function TurboFeed({ back, toast, category, setCategory, onOpenStore, onSearch }
       </button>
 
       <div className="turbo-fee">
-        <img src={turboCrown} alt="" />
+        <img src={turboCrown} alt="" loading="lazy" />
         <div>
           <p className="turbo-fee-title">100% OFF on Service Fee</p>
           <p className="turbo-fee-sub">
@@ -207,7 +207,7 @@ function TurboFeed({ back, toast, category, setCategory, onOpenStore, onSearch }
             aria-label={promo.label}
             onClick={() => goToCategory(promo.tab)}
           >
-            <img src={promo.img} alt="" draggable="false" />
+            <img src={promo.img} alt="" draggable="false" loading="lazy" />
           </button>
         ))}
       </HScroll>

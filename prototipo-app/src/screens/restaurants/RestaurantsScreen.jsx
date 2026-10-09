@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
+import Img from '../../components/Img'
 import { useToast } from '../../components/Toast'
 import {
   BoltIcon,
@@ -96,7 +97,7 @@ export default function RestaurantsScreen({ back, push }) {
             onClick={() => push('search', { query: cat.query, vertical: 'restaurants' })}
           >
             <span className={cat.partial ? 'rest-category-img is-partial' : 'rest-category-img'}>
-              <img src={cat.img} alt="" />
+              <img src={cat.img} alt="" loading="lazy" />
             </span>
             <span className="rest-category-label">{cat.label}</span>
           </button>
@@ -126,10 +127,10 @@ export default function RestaurantsScreen({ back, push }) {
                   <strong>{banner.title}</strong>
                   <span>{banner.place}</span>
                 </span>
-                <img className="rest-banner-photo" src={banner.img} alt="" draggable="false" />
+                <img className="rest-banner-photo" src={banner.img} alt="" draggable="false" loading="lazy" />
               </>
             ) : (
-              <img className="rest-banner-full" src={banner.img} alt="" draggable="false" />
+              <img className="rest-banner-full" src={banner.img} alt="" draggable="false" loading="lazy" />
             )}
           </button>
         ))}
@@ -149,7 +150,7 @@ export default function RestaurantsScreen({ back, push }) {
               })
             }
           >
-            <img src={item.img} alt="" draggable="false" />
+            <Img src={item.img} draggable="false" />
             <span className="again-name">{item.name}</span>
             <span className="again-meta">
               {item.eta}

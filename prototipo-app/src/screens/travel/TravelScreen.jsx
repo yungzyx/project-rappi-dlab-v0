@@ -12,10 +12,11 @@ import proWeek from '../../assets/v/travel-proweek.webp'
 import './travel.css'
 
 // Los botones del hero (volver, campana, Ayuda, Mis Viajes, "Ver destinos") vienen dibujados en la imagen,
-// iguales en ambos banners; por eso el carrusel es un fundido y encima van zonas táctiles invisibles.
+// iguales en ambos banners; por eso el carrusel es un fundido y encima van zonas táctiles invisibles
+// (medidas en % del hero de 402 × 335, para que sigan sobre el botón en un teléfono más angosto).
 const HEROES = [
-  { id: 'hoteles40', img: hero1, cta: { left: 36, top: 238, width: 82, height: 20 } },
-  { id: 'bonvoy', img: hero2, cta: { left: 147, top: 244, width: 108, height: 22 } },
+  { id: 'hoteles40', img: hero1, cta: { left: '9%', top: '71%', width: '20.4%', height: '6%' } },
+  { id: 'bonvoy', img: hero2, cta: { left: '36.6%', top: '72.8%', width: '26.9%', height: '6.6%' } },
 ]
 const HERO_MS = 4500
 const SWIPE_PX = 40
@@ -97,14 +98,14 @@ export default function TravelScreen({ back }) {
         <div className="travel-tiles">
           {TILES.map((tile) => (
             <button key={tile.id} type="button" className="travel-tile tap" onClick={() => toast(`${tile.label}: las reservas no están en el prototipo`)}>
-              <img src={tile.img} alt="" />
+              <img src={tile.img} alt="" loading="lazy" />
               <span>{tile.label}</span>
             </button>
           ))}
         </div>
 
         <button type="button" className="travel-proweek tap" onClick={() => toast()}>
-          <img src={proWeek} alt="Pro week: vuela sin pagar cargo de servicio" />
+          <img src={proWeek} alt="Pro week: vuela sin pagar cargo de servicio" loading="lazy" />
         </button>
       </section>
     </div>

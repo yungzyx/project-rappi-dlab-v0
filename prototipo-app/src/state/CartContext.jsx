@@ -1,4 +1,8 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { loadStored, saveStored } from './storage'
+
+// El carro sobrevive a una recarga (líneas, id y notas), como los pedidos.
+const STORAGE_KEY = 'rappi-proto-cart'
 
 const newCartId = () => `c-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
 
@@ -19,10 +23,27 @@ export function formatPrice(value) {
  */
 export const lineKey = (product) => `${product.id}|${product.vertical ?? ''}|${product.store ?? ''}`
 
-/** Carrito del prototipo: ofertas con su cantidad. Vive en memoria mientras la página esté abierta. */
+const isLine = (line) =>
+  line && typeof line === 'object' && line.product?.id != null && Number.isInteger(line.qty) && line.qty > 0
+const isStoredCart = (value) =>
+  value &&
+  typeof value === 'object' &&
+  typeof value.id === 'string' &&
+  value.lines &&
+  typeof value.lines === 'object' &&
+  Object.values(value.lines).every(isLine)
+
+const loadCart = () => loadStored(STORAGE_KEY, isStoredCart, null) ?? { id: newCartId(), lines: {} }
+
+/** Carrito del prototipo: ofertas con su cantidad. Se guarda en el navegador para sobrevivir a una recarga. */
 export function CartProvider({ children }) {
-  const [lines, setLines] = useState({})
-  const [cartId, setCartId] = useState(newCartId)
+  const [initial] = useState(loadCart)
+  const [lines, setLines] = useState(initial.lines)
+  const [cartId, setCartId] = useState(initial.id)
+
+  useEffect(() => {
+    saveStored(STORAGE_KEY, { id: cartId, lines })
+  }, [cartId, lines])
 
   // `delta` sobre el estado vigente: dos toques rápidos suman 2 aunque el render aún no se actualice.
   const change = useCallback((product, delta) => {

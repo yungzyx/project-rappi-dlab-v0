@@ -71,13 +71,30 @@ export function storeVertical(store) {
   return store.vertical ?? productsOfStore(store.name).find((product) => product.vertical)?.vertical
 }
 
-/** Búsqueda simple por palabras (sin tildes): todas las palabras deben aparecer en el nombre o la tienda. */
+// Tope de resultados: con los menús reales una letra suelta calza con miles de platos.
+export const MAX_STORE_RESULTS = 10
+export const MAX_PRODUCT_RESULTS = 30
+
+/** Primeros `limit` elementos que cumplen `test` (sin recorrer el resto). */
+function take(items, test, limit) {
+  const found = []
+  for (const item of items) {
+    if (found.length >= limit) break
+    if (test(item)) found.push(item)
+  }
+  return found
+}
+
+/**
+ * Búsqueda simple por palabras (sin tildes): todas las palabras deben aparecer en el nombre o la tienda.
+ * Devuelve a lo más MAX_STORE_RESULTS tiendas y MAX_PRODUCT_RESULTS productos, en el orden del catálogo.
+ */
 export function search(query) {
   const words = normalize(query).split(/\s+/).filter(Boolean)
   if (words.length === 0) return { stores: [], products: [] }
   const matches = (text) => words.every((word) => normalize(text).includes(word))
   return {
-    stores: ALL_STORES.filter((store) => matches(store.name)),
-    products: ALL_PRODUCTS.filter((product) => matches(`${product.name} ${product.store}`)),
+    stores: take(ALL_STORES, (store) => matches(store.name), MAX_STORE_RESULTS),
+    products: take(ALL_PRODUCTS, (product) => matches(`${product.name} ${product.store}`), MAX_PRODUCT_RESULTS),
   }
 }

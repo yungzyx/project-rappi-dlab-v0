@@ -101,6 +101,7 @@
   border-radius: 10px;
   background: var(--surface);
   font: inherit;
+  font-size: 16px; /* desde 16px iOS no hace zoom al enfocar */
   font-weight: 400;
 }
 

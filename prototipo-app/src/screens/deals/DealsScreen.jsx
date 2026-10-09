@@ -48,7 +48,7 @@ export default function DealsScreen({ push }) {
 
       <section className="deals-pizzas">
         <div className="section-head">
-          <img className="deals-pizza-icon" src={TOP_PIZZAS_ICON} alt="" />
+          <img className="deals-pizza-icon" src={TOP_PIZZAS_ICON} alt="" loading="lazy" />
           <div className="deals-pizza-title">
             <h2>
               <strong>Top 10</strong> Pizzas
@@ -76,7 +76,7 @@ export default function DealsScreen({ push }) {
       {GROCERY_SECTIONS.map((section) => (
         <section key={section.id} className="deals-grocery">
           <h2 className="section-title deals-grocery-title">
-            <img src={section.icon} alt="" />
+            <img src={section.icon} alt="" loading="lazy" />
             {section.title}
           </h2>
           <HScroll className="deals-product-row">

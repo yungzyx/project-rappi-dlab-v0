@@ -18,7 +18,9 @@ import './vertical.css'
 
 /** Plantilla común de Grocery, Pharmacy, Retail, Liquor, Express, Pet y Chocolates. */
 export default function VerticalScreen({ back, push, params }) {
+  // Un id desconocido (enlace viejo) no rompe la pantalla: muestra un estado vacío más abajo.
   const vertical = VERTICALS[params.id]
+  const sections = vertical?.sections ?? []
   const toast = useToast()
   const address = useAddress()
   const openSearch = useOpenSearch(push)
@@ -26,7 +28,7 @@ export default function VerticalScreen({ back, push, params }) {
   const profile = useProfile()
   const events = useEvents()
 
-  const allProducts = vertical.sections.filter((s) => s.type === 'products').flatMap((s) => s.products)
+  const allProducts = sections.filter((s) => s.type === 'products').flatMap((s) => s.products)
   const forYouRow = demo.isProposal
     ? forVertical(params.id, profile, new Set(allProducts.map((item) => item.id)))
     : null
@@ -46,7 +48,7 @@ export default function VerticalScreen({ back, push, params }) {
   }, [shownPairs, profile.resets, events])
   // Con la vertical de la pantalla (no `map(toStore)`: map le pasaría el índice como vertical).
   const asStore = (store) => toStore(store, params.id)
-  const allStores = vertical.sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(asStore))
+  const allStores = sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(asStore))
   const openCategory = (category) =>
     push('list', { title: category.label, products: allProducts, stores: allStores })
   const openStore = (store) => push('store', { store })
@@ -57,6 +59,18 @@ export default function VerticalScreen({ back, push, params }) {
       item,
     })
   const openBanner = (banner) => (banner.store ? openStore(banner.store) : toast(banner.toast))
+
+  if (!vertical)
+    return (
+      <div className="screen vertical">
+        <header className="vertical-header">
+          <button type="button" className="round-button tap" aria-label="Volver" onClick={back}>
+            <ChevronLeft size={20} />
+          </button>
+        </header>
+        <p className="vertical-empty">Esta categoría no está en el prototipo.</p>
+      </div>
+    )
 
   return (
     <div className="screen vertical">
@@ -141,7 +155,7 @@ function BannerCarousel({ banners, onOpen }) {
       <Carousel className="vertical-banners" autoplayMs={banners.length > 1 ? 4500 : 0} onIndexChange={setIndex}>
         {banners.map((banner) => (
           <button key={banner.id} type="button" className="vertical-banner" onClick={() => onOpen(banner)}>
-            <img src={banner.img} alt="" draggable="false" />
+            <img src={banner.img} alt="" draggable="false" loading="lazy" />
           </button>
         ))}
       </Carousel>
@@ -162,7 +176,7 @@ function StoreSection({ section, onOpen, onMore }) {
       <div className="vertical-store-list">
         {section.stores.map((store) => (
           <button key={store.id} type="button" className="vertical-store tap" onClick={() => onOpen(store)}>
-            <img src={store.logo} alt="" className="vertical-store-logo" />
+            <img src={store.logo} alt="" className="vertical-store-logo" loading="lazy" />
             <span className="vertical-store-text">
               <span className="vertical-store-name">
                 <strong>{store.name}</strong>
@@ -186,7 +200,7 @@ function StoreSection({ section, onOpen, onMore }) {
           </button>
         ))}
         {/* Columna siguiente asomándose por el borde, recortada tal cual de la captura */}
-        <img className="vertical-peek" src={section.peek.img} alt="" style={{ top: section.peek.top }} />
+        <img className="vertical-peek" src={section.peek.img} alt="" loading="lazy" style={{ top: section.peek.top }} />
       </div>
     </section>
   )
