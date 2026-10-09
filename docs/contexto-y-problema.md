@@ -80,7 +80,7 @@ Estado al 30-09-2026:
 | **Prototipo** | App navegable: Bigotes en la Home, buscador con Bigotes, pasaporte y juego de verticales (`prototipo-app/`) | **Listo para demo.** Con la API usa el catálogo real; sin ella, reglas locales. Sin chat escrito, voz ni foto (ver [decisiones.md](decisiones.md#agente-bigotes)) |
 | **2. RAG** | Conceptos (capa 2), embeddings de texto e imagen, búsqueda híbrida por vertical y evaluación (`rappi-ia/`) | **Construido.** Todos los documentos de búsqueda con embedding de texto. Evaluación en [README → Resultados](../README.md#resultados) |
 | **3. Agente** | Bigotes en el backend y API: herramientas de búsqueda, reglas de conducta, voz y foto; LLM opcional | **Construido.** Voz y foto siguen en la API (`/chat/voice`, `/chat/photo`), pero el prototipo actual no los usa |
-| **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono | **Construido y archivado** en [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto) (usuarios simulados). Las métricas siguen en la API (`/analytics`) |
+| **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono | **Construido** (`dashboard-empresa/`), como herramienta para más adelante: usuarios simulados, salvo la pestaña Catálogo (real) |
 | **Cierre** | CI, documentación y validación final (etapa 8 de [diseno-ia.md](diseno-ia.md#7-etapas)) | **Hecha.** CI en verde y corrida post-refresh sobre el catálogo completo (30-09-2026) |
 
 ## 7. Límites y riesgos

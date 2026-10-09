@@ -1,0 +1,122 @@
+{
+  "source": "catalogo_real",
+  "data": {
+    "cobertura": [
+      {
+        "vertical": "supermercado",
+        "tiendas": 323,
+        "declarados": 158749,
+        "obtenidos": 69431
+      },
+      {
+        "vertical": "mall",
+        "tiendas": 380,
+        "declarados": 104108,
+        "obtenidos": 47556
+      },
+      {
+        "vertical": "conveniencia",
+        "tiendas": 49,
+        "declarados": 55803,
+        "obtenidos": 19703
+      },
+      {
+        "vertical": "turbo",
+        "tiendas": 18,
+        "declarados": 41898,
+        "obtenidos": 19315
+      },
+      {
+        "vertical": "farmacia",
+        "tiendas": 21,
+        "declarados": 37005,
+        "obtenidos": 16032
+      },
+      {
+        "vertical": "licores",
+        "tiendas": 84,
+        "declarados": 29100,
+        "obtenidos": 19927
+      },
+      {
+        "vertical": "chocolateria",
+        "tiendas": 27,
+        "declarados": 1606,
+        "obtenidos": 1391
+      }
+    ],
+    "calidad": [
+      {
+        "vertical": "mall",
+        "productos": 38454,
+        "sin_imagen_pct": 0.1,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 0.3
+      },
+      {
+        "vertical": "supermercado",
+        "productos": 33503,
+        "sin_imagen_pct": 0.4,
+        "sin_categoria_pct": 2.5,
+        "sin_concepto_pct": 0.2
+      },
+      {
+        "vertical": "conveniencia",
+        "productos": 9404,
+        "sin_imagen_pct": 0.6,
+        "sin_categoria_pct": 2.2,
+        "sin_concepto_pct": 0
+      },
+      {
+        "vertical": "farmacia",
+        "productos": 6750,
+        "sin_imagen_pct": 0.4,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 0.3
+      },
+      {
+        "vertical": "licores",
+        "productos": 5751,
+        "sin_imagen_pct": 0.3,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 0
+      },
+      {
+        "vertical": "turbo",
+        "productos": 2642,
+        "sin_imagen_pct": 0,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 0
+      },
+      {
+        "vertical": "chocolateria",
+        "productos": 1178,
+        "sin_imagen_pct": 0.1,
+        "sin_categoria_pct": 0,
+        "sin_concepto_pct": 0
+      }
+    ],
+    "cruzados_reales": [
+      {
+        "n_verticales": 2,
+        "productos": 12752
+      },
+      {
+        "n_verticales": 3,
+        "productos": 3169
+      },
+      {
+        "n_verticales": 4,
+        "productos": 776
+      },
+      {
+        "n_verticales": 5,
+        "productos": 189
+      },
+      {
+        "n_verticales": 6,
+        "productos": 14
+      }
+    ]
+  }
+}

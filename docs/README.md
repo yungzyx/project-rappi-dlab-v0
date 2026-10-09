@@ -53,6 +53,7 @@ Las fuentes JSON de los diagramas están en [diagramas-fuente/](diagramas-fuente
 | Consultar la base con SQL | [sql/README.md](sql/README.md) y [consultas.sql](sql/consultas.sql) | 5 min |
 | Probar a Bigotes (API) como usuario y dejar cada fallo como test | [pruebas-de-usuario.md](pruebas-de-usuario.md) | 3 min |
 | Trabajar en el código con un asistente de IA | [CLAUDE.md](../CLAUDE.md) | 2 min |
+| Usar el panel de negocio (herramienta para más adelante, datos simulados) | [dashboard-empresa/README.md](../dashboard-empresa/README.md) | 5 min |
 
 ### Reportes generados (fuera de git)
 
@@ -70,4 +71,4 @@ Reflejan el estado a su fecha y no se actualizan con cada corrida.
 |---|---|---|
 | [ecosistema-rappi.md](ecosistema-rappi.md) §1 y §2 | Research con fuentes públicas al 26-09-2026 | Los servicios de Rappi en Chile y cómo modelan sus datos otras super-apps comparables. El modelo de datos (§3) sigue vigente |
 | Scraper original a CSV (`rappi-csv`) | Anterior a la base de datos | Sección [«Legado»](../rappi-scraper/README.md#legado-scraper-original-a-csv-rappi-csv) del README del scraper |
-| Panel de negocio, presentación al gerente, chat escrito y modos anteriores del prototipo | 30-09 al 09-10-2026 | En [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto), con una etiqueta por etapa |
+| Presentación al gerente, chat escrito y modos anteriores del prototipo | 30-09 al 09-10-2026 | En [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto), con una etiqueta por etapa |

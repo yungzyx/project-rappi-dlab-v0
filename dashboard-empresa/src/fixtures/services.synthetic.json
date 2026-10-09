@@ -1,0 +1,21 @@
+{
+  "source": "synthetic",
+  "data": [
+    {
+      "servicio": "rappitravel",
+      "nombre": "✈️ RappiTravel",
+      "ofrecido": 556,
+      "abierto": 186,
+      "ganchos_mostrados": 556,
+      "ganchos_aceptados": 126
+    },
+    {
+      "servicio": "rappifavor",
+      "nombre": "🛵 RappiFavor",
+      "ofrecido": 1576,
+      "abierto": 324,
+      "ganchos_mostrados": 0,
+      "ganchos_aceptados": 0
+    }
+  ]
+}
