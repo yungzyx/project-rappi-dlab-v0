@@ -18,6 +18,7 @@ Para ver una etapa: `git checkout <etiqueta>`. Cada rama `feat/*`, `fix/*` y `do
 | `etapa-08-propuesta-buscador` | 09-10-2026 | La Propuesta sin chat escrito: buscador con Bigotes y prototipo de alta fidelidad (PRs #37 y #39). | Se unió con Bigotes vivo (etapa 09). |
 | `etapa-09-prototipo-final` | 09-10-2026 | Dos modos: «Rappi hoy» y «Prototipo final»; la Home ya no sugiere productos; respuesta de Bigotes sin repetir (PR #40). | Base del prototipo actual. |
 | `etapa-10-juego-en-prototipo` | 09-10-2026 | El juego de verticales dentro del prototipo final, con un solo pasaporte y una ronda mientras llega el pedido (PR #41). | Es el prototipo actual de `rappi-dlab`. |
+| `etapa-11-todo-fusionado` | 09-10-2026 | `main` de `rappi-dlab` con todo fusionado (PRs #37 a #41 y #38), con el panel y la presentación todavía dentro. También como rama `dlab-antes-de-la-limpieza`. | Desde aquí `rappi-dlab` se enfocó en el prototipo final. |
 
 ## Lo que salió de `rappi-dlab`
 
