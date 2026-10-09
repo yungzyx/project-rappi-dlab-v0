@@ -17,6 +17,7 @@ import { CartProvider } from './state/CartContext'
 import { DemoProvider } from './state/DemoContext'
 import { EventsProvider } from './state/EventsContext'
 import { FavoritesProvider } from './state/FavoritesContext'
+import { GameProvider } from './state/GameContext'
 import { LoyaltyProvider } from './state/LoyaltyContext'
 import { NudgeProvider } from './state/NudgeContext'
 import { OrdersProvider } from './state/OrdersContext'
@@ -38,13 +39,14 @@ const SCREENS = {
   checkout: lazy(() => import('./screens/checkout/CheckoutScreen')),
   tracking: lazy(() => import('./screens/tracking/TrackingScreen')),
   orders: lazy(() => import('./screens/orders/OrdersScreen')),
+  game: lazy(() => import('./screens/game/GameScreen')),
 }
 
 // Mientras una pantalla se baja: el fondo del teléfono, sin spinner (dura un instante).
 const LOADING = <div className="screen screen-loading" aria-hidden="true" />
 
-// En el checkout y el seguimiento no se muestran la barra del carrito ni el aviso de Bigotes.
-const SCREENS_WITHOUT_CART = new Set(['checkout', 'tracking'])
+// En el checkout, el seguimiento y el juego no se muestran la barra del carrito ni el aviso de Bigotes.
+const SCREENS_WITHOUT_CART = new Set(['checkout', 'tracking', 'game'])
 
 // Pantallas con barra inferior: ahí la barra del carrito flota más arriba.
 const SCREENS_WITH_NAV = new Set(['home', 'turbo'])
@@ -94,6 +96,7 @@ export default function App() {
                 <CartProvider>
                   <OrdersProvider>
                     <FavoritesProvider>
+                      <GameProvider>
                       <AddressProvider>
                         <LoyaltyProvider>
                           <ToastProvider>
@@ -142,6 +145,7 @@ export default function App() {
                           </ToastProvider>
                         </LoyaltyProvider>
                       </AddressProvider>
+                      </GameProvider>
                     </FavoritesProvider>
                   </OrdersProvider>
                 </CartProvider>
