@@ -237,9 +237,16 @@
   font-weight: 700;
 }
 
+.vertical-empty {
+  padding: 40px var(--gutter);
+  color: var(--ink-3);
+  font-size: 15px;
+  text-align: center;
+}
+
 .vertical-peek {
   position: absolute;
-  left: 364px;
+  left: 90.5%; /* 364 de 402 px: en un teléfono más angosto sigue asomando por el borde */
   width: 38px;
   pointer-events: none;
 }

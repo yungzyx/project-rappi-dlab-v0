@@ -18,10 +18,13 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function run(page) {
   // Espera a que carguen las imágenes visibles y a que terminen las transiciones de pantalla.
+  // Las imágenes con loading="lazy" fuera de pantalla no cargan hasta hacer scroll: no se esperan.
   const settle = async (ms = 500) => {
     await page.evaluate(() =>
       Promise.all(
-        [...document.images].filter((img) => !img.complete).map((img) => new Promise((done) => (img.onload = img.onerror = done))),
+        [...document.images]
+          .filter((img) => !img.complete && img.loading !== 'lazy')
+          .map((img) => new Promise((done) => (img.onload = img.onerror = done))),
       ),
     )
     await wait(ms)
@@ -54,14 +57,14 @@ async function run(page) {
   await page.goto(BASE)
   await reset()
 
-  // --- Portada: modo demo y la Home en ambos modos ---
-  await wait(1700) // el globo "¡Hola! Soy Bigotes" aparece a los 1,2 s
+  // --- Portada: modo demo y la Home en ambos modos (arranca en el prototipo final) ---
+  await wait(4200) // Bigotes entra a los 0,9 s y termina de escribir su saludo
   await shot('00-modo-demo', { full: true })
-  await shot('01-home-propuesta')
+  await shot('01-home-final')
   await page.keyboard.press('d')
   await shot('02-home-rappi-hoy')
 
-  // --- Pantallas replicadas de Rappi (modo "Rappi hoy": sin agregados de la propuesta) ---
+  // --- Pantallas replicadas de Rappi (modo "Rappi hoy": sin agregados del prototipo final) ---
   for (const [name, open] of [
     ['10-restaurants', () => tap('.home-tile--restaurants')],
     ['11-turbo', () => tap('.home-tile--turbo')],
@@ -83,17 +86,16 @@ async function run(page) {
     await shot(name)
   }
   await tab('Home')
-  await page.keyboard.press('d')
+  await page.keyboard.press('d') // Rappi hoy → prototipo final
+  await settle(400)
 
-  // --- Lo nuevo de la propuesta ---
-  await tap('.home-top .smart-bar-action[aria-label="Hablar"]')
-  await wait(1900)
-  await shot('21-voz')
-  await wait(3500)
+  // --- Lo nuevo del prototipo final ---
+  await tap('.home-top .smart-bar') // la barra de la Home abre el buscador con Bigotes
+  await wait(1200) // animación de entrada del panel
   await tap('.assistant-chip', 'carrete')
-  await wait(3800)
+  await wait(3800) // Bigotes responde
   await shot('20-asistente')
-  await tap('.assistant-close')
+  await tap('[role="dialog"] .search-back')
   await wait(600)
 
   await shortcut('Liquor')
@@ -103,14 +105,19 @@ async function run(page) {
   await back()
   await settle(400)
 
+  // Juego de verticales: se entra desde el pasaporte de la Home.
+  await center('.live-passport')
+  await tap('.live-passport-play')
+  await wait(900)
+  await tap('button', 'Ver el camino primero') // la bienvenida de Bigotes, la primera vez
+  await settle(600)
+  await shot('31-juego-camino')
+  await tap('[aria-label="Volver a Rappi"]')
+  await settle(400)
+
   await tab('Offers')
   await page.locator('.product-card', { hasText: 'Royal Guard' }).first().locator('.add-button').click()
   await wait(700)
-  await shot('23-aviso-bigotes')
-
-  await tab('Home')
-  await center('.for-you')
-  await shot('24-home-para-ti')
 
   await tap('.cart-bar')
   await wait(500)
@@ -119,8 +126,13 @@ async function run(page) {
   await shot('25-checkout')
   await tap('.checkout-place')
   await wait(13000)
-  await shot('26-seguimiento')
-  await wait(9000)
+  await shot('26-seguimiento') // con «Juega mientras llega tu pedido»
+  await tap('.tracking-game')
+  await wait(1200)
+  await shot('32-juego-espera')
+  await wait(8000) // el pedido llega a mitad de ronda
+  await tap('.game-order button', 'Ver pedido')
+  await wait(800)
   await shot('27-entregado')
   await back()
   await settle(400)

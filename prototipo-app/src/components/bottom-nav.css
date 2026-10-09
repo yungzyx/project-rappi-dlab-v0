@@ -2,8 +2,8 @@
   position: absolute;
   left: 21px;
   right: 21px;
-  bottom: 23px;
-  z-index: 30;
+  bottom: calc(23px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-nav);
   display: flex;
   align-items: center;
   gap: 8px;

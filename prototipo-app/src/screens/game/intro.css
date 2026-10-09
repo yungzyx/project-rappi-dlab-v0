@@ -1,0 +1,44 @@
+.game .intro {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.game .intro h2 {
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.game .intro-lede {
+  color: var(--ink-2);
+  max-width: 30ch;
+}
+
+.game .intro-points {
+  list-style: none;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 12px;
+  text-align: left;
+  font-weight: 700;
+}
+
+.game .intro-points li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.game .intro-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--rappi-red);
+  box-shadow: 0 3px 0 var(--rappi-red-deep);
+}

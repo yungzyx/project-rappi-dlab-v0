@@ -2,13 +2,13 @@
   position: fixed;
   top: 20px;
   left: 20px;
-  z-index: 100;
+  z-index: var(--z-demo-toggle);
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 4px;
   border-radius: 99px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
@@ -29,12 +29,12 @@
 
 .demo-toggle button.is-active {
   background: var(--ink);
-  color: #fff;
+  color: var(--surface);
 }
 
 .demo-toggle button.demo-toggle-replay {
   background: #fff1ea;
-  color: #8f2c16;
+  color: var(--accent-deep);
 }
 
 .demo-toggle-hint {

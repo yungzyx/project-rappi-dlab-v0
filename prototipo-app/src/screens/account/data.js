@@ -30,7 +30,7 @@ export const SECTIONS = [
   {
     title: 'Benefits',
     rows: [
-      { id: 'credits', label: 'Credits', Icon: CreditsIcon, value: '$1,900' },
+      { id: 'credits', label: 'Credits', Icon: CreditsIcon, value: '$1.900' },
       { id: 'coupons', label: 'Coupons', Icon: CouponIcon },
       { id: 'loyalty', label: 'Loyalty', Icon: LoyaltyIcon, action: 'loyalty' },
     ],
@@ -51,8 +51,10 @@ export const SECTIONS = [
       { id: 'language', label: 'Language', Icon: GlobeIcon, action: 'language' },
       { id: 'notifications', label: 'Notifications', Icon: BellIcon, action: 'notifications' },
       { id: 'icon', label: 'Change Rappi icon', Icon: MustacheIcon },
-      // Solo del prototipo: alterna entre Rappi hoy y la propuesta (en notebook también con la tecla D).
+      // Solo del prototipo: alterna entre Rappi hoy y el prototipo final (en notebook también con la tecla D).
       { id: 'demo', label: 'Modo demo', Icon: SparkleLineIcon, action: 'demo' },
+      // Solo en el prototipo final: en el celular no está el botón «Repetir escena» de la notebook.
+      { id: 'replay', label: 'Repetir escena de Bigotes', Icon: SparkleLineIcon, action: 'replay', finalOnly: true },
     ],
   },
   {

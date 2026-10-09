@@ -6,6 +6,7 @@ import { CartProvider } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
 import { NudgeProvider, useNudge } from '../state/NudgeContext'
 import { ProfileProvider, useProfile } from '../state/ProfileContext'
+import { session } from '../state/liveMemory'
 import AddButton from './AddButton'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
@@ -46,6 +47,7 @@ const add = () => fireEvent.click(screen.getByLabelText(`Agregar ${heineken.name
 afterEach(() => {
   cleanup()
   events.track.mockClear()
+  session.lastAdded = null
   localStorage.clear()
 })
 
@@ -54,27 +56,29 @@ describe('AddButton (extra)', () => {
     render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
     add()
     expect(screen.getByLabelText('perfil').textContent).toContain('cerveza')
-    fireEvent.click(screen.getByLabelText('Quitar uno'))
+    fireEvent.click(screen.getByLabelText(/^Quitar uno de /))
     expect(events.track).toHaveBeenCalledWith('cart_remove', expect.objectContaining({ concept_id: 'cerveza' }))
   })
 
-  test('el aviso sale fuera del chat en Propuesta', () => {
+  test('en el prototipo final no hay aviso al agregar: Bigotes lo comenta al volver a la Home', () => {
     render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
     add()
-    expect(screen.getByLabelText('aviso').textContent).not.toBe('ninguno')
+    expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
+    expect(session.lastAdded).toMatchObject({ id: heineken.id })
   })
 
-  test('con el chat abierto no hay aviso', () => {
+  test('con el buscador con Bigotes abierto tampoco hay aviso', () => {
     render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
     fireEvent.click(screen.getByText('abrir chat'))
     add()
     expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
   })
 
-  test('en «Rappi hoy» no hay aviso', () => {
+  test('en «Rappi hoy» no hay aviso ni memoria de Bigotes', () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
     add()
     expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
+    expect(session.lastAdded).toBeNull()
   })
 })

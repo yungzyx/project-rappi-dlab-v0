@@ -9,6 +9,8 @@ import { CartProvider, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { FavoritesProvider } from '../../state/FavoritesContext'
 import { NudgeProvider } from '../../state/NudgeContext'
+import { ProductSheetProvider } from '../../state/ProductSheetContext'
+import ProductSheet from '../../components/ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import StoreScreen from '../store/StoreScreen'
 import VerticalScreen from './VerticalScreen'
@@ -28,7 +30,12 @@ function Providers({ children }) {
             <FavoritesProvider>
               <AddressProvider>
                 <ToastProvider>
-                  <NudgeProvider>{children}</NudgeProvider>
+                  <NudgeProvider>
+                    <ProductSheetProvider>
+                      {children}
+                      <ProductSheet />
+                    </ProductSheetProvider>
+                  </NudgeProvider>
                 </ToastProvider>
               </AddressProvider>
             </FavoritesProvider>
@@ -75,10 +82,18 @@ afterEach(() => {
 })
 
 describe('entradas al embudo desde una vertical', () => {
-  test('el buscador se abre con la vertical de la pantalla', () => {
+  test('el buscador se abre con la vertical de la pantalla (en «Rappi hoy», el plano)', () => {
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
     const push = renderVertical('liquor')
     fireEvent.click(screen.getByText('Search stores or products'))
     expect(push).toHaveBeenCalledWith('search', { vertical: 'liquor' })
+  })
+
+  test('en la Propuesta, el buscador de la vertical es el de Bigotes', () => {
+    const push = renderVertical('liquor')
+    fireEvent.click(screen.getByText('Search stores or products'))
+    expect(push).not.toHaveBeenCalled()
+    expect(window.history.state).toMatchObject({ assistant: true })
   })
 
   test('las tiendas de una categoría o de «View more» llevan la vertical de la pantalla, como texto', () => {
@@ -100,6 +115,7 @@ describe('entradas al embudo desde una vertical', () => {
   test('tocar un producto abre su tienda con ese producto (así se registra que lo vio)', () => {
     const push = renderVertical('grocery')
     fireEvent.click(screen.getByText('Heineken Cerveza Lager Lata 12 pack'))
+    fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ })) // la tarjeta abre la hoja del producto
     expect(push).toHaveBeenCalledWith(
       'store',
       expect.objectContaining({
@@ -132,5 +148,16 @@ describe('«Para ti, de otras tiendas» (cerebro local)', () => {
     renderVertical('pharmacy')
     const fruits = shown().filter((fields) => fields.concept_id === 'frutas')
     expect(fruits).toEqual([{ concept_id: 'frutas', vertical: 'grocery', payload: { origen: 'vertical-para-ti' } }])
+  })
+})
+
+describe('vertical desconocida', () => {
+  test('un id que no existe muestra un estado vacío en vez de romper', () => {
+    render(
+      <Providers>
+        <VerticalScreen back={() => {}} push={() => {}} params={{ id: 'no-existe' }} />
+      </Providers>,
+    )
+    expect(screen.getByText('Esta categoría no está en el prototipo.')).toBeTruthy()
   })
 })

@@ -1,8 +1,8 @@
-import { resetLive } from '../screens/home/live/memory'
+import { resetLive } from '../state/liveMemory'
 import { MODE_LABELS, useDemo } from '../state/DemoContext'
 import './demo-toggle.css'
 
-/** Interruptor de los tres modos fuera del marco del teléfono (solo en notebook). En «Bigotes vivo», repetir la escena. */
+/** Interruptor de los dos modos fuera del marco del teléfono (solo en notebook). En el prototipo final, repetir la escena. */
 export default function DemoToggle() {
   const demo = useDemo()
 
@@ -22,7 +22,7 @@ export default function DemoToggle() {
           </button>
         ))}
       </div>
-      {demo.isLive && (
+      {demo.isFinal && (
         <button type="button" className="demo-toggle-replay" onClick={resetLive}>
           ↺ Repetir escena
         </button>

@@ -275,7 +275,7 @@ Notas del modelo:
 | 0. Diseño | Este documento, los diagramas y docs sin contradicciones | Validación Archify y revisión adversarial | Hecha |
 | 1. Conceptos (capa 2) | `concepts`, `category_map`, `item_concepts`, `concept_edges` y `rappi-ia concepts` | Cobertura ≥ 85% y precisión revisada por muestreo | Hecha |
 | 2. Embeddings y búsqueda híbrida | `embed-text`, `embed-images`, `retrieve()` y set de evaluación | P@10, MRR y nDCG@10 (Recall@10 no se calcula): léxico vs vectorial vs híbrido; calibración de τ | Hecha |
-| 3. Agente | Bigotes en el backend (texto, foto, voz) | Tests de reglas de conducta y escenarios | Hecha |
+| 3. Agente | Bigotes en el backend (texto, foto, voz; el prototipo actual solo usa el texto) | Tests de reglas de conducta y escenarios | Hecha |
 | 4. API | FastAPI | Tests de endpoints | Hecha |
 | 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados | Hecha |
 | 6. Prototipo conectado | Cliente API con respaldo local, eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |

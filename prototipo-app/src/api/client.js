@@ -1,31 +1,28 @@
-// Cliente de la API de rappi-ia (Bigotes real: búsqueda híbrida, voz, foto y eventos).
+// Cliente de la API de rappi-ia (Bigotes real: búsqueda híbrida y eventos).
 // Si la API no responde, todo sigue funcionando con el cerebro local (src/assistant/brain.js).
 
 import { VERTICAL_NAMES, routeForScreen, screenForBackend } from '../data/verticals'
+import { PLACEHOLDER_IMG } from '../components/Img'
 
 const DEFAULT_PORT = 8000
 const HEALTH_TTL_MS = 30_000
 const HEALTH_TIMEOUT_MS = 1500
 const CHAT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: contesta el cerebro local
-const UPLOAD_TIMEOUT_MS = 45_000
 
-export const API_URL =
+const API_URL =
   import.meta.env.VITE_API_URL ??
   (typeof window !== 'undefined' ? `http://${window.location.hostname || 'localhost'}:${DEFAULT_PORT}` : '')
 
 let healthCache = { at: 0, value: null }
 
-// `signal` (opcional): quien llama también puede abortar (p. ej. "Cancelar" mientras se transcribe la voz).
-async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS, json = true, signal } = {}) {
+async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
-  if (signal?.aborted) controller.abort()
-  signal?.addEventListener('abort', () => controller.abort(), { once: true })
   try {
     const response = await fetch(`${API_URL}${path}`, {
       method,
-      body: json && body ? JSON.stringify(body) : body,
-      headers: json && body ? { 'content-type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      headers: body ? { 'content-type': 'application/json' } : undefined,
       signal: controller.signal,
     })
     if (!response.ok) throw new Error(`API ${response.status}`)
@@ -62,17 +59,6 @@ export async function chat(payload) {
   }
 }
 
-function upload(path, field, file, context, { signal } = {}) {
-  const form = new FormData()
-  form.append(field, file)
-  for (const [key, value] of Object.entries(context)) {
-    if (value !== undefined && value !== null) form.append(key, value)
-  }
-  return request(path, { method: 'POST', body: form, json: false, timeout: UPLOAD_TIMEOUT_MS, signal })
-}
-
-export const chatVoice = (audio, context, options) => upload('/chat/voice', 'audio', audio, context, options)
-export const chatPhoto = (image, context) => upload('/chat/photo', 'image', image, context)
 export const profile = (userId) => request(`/profile/${encodeURIComponent(userId)}`, { timeout: 4000 })
 export const forget = (userId) => request(`/profile/${encodeURIComponent(userId)}`, { method: 'DELETE', timeout: 4000 })
 export const recommendations = (userId, vertical) =>
@@ -96,8 +82,6 @@ export function beaconEvents(userId, events) {
 
 // ── De la API al formato del prototipo ──────────────────────────────────────
 
-const PLACEHOLDER_IMG =
-  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"%3E%3Crect width="1" height="1" fill="%23f1f1f1"/%3E%3C/svg%3E'
 
 /** Producto de la API → tarjeta del prototipo (mismo formato que src/data/catalog.js). */
 export function toPrototypeProduct(p) {
@@ -172,8 +156,6 @@ export function toMessage(response) {
     concepts: response.intent?.concepts ?? [],
     unmet: Boolean(response.unmet),
     ageNotice: Boolean(response.age_notice),
-    transcript: response.transcript ?? null,
-    photo: response.photo ?? null,
     source: 'api',
   }
 }

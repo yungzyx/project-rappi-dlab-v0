@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import AddButton from '../AddButton'
 import HScroll from '../HScroll'
-import { pressable } from '../pressable'
+import Img from '../Img'
+import { useProductSheet } from '../../state/ProductSheetContext'
 
 const CHARS_PER_SECOND = 70
 const TICK_MS = 30
@@ -37,30 +38,32 @@ function StreamText({ text, animate, onDone }) {
 }
 
 function ProductCards({ products, onOpenProduct, delay = 0 }) {
+  const sheet = useProductSheet()
   return (
     <HScroll className="chat-products">
       {products.map((product, i) => (
-        <div
-          key={product.id}
-          className="chat-product tap"
-          style={{ animationDelay: `${delay + i * 60}ms` }}
-          {...pressable(() => onOpenProduct(product))}
-        >
-          <span className="chat-product-media">
-            <img src={product.img} alt="" draggable="false" />
-            {product.ageRestricted && (
-              <span className="chat-product-age" aria-label="Solo mayores de 18">
-                +18
-              </span>
-            )}
-            <AddButton product={product} className="add-button--chat" />
-          </span>
-          <span className="chat-product-name">{product.name}</span>
-          <span className="chat-product-price">
-            <b>{product.price}</b>
-            {product.discount && <span>{product.discount}</span>}
-          </span>
-          <span className="chat-product-store">{product.store}</span>
+        <div key={product.id} className="chat-product" style={{ animationDelay: `${delay + i * 60}ms` }}>
+          <button
+            type="button"
+            className="chat-product-main tap"
+            onClick={() => sheet.open(product, { onOpenStore: () => onOpenProduct(product) })}
+          >
+            <span className="chat-product-media">
+              <Img src={product.img} draggable="false" />
+              {product.ageRestricted && (
+                <span className="chat-product-age" aria-label="Solo mayores de 18">
+                  +18
+                </span>
+              )}
+            </span>
+            <span className="chat-product-name">{product.name}</span>
+            <span className="chat-product-price">
+              <b>{product.price}</b>
+              {product.discount && <span>{product.discount}</span>}
+            </span>
+            <span className="chat-product-store">{product.store}</span>
+          </button>
+          <AddButton product={product} className="add-button--chat" />
         </div>
       ))}
     </HScroll>
@@ -71,7 +74,7 @@ function ProductCards({ products, onOpenProduct, delay = 0 }) {
 function StoreLogo({ store }) {
   const [broken, setBroken] = useState(false)
   if (!store.logo || broken) return <span className="chat-also-initial">{store.name.trim().charAt(0)}</span>
-  return <img src={store.logo} alt="" onError={() => setBroken(true)} />
+  return <Img src={store.logo} onError={() => setBroken(true)} />
 }
 
 /** "También en": otras verticales con oferta de lo pedido y sus tiendas reales. Cada una abre su vertical. */
@@ -108,20 +111,9 @@ function AlsoIn({ alsoIn, onAction }) {
   )
 }
 
-/** Un mensaje del chat: burbuja del usuario (texto o foto) o respuesta del asistente con tarjetas. */
+/** Un mensaje del chat: respuesta del asistente con tarjetas (lo elegido se muestra aparte, sin burbuja). */
 export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOpenStore, onAction }) {
   const [revealed, setRevealed] = useState(!message.animate)
-
-  if (message.from === 'user') {
-    return (
-      <div className="chat-row is-user">
-        <div className="chat-bubble is-user">
-          {message.image && <img className="chat-photo" src={message.image} alt="Foto enviada" />}
-          {message.text}
-        </div>
-      </div>
-    )
-  }
 
   if (message.typing) {
     return (
@@ -186,7 +178,7 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
                     style={{ animationDelay: `${120 + i * 60}ms` }}
                     onClick={() => onOpenStore(store)}
                   >
-                    <img src={store.img} alt="" className={store.logo ? 'is-logo' : undefined} />
+                    <Img src={store.img} className={store.logo ? 'is-logo' : undefined} />
                     <span>
                       <strong>{store.name}</strong>
                       {store.eta && <small>{store.eta}</small>}

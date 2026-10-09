@@ -13,8 +13,10 @@ const BACK_TO_TOP_Y = 141
  */
 export default function TabPage({ title, color, action, className = '', children }) {
   const ref = useRef(null)
-  const [{ top, goingUp }, onScroll] = useScrollState()
-  const isCollapsed = top > COLLAPSE_AT_PX
+  const [{ collapsed: isCollapsed, showBackToTop }, onScroll] = useScrollState({
+    collapseAt: COLLAPSE_AT_PX,
+    backToTopFrom: BACK_TO_TOP_FROM_PX,
+  })
 
   return (
     <>
@@ -23,7 +25,7 @@ export default function TabPage({ title, color, action, className = '', children
       </header>
       {action && <div className="tab-action">{action}</div>}
       <BackToTop
-        visible={goingUp && top > BACK_TO_TOP_FROM_PX}
+        visible={showBackToTop}
         top={BACK_TO_TOP_Y}
         onClick={() => ref.current.scrollTo({ top: 0, behavior: 'smooth' })}
       />

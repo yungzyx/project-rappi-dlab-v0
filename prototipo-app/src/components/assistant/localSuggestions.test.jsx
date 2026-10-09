@@ -31,9 +31,14 @@ async function runUntilIdle() {
 function OpenButton() {
   const assistant = useAssistant()
   return (
-    <button type="button" onClick={() => assistant.open()}>
-      abrir
-    </button>
+    <>
+      <button type="button" onClick={() => assistant.open()}>
+        abrir
+      </button>
+      <button type="button" onClick={(e) => assistant.open({ query: e.currentTarget.dataset.query })}>
+        preguntar
+      </button>
+    </>
   )
 }
 
@@ -53,10 +58,11 @@ const shownBy = (origin) => tracked('suggestion_shown').filter((fields) => field
 const countByPair = (list) =>
   list.reduce((counts, fields) => counts.set(pair(fields), (counts.get(pair(fields)) ?? 0) + 1), new Map())
 
+/** Sin chat escrito, a Bigotes se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
 async function send(text) {
-  const input = screen.getByPlaceholderText('Escríbele a Bigotes…')
-  fireEvent.change(input, { target: { value: text } })
-  fireEvent.submit(input.closest('form'))
+  const ask = screen.getByText('preguntar')
+  ask.dataset.query = text
+  fireEvent.click(ask)
   await runUntilIdle()
 }
 const addAll = (container) =>

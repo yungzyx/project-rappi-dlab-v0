@@ -1,0 +1,80 @@
+.game .hud {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0 12px;
+}
+
+.game .hud-level {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.game .hud-level-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 17px;
+  color: #fff;
+  background: var(--rappi-red);
+  box-shadow: 0 3px 0 var(--rappi-red-deep);
+}
+
+.game .hud-level-body {
+  display: grid;
+  gap: 4px;
+}
+
+.game .hud-level-name {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.game .hud-level-bar {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--rappi-red-soft);
+  overflow: hidden;
+}
+
+.game .hud-level-bar span {
+  display: block;
+  height: 100%;
+  background: var(--rappi-red);
+  border-radius: inherit;
+  transform-origin: left;
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+
+.game .hud-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.game .hud-fire {
+  color: #f08a1c;
+}
+
+.game .hud-cards {
+  color: var(--v-farmacia);
+}
+
+.game .hud-gear {
+  color: var(--ink-3);
+  width: 44px;
+  height: 44px;
+  margin-right: -6px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}

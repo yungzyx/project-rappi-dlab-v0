@@ -255,21 +255,3 @@ export function suggestions(profile) {
   })
   return [...new Set([...personal, ...DEFAULT_SUGGESTIONS])].slice(0, 6)
 }
-
-/** Reconocimiento de foto simulado: responde con lo que le interesa al usuario (o las ofertas). */
-export function photoReply(profile) {
-  const picks = forYou(profile)
-  return {
-    text: '¡Qué buena pinta! 📸 Busqué cosas parecidas en las tiendas cerca tuyo:',
-    products: picks.products,
-    reason: 'Demo: el reconocimiento de imagen está simulado.',
-  }
-}
-
-// Frases de ejemplo para la voz simulada; van rotando.
-export const VOICE_SAMPLES = [
-  'Arma un carrete para cuatro',
-  'Algo rico para almorzar',
-  'Necesito pañales para la guagua',
-  'Un regalo de cumpleaños',
-]

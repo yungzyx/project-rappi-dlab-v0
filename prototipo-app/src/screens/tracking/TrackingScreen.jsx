@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
+import BackButton from '../../components/BackButton'
+import Sheet from '../../components/Sheet'
 import { useToast } from '../../components/Toast'
-import { ChevronLeft, StarIcon } from '../../components/Icons'
+import { StarIcon } from '../../components/Icons'
 import { HeadsetIcon } from '../../components/LineIcons'
 import { COMPLEMENTS, TAGS, tagsOf } from '../../assistant/tags'
 import { useAssistant } from '../../state/AssistantContext'
 import { formatPrice } from '../../state/CartContext'
 import { useDemo } from '../../state/DemoContext'
+import { useGame } from '../../state/GameContext'
 import { useOrders } from '../../state/OrdersContext'
+import { VERTICAL_NAMES } from '../../data/verticals'
+import { waitingRoundVertical } from '../../game/progress.js'
+import { GAME_TO_SCREEN } from '../../game/verticals.js'
 import TrackingMap from './TrackingMap'
 import { STEPS, minutesLeft, rideProgress, stepAt } from './progress'
 import './tracking.css'
@@ -15,15 +21,21 @@ const TICK_MS = 500
 const STARS = [1, 2, 3, 4, 5]
 
 /** Seguimiento del pedido (funcionalidad agregada): pasos que avanzan solos y Bigotes recorriendo el mapa. */
-export default function TrackingScreen({ back, params }) {
+export default function TrackingScreen({ back, reset, push, params }) {
   const orders = useOrders()
   const order = orders.find(params.orderId)
   const [now, setNow] = useState(() => Date.now())
 
+  const seconds = order ? (now - order.placedAt) / 1000 : 0
+  const step = stepAt(seconds)
+  const delivered = step === STEPS.length - 1
+
+  // El reloj avanza hasta la entrega: después ya no hay nada que mover.
   useEffect(() => {
+    if (delivered) return undefined
     const timer = setInterval(() => setNow(Date.now()), TICK_MS)
     return () => clearInterval(timer)
-  }, [])
+  }, [delivered])
 
   if (!order) {
     return (
@@ -36,17 +48,11 @@ export default function TrackingScreen({ back, params }) {
     )
   }
 
-  const seconds = (now - order.placedAt) / 1000
-  const step = stepAt(seconds)
-  const delivered = step === STEPS.length - 1
-
   return (
     <div className="screen tracking">
       <div className="tracking-map-wrap">
         <TrackingMap progress={rideProgress(seconds)} delivered={delivered} />
-        <button type="button" className="tracking-back tap" aria-label="Volver" onClick={back}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="tracking-back" onClick={back} />
       </div>
 
       <section className="tracking-sheet">
@@ -62,16 +68,58 @@ export default function TrackingScreen({ back, params }) {
           ))}
         </ol>
 
+        {!delivered && <WaitingGame orderId={order.id} push={push} />}
+
         {delivered ? <Delivered order={order} /> : <Courier />}
 
         <OrderSummary order={order} />
+
+        {delivered && (
+          <button type="button" className="tracking-home-button tap" onClick={reset}>
+            Volver al inicio
+          </button>
+        )}
       </section>
     </div>
   )
 }
 
+// Conversación fija con el Rappitendero (el prototipo no tiene chat en vivo).
+const COURIER_CHAT = [
+  { from: 'courier', text: 'Hola, ya tengo tu pedido y voy en camino 🛵' },
+  { from: 'user', text: 'Gracias. Si no contesto el timbre, llámame.' },
+  { from: 'courier', text: 'Perfecto, llego en unos minutos.' },
+]
+
+/**
+ * «Juega mientras llega tu pedido» (prototipo final): una ronda del juego de verticales en la primera vertical sin
+ * sello (nunca Farmacia) o, si ya tiene todas, en la de menor nivel. Sin nada que jugar, no aparece.
+ */
+function WaitingGame({ orderId, push }) {
+  const demo = useDemo()
+  const game = useGame()
+  const pick = waitingRoundVertical(game.state)
+  if (!demo.isFinal || !pick) return null
+  const name = VERTICAL_NAMES[GAME_TO_SCREEN[pick.vertical]]
+  return (
+    <button
+      type="button"
+      className="tracking-game tap"
+      onClick={() => push('game', { round: pick.vertical, orderId })}
+    >
+      <span className="tracking-game-icon" aria-hidden="true">
+        🎮
+      </span>
+      <span>
+        <strong>Juega mientras llega tu pedido</strong>
+        <small>1 min · {pick.isNew ? `gana el sello de ${name}` : `sube de nivel en ${name}`}</small>
+      </span>
+    </button>
+  )
+}
+
 function Courier() {
-  const toast = useToast()
+  const [chatOpen, setChatOpen] = useState(false)
   return (
     <div className="tracking-courier">
       <span className="tracking-avatar">CR</span>
@@ -81,14 +129,19 @@ function Courier() {
           Your Rappitendero · <StarIcon filled size={12} /> 4.9
         </small>
       </span>
-      <button
-        type="button"
-        className="tracking-contact tap"
-        aria-label="Contactar"
-        onClick={() => toast('Chat con el Rappitendero (simulado)')}
-      >
+      <button type="button" className="tracking-contact tap" aria-label="Contactar" onClick={() => setChatOpen(true)}>
         <HeadsetIcon size={20} />
       </button>
+      <Sheet open={chatOpen} onClose={() => setChatOpen(false)} title="Chat con Carlos R.">
+        <ul className="tracking-chat">
+          {COURIER_CHAT.map((line, i) => (
+            <li key={i} className={line.from === 'user' ? 'tracking-chat-line is-user' : 'tracking-chat-line'}>
+              {line.text}
+            </li>
+          ))}
+        </ul>
+        <p className="tracking-chat-note">Carlos R. está conduciendo: responde cuando pueda.</p>
+      </Sheet>
     </div>
   )
 }
@@ -127,11 +180,11 @@ function Delivered({ order }) {
           ))}
         </div>
       </div>
-      {demo.isProposal && !demo.isLive && next && (
+      {demo.isFinal && next && (
         <button
           type="button"
           className="tracking-next tap"
-          onClick={() => assistant.open({ mode: 'chat', query: next.label })}
+          onClick={() => assistant.open({ query: next.label })}
         >
           <span>
             ✨ ¿Y ahora {next.emoji} {next.label.toLowerCase()}?

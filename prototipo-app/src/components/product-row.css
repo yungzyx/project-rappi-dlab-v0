@@ -1,9 +1,16 @@
 .product-row {
+  position: relative;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/* La fila entera abre la hoja del producto; el "+" queda fuera del botón, sobre la foto. */
+.product-row-main {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
+  width: 100%;
+  text-align: left;
 }
 
 .product-row-text {
@@ -43,12 +50,12 @@
 }
 
 .product-row-prices s {
-  color: #747474;
+  color: var(--ink-strike);
 }
 
 .product-row-pct {
   padding: 0 4px;
-  background: #fadc24;
+  background: var(--price-yellow);
   font-size: 14px;
   font-weight: 700;
 }
@@ -70,6 +77,6 @@
 
 .add-button--row {
   top: auto;
-  bottom: -6px;
+  bottom: 8px;
   right: -6px;
 }

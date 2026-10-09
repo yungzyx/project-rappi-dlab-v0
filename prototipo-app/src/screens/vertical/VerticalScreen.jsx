@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import BackButton from '../../components/BackButton'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
 import { ProductCard } from '../../components/ProductCard'
@@ -7,7 +8,8 @@ import { forVertical } from '../../assistant/brain'
 import { conceptOf } from '../../api/orders'
 import { firstShowing } from '../../api/useRemoteForYou'
 import { useToast } from '../../components/Toast'
-import { BoltIcon, ChevronDown, ChevronLeft, ClockIcon, CrownIcon, SearchIcon } from '../../components/Icons'
+import { BoltIcon, ChevronDown, ClockIcon, CrownIcon, SearchIcon } from '../../components/Icons'
+import { useOpenSearch } from '../../hooks/useOpenSearch'
 import { useAddress } from '../../state/AddressContext'
 import { useDemo } from '../../state/DemoContext'
 import { useEvents } from '../../state/EventsContext'
@@ -17,15 +19,18 @@ import './vertical.css'
 
 /** Plantilla común de Grocery, Pharmacy, Retail, Liquor, Express, Pet y Chocolates. */
 export default function VerticalScreen({ back, push, params }) {
+  // Un id desconocido (enlace viejo) no rompe la pantalla: muestra un estado vacío más abajo.
   const vertical = VERTICALS[params.id]
+  const sections = vertical?.sections ?? []
   const toast = useToast()
   const address = useAddress()
+  const openSearch = useOpenSearch(push)
   const demo = useDemo()
   const profile = useProfile()
   const events = useEvents()
 
-  const allProducts = vertical.sections.filter((s) => s.type === 'products').flatMap((s) => s.products)
-  const forYouRow = demo.isProposal
+  const allProducts = sections.filter((s) => s.type === 'products').flatMap((s) => s.products)
+  const forYouRow = demo.isFinal
     ? forVertical(params.id, profile, new Set(allProducts.map((item) => item.id)))
     : null
   // La fila es una sugerencia de Bigotes: cuenta como mostrada una vez por pestaña, por concepto y vertical.
@@ -38,13 +43,12 @@ export default function VerticalScreen({ back, push, params }) {
         events.track('suggestion_shown', {
           concept_id: concept,
           vertical: verticalId,
-          payload: { origen: 'vertical-para-ti' },
-        })
+          payload: { origen: 'vertical-para-ti' } })
     }
   }, [shownPairs, profile.resets, events])
   // Con la vertical de la pantalla (no `map(toStore)`: map le pasaría el índice como vertical).
   const asStore = (store) => toStore(store, params.id)
-  const allStores = vertical.sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(asStore))
+  const allStores = sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(asStore))
   const openCategory = (category) =>
     push('list', { title: category.label, products: allProducts, stores: allStores })
   const openStore = (store) => push('store', { store })
@@ -52,16 +56,23 @@ export default function VerticalScreen({ back, push, params }) {
   const openProductStore = (item) =>
     push('store', {
       store: { name: item.store, img: item.storeLogo ?? item.img, logo: true, eta: item.eta, etaIcon: item.etaIcon },
-      item,
-    })
+      item })
   const openBanner = (banner) => (banner.store ? openStore(banner.store) : toast(banner.toast))
+
+  if (!vertical)
+    return (
+      <div className="screen vertical">
+        <header className="vertical-header">
+          <BackButton className="round-button" onClick={back} />
+        </header>
+        <p className="vertical-empty">Esta categoría no está en el prototipo.</p>
+      </div>
+    )
 
   return (
     <div className="screen vertical">
       <header className="vertical-header">
-        <button type="button" className="round-button tap" aria-label="Volver" onClick={back}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="round-button" onClick={back} />
         <button type="button" className="vertical-address tap" onClick={address.openSheet}>
           <span>{address.selected.line}</span>
           <ChevronDown size={18} />
@@ -69,7 +80,7 @@ export default function VerticalScreen({ back, push, params }) {
       </header>
 
       <div className="vertical-search-wrap">
-        <button type="button" className="search-bar tap" onClick={() => push('search', { vertical: params.id })}>
+        <button type="button" className="search-bar tap" onClick={() => openSearch(params.id)}>
           <SearchIcon size={21} />
           <span className="vertical-search-hint">Search stores or products</span>
         </button>
@@ -98,7 +109,7 @@ export default function VerticalScreen({ back, push, params }) {
             </div>
             <div className="vertical-product-row">
               {section.products.map((item) => (
-                <ProductCard key={item.id} product={item} onClick={() => openProductStore(item)} />
+                <ProductCard key={item.id} product={item} onOpenStore={() => openProductStore(item)} />
               ))}
             </div>
           </section>
@@ -138,8 +149,14 @@ function BannerCarousel({ banners, onOpen }) {
     <>
       <Carousel className="vertical-banners" autoplayMs={banners.length > 1 ? 4500 : 0} onIndexChange={setIndex}>
         {banners.map((banner) => (
-          <button key={banner.id} type="button" className="vertical-banner" onClick={() => onOpen(banner)}>
-            <img src={banner.img} alt="" draggable="false" />
+          <button
+            key={banner.id}
+            type="button"
+            className="vertical-banner"
+            aria-label={banner.label ?? banner.store?.name}
+            onClick={() => onOpen(banner)}
+          >
+            <img src={banner.img} alt="" draggable="false" loading="lazy" />
           </button>
         ))}
       </Carousel>
@@ -160,7 +177,7 @@ function StoreSection({ section, onOpen, onMore }) {
       <div className="vertical-store-list">
         {section.stores.map((store) => (
           <button key={store.id} type="button" className="vertical-store tap" onClick={() => onOpen(store)}>
-            <img src={store.logo} alt="" className="vertical-store-logo" />
+            <img src={store.logo} alt="" className="vertical-store-logo" loading="lazy" />
             <span className="vertical-store-text">
               <span className="vertical-store-name">
                 <strong>{store.name}</strong>
@@ -184,7 +201,7 @@ function StoreSection({ section, onOpen, onMore }) {
           </button>
         ))}
         {/* Columna siguiente asomándose por el borde, recortada tal cual de la captura */}
-        <img className="vertical-peek" src={section.peek.img} alt="" style={{ top: section.peek.top }} />
+        <img className="vertical-peek" src={section.peek.img} alt="" loading="lazy" style={{ top: section.peek.top }} />
       </div>
     </section>
   )

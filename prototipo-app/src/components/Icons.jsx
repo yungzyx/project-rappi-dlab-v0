@@ -191,13 +191,6 @@ export const LampIcon = (p) => (
   </Svg>
 )
 
-export const CheckCircleIcon = (p) => (
-  <Svg strokeWidth={2} {...p}>
-    <circle cx="12" cy="12" r="9" fill="currentColor" stroke="none" />
-    <path d="M8 12.2l2.8 2.8L16 9.6" stroke="#fff" />
-  </Svg>
-)
-
 export const BellSlashIcon = (p) => (
   <Svg strokeWidth={2.2} {...p}>
     <path d="M6.5 16.5V11a5.5 5.5 0 0 1 8.8-4.4M17.5 10.5v6H8" />

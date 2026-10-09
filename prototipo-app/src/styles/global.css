@@ -18,6 +18,8 @@ body {
   background: #e6e6ea;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  /* Sin rebote ni «deslizar para recargar» del navegador: el scroll vive dentro de cada pantalla */
+  overscroll-behavior: none;
 }
 
 button {
@@ -53,6 +55,7 @@ img {
   overflow: hidden;
   border-radius: 56px;
   background: var(--surface);
+  overscroll-behavior: none;
   box-shadow:
     0 0 0 11px #111,
     0 0 0 13px #3a3a3c,
@@ -96,6 +99,11 @@ img {
   inset: 0;
 }
 
+/* Pantallas debajo de la actual: montadas (conservan búsqueda y scroll) pero invisibles e inertes */
+.screen-wrap.is-under {
+  visibility: hidden;
+}
+
 .screen-wrap.enter-push {
   animation: slide-in var(--duration-normal) var(--ease-out);
 }
@@ -122,6 +130,7 @@ img {
   inset: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior-y: contain;
   scrollbar-width: none;
 }
 
@@ -141,7 +150,7 @@ img {
 /* Respuesta táctil común para todo lo clickeable */
 /* Foco visible solo al navegar con teclado (no al tocar) */
 :focus-visible {
-  outline: 2.5px solid #f0532b;
+  outline: 2.5px solid var(--bigotes-orange);
   outline-offset: 2px;
 }
 

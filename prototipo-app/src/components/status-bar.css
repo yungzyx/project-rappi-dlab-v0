@@ -1,7 +1,7 @@
 .status-bar {
   position: absolute;
   inset: 0 0 auto;
-  z-index: 40;
+  z-index: var(--z-status);
   height: 54px;
   display: flex;
   align-items: center;
@@ -42,8 +42,8 @@
   width: 27px;
   height: 13px;
   border-radius: 4px;
-  background: #34c759;
-  color: #fff;
+  background: var(--green-status);
+  color: var(--surface);
   letter-spacing: -0.4px;
   font-family: -apple-system, 'SF Pro Text', var(--font);
   font-size: 11px;

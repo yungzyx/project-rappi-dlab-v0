@@ -1,32 +1,33 @@
 import { useState } from 'react'
+import BackButton from '../../components/BackButton'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
+import Img from '../../components/Img'
 import { useToast } from '../../components/Toast'
 import {
   BoltIcon,
   ChevronDown,
-  ChevronLeft,
   CrownIcon,
   SearchIcon,
   SlidersIcon,
   StarIcon,
-  TrophyIcon,
-} from '../../components/Icons'
+  TrophyIcon } from '../../components/Icons'
+import { useOpenSearch } from '../../hooks/useOpenSearch'
 import { useAddress } from '../../state/AddressContext'
 import { REAL_RESTAURANTS } from '../../data/realMenus'
 import { RestaurantCard } from '../home/StoreCards'
-import { BANNERS, BANNER_DOTS, CATEGORIES, FILTERS, ORDER_AGAIN } from './data'
+import { BANNERS, CATEGORIES, FILTERS, ORDER_AGAIN } from './data'
 import './restaurants.css'
 
 const FILTER_ICONS = {
   trophy: () => <TrophyIcon size={17} />,
   bolt: () => <BoltIcon size={17} />,
-  star: (active) => <StarIcon size={17} filled={active} />,
-}
+  star: (active) => <StarIcon size={17} filled={active} /> }
 
 export default function RestaurantsScreen({ back, push }) {
   const toast = useToast()
   const address = useAddress()
+  const openSearch = useOpenSearch(push)
   const [activeFilters, setActiveFilters] = useState(() => new Set())
   const [bannerIndex, setBannerIndex] = useState(0)
 
@@ -41,9 +42,7 @@ export default function RestaurantsScreen({ back, push }) {
   return (
     <div className="screen restaurants">
       <header className="rest-header">
-        <button type="button" className="round-button tap" aria-label="Volver" onClick={back}>
-          <ChevronLeft size={20} />
-        </button>
+        <BackButton className="round-button" onClick={back} />
         <button type="button" className="rest-address tap" onClick={address.openSheet}>
           {address.selected.line}
           <ChevronDown size={17} />
@@ -51,7 +50,7 @@ export default function RestaurantsScreen({ back, push }) {
       </header>
 
       <div className="rest-search-wrap">
-        <button type="button" className="search-bar tap" onClick={() => push('search', { vertical: 'restaurants' })}>
+        <button type="button" className="search-bar tap" onClick={() => openSearch('restaurants')}>
           <SearchIcon size={21} />
           <span className="search-hint">Search for dishes or restaurants</span>
         </button>
@@ -94,7 +93,7 @@ export default function RestaurantsScreen({ back, push }) {
             onClick={() => push('search', { query: cat.query, vertical: 'restaurants' })}
           >
             <span className={cat.partial ? 'rest-category-img is-partial' : 'rest-category-img'}>
-              <img src={cat.img} alt="" />
+              <img src={cat.img} alt="" loading="lazy" />
             </span>
             <span className="rest-category-label">{cat.label}</span>
           </button>
@@ -107,15 +106,14 @@ export default function RestaurantsScreen({ back, push }) {
             key={banner.id}
             type="button"
             className="rest-banner"
+            aria-label={banner.title ? undefined : banner.store.name}
             onClick={() =>
               push('store', {
                 store: banner.store ?? {
                   name: banner.place.replace(/^at /, ''),
                   img: banner.img,
                   deliveryLabel: 'FREE DELIVERY',
-                  eta: '15 min',
-                },
-              })
+                  eta: '15 min' } })
             }
           >
             {banner.title ? (
@@ -124,15 +122,15 @@ export default function RestaurantsScreen({ back, push }) {
                   <strong>{banner.title}</strong>
                   <span>{banner.place}</span>
                 </span>
-                <img className="rest-banner-photo" src={banner.img} alt="" draggable="false" />
+                <img className="rest-banner-photo" src={banner.img} alt="" draggable="false" loading="lazy" />
               </>
             ) : (
-              <img className="rest-banner-full" src={banner.img} alt="" draggable="false" />
+              <img className="rest-banner-full" src={banner.img} alt="" draggable="false" loading="lazy" />
             )}
           </button>
         ))}
       </Carousel>
-      <Dots count={BANNER_DOTS} active={bannerIndex} className="rest-banner-dots" />
+      <Dots count={BANNERS.length} active={bannerIndex} className="rest-banner-dots" />
 
       <h2 className="section-title rest-title">Order again</h2>
       <HScroll className="rest-again">
@@ -143,11 +141,10 @@ export default function RestaurantsScreen({ back, push }) {
             className="again-card tap"
             onClick={() =>
               push('store', {
-                store: { name: item.name, img: item.img, eta: item.eta, deliveryLabel: 'FREE DELIVERY' },
-              })
+                store: { name: item.name, img: item.img, eta: item.eta, deliveryLabel: 'FREE DELIVERY' } })
             }
           >
-            <img src={item.img} alt="" draggable="false" />
+            <Img src={item.img} draggable="false" />
             <span className="again-name">{item.name}</span>
             <span className="again-meta">
               {item.eta}
@@ -172,8 +169,7 @@ export default function RestaurantsScreen({ back, push }) {
                 onClick={() =>
                   // Con el id: dos sucursales pueden tener el mismo nombre y cada una tiene su menú.
                   push('store', {
-                    store: { id: store.id, name: store.name, img: store.img, eta: store.eta, rating: store.rating },
-                  })
+                    store: { id: store.id, name: store.name, img: store.img, eta: store.eta, rating: store.rating } })
                 }
               />
             ))}

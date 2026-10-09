@@ -1,42 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Carousel, { Dots } from '../../../components/Carousel'
-import HScroll from '../../../components/HScroll'
-import PlainSearchBar from '../../../components/PlainSearchBar'
+import SmartBar from '../../../components/assistant/SmartBar'
 import { useToast } from '../../../components/Toast'
-import { ChevronDown, ChevronRight } from '../../../components/Icons'
-import { TAGS, productTags, tagsOf } from '../../../assistant/tags'
-import { cartEventFields } from '../../../api/orders'
+import { ChevronDown } from '../../../components/Icons'
+import { TAGS, tagsOf } from '../../../assistant/tags'
 import { VERTICAL_NAMES, routeForScreen } from '../../../data/verticals'
 import { useScrollState } from '../../../hooks/useScrollState'
 import { useAddress } from '../../../state/AddressContext'
-import { useCart } from '../../../state/CartContext'
-import { useEvents } from '../../../state/EventsContext'
-import { WEIGHTS, useProfile } from '../../../state/ProfileContext'
-import turboRestaurantesTitle from '../../../assets/turbo-restaurantes-title.webp'
+import { useAddToCart } from '../../../hooks/useAddToCart'
+import { useProfile } from '../../../state/ProfileContext'
 import CreditsBanner from '../CreditsBanner'
-import { RestaurantCard, StoreTile } from '../StoreCards'
-import {
-  CREDITS,
-  LOWER_FEES,
-  MAIN_TILES,
-  NEARBY_STORES,
-  PROMOS,
-  PROMO_START_INDEX,
-  SHORTCUTS,
-  TURBO_RESTAURANTS,
-} from '../data'
+import { LowerFees, MainTiles, NearbyStores, Promos, Shortcuts, TurboRestaurants } from '../HomeSections'
+import { CREDITS } from '../../../data/home'
 import '../home.css'
 import LiveBigotes from './LiveBigotes'
-import { DiscoveryBlock, InterestBlock, Passport, PlanBlock, openItem, useFlip } from './LiveBlocks'
-import { PASSPORT, PASSPORT_GOAL, REPLAY_EVENT, loadPassport, session, stamp } from './memory'
-import { PLANS, discoveryFor, interestFor, moveToFront, planKit } from './script'
+import { Passport, PlanBlock, STAMP_EMOJI, openItem } from './LiveBlocks'
+import { REPLAY_EVENT, session } from '../../../state/liveMemory'
+import { DATA } from '../../../game/data.js'
+import { stampedVerticals } from '../../../game/progress.js'
+import { GAME_TO_SCREEN, NEVER_PUSHED, PASSPORT_GOAL } from '../../../game/verticals.js'
+import { useGame } from '../../../state/GameContext'
+import { PLANS, discoveryFor, planKit } from './script'
 import './live.css'
 
-// El bloque del interés parte abajo, como en la Home de hoy: Bigotes lo sube justo bajo el buscador.
-const BASE_ORDER = ['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'interest', 'lower']
-const T = { enter: 900, greet: 3400, autoAccept: 7000, scroll: 520, land: 1150, revealHold: 7000, notice: 500 }
+// Las secciones de la Home de hoy, con el pasaporte justo bajo los accesos. Bigotes no sugiere productos aquí.
+const ORDER = ['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'lower']
+const T = { enter: 900, greet: 3400, greetHold: 6000, notice: 500 }
+const GREETING = '¡Hola! Ahora vivo en tu Home 👋 Prueba verticales nuevas y junta sellos en tu pasaporte.'
 
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const ACTIONS_HOLD = 12000 // un globo con botones se va solo después de esto (no queda tapando la Home)
+
+/** Un toque de vibración en los momentos clave (solo donde el navegador lo permite, como Android). */
+const buzz = () => navigator.vibrate?.(12)
 
 function usePrefersReducedMotion() {
   const query = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')
@@ -51,34 +45,26 @@ function usePrefersReducedMotion() {
 }
 
 /**
- * Tercer prototipo («Bigotes vivo»): sin ícono de chat. Bigotes de cuerpo entero vive en la Home, se da cuenta de lo
- * que le gusta a la persona, sube ese bloque al primer lugar oscureciendo lo demás y le invita a verticales nuevas.
+ * Home del prototipo final: sin ícono de chat; la barra abre el buscador con Bigotes. Bigotes de cuerpo entero vive en
+ * la Home sin reordenarla: saluda, acompaña el pasaporte y el plan del día, y al tocarlo invita a una vertical nueva.
  */
 export default function LiveHomeFeed({ push }) {
   const toast = useToast()
   const address = useAddress()
-  const cart = useCart()
+  const { add: addToCart } = useAddToCart()
   const profile = useProfile()
-  const events = useEvents()
   const reduceMotion = usePrefersReducedMotion()
   const [replays, setReplays] = useState(0)
 
-  // El interés se decide al entrar: si cambiara mientras se mira la Home, los bloques saltarían solos.
-  // `replays` lo recalcula al repetir la escena (para eso se lee el perfil de ese momento).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const interest = useMemo(() => interestFor(profile.top), [replays])
-  const discovery = useMemo(() => discoveryFor(interest), [interest])
-
-  const [order, setOrder] = useState(() => session.order ?? BASE_ORDER)
-  const [stamps, setStamps] = useState(loadPassport)
+  const game = useGame()
+  const stamps = stampedVerticals(game.state) // ids del juego
   const [freshStamp, setFreshStamp] = useState(() => session.newStamp)
   const [plan, setPlan] = useState(() => session.plan)
-  const [scene, setScene] = useState('idle') // idle | spotlight | reveal
+  const [kitAdded, setKitAdded] = useState(null) // plan cuyo kit ya está en el carro
   const [say, setSay] = useState(null)
   const [target, setTarget] = useState(null) // id del bloque donde se para Bigotes
   const [present, setPresent] = useState(() => session.played) // aún no entra a escena
   const [entering, setEntering] = useState(false)
-  const [sparkle, setSparkle] = useState(false)
   const kit = useMemo(() => (plan ? planKit(plan) : []), [plan])
 
   const screenRef = useRef(null)
@@ -87,8 +73,7 @@ export default function LiveHomeFeed({ push }) {
   const timers = useRef([])
   const hideTimer = useRef(null)
   const run = useRef(0) // cambia al repetir la escena o al salir: lo que estaba esperando ya no sigue
-  const [{ top }, onScroll] = useScrollState()
-  const snapshot = useFlip(blockRefs, order, { focus: 'interest', reduceMotion })
+  const [{ scrolled }, onScroll] = useScrollState()
 
   const later = useCallback((ms, fn) => timers.current.push(setTimeout(fn, ms)), [])
   const clearTimers = useCallback(() => {
@@ -124,104 +109,30 @@ export default function LiveHomeFeed({ push }) {
 
   const visit = useCallback(
     (vertical, route) => {
-      const next = stamp(vertical)
-      setStamps(next)
+      // Abrir la vertical en la app la sella (Explorador): Bigotes lo celebra al volver.
+      if (game.visit(vertical)) session.newStamp = vertical
       push(...(route ?? routeForScreen(vertical)))
     },
-    [push],
+    [game, push],
   )
 
   const openFromBlock = (item) => {
-    if (item.vertical) setStamps(stamp(item.vertical))
+    if (item.vertical && game.visit(item.vertical)) session.newStamp = item.vertical
     openItem(item, push)
   }
 
-  const finishScene = useCallback(() => {
-    clearTimers()
-    setScene('idle')
-    setSparkle(false)
-    speak(
-      { text: '¡Listo! Me quedo por aquí, por si te tinca descubrir algo nuevo 😉', mood: 'idle', gesture: 'wave' },
-      'interest',
-      4200,
-    )
-  }, [clearTimers, speak])
-
-  const bringInterestUp = useCallback(async () => {
-    if (session.played) return // el botón y el «sí» automático no lo corren dos veces
-    session.played = true
-    const current = run.current
-    setScene('spotlight')
-    speak(
-      {
-        text: `¡Voy! Tus ${interest.label.toLowerCase()} ${interest.emoji} van primero.`,
-        mood: 'wave',
-        gesture: 'hop',
-      },
-      'interest',
-    )
-    screenRef.current?.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
-    await wait(reduceMotion ? 0 : T.scroll)
-    if (current !== run.current) return
-    snapshot()
-    // La escena solo corre con la Home recién abierta, en su orden de siempre.
-    const next = moveToFront(BASE_ORDER, 'interest', discovery ? 'discovery' : null)
-    session.order = next
-    setOrder(next)
-    await wait(reduceMotion ? 0 : T.land)
-    if (current !== run.current) return
-    setSparkle(true)
-    bigotesRef.current?.reposition() // el bloque ya aterrizó: Bigotes salta encima
-    if (!discovery) return finishScene()
-    setScene('reveal')
-    speak(
-      {
-        text: `Y para acompañar: ${discovery.label.toLowerCase()} ${discovery.emoji} en ${discovery.verticalName}, donde nunca has pedido. Ábrelo y te llevas un sello.`,
-        mood: 'wave',
-        gesture: 'point',
-        actions: [
-          { label: `Ver ${discovery.verticalName}`, onClick: () => visit(discovery.vertical) },
-          { label: 'Listo', onClick: finishScene },
-        ],
-      },
-      'discovery',
-    )
-    later(T.revealHold, finishScene)
-  }, [discovery, finishScene, interest, later, reduceMotion, snapshot, speak, visit])
-
-  const undo = () => {
-    snapshot()
-    session.order = BASE_ORDER
-    setOrder(BASE_ORDER)
-    speak({ text: 'Hecho, lo dejé como estaba. Igual lo tengo en cuenta 👍', mood: 'idle' }, null, 3500)
-  }
-
-  // Primera vez en la Home: entra, saluda y cuenta lo que notó.
+  // Primera vez en la Home: entra y saluda. No sugiere nada ni mueve la Home.
   useEffect(() => {
     if (session.played) return undefined
     clearTimers()
     later(reduceMotion ? 0 : T.enter, () => {
       setPresent(true)
       setEntering(true)
-      speak(
-        { text: '¡Hola! Ahora vivo en tu Home 👋 La voy a ordenar a tu gusto.', mood: 'wave', gesture: 'greet' },
-        null,
-      )
+      speak({ text: GREETING, mood: 'wave', gesture: 'greet' }, null, T.greetHold)
     })
     later((reduceMotion ? 0 : T.enter) + T.greet, () => {
       setEntering(false)
-      speak(
-        {
-          text: `Noté que te encantan los ${interest.label.toLowerCase()} ${interest.emoji}. ¿Te los traigo arriba?`,
-          mood: 'idle',
-          actions: [
-            { label: '¡Sí, tráelos!', onClick: () => (clearTimers(), bringInterestUp()) },
-            { label: 'Ahora no', onClick: () => (clearTimers(), (session.played = true), speak(null)) },
-          ],
-        },
-        null,
-      )
-      later(T.autoAccept, () => bringInterestUp())
+      session.played = true
     })
     return clearTimers
     // Solo al montar (o al repetir la escena).
@@ -235,9 +146,10 @@ export default function LiveHomeFeed({ push }) {
     // primera vez se cancelan los timers.
     if (session.newStamp) {
       const name = VERTICAL_NAMES[session.newStamp]
-      const left = Math.max(PASSPORT_GOAL - loadPassport().length, 0)
+      const left = Math.max(PASSPORT_GOAL - stamps.length, 0)
       later(T.notice, () => {
         session.newStamp = null
+        buzz()
         speak(
           {
             text: left
@@ -268,6 +180,7 @@ export default function LiveHomeFeed({ push }) {
               ],
             },
             null,
+            ACTIONS_HOLD,
           ),
         )
       }
@@ -282,7 +195,7 @@ export default function LiveHomeFeed({ push }) {
     if (!element || typeof IntersectionObserver === 'undefined') return undefined
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting || session.planPrompted || !session.played || scene !== 'idle') return
+        if (!entry.isIntersecting || session.planPrompted || !session.played) return
         session.planPrompted = true
         speak(
           {
@@ -298,21 +211,18 @@ export default function LiveHomeFeed({ push }) {
     )
     observer.observe(element)
     return () => observer.disconnect()
-  }, [scene, speak])
+  }, [speak])
 
   // «Repetir la escena» desde fuera del teléfono.
   useEffect(() => {
     const replay = () => {
       run.current += 1
       clearTimers()
-      setStamps(loadPassport())
       setFreshStamp(null)
       setPlan(null)
-      setScene('idle')
-      setSparkle(false)
+      setKitAdded(null)
       setPresent(false)
       speak(null)
-      setOrder(BASE_ORDER)
       screenRef.current?.scrollTo({ top: 0 })
       setReplays((n) => n + 1)
     }
@@ -341,19 +251,18 @@ export default function LiveHomeFeed({ push }) {
   // Igual que el «+» de cada producto: al carro, al perfil y a los eventos del panel.
   const addKit = () => {
     const products = kit.filter((item) => item.kind === 'product').map((item) => item.product)
-    for (const product of products) {
-      cart.add(product)
-      profile.trackTags(productTags(product), WEIGHTS.cart)
-      events.track('cart_add', cartEventFields(product, cart.id))
-    }
+    for (const product of products) addToCart(product)
+    setKitAdded(plan)
+    buzz()
     toast(`Agregaste ${products.length} productos del kit`)
     speak({ text: '¡Listo! Llega todo junto 🛵 Ve tu carro abajo.', mood: 'wave', gesture: 'spin' }, 'plan', 3500)
   }
 
   const poke = () => {
-    // Mientras pregunta o mueve bloques, tocarlo no cambia de tema.
-    if (scene !== 'idle' || !session.played) return
-    const missing = PASSPORT.find(({ id }) => !stamps.includes(id))
+    // Mientras saluda, tocarlo no cambia de tema.
+    if (!session.played) return
+    // La primera vertical sin sello del pasaporte; Farmacia nunca (la salud no se empuja).
+    const missing = DATA.order.find((v) => !stamps.includes(v) && !NEVER_PUSHED.has(v))
     if (!missing) {
       speak(
         { text: '¡Ya probaste de todo! Eres oficialmente multivertical 🏆', mood: 'wave', gesture: 'spin' },
@@ -362,160 +271,68 @@ export default function LiveHomeFeed({ push }) {
       )
       return
     }
-    const name = VERTICAL_NAMES[missing.id]
+    const name = VERTICAL_NAMES[GAME_TO_SCREEN[missing]]
+    const left = PASSPORT_GOAL - stamps.length
     speak(
       {
-        text: `¿Y si pruebas ${name} ${missing.emoji}? Es tu sello ${stamps.length + 1} de ${PASSPORT_GOAL} para el envío gratis.`,
+        text: `¿Y si pruebas ${name} ${STAMP_EMOJI[missing]}? Juega una ronda y te llevas su sello.${left > 0 ? ` Te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis.` : ''}`,
         mood: 'wave',
         gesture: 'hop',
         actions: [
-          { label: `Abrir ${name}`, onClick: () => visit(missing.id) },
+          { label: `Jugar ${name}`, onClick: () => push('game', { round: missing }) },
+          { label: `Abrir ${name}`, onClick: () => visit(GAME_TO_SCREEN[missing]) },
           { label: 'Después', onClick: () => speak(null) },
         ],
       },
       null,
+      ACTIONS_HOLD,
     )
   }
-
-  const dim = scene !== 'idle'
-  const focused = scene === 'reveal' ? new Set(['interest', 'discovery']) : new Set(['interest'])
-  const dimClass = (id) => (dim && !focused.has(id) ? 'live-dimmable is-dimmed' : 'live-dimmable')
 
   const blocks = {
     essentials: (
       <>
-        <section className="home-tiles">
-          {MAIN_TILES.map((tile) => (
-            <button
-              key={tile.id}
-              type="button"
-              className={`home-tile home-tile--${tile.id} tap`}
-              onClick={() => push(tile.screen)}
-            >
-              <img src={tile.img} alt="" />
-              <span>{tile.label}</span>
-            </button>
-          ))}
-        </section>
-
-        <HScroll className="home-shortcuts">
-          {SHORTCUTS.map((item) => {
-            const unavailable = item.unavailable && !item.proposalRoute
-            const route = item.proposalRoute ?? item.route
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={unavailable ? 'home-shortcut is-unavailable tap' : 'home-shortcut tap'}
-                aria-label={unavailable ? `${item.label} (no disponible)` : undefined}
-                onClick={() => {
-                  if (unavailable) toast(`${item.label} no está disponible`)
-                  else if (route) push(...route)
-                  else toast()
-                }}
-              >
-                {item.proposalRoute ? (
-                  <i className="home-shortcut-emoji" aria-hidden="true">
-                    {item.emoji}
-                  </i>
-                ) : (
-                  <img src={item.img} alt="" draggable="false" />
-                )}
-                {!unavailable && <span>{item.label}</span>}
-              </button>
-            )
-          })}
-        </HScroll>
+        <MainTiles push={push} />
+        <Shortcuts push={push} proposal />
       </>
     ),
-    passport: <Passport stamps={stamps} fresh={freshStamp} onOpen={(id) => visit(id)} />,
-    promos: (
-      <>
-        <Carousel className="home-promos" initialIndex={PROMO_START_INDEX} autoplayMs={dim ? 0 : 4500}>
-          {PROMOS.map((promo) => (
-            <button
-              key={promo.id}
-              type="button"
-              className={`home-promo home-promo--${promo.fit}`}
-              onClick={() => (promo.route ? push(...promo.route) : toast())}
-            >
-              <img src={promo.img} alt="" draggable="false" />
-            </button>
-          ))}
-        </Carousel>
-        <Dots count={PROMOS.length} active={PROMO_START_INDEX} className="dots--wide home-promo-dots" />
-      </>
-    ),
-    turbo: (
-      <>
-        <img className="home-turbo-title" src={turboRestaurantesTitle} alt="En minutos · Turbo Restaurantes" />
-        <HScroll className="home-cards">
-          {TURBO_RESTAURANTS.map((store) => (
-            <RestaurantCard key={store.id} store={store} onClick={() => push('store', { store })} />
-          ))}
-        </HScroll>
-      </>
-    ),
-    plan: <PlanBlock plan={plan} kit={kit} onPick={pickPlan} onOpen={openFromBlock} onAddKit={addKit} />,
-    nearby: (
-      <section className="home-nearby">
-        <div className="home-section-head">
-          <h2 className="section-title">Stores near by you</h2>
-          <button type="button" className="chevron-button tap" aria-label="Ver todas" onClick={() => toast()}>
-            <ChevronRight size={20} />
-          </button>
-        </div>
-        <div className="home-store-grid">
-          {NEARBY_STORES.map((store) => (
-            <StoreTile
-              key={store.id}
-              store={store}
-              onClick={() =>
-                push('store', {
-                  store: { ...store, eta: store.when, etaIcon: store.scheduled ? 'clock' : 'bolt', logo: true },
-                })
-              }
-            />
-          ))}
-        </div>
-      </section>
-    ),
-    interest: (
-      <InterestBlock
-        interest={interest}
-        promoted={order[0] === 'interest' && scene === 'idle'}
-        sparkle={sparkle}
-        onOpen={openFromBlock}
-        onUndo={undo}
+    passport: (
+      <Passport
+        state={game.state}
+        fresh={freshStamp}
+        onOpenGame={(tab) => push('game', { tab })}
+        onOpenStamp={(vertical) => push('game', { vertical })}
       />
     ),
-    discovery: discovery && (
-      <DiscoveryBlock discovery={discovery} stamped={stamps.includes(discovery.vertical)} onOpen={openFromBlock} />
+    promos: <Promos push={push} />,
+    turbo: <TurboRestaurants push={push} />,
+    plan: (
+      <PlanBlock
+        plan={plan}
+        kit={kit}
+        added={kitAdded === plan}
+        onPick={pickPlan}
+        onOpen={openFromBlock}
+        onAddKit={addKit}
+        onCheckout={() => push('checkout')}
+      />
     ),
-    lower: (
-      <>
-        <h2 className="section-title home-lower-title">Now with lower fees</h2>
-        <HScroll className="home-cards home-cards--lower">
-          {LOWER_FEES.map((store) => (
-            <RestaurantCard key={store.id} store={store} onClick={() => push('store', { store })} />
-          ))}
-        </HScroll>
-      </>
-    ),
+    nearby: <NearbyStores push={push} />,
+    lower: <LowerFees push={push} />,
   }
 
   return (
     <>
       <div
         ref={screenRef}
-        className={dim ? 'screen home home--live is-dim' : 'screen home home--live'}
+        className="screen home home--live"
         onScroll={(event) => {
           onScroll(event)
-          bigotesRef.current?.reposition()
+          bigotesRef.current?.scrolled()
         }}
-        data-top={top > 0 ? 'scrolled' : 'top'}
+        data-top={scrolled ? 'scrolled' : 'top'}
       >
-        <section className={`home-top ${dimClass('top')}`} inert={dim}>
+        <section className="home-top">
           <button type="button" className="home-address tap" onClick={address.openSheet}>
             <span className="home-address-line">{address.selected.line}</span>
             <span className="home-address-label">
@@ -525,23 +342,16 @@ export default function LiveHomeFeed({ push }) {
               </span>
             </span>
           </button>
-          <PlainSearchBar onClick={() => push('search')} />
+          <SmartBar />
           <CreditsBanner credits={CREDITS} onClick={() => push('vertical', { id: 'pharmacy' })} />
         </section>
 
         <div className="live-blocks">
-          {order.map((id) =>
-            blocks[id] ? (
-              <div
-                key={id}
-                ref={setRef(id)}
-                className={`live-block live-block--${id} ${dimClass(id)}${dim && focused.has(id) ? ' is-focus' : ''}`}
-                inert={dim && !focused.has(id)}
-              >
-                {blocks[id]}
-              </div>
-            ) : null,
-          )}
+          {ORDER.map((id) => (
+            <div key={id} ref={setRef(id)} className={`live-block live-block--${id}`}>
+              {blocks[id]}
+            </div>
+          ))}
         </div>
       </div>
 

@@ -48,3 +48,13 @@ describe('restaurantes reales', () => {
     REAL_RESTAURANTS.forEach((restaurant) => expect(restaurant.eta).toBeTruthy())
   })
 })
+
+describe('tope de resultados', () => {
+  test('una letra suelta no devuelve el catálogo entero', async () => {
+    const { MAX_PRODUCT_RESULTS, MAX_STORE_RESULTS } = await import('./catalog')
+    const found = search('a')
+    expect(found.products.length).toBeLessThanOrEqual(MAX_PRODUCT_RESULTS)
+    expect(found.stores.length).toBeLessThanOrEqual(MAX_STORE_RESULTS)
+    expect(found.products.length).toBe(MAX_PRODUCT_RESULTS)
+  })
+})

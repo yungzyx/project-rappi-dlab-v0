@@ -1,7 +1,7 @@
 /* Checkout: diseño propio con el estilo de la app (no aparece en las capturas). */
 .checkout {
   padding: 0 var(--gutter) 130px;
-  background: #f7f7f8;
+  background: var(--surface-soft);
 }
 
 .checkout-header {
@@ -27,6 +27,17 @@
   margin-top: 40px;
   text-align: center;
   color: var(--ink-2);
+}
+
+.checkout-continue {
+  display: block;
+  margin: 16px auto 0;
+  padding: 12px 24px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .checkout-modes {
@@ -89,13 +100,13 @@
 .checkout-change {
   font-size: 14px;
   font-weight: 600;
-  color: #f0532b;
+  color: var(--bigotes-orange);
 }
 
 .checkout-eta {
   margin: 8px 4px 0;
   font-size: 13.5px;
-  color: #1f8a3b;
+  color: var(--green-deep);
   font-weight: 600;
 }
 
@@ -136,7 +147,7 @@
 
 .checkout-tip.is-active {
   background: var(--ink);
-  color: #fff;
+  color: var(--surface);
 }
 
 .checkout-summary {
@@ -155,7 +166,7 @@
 }
 
 .checkout-row dd.is-accent {
-  color: #1f8a3b;
+  color: var(--green-deep);
   font-weight: 600;
 }
 
@@ -175,7 +186,7 @@
   bottom: 0;
   z-index: 4;
   padding: 12px var(--gutter) 30px;
-  background: linear-gradient(to top, #f7f7f8 70%, rgba(247, 247, 248, 0));
+  background: linear-gradient(to top, var(--surface-soft) 70%, rgba(247, 247, 248, 0));
 }
 
 .checkout-place {
@@ -183,7 +194,7 @@
   height: 54px;
   border-radius: 99px;
   background: linear-gradient(135deg, #ff6a3d, #f0452b);
-  color: #fff;
+  color: var(--surface);
   font-size: 17px;
   font-weight: 700;
   box-shadow: 0 10px 24px rgba(240, 69, 43, 0.3);

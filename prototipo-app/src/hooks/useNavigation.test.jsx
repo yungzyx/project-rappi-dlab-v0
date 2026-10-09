@@ -44,3 +44,44 @@ describe('useNavigation', () => {
     expect(window.location.hash).toBe('#/offers')
   })
 })
+
+describe('volver al inicio y enlaces escritos a mano', () => {
+  test('reset deja solo la Home sin crear historial', () => {
+    const { result } = renderHook(() => useNavigation())
+    act(() => result.current.push('checkout'))
+    act(() => result.current.push('tracking', { orderId: 'x' }, { swap: true }))
+    const before = window.history.length
+    act(() => result.current.reset())
+    expect(names(result)).toEqual(['home'])
+    expect(result.current.direction).toBe('pop')
+    expect(window.history.length).toBe(before)
+    expect(window.location.hash).toBe('#/home')
+  })
+
+  test('un hash escrito a mano (popstate sin estado) navega a esa pantalla o pestaña', () => {
+    const { result } = renderHook(() => useNavigation())
+    window.location.hash = '#/restaurants'
+    act(() => window.dispatchEvent(new PopStateEvent('popstate', { state: null })))
+    expect(names(result)).toEqual(['home', 'restaurants'])
+    expect(window.history.state.nav.stack[1]).toEqual({ name: 'restaurants', params: {} })
+
+    window.location.hash = '#/offers'
+    act(() => window.dispatchEvent(new PopStateEvent('popstate', { state: null })))
+    expect(names(result)).toEqual(['home'])
+    expect(result.current.homeTab).toBe('offers')
+  })
+
+  test('al cargar con un hash y sin estado se lee la ruta; lo que necesita parámetros se ignora', () => {
+    window.location.hash = '#/store'
+    const { result } = renderHook(() => useNavigation())
+    expect(names(result)).toEqual(['home'])
+    window.history.replaceState(null, '', '/')
+  })
+
+  test('#/game abre el juego de verticales (no necesita parámetros)', () => {
+    window.location.hash = '#/game'
+    const { result } = renderHook(() => useNavigation())
+    expect(names(result)).toEqual(['home', 'game'])
+    window.history.replaceState(null, '', '/')
+  })
+})

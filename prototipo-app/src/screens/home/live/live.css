@@ -1,10 +1,9 @@
-/* «Bigotes vivo»: Bigotes de cuerpo entero dentro de la Home, bloques que se reordenan y foco con fondo oscuro. */
+/* Prototipo final: Bigotes de cuerpo entero dentro de la Home, bloques que se reordenan y foco con fondo oscuro. */
 /* La capa de Bigotes es hermana de la Home (no hija): las dos llevan las variables. */
 .home--live,
 .live-layer {
   --live-accent: #c43d20; /* rojo Rappi más oscuro: texto blanco encima con 5,2:1 */
   --live-accent-soft: #fff1ea;
-  --live-night: #17151a;
   --live-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
   --live-glide: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -14,35 +13,8 @@
   transition: background-color 520ms var(--live-glide);
 }
 
-/* ---------- Foco: todo lo demás se apaga y el bloque elegido queda iluminado ---------- */
-.home--live.is-dim {
-  background-color: var(--live-night);
-}
-
-.live-dimmable {
-  transition:
-    opacity 520ms var(--live-glide),
-    filter 520ms var(--live-glide);
-}
-
-.live-dimmable.is-dimmed {
-  opacity: 0.18;
-  filter: grayscale(0.7) blur(1.5px);
-  pointer-events: none;
-}
-
 .live-block {
   position: relative;
-}
-
-.live-block.is-focus {
-  z-index: 1;
-}
-
-.live-block.is-focus .live-card {
-  box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.9),
-    0 18px 50px rgba(255, 120, 70, 0.35);
 }
 
 /* ---------- Bloques propios ---------- */
@@ -54,18 +26,6 @@
   background: var(--surface);
   box-shadow: 0 6px 22px rgba(60, 30, 20, 0.08);
   transition: box-shadow 520ms var(--live-glide);
-}
-
-.live-block:first-child .live-card {
-  margin-top: 26px;
-}
-
-.live-card--interest {
-  background: linear-gradient(180deg, #fff3ec 0%, #ffffff 62%);
-}
-
-.live-card--discovery {
-  background: linear-gradient(180deg, #f1f6ff 0%, #ffffff 62%);
 }
 
 .live-card-head {
@@ -96,7 +56,7 @@
   width: 46px;
   height: 46px;
   border-radius: 14px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 2px 10px rgba(60, 30, 20, 0.1);
   font-size: 26px;
   font-style: normal;
@@ -113,9 +73,7 @@
 }
 
 /* Al aparecer, los ítems entran uno tras otro */
-.live-kit .live-item,
-.live-card--discovery .live-item,
-.is-focus .live-item {
+.live-kit .live-item {
   animation: live-item-in 460ms var(--live-glide) backwards;
   animation-delay: calc(var(--i) * 70ms + 120ms);
 }
@@ -173,30 +131,6 @@
   font-size: 13px;
 }
 
-.live-ribbon {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 18px 18px 0;
-  padding: 8px 8px 8px 14px;
-  border-radius: 99px;
-  background: var(--live-accent-soft);
-  color: #8f2c16;
-  font-size: 13px;
-  font-weight: 600;
-  animation: live-item-in 420ms var(--live-glide) backwards;
-}
-
-.live-ribbon button {
-  padding: 5px 12px;
-  border-radius: 99px;
-  background: #fff;
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
 /* ---------- ¿Qué plan tienes hoy? ---------- */
 .live-plan-title {
   padding: 0 18px;
@@ -230,7 +164,7 @@
 
 .live-plan-chip.is-active {
   background: var(--ink);
-  color: #fff;
+  color: var(--surface);
   transform: scale(1.04);
 }
 
@@ -250,6 +184,11 @@
   font-size: 13.5px;
 }
 
+.live-kit-add.is-added {
+  background: var(--ink);
+  animation: live-item-in 320ms var(--live-glide);
+}
+
 .live-kit-add {
   display: block;
   width: calc(100% - 36px);
@@ -257,7 +196,7 @@
   padding: 13px 0;
   border-radius: 14px;
   background: var(--live-accent);
-  color: #fff;
+  color: var(--surface);
   font-size: 15.5px;
   font-weight: 700;
 }
@@ -279,9 +218,56 @@
   font-weight: 700;
 }
 
+/* El título abre el pasaporte del juego y «Jugar» su camino. */
+.live-passport-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.live-passport-title {
+  min-height: 40px;
+  font: inherit;
+  text-align: left;
+}
+
+.live-passport-play {
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 99px;
+  background: var(--live-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 3px 0 var(--accent-deep);
+}
+
+.live-passport-bar {
+  height: 6px;
+  margin-top: 10px;
+  border-radius: 99px;
+  background: rgba(196, 61, 32, 0.14);
+  overflow: hidden;
+}
+
+.live-passport-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--live-accent);
+  transform: scaleX(var(--progress));
+  transform-origin: left;
+  transition: transform 700ms var(--live-spring);
+}
+
+.live-passport.is-complete {
+  background: linear-gradient(120deg, #fff3c4, #ffe1d2);
+}
+
 .live-passport-head p {
   margin-top: 2px;
-  color: #8f2c16;
+  color: var(--accent-deep);
   font-size: 13px;
   font-weight: 600;
 }
@@ -315,9 +301,22 @@
 
 .live-stamp.has .live-stamp-face {
   border: 2px solid var(--live-accent);
-  background: #fff;
+  background: var(--surface);
   font-size: 24px;
   transform: rotate(-8deg);
+}
+
+/* El nivel del juego se ve en el borde: Conocedor dorado, Experto doble. */
+.live-stamp.is-conocedor .live-stamp-face {
+  border-color: #c99a1a;
+  box-shadow: 0 0 0 3px #f7e3a3;
+}
+
+.live-stamp.is-experto .live-stamp-face {
+  border-color: #c99a1a;
+  box-shadow:
+    0 0 0 3px #f7e3a3,
+    0 0 0 5px #c99a1a;
 }
 
 .live-stamp.is-fresh .live-stamp-face {
@@ -342,42 +341,11 @@
   white-space: nowrap;
 }
 
-/* ---------- Destellos al aterrizar ---------- */
-.live-sparkles {
-  position: absolute;
-  top: 36px;
-  left: 50%;
-  z-index: 3;
-  pointer-events: none;
-}
-
-.live-sparkles span {
-  position: absolute;
-  color: #ff8a3d;
-  font-size: 16px;
-  opacity: 0;
-  animation: live-spark 950ms var(--live-glide) forwards;
-}
-
-@keyframes live-spark {
-  0% {
-    opacity: 1;
-    transform: translate(0, 0) scale(0.3);
-  }
-  70% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(var(--dx), var(--dy)) scale(1.1);
-  }
-}
-
 /* ---------- Bigotes y su globo ---------- */
 .live-layer {
   position: absolute;
   inset: 0;
-  z-index: 25; /* sobre la Home, bajo la barra inferior y el carrito */
+  z-index: var(--z-live-bigotes);
   pointer-events: none;
   overflow: hidden;
 }
@@ -405,7 +373,17 @@
   display: block;
   pointer-events: auto;
   filter: drop-shadow(0 8px 10px rgba(40, 20, 10, 0.25));
-  transition: transform 200ms var(--live-spring);
+  transition: transform 450ms var(--live-spring);
+}
+
+/* En reposo se asoma desde el borde derecho: medio cuerpo, inclinado hacia la pantalla */
+.live-bigotes.is-resting .live-bigotes-body {
+  transform: translateX(44px) rotate(-10deg);
+}
+
+/* Mientras se hace scroll, casi se esconde */
+.live-bigotes.is-resting.is-tucked .live-bigotes-body {
+  transform: translateX(72px) rotate(-4deg);
 }
 
 .live-bigotes-body:active {
@@ -707,7 +685,7 @@
   max-width: 236px;
   padding: 11px 14px 12px;
   border-radius: 18px 6px 18px 18px;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   box-shadow: 0 10px 30px rgba(20, 10, 5, 0.22);
   font-size: 14.5px;
@@ -752,13 +730,13 @@
 
 .live-chip.is-primary {
   background: #c43d20;
-  color: #fff;
+  color: var(--surface);
 }
 
-/* ---------- Menos movimiento: sin saltos, deslizamientos ni destellos ---------- */
+/* ---------- Menos movimiento: sin saltos ni deslizamientos ---------- */
 @media (prefers-reduced-motion: reduce) {
   .home--live,
-  .live-dimmable,
+  .live-passport-bar span,
   .live-bigotes,
   .live-card {
     transition: none;
@@ -769,14 +747,9 @@
   .live-gesture,
   .live-bubble,
   .live-bubble-actions,
-  .live-ribbon,
   .live-kit,
   .live-item,
   .live-stamp.is-fresh .live-stamp-face {
     animation: none !important;
-  }
-
-  .live-sparkles {
-    display: none;
   }
 }

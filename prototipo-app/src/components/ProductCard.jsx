@@ -1,20 +1,22 @@
-import { EtaIcon } from '../screens/home/StoreCards'
+import { EtaIcon } from './StoreMeta'
 import AddButton from './AddButton'
-import { pressable } from './pressable'
+import Img from './Img'
+import { useProductSheet } from '../state/ProductSheetContext'
 import './product-card.css'
 
-/** Producto de supermercado/farmacia/botillería (Meat & Seafood, beers, Baby care…). */
-export function ProductCard({ product, onClick }) {
+/** Producto de supermercado/farmacia/botillería (Meat & Seafood, beers, Baby care…). Tocarlo abre su hoja; el "+" va aparte. */
+export function ProductCard({ product, onOpenStore }) {
+  const sheet = useProductSheet()
   return (
-    <div className="product-card tap" {...pressable(onClick)}>
+    <div className="product-card">
+      <button type="button" className="product-card-main tap" onClick={() => sheet.open(product, { onOpenStore })}>
       <span className={product.partial ? 'product-media is-partial' : 'product-media'}>
-        <img src={product.img} alt="" draggable="false" />
+        <Img src={product.img} draggable="false" />
         {product.ageRestricted && (
           <span className="product-age" aria-label="Solo mayores de 18">
             +18
           </span>
         )}
-        <AddButton product={product} className="add-button--grocery" />
       </span>
       <span className="product-price-row">
         <span className={product.discount ? 'product-price' : 'product-price is-plain'}>{product.price}</span>
@@ -25,6 +27,8 @@ export function ProductCard({ product, onClick }) {
       <span className="product-size">{product.size}</span>
       <span className="product-unit">{product.unit}</span>
       <StoreLine item={product} />
+      </button>
+      <AddButton product={product} className="add-button--grocery" />
     </div>
   )
 }
@@ -32,10 +36,10 @@ export function ProductCard({ product, onClick }) {
 /** Oferta de restaurante (Crazy Deals, Top 10 Pizzas). `boxed` = tarjeta blanca sobre fondo gris. */
 export function DealCard({ deal, boxed = false, onClick }) {
   return (
-    <div className={boxed ? 'deal-card is-boxed tap' : 'deal-card tap'} {...pressable(onClick)}>
+    <div className={boxed ? 'deal-card is-boxed' : 'deal-card'}>
+      <button type="button" className="product-card-main tap" onClick={onClick}>
       <span className="deal-media">
-        <img src={deal.img} alt="" draggable="false" />
-        <AddButton product={deal} className={boxed ? 'add-button--boxed' : 'add-button--deal'} />
+        <Img src={deal.img} draggable="false" />
       </span>
       <span className="deal-price">{deal.price}</span>
       <span className="deal-discount">
@@ -51,13 +55,15 @@ export function DealCard({ deal, boxed = false, onClick }) {
       </span>
       <span className="deal-name">{deal.name}</span>
       <StoreLine item={deal} />
+      </button>
+      <AddButton product={deal} className={boxed ? 'add-button--boxed' : 'add-button--deal'} />
     </div>
   )
 }
 
 /** Logo de la tienda: imagen recortada o, si no hay, un círculo con la inicial (`storeBadge`). */
 export function StoreLogo({ item }) {
-  if (item.storeLogo) return <img src={item.storeLogo} alt="" />
+  if (item.storeLogo) return <Img src={item.storeLogo} />
   return (
     <span className="store-badge" style={{ background: item.storeBadge ?? '#8b8b8b' }}>
       {item.store.charAt(0)}

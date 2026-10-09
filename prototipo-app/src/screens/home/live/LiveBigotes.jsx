@@ -11,6 +11,7 @@ const TYPE_MS = 16 // ms por letra al «hablar»
 // Mientras nadie le habla, Bigotes no se queda quieto: cada tanto mira, baila, saluda o se estira (en este orden).
 const FIDGETS = ['look', 'dance', 'wave', 'stretch', 'hop']
 const FIDGET_MS = 6000
+const TUCK_MS = 700 // tras el último scroll, vuelve a asomarse
 
 /** Texto que aparece letra por letra mientras Bigotes habla (sin animación si se pidió reducir movimiento). */
 function useTypewriter(text, reduceMotion) {
@@ -48,13 +49,27 @@ const LiveBigotes = forwardRef(function LiveBigotes(
   const { shown, done } = useTypewriter(say?.text, reduceMotion)
   const [fidget, setFidget] = useState(null)
   const fidgets = useRef(0)
+  const [tucked, setTucked] = useState(false)
+  const tuckTimer = useRef(null)
+  const frame = useRef(0)
+  // Tamaño del teléfono: no cambia al hacer scroll (solo al cambiar la ventana), así que se mide una vez.
+  const phoneSize = useRef(null)
+  useEffect(
+    () => () => {
+      clearTimeout(tuckTimer.current)
+      cancelAnimationFrame(frame.current)
+    },
+    [],
+  )
 
   const place = useCallback(() => {
     const layer = layerRef.current
     if (!layer) return
-    const phone = rectInPhone(layer)
-    const height = phone.phoneHeight
-    const width = phone.phoneWidth
+    if (!phoneSize.current) {
+      const phone = rectInPhone(layer)
+      phoneSize.current = { height: phone.phoneHeight, width: phone.phoneWidth }
+    }
+    const { height, width } = phoneSize.current
     let y = height - BOTTOM_RESERVE - HEIGHT
     const block = target ? getBlock(target) : null
     if (block) {
@@ -81,11 +96,28 @@ const LiveBigotes = forwardRef(function LiveBigotes(
   }, [spot])
 
   useEffect(() => {
-    window.addEventListener('resize', place)
-    return () => window.removeEventListener('resize', place)
+    const onResize = () => {
+      phoneSize.current = null
+      place()
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [place])
 
-  useImperativeHandle(ref, () => ({ reposition: place }), [place])
+  // Al hacer scroll se esconde tras el borde (no tapa lo que se está mirando) y vuelve a asomarse al parar.
+  // La posición se recalcula a lo más una vez por cuadro (mide el bloque con getBoundingClientRect).
+  const scrolled = useCallback(() => {
+    if (!frame.current)
+      frame.current = requestAnimationFrame(() => {
+        frame.current = 0
+        place()
+      })
+    setTucked(true)
+    clearTimeout(tuckTimer.current)
+    tuckTimer.current = setTimeout(() => setTucked(false), TUCK_MS)
+  }, [place])
+
+  useImperativeHandle(ref, () => ({ reposition: place, scrolled }), [place, scrolled])
 
   useEffect(() => {
     if (say || away || reduceMotion) return undefined
@@ -102,6 +134,13 @@ const LiveBigotes = forwardRef(function LiveBigotes(
   // vuelve a montar el envoltorio y la animación corre otra vez.
   const gesture = say ? say.gesture : fidget?.name
   const gestureKey = say ? `say-${say.text}` : `fidget-${fidget?.key ?? 'none'}`
+  // Sin nada que decir, se asoma desde el borde derecho en vez de tapar tarjetas y botones.
+  const resting = !say && !entering && !away
+  const classes = ['live-bigotes']
+  if (entering) classes.push('is-entering')
+  if (away) classes.push('is-away')
+  if (spot?.low) classes.push('is-low')
+  if (resting) classes.push(tucked ? 'is-resting is-tucked' : 'is-resting')
 
   return (
     <div ref={layerRef} className="live-layer">
@@ -109,10 +148,7 @@ const LiveBigotes = forwardRef(function LiveBigotes(
       <p className="sr-only" role="status">
         {away ? '' : (say?.text ?? '')}
       </p>
-      <div
-        className={`live-bigotes${entering ? ' is-entering' : ''}${away ? ' is-away' : ''}${spot?.low ? ' is-low' : ''}`}
-        style={style}
-      >
+      <div className={classes.join(' ')} style={style}>
         {say && !away && (
           <div className="live-bubble">
             <p aria-hidden="true">{shown}</p>
@@ -136,6 +172,7 @@ const LiveBigotes = forwardRef(function LiveBigotes(
           type="button"
           className="live-bigotes-body"
           aria-label="Bigotes: muéstrame algo nuevo para probar"
+          title="Bigotes"
           hidden={away}
           onClick={onPoke}
         >

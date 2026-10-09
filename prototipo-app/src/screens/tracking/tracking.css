@@ -1,6 +1,6 @@
 /* Seguimiento: diseño propio con el estilo de la app (no aparece en las capturas). */
 .tracking {
-  background: #f7f7f8;
+  background: var(--surface-soft);
   padding-bottom: 60px;
 }
 
@@ -102,7 +102,7 @@
 }
 
 .tracking-steps li.is-done::after {
-  background: #34c759;
+  background: var(--green-status);
 }
 
 .tracking-dot {
@@ -121,8 +121,8 @@
 }
 
 .tracking-steps li.is-done .tracking-dot {
-  border-color: #34c759;
-  background: #34c759;
+  border-color: var(--green-status);
+  background: var(--green-status);
 }
 
 .tracking-steps li.is-current {
@@ -130,8 +130,8 @@
 }
 
 .tracking-steps li.is-current .tracking-dot {
-  border-color: #f0532b;
-  background: #f0532b;
+  border-color: var(--bigotes-orange);
+  background: var(--bigotes-orange);
   box-shadow: 0 0 0 5px rgba(240, 83, 43, 0.18);
   animation: dot-pulse 1.4s ease-in-out infinite;
 }
@@ -149,7 +149,7 @@
   margin-top: 16px;
   padding: 12px 14px;
   border-radius: 18px;
-  background: #f7f7f8;
+  background: var(--surface-soft);
 }
 
 .tracking-avatar {
@@ -158,8 +158,8 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff7a45, #f0532b);
-  color: #fff;
+  background: var(--bigotes-gradient);
+  color: var(--surface);
   font-weight: 700;
 }
 
@@ -239,7 +239,7 @@
 
 .tracking-next small {
   font-size: 13px;
-  color: #b3461f;
+  color: var(--accent-text);
 }
 
 .tracking-summary {
@@ -285,7 +285,7 @@
   padding: 10px 20px;
   border-radius: 99px;
   background: var(--ink);
-  color: #fff;
+  color: var(--surface);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -293,4 +293,71 @@
   .tracking-steps li.is-current .tracking-dot {
     animation: none;
   }
+}
+
+/* ---------- Chat con el Rappitendero ---------- */
+.tracking-chat {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tracking-chat-line {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 18px 18px 18px 4px;
+  background: var(--chip);
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.tracking-chat-line.is-user {
+  align-self: flex-end;
+  border-radius: 18px 18px 4px 18px;
+  background: var(--rappi-red);
+  color: var(--surface);
+}
+
+.tracking-chat-note {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* «Juega mientras llega tu pedido»: una ronda del juego de verticales mientras se espera. */
+.tracking-game {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: linear-gradient(120deg, #fff8e8, #fff1ea);
+  text-align: left;
+}
+
+.tracking-game-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 22px;
+}
+
+.tracking-game strong {
+  display: block;
+  font-size: 15px;
+}
+
+.tracking-game small {
+  display: block;
+  margin-top: 2px;
+  color: var(--accent-deep);
+  font-size: 13px;
+  font-weight: 600;
 }

@@ -16,6 +16,28 @@ describe('precios', () => {
 
 describe('CartContext', () => {
   const setup = () => renderHook(() => useCart(), { wrapper: CartProvider })
+  afterEach(() => localStorage.clear())
+
+  test('el carro sobrevive a una recarga (líneas, id y notas)', () => {
+    const first = setup()
+    act(() => first.result.current.add(BEER))
+    act(() => first.result.current.add(BEER))
+    act(() => first.result.current.setNote(BEER, 'bien fría'))
+    const id = first.result.current.id
+    first.unmount()
+
+    const second = setup()
+    expect(second.result.current.id).toBe(id)
+    expect(second.result.current.qtyOf(BEER)).toBe(2)
+    expect(second.result.current.noteOf(BEER)).toBe('bien fría')
+  })
+
+  test('si lo guardado está corrupto, parte de cero', () => {
+    localStorage.setItem('rappi-proto-cart', '{"lines": "no"')
+    expect(setup().result.current.count).toBe(0)
+    localStorage.setItem('rappi-proto-cart', JSON.stringify({ id: 'c-1', lines: { x: { qty: -1 } } }))
+    expect(setup().result.current.count).toBe(0)
+  })
 
   test('suma cantidades y total', () => {
     const { result } = setup()

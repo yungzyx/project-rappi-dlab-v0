@@ -71,3 +71,33 @@ describe('visita a una tienda (embudo del panel)', () => {
     expect(tracked('view_item')).toEqual([])
   })
 })
+
+describe('producto que no está en el catálogo local (p. ej. de la API)', () => {
+  const remote = { id: 'api-1', name: 'Pisco Alto del Carmen', img: '', price: '$9.990', store: 'Copetexpress' }
+
+  test('se muestra destacado arriba con su botón de agregar y sin el aviso de menú incompleto', () => {
+    const { getByText, queryByText, getAllByLabelText } = openStore({ store: { name: 'Copetexpress' }, item: remote })
+    expect(getByText('Lo que elegiste')).toBeTruthy()
+    expect(getByText('Pisco Alto del Carmen')).toBeTruthy()
+    expect(getAllByLabelText(/Agregar/).length).toBeGreaterThan(0)
+    expect(queryByText(/todavía no está en el prototipo/)).toBeNull()
+  })
+
+  test('con ofertas locales, lo elegido va arriba y las ofertas abajo', () => {
+    const { getByText } = openStore({ store: { name: 'Unimarc' }, item: { ...remote, store: 'Unimarc' } })
+    expect(getByText('Lo que elegiste').compareDocumentPosition(getByText('Deals'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  })
+
+  test('un producto que sí está en el catálogo no se duplica', () => {
+    const heineken = ALL_PRODUCTS.find((product) => product.id === 'p-heineken')
+    const { queryByText } = openStore({ store: { name: heineken.store }, item: heineken })
+    expect(queryByText('Lo que elegiste')).toBeNull()
+  })
+
+  test('sin producto ni ofertas sigue el aviso de menú incompleto', () => {
+    const { getByText } = openStore({ store: { name: 'Copetexpress' } })
+    expect(getByText(/todavía no está en el prototipo/)).toBeTruthy()
+  })
+})

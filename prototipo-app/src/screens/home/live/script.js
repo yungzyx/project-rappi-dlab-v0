@@ -1,11 +1,10 @@
-// Lo que Bigotes «vivo» decide mostrar: el interés de la persona, una vertical por descubrir y kits por plan.
+// Lo que Bigotes decide mostrar en la Home del prototipo final: una vertical que combina con lo agregado y kits por plan.
 // Todo sale de los datos del prototipo; no hay chat ni llamadas a la API. Un ítem es un producto o una tienda.
 import { COMPLEMENTS, TAGS, productsForTags, storesForTags } from '../../../assistant/tags'
 import { VERTICAL_NAMES } from '../../../data/verticals'
 
 // La salud no se aprende ni se sugiere (docs/diseno-ia.md §4, regla 6).
 const NEVER_SUGGESTED = new Set(['farmacia', 'bebe'])
-const DEFAULT_INTEREST = 'dulce' // la demo parte por los chocolates
 const DISCOVERY_FALLBACK = ['licor', 'vino', 'cerveza', 'belleza', 'mascota', 'snack']
 const MIN_DISCOVERY_ITEMS = 2
 
@@ -29,14 +28,7 @@ const mostCommon = (values) => {
 const SPOKEN_LABELS = { dulce: 'Chocolates' }
 const describe = (tag) => ({ tag, label: SPOKEN_LABELS[tag] ?? TAGS[tag].label, emoji: TAGS[tag].emoji })
 
-/** El interés más fuerte de la persona (o los chocolates, sin perfil): su bloque sube al primer lugar. */
-export function interestFor(top) {
-  const tag = top.find((candidate) => TAGS[candidate] && !NEVER_SUGGESTED.has(candidate)) ?? DEFAULT_INTEREST
-  const items = itemsFor(tag, 8)
-  return { ...describe(tag), items, vertical: mostCommon(items.map((item) => item.vertical)) }
-}
-
-/** Una vertical distinta de la del interés, con cosas que combinan con él: lo que se invita a descubrir. */
+/** Una vertical distinta de la de `interest` ({ tag, vertical }), con cosas que combinan con él: lo que se invita a descubrir. */
 export function discoveryFor(interest) {
   if (NEVER_SUGGESTED.has(interest.tag)) return null // lo de salud no se combina con nada
   const candidates = [...new Set([...(COMPLEMENTS[interest.tag] ?? []), ...DISCOVERY_FALLBACK])].filter(
@@ -115,10 +107,4 @@ export function planKit(planId) {
     }
   }
   return kit
-}
-
-/** Orden nuevo de los bloques: `id` primero y `newId` justo debajo (sin repetirlo). */
-export function moveToFront(order, id, newId) {
-  const rest = order.filter((block) => block !== id && block !== newId)
-  return newId ? [id, newId, ...rest] : [id, ...rest]
 }
