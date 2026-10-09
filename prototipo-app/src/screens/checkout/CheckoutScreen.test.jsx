@@ -157,7 +157,7 @@ describe('carrito vacío', () => {
       </DemoProvider>,
     )
     expect(screen.getByText('Your cart is empty.')).toBeTruthy()
-    fireEvent.click(screen.getByText('Seguir comprando'))
+    fireEvent.click(screen.getByText('Keep shopping'))
     expect(back).toHaveBeenCalled()
   })
 })

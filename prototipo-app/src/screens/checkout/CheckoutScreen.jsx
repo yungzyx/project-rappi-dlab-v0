@@ -73,7 +73,7 @@ export default function CheckoutScreen({ back, push }) {
         <CheckoutHeader back={back} />
         <p className="checkout-empty">Your cart is empty.</p>
         <button type="button" className="checkout-continue tap" onClick={back}>
-          Seguir comprando
+          Keep shopping
         </button>
       </div>
     )

@@ -33,7 +33,7 @@ export default function OrdersScreen({ back, push, reset }) {
       {orders.length === 0 ? (
         <div className="orders-empty">
           <p>Todavía no tienes pedidos</p>
-          <small>Lo que pidas en la demo aparece aquí con su seguimiento.</small>
+          <small>Lo que pidas aparece aquí con su seguimiento.</small>
           <button type="button" className="orders-empty-button tap" onClick={reset}>
             Ir al inicio
           </button>

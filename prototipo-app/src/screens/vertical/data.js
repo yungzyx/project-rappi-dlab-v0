@@ -151,7 +151,7 @@ export const VERTICALS = {
         peek: { img: a('peek-pets'), top: -3 },
         stores: [
           { id: 'petcity', name: 'PetCity - Atenas', ad: true, logo: a('logo-petcity'), eta: 'Mon, 9 AM', etaIcon: ORANGE_BOLT, promo: 'Up to 15% Off' },
-          { id: 'tusmascotas', name: 'Tus Mascotas', ad: true, logo: a('logo-tusmascotas'), eta: 'Sun, 10 AM', etaIcon: ORANGE_BOLT, promo: '$5,000 Off: min $40K' },
+          { id: 'tusmascotas', name: 'Tus Mascotas', ad: true, logo: a('logo-tusmascotas'), eta: 'Sun, 10 AM', etaIcon: ORANGE_BOLT, promo: '$5.000 Off: min $40K' },
           { id: 'superzoo', name: 'SuperZoo', logo: a('logo-superzoo'), eta: 'Sun, 10 AM', etaIcon: ORANGE_BOLT },
         ],
       },

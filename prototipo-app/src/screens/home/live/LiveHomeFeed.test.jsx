@@ -84,7 +84,7 @@ describe('Home con Bigotes vivo', () => {
   test('no tiene ícono de chat: Bigotes vive en la Home de cuerpo entero', () => {
     renderHome()
     expect(screen.queryByRole('button', { name: 'Hablar con Bigotes' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Abrir asistente' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Abrir buscador con Bigotes' })).toBeNull()
     expect(screen.getByText('Tu pasaporte Rappi')).toBeTruthy()
   })
 

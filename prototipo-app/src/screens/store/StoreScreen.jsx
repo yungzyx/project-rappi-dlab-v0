@@ -69,7 +69,7 @@ export default function StoreScreen({ back, params }) {
 
   const toggleFavorite = () => {
     favorites.toggle(store)
-    toast(isFavorite ? 'Quitada de favoritos' : 'Agregada a My Favorites')
+    toast(isFavorite ? 'Quitada de favoritos' : 'Agregada a favoritos')
   }
 
   return (

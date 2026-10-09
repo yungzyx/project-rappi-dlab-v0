@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import { useAssistant } from '../../state/AssistantContext'
 import './smart-bar.css'
 
-const HINTS = ['Pregúntale a Bigotes…', '¿Qué se te antoja hoy?', 'Arma un carrete 🍻']
+const HINTS = ['¿Qué se te antoja hoy?', 'Busca o pídele ideas a Bigotes', 'Arma un carrete 🍻']
 const ROTATE_MS = 3200
 
 export function SparkleIcon({ size = 22 }) {
@@ -48,7 +48,7 @@ export default function SmartBar({ compact = false }) {
       className={compact ? 'smart-bar is-compact' : 'smart-bar'}
       role="button"
       tabIndex={0}
-      aria-label="Abrir asistente"
+      aria-label="Abrir buscador con Bigotes"
       onClick={open}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return

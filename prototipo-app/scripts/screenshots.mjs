@@ -18,10 +18,13 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function run(page) {
   // Espera a que carguen las imágenes visibles y a que terminen las transiciones de pantalla.
+  // Las imágenes con loading="lazy" fuera de pantalla no cargan hasta hacer scroll: no se esperan.
   const settle = async (ms = 500) => {
     await page.evaluate(() =>
       Promise.all(
-        [...document.images].filter((img) => !img.complete).map((img) => new Promise((done) => (img.onload = img.onerror = done))),
+        [...document.images]
+          .filter((img) => !img.complete && img.loading !== 'lazy')
+          .map((img) => new Promise((done) => (img.onload = img.onerror = done))),
       ),
     )
     await wait(ms)
@@ -83,17 +86,17 @@ async function run(page) {
     await shot(name)
   }
   await tab('Home')
-  await page.keyboard.press('d')
+  await page.keyboard.press('d') // Rappi hoy → Bigotes vivo
+  await page.keyboard.press('d') // Bigotes vivo → Propuesta
+  await settle(400)
 
   // --- Lo nuevo de la propuesta ---
-  await tap('.home-top .smart-bar-action[aria-label="Hablar"]')
-  await wait(1900)
-  await shot('21-voz')
-  await wait(3500)
+  await tap('.home-top .smart-bar') // la barra de la Home abre el buscador con Bigotes
+  await wait(1200) // animación de entrada del panel
   await tap('.assistant-chip', 'carrete')
-  await wait(3800)
+  await wait(3800) // Bigotes responde
   await shot('20-asistente')
-  await tap('.assistant-close')
+  await tap('[role="dialog"] .search-back')
   await wait(600)
 
   await shortcut('Liquor')
