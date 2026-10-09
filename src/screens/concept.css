@@ -1,0 +1,65 @@
+.concept-hero {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.concept-hero-emoji {
+  font-size: 64px;
+  line-height: 1.1;
+}
+
+.concept-hero h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.xp-pop {
+  margin-top: 6px;
+  font-weight: 800;
+  color: var(--rappi-red-ink);
+  background: var(--rappi-red-soft);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .xp-pop {
+    animation: xp-pop 500ms var(--ease-out);
+  }
+}
+
+@keyframes xp-pop {
+  from {
+    transform: translateY(10px) scale(0.8);
+    opacity: 0;
+  }
+}
+
+.concept-fact {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips li {
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--chip);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chips .chip-vertical {
+  background: color-mix(in srgb, var(--chip-color) 12%, #fff);
+  color: var(--chip-color);
+}

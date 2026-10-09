@@ -1,0 +1,89 @@
+.age-badge {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--v-licores);
+  border: 2px solid var(--v-licores);
+  border-radius: var(--radius-pill);
+  padding: 3px 9px;
+}
+
+.vertical-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.vertical-level {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--v);
+}
+
+.vertical-counts {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.vertical-goal {
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+.vertical-challenge {
+  margin-top: 14px;
+}
+
+.vertical-hint {
+  font-size: 13px;
+  margin: -4px 0 12px;
+}
+
+.concept-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.concept-tile {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--surface-muted);
+  color: #b9b9c0;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.concept-tile:active {
+  transform: scale(0.96);
+}
+
+.concept-tile.is-found {
+  background: color-mix(in srgb, var(--v) 10%, #fff);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--v) 35%, #fff);
+}
+
+.concept-emoji {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.concept-name {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

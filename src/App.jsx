@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import BottomNav from './components/BottomNav.jsx'
+import Challenge from './screens/Challenge.jsx'
+import Concept from './screens/Concept.jsx'
 import Home from './screens/Home.jsx'
+import Result from './screens/Result.jsx'
 import Settings from './screens/Settings.jsx'
 import Vertical from './screens/Vertical.jsx'
 import { GameProvider } from './state/GameContext.jsx'
@@ -16,9 +19,10 @@ function Game() {
   const tab = stack[0].name
 
   const go = (name, params = {}) => setStack((s) => [...s, { name, params }])
+  const replace = (name, params = {}) => setStack((s) => [...s.slice(0, -1), { name, params }])
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s))
   const switchTab = (name) => setStack([{ name, params: {} }])
-  const nav = { go, back, home: () => switchTab('inicio'), switchTab }
+  const nav = { go, replace, back, home: () => switchTab('inicio'), switchTab }
 
   let screen
   switch (current.name) {
@@ -27,6 +31,15 @@ function Game() {
       break
     case 'vertical':
       screen = <Vertical {...nav} {...current.params} />
+      break
+    case 'concepto':
+      screen = <Concept {...nav} {...current.params} />
+      break
+    case 'desafio':
+      screen = <Challenge {...nav} {...current.params} />
+      break
+    case 'resultado':
+      screen = <Result {...nav} {...current.params} />
       break
     default:
       screen = <Home {...nav} />
