@@ -213,7 +213,7 @@ make format       # aplica el formato
 
 ## Limitaciones
 
-- **Cobertura parcial en tiendas:** las páginas públicas muestran como máximo 24 productos por sub-pasillo (el resto lo carga el navegador por otra vía). La cobertura real (obtenidos vs declarados) se ve en `v_coverage` y en la pestaña Catálogo del [panel](../dashboard-empresa/). Los restaurantes sí traen el menú completo.
+- **Cobertura parcial en tiendas:** las páginas públicas muestran como máximo 24 productos por sub-pasillo (el resto lo carga el navegador por otra vía). La cobertura real (obtenidos vs declarados) se ve en la vista `v_coverage`. Los restaurantes sí traen el menú completo.
 - **`ean` casi siempre vacío:** Rappi no lo publica. Para comparar el mismo producto entre cadenas se usa `master_product_id`.
 - **Jumbo y Tottus:** en septiembre de 2026 sus sucursales redirigían (inactivas en Rappi).
 - **Cambios en el sitio:** si cambia el frontend de rappi.cl hay que ajustar `scraping/*_parser.py`. Los tests usan páginas reales guardadas en `tests/fixtures/`: si los tests pasan pero el scraper falla con las páginas actuales, la estructura cambió; guarda una página nueva y los tests muestran qué.

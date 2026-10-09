@@ -33,7 +33,7 @@ Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000; carga los m
 - busca en el **catálogo real** con búsqueda híbrida por vertical, con precios vigentes;
 - sugiere un complemento **de otra tienda** en un bloque aparte;
 - arma la fila **"Para ti"** del inicio con lo que aprendió de ti (productos reales de otro vertical, con aviso +18 si corresponde);
-- registra eventos seudónimos y pedidos (uno por vertical) para el [panel de negocio](../dashboard-empresa/).
+- registra eventos seudónimos y pedidos (uno por vertical) en la API, para medir las sugerencias (mostradas, aceptadas y convertidas).
 
 La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el prototipo actual no los usa: el prototipo final tiene un buscador, sin micrófono ni cámara.
 

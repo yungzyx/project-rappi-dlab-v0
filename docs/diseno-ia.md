@@ -4,6 +4,7 @@
 > Última actualización: 30-09-2026. Contexto: [contexto-y-problema.md](contexto-y-problema.md) · Modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Resultados vigentes: [README → Resultados](../README.md#resultados).
 > Diagramas: [flujo de datos por etapas](diagramas/rag-datos.png) y [vista por carriles](diagramas/arquitectura-ia.png). Sus versiones interactivas ([rag-datos.html](diagramas/rag-datos.html), [arquitectura-ia.html](diagramas/arquitectura-ia.html)) se descargan y se abren en el navegador.
 > Lo marcado "datos parciales" se midió el 27-09-2026, antes de terminar la descarga completa.
+> **09-10-2026:** el panel de negocio (§5 y etapa 7) se construyó y hoy está archivado en [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto); las métricas siguen en la API (`/analytics`, `analytics/queries.py`). Este repo quedó enfocado en el prototipo final.
 
 ## 0. La regla que ordena todo
 
@@ -186,6 +187,8 @@ Decisiones:
 
 ## 5. Panel para la empresa: ¿vale la pena?
 
+> Archivado el 09-10-2026 en [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto): lo de abajo es su diseño; las métricas siguen en `rappi-ia`.
+
 **Sí, si se enfoca en decisiones y no en gráficos.** Las conversaciones y búsquedas son una encuesta continua de lo que la gente quiere. El panel convierte eso, junto con la conducta de compra, en acciones para **subir la frecuencia y bajar el abandono**.
 
 **Métricas** (definidas en SQL en `rappi-ia/src/rappi_ia/analytics/queries.py`):
@@ -279,7 +282,7 @@ Notas del modelo:
 | 4. API | FastAPI | Tests de endpoints | Hecha |
 | 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados | Hecha |
 | 6. Prototipo conectado | Cliente API con respaldo local, eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |
-| 7. Panel empresa | `dashboard-empresa/` | Vitest y chequeo visual | Hecha |
+| 7. Panel empresa | `dashboard-empresa/` (archivado en rappi-evolucion-proyecto) | Vitest y chequeo visual | Hecha |
 | 8. Cierre | CI (4 jobs), docs y corrida completa post-refresh | CI en verde | Hecha (30-09-2026) |
 
 **Revisión:** tres pasadas de revisión adversarial automatizada (agentes de IA) con 66 hallazgos corregidos (27-09-2026) y una auditoría el 28-09-2026, cuyos 4 bloques de mejoras se aplicaron el 29 y 30-09. Resultados de cobertura, precisión y búsqueda en [README → Resultados](../README.md#resultados).

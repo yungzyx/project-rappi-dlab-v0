@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "dataflow",
   "meta": {
-    "title": "RAG de Rappi: de rappi.cl a Bigotes y el panel",
+    "title": "RAG de Rappi: de rappi.cl a Bigotes y el prototipo",
     "quality_profile": "showcase",
     "views": [
       {
@@ -43,7 +43,7 @@
       },
       {
         "id": "apps",
-        "label": "4. API, prototipo y panel",
+        "label": "4. API y prototipo",
         "focus": [
           "bigotes",
           "api",
@@ -205,8 +205,8 @@
     {
       "id": "apps",
       "type": "frontend",
-      "label": "Prototipo y panel",
-      "sublabel": ":5174 · :5175",
+      "label": "Prototipo",
+      "sublabel": ":5174",
       "stage": 4,
       "row": 1,
       "tag": "Vite"
@@ -351,7 +351,7 @@
       "title": "Offline, cada domingo",
       "items": [
         "refresh-semanal.sh: rappi refresh y luego make post-refresh",
-        "Conceptos, embeddings, evaluación, capa de datos (atributos, marcas, grafo, segmentos), datos simulados y purga",
+        "Conceptos, embeddings, evaluación, capa de datos, datos simulados y purga",
         "Candado propio: nunca corren dos descargas a la vez"
       ]
     },
@@ -369,7 +369,7 @@
       "title": "Límites",
       "items": [
         "Catálogo = muestra pública: hasta 24 productos por sub-pasillo",
-        "Usuarios y eventos del panel: simulados",
+        "Usuarios y eventos: simulados",
         "Claude es opcional: sin clave, Bigotes responde con plantillas"
       ]
     }

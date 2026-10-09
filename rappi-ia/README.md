@@ -1,6 +1,6 @@
 # rappi-ia
 
-Conecta el catálogo que descarga [`rappi-scraper`](../rappi-scraper/) con el asistente **Bigotes** del [prototipo](../prototipo-app/) y con el [panel de negocio](../dashboard-empresa/). Diseño completo en [docs/diseno-ia.md](../docs/diseno-ia.md).
+Conecta el catálogo que descarga [`rappi-scraper`](../rappi-scraper/) con el asistente **Bigotes** del [prototipo](../prototipo-app/). Diseño completo en [docs/diseno-ia.md](../docs/diseno-ia.md).
 
 **Regla:** *buscar dentro del vertical, entender al usuario a través de los verticales*. La búsqueda nunca mezcla verticales. El puente entre ellos son los **conceptos**: una taxonomía propia de 133 conceptos, con 103 complementos curados entre sí. Una recomendación cruzada va del concepto que le interesa al usuario a su complemento, y de ahí a una búsqueda en el otro vertical (p. ej., cerveza en licores → snacks salados de otra tienda).
 
@@ -46,9 +46,9 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `make concepts` | Capa 2: conceptos por producto y plato (con kNN si está el extra `ml`) |
 | `make embed` | Embeddings de texto (incrementales) + índices HNSW por vertical. No corre si hay una descarga del scraper en curso |
 | `make eval` | Evalúa la búsqueda (léxico, vectorial, híbrido y ablación sin refuerzo), guarda τ en `src/rappi_ia/eval/thresholds.json` (solo en verticales con negativas que dependen de τ; los demás conservan el suyo; `make eval EVAL_ARGS=` no guarda) y deja el reporte en `data/eval/busqueda.md` |
-| `make synth` | Usuarios y eventos **simulados** para el panel (1.500 usuarios × 26 semanas, semilla 7; reemplaza los anteriores) |
+| `make synth` | Usuarios y eventos **simulados** para métricas y segmentos (1.500 usuarios × 26 semanas, semilla 7; reemplaza los anteriores) |
 | `make purge` | Borra el texto de las consultas con más de 90 días |
-| `make analytics` | Resumen de métricas del panel en la terminal |
+| `make analytics` | Resumen de las métricas de negocio en la terminal |
 | `make images` | Fotos del catálogo con CLIP (miles de descargas). Toma el candado del scraper: no arranca con una descarga en curso |
 | `make serve` / `make serve-lan` | API local / abierta a la red local (ver Seguridad) |
 | `make test`, `make lint`, `make format` | Tests, revisión de estilo y formato |
@@ -60,7 +60,7 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 - `rappi-ia map-categories`: exporta las categorías sin mapeo revisado a `data/concepts/categorias-sin-mapear.csv`, con el formato de `category_map.csv` y un concepto sugerido cuando al menos la mitad de sus productos ya lo tiene (reglas o kNN). Se revisa cada fila, se cambia el método a «curado» y se copia al mapa versionado.
 - `rappi-ia eval-sample`: arma la muestra de 200 pares (consulta, producto) para juzgar a mano (`src/rappi_ia/eval/judgments-sample.json`, con semilla fija): 120 donde el híbrido con y sin refuerzo por concepto difieren en el top 10 y 80 al azar. Se juzga a ciegas en una página privada del autor (sin mostrar el juez automático ni el modo); los juicios se copian a `src/rappi_ia/eval/judgments.json`, que todavía no existe.
 - `rappi-ia eval-human`: con esos juicios, cuánto acierta el juez automático (precisión, recall, acuerdo) y si los ítems que solo trae el refuerzo son relevantes más o menos seguido que los que solo trae sin él.
-- `rappi-ia multivertical`: regenera el mapa de la presentación (`dashboard-empresa/public/presentacion/mapa-multivertical.html`): productos compartidos entre verticales, conceptos junto a la vertical donde son más típicos (la regla de Bigotes) y los productos y cadenas en más verticales. Página autocontenida, sin internet. La imagen `mapa-conceptos.jpg` se captura de esa página con `#figura` al final de la URL.
+- `rappi-ia multivertical`: regenera el mapa multivertical (`docs/mapas/mapa-multivertical.html`): productos compartidos entre verticales, conceptos junto a la vertical donde son más típicos (la regla de Bigotes) y los productos y cadenas en más verticales. Página autocontenida, sin internet. La imagen `mapa-conceptos.jpg` se captura de esa página con `#figura` al final de la URL.
 - `rappi-ia embed-images --limit 50 --forzar`: una tanda chica de imágenes; `--forzar` se salta el candado del scraper y es solo para pruebas.
 
 ## API (`make serve` → http://localhost:8000/docs)
@@ -75,7 +75,7 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `GET /profile/{id}` · `DELETE /profile/{id}` | Lo aprendido (sin sensibles) · "Olvidar" (todo o un concepto) |
 | `POST /events` · `POST /orders` | Eventos y pedidos del prototipo (`source = prototype`). Un pedido sin vertical del catálogo es un 400 |
 | `POST /events/beacon` | Lo que queda en cola al cerrar la pestaña (`sendBeacon`, text/plain: sin preflight de CORS) |
-| `GET /analytics/{kpis, weekly, opportunities, trends, funnel, cohorts, rhythm, at-risk, suggestions, multi-vertical, affinity, assortment, catalog}` | Métricas del panel |
+| `GET /analytics/{kpis, weekly, opportunities, trends, funnel, cohorts, rhythm, at-risk, suggestions, multi-vertical, affinity, assortment, catalog}` | Métricas de negocio (las mostraba el panel, hoy en [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto)) |
 | `GET /concepts` | Taxonomía de conceptos (id, nombre, emoji, grupo y si es sensible) con su versión |
 
 **Seguridad.** Es una demo local y **no tiene autenticación**:
@@ -87,7 +87,7 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 **Privacidad:**
 - **Datos personales en consultas:** se redactan antes de guardarlas (RUT con dígito verificador, teléfonos, correos, direcciones y tarjetas) y el texto se borra a los 90 días (`make purge`).
 - **"Olvidar":** borra eventos y pedidos.
-- **Sensibles:** los conceptos sensibles no entran al perfil ni a las palancas del panel.
+- **Sensibles:** los conceptos sensibles no entran al perfil ni a las métricas de negocio.
 - **Claude:** si hay clave, recibe solo hechos estructurados, nunca la consulta del usuario.
 
 ## Resultados
@@ -177,7 +177,7 @@ Corrida del 30-09-2026: 132 conceptos, 101 complementos curados, 757 categorías
 
 ## Límites
 
-- **Datos simulados:** usuarios, eventos y pedidos son **simulados** (`source = 'synthetic'`), con supuestos explícitos en `events/synth.py`. El panel muestra la mecánica, no evidencia.
+- **Datos simulados:** usuarios, eventos y pedidos son **simulados** (`source = 'synthetic'`), con supuestos explícitos en `events/synth.py`. Las métricas muestran la mecánica, no evidencia.
 - **Muestra pública:** el catálogo es la muestra pública (hasta 24 productos por sub-pasillo), así que "no está" no significa "Rappi no lo vende".
 - **Contenido de terceros:** fotos, descripciones y marcas pertenecen a Rappi y a los comercios; se usan solo con fines de investigación y demostración. Ver [README.md#uso-responsable-de-los-datos](../README.md#uso-responsable-de-los-datos).
 
@@ -197,7 +197,7 @@ rappi-ia/
 │   ├── retrieval/     búsqueda híbrida por vertical
 │   ├── agent/         Bigotes: entender, herramientas, redactar, voz, foto
 │   ├── events/        eventos, perfil con decaimiento, "olvidar", generador simulado
-│   ├── analytics/     métricas del panel
+│   ├── analytics/     métricas de negocio y mapa multivertical
 │   ├── eval/          set de evaluación (queries.json), τ (thresholds.json) y muestra de juicio a mano (judgments-sample.json)
 │   └── api/           FastAPI
 ├── tests/

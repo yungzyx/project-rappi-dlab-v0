@@ -10,7 +10,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia eval-search             # léxico vs vectorial vs híbrido + calibración de τ ("sin resultado")
     rappi-ia synth                   # usuarios y eventos SIMULADOS para el panel (reemplaza los anteriores)
     rappi-ia analytics               # resumen de métricas del panel (frecuencia, abandono, oportunidades…)
-    rappi-ia multivertical           # mapa multivertical para la presentación (dashboard-empresa/public/presentacion/)
+    rappi-ia multivertical           # mapa multivertical (docs/mapas/)
 """
 
 import argparse
@@ -368,7 +368,7 @@ def build_parser() -> argparse.ArgumentParser:
     mv = sub.add_parser(
         "multivertical", help="mapa de productos y conceptos compartidos entre verticales (presentación)"
     )
-    mv.add_argument("--salida", help="archivo HTML (por defecto dashboard-empresa/public/presentacion/)")
+    mv.add_argument("--salida", help="archivo HTML (por defecto docs/mapas/)")
     analytics = sub.add_parser("analytics", help="resumen de métricas del panel")
     analytics.add_argument("--fuente", choices=("synthetic", "prototype"), default="synthetic")
     return parser

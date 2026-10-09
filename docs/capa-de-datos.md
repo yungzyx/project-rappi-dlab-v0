@@ -126,5 +126,5 @@ Cambiar las reglas basta con volver a correr `make layers`: no hay que tocar có
 - `capa.canonical_products.verticals` se infla con tiendas que Rappi etiqueta en dos verticales.
 - `co_busqueda` sale vacía mientras no haya sesiones reales con varios conceptos (el simulador genera un concepto por sesión).
 - Los umbrales de los segmentos se calibraron con datos simulados: habrá que ajustarlos cuando haya uso real.
-- `capa.segment_sizes` no impide deducir a una persona comparando dos semanas (un total sensible que sube de 5 a 6 cuando se sabe que se sumó una sola persona); el umbral de 5 es el de la spec y el panel de negocio usa 20.
+- `capa.segment_sizes` no impide deducir a una persona comparando dos semanas (un total sensible que sube de 5 a 6 cuando se sabe que se sumó una sola persona); el umbral de 5 es el de la spec; el panel de negocio (archivado) usaba 20.
 - `capa.layer_runs` solo guarda corridas terminadas; una que falla no deja fila.

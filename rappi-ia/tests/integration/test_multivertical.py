@@ -1,4 +1,4 @@
-"""Mapa multivertical de la presentación: qué productos y conceptos comparten las verticales (rappi_ia_test)."""
+"""Mapa multivertical: qué productos y conceptos comparten las verticales (rappi_ia_test)."""
 
 import json
 import re
