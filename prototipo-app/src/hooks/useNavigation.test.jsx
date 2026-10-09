@@ -77,4 +77,11 @@ describe('volver al inicio y enlaces escritos a mano', () => {
     expect(names(result)).toEqual(['home'])
     window.history.replaceState(null, '', '/')
   })
+
+  test('#/game abre el juego de verticales (no necesita parámetros)', () => {
+    window.location.hash = '#/game'
+    const { result } = renderHook(() => useNavigation())
+    expect(names(result)).toEqual(['home', 'game'])
+    window.history.replaceState(null, '', '/')
+  })
 })

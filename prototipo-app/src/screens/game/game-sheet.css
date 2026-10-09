@@ -1,0 +1,54 @@
+.game .game-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(22, 22, 22, 0.38);
+}
+
+.game .game-sheet {
+  position: relative;
+  width: 100%;
+  padding: 26px var(--gutter) 30px;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+}
+
+.game .game-sheet:focus {
+  outline: none;
+}
+
+.game .game-sheet-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .game .game-sheet-backdrop {
+    animation: game-fade-in var(--duration-normal) var(--ease-out);
+  }
+
+  .game .game-sheet {
+    animation: game-sheet-up var(--duration-normal) var(--ease-out);
+  }
+}
+
+@keyframes game-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes game-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}

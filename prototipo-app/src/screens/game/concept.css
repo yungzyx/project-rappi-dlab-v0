@@ -1,0 +1,43 @@
+.game .concept-hero {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.game .concept-hero-emoji {
+  font-size: 64px;
+  line-height: 1.1;
+}
+
+.game .concept-hero h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.game .concept-fact {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.game .chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.game .chips li {
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--chip);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.game .chips .chip-vertical {
+  background: color-mix(in srgb, var(--chip-color) 12%, #fff);
+  color: var(--chip-color);
+}

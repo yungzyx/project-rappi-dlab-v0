@@ -1,0 +1,49 @@
+.game .album-count {
+  margin-top: -6px;
+  font-size: 14px;
+}
+
+.game .album-group-count {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.game .album-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Las cartas leídas van a lo ancho; bloqueadas y por leer, de a dos. */
+.game .album-wide {
+  grid-column: 1 / -1;
+}
+
+.game .album-grid .fact-card {
+  height: 100%;
+}
+
+.game .album-grid .fact-card.is-locked,
+.game .album-grid .fact-card.is-closed {
+  padding: 12px;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.game .fact-card.is-closed {
+  background: color-mix(in srgb, var(--fact-color) 8%, #fff);
+}
+
+.game .fact-card.is-closed .fact-card-topic {
+  font-size: 15px;
+}
+
+.game .album-empty {
+  margin: 4px 0 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--rappi-red-soft);
+  color: var(--rappi-red-ink);
+  font-weight: 700;
+}

@@ -4,7 +4,7 @@ const INITIAL = { stack: [{ name: 'home', params: {} }], homeTab: 'home' }
 
 // Lo que se puede abrir desde un enlace escrito a mano: pestañas de la Home y pantallas que no necesitan parámetros.
 const HOME_TABS = new Set(['home', 'offers', 'favorites', 'account'])
-const LINKABLE_SCREENS = new Set(['restaurants', 'turbo', 'search', 'travel', 'favor', 'loyalty', 'orders'])
+const LINKABLE_SCREENS = new Set(['restaurants', 'turbo', 'search', 'travel', 'favor', 'loyalty', 'orders', 'game'])
 
 /** URL legible (#/vertical/store) para que cada pantalla tenga su propio link. */
 function hashFor(nav) {

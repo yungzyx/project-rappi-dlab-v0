@@ -1,0 +1,269 @@
+/* Raíz del juego dentro del prototipo: ocupa la pantalla como el teléfono del juego original. */
+.game {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.game *,
+.game *::before,
+.game *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.game button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* Sin zoom por doble toque ni menú de selección al mantener: se siente como app nativa. */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.game button:focus-visible {
+  outline: 2px solid var(--rappi-red);
+  outline-offset: 2px;
+}
+
+.game svg {
+  flex: none;
+}
+
+/* Teléfono real: la barra inferior respeta el borde seguro. */
+@media (max-width: 500px) {
+  .game {
+    --nav-height: calc(58px + max(18px, env(safe-area-inset-bottom)));
+  }
+}
+
+/* ---------- Pantallas ---------- */
+.game .game-screen {
+  position: absolute;
+  inset: var(--status-zone) 0 var(--nav-height);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  padding: 8px var(--gutter) 28px;
+}
+
+.game .game-screen.no-nav {
+  bottom: 0;
+}
+
+.game .game-screen::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .game .game-screen {
+    animation: game-screen-in var(--duration-normal) var(--ease-out);
+  }
+}
+
+@keyframes game-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.game .game-screen-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 12px;
+}
+
+.game .game-screen-head h1 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  flex: 1;
+}
+
+.game .icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  background: var(--surface-muted);
+}
+
+.game .icon-button:active {
+  transform: scale(0.96);
+}
+
+.game h2.section-title {
+  font-size: 17px;
+  font-weight: 750;
+  margin: 22px 0 10px;
+}
+
+.game .muted {
+  color: var(--ink-3);
+}
+
+/* ---------- Botones ---------- */
+.game .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 22px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.game .btn:active {
+  transform: scale(0.98);
+}
+
+.game .btn-primary {
+  background: var(--rappi-red);
+  color: #fff;
+}
+
+.game .btn-secondary {
+  background: var(--chip);
+  color: var(--ink);
+}
+
+.game .btn-block {
+  width: 100%;
+}
+
+.game .card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+
+/* ---------- Botones de juego: gruesos, con sombra inferior que se «hunde» al tocar ---------- */
+.game .btn-game {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 56px;
+  border-radius: var(--radius);
+  font-weight: 900;
+  font-size: 19px; /* texto grande: blanco sobre el rojo de Rappi cumple 3:1 */
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: var(--btn, var(--rappi-red));
+  box-shadow: 0 5px 0 var(--btn-deep, var(--rappi-red-deep));
+  transition:
+    transform 90ms ease-out,
+    box-shadow 90ms ease-out;
+}
+
+.game .btn-game:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--btn-deep, var(--rappi-red-deep));
+}
+
+.game .btn-game.is-good {
+  --btn: var(--good);
+  --btn-deep: #1f6634;
+}
+
+.game .btn-game.is-bad {
+  --btn: var(--rappi-red);
+}
+
+.game .btn-ghost {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--radius);
+  font-weight: 800;
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+/* ---------- Dentro del prototipo: barra para volver a la app (fuera de la ronda) ---------- */
+.game {
+  --status-zone: 98px; /* barra de estado del prototipo (54 px) + esta barra (44 px) */
+}
+
+.game.is-round {
+  --status-zone: 54px;
+}
+
+.game .game-header {
+  position: absolute;
+  top: 54px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 12px;
+  background: var(--surface);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.game .game-header-back {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+/* Ronda mientras llega un pedido: la franja ocupa el lugar de la barra de arriba. */
+.game.is-round.has-order {
+  --status-zone: 94px;
+}
+
+.game .game-order {
+  position: absolute;
+  top: 54px;
+  left: 12px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.game .game-order.is-delivered {
+  background: var(--good-soft);
+  color: var(--good-ink);
+}
+
+.game .game-order button {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--good);
+  color: #fff;
+  font-size: 13px;
+}

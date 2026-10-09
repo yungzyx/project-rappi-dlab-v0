@@ -1,0 +1,80 @@
+.game .passport-special {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  background: var(--surface-muted);
+  box-shadow: none;
+}
+
+.game .passport-special.is-earned {
+  background: #fff6d6;
+}
+
+.game .passport-crown {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  color: #b07d05;
+}
+
+.game .passport-special-title {
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.game .passport-special .muted {
+  font-size: 14px;
+}
+
+.game .passport-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.game .passport-entry {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 16px 8px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.game .passport-entry:active {
+  transform: scale(0.98);
+}
+
+.game .passport-name {
+  margin-top: 4px;
+  font-weight: 750;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.game .passport-age {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--v-licores);
+  border: 1.5px solid var(--v-licores);
+  border-radius: var(--radius-pill);
+  padding: 0 5px;
+}
+
+.game .passport-level {
+  font-size: 13px;
+}
+
+.game .passport-map {
+  margin-bottom: 14px;
+  padding: 10px 14px 14px;
+}
