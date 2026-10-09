@@ -8,8 +8,8 @@ const mochi = (props) => render(<Mascot {...props} />).container.firstChild
 
 // jsdom no tiene AnimationEvent, así que React escucha la versión con prefijo (webkitAnimationEnd);
 // el evento se arma con el nombre de la animación, como en el navegador.
-const animationEnd = (el, animationName) => {
-  const event = new Event('webkitAnimationEnd', { bubbles: true })
+const animationEnd = (el, animationName, type = 'webkitAnimationEnd') => {
+  const event = new Event(type, { bubbles: true })
   Object.defineProperty(event, 'animationName', { value: animationName })
   act(() => el.dispatchEvent(event))
 }
@@ -43,6 +43,13 @@ describe('Mochi, la mascota', () => {
     fireEvent.pointerDown(el)
     expect(el.classList).toContain('mochi--boop')
     animationEnd(el, 'mochi-boop')
+    expect(el.classList).not.toContain('mochi--boop')
+  })
+
+  test('si el salto se cancela (p. ej. Mochi se oculta a mitad), no queda pegado en esa pose', () => {
+    const el = mochi()
+    fireEvent.pointerDown(el)
+    animationEnd(el, 'mochi-boop', 'animationcancel')
     expect(el.classList).not.toContain('mochi--boop')
   })
 

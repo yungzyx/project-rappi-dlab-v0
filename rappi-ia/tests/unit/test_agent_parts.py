@@ -285,6 +285,9 @@ def test_la_mascota_se_presenta_como_mochi():
     for kind in ("saludo", "ayuda"):
         text = TemplateComposer().compose(Draft(kind=kind))
         assert "Soy Mochi" in text and "Bigotes" not in text and "😺" not in text, text
+    for kind in ("gracias", "fuera"):  # tampoco habla como gato en el resto de las respuestas
+        text = TemplateComposer().compose(Draft(kind=kind))
+        assert "😺" not in text and "😸" not in text, text
 
 
 def test_claude_puede_nombrar_a_mochi():

@@ -119,6 +119,14 @@
   }
 }
 
+/* Sin movimiento tampoco se inclina hacia el mouse */
+@media (prefers-reduced-motion: reduce) {
+  .mochi-sprite {
+    transform: none;
+    transition: none;
+  }
+}
+
 @keyframes mochi-breathe {
   0%,
   100% {

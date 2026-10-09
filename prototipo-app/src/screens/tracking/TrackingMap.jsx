@@ -1,14 +1,17 @@
-import Mascot from '../../components/assistant/Mascot'
+import { useId } from 'react'
+import mochiPoses from '../../assets/mochi-poses.webp'
 import { ROUTE, pointOnRoute } from './progress'
 
 const ROUTE_PATH = ROUTE.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x} ${y}`).join(' ')
 const MARKER = 40
+const POSE_OVERFLOW = MARKER * 0.07 // como el avatar de Mochi: la pose asoma un poco del círculo
 
 /** Mapa ilustrado (no es un mapa real): cuadras, parque, río, la ruta y Mochi avanzando por ella. */
 export default function TrackingMap({ progress, delivered }) {
   const [x, y] = pointOnRoute(progress)
   const [homeX, homeY] = ROUTE[ROUTE.length - 1]
   const [storeX, storeY] = ROUTE[0]
+  const badgeFill = `mochi-badge-${useId().replace(/:/g, '')}`
 
   return (
     <svg
@@ -65,12 +68,26 @@ export default function TrackingMap({ progress, delivered }) {
         <path d="M-7 1 0 -6 7 1V8H-7Z" fill="#fff" />
       </g>
 
-      {/* Mochi como repartidor: la transición CSS suaviza el salto entre ticks. Es HTML, así que va en un foreignObject */}
+      {/* Mochi como repartidor: la transición CSS suaviza el salto entre ticks. Va en SVG puro (no el componente,
+          que es HTML): Safari dibuja mal el HTML animado dentro de un foreignObject. Frontal en camino, feliz al llegar. */}
       <g className="tracking-rider" style={{ transform: `translate(${x - MARKER / 2}px, ${y - MARKER / 2 - 8}px)` }}>
         <ellipse cx={MARKER / 2} cy={MARKER + 4} rx="12" ry="3" fill="#000" opacity="0.15" />
-        <foreignObject width={MARKER} height={MARKER} overflow="visible">
-          <Mascot size={MARKER} badge mood={delivered ? 'wave' : 'idle'} />
-        </foreignObject>
+        <radialGradient id={badgeFill} cx="0.45" cy="0.35" r="0.7">
+          <stop offset="0" stopColor="#fff7ee" />
+          <stop offset="1" stopColor="#ffe2ce" />
+        </radialGradient>
+        <circle cx={MARKER / 2} cy={MARKER / 2} r={MARKER / 2 - 1} fill={`url(#${badgeFill})`} stroke="#fff4eb" strokeWidth="2" />
+        <svg
+          x={-POSE_OVERFLOW}
+          y={-POSE_OVERFLOW}
+          width={MARKER + 2 * POSE_OVERFLOW}
+          height={MARKER + 2 * POSE_OVERFLOW}
+          viewBox="0 0 1 1"
+          overflow="hidden"
+        >
+          {/* La imagen tiene 2 × 2 poses: se corre para que quede a la vista la de arriba a la izquierda o a la derecha */}
+          <image href={mochiPoses} x={delivered ? -1 : 0} y="0" width="2" height="2" preserveAspectRatio="none" />
+        </svg>
       </g>
     </svg>
   )

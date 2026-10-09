@@ -4,8 +4,18 @@ import TrackingMap from './TrackingMap'
 
 afterEach(cleanup)
 
-test('Mochi va por la ruta como HTML dentro del mapa SVG (si no, el navegador no lo dibuja)', () => {
-  const { container } = render(<TrackingMap progress={0.5} delivered={false} />)
-  const mochi = container.querySelector('.tracking-rider .mochi')
-  expect(mochi.namespaceURI).toBe('http://www.w3.org/1999/xhtml')
+const rider = (delivered) =>
+  render(<TrackingMap progress={0.5} delivered={delivered} />).container.querySelector('.tracking-rider')
+
+// Safari dibuja mal el HTML animado dentro de un foreignObject: en el mapa, Mochi es SVG puro.
+test('Mochi va por la ruta dibujado en SVG, con su pose de la imagen de poses', () => {
+  const el = rider(false)
+  expect(el.querySelector('foreignObject')).toBeNull()
+  const pose = el.querySelector('image')
+  expect(pose.getAttribute('href')).toMatch(/mochi-poses/)
+  expect(pose.getAttribute('x')).toBe('0') // frontal
+})
+
+test('al entregar, Mochi pone su pose feliz', () => {
+  expect(rider(true).querySelector('image').getAttribute('x')).toBe('-1')
 })

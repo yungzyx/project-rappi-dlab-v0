@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './mascot.css'
 
 // Cuánto se inclina Mochi hacia el mouse, como si lo mirara.
@@ -11,6 +11,15 @@ const LOOK_MAX_DEG = 5
  */
 export default function Mascot({ size = 56, mood = 'idle', badge = false, className = '' }) {
   const [booping, setBooping] = useState(false)
+  const ref = useRef(null)
+
+  // Si el salto se corta (p. ej. Mochi se oculta a mitad), vuelve a su pose en vez de quedar pegado en el salto.
+  useEffect(() => {
+    const el = ref.current
+    const cancel = (event) => event.animationName === 'mochi-boop' && setBooping(false)
+    el.addEventListener('animationcancel', cancel)
+    return () => el.removeEventListener('animationcancel', cancel)
+  }, [])
 
   const look = (event) => {
     if (event.pointerType !== 'mouse') return
@@ -23,6 +32,7 @@ export default function Mascot({ size = 56, mood = 'idle', badge = false, classN
 
   return (
     <span
+      ref={ref}
       className={classes.filter(Boolean).join(' ')}
       style={{ width: size, height: size * (badge ? 1 : 1.2) }}
       aria-hidden="true"

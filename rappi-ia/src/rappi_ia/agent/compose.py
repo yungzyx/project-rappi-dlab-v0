@@ -86,7 +86,7 @@ class TemplateComposer:
                 "con el chat de soporte 🛵. Yo te ayudo a encontrar qué pedir."
             )
         if d.kind == "fuera":
-            return "De eso no sé mucho 😸, lo mío es ayudarte a pedir. ¿Se te antoja algo? Comida, súper, farmacia…"
+            return "De eso no sé mucho 🧡, lo mío es ayudarte a pedir. ¿Se te antoja algo? Comida, súper, farmacia…"
         if d.kind == "ofertas":
             return (
                 "Las ofertas del día están en la pestaña Ofertas del inicio 🔥. "
