@@ -4,7 +4,14 @@ import './xp-bar.css'
 export default function XpBar({ xp }) {
   const inLevel = xp % 100
   return (
-    <div className="xp-bar" role="progressbar" aria-label="Experiencia del nivel" aria-valuemin={0} aria-valuemax={100} aria-valuenow={inLevel}>
+    <div
+      className="xp-bar"
+      role="progressbar"
+      aria-label="Experiencia del nivel"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={inLevel}
+    >
       <span style={{ transform: `scaleX(${inLevel / 100})` }} />
     </div>
   )

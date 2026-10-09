@@ -89,7 +89,11 @@ const GENERATORS = {
     make(v, r) {
       const [product, verticals] = pickOne(r, bridgesOf(v))
       const n = verticals.length
-      const others = sample(r, [1, 2, 3, 4, 5, 6, 7, 8].filter((k) => k !== n), 3)
+      const others = sample(
+        r,
+        [1, 2, 3, 4, 5, 6, 7, 8].filter((k) => k !== n),
+        3,
+      )
       const asOption = (k) => ({ id: String(k), label: k === 1 ? '1 vertical' : `${k} verticales` })
       return {
         anchor: product,
@@ -103,7 +107,14 @@ const GENERATORS = {
   trivia: {
     available: () => true,
     make(v, r) {
-      const picked = [v, ...sample(r, DATA.order.filter((x) => x !== v), 3)]
+      const picked = [
+        v,
+        ...sample(
+          r,
+          DATA.order.filter((x) => x !== v),
+          3,
+        ),
+      ]
       const top = picked.reduce((best, x) => (DATA.products[x] > DATA.products[best] ? x : best))
       const asOption = (x) => ({ id: x, label: label(x) })
       const counts = picked

@@ -1,0 +1,75 @@
+.map-intro {
+  font-size: 14px;
+  line-height: 1.45;
+  margin-top: -4px;
+}
+
+.map-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  margin: 18px 0 6px;
+}
+
+.map-canvas svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.map-spoke {
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+.map-dot {
+  fill: #d9d9de;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .map-dot.is-lit {
+    animation: dot-on 600ms var(--ease-out);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+}
+
+@keyframes dot-on {
+  from {
+    transform: scale(0.3);
+  }
+}
+
+.map-vertical {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.map-vertical-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--v);
+  box-shadow: 0 0 0 4px var(--surface);
+}
+
+.map-vertical-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--v);
+  background: var(--surface);
+  border-radius: var(--radius-pill);
+  padding: 0 5px;
+  white-space: nowrap;
+}
+
+.map-count {
+  text-align: center;
+  font-weight: 700;
+}

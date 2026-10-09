@@ -47,9 +47,10 @@ export default function Vertical({ vertical, back, go }) {
       <section className="vertical-summary card">
         <Stamp vertical={vertical} level={level} size={76} />
         <div>
-          <p className="vertical-level">{LEVEL_NAMES[level]}</p>
+          <p className={`vertical-level ${level === 'ninguno' ? 'is-none' : ''}`}>{LEVEL_NAMES[level]}</p>
           <p className="vertical-counts">
-            {seen.size} de {concepts.length} conceptos · {correct} {correct === 1 ? 'desafío acertado' : 'desafíos acertados'}
+            {seen.size} de {concepts.length} conceptos · {correct}{' '}
+            {correct === 1 ? 'desafío acertado' : 'desafíos acertados'}
           </p>
           <p className="vertical-goal muted">{nextGoal(level, concepts.length, seen.size, correct)}</p>
         </div>
@@ -69,7 +70,12 @@ export default function Vertical({ vertical, back, go }) {
         {concepts.map((c) => (
           <li key={c.id}>
             {seen.has(c.id) ? (
-              <button type="button" className="concept-tile is-found" aria-label={`${c.emoji} ${c.name}`} onClick={() => open(c)}>
+              <button
+                type="button"
+                className="concept-tile is-found"
+                aria-label={`${c.emoji} ${c.name}`}
+                onClick={() => open(c)}
+              >
                 <span className="concept-emoji" aria-hidden="true">
                   {c.emoji}
                 </span>

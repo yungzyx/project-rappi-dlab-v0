@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import BottomNav from './components/BottomNav.jsx'
+import Album from './screens/Album.jsx'
 import Challenge from './screens/Challenge.jsx'
 import Concept from './screens/Concept.jsx'
 import Home from './screens/Home.jsx'
+import MapScreen from './screens/Map.jsx'
+import Passport from './screens/Passport.jsx'
 import Result from './screens/Result.jsx'
 import Settings from './screens/Settings.jsx'
 import Vertical from './screens/Vertical.jsx'
@@ -26,6 +29,15 @@ function Game() {
 
   let screen
   switch (current.name) {
+    case 'mapa':
+      screen = <MapScreen {...nav} />
+      break
+    case 'pasaporte':
+      screen = <Passport {...nav} />
+      break
+    case 'album':
+      screen = <Album {...nav} />
+      break
     case 'ajustes':
       screen = <Settings {...nav} />
       break

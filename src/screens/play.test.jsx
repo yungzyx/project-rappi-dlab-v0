@@ -80,11 +80,11 @@ describe('desafío y resultado', () => {
 
   test('subir a Conocedor muestra el sello nuevo', () => {
     const v = 'chocolateria'
-    const half = conceptsOf(v).slice(0, 5).map((c) => c.id)
+    const half = conceptsOf(v)
+      .slice(0, 5)
+      .map((c) => c.id)
     // Las demás verticales completas: así Chocolatería es la de menor avance y «Seguir explorando» la abre.
-    const others = Object.fromEntries(
-      DATA.order.filter((x) => x !== v).map((x) => [x, conceptsOf(x).map((c) => c.id)]),
-    )
+    const others = Object.fromEntries(DATA.order.filter((x) => x !== v).map((x) => [x, conceptsOf(x).map((c) => c.id)]))
     preload({ discovered: { ...others, [v]: half }, correct: { [v]: 2 }, answered: { [v]: 2 } })
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Seguir explorando' }))
@@ -96,9 +96,7 @@ describe('desafío y resultado', () => {
   })
 
   test('Licores lleva la marca +18', () => {
-    const others = Object.fromEntries(
-      DATA.order.filter((x) => x !== 'licores').map((x) => [x, [conceptsOf(x)[0].id]]),
-    )
+    const others = Object.fromEntries(DATA.order.filter((x) => x !== 'licores').map((x) => [x, [conceptsOf(x)[0].id]]))
     preload({ discovered: others })
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Seguir explorando' }))

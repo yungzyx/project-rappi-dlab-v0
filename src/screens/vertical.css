@@ -20,6 +20,10 @@
   color: var(--v);
 }
 
+.vertical-level.is-none {
+  color: var(--ink-3);
+}
+
 .vertical-counts {
   font-size: 14px;
   font-weight: 600;

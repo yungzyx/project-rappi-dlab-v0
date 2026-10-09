@@ -28,7 +28,8 @@ describe('Inicio', () => {
   test('la barra inferior cambia de pestaña', () => {
     render(<App />)
     const nav = screen.getByRole('navigation')
-    for (const name of ['Inicio', 'Mapa', 'Pasaporte', 'Álbum']) expect(within(nav).getByRole('button', { name })).toBeTruthy()
+    for (const name of ['Inicio', 'Mapa', 'Pasaporte', 'Álbum'])
+      expect(within(nav).getByRole('button', { name })).toBeTruthy()
   })
 
   test('«Reiniciar progreso» deja todo en cero después de confirmar', () => {

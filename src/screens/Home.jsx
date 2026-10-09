@@ -81,7 +81,11 @@ export default function Home({ go }) {
           })}
         </ul>
         {daily.done && <p className="home-mission-done">Misión completa. Vuelve mañana para seguir tu racha.</p>}
-        <button type="button" className="btn btn-secondary btn-block" onClick={() => go('vertical', { vertical: featured })}>
+        <button
+          type="button"
+          className="btn btn-secondary btn-block"
+          onClick={() => go('vertical', { vertical: featured })}
+        >
           Ir a {DATA.labels[featured]}
         </button>
       </section>

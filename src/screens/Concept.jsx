@@ -47,8 +47,8 @@ export default function Concept({ vertical, id, xp, back }) {
       </div>
 
       <p className="concept-fact card">
-        En {DATA.labels[vertical]} hay {formatNumber(c.items[vertical] ?? 0)} {unit} de {c.name.toLowerCase()}. Bigotes lo
-        asocia sobre todo con <strong>{DATA.labels[c.home]}</strong>.
+        En {DATA.labels[vertical]} hay {formatNumber(c.items[vertical] ?? 0)} {unit} de {c.name.toLowerCase()}. Bigotes
+        lo asocia sobre todo con <strong>{DATA.labels[c.home]}</strong>.
       </p>
 
       <section aria-label="Dónde está">

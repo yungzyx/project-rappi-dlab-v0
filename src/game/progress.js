@@ -33,9 +33,7 @@ function previousDay(date) {
 }
 
 function dailyFor(state, date) {
-  return state.daily.date === date
-    ? state.daily
-    : { date, discovered: 0, correct: 0, opened: 0, done: false }
+  return state.daily.date === date ? state.daily : { date, discovered: 0, correct: 0, opened: 0, done: false }
 }
 
 /** Avance de la misión del día (en cero si lo guardado es de otro día). */
