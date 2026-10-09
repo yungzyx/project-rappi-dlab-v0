@@ -26,7 +26,7 @@
           "embed",
           "eval"
         ],
-        "note": "Al terminar la descarga: conceptos por ítem, embeddings e5 incrementales y evaluación de la búsqueda."
+        "note": "Tras la descarga: conceptos, embeddings e5, evaluación de la búsqueda y la capa de datos (atributos, marcas, grafo, segmentos)."
       },
       {
         "id": "consulta",
@@ -351,7 +351,7 @@
       "title": "Offline, cada domingo",
       "items": [
         "refresh-semanal.sh: rappi refresh y luego make post-refresh",
-        "Conceptos, embeddings, evaluación, datos simulados y purga",
+        "Conceptos, embeddings, evaluación, capa de datos (atributos, marcas, grafo, segmentos), datos simulados y purga",
         "Candado propio: nunca corren dos descargas a la vez"
       ]
     },

@@ -65,7 +65,7 @@
             alt="Prototipo de la app en modo Propuesta: barra para preguntarle a Bigotes por texto, foto o voz"
             fetchpriority="high"
           />
-          <figcaption>El prototipo, en modo Propuesta. La tecla D alterna con la app como es hoy.</figcaption>
+          <figcaption>El prototipo, en modo Propuesta. La tecla D alterna con la app como es hoy y con Bigotes vivo, un tercer modo sin chat.</figcaption>
         </figure>
       </section>
 
@@ -151,44 +151,44 @@
         <dl class="figures">
           <div>
             <dt>Productos en 2 o más verticales</dt>
-            <dd>23 %</dd>
+            <dd>24 %</dd>
             <p>
-              16.041 de los 68.568 productos del catálogo, sin la doble etiqueta de Lider y Unimarc (como el panel).
-              195 se venden en 5 o 6 verticales a la vez.
+              16.900 de los 71.831 productos del catálogo, sin la doble etiqueta de Lider y Unimarc (como el panel).
+              203 se venden en 5 o 6 verticales a la vez.
             </p>
           </div>
           <div>
             <dt>Más compartidos: Súper y Rappi Mall</dt>
-            <dd>5.238</dd>
-            <p>Productos que se venden en ambas. Le siguen Súper y Express (4.766) y Súper y Farmacia (4.378).</p>
+            <dd>5.585</dd>
+            <p>Productos que se venden en ambas. Le siguen Súper y Express (4.925) y Súper y Farmacia (4.880).</p>
           </div>
           <div>
             <dt>Conceptos con oferta en las 8 verticales</dt>
-            <dd>18</dd>
+            <dd>15</dd>
             <p>
-              Con al menos 3 productos en cada una quedan 8: chocolates, galletas, helados, snacks salados… En los
+              Con al menos 3 productos en cada una quedan 9: chocolates, galletas, helados, snacks salados… En los
               demás, alguna vertical tiene apenas 1 o 2 (café en Farmacia).
             </p>
           </div>
           <div>
             <dt>Cadenas en varias verticales</dt>
             <dd>5</dd>
-            <p>Las verticales donde opera Extra Life. Volka está en 4, y Unimarc, Lider y Ripley en 3 cada una.</p>
+            <p>Las verticales donde opera Extra Life. Volka está en 4, y Unimarc, Lider, Ripley y Varsovienne en 3 cada una.</p>
           </div>
         </dl>
         <figure class="diagram">
           <a href="/presentacion/mapa-multivertical.html" aria-label="Abrir el mapa multivertical interactivo">
             <img
               src="/presentacion/mapa-conceptos.jpg"
-              width="1571"
-              height="1612"
+              width="1524"
+              height="1490"
               alt="Mapa radial: las 8 verticales al centro y 113 conceptos alrededor, cada uno junto a la vertical donde es más típico, con líneas hacia todas las verticales que lo ofrecen"
               loading="lazy"
             />
           </a>
           <figcaption>
             Cada punto es un concepto, junto a la vertical donde es más típico (la regla que usa Bigotes); las líneas lo
-            unen con cada vertical que tiene al menos 20 productos de él. Al centro, RappiTravel y RappiFavor: servicios sin catálogo que enganchan productos de otras verticales. Catálogo del 30-09-2026.
+            unen con cada vertical que tiene al menos 20 productos de él. Al centro, RappiTravel y RappiFavor: servicios sin catálogo que enganchan productos de otras verticales. Catálogo del 05-10-2026.
           </figcaption>
         </figure>
         <p class="red-cta">
@@ -201,7 +201,7 @@
         <h2 class="section-title">Cómo está hecho</h2>
         <p class="lede">
           Cinco etapas: descarga semanal de páginas públicas, catálogo en Postgres + pgvector, capa de IA fuera de
-          línea (conceptos, embeddings, evaluación), la consulta (léxico + vectorial dentro del vertical) y las
+          línea (conceptos, embeddings, evaluación), una capa de datos con atributos, marcas, un grafo de relaciones y segmentos de usuario para otras herramientas, la consulta (léxico + vectorial dentro del vertical) y las
           aplicaciones.
         </p>
         <figure class="diagram">
@@ -217,27 +217,27 @@
 
       <!-- Resultados: números como titulares, cada uno con su tipo de dato -->
       <section id="resultados" class="container">
-        <h2 class="section-title">Resultados al 30 de septiembre de 2026</h2>
+        <h2 class="section-title">Resultados al 6 de octubre de 2026</h2>
         <dl class="figures">
           <div>
             <dt>Documentos de búsqueda</dt>
-            <dd>270.607</dd>
-            <p>93.823 productos, 172.278 platos y 4.506 tiendas, todos con embedding. Catálogo público real, actualizado cada semana.</p>
+            <dd>253.945</dd>
+            <p>84.024 productos, 165.623 platos y 4.298 tiendas, todos con embedding. Catálogo público real, actualizado cada semana.</p>
           </div>
           <div>
             <dt>Calidad del orden de resultados (nDCG@10)</dt>
-            <dd>0,910</dd>
-            <p>Búsqueda híbrida, frente a 0,846 solo vectorial y 0,778 solo por palabras. 124 consultas en los 8 verticales.</p>
+            <dd>0,917</dd>
+            <p>Búsqueda híbrida, frente a 0,849 solo vectorial y 0,776 solo por palabras. 124 consultas en los 8 verticales.</p>
           </div>
           <div>
             <dt>Ítems con concepto asignado</dt>
-            <dd>97 a 100 %</dd>
-            <p>Según el vertical. La precisión de la asignación se estima en 88 % por categoría, con jueces automáticos.</p>
+            <dd>95 a 100 %</dd>
+            <p>Según el vertical. La precisión de la asignación se mide en 86 a 88 % con jueces automáticos, en una muestra independiente de 440 asignaciones.</p>
           </div>
           <div>
             <dt>Tests automáticos</dt>
-            <dd>490</dd>
-            <p>Scraper 104, capa de IA 189, prototipo 117 y panel 80, con integración continua en cada cambio.</p>
+            <dd>1.318</dd>
+            <p>Scraper 144, capa de IA 897, prototipo 187 y panel 90, con integración continua en cada cambio.</p>
           </div>
         </dl>
         <p class="figures-note">

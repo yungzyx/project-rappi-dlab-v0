@@ -40,7 +40,8 @@ describe('pickActions', () => {
     expect(actions[0].figure).toBe(formatNumber(top.usuarios))
     expect(actions[0].action).toBe(top.accion)
     // Los que suben sin oferta (demanda no satisfecha) no se eligen: la tendencia accionable es la primera con oferta.
-    expect(unmet.has(rising[0].concept_id)).toBe(true)
+    expect(rising.some((row) => unmet.has(row.concept_id))).toBe(true)
+    expect(unmet.has(actionable.concept_id)).toBe(false)
     expect(actions[1].title).toBe(actionable.concepto)
     expect(actions[1].figure).toBe(formatSignedPct(actionable.crecimiento_pct))
     expect(actions[2].figure).toBe(formatNumber(kpis.data.en_riesgo))

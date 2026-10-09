@@ -27,7 +27,7 @@
           "busqueda",
           "conceptos"
         ],
-        "note": "Tras cada refresh: conceptos y embeddings de texto (e5) e imagen (CLIP), con un índice HNSW por vertical."
+        "note": "Tras cada refresh: conceptos, capa de datos (atributos, marcas, grafo), embeddings e5 y CLIP, con un índice HNSW por vertical."
       },
       {
         "id": "cruce",
@@ -127,7 +127,7 @@
       "col": 2,
       "type": "backend",
       "label": "Indexación",
-      "sublabel": "conceptos + embeddings",
+      "sublabel": "conceptos + capa de datos",
       "tag": "e5 · CLIP",
       "width": 170
     },

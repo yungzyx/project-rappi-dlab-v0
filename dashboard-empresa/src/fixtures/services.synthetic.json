@@ -4,16 +4,16 @@
     {
       "servicio": "rappitravel",
       "nombre": "✈️ RappiTravel",
-      "ofrecido": 533,
-      "abierto": 184,
-      "ganchos_mostrados": 533,
-      "ganchos_aceptados": 110
+      "ofrecido": 556,
+      "abierto": 186,
+      "ganchos_mostrados": 556,
+      "ganchos_aceptados": 126
     },
     {
       "servicio": "rappifavor",
       "nombre": "🛵 RappiFavor",
-      "ofrecido": 1582,
-      "abierto": 318,
+      "ofrecido": 1576,
+      "abierto": 324,
       "ganchos_mostrados": 0,
       "ganchos_aceptados": 0
     }

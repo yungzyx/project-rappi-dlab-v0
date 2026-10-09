@@ -20,11 +20,14 @@ describe('splitTrends', () => {
     expect(falling).toEqual([])
   })
 
-  test('con los datos guardados: peruana sube primero y el que más cae va primero entre los que bajan', () => {
+  test('con los datos guardados: el que más sube va primero entre los que suben y el que más cae primero entre los que bajan', () => {
     const { rising, falling } = splitTrends(saved.data)
     const lowest = saved.data.reduce((min, row) => (row.crecimiento_pct < min.crecimiento_pct ? row : min))
 
-    expect(rising[0].concept_id).toBe('peruana')
+    const highest = saved.data.reduce((max, row) => (row.crecimiento_pct > max.crecimiento_pct ? row : max))
+
+    expect(rising[0].concept_id).toBe(highest.concept_id) // la simulación cambia con cada `make synth`: se lee del fixture
+    expect(rising.some((row) => row.concept_id === 'peruana')).toBe(true) // el antojo sin oferta sigue subiendo
     expect(falling[0].concept_id).toBe(lowest.concept_id)
     expect(rising.length + falling.length).toBe(saved.data.length)
   })
