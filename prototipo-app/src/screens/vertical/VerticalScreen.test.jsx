@@ -9,6 +9,8 @@ import { CartProvider, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { FavoritesProvider } from '../../state/FavoritesContext'
 import { NudgeProvider } from '../../state/NudgeContext'
+import { ProductSheetProvider } from '../../state/ProductSheetContext'
+import ProductSheet from '../../components/ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import StoreScreen from '../store/StoreScreen'
 import VerticalScreen from './VerticalScreen'
@@ -28,7 +30,12 @@ function Providers({ children }) {
             <FavoritesProvider>
               <AddressProvider>
                 <ToastProvider>
-                  <NudgeProvider>{children}</NudgeProvider>
+                  <NudgeProvider>
+                    <ProductSheetProvider>
+                      {children}
+                      <ProductSheet />
+                    </ProductSheetProvider>
+                  </NudgeProvider>
                 </ToastProvider>
               </AddressProvider>
             </FavoritesProvider>
@@ -108,6 +115,7 @@ describe('entradas al embudo desde una vertical', () => {
   test('tocar un producto abre su tienda con ese producto (así se registra que lo vio)', () => {
     const push = renderVertical('grocery')
     fireEvent.click(screen.getByText('Heineken Cerveza Lager Lata 12 pack'))
+    fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ })) // la tarjeta abre la hoja del producto
     expect(push).toHaveBeenCalledWith(
       'store',
       expect.objectContaining({

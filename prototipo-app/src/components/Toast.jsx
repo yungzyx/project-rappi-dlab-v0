@@ -4,7 +4,7 @@ import './toast.css'
 const TOAST_MS = 1800
 const ToastContext = createContext(() => {})
 
-export const NOT_REPLICATED = 'Pantalla no incluida en el prototipo'
+export const NOT_REPLICATED = 'Esta sección no está en el prototipo'
 
 export function ToastProvider({ children }) {
   const [message, setMessage] = useState(null)

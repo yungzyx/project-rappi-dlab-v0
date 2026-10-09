@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import AddButton from '../AddButton'
 import HScroll from '../HScroll'
 import { pressable } from '../pressable'
+import { useProductSheet } from '../../state/ProductSheetContext'
 
 const CHARS_PER_SECOND = 70
 const TICK_MS = 30
@@ -37,6 +38,7 @@ function StreamText({ text, animate, onDone }) {
 }
 
 function ProductCards({ products, onOpenProduct, delay = 0 }) {
+  const sheet = useProductSheet()
   return (
     <HScroll className="chat-products">
       {products.map((product, i) => (
@@ -44,7 +46,7 @@ function ProductCards({ products, onOpenProduct, delay = 0 }) {
           key={product.id}
           className="chat-product tap"
           style={{ animationDelay: `${delay + i * 60}ms` }}
-          {...pressable(() => onOpenProduct(product))}
+          {...pressable(() => sheet.open(product, { onOpenStore: () => onOpenProduct(product) }))}
         >
           <span className="chat-product-media">
             <img src={product.img} alt="" draggable="false" />

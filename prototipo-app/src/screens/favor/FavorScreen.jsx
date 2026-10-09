@@ -39,7 +39,7 @@ export default function FavorScreen({ back }) {
     e.preventDefault()
     if (!task.trim()) return setMissing(true)
     setMissing(false)
-    toast('Un Rappitendero va en camino (simulado) 🛵')
+    toast('Un Rappitendero va en camino 🛵')
   }
 
   return (

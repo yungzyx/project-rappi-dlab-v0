@@ -10,6 +10,8 @@ import { CartProvider } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { FavoritesProvider } from '../../state/FavoritesContext'
 import { NudgeProvider } from '../../state/NudgeContext'
+import { ProductSheetProvider } from '../../state/ProductSheetContext'
+import ProductSheet from '../../components/ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import RestaurantsScreen from '../restaurants/RestaurantsScreen'
 import StoreScreen from './StoreScreen'
@@ -61,7 +63,12 @@ function Providers({ children }) {
             <FavoritesProvider>
               <AddressProvider>
                 <ToastProvider>
-                  <NudgeProvider>{children}</NudgeProvider>
+                  <NudgeProvider>
+                    <ProductSheetProvider>
+                      {children}
+                      <ProductSheet />
+                    </ProductSheetProvider>
+                  </NudgeProvider>
                 </ToastProvider>
               </AddressProvider>
             </FavoritesProvider>
@@ -144,6 +151,7 @@ describe('sucursales con el mismo nombre (menús reales)', () => {
     const dish = REAL_DISHES.find((item) => item.name === 'Torta de Las Condes')
     render(<ForYouRow title="Para ti" reason={null} products={[dish]} push={push} />, { wrapper: Providers })
     fireEvent.click(screen.getByText('Torta de Las Condes'))
+    fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ })) // la tarjeta abre la hoja del producto
     await openPushed(push)
 
     expect(screen.queryByText('Torta de Providencia')).toBeNull()
@@ -162,6 +170,7 @@ describe('sucursales con el mismo nombre (menús reales)', () => {
     fireEvent.click(screen.getByText('preguntar')) // sin chat escrito: se abre con la consulta
     await runUntilIdle()
     fireEvent.click(screen.getByText('Lomo de Las Condes'))
+    fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ }))
     await openPushed(push)
 
     expect(screen.queryByText('Lomo de Providencia')).toBeNull()

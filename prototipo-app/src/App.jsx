@@ -4,6 +4,7 @@ import AssistantPanel from './components/assistant/AssistantPanel'
 import CartBar from './components/CartBar'
 import DemoToggle from './components/DemoToggle'
 import Nudge from './components/assistant/Nudge'
+import ProductSheet from './components/ProductSheet'
 import StatusBar from './components/StatusBar'
 import { ToastProvider } from './components/Toast'
 import CheckoutScreen from './screens/checkout/CheckoutScreen'
@@ -30,6 +31,7 @@ import { FavoritesProvider } from './state/FavoritesContext'
 import { LoyaltyProvider } from './state/LoyaltyContext'
 import { NudgeProvider } from './state/NudgeContext'
 import { OrdersProvider } from './state/OrdersContext'
+import { ProductSheetProvider } from './state/ProductSheetContext'
 import { ProfileProvider } from './state/ProfileContext'
 
 const SCREENS = {
@@ -103,38 +105,41 @@ export default function App() {
                         <LoyaltyProvider>
                           <ToastProvider>
                             <NudgeProvider>
-                              {/* Toda la pila queda montada: al volver, cada pantalla conserva su búsqueda y su scroll.
-                                  Las de abajo quedan invisibles e inertes (no display:none, que pierde el scroll). */}
-                              {stack.map((entry, i) => {
-                                const isTop = i === stack.length - 1
-                                // Un enlace viejo o un nombre desconocido no rompe la app: vuelve a la Home.
-                                const Screen = SCREENS[entry.name] ?? HomeScreen
-                                return (
-                                  <div
-                                    key={`${i}-${entry.name}`}
-                                    className={isTop ? `screen-wrap enter-${direction}` : 'screen-wrap is-under'}
-                                    inert={!isTop}
-                                  >
-                                    <Screen
-                                      push={push}
-                                      back={back}
-                                      reset={reset}
-                                      params={entry.params}
-                                      tab={homeTab}
-                                      setTab={setHomeTab}
-                                    />
-                                  </div>
-                                )
-                              })}
-                              {!SCREENS_WITHOUT_CART.has(current.name) && (
-                                <>
-                                  <CartBar raised={SCREENS_WITH_NAV.has(current.name)} push={push} />
-                                  <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
-                                </>
-                              )}
-                              <AssistantPanel push={push} vertical={vertical} depth={stack.length} />
-                              <AddressSheet />
-                              <StatusBar />
+                              <ProductSheetProvider>
+                                {/* Toda la pila queda montada: al volver, cada pantalla conserva su búsqueda y su scroll.
+                                    Las de abajo quedan invisibles e inertes (no display:none, que pierde el scroll). */}
+                                {stack.map((entry, i) => {
+                                  const isTop = i === stack.length - 1
+                                  // Un enlace viejo o un nombre desconocido no rompe la app: vuelve a la Home.
+                                  const Screen = SCREENS[entry.name] ?? HomeScreen
+                                  return (
+                                    <div
+                                      key={`${i}-${entry.name}`}
+                                      className={isTop ? `screen-wrap enter-${direction}` : 'screen-wrap is-under'}
+                                      inert={!isTop}
+                                    >
+                                      <Screen
+                                        push={push}
+                                        back={back}
+                                        reset={reset}
+                                        params={entry.params}
+                                        tab={homeTab}
+                                        setTab={setHomeTab}
+                                      />
+                                    </div>
+                                  )
+                                })}
+                                {!SCREENS_WITHOUT_CART.has(current.name) && (
+                                  <>
+                                    <CartBar raised={SCREENS_WITH_NAV.has(current.name)} push={push} />
+                                    <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
+                                  </>
+                                )}
+                                <AssistantPanel push={push} vertical={vertical} depth={stack.length} />
+                                <ProductSheet />
+                                <AddressSheet />
+                                <StatusBar />
+                              </ProductSheetProvider>
                             </NudgeProvider>
                           </ToastProvider>
                         </LoyaltyProvider>

@@ -100,7 +100,7 @@ export default function VerticalScreen({ back, push, params }) {
             </div>
             <div className="vertical-product-row">
               {section.products.map((item) => (
-                <ProductCard key={item.id} product={item} onClick={() => openProductStore(item)} />
+                <ProductCard key={item.id} product={item} onOpenStore={() => openProductStore(item)} />
               ))}
             </div>
           </section>

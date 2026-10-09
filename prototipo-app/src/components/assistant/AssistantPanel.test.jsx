@@ -4,6 +4,8 @@ import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { CartProvider } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { NudgeProvider } from '../../state/NudgeContext'
+import { ProductSheetProvider } from '../../state/ProductSheetContext'
+import ProductSheet from '../ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
 
@@ -70,8 +72,11 @@ async function renderPanel({ push = () => {} } = {}) {
         <AssistantProvider>
           <CartProvider>
             <NudgeProvider>
-              <OpenButton />
-              <AssistantPanel push={push} />
+              <ProductSheetProvider>
+                <OpenButton />
+                <AssistantPanel push={push} />
+                <ProductSheet />
+              </ProductSheetProvider>
             </NudgeProvider>
           </CartProvider>
         </AssistantProvider>
@@ -188,6 +193,7 @@ describe('sugerencia cruzada', () => {
     await runUntilIdle()
 
     fireEvent.click(screen.getByText('Bebida Pepsi 1,5 L'))
+    fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ })) // la tarjeta abre la hoja del producto
     await runUntilIdle()
     expect(push).toHaveBeenCalledWith(
       'store',

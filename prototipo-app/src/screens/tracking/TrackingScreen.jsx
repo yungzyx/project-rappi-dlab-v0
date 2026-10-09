@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Sheet from '../../components/Sheet'
 import { useToast } from '../../components/Toast'
 import { ChevronLeft, StarIcon } from '../../components/Icons'
 import { HeadsetIcon } from '../../components/LineIcons'
@@ -76,8 +77,15 @@ export default function TrackingScreen({ back, reset, params }) {
   )
 }
 
+// Conversación fija con el Rappitendero (el prototipo no tiene chat en vivo).
+const COURIER_CHAT = [
+  { from: 'courier', text: 'Hola, ya tengo tu pedido y voy en camino 🛵' },
+  { from: 'user', text: 'Gracias. Si no contesto el timbre, llámame.' },
+  { from: 'courier', text: 'Perfecto, llego en unos minutos.' },
+]
+
 function Courier() {
-  const toast = useToast()
+  const [chatOpen, setChatOpen] = useState(false)
   return (
     <div className="tracking-courier">
       <span className="tracking-avatar">CR</span>
@@ -87,14 +95,19 @@ function Courier() {
           Your Rappitendero · <StarIcon filled size={12} /> 4.9
         </small>
       </span>
-      <button
-        type="button"
-        className="tracking-contact tap"
-        aria-label="Contactar"
-        onClick={() => toast('Chat con el Rappitendero (simulado)')}
-      >
+      <button type="button" className="tracking-contact tap" aria-label="Contactar" onClick={() => setChatOpen(true)}>
         <HeadsetIcon size={20} />
       </button>
+      <Sheet open={chatOpen} onClose={() => setChatOpen(false)} title="Chat con Carlos R.">
+        <ul className="tracking-chat">
+          {COURIER_CHAT.map((line, i) => (
+            <li key={i} className={line.from === 'user' ? 'tracking-chat-line is-user' : 'tracking-chat-line'}>
+              {line.text}
+            </li>
+          ))}
+        </ul>
+        <p className="tracking-chat-note">Carlos R. está conduciendo: responde cuando pueda.</p>
+      </Sheet>
     </div>
   )
 }

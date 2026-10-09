@@ -54,7 +54,7 @@ export default function TravelScreen({ back }) {
 
   const submit = (e) => {
     e.preventDefault()
-    toast(query.trim() ? `Buscando viajes a “${query.trim()}” (simulado)` : 'Escribe un destino')
+    toast(query.trim() ? `Buscando viajes a “${query.trim()}”…` : 'Escribe un destino')
   }
 
   const hero = HEROES[index]
@@ -74,7 +74,7 @@ export default function TravelScreen({ back }) {
           className="travel-hit"
           aria-label="Ver destinos"
           style={hero.cta}
-          onClick={() => toast('Destinos: reserva no incluida en el prototipo')}
+          onClick={() => toast('Las reservas no están en el prototipo')}
         />
       </div>
 
@@ -96,7 +96,7 @@ export default function TravelScreen({ back }) {
 
         <div className="travel-tiles">
           {TILES.map((tile) => (
-            <button key={tile.id} type="button" className="travel-tile tap" onClick={() => toast(`${tile.label}: reserva no incluida en el prototipo`)}>
+            <button key={tile.id} type="button" className="travel-tile tap" onClick={() => toast(`${tile.label}: las reservas no están en el prototipo`)}>
               <img src={tile.img} alt="" />
               <span>{tile.label}</span>
             </button>

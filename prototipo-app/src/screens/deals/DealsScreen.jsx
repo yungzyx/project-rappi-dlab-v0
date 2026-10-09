@@ -81,7 +81,7 @@ export default function DealsScreen({ push }) {
           </h2>
           <HScroll className="deals-product-row">
             {section.products.map((product) => (
-              <ProductCard key={product.id} product={product} onClick={() => openStoreByName(product)} />
+              <ProductCard key={product.id} product={product} onOpenStore={() => openStoreByName(product)} />
             ))}
           </HScroll>
         </section>

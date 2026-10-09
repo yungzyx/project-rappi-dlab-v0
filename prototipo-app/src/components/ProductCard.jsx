@@ -1,12 +1,14 @@
 import { EtaIcon } from '../screens/home/StoreCards'
 import AddButton from './AddButton'
 import { pressable } from './pressable'
+import { useProductSheet } from '../state/ProductSheetContext'
 import './product-card.css'
 
-/** Producto de supermercado/farmacia/botillería (Meat & Seafood, beers, Baby care…). */
-export function ProductCard({ product, onClick }) {
+/** Producto de supermercado/farmacia/botillería (Meat & Seafood, beers, Baby care…). Tocarlo abre su hoja. */
+export function ProductCard({ product, onOpenStore }) {
+  const sheet = useProductSheet()
   return (
-    <div className="product-card tap" {...pressable(onClick)}>
+    <div className="product-card tap" {...pressable(() => sheet.open(product, { onOpenStore }))}>
       <span className={product.partial ? 'product-media is-partial' : 'product-media'}>
         <img src={product.img} alt="" draggable="false" />
         {product.ageRestricted && (

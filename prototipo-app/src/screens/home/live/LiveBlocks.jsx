@@ -92,7 +92,7 @@ export function ItemRow({ items, onOpen }) {
       {items.map((item, i) => (
         <div key={item.key} className="live-item" style={{ '--i': i }}>
           {item.kind === 'product' ? (
-            <ProductCard product={item.product} onClick={() => onOpen(item)} />
+            <ProductCard product={item.product} onOpenStore={() => onOpen(item)} />
           ) : (
             <StoreItem store={item.store} onClick={() => onOpen(item)} />
           )}

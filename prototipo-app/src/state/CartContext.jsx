@@ -32,8 +32,15 @@ export function CartProvider({ children }) {
       const { [key]: _removed, ...rest } = prev
       // Si alguna unidad vino de una sugerencia, la línea lo recuerda (no la pisa un "+" desde otra tarjeta).
       const fromSuggestion = Boolean(prev[key]?.fromSuggestion || product.fromSuggestion)
-      return qty > 0 ? { ...rest, [key]: { product, qty, fromSuggestion } } : rest
+      const note = prev[key]?.note
+      return qty > 0 ? { ...rest, [key]: { product, qty, fromSuggestion, note } } : rest
     })
+  }, [])
+
+  // Nota para la tienda (hoja de producto): vive en la línea y se va con ella.
+  const setNote = useCallback((product, note) => {
+    const key = lineKey(product)
+    setLines((prev) => (prev[key] ? { ...prev, [key]: { ...prev[key], note: note || undefined } } : prev))
   }, [])
 
   const value = useMemo(() => {
@@ -46,15 +53,17 @@ export function CartProvider({ children }) {
       count,
       total,
       qtyOf: (product) => lines[lineKey(product)]?.qty ?? 0,
+      noteOf: (product) => lines[lineKey(product)]?.note ?? '',
       add: (product) => change(product, 1),
       remove: (product) => change(product, -1),
+      setNote,
       // Tras un pedido, el carro siguiente es otro (el abandono se mide por carro).
       clear: () => {
         setLines({})
         setCartId(newCartId())
       },
     }
-  }, [lines, change, cartId])
+  }, [lines, change, setNote, cartId])
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>
 }

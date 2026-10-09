@@ -23,7 +23,7 @@ describe('FavorScreen', () => {
     expect(screen.getByText('Trámites rápidos')).toBeTruthy()
   })
 
-  test('pedir un favor exige decir qué hay que hacer y confirma (simulado)', () => {
+  test('pedir un favor exige decir qué hay que hacer y confirma', () => {
     renderFavor()
     fireEvent.click(screen.getByText('Envíos de un punto a otro'))
     fireEvent.click(screen.getByRole('button', { name: 'Pedir RappiFavor' }))
@@ -32,7 +32,7 @@ describe('FavorScreen', () => {
     fireEvent.change(screen.getByLabelText('Qué hay que hacer'), { target: { value: 'Llevar unas llaves' } })
     fireEvent.change(screen.getByLabelText('Retiro en'), { target: { value: 'Av. Providencia 1234' } })
     fireEvent.click(screen.getByRole('button', { name: 'Pedir RappiFavor' }))
-    expect(screen.getByText(/Un Rappitendero va en camino \(simulado\)/)).toBeTruthy()
+    expect(screen.getByText(/Un Rappitendero va en camino/)).toBeTruthy()
   })
 
   test('vuelve atrás', () => {

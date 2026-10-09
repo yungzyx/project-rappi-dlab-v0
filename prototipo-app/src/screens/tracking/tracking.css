@@ -294,3 +294,33 @@
     animation: none;
   }
 }
+
+/* ---------- Chat con el Rappitendero ---------- */
+.tracking-chat {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tracking-chat-line {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 18px 18px 18px 4px;
+  background: var(--chip);
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.tracking-chat-line.is-user {
+  align-self: flex-end;
+  border-radius: 18px 18px 4px 18px;
+  background: var(--rappi-red);
+  color: #fff;
+}
+
+.tracking-chat-note {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--ink-3);
+}

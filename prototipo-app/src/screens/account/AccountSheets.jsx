@@ -23,7 +23,7 @@ export default function AccountSheets({ sheet, onClose }) {
 
   const confirmLogout = () => {
     onClose()
-    toast('Sesión cerrada (simulado)')
+    toast('Sesión cerrada')
   }
 
   return (
