@@ -218,6 +218,31 @@
   font-weight: 700;
 }
 
+/* El título abre el pasaporte del juego y «Jugar» su camino. */
+.live-passport-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.live-passport-title {
+  min-height: 40px;
+  font: inherit;
+  text-align: left;
+}
+
+.live-passport-play {
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 99px;
+  background: var(--live-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 3px 0 var(--accent-deep);
+}
+
 .live-passport-bar {
   height: 6px;
   margin-top: 10px;
@@ -279,6 +304,19 @@
   background: var(--surface);
   font-size: 24px;
   transform: rotate(-8deg);
+}
+
+/* El nivel del juego se ve en el borde: Conocedor dorado, Experto doble. */
+.live-stamp.is-conocedor .live-stamp-face {
+  border-color: #c99a1a;
+  box-shadow: 0 0 0 3px #f7e3a3;
+}
+
+.live-stamp.is-experto .live-stamp-face {
+  border-color: #c99a1a;
+  box-shadow:
+    0 0 0 3px #f7e3a3,
+    0 0 0 5px #c99a1a;
 }
 
 .live-stamp.is-fresh .live-stamp-face {

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import * as progress from '../game/progress.js'
 import { clear, load, save } from '../game/storage.js'
 import { SCREEN_TO_GAME } from '../game/verticals.js'
+import { REPLAY_EVENT } from './liveMemory'
 
 const GameContext = createContext(null)
 const DATE_CHECK_MS = 30_000
@@ -28,6 +29,19 @@ export function GameProvider({ children }) {
       document.removeEventListener('visibilitychange', refresh)
     }
   }, [])
+
+  const reset = useCallback(() => {
+    clear()
+    latest.current = progress.initialState()
+    setState(latest.current)
+    setEvents([])
+  }, [])
+
+  // «Repetir escena» (junto al teléfono o en Account) deja también el juego como al empezar.
+  useEffect(() => {
+    window.addEventListener(REPLAY_EVENT, reset)
+    return () => window.removeEventListener(REPLAY_EVENT, reset)
+  }, [reset])
 
   const commit = useCallback((next) => {
     latest.current = next
@@ -69,14 +83,9 @@ export function GameProvider({ children }) {
       },
       dismissEvent,
       clearEvents,
-      reset: () => {
-        clear()
-        latest.current = progress.initialState()
-        setState(latest.current)
-        setEvents([])
-      },
+      reset,
     }),
-    [state, date, events, run, commit, dismissEvent, clearEvents],
+    [state, date, events, run, commit, dismissEvent, clearEvents, reset],
   )
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

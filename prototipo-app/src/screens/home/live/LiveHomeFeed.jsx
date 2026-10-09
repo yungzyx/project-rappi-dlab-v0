@@ -13,8 +13,12 @@ import { LowerFees, MainTiles, NearbyStores, Promos, Shortcuts, TurboRestaurants
 import { CREDITS } from '../../../data/home'
 import '../home.css'
 import LiveBigotes from './LiveBigotes'
-import { Passport, PlanBlock, openItem } from './LiveBlocks'
-import { PASSPORT, PASSPORT_GOAL, REPLAY_EVENT, loadPassport, session, stamp } from '../../../state/liveMemory'
+import { Passport, PlanBlock, STAMP_EMOJI, openItem } from './LiveBlocks'
+import { REPLAY_EVENT, session } from '../../../state/liveMemory'
+import { DATA } from '../../../game/data.js'
+import { stampedVerticals } from '../../../game/progress.js'
+import { GAME_TO_SCREEN, NEVER_PUSHED, PASSPORT_GOAL } from '../../../game/verticals.js'
+import { useGame } from '../../../state/GameContext'
 import { PLANS, discoveryFor, planKit } from './script'
 import './live.css'
 
@@ -52,7 +56,8 @@ export default function LiveHomeFeed({ push }) {
   const reduceMotion = usePrefersReducedMotion()
   const [replays, setReplays] = useState(0)
 
-  const [stamps, setStamps] = useState(loadPassport)
+  const game = useGame()
+  const stamps = stampedVerticals(game.state) // ids del juego
   const [freshStamp, setFreshStamp] = useState(() => session.newStamp)
   const [plan, setPlan] = useState(() => session.plan)
   const [kitAdded, setKitAdded] = useState(null) // plan cuyo kit ya está en el carro
@@ -104,15 +109,15 @@ export default function LiveHomeFeed({ push }) {
 
   const visit = useCallback(
     (vertical, route) => {
-      const next = stamp(vertical)
-      setStamps(next)
+      // Abrir la vertical en la app la sella (Explorador): Bigotes lo celebra al volver.
+      if (game.visit(vertical)) session.newStamp = vertical
       push(...(route ?? routeForScreen(vertical)))
     },
-    [push],
+    [game, push],
   )
 
   const openFromBlock = (item) => {
-    if (item.vertical) setStamps(stamp(item.vertical))
+    if (item.vertical && game.visit(item.vertical)) session.newStamp = item.vertical
     openItem(item, push)
   }
 
@@ -141,7 +146,7 @@ export default function LiveHomeFeed({ push }) {
     // primera vez se cancelan los timers.
     if (session.newStamp) {
       const name = VERTICAL_NAMES[session.newStamp]
-      const left = Math.max(PASSPORT_GOAL - loadPassport().length, 0)
+      const left = Math.max(PASSPORT_GOAL - stamps.length, 0)
       later(T.notice, () => {
         session.newStamp = null
         buzz()
@@ -213,7 +218,6 @@ export default function LiveHomeFeed({ push }) {
     const replay = () => {
       run.current += 1
       clearTimers()
-      setStamps(loadPassport())
       setFreshStamp(null)
       setPlan(null)
       setKitAdded(null)
@@ -257,7 +261,8 @@ export default function LiveHomeFeed({ push }) {
   const poke = () => {
     // Mientras saluda, tocarlo no cambia de tema.
     if (!session.played) return
-    const missing = PASSPORT.find(({ id }) => !stamps.includes(id))
+    // La primera vertical sin sello del pasaporte; Farmacia nunca (la salud no se empuja).
+    const missing = DATA.order.find((v) => !stamps.includes(v) && !NEVER_PUSHED.has(v))
     if (!missing) {
       speak(
         { text: '¡Ya probaste de todo! Eres oficialmente multivertical 🏆', mood: 'wave', gesture: 'spin' },
@@ -266,14 +271,16 @@ export default function LiveHomeFeed({ push }) {
       )
       return
     }
-    const name = VERTICAL_NAMES[missing.id]
+    const name = VERTICAL_NAMES[GAME_TO_SCREEN[missing]]
+    const left = PASSPORT_GOAL - stamps.length
     speak(
       {
-        text: `¿Y si pruebas ${name} ${missing.emoji}? Es tu sello ${stamps.length + 1} de ${PASSPORT_GOAL} para el envío gratis.`,
+        text: `¿Y si pruebas ${name} ${STAMP_EMOJI[missing]}? Juega una ronda y te llevas su sello.${left > 0 ? ` Te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis.` : ''}`,
         mood: 'wave',
         gesture: 'hop',
         actions: [
-          { label: `Abrir ${name}`, onClick: () => visit(missing.id) },
+          { label: `Jugar ${name}`, onClick: () => push('game', { round: missing }) },
+          { label: `Abrir ${name}`, onClick: () => visit(GAME_TO_SCREEN[missing]) },
           { label: 'Después', onClick: () => speak(null) },
         ],
       },
@@ -289,7 +296,14 @@ export default function LiveHomeFeed({ push }) {
         <Shortcuts push={push} proposal />
       </>
     ),
-    passport: <Passport stamps={stamps} fresh={freshStamp} onOpen={(id) => visit(id)} />,
+    passport: (
+      <Passport
+        state={game.state}
+        fresh={freshStamp}
+        onOpenGame={(tab) => push('game', { tab })}
+        onOpenStamp={(vertical) => push('game', { vertical })}
+      />
+    ),
     promos: <Promos push={push} />,
     turbo: <TurboRestaurants push={push} />,
     plan: (

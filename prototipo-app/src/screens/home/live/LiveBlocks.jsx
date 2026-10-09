@@ -5,7 +5,9 @@ import { formatPrice, parsePrice } from '../../../state/CartContext'
 import { storeFor } from '../../../data/catalog'
 import { VERTICAL_NAMES } from '../../../data/verticals'
 import { EtaIcon } from '../../../components/StoreMeta'
-import { PASSPORT, PASSPORT_GOAL } from '../../../state/liveMemory'
+import { DATA } from '../../../game/data.js'
+import { stampedVerticals, verticalLevel } from '../../../game/progress.js'
+import { GAME_TO_SCREEN, PASSPORT_GOAL } from '../../../game/verticals.js'
 import { PLANS } from './script'
 
 /** Abre la tienda de un producto o una tienda (un plato real abre su sucursal por id). */
@@ -101,13 +103,39 @@ export function PlanBlock({ plan, kit, added, onPick, onOpen, onAddKit, onChecko
 }
 
 /** Pasaporte de verticales: un sello por cada vertical probada; al llegar a la meta, envío gratis (demo). */
-export function Passport({ stamps, fresh, onOpen }) {
-  const count = stamps.length
+// Un emoji por vertical del juego, para la cara del sello.
+export const STAMP_EMOJI = {
+  supermercado: '🛒',
+  conveniencia: '🏪',
+  turbo: '⚡',
+  licores: '🍷',
+  chocolateria: '🍫',
+  restaurantes: '🍔',
+  farmacia: '💊',
+  mall: '🛍️',
+}
+const LEVEL_NAMES = { explorador: 'Explorador', conocedor: 'Conocedor', experto: 'Experto' }
+
+/**
+ * El pasaporte Rappi es el del juego de verticales: un sello por vertical (Explorador o más, jugando o abriéndola en la
+ * app), con su nivel en el borde. El título abre el pasaporte del juego, «Jugar» su camino y cada sello su vertical.
+ */
+export function Passport({ state, fresh, onOpenGame, onOpenStamp }) {
+  const count = stampedVerticals(state).length
   const left = Math.max(PASSPORT_GOAL - count, 0)
   return (
     <section className={left > 0 ? 'live-passport' : 'live-passport is-complete'}>
       <div className="live-passport-head">
-        <h2>Tu pasaporte Rappi</h2>
+        <div className="live-passport-top">
+          <h2>
+            <button type="button" className="live-passport-title tap" onClick={() => onOpenGame('pasaporte')}>
+              Tu pasaporte Rappi <span aria-hidden="true">›</span>
+            </button>
+          </h2>
+          <button type="button" className="live-passport-play tap" onClick={() => onOpenGame('jugar')}>
+            Jugar
+          </button>
+        </div>
         <p>
           {left > 0
             ? `${count} sellos · te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis`
@@ -125,20 +153,22 @@ export function Passport({ stamps, fresh, onOpen }) {
         </div>
       </div>
       <HScroll className="live-stamps">
-        {PASSPORT.map(({ id, emoji }) => {
-          const has = stamps.includes(id)
+        {DATA.order.map((vertical) => {
+          const level = verticalLevel(state, vertical)
+          const has = level !== 'ninguno'
+          const name = VERTICAL_NAMES[GAME_TO_SCREEN[vertical]]
           return (
             <button
-              key={id}
+              key={vertical}
               type="button"
-              className={`live-stamp tap${has ? ' has' : ''}${fresh === id ? ' is-fresh' : ''}`}
-              aria-label={`${VERTICAL_NAMES[id]}${has ? ' (con sello)' : ' (sin sello: ábrela para sellar)'}`}
-              onClick={() => onOpen(id)}
+              className={`live-stamp tap is-${level}${has ? ' has' : ''}${fresh === GAME_TO_SCREEN[vertical] ? ' is-fresh' : ''}`}
+              aria-label={`${name}${has ? ` (con sello: ${LEVEL_NAMES[level]})` : ' (sin sello: juega o ábrela para sellar)'}`}
+              onClick={() => onOpenStamp(vertical)}
             >
               <span className="live-stamp-face" aria-hidden="true">
-                {has ? emoji : '?'}
+                {has ? STAMP_EMOJI[vertical] : '?'}
               </span>
-              <span className="live-stamp-name">{VERTICAL_NAMES[id]}</span>
+              <span className="live-stamp-name">{name}</span>
             </button>
           )
         })}

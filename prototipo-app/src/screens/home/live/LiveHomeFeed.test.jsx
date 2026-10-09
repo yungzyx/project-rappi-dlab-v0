@@ -1,6 +1,9 @@
 import { StrictMode } from 'react'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+import { DATA } from '../../../game/data.js'
+import { KEY } from '../../../game/storage.js'
+import { seed } from '../../../game/testSeed.js'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
 vi.mock('../../../state/EventsContext', async (importOriginal) => ({
@@ -25,6 +28,7 @@ beforeEach(async () => {
   const toast = await import('../../../components/Toast')
   const nudge = await import('../../../state/NudgeContext')
   const orders = await import('../../../state/OrdersContext')
+  const game = await import('../../../state/GameContext')
   memory = await import('../../../state/liveMemory')
   useAssistant = assistant.useAssistant
   HomeScreen = (await import('../HomeScreen')).default
@@ -37,7 +41,9 @@ beforeEach(async () => {
               <address.AddressProvider>
                 <toast.ToastProvider>
                   <nudge.NudgeProvider>
-                    <orders.OrdersProvider>{children}</orders.OrdersProvider>
+                    <orders.OrdersProvider>
+                      <game.GameProvider>{children}</game.GameProvider>
+                    </orders.OrdersProvider>
                   </nudge.NudgeProvider>
                 </toast.ToastProvider>
               </address.AddressProvider>
@@ -65,12 +71,12 @@ afterEach(() => {
   localStorage.clear()
 })
 
-const renderHome = ({ strict = false, tab = 'home' } = {}) =>
+const renderHome = ({ strict = false, tab = 'home', push = vi.fn() } = {}) =>
   render(
     <Providers strict={strict}>
       <div className="phone">
         <div className="screen-wrap">
-          <HomeScreen push={vi.fn()} tab={tab} setTab={vi.fn()} />
+          <HomeScreen push={push} tab={tab} setTab={vi.fn()} />
         </div>
       </div>
     </Providers>,
@@ -139,7 +145,8 @@ describe('Home del prototipo final', () => {
 
   test('al volver con un sello nuevo lo celebra, también con StrictMode (como en npm run dev)', async () => {
     memory.session.played = true
-    memory.stamp('liquor')
+    memory.session.newStamp = 'liquor' // se abrió Licores desde la Home: sello nuevo
+    seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
     const { container } = renderHome({ strict: true })
     await advance(2000)
     expect(container.querySelector('.live-layer [role="status"]').textContent).toMatch(/^¡Sello nuevo de Licores!/)
@@ -189,5 +196,66 @@ describe('Home del prototipo final', () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     renderHome({ tab: 'account' })
     expect(screen.queryByRole('button', { name: /Repetir escena de Bigotes/ })).toBeNull()
+  })
+
+  describe('pasaporte del juego', () => {
+    const stampsShown = () => [...document.querySelectorAll('.live-stamps .live-stamp')]
+    const passport = () => within(document.querySelector('.live-passport'))
+
+    test('muestra las 8 verticales del juego y arranca con Restaurantes y Súper', () => {
+      renderHome()
+      expect(stampsShown()).toHaveLength(8)
+      expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('2')
+      expect(passport().getByRole('button', { name: /^Farmacia/ })).toBeTruthy()
+      expect(passport().queryByRole('button', { name: /^Mascotas/ })).toBeNull()
+    })
+
+    test('un sello ganado jugando aparece en la Home', () => {
+      seed({ visited: ['restaurantes', 'supermercado'], discovered: { licores: ['vino'] } })
+      renderHome()
+      expect(passport().getByRole('button', { name: /^Licores \(con sello/ })).toBeTruthy()
+      expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('3')
+    })
+
+    test('«Jugar» y el título abren el juego; un sello abre su hoja', () => {
+      const push = vi.fn()
+      renderHome({ push })
+      fireEvent.click(passport().getByRole('button', { name: 'Jugar' }))
+      expect(push).toHaveBeenLastCalledWith('game', { tab: 'jugar' })
+      fireEvent.click(passport().getByRole('button', { name: /^Tu pasaporte Rappi/ }))
+      expect(push).toHaveBeenLastCalledWith('game', { tab: 'pasaporte' })
+      fireEvent.click(passport().getByRole('button', { name: /^Turbo/ }))
+      expect(push).toHaveBeenLastCalledWith('game', { vertical: 'turbo' })
+    })
+
+    test('Bigotes nunca propone Farmacia, aunque sea la única sin sello', async () => {
+      seed({ visited: DATA.order.filter((v) => v !== 'farmacia') })
+      const { container } = renderHome()
+      await advance(900 + 3400)
+      fireEvent.click(screen.getByRole('button', { name: /^Bigotes:/ }))
+      await advance(3000)
+      expect(container.querySelector('.live-bubble p').textContent).toMatch(/^¡Ya probaste de todo!/)
+    })
+
+    test('Bigotes propone jugar la primera vertical sin sello', async () => {
+      const push = vi.fn()
+      const { container } = renderHome({ push })
+      await advance(900 + 3400)
+      fireEvent.click(screen.getByRole('button', { name: /^Bigotes:/ }))
+      await advance(3000)
+      expect(container.querySelector('.live-bubble p').textContent).toMatch(/Express/)
+      fireEvent.click(screen.getByRole('button', { name: 'Jugar Express' }))
+      expect(push).toHaveBeenLastCalledWith('game', { round: 'conveniencia' })
+    })
+
+    test('«Repetir escena» deja el juego y el pasaporte como al empezar', async () => {
+      seed({ visited: ['restaurantes', 'supermercado', 'turbo'], xp: 120 })
+      renderHome()
+      act(() => memory.resetLive())
+      await advance(100)
+      const saved = JSON.parse(localStorage.getItem(KEY))
+      expect(saved?.xp ?? 0).toBe(0)
+      expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('2')
+    })
   })
 })
