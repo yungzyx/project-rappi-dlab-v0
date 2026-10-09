@@ -1,4 +1,5 @@
 import HScroll from '../../components/HScroll'
+import Img from '../../components/Img'
 import TabPage from '../../components/TabPage'
 import { findStore } from '../../data/catalog'
 import { useFavorites } from '../../state/FavoritesContext'
@@ -19,12 +20,12 @@ export default function FavoritesScreen({ push }) {
       <HScroll className="favorites-logos">
         {addedByUser.map((store) => (
           <button key={store.name} type="button" className="favorite-logo is-new tap" onClick={() => openStore(store)}>
-            <img src={store.img} alt={store.name} />
+            <Img src={store.img} alt={store.name} />
           </button>
         ))}
         {FAVORITE_STORES.map((fav) => (
           <button key={fav.id} type="button" className="favorite-logo tap" onClick={() => openFavorite(fav)}>
-            <img src={fav.logo} alt={fav.name} />
+            <img src={fav.logo} alt={fav.name} loading="lazy" />
           </button>
         ))}
       </HScroll>

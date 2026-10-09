@@ -2,8 +2,8 @@
   position: absolute;
   left: var(--gutter);
   right: var(--gutter);
-  bottom: 28px;
-  z-index: 35;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-cart);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -11,7 +11,7 @@
   padding: 0 18px 0 8px;
   border-radius: 99px;
   background: var(--ink);
-  color: #fff;
+  color: var(--surface);
   font-size: 16.5px;
   font-weight: 600;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
@@ -20,7 +20,7 @@
 
 /* En pantallas con barra inferior, el carrito flota sobre ella */
 .cart-bar.is-raised {
-  bottom: 100px;
+  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
 }
 
 .cart-bar-count {
@@ -30,7 +30,7 @@
   height: 36px;
   padding: 0 8px;
   border-radius: 99px;
-  background: #34c859;
+  background: var(--green-deep); /* el verde del «+» daba 2,2:1 con el número blanco */
   font-weight: 700;
 }
 
@@ -119,8 +119,8 @@
   width: 100%;
   height: 52px;
   border-radius: 99px;
-  background: #34c859;
-  color: #fff;
+  background: var(--green-add);
+  color: var(--surface);
   font-size: 17px;
   font-weight: 700;
 }

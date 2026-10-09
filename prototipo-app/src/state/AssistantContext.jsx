@@ -1,15 +1,26 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 const AssistantContext = createContext(null)
 
 /**
- * Abre y cierra el asistente. `open({ mode, origin, photo })`:
- *  - mode: 'chat' | 'voice' | 'photo'
+ * Abre y cierra el asistente. `open({ origin, query, search })`:
  *  - origin: rectángulo (relativo al teléfono) desde donde crece la animación
- *  - photo: URL local de la foto elegida
+ *  - query: pregunta que se envía al abrir
+ *  - search: texto con el que arranca el buscador (al volver a una búsqueda que se dejó)
  */
 export function AssistantProvider({ children }) {
   const [session, setSession] = useState(null)
+
+  // Volver (o avanzar) a la entrada del historial del asistente lo reabre con la búsqueda que tenía: así, abrir una
+  // tienda desde Bigotes y volver no deja la Home con el panel cerrado y la búsqueda perdida.
+  useEffect(() => {
+    const onPopState = (event) => {
+      if (!event.state?.assistant) return
+      setSession((prev) => prev ?? { search: event.state.assistantSearch ?? '', openedAt: Date.now() })
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -18,7 +29,7 @@ export function AssistantProvider({ children }) {
       // Abrir agrega una entrada al historial: el gesto "volver" de Safari cierra el asistente.
       open: (options = {}) => {
         window.history.pushState({ ...window.history.state, assistant: true }, '')
-        setSession({ mode: 'chat', ...options, openedAt: Date.now() })
+        setSession({ ...options, openedAt: Date.now() })
       },
       // viaHistory: el cierre ya vino del historial (gesto volver o una pantalla que reemplazó la entrada).
       close: ({ viaHistory = false } = {}) => {

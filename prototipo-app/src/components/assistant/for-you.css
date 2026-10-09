@@ -27,11 +27,11 @@
 .for-you-reason {
   padding: 2px 10px;
   border-radius: 99px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 1px 4px rgba(240, 83, 43, 0.12);
   font-size: 13px;
   font-weight: 500;
-  color: #b3461f;
+  color: var(--accent-text);
 }
 
 .for-you-row {

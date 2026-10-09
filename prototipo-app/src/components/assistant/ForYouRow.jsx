@@ -33,7 +33,7 @@ export default function ForYouRow({ title, reason, products, push }) {
       </div>
       <HScroll className="for-you-row">
         {products.map((product) => (
-          <ProductCard key={product.id} product={product} onClick={() => openStore(product)} />
+          <ProductCard key={product.id} product={product} onOpenStore={() => openStore(product)} />
         ))}
       </HScroll>
     </section>

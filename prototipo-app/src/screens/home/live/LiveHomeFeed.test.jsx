@@ -24,7 +24,7 @@ beforeEach(async () => {
   const toast = await import('../../../components/Toast')
   const nudge = await import('../../../state/NudgeContext')
   const orders = await import('../../../state/OrdersContext')
-  memory = await import('./memory')
+  memory = await import('../../../state/liveMemory')
   HomeScreen = (await import('../HomeScreen')).default
   Providers = function Providers({ children, strict }) {
     const tree = (
@@ -84,7 +84,7 @@ describe('Home con Bigotes vivo', () => {
   test('no tiene ícono de chat: Bigotes vive en la Home de cuerpo entero', () => {
     renderHome()
     expect(screen.queryByRole('button', { name: 'Hablar con Bigotes' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Abrir asistente' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Abrir buscador con Bigotes' })).toBeNull()
     expect(screen.getByText('Tu pasaporte Rappi')).toBeTruthy()
   })
 

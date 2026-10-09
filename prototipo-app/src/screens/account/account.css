@@ -67,7 +67,7 @@
   align-items: center;
   gap: 3px;
   font-size: 15.5px;
-  color: #626a75;
+  color: var(--ink-muted);
 }
 
 .account-pro {
@@ -166,7 +166,7 @@
   width: 100%;
   margin-top: 12px;
   padding: 10px 4px 12px;
-  border-bottom: 1px solid #ebedf0;
+  border-bottom: 1px solid var(--line-soft);
   text-align: left;
 }
 
@@ -185,7 +185,7 @@
   display: flex;
   flex-direction: column;
   font-size: 14.5px;
-  color: #626a75;
+  color: var(--ink-muted);
 }
 
 .account-order strong {
@@ -209,7 +209,7 @@
   width: 100%;
   height: 50px;
   padding-right: 4px;
-  border-bottom: 1px solid #ebedf0;
+  border-bottom: 1px solid var(--line-soft);
   text-align: left;
 }
 
@@ -237,7 +237,7 @@
 
 .account-demo-value {
   font-size: 14px;
-  color: #f0532b;
+  color: var(--bigotes-orange);
 }
 
 .account-logout {
@@ -296,7 +296,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 2px solid #c9cdd3;
+  border: 2px solid var(--control-border);
   transition: border var(--duration-fast);
 }
 
@@ -321,13 +321,13 @@
   width: 27px;
   height: 27px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   transition: transform var(--duration-normal) var(--ease-out);
 }
 
 .sheet-switch.is-on {
-  background: #34c859;
+  background: var(--green-add);
 }
 
 .sheet-switch.is-on::after {
@@ -351,7 +351,7 @@
 
 .sheet-confirm-primary {
   background: var(--rappi-red);
-  color: #fff;
+  color: var(--surface);
 }
 
 .sheet-confirm-secondary {

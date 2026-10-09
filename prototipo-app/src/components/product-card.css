@@ -1,12 +1,18 @@
 /* Medidas del video de Offers (px del cuadro de 600 × 0,67 = pt). */
 
 /* ---------- Producto de supermercado ---------- */
+/* La tarjeta entera abre la hoja del producto; el "+" queda fuera del botón, sobre la foto. */
 .product-card {
+  position: relative;
   flex: none;
   width: 139px;
+}
+
+.product-card-main {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  width: 100%;
   text-align: left;
   cursor: pointer;
 }
@@ -34,7 +40,7 @@
   padding: 1px 6px;
   border-radius: 6px;
   background: rgba(20, 20, 20, 0.78);
-  color: #fff;
+  color: var(--surface);
   font-size: 10px;
   font-weight: 800;
 }
@@ -59,7 +65,7 @@
 .product-price,
 .product-pct {
   padding: 0 4px;
-  background: #fadc24;
+  background: var(--price-yellow);
   font-size: 16.5px;
   font-weight: 700;
   line-height: 22px;
@@ -68,7 +74,7 @@
 .product-price-row s,
 .deal-discount s {
   font-size: 15px;
-  color: #747474;
+  color: var(--ink-strike);
 }
 
 .product-pct {
@@ -98,13 +104,9 @@
 
 /* ---------- Oferta de restaurante ---------- */
 .deal-card {
+  position: relative;
   flex: none;
   width: 152px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  cursor: pointer;
 }
 
 .deal-media {
@@ -118,7 +120,7 @@
   height: 100%;
 }
 
-/* El recorte ya trae el "+" dibujado: el botón real va exactamente encima */
+/* El recorte ya trae el "+" dibujado: el botón real va exactamente encima (medido desde la tarjeta) */
 .add-button--deal {
   top: 2px;
   right: 1px;
@@ -142,7 +144,7 @@
   align-items: center;
   gap: 3px;
   padding: 0 5px;
-  background: #fadc24;
+  background: var(--price-yellow);
   font-size: 17px;
   font-weight: 700;
   line-height: 21px;
@@ -178,7 +180,7 @@
 
 .add-button--boxed {
   top: -7px;
-  right: -7px;
+  right: -4px; /* -7 px desde la foto, que va 3 px dentro de la tarjeta */
 }
 
 /* ---------- Tienda + tiempo (común) ---------- */
@@ -204,7 +206,7 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  color: #fff;
+  color: var(--surface);
   font-size: 14px;
   font-weight: 800;
 }

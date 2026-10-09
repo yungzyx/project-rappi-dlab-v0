@@ -97,7 +97,7 @@
 .home-compact {
   position: absolute;
   inset: 0 0 auto;
-  z-index: 20;
+  z-index: var(--z-header);
   padding: 62px var(--gutter) 19px;
   border-radius: 0 0 26px 26px;
   background: rgba(240, 240, 240, 0.94);
@@ -325,12 +325,6 @@
   text-overflow: ellipsis;
 }
 
-.featured-eta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 /* Recorte que en el video solo aparece cortado en el borde: se muestra a su ancho real */
 .featured-media.is-partial img {
   width: auto;
@@ -343,31 +337,6 @@
   gap: 4px;
   font-size: 14.5px;
   font-weight: 400;
-}
-
-.featured-meta {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 6px;
-  padding-left: 14px;
-  font-size: 15px;
-  color: var(--ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.featured-bolt {
-  color: #3b5e4f;
-}
-
-.featured-bolt--plain {
-  color: var(--ink);
-}
-
-.meta-sep {
-  font-size: 9px;
-  color: var(--ink-3);
 }
 
 /* ---------- Tiendas cerca ---------- */
@@ -444,6 +413,3 @@
   color: var(--orange-bolt);
 }
 
-.home-store-dots {
-  margin: 14px auto 0;
-}

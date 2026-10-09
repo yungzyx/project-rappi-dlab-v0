@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import BackButton from '../../components/BackButton'
 import { useToast } from '../../components/Toast'
 import hero1 from '../../assets/v/travel-hero1.webp'
 import hero2 from '../../assets/v/travel-hero2.webp'
@@ -12,10 +13,11 @@ import proWeek from '../../assets/v/travel-proweek.webp'
 import './travel.css'
 
 // Los botones del hero (volver, campana, Ayuda, Mis Viajes, "Ver destinos") vienen dibujados en la imagen,
-// iguales en ambos banners; por eso el carrusel es un fundido y encima van zonas táctiles invisibles.
+// iguales en ambos banners; por eso el carrusel es un fundido y encima van zonas táctiles invisibles
+// (medidas en % del hero de 402 × 335, para que sigan sobre el botón en un teléfono más angosto).
 const HEROES = [
-  { id: 'hoteles40', img: hero1, cta: { left: 36, top: 238, width: 82, height: 20 } },
-  { id: 'bonvoy', img: hero2, cta: { left: 147, top: 244, width: 108, height: 22 } },
+  { id: 'hoteles40', img: hero1, cta: { left: '9%', top: '71%', width: '20.4%', height: '6%' } },
+  { id: 'bonvoy', img: hero2, cta: { left: '36.6%', top: '72.8%', width: '26.9%', height: '6.6%' } },
 ]
 const HERO_MS = 4500
 const SWIPE_PX = 40
@@ -54,7 +56,7 @@ export default function TravelScreen({ back }) {
 
   const submit = (e) => {
     e.preventDefault()
-    toast(query.trim() ? `Buscando viajes a “${query.trim()}” (simulado)` : 'Escribe un destino')
+    toast(query.trim() ? `Buscando viajes a “${query.trim()}”…` : 'Escribe un destino')
   }
 
   const hero = HEROES[index]
@@ -65,7 +67,7 @@ export default function TravelScreen({ back }) {
         {HEROES.map((item, i) => (
           <img key={item.id} src={item.img} alt="" draggable="false" className={i === index ? 'is-active' : undefined} />
         ))}
-        <button type="button" className="travel-hit travel-hit--back" aria-label="Volver" onClick={back} />
+        <BackButton className="travel-hit travel-hit--back" icon={false} onClick={back} />
         <button type="button" className="travel-hit travel-hit--bell" aria-label="Notificaciones" onClick={() => toast('No tienes notificaciones')} />
         <button type="button" className="travel-hit travel-hit--help" aria-label="Ayuda" onClick={() => toast()} />
         <button type="button" className="travel-hit travel-hit--trips" aria-label="Mis Viajes" onClick={() => toast('Aún no tienes viajes')} />
@@ -74,7 +76,7 @@ export default function TravelScreen({ back }) {
           className="travel-hit"
           aria-label="Ver destinos"
           style={hero.cta}
-          onClick={() => toast('Destinos: reserva no incluida en el prototipo')}
+          onClick={() => toast('Las reservas no están en el prototipo')}
         />
       </div>
 
@@ -96,15 +98,15 @@ export default function TravelScreen({ back }) {
 
         <div className="travel-tiles">
           {TILES.map((tile) => (
-            <button key={tile.id} type="button" className="travel-tile tap" onClick={() => toast(`${tile.label}: reserva no incluida en el prototipo`)}>
-              <img src={tile.img} alt="" />
+            <button key={tile.id} type="button" className="travel-tile tap" onClick={() => toast(`${tile.label}: las reservas no están en el prototipo`)}>
+              <img src={tile.img} alt="" loading="lazy" />
               <span>{tile.label}</span>
             </button>
           ))}
         </div>
 
         <button type="button" className="travel-proweek tap" onClick={() => toast()}>
-          <img src={proWeek} alt="Pro week: vuela sin pagar cargo de servicio" />
+          <img src={proWeek} alt="Pro week: vuela sin pagar cargo de servicio" loading="lazy" />
         </button>
       </section>
     </div>

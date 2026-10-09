@@ -1,12 +1,15 @@
 import { useState } from 'react'
+import BackButton from '../../components/BackButton'
 import { useToast } from '../../components/Toast'
-import { ChevronLeft, ChevronRight } from '../../components/Icons'
+import Img from '../../components/Img'
+import { ChevronRight } from '../../components/Icons'
 import { CardIcon, HeadsetIcon, LogoutIcon, OrdersIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
 import { MODE_LABELS, nextMode, useDemo } from '../../state/DemoContext'
-import { resetLive } from '../home/live/memory'
+import { resetLive } from '../../state/liveMemory'
 import { useOrders } from '../../state/OrdersContext'
 import { formatPrice } from '../../state/CartContext'
+import { relativeDay } from '../orders/dates'
 import dealsCrown from '../../assets/deals-crown.webp'
 import logoStreetWrap from '../../assets/logo-streetwrap.webp'
 import footer from '../../assets/account-footer.webp'
@@ -39,9 +42,7 @@ export default function AccountScreen({ onBack, push }) {
     <>
       <div className="screen account">
         <header className="account-header">
-          <button type="button" className="account-back tap" aria-label="Volver" onClick={onBack}>
-            <ChevronLeft size={18} />
-          </button>
+          <BackButton className="account-back" onClick={onBack} size={18} />
           <h1>Account</h1>
         </header>
 
@@ -73,7 +74,12 @@ export default function AccountScreen({ onBack, push }) {
               { id: 'help', label: 'Help', Icon: HeadsetIcon },
               { id: 'payment', label: 'Payment methods', Icon: CardIcon },
             ].map(({ id, label, Icon }) => (
-              <button key={id} type="button" className="account-quick-tile tap" onClick={() => toast()}>
+              <button
+                key={id}
+                type="button"
+                className="account-quick-tile tap"
+                onClick={() => (id === 'orders' ? push('orders') : toast())}
+              >
                 <Icon size={27} />
                 <span>{label}</span>
               </button>
@@ -84,7 +90,7 @@ export default function AccountScreen({ onBack, push }) {
         <section className="account-body">
           <div className="account-section-head">
             <h2>Recent orders</h2>
-            <button type="button" className="see-more tap" onClick={() => toast()}>
+            <button type="button" className="see-more tap" onClick={() => push('orders')}>
               See all
             </button>
           </div>
@@ -96,10 +102,12 @@ export default function AccountScreen({ onBack, push }) {
               className="account-order tap"
               onClick={() => push('tracking', { orderId: order.id })}
             >
-              <img src={order.items[0]?.img} alt="" className="account-order-photo" />
+              <Img src={order.items[0]?.img} className="account-order-photo" />
               <span>
                 <strong>{order.stores.join(', ') || 'Your order'}</strong>
-                <span>Today · {formatPrice(order.total)}</span>
+                <span>
+                  {relativeDay(order.placedAt)} · {formatPrice(order.total)}
+                </span>
               </span>
               <ChevronRight size={18} />
             </button>
@@ -109,7 +117,7 @@ export default function AccountScreen({ onBack, push }) {
             className="account-order tap"
             onClick={() => push('store', { store: { name: RECENT_ORDER.store, img: logoStreetWrap, logo: true } })}
           >
-            <img src={logoStreetWrap} alt="" />
+            <img src={logoStreetWrap} alt="" loading="lazy" />
             <span>
               <strong>{RECENT_ORDER.store}</strong>
               <span>{RECENT_ORDER.date}</span>
@@ -160,7 +168,7 @@ export default function AccountScreen({ onBack, push }) {
           <p className="account-version">Made with 🧡 in LATAM</p>
         </section>
 
-        <img className="account-footer" src={footer} alt="Made with Love in Latin America" />
+        <img className="account-footer" src={footer} alt="Made with Love in Latin America" loading="lazy" />
       </div>
 
       <AccountSheets sheet={sheet} onClose={() => setSheet(null)} />

@@ -9,9 +9,9 @@
   width: 35px;
   height: 35px;
   border-radius: 99px;
-  background: #34c859;
-  border: 2px solid #fff;
-  color: #fff;
+  background: var(--green-add);
+  border: 2px solid var(--surface);
+  color: var(--surface);
   cursor: pointer;
   transition: transform var(--duration-fast) var(--ease-out);
   animation: add-pop 260ms var(--ease-out);
@@ -30,6 +30,7 @@
 }
 
 .add-button.is-open > span {
+  position: relative;
   display: grid;
   place-items: center;
   width: 26px;
@@ -38,6 +39,13 @@
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
+}
+
+/* Área táctil de 40 × 40 para «−» y «+» sin agrandar lo visible */
+.add-button.is-open > span::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
 }
 
 .add-button.is-open strong {

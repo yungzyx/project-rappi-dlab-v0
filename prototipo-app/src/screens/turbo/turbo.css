@@ -5,7 +5,7 @@
 
 .turbo-green {
   background: var(--turbo-green);
-  color: #fff;
+  color: var(--surface);
   padding-top: 65px;
 }
 
@@ -26,7 +26,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
 }
 
@@ -73,7 +73,7 @@
   padding: 0 19px;
   border-radius: 99px;
   background: var(--turbo-search);
-  color: #fff;
+  color: var(--surface);
   font-size: 16.5px;
   text-align: left;
 }
@@ -94,7 +94,7 @@
   align-items: center;
   gap: 5px;
   padding-bottom: 14px;
-  color: #fff;
+  color: var(--surface);
   font-size: 15px;
   opacity: 0.82;
   transition: opacity var(--duration-fast);
@@ -116,7 +116,7 @@
   bottom: -1px;
   height: 4px;
   border-radius: 3px 3px 0 0;
-  background: #fff;
+  background: var(--surface);
   transform: scaleX(0);
   transition: transform var(--duration-normal) var(--ease-out);
 }
@@ -190,7 +190,7 @@
   height: 15px;
   border-radius: 50%;
   background: #dfe0dc;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
   transform: translateY(-50%);
 }
 
@@ -217,4 +217,87 @@
 .bottom-nav--turbo .bottom-nav-pill {
   flex: 0 0 282px;
   margin-left: 4px;
+}
+
+.turbo-fee-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--fee-ink);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.turbo-fee-check.is-done {
+  background: var(--fee-ink);
+}
+
+/* ---------- Productos por pestaña ---------- */
+.turbo-products {
+  padding: 28px var(--gutter) 0;
+}
+
+.turbo-products-title {
+  margin-bottom: 26px;
+}
+
+.turbo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px 21px;
+}
+
+.turbo-grid .product-card {
+  width: 100%;
+}
+
+/* ---------- Pestañas Offers y Categories ---------- */
+.turbo-page {
+  padding-bottom: 150px;
+}
+
+.turbo-page .turbo-grid {
+  padding: 26px var(--gutter) 0;
+}
+
+.turbo-page-note {
+  padding: 0 var(--gutter);
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.turbo-categories {
+  list-style: none;
+  padding: 8px var(--gutter) 0;
+}
+
+.turbo-category {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 17px;
+}
+
+.turbo-category img,
+.turbo-category svg {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  color: var(--turbo-green);
+}
+
+.turbo-category span {
+  flex: 1;
+  font-weight: 500;
+}
+
+.turbo-category small {
+  font-size: 14px;
+  color: var(--ink-3);
 }

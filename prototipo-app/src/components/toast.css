@@ -2,11 +2,11 @@
   position: absolute;
   left: 50%;
   bottom: 166px;
-  z-index: 50;
+  z-index: var(--z-toast);
   padding: 10px 16px;
   border-radius: 14px;
   background: rgba(22, 22, 22, 0.88);
-  color: #fff;
+  color: var(--surface);
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;

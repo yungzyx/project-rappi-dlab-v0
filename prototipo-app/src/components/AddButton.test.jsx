@@ -52,7 +52,7 @@ describe('AddButton', () => {
       { wrapper: Providers },
     )
     fireEvent.click(screen.getAllByLabelText('Agregar Cerveza Escudo')[0])
-    expect(screen.getAllByLabelText('Quitar uno')).toHaveLength(1)
+    expect(screen.getAllByLabelText(/^Quitar uno de /)).toHaveLength(1)
     expect(screen.getAllByLabelText('Agregar Cerveza Escudo')).toHaveLength(1)
   })
 
@@ -75,7 +75,7 @@ describe('AddButton', () => {
       { wrapper: Providers },
     )
     fireEvent.click(screen.getByLabelText('Agregar Papas Lays'))
-    fireEvent.click(screen.getByLabelText('Quitar uno'))
+    fireEvent.click(screen.getByLabelText(/^Quitar uno de /))
     fireEvent.click(screen.getByLabelText('Agregar Papas Lays'))
     expect(count('cart_add')).toBe(2)
     expect(count('suggestion_accepted')).toBe(1)
@@ -104,7 +104,7 @@ describe('AddButton', () => {
       { wrapper: Providers },
     )
     fireEvent.click(screen.getByLabelText('Agregar Maní Salado'))
-    fireEvent.click(screen.getByLabelText('Quitar uno'))
+    fireEvent.click(screen.getByLabelText(/^Quitar uno de /))
     fireEvent.click(screen.getByText('olvidar'))
     fireEvent.click(screen.getByLabelText('Agregar Maní Salado'))
     expect(count('suggestion_accepted')).toBe(2)

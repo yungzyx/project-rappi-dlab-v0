@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef } from 'react'
 import HScroll from '../../../components/HScroll'
+import Img from '../../../components/Img'
 import { ProductCard } from '../../../components/ProductCard'
 import { formatPrice, parsePrice } from '../../../state/CartContext'
 import { storeFor } from '../../../data/catalog'
 import { VERTICAL_NAMES } from '../../../data/verticals'
-import { EtaIcon } from '../StoreCards'
-import { PASSPORT, PASSPORT_GOAL } from './memory'
+import { EtaIcon } from '../../../components/StoreMeta'
+import { PASSPORT, PASSPORT_GOAL } from '../../../state/liveMemory'
 import { PLANS } from './script'
 
 /**
@@ -75,7 +76,7 @@ function StoreItem({ store, onClick }) {
   return (
     <button type="button" className="live-store tap" onClick={onClick}>
       <span className={store.logo ? 'live-store-logo is-logo' : 'live-store-logo'}>
-        <img src={store.img} alt="" draggable="false" />
+        <Img src={store.img} draggable="false" />
       </span>
       <span className="live-store-name">{store.name}</span>
       <span className="live-store-eta">
@@ -86,13 +87,13 @@ function StoreItem({ store, onClick }) {
   )
 }
 
-export function ItemRow({ items, onOpen }) {
+function ItemRow({ items, onOpen }) {
   return (
     <HScroll className="live-items">
       {items.map((item, i) => (
         <div key={item.key} className="live-item" style={{ '--i': i }}>
           {item.kind === 'product' ? (
-            <ProductCard product={item.product} onClick={() => onOpen(item)} />
+            <ProductCard product={item.product} onOpenStore={() => onOpen(item)} />
           ) : (
             <StoreItem store={item.store} onClick={() => onOpen(item)} />
           )}

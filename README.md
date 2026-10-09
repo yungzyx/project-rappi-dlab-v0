@@ -7,7 +7,7 @@ Prototipo que muestra cómo lo que una persona hace en un vertical de Rappi (sup
 
 [![CI](https://github.com/yungzyx/rappi-dlab/actions/workflows/ci.yml/badge.svg)](https://github.com/yungzyx/rappi-dlab/actions/workflows/ci.yml)
 
-<img src="prototipo-app/docs/screenshots/00-modo-demo.jpg" width="320" alt="Prototipo en modo Propuesta: barra para preguntarle a Bigotes por texto, foto o voz">
+<img src="prototipo-app/docs/screenshots/00-modo-demo.jpg" width="320" alt="Prototipo en modo Propuesta: la barra de la Home abre el buscador con Bigotes">
 
 *Prototipo navegable. El interruptor de arriba (tecla **D**) alterna entre la app como es hoy y la propuesta.*
 
@@ -54,7 +54,7 @@ El panel de negocio muestra cómo se mediría el efecto (frecuencia, abandono, s
 | [`prototipo-app/`](prototipo-app/) | Réplica navegable de la app (Vite + React) con modo «Rappi hoy» / «Propuesta». Funciona sin backend; con la API usa el catálogo real. | Capturas de la app; catálogo real opcional |
 | [`dashboard-empresa/`](dashboard-empresa/) | Panel de negocio: demanda no satisfecha, tendencias, frecuencia, abandono, cruce entre verticales y salud del catálogo. | Simulados, salvo la pestaña Catálogo (real) |
 
-**Bigotes** es el asistente del prototipo: la mochila de Rappi con bigote. Conversa por texto, voz o foto y busca en el vertical donde está la persona. Sugiere como máximo un complemento de otro vertical. También reconoce los servicios sin catálogo: un viaje lleva a **RappiTravel** (con protector solar o traje de baño de otra vertical), un envío o un trámite a **RappiFavor**, y lo que no está en el catálogo se puede pedir con RappiFavor. Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó.
+**Bigotes** es el asistente del prototipo: la mochila de Rappi con bigote. Conversa por texto, voz o foto (la API; el prototipo actual solo usa el texto) y busca en el vertical donde está la persona. Sugiere como máximo un complemento de otro vertical. También reconoce los servicios sin catálogo: un viaje lleva a **RappiTravel** (con protector solar o traje de baño de otra vertical), un envío o un trámite a **RappiFavor**, y lo que no está en el catálogo se puede pedir con RappiFavor. Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó.
 
 ## Arquitectura
 
@@ -162,7 +162,7 @@ cd prototipo-app && npm ci && npm run dev       # http://localhost:5174
 cd dashboard-empresa && npm ci && npm run dev   # http://localhost:5175
 ```
 
-- **Prototipo:** la tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Propuesta», «Rappi hoy» y «Bigotes vivo» (tercer prototipo: Bigotes vive en la Home y la ordena, sin chat). Sin la API, Bigotes responde con reglas locales sobre los datos de las capturas y lo marca con «Respuesta local».
+- **Prototipo:** la tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Propuesta» (la barra de la Home abre el buscador con Bigotes: lo aprendido con «Olvidar», ideas para tocar, búsqueda de tiendas y productos y «Descubre con Bigotes»; sin chat escrito, voz ni foto), «Rappi hoy» y «Bigotes vivo» (tercer prototipo: Bigotes vive en la Home y la ordena, sin chat). Sin la API, Bigotes responde con reglas locales sobre los datos de las capturas y lo marca con «Respuesta local».
 - **Panel:** sin la API usa respuestas guardadas (`src/fixtures/`) y lo avisa («Modo sin conexión (datos guardados)»). Cada bloque indica si su dato es simulado o real.
 
 ### Correr la demo completa (catálogo real)
@@ -175,7 +175,7 @@ cd prototipo-app && npm run dev       # http://localhost:5174
 cd dashboard-empresa && npm run dev   # http://localhost:5175
 ```
 
-Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere complementos de otro vertical, transcribe la voz (Whisper) y reconoce fotos (CLIP). La API no tiene autenticación y por defecto escucha solo en el equipo local. `make serve-lan` la abre a la red local para probar desde un iPhone: solo en una red de confianza.
+Con la API, Bigotes busca en el catálogo real con precios vigentes y sugiere complementos de otro vertical; la API también transcribe voz (Whisper) y reconoce fotos (CLIP), aunque el prototipo actual no usa esas dos entradas. La API no tiene autenticación y por defecto escucha solo en el equipo local. `make serve-lan` la abre a la red local para probar desde un iPhone: solo en una red de confianza.
 
 ### Actualización semanal
 
@@ -256,7 +256,7 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes, sugiere com
 - Catálogo público completo (24 al 27-09-2026), recuperación de fallidos (28-09) y primera descarga semanal automática (29 y 30-09).
 - Capa 2 de conceptos, embeddings al 100 % y búsqueda híbrida evaluada.
 - Capa de datos para otras herramientas (06-10-2026): atributos, medidas, marcas y producto canónico, grafo de conocimiento y segmentos de usuario, con el esquema estable `capa`, corrección de falsos positivos por nombre y revisión independiente por etapa ([docs/capa-de-datos.md](docs/capa-de-datos.md)).
-- Bigotes con API (texto, voz y foto) y prototipo con modo «Rappi hoy» / «Propuesta».
+- Bigotes con API (texto, voz y foto) y prototipo con modos «Rappi hoy» / «Propuesta» / «Bigotes vivo» (la Propuesta usa solo el texto, como buscador).
 - Panel de negocio con datos simulados rotulados y la pestaña Catálogo real.
 - Actualización semanal automática y CI con 4 jobs más uno semanal de modelos.
 - Mejoras del 28-09-2026:

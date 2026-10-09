@@ -3,6 +3,7 @@ import { cartEventFields } from '../api/orders'
 import { formatPrice, lineKey, parsePrice, useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
 import AddButton from './AddButton'
+import Img from './Img'
 import Sheet from './Sheet'
 import './cart.css'
 
@@ -47,7 +48,7 @@ export default function CartBar({ raised, push }) {
             <ul className="cart-lines">
               {cart.items.map(({ product, qty }) => (
                 <li key={lineKey(product)} className="cart-line">
-                  <img src={product.img} alt="" />
+                  <Img src={product.img} />
                   <span className="cart-line-text">
                     <strong>{product.name}</strong>
                     <span>{product.store}</span>

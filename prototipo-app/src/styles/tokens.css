@@ -13,6 +13,23 @@
   --yellow: #f6dd52;
   --orange-bolt: #f39a2b;
 
+  /* Acento de la propuesta (Bigotes, foco de teclado, seguimiento): más claro que el rojo de marca muestreado */
+  --bigotes-orange: #f0532b;
+  --bigotes-gradient: linear-gradient(135deg, #ff7a45, var(--bigotes-orange));
+  --accent-soft: #fff1e8; /* chips naranja claros */
+  --accent-ink: #b8300d; /* 5,5:1 sobre --accent-soft */
+  --accent-text: #b3461f;
+  --accent-deep: #8f2c16;
+  --price-yellow: #fadc24; /* precio y descuento de los productos */
+  --green-add: #34c859; /* botón «+» y «Place order» del carro */
+  --green-deep: #1f8a3b; /* texto verde y contador del carro (4,9:1 con blanco) */
+  --green-status: #34c759; /* verde del sistema: batería, «en línea», pasos listos */
+  --surface-soft: #f7f7f8; /* fondo de pantallas con tarjetas blancas */
+  --ink-strike: #747474; /* precio tachado */
+  --ink-muted: #626a75;
+  --line-soft: #ebedf0;
+  --control-border: #c9cdd3; /* borde de radios y botón de borrar */
+
   --tile-restaurants: #fdf7f2;
   --tile-turbo: #ecf9e3;
   --label-restaurants: #8b2f24;
@@ -24,6 +41,20 @@
   --turbo-search: rgba(255, 255, 255, 0.4);
   --fee-bg: #fdfbe5;
   --fee-ink: #9d8a36;
+
+  /* Capas, de abajo hacia arriba (las menores de 10 son locales a cada pantalla) */
+  --z-header: 20; /* encabezados pegados y compacto de la Home */
+  --z-back-to-top: 21;
+  --z-header-tabs: 22;
+  --z-live-bigotes: 25; /* sobre la Home, bajo la barra inferior y el carrito */
+  --z-nav: 30;
+  --z-nudge: 36;
+  --z-panel: 38; /* buscador con Bigotes */
+  --z-cart: 39; /* sobre el panel: el carrito se ve y se abre desde ahí */
+  --z-status: 40;
+  --z-sheet: 60;
+  --z-toast: 70; /* sobre las hojas: el aviso de «+ Add new address» sale dentro de una */
+  --z-demo-toggle: 100;
 
   --gutter: 25px;
   /* Alto de la barra de estado de iOS en las capturas; en un teléfono real la dibuja el sistema */

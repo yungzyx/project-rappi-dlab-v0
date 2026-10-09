@@ -54,7 +54,7 @@ describe('AddButton (extra)', () => {
     render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
     add()
     expect(screen.getByLabelText('perfil').textContent).toContain('cerveza')
-    fireEvent.click(screen.getByLabelText('Quitar uno'))
+    fireEvent.click(screen.getByLabelText(/^Quitar uno de /))
     expect(events.track).toHaveBeenCalledWith('cart_remove', expect.objectContaining({ concept_id: 'cerveza' }))
   })
 

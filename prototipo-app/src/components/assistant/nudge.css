@@ -3,8 +3,8 @@
   position: absolute;
   left: 16px;
   right: 16px;
-  bottom: 90px;
-  z-index: 36;
+  bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-nudge);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -20,7 +20,7 @@
 }
 
 .nudge.is-raised {
-  bottom: 162px;
+  bottom: calc(162px + env(safe-area-inset-bottom, 0px));
 }
 
 .nudge p {
@@ -43,8 +43,8 @@
   height: 34px;
   padding: 0 16px;
   border-radius: 99px;
-  background: linear-gradient(135deg, #ff7a45, #f0532b);
-  color: #fff;
+  background: var(--bigotes-gradient);
+  color: var(--surface);
   font-size: 14px;
   font-weight: 700;
 }

@@ -30,7 +30,7 @@ export const SECTIONS = [
   {
     title: 'Benefits',
     rows: [
-      { id: 'credits', label: 'Credits', Icon: CreditsIcon, value: '$1,900' },
+      { id: 'credits', label: 'Credits', Icon: CreditsIcon, value: '$1.900' },
       { id: 'coupons', label: 'Coupons', Icon: CouponIcon },
       { id: 'loyalty', label: 'Loyalty', Icon: LoyaltyIcon, action: 'loyalty' },
     ],

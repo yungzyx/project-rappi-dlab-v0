@@ -4,14 +4,14 @@ import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { CartProvider } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { NudgeProvider } from '../../state/NudgeContext'
+import { ProductSheetProvider } from '../../state/ProductSheetContext'
+import ProductSheet from '../ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
 
 const api = vi.hoisted(() => ({
   health: vi.fn(),
   chat: vi.fn(),
-  chatVoice: vi.fn(),
-  chatPhoto: vi.fn(),
   forget: vi.fn(),
   profile: vi.fn(),
 }))
@@ -26,35 +26,6 @@ function deferred() {
   let resolve
   const promise = new Promise((res) => (resolve = res))
   return { promise, resolve }
-}
-
-/** MediaRecorder de mentira: como el real, avisa el fin de la grabación después de stop(). */
-class FakeRecorder {
-  static instances = []
-  constructor(stream) {
-    this.stream = stream
-    this.state = 'inactive'
-    this.mimeType = 'audio/webm'
-    FakeRecorder.instances.push(this)
-  }
-  start() {
-    this.state = 'recording'
-  }
-  stop() {
-    this.state = 'inactive'
-    queueMicrotask(() => this.onstop?.())
-  }
-}
-
-function fakeStream() {
-  const track = { stop: vi.fn() }
-  return { track, getTracks: () => [track] }
-}
-
-function mockMic(getUserMedia) {
-  vi.stubGlobal('isSecureContext', true)
-  vi.stubGlobal('MediaRecorder', FakeRecorder)
-  Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true })
 }
 
 const apiAnswer = (text, concept) => ({
@@ -73,18 +44,24 @@ async function runUntilIdle() {
 }
 const bubbles = () => [...document.querySelectorAll('.chat-bubble')].map((el) => el.textContent)
 
+/** Sin chat escrito, a Bigotes se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
 function say(text) {
-  const input = screen.getByPlaceholderText('Escríbele a Bigotes…')
-  fireEvent.change(input, { target: { value: text } })
-  fireEvent.submit(input.closest('form'))
+  const ask = screen.getByText('preguntar')
+  ask.dataset.query = text
+  fireEvent.click(ask)
 }
 
 function OpenButton() {
   const assistant = useAssistant()
   return (
-    <button type="button" onClick={() => assistant.open()}>
-      abrir
-    </button>
+    <>
+      <button type="button" onClick={() => assistant.open()}>
+        abrir
+      </button>
+      <button type="button" onClick={(e) => assistant.open({ query: e.currentTarget.dataset.query })}>
+        preguntar
+      </button>
+    </>
   )
 }
 
@@ -95,8 +72,11 @@ async function renderPanel({ push = () => {} } = {}) {
         <AssistantProvider>
           <CartProvider>
             <NudgeProvider>
-              <OpenButton />
-              <AssistantPanel push={push} />
+              <ProductSheetProvider>
+                <OpenButton />
+                <AssistantPanel push={push} />
+                <ProductSheet />
+              </ProductSheetProvider>
             </NudgeProvider>
           </CartProvider>
         </AssistantProvider>
@@ -116,6 +96,7 @@ afterAll(() => {
 })
 beforeEach(() => {
   vi.useFakeTimers()
+  window.history.replaceState(null, '', '/') // cada test parte sin una entrada del asistente debajo
   api.health.mockResolvedValue({ voz: true, fotos: false })
   api.profile.mockResolvedValue({ interests: [] })
   api.forget.mockResolvedValue({})
@@ -127,8 +108,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
   vi.clearAllMocks()
   Object.values(api).forEach((mock) => mock.mockReset())
-  delete navigator.mediaDevices
-  FakeRecorder.instances = []
   localStorage.clear()
   sessionStorage.clear() // cada test es una pestaña nueva (otra sesión)
 })
@@ -139,6 +118,7 @@ describe('chat en orden', () => {
     api.chat.mockReturnValueOnce(first.promise).mockResolvedValueOnce(apiAnswer('Respuesta B'))
     await renderPanel()
     say('pregunta A')
+    await advance(10) // cada apertura lleva su hora: con el reloj simulado, dos en el mismo instante serían una
     say('pregunta B')
     await advance(1000)
     expect(api.chat).toHaveBeenCalledTimes(1) // B sale cuando A ya está en pantalla
@@ -146,10 +126,11 @@ describe('chat en orden', () => {
     first.resolve(apiAnswer('Respuesta A', 'snacks-salados'))
     await runUntilIdle()
     expect(api.chat).toHaveBeenCalledTimes(2)
+    expect(api.chat.mock.calls[0][0].message).toBe('pregunta A')
     expect(api.chat.mock.calls[1][0].shown_topics).toEqual(['snacks-salados'])
-    const texts = bubbles()
-    expect(texts).toContain('Respuesta A')
-    expect(texts.indexOf('Respuesta A')).toBeLessThan(texts.indexOf('Respuesta B'))
+    // Bigotes muestra su última respuesta (no un historial de chat)
+    expect(bubbles()).toContain('Respuesta B')
+    expect(bubbles()).not.toContain('Respuesta A')
   })
 })
 
@@ -186,7 +167,7 @@ describe('sugerencia cruzada', () => {
     expect(screen.getByText('De Licores')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Ver más en Licores/ }))
     await runUntilIdle()
-    expect(push).toHaveBeenCalledWith('vertical', { id: 'liquor' }, expect.anything())
+    expect(push).toHaveBeenCalledWith('vertical', { id: 'liquor' })
   })
 
   test('tocar un producto abre su tienda con ese producto: la página registra que lo vio', async () => {
@@ -212,11 +193,11 @@ describe('sugerencia cruzada', () => {
     await runUntilIdle()
 
     fireEvent.click(screen.getByText('Bebida Pepsi 1,5 L'))
+    fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ })) // la tarjeta abre la hoja del producto
     await runUntilIdle()
     expect(push).toHaveBeenCalledWith(
       'store',
       expect.objectContaining({ item: expect.objectContaining({ entityId: '1', vertical: 'licores' }) }),
-      expect.anything(),
     )
   })
 })
@@ -253,14 +234,14 @@ describe('también en otras verticales', () => {
     expect(button.textContent).toContain('L') // Lider sin logo: su inicial
     fireEvent.click(button)
     await runUntilIdle()
-    expect(push).toHaveBeenCalledWith('vertical', { id: 'grocery' }, expect.anything())
+    expect(push).toHaveBeenCalledWith('vertical', { id: 'grocery' })
   })
 })
 
 describe('teclado y lector de pantalla', () => {
-  test('al abrir, el foco entra al chat; Escape lo cierra y el foco vuelve a quien lo abrió', async () => {
+  test('al abrir, el foco entra al buscador (sin abrir el teclado); Escape lo cierra y el foco vuelve a quien lo abrió', async () => {
     await renderPanel()
-    expect(document.activeElement).toBe(screen.getByPlaceholderText('Escríbele a Bigotes…'))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Volver' }))
 
     fireEvent.keyDown(document.activeElement, { key: 'Escape' })
     await runUntilIdle()
@@ -296,10 +277,10 @@ describe('qué Bigotes contestó', () => {
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
+    expect(screen.getByText('Respuesta local')).toBeTruthy()
     say('pisco')
     await runUntilIdle()
-
-    expect(screen.getAllByText('Respuesta local')).toHaveLength(1) // solo la primera; la segunda vino de la API
+    expect(screen.queryByText('Respuesta local')).toBeNull() // la segunda vino de la API
   })
 })
 
@@ -315,94 +296,6 @@ describe('temas ya sugeridos', () => {
     await runUntilIdle()
 
     expect(api.chat.mock.calls[1][0].shown_topics).toEqual(['jugos'])
-  })
-
-  test('voz y foto saben qué sugirió el chat de texto (no repiten la sugerencia)', async () => {
-    mockMic(vi.fn(async () => fakeStream()))
-    api.health.mockResolvedValue({ voz: true, fotos: true })
-    api.chat.mockResolvedValueOnce(apiAnswer('Cervezas', 'snacks-salados'))
-    api.chatPhoto.mockResolvedValueOnce(apiAnswer('Parece cerveza'))
-    api.chatVoice.mockResolvedValueOnce(apiAnswer('Más cervezas'))
-    URL.createObjectURL = () => 'blob:foto'
-    await renderPanel()
-    say('cerveza')
-    await runUntilIdle()
-
-    const photo = new File(['x'], 'foto.jpg', { type: 'image/jpeg' })
-    fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [photo] } })
-    await runUntilIdle()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Listo'))
-    await runUntilIdle()
-
-    expect(api.chatPhoto.mock.calls[0][1].shown_topics).toEqual(['snacks-salados'])
-    expect(api.chatVoice.mock.calls[0][1].shown_topics).toEqual(['snacks-salados'])
-    delete URL.createObjectURL
-  })
-})
-
-describe('voz', () => {
-  test('un segundo toque no abre otra grabación, y cerrar antes de dar permiso no graba', async () => {
-    const permission = deferred()
-    const getUserMedia = vi.fn(() => permission.promise)
-    mockMic(getUserMedia)
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    expect(getUserMedia).toHaveBeenCalledTimes(1)
-
-    fireEvent.click(screen.getByLabelText('Cerrar'))
-    const stream = fakeStream()
-    permission.resolve(stream)
-    await runUntilIdle()
-    expect(FakeRecorder.instances).toHaveLength(0)
-    expect(stream.track.stop).toHaveBeenCalled() // el micrófono no queda abierto
-    expect(api.chatVoice).not.toHaveBeenCalled()
-  })
-
-  test('Cancelar mientras transcribe aborta la subida, descarta el resultado y no pisa una grabación nueva', async () => {
-    mockMic(vi.fn(async () => fakeStream()))
-    const transcription = deferred()
-    api.chatVoice.mockReturnValueOnce(transcription.promise)
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Listo'))
-    await advance(10)
-    expect(screen.getByText('Transcribiendo…')).toBeTruthy()
-
-    fireEvent.click(screen.getByText('Cancelar'))
-    expect(api.chatVoice.mock.calls[0][2]?.signal?.aborted).toBe(true)
-
-    fireEvent.click(screen.getByLabelText('Hablar')) // grabación nueva
-    await advance(10)
-    transcription.resolve({ text: 'Respuesta vieja', products: [], transcript: { text: 'lo que dije antes' } })
-    await advance(3000)
-    expect(screen.queryByText('lo que dije antes')).toBeNull()
-    expect(bubbles().some((text) => text.includes('Respuesta vieja'))).toBe(false)
-    expect(screen.getByText('Listo')).toBeTruthy() // la grabación nueva sigue en pantalla
-  })
-
-  test('la voz simulada responde con el cerebro local: la frase de ejemplo no va a la API', async () => {
-    // Sin micrófono (p. ej. el iPhone por http), aunque la API esté arriba.
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await runUntilIdle()
-    expect(bubbles()).toContain('Arma un carrete para cuatro')
-    expect(api.chat).not.toHaveBeenCalled()
-  })
-
-  test('si el usuario niega el micrófono no se inventa una frase: se le avisa', async () => {
-    mockMic(vi.fn(async () => Promise.reject(new DOMException('Permiso denegado', 'NotAllowedError'))))
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await runUntilIdle()
-    expect(bubbles().some((text) => /micrófono está bloqueado/.test(text))).toBe(true)
-    expect(bubbles()).not.toContain('Arma un carrete para cuatro')
-    expect(api.chat).not.toHaveBeenCalled()
   })
 })
 
@@ -420,7 +313,7 @@ describe('lo aprendido y Olvidar', () => {
     expect(screen.getAllByText(/Vi que te gusta/).length).toBeGreaterThan(0)
     fireEvent.click(screen.getByText('Olvidar'))
     await runUntilIdle()
-    expect(document.querySelector('.assistant-messages').textContent).not.toMatch(/Vi que te gusta/)
+    expect(document.querySelector('.bigotes-card').textContent).not.toMatch(/Vi que te gusta/)
     expect(screen.getAllByText(/olvidé lo que aprendí de ti/).length).toBeGreaterThan(0)
   })
 
@@ -432,11 +325,11 @@ describe('lo aprendido y Olvidar', () => {
     events.settled.mockReturnValueOnce(pendingFlush.promise)
     await renderPanel()
     say('pregunta A')
-    await advance(100)
+    await advance(500) // sale al terminar de abrir
     fireEvent.click(screen.getByText('Olvidar'))
     await advance(100)
     say('pregunta mientras se olvida')
-    await advance(100)
+    await advance(500)
     expect(api.chat).toHaveBeenCalledTimes(1)
     expect(api.forget).not.toHaveBeenCalled()
 
@@ -447,63 +340,6 @@ describe('lo aprendido y Olvidar', () => {
 
     pendingFlush.resolve()
     await advance(0)
-    expect(api.forget).toHaveBeenCalledTimes(1)
-  })
-
-  test('Olvidar espera la foto en camino antes del DELETE (el servidor la registra al responder)', async () => {
-    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
-    api.health.mockResolvedValue({ voz: true, fotos: true })
-    const pendingPhoto = deferred()
-    api.chatPhoto.mockReturnValueOnce(pendingPhoto.promise)
-    URL.createObjectURL = () => 'blob:foto'
-    await renderPanel()
-    const photo = new File(['x'], 'foto.jpg', { type: 'image/jpeg' })
-    fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [photo] } })
-    await advance(100)
-    expect(api.chatPhoto).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByText('Olvidar'))
-    await advance(100)
-    expect(api.forget).not.toHaveBeenCalled()
-
-    pendingPhoto.resolve(apiAnswer('Parece cerveza'))
-    await runUntilIdle()
-    expect(api.forget).toHaveBeenCalledTimes(1)
-    delete URL.createObjectURL
-  })
-
-  test('Olvidar con audio ya subido espera al servidor (sin abortar) e ignora su respuesta', async () => {
-    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
-    mockMic(vi.fn(async () => fakeStream()))
-    const transcription = deferred()
-    api.chatVoice.mockReturnValueOnce(transcription.promise)
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Listo'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Olvidar'))
-    await advance(100)
-    expect(api.forget).not.toHaveBeenCalled()
-    expect(api.chatVoice.mock.calls[0][2].signal.aborted).toBe(false)
-
-    transcription.resolve({ text: 'Mira estas cervezas', products: [], transcript: { text: 'quiero cerveza' } })
-    await runUntilIdle()
-    expect(api.forget).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText('quiero cerveza')).toBeNull()
-    expect(bubbles().some((text) => text.includes('Mira estas cervezas'))).toBe(false)
-  })
-
-  test('Olvidar mientras graba descarta la grabación sin subirla', async () => {
-    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
-    const stream = fakeStream()
-    mockMic(vi.fn(async () => stream))
-    await renderPanel()
-    fireEvent.click(screen.getByLabelText('Hablar'))
-    await advance(10)
-    fireEvent.click(screen.getByText('Olvidar'))
-    await runUntilIdle()
-    expect(stream.track.stop).toHaveBeenCalled()
-    expect(api.chatVoice).not.toHaveBeenCalled()
     expect(api.forget).toHaveBeenCalledTimes(1)
   })
 
@@ -520,10 +356,49 @@ describe('lo aprendido y Olvidar', () => {
   })
 })
 
-describe('mensaje', () => {
-  test('el campo corta en 500 caracteres, como la API (más largo, la API responde 422 y el chat caía al cerebro local)', async () => {
+describe('sin chat escrito', () => {
+  test('no hay dónde escribirle a Bigotes: se le pide con un toque y se ve lo elegido', async () => {
+    api.chat.mockResolvedValueOnce(apiAnswer('Para el carrete'))
     await renderPanel()
-    expect(screen.getByPlaceholderText('Escríbele a Bigotes…').maxLength).toBe(500)
+    expect(screen.queryByPlaceholderText(/Escríbele/)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '🍻 Arma un carrete' }))
+    await runUntilIdle()
+    expect(api.chat.mock.calls[0][0].message).toBe('Arma un carrete')
+    expect(screen.getByText('Elegiste «Arma un carrete»')).toBeTruthy()
+    expect(bubbles()).toContain('Para el carrete')
+  })
+
+  test('lo escrito en el buscador busca en el catálogo (como en «Rappi hoy»), no le pregunta a Bigotes', async () => {
+    await renderPanel()
+    const field = screen.getByLabelText('Buscar en Rappi')
+    expect(field.maxLength).toBe(500)
+    fireEvent.change(field, { target: { value: 'cerveza' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    await runUntilIdle()
+
+    expect(api.chat).not.toHaveBeenCalled()
+    expect(screen.getByText('Products')).toBeTruthy()
+    expect(screen.queryByText('Descubre con Bigotes')).toBeNull()
+    expect(events.track).toHaveBeenCalledWith('search', expect.objectContaining({ query: 'cerveza', modality: 'texto' }))
+  })
+})
+
+describe('Descubre con Bigotes', () => {
+  test('muestra lo explorado y cada tarjeta abre una vertical que aún no abre', async () => {
+    const push = vi.fn()
+    sessionStorage.setItem('rappi-explored', JSON.stringify(['liquor']))
+    await renderPanel({ push })
+
+    expect(screen.getByRole('progressbar', { name: 'Verticales exploradas' }).getAttribute('aria-valuenow')).toBe('1')
+    expect(screen.getByRole('button', { name: 'Licores, ya la exploraste' })).toBeTruthy()
+
+    const [card] = document.querySelectorAll('.discover-card')
+    fireEvent.click(card)
+    await runUntilIdle()
+    const [[name, params]] = push.mock.calls
+    expect(name === 'vertical' ? params.id : name).not.toBe('liquor')
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 
@@ -558,7 +433,7 @@ describe('servicios sin catálogo', () => {
     fireEvent.click(screen.getByText('Abrir RappiTravel →'))
     await runUntilIdle()
     expect(tracked('service_opened')).toEqual([{ payload: { servicio: 'rappitravel' } }])
-    expect(push).toHaveBeenCalledWith('travel', undefined, expect.anything())
+    expect(push).toHaveBeenCalledWith('travel', undefined)
   })
 })
 
@@ -597,5 +472,39 @@ describe('conversación', () => {
       vertical: 'licores',
       product_ids: ['1'],
     })
+  })
+})
+
+describe('volver a Bigotes desde una tienda', () => {
+  test('abrir una tienda apila la pantalla y, al volver, el panel se reabre con la búsqueda que tenía', async () => {
+    const push = vi.fn()
+    await renderPanel({ push })
+    const assistantEntry = window.history.state
+    expect(assistantEntry.assistant).toBe(true)
+
+    const input = screen.getByLabelText('Buscar en Rappi')
+    fireEvent.change(input, { target: { value: 'unimarc' } })
+    fireEvent.click(document.querySelector('.search-store'))
+    expect(push).toHaveBeenCalledWith('store', expect.objectContaining({ store: expect.anything() }))
+    // La entrada del asistente sigue en el historial, con su búsqueda; la tienda se apila encima (sin replace).
+    expect(window.history.state).toMatchObject({ assistant: true, assistantSearch: 'unimarc' })
+    await runUntilIdle()
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    // Gesto volver desde la tienda: el navegador vuelve a la entrada del asistente.
+    act(() => window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state })))
+    await runUntilIdle()
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByLabelText('Buscar en Rappi').value).toBe('unimarc')
+  })
+})
+
+describe('barra del carrito dentro del panel', () => {
+  test('con productos en el carro el panel deja espacio abajo para la barra', async () => {
+    await renderPanel()
+    expect(document.querySelector('.assistant.has-cart')).toBeNull()
+    fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: 'palta' } })
+    fireEvent.click(screen.getAllByLabelText(/^Agregar /)[0])
+    expect(document.querySelector('.assistant.has-cart')).toBeTruthy()
   })
 })

@@ -40,7 +40,7 @@ export default function TrackingMap({ progress, delivered }) {
         className="tracking-route"
         d={ROUTE_PATH}
         fill="none"
-        stroke="#f0532b"
+        stroke="var(--bigotes-orange)"
         strokeWidth="4"
         strokeDasharray="2 9"
         strokeLinecap="round"
@@ -48,11 +48,11 @@ export default function TrackingMap({ progress, delivered }) {
       />
 
       <g transform={`translate(${storeX} ${storeY})`}>
-        <circle r="13" fill="#fff" stroke="#f0532b" strokeWidth="3" />
+        <circle r="13" fill="#fff" stroke="var(--bigotes-orange)" strokeWidth="3" />
         <path
           d="M-4 -6v5a3 3 0 0 0 6 0v-5M-1 -6v12M5 -6c-2 0-3 2-3 5v1h3v6"
           fill="none"
-          stroke="#f0532b"
+          stroke="var(--bigotes-orange)"
           strokeWidth="1.8"
           strokeLinecap="round"
         />
