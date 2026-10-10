@@ -48,6 +48,7 @@ def test_cards_returns_all_108_in_file_order(client, db):
     cards = reply.json()["cards"]
     assert len(cards) == 108
     assert cards == list_cards(db)
+    assert cards[0]["id"] == "supermercado-01" and cards[-1]["id"] == "viajes-12"
     assert {c["vertical"] for c in cards} == set(GAME_VERTICALS)
 
 
@@ -78,7 +79,7 @@ def test_put_then_get_returns_the_same_state(client):
 
 
 def test_put_creates_a_prototype_user(client, db):
-    put(client, "u-juego", STATE)
+    assert put(client, "u-juego", STATE).status_code == 200
 
     assert db.execute("SELECT source FROM app_users WHERE user_id = 'u-juego'").fetchone() == ("prototype",)
     assert db.execute("SELECT count(*) FROM game_state WHERE user_id = 'u-juego'").fetchone() == (1,)
@@ -119,12 +120,16 @@ def test_put_rejects_bad_ids_and_bodies(client):
     negative_xp = {**STATE, "xp": -1}
     extra_key = {**STATE, "extra": 1}
     too_many_cards = {**STATE, "cards": [f"supermercado-{i}" for i in range(201)]}
+    other_version = {**STATE, "version": 2}
+    string_version = {**STATE, "version": "1"}
 
     assert put(client, "u" * 65, STATE).status_code == 422
     assert client.get("/game/state/" + "u" * 65).status_code == 422
     assert put(client, "u-juego", negative_xp).status_code == 422
     assert put(client, "u-juego", extra_key).status_code == 422
     assert put(client, "u-juego", too_many_cards).status_code == 422
+    assert put(client, "u-juego", other_version).status_code == 422
+    assert put(client, "u-juego", string_version).status_code == 422
     assert client.get("/game/state/u-juego").status_code == 204
 
 

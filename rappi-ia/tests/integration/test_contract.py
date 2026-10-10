@@ -201,7 +201,8 @@ def response(status: int, body: dict | None = None) -> SimpleNamespace:
 @pytest.mark.parametrize("example", CONTRACT, ids=lambda example: example.name)
 def test_contract_examples_are_up_to_date(client, example):
     if example.after:
-        before = next(e for e in CONTRACT if e.name == example.after)
+        before = {e.name: e for e in CONTRACT}.get(example.after)
+        assert before, f"El Example {example.name} pide antes a «{example.after}», que no está en CONTRACT"
         assert client.request(before.method, before.path, json=before.body).status_code == before.status
     reply = client.request(example.method, example.path, json=example.body)
     check_example(example, reply, FIXTURES, write=os.environ.get("RAPPI_CONTRACT_WRITE") == "1")

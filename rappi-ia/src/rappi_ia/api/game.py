@@ -3,7 +3,7 @@
 `app.py` incluye este router; las dependencias viven en `deps.py`, así este módulo no importa `app`.
 """
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from psycopg import Connection
@@ -40,7 +40,7 @@ class Streak(Clean, extra="forbid"):
 class GameState(Clean, extra="forbid"):
     """El progreso tal como lo guarda la app (`initialState()` de `src/game/progress.js`)."""
 
-    version: Annotated[int, Field(ge=1, le=1)]
+    version: Literal[1]
     xp: Count
     discovered: Annotated[dict[Short, CardList], Field(max_length=MAX_KEYS)]
     correct: Annotated[dict[Short, Count], Field(max_length=MAX_KEYS)]
