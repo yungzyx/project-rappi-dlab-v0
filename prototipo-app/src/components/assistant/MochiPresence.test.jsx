@@ -6,7 +6,7 @@ import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { CartProvider, formatPrice, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { MOCHI_DRAG_TYPE } from '../../assistant/mochiAsk'
-import { MOCHI_CART_EVENT } from '../../state/liveMemory'
+import { MOCHI_CART_EVENT, resetLive } from '../../state/liveMemory'
 import { QUIET_KEY, resetQuiet } from '../../state/mochiQuiet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import MochiPresence, { SIDE_KEY } from './MochiPresence'
@@ -181,6 +181,24 @@ describe('Mochi flotante', () => {
     fireEvent.dragOver(mochiButton(), { dataTransfer })
     fireEvent.drop(mochiButton(), { dataTransfer })
     expect(probe.assistant.session.query).toBe(`¿Con qué acompaño ${BEER.name}?`)
+  })
+
+  test('en silencio queda a la misma altura: sobre el carro y la barra inferior, sin taparlos', () => {
+    localStorage.setItem(QUIET_KEY, today())
+    const { container } = render(tree({ raised: true }))
+    act(() => probe.cart.add(BEER))
+    const classes = container.querySelector('.mochi-presence').classList
+    expect(classes).toContain('is-quiet')
+    expect(classes).toContain('has-cart')
+    expect(classes).toContain('is-raised')
+  })
+
+  test('«Repetir escena» lo despierta', () => {
+    localStorage.setItem(QUIET_KEY, today())
+    const { container } = render(tree())
+    expect(container.querySelector('.mochi-presence').classList).toContain('is-quiet')
+    act(() => resetLive())
+    expect(container.querySelector('.mochi-presence').classList).not.toContain('is-quiet')
   })
 
   test('«Buscar con Mochi» abre el buscador', () => {

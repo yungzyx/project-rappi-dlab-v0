@@ -63,7 +63,12 @@ export function ProductCard({ product, onOpenStore }) {
           Preguntarle a Mochi
         </button>
       )}
-      <button type="button" className="product-card-main tap" onClick={openSheet} {...mochi}>
+      <button
+        type="button"
+        className={final ? 'product-card-main tap is-askable' : 'product-card-main tap'}
+        onClick={openSheet}
+        {...mochi}
+      >
       <span className={product.partial ? 'product-media is-partial' : 'product-media'}>
         <Img src={product.img} draggable="false" />
         {product.ageRestricted && (

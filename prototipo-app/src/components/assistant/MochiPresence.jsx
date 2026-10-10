@@ -4,7 +4,7 @@ import { useAddToCart } from '../../hooks/useAddToCart'
 import { useAssistant } from '../../state/AssistantContext'
 import { formatPrice, useCart } from '../../state/CartContext'
 import { useDemo } from '../../state/DemoContext'
-import { MOCHI_CART_EVENT } from '../../state/liveMemory'
+import { MOCHI_CART_EVENT, REPLAY_EVENT } from '../../state/liveMemory'
 import { isHushed, isQuiet, noteDismissed, noteEngaged, quietToday, wake } from '../../state/mochiQuiet'
 import { today } from '../../game/progress.js'
 import Mascot from './Mascot'
@@ -86,6 +86,17 @@ export default function MochiPresence({ screen, homeTab, raised }) {
     return () => window.removeEventListener(MOCHI_CART_EVENT, onAdded)
   }, [hidden])
 
+  // «Repetir escena»: como una persona que llega por primera vez (resetLive ya borró el silencio guardado).
+  useEffect(() => {
+    const replay = () => {
+      setQuiet(false)
+      setMenu(false)
+      setAdded(null)
+    }
+    window.addEventListener(REPLAY_EVENT, replay)
+    return () => window.removeEventListener(REPLAY_EVENT, replay)
+  }, [])
+
   // Mientras se arrastra un producto (escritorio), Mochi avisa que se lo pueden soltar encima.
   useEffect(() => {
     if (hidden) return undefined
@@ -152,10 +163,16 @@ export default function MochiPresence({ screen, homeTab, raised }) {
     }
   }
 
+  // La misma posición en silencio y despierto: sobre la barra del carrito y la inferior, nunca encima.
+  const classes = ['mochi-presence']
+  if (side === 'left') classes.push('is-left')
+  if (cart.count > 0) classes.push('has-cart')
+  if (raised) classes.push('is-raised')
+
   // Silenciado por hoy: solo una pestañita en el borde, sin globos; tocarla lo despierta.
   if (quiet)
     return (
-      <div ref={host} className={`mochi-presence is-quiet${side === 'left' ? ' is-left' : ''}`}>
+      <div ref={host} className={[...classes, 'is-quiet'].join(' ')}>
         <button
           type="button"
           className="mochi-quiet-tab"
@@ -198,10 +215,6 @@ export default function MochiPresence({ screen, homeTab, raised }) {
     setMenu((open) => !open)
   }
 
-  const classes = ['mochi-presence']
-  if (side === 'left') classes.push('is-left')
-  if (cart.count > 0) classes.push('has-cart')
-  if (raised) classes.push('is-raised')
   if (small && !menu) classes.push('is-small')
 
   return (

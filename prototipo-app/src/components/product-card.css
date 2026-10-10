@@ -246,6 +246,7 @@
   box-shadow: 0 6px 16px rgba(20, 10, 5, 0.25);
 }
 
-.product-card-main {
-  -webkit-touch-callout: none; /* mantener presionado no abre el menú de la imagen en iOS */
+/* Solo en el prototipo final: mantener presionado pregunta a Mochi, no abre el menú de la imagen en iOS */
+.product-card-main.is-askable {
+  -webkit-touch-callout: none;
 }

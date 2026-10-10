@@ -83,6 +83,13 @@ describe('preguntarle a Mochi por un producto', () => {
     expect(probe.assistant.session.query).toBe(`¿Con qué acompaño ${beer.name}?`)
   })
 
+  test('solo en el prototipo final la tarjeta evita el menú del sistema al mantenerla (Rappi hoy queda igual)', () => {
+    renderCard('final')
+    expect(main().classList).toContain('is-askable')
+    renderCard('actual')
+    expect(main().classList).not.toContain('is-askable')
+  })
+
   test('en «Rappi hoy» mantener presionado no hace nada (y el toque abre la hoja como siempre)', () => {
     vi.useFakeTimers()
     renderCard('actual')

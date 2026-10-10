@@ -129,10 +129,16 @@
   margin-left: -32px;
 }
 
-/* Confirmación al agregar al carro */
+/* Confirmación al agregar al carro: deja pasar los toques (se sigue comprando debajo) salvo en sus dos botones */
 .mochi-bubble {
   position: relative;
+  max-width: 220px;
   padding-right: 34px;
+  pointer-events: none;
+}
+
+.mochi-bubble button {
+  pointer-events: auto;
 }
 
 .mochi-bubble .mochi-action {
