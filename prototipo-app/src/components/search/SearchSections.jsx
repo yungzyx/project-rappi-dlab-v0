@@ -1,3 +1,5 @@
+import { emptySearch } from '../../assistant/emptySearch'
+import Mascot from '../assistant/Mascot'
 import ProductRow from '../ProductRow'
 import StoreList from '../StoreList'
 import { ALL_STORES } from '../../data/catalog'
@@ -30,11 +32,20 @@ export function PopularStores({ onOpen }) {
   )
 }
 
-/** Resultados de una búsqueda escrita: tiendas y productos, o el aviso de que no hay. */
-export function SearchResults({ query, results, isEmpty, onOpenStore }) {
+/**
+ * Resultados de una búsqueda escrita: tiendas y productos, o el aviso de que no hay. Con `onOpenVertical` y
+ * `onRetry` (solo el buscador con Mochi), Mochi no deja un callejón sin salida: lleva a la vertical que tiene el tema
+ * buscado o invita a buscar con otras palabras.
+ */
+export function SearchResults({ query, results, isEmpty, onOpenStore, onOpenVertical, onRetry }) {
   return (
     <>
-      {isEmpty && <p className="search-empty">No results for “{query.trim()}”.</p>}
+      {isEmpty &&
+        (onOpenVertical ? (
+          <MochiEmpty query={query.trim()} onOpenVertical={onOpenVertical} onRetry={onRetry} />
+        ) : (
+          <p className="search-empty">No results for “{query.trim()}”.</p>
+        ))}
 
       {results.stores.length > 0 && (
         <>
@@ -54,5 +65,28 @@ export function SearchResults({ query, results, isEmpty, onOpenStore }) {
         </>
       )}
     </>
+  )
+}
+
+function MochiEmpty({ query, onOpenVertical, onRetry }) {
+  const hint = emptySearch(query)
+  return (
+    <div className="search-mochi" role="status">
+      <Mascot size={56} mood="listen" />
+      <div>
+        <p>
+          {hint
+            ? `Aquí no hay «${query}», pero en ${hint.verticalName} sí.`
+            : `No encontré «${query}». ¿Lo buscamos con otras palabras?`}
+        </p>
+        <button
+          type="button"
+          className="search-mochi-action tap"
+          onClick={() => (hint ? onOpenVertical(hint.vertical) : onRetry())}
+        >
+          {hint ? `Ver en ${hint.verticalName}` : 'Probar otra búsqueda'}
+        </button>
+      </div>
+    </div>
   )
 }

@@ -21,6 +21,16 @@ export const TAGS = {
 }
 
 // Qué recomendar al lado de cada interés: aquí se cruzan verticales (restaurantes ↔ súper ↔ botillería…).
+// La salud no se aprende ni se sugiere por iniciativa propia (docs/diseno-ia.md §4, regla 6).
+export const NEVER_SUGGESTED = new Set(['farmacia', 'bebe'])
+
+/** El valor que más se repite (en empate, el primero en aparecer); null si no hay ninguno. */
+export const mostCommon = (values) => {
+  const counts = new Map()
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1)
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+}
+
 export const COMPLEMENTS = {
   cerveza: ['snack', 'carne'],
   vino: ['dulce', 'fresco'],

@@ -1,10 +1,8 @@
 // «Descubre con Mochi» (buscador con Mochi): cruza lo que le gusta a la persona con verticales que aún no
 // abre. Todo sale del catálogo del prototipo; un ítem es un producto o una tienda.
 import { VERTICAL_NAMES } from '../data/verticals'
-import { COMPLEMENTS, TAGS, productsForTags, storesForTags } from './tags'
+import { COMPLEMENTS, NEVER_SUGGESTED, TAGS, productsForTags, storesForTags } from './tags'
 
-// La salud no se aprende ni se sugiere (docs/diseno-ia.md §4, regla 6).
-const NEVER_SUGGESTED = new Set(['farmacia', 'bebe'])
 // Sin perfil todavía: temas que funcionan con casi todos, para que la primera visita también invite a explorar.
 const STARTERS = ['pizza', 'cerveza', 'dulce']
 // Un restaurante solo se sugiere para comida preparada: «cerveza en Restaurantes» no invita a nada.
