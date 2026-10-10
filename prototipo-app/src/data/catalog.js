@@ -1,9 +1,19 @@
-// Índice de todo lo que muestra el prototipo, para el buscador y la página de tienda.
-import { LOWER_FEES, MOST_ORDERED, NEW_IN_RAPPI, CRAZY_DEALS, TOP_PIZZAS, GROCERY_SECTIONS } from '../screens/deals/data'
-import { TURBO_RESTAURANTS, NEARBY_STORES } from './home'
-import { BEST_RESTAURANTS, BEST_GROCERY } from '../screens/favorites/data'
-import { VERTICAL_PRODUCTS, VERTICAL_STORES } from '../screens/vertical/data'
-import { REAL_DISHES, REAL_RESTAURANTS } from './realMenus'
+// Índice del catálogo transcrito de las capturas (`transcribedCatalog.js` y `verticalCatalog.js`).
+// Ninguna pantalla lo lee: las pantallas muestran la API (`/catalog`, ver `api/catalog.js`). Queda solo para el buscador
+// local (`components/search`) y el cerebro local de Mochi (`assistant/`, `screens/home/live`), y se va con ellos en la etapa 3.
+import {
+  BEST_GROCERY,
+  BEST_RESTAURANTS,
+  CRAZY_DEALS,
+  GROCERY_SECTIONS,
+  LOWER_FEES,
+  MOST_ORDERED,
+  NEARBY_STORES,
+  NEW_IN_RAPPI,
+  TOP_PIZZAS,
+  TURBO_RESTAURANTS,
+} from './transcribedCatalog'
+import { VERTICAL_PRODUCTS, VERTICAL_STORES } from './verticalCatalog'
 
 function uniqueByName(items) {
   const seen = new Set()
@@ -28,7 +38,6 @@ export const ALL_STORES = uniqueByName([
   ]),
   ...BEST_GROCERY,
   ...VERTICAL_STORES,
-  ...REAL_RESTAURANTS,
   ...NEARBY_STORES.map((store) => ({ ...store, eta: store.when, etaIcon: store.scheduled ? 'clock' : 'bolt', logo: true })),
 ])
 
@@ -37,7 +46,6 @@ export const ALL_PRODUCTS = [
   ...TOP_PIZZAS,
   ...GROCERY_SECTIONS.flatMap((section) => section.products),
   ...VERTICAL_PRODUCTS,
-  ...REAL_DISHES,
 ]
 
 const normalize = (text) =>
@@ -50,28 +58,12 @@ export function findStore(name) {
   return ALL_STORES.find((store) => normalize(store.name) === normalize(name))
 }
 
-/**
- * Tienda de una página de tienda. Un restaurante real se busca por su id (dos sucursales pueden quedar con el mismo
- * nombre recortado) o por su nombre completo, que es como lo trae la API ("Délice - Las Condes"); el resto, por nombre.
- */
-export function storeFor({ id, name }) {
-  return (
-    REAL_RESTAURANTS.find((store) => store.id === id) ??
-    findStore(name) ??
-    REAL_RESTAURANTS.find((store) => normalize(store.fullName) === normalize(name))
-  )
+/** Tienda del índice local para armar su página desde un producto local de Mochi o de la Home; la busca por nombre. */
+export function storeFor({ name }) {
+  return findStore(name)
 }
 
-export function productsOfStore(name) {
-  return ALL_PRODUCTS.filter((product) => normalize(product.store) === normalize(name))
-}
-
-/** Vertical de una tienda (id del prototipo): la suya o, si no la trae, la de sus productos. */
-export function storeVertical(store) {
-  return store.vertical ?? productsOfStore(store.name).find((product) => product.vertical)?.vertical
-}
-
-// Tope de resultados: con los menús reales una letra suelta calza con miles de platos.
+// Tope de resultados: una letra suelta calza con casi todo el catálogo.
 export const MAX_STORE_RESULTS = 10
 export const MAX_PRODUCT_RESULTS = 30
 

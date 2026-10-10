@@ -1,37 +1,42 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
+import { deals as loadDeals, verticalStores } from '../../api/catalog'
+import { useApi } from '../../api/useApi'
 import BackButton from '../../components/BackButton'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
+import Img from '../../components/Img'
+import OfflineNotice from '../../components/OfflineNotice'
 import { ProductCard } from '../../components/ProductCard'
+import { StoreMeta } from '../../components/StoreMeta'
 import { useToast } from '../../components/Toast'
-import { BoltIcon, ChevronDown, ClockIcon, CrownIcon, SearchIcon } from '../../components/Icons'
+import { ChevronDown, SearchIcon } from '../../components/Icons'
 import { useOpenSearch } from '../../hooks/useOpenSearch'
 import { useAddress } from '../../state/AddressContext'
-import { VERTICALS, toStore } from './data'
+import { VERTICALS } from './data'
 import './vertical.css'
 
-/** Plantilla común de Grocery, Pharmacy, Retail, Liquor, Express, Pet y Chocolates. */
+// Las tiendas que se ven en la pantalla; «Ver más» abre la lista con todas.
+const VISIBLE_STORES = 4
+
+/** Plantilla común de Grocery, Pharmacy, Retail, Liquor, Express y Chocolates: la UI es de aquí, las tiendas y las bajas de precio, de la API. */
 export default function VerticalScreen({ back, push, params }) {
-  // Un id desconocido (enlace viejo) no rompe la pantalla: muestra un estado vacío más abajo.
+  // Un id desconocido (enlace viejo) no rompe la pantalla: muestra un estado vacío más abajo y no pide nada.
   const vertical = VERTICALS[params.id]
-  const sections = vertical?.sections ?? []
   const toast = useToast()
   const address = useAddress()
   const openSearch = useOpenSearch(push)
+  const stores = useApi(() => (vertical ? verticalStores(params.id) : null), [params.id])
+  const deals = useApi(() => (vertical ? loadDeals(params.id) : null), [params.id])
 
-  const allProducts = sections.filter((s) => s.type === 'products').flatMap((s) => s.products)
-  // Con la vertical de la pantalla (no `map(toStore)`: map le pasaría el índice como vertical).
-  const asStore = (store) => toStore(store, params.id)
-  const allStores = sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(asStore))
-  const openCategory = (category) =>
-    push('list', { title: category.label, products: allProducts, stores: allStores })
+  const openCategory = (category) => push('search', { query: category.label })
   const openStore = (store) => push('store', { store })
   // Con el producto tocado: la tienda registra que se vio.
   const openProductStore = (item) =>
-    push('store', {
-      store: { name: item.store, img: item.storeLogo ?? item.img, logo: true, eta: item.eta, etaIcon: item.etaIcon },
-      item })
-  const openBanner = (banner) => (banner.store ? openStore(banner.store) : toast(banner.toast))
+    push('store', { store: { id: item.storeId, name: item.store, vertical: item.vertical }, item })
+  const retry = () => {
+    stores.retry()
+    deals.retry()
+  }
 
   if (!vertical)
     return (
@@ -65,35 +70,27 @@ export default function VerticalScreen({ back, push, params }) {
       )}
 
 
-      {vertical.banners && <BannerCarousel banners={vertical.banners} onOpen={openBanner} />}
+      {vertical.banners && <BannerCarousel banners={vertical.banners} onOpen={(banner) => toast(banner.toast)} />}
 
-      {vertical.sections.map((section) =>
-        section.type === 'products' ? (
-          <section key={section.title} className="vertical-section vertical-section--products">
-            <div className="section-head">
-              <h2 className="vertical-title-strong">{section.title}</h2>
-              <button
-                type="button"
-                className="see-all tap"
-                onClick={() => push('list', { title: section.title, products: section.products })}
-              >
-                See all
-              </button>
-            </div>
-            <div className="vertical-product-row">
-              {section.products.map((item) => (
-                <ProductCard key={item.id} product={item} onOpenStore={() => openProductStore(item)} />
-              ))}
-            </div>
-          </section>
-        ) : (
-          <StoreSection
-            key={section.title}
-            section={section}
-            onOpen={(store) => openStore(asStore(store))}
-            onMore={() => push('list', { title: section.title, stores: section.stores.map(asStore) })}
-          />
-        ),
+      {stores.error && stores.error.status !== 404 && <OfflineNotice onRetry={retry} />}
+      {(stores.error?.status === 404 || stores.data?.stores.length === 0) && (
+        <p className="vertical-empty">Todavía no hay tiendas de esta categoría en el catálogo.</p>
+      )}
+      {stores.data?.stores.length > 0 && (
+        <StoreSection
+          stores={stores.data.stores}
+          onOpen={openStore}
+          onMore={() => push('list', { title: 'Tiendas', stores: stores.data.stores })}
+        />
+      )}
+
+      {/* Las bajas de precio son un extra: si no vienen (o falló esa llamada), la sección no aparece. */}
+      {deals.data?.length > 0 && (
+        <DealsSection
+          deals={deals.data}
+          onOpenStore={openProductStore}
+          onSeeAll={() => push('list', { title: 'Bajaron de precio', products: deals.data })}
+        />
       )}
     </div>
   )
@@ -126,7 +123,7 @@ function BannerCarousel({ banners, onOpen }) {
             key={banner.id}
             type="button"
             className="vertical-banner"
-            aria-label={banner.label ?? banner.store?.name}
+            aria-label={banner.label}
             onClick={() => onOpen(banner)}
           >
             <img src={banner.img} alt="" draggable="false" loading="lazy" />
@@ -138,43 +135,51 @@ function BannerCarousel({ banners, onOpen }) {
   )
 }
 
-function StoreSection({ section, onOpen, onMore }) {
+function DealsSection({ deals, onOpenStore, onSeeAll }) {
+  const titleId = useId()
   return (
-    <section className="vertical-section vertical-section--stores">
+    <section className="vertical-section vertical-section--products" aria-labelledby={titleId}>
       <div className="section-head">
-        <h2 className="section-title">{section.title}</h2>
+        <h2 id={titleId} className="vertical-title-strong">
+          Bajaron de precio
+        </h2>
+        <button type="button" className="see-all tap" onClick={onSeeAll}>
+          Ver todo
+        </button>
+      </div>
+      <HScroll className="vertical-product-row">
+        {deals.map((item) => (
+          <ProductCard key={item.id} product={item} onOpenStore={() => onOpenStore(item)} />
+        ))}
+      </HScroll>
+    </section>
+  )
+}
+
+function StoreSection({ stores, onOpen, onMore }) {
+  const titleId = useId()
+  return (
+    <section className="vertical-section vertical-section--stores" aria-labelledby={titleId}>
+      <div className="section-head">
+        <h2 id={titleId} className="section-title">
+          Tiendas
+        </h2>
         <button type="button" className="see-more tap" onClick={onMore}>
-          View more
+          Ver más
         </button>
       </div>
       <div className="vertical-store-list">
-        {section.stores.map((store) => (
+        {stores.slice(0, VISIBLE_STORES).map((store) => (
           <button key={store.id} type="button" className="vertical-store tap" onClick={() => onOpen(store)}>
-            <img src={store.logo} alt="" className="vertical-store-logo" loading="lazy" />
+            <Img src={store.img} className="vertical-store-logo" />
             <span className="vertical-store-text">
               <span className="vertical-store-name">
                 <strong>{store.name}</strong>
-                {store.ad && <span className="vertical-ad">Ad</span>}
               </span>
-              <span className="vertical-store-eta">
-                {store.etaIcon === 'clock' ? (
-                  <ClockIcon size={16} />
-                ) : (
-                  <BoltIcon size={16} className="vertical-bolt" />
-                )}
-                {store.eta}
-              </span>
-              {store.promo && (
-                <span className="vertical-promo">
-                  {store.promoCrown && <CrownIcon size={15} />}
-                  {store.promo}
-                </span>
-              )}
+              {store.eta && <StoreMeta store={store} className="vertical-store-meta" />}
             </span>
           </button>
         ))}
-        {/* Columna siguiente asomándose por el borde, recortada tal cual de la captura */}
-        <img className="vertical-peek" src={section.peek.img} alt="" loading="lazy" style={{ top: section.peek.top }} />
       </div>
     </section>
   )

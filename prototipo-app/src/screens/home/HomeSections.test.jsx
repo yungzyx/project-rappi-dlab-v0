@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, expect, test, vi } from 'vitest'
 import { ToastProvider } from '../../components/Toast'
+import { MAIN_TILES, SHORTCUTS } from '../../data/home'
 import { Promos, Shortcuts } from './HomeSections'
 
 beforeAll(() => {
@@ -32,4 +33,14 @@ test('RappiFavor abre solo con `proposal` (el prototipo final); hoy sigue no dis
   render(<Shortcuts push={push} proposal />, { wrapper: ToastProvider })
   fireEvent.click(screen.getByText('RappiFavor'))
   expect(push).toHaveBeenCalledWith('favor')
+})
+
+test('no hay atajo a Mascotas', () => {
+  expect(SHORTCUTS.map((item) => item.id)).not.toContain('pet')
+  const push = vi.fn()
+  render(<Shortcuts push={push} />, { wrapper: ToastProvider })
+  expect(screen.queryByText(/^(Pet|Mascotas)$/)).toBeNull()
+  for (const button of document.querySelectorAll('.home-shortcut')) fireEvent.click(button)
+  expect(push.mock.calls.map(([, params]) => params?.id)).not.toContain('pet')
+  for (const tile of [...MAIN_TILES, ...SHORTCUTS]) expect(tile.route?.[1]?.id).not.toBe('pet')
 })

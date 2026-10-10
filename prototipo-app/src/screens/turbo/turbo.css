@@ -85,27 +85,16 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.28);
 }
 
+/* Los pasillos de la tienda Turbo: solo texto (la base no guarda íconos de pasillo) */
 .turbo-tab {
   flex: none;
   position: relative;
-  width: 76px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  padding-bottom: 14px;
+  padding: 12px 14px 14px;
   color: var(--surface);
-  font-size: 15px;
+  font-size: 16px;
+  white-space: nowrap;
   opacity: 0.82;
   transition: opacity var(--duration-fast);
-}
-
-.turbo-tab img {
-  height: 31px;
-}
-
-.turbo-tab svg {
-  height: 31px;
 }
 
 .turbo-tab::after {
@@ -242,6 +231,28 @@
   margin-bottom: 26px;
 }
 
+/* Mientras llegan los productos de un pasillo */
+.turbo-skeleton {
+  height: 260px;
+  border-radius: 15px;
+  background: var(--chip);
+}
+
+.turbo-more {
+  display: block;
+  height: 40px;
+  margin: 28px auto 0;
+  padding: 0 24px;
+  border-radius: 99px;
+  background: #ebeff3;
+  font-size: 15.5px;
+  font-weight: 500;
+}
+
+.turbo-more:disabled {
+  opacity: 0.6;
+}
+
 .turbo-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -282,14 +293,6 @@
   border-bottom: 1px solid var(--line);
   text-align: left;
   font-size: 17px;
-}
-
-.turbo-category img,
-.turbo-category svg {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-  color: var(--turbo-green);
 }
 
 .turbo-category span {

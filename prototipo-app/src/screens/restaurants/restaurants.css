@@ -117,6 +117,13 @@
   max-width: 90px;
 }
 
+/* La cocina que filtra la lista */
+.rest-category.is-active .rest-category-label {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 /* ---------- Banners ---------- */
 .rest-banners {
   gap: 12px;
@@ -175,14 +182,9 @@
   margin: 12px auto 0;
 }
 
-/* ---------- Order again ---------- */
+/* ---------- Lista de restaurantes (de la API) ---------- */
 .rest-title {
   padding: 40px var(--gutter) 0;
-}
-
-.rest-again {
-  gap: 16px;
-  padding: 25px var(--gutter) 0;
 }
 
 .rest-real-note {
@@ -191,43 +193,27 @@
   color: var(--ink-3);
 }
 
-.rest-real {
-  gap: 17px;
+.rest-list {
+  display: grid;
+  gap: 28px;
   padding: 20px var(--gutter) 0;
-  scroll-padding-left: var(--gutter);
 }
 
-.again-card {
-  flex: none;
-  width: 162px;
-  display: flex;
-  flex-direction: column;
-  text-align: left;
+.rest-list .featured-card {
+  width: 100%;
 }
 
-.again-card img {
-  width: 162px;
-  height: 100px;
-  border-radius: 15px;
-  object-fit: cover;
-}
-
-.again-name {
-  margin-top: 11px;
-  font-size: 17px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.again-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 5px;
-  font-size: 14.5px;
+.rest-empty {
+  padding: 32px var(--gutter) 0;
   color: var(--ink-2);
-  white-space: nowrap;
-  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+/* Mientras llegan: una tarjeta gris, para que la lista no salte */
+.rest-skeleton {
+  height: 220px;
+  margin: 20px var(--gutter) 0;
+  border-radius: 15px;
+  background: var(--chip);
 }

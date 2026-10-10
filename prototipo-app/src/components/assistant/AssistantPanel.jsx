@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { storeOfProduct } from '../../api/catalog'
 import { chat, forget, health, profile as remoteProfile, toMessage } from '../../api/client'
 import { conceptOf } from '../../api/orders'
 import { firstShowing } from '../../api/useRemoteForYou'
@@ -333,12 +334,11 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const openStore = (store) => go('store', { store })
   const openProduct = (product) =>
     go('store', {
-      // Un plato real abre su sucursal (por id): otras pueden tener el mismo nombre.
-      store: storeFor({ id: product.storeId, name: product.store }) ?? {
-        name: product.store,
-        img: product.img,
-        eta: product.eta,
-      },
+      // Un producto o plato de la API abre su tienda por id (otras pueden tener el mismo nombre); el catálogo local, por nombre.
+      store:
+        product.storeId != null
+          ? storeOfProduct(product)
+          : (storeFor({ name: product.store }) ?? { name: product.store, img: product.img, eta: product.eta }),
       item: product,
     })
 

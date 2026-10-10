@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest'
-import { COMPLEMENTS } from './tags'
+import { COMPLEMENTS, TAGS } from './tags'
 import { discoveries } from './discover'
 import { EXPLORABLE, exploredVerticals, markExplored } from './explored'
 
@@ -60,5 +60,21 @@ describe('restaurantes', () => {
     expect(
       cards.filter((card) => card.vertical === 'restaurants').every((card) => prepared.includes(card.to.tag)),
     ).toBe(true)
+  })
+})
+
+describe('Mascotas', () => {
+  test('no es una vertical que se explore ni se sugiera: ya no está en la app', () => {
+    expect(EXPLORABLE).not.toContain('pet')
+    markExplored('pet')
+    expect(exploredVerticals()).toEqual([])
+
+    const sources = [[], ...Object.keys(TAGS).map((tag) => [tag])]
+    for (const top of sources) {
+      for (const card of discoveries(top)) {
+        expect(card.vertical, `tarjeta de ${top.join()}`).not.toBe('pet')
+        expect(EXPLORABLE).toContain(card.vertical)
+      }
+    }
   })
 })

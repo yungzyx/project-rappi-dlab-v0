@@ -184,6 +184,7 @@ describe('sugerencia cruzada', () => {
             entity_id: '1',
             name: 'Bebida Pepsi 1,5 L',
             store: 'Botillería',
+            store_id: 7, // sin tienda conocida la hoja no ofrece «Ver tienda»
             vertical: 'licores',
           },
         ],
@@ -196,10 +197,42 @@ describe('sugerencia cruzada', () => {
     fireEvent.click(screen.getByText('Bebida Pepsi 1,5 L'))
     fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ })) // la tarjeta abre la hoja del producto
     await runUntilIdle()
-    expect(push).toHaveBeenCalledWith(
-      'store',
-      expect.objectContaining({ item: expect.objectContaining({ entityId: '1', vertical: 'licores' }) }),
-    )
+    expect(push).toHaveBeenCalledWith('store', {
+      // La tienda de la API se abre por su id, con la vertical del prototipo; no se busca por nombre en el catálogo local.
+      store: { id: 7, name: 'Botillería', vertical: 'liquor' },
+      item: expect.objectContaining({ entityId: '1', vertical: 'liquor', backendVertical: 'licores' }),
+    })
+  })
+
+  test('el «Ver tienda» de un plato abre el menú de su restaurante por id', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      ...apiAnswer('Mira estas hamburguesas', 'hamburguesa'),
+      suggestion: {
+        ...apiAnswer('', 'hamburguesa').suggestion,
+        products: [
+          {
+            id: 'menu-5',
+            entity_type: 'menu_item',
+            entity_id: '5',
+            name: 'Hamburguesa clásica',
+            store: 'Hamburguesería de prueba',
+            store_id: 9803,
+            vertical: 'restaurantes',
+          },
+        ],
+      },
+    })
+    await renderPanel({ push })
+    say('una hamburguesa')
+    await runUntilIdle()
+
+    fireEvent.click(screen.getByText('Hamburguesa clásica'))
+    fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ }))
+    await runUntilIdle()
+    expect(push).toHaveBeenCalledWith('store', expect.objectContaining({
+      store: { id: 9803, name: 'Hamburguesería de prueba', vertical: 'restaurants' },
+    }))
   })
 })
 
@@ -472,6 +505,44 @@ describe('sugerencias mostradas', () => {
     await runUntilIdle()
     const shown = events.track.mock.calls.filter(([name, f]) => name === 'suggestion_shown' && f.concept_id === 'helados')
     expect(shown).toHaveLength(1)
+  })
+})
+
+describe('aceptar una sugerencia de la API', () => {
+  test('el chat y el «+» cuentan la mostrada una sola vez, aunque la vertical llegue como código del backend y como id del prototipo', async () => {
+    api.chat.mockResolvedValueOnce({
+      text: 'Mira estas hamburguesas',
+      products: [],
+      suggestion: {
+        // Concepto propio de este test: lo mostrado se recuerda en la pestaña y otros tests ya usaron «gaseosas».
+        concept: 'jugos',
+        vertical: 'licores', // el código del backend, como lo deja toMessage en la sugerencia
+        prototype_vertical: 'liquor',
+        reason: 'Porque llevas 🍔 hamburguesa',
+        question: '¿Te tinca sumar jugos?',
+        products: [
+          {
+            id: 'cat-1',
+            entity_type: 'catalog_item',
+            entity_id: '1',
+            name: 'Jugo de naranja 1 L',
+            price: '$1.990',
+            store: 'Botillería',
+            vertical: 'licores',
+            concept: 'jugos',
+          },
+        ],
+      },
+    })
+    await renderPanel()
+    say('una hamburguesa')
+    await runUntilIdle()
+
+    fireEvent.click(screen.getByLabelText('Agregar Jugo de naranja 1 L'))
+    const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
+    expect(tracked('suggestion_shown')).toHaveLength(1)
+    expect(tracked('suggestion_accepted')).toHaveLength(1)
+    expect(tracked('suggestion_accepted')[0]).toMatchObject({ concept_id: 'jugos', payload: { origen: 'chat' } })
   })
 })
 

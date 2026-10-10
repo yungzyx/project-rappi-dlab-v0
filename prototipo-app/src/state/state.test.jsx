@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { CartProvider, formatPrice, parsePrice, useCart } from './CartContext'
+import { CartProvider, formatPrice, lineKey, parsePrice, useCart } from './CartContext'
 import { ProfileProvider, WEIGHTS, useProfile } from './ProfileContext'
 
 const BEER = { id: 'beer', name: 'Cerveza Heineken', price: '$6.690' }
@@ -74,6 +74,63 @@ describe('CartContext', () => {
     expect(result.current.total).toBe(1290 * 2 + 1390)
     act(() => result.current.remove(OFFER_B))
     expect(result.current.items.map((line) => line.product.store)).toEqual(['Botillería'])
+  })
+
+  // La vertical depende de la pantalla: Lider Big se lista en Súper (`grocery`) pero su página dice conveniencia (`express`).
+  const BIG_FROM_DEAL = {
+    id: 'cat-300',
+    name: 'Leche entera 1 L',
+    price: '$1.090',
+    vertical: 'grocery',
+    store: 'Lider Big',
+    storeId: 4401,
+  }
+  const BIG_FROM_STORE = { ...BIG_FROM_DEAL, vertical: 'express' }
+
+  test('el mismo producto de la misma tienda es una sola línea aunque llegue con otra vertical', () => {
+    const { result } = setup()
+    act(() => result.current.add(BIG_FROM_DEAL))
+    act(() => result.current.add(BIG_FROM_STORE))
+    expect(result.current.items).toHaveLength(1)
+    expect(result.current.qtyOf(BIG_FROM_DEAL)).toBe(2)
+    expect(result.current.qtyOf(BIG_FROM_STORE)).toBe(2)
+    expect(lineKey(BIG_FROM_DEAL)).toBe('cat-300|4401')
+    // Otra tienda (otro storeId) sigue siendo otra oferta, aunque se llame igual.
+    act(() => result.current.add({ ...BIG_FROM_DEAL, storeId: 4402 }))
+    expect(result.current.items).toHaveLength(2)
+    act(() => result.current.remove(BIG_FROM_STORE))
+    expect(result.current.qtyOf(BIG_FROM_DEAL)).toBe(1)
+  })
+
+  test('sin storeId la oferta sigue siendo producto + vertical + tienda', () => {
+    expect(lineKey(OFFER_A)).toBe('cat-200|licores|Botillería')
+    expect(lineKey({ id: 'x', price: '$1' })).toBe('x||')
+  })
+
+  test('un carrito guardado con las claves de antes sigue cargando y sus líneas repetidas se suman', () => {
+    const old = (product, qty, extra = {}) => ({ product, qty, fromSuggestion: false, ...extra })
+    localStorage.setItem(
+      'rappi-proto-cart',
+      JSON.stringify({
+        id: 'c-viejo',
+        lines: {
+          'cat-300|grocery|Lider Big': old(BIG_FROM_DEAL, 1, { note: 'bien fría' }),
+          'cat-300|express|Lider Big': old(BIG_FROM_STORE, 2, { fromSuggestion: true }),
+          'cat-200|licores|Botillería': old(OFFER_A, 1),
+        },
+      }),
+    )
+    const { result } = setup()
+    expect(result.current.id).toBe('c-viejo')
+    expect(result.current.items).toHaveLength(2)
+    expect(result.current.count).toBe(4)
+    expect(result.current.qtyOf(BIG_FROM_STORE)).toBe(3)
+    expect(result.current.noteOf(BIG_FROM_DEAL)).toBe('bien fría')
+    expect(result.current.total).toBe(1090 * 3 + 1290)
+    // Agregar desde cualquier pantalla suma a esa línea en vez de abrir otra.
+    act(() => result.current.add(BIG_FROM_DEAL))
+    expect(result.current.items).toHaveLength(2)
+    expect(result.current.qtyOf(BIG_FROM_DEAL)).toBe(4)
   })
 
   test('la línea recuerda que vino de una sugerencia aunque después se sume desde otra tarjeta', () => {

@@ -26,14 +26,16 @@ function joinWithDots(parts) {
   )
 }
 
-/** Línea "⚡ 12 min • FREE SHIPPING • 1.4 km" de tarjetas y página de tienda. */
+/** Línea "⚡ 12 min • FREE SHIPPING • 1.4 km" de tarjetas y página de tienda. Lo que falta (p. ej. el tiempo) no se muestra. */
 export function StoreMeta({ store, className = '' }) {
   const iconKind = store.etaIcon ?? (store.turbo ? 'turbo' : 'bolt')
   const meta = joinWithDots([
-    <span key="eta" className="featured-eta">
-      <EtaIcon kind={iconKind} />
-      {store.eta}
-    </span>,
+    store.eta && (
+      <span key="eta" className="featured-eta">
+        <EtaIcon kind={iconKind} />
+        {store.eta}
+      </span>
+    ),
     store.deliveryLabel && (
       <span key="pill" className="free-delivery">
         <CrownIcon size={13} />

@@ -10,7 +10,6 @@ export const EXPLORABLE = [
   'retail',
   'liquor',
   'express',
-  'pet',
   'chocolates',
 ]
 

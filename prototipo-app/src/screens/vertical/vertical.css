@@ -156,6 +156,10 @@
   overflow: hidden;
 }
 
+.vertical-product-row.hscroll {
+  overflow-x: auto;
+}
+
 /* ---------- Listas de tiendas ---------- */
 .vertical-store-list {
   position: relative;
@@ -202,39 +206,10 @@
   text-overflow: ellipsis;
 }
 
-.vertical-ad {
-  flex: none;
-  padding: 0 5px;
-  border: 1px solid #e6e8ec;
-  border-radius: 5px;
-  font-size: 10.5px;
-  color: #9198a6;
-}
-
-.vertical-store-eta {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+.vertical-store-meta {
+  margin-top: 0;
+  padding-left: 0;
   font-size: 15.5px;
-}
-
-.vertical-bolt {
-  color: #f29437;
-}
-
-.vertical-promo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: max-content;
-  height: 22px;
-  margin-top: 2px;
-  padding: 0 8px;
-  border-radius: 99px;
-  background: #f1f6fd;
-  color: #2b4e9d;
-  font-size: 15px;
-  font-weight: 700;
 }
 
 .vertical-empty {
@@ -242,11 +217,4 @@
   color: var(--ink-3);
   font-size: 15px;
   text-align: center;
-}
-
-.vertical-peek {
-  position: absolute;
-  left: 90.5%; /* 364 de 402 px: en un teléfono más angosto sigue asomando por el borde */
-  width: 38px;
-  pointer-events: none;
 }

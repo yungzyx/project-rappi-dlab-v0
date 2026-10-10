@@ -42,7 +42,7 @@ export function cartEventFields(item, cartId, { qty } = {}) {
 }
 
 // Verticales que acepta POST /orders. El pedido va con el código del backend: así un producto de la API
-// ('licores') y uno de las capturas ('liquor') de la misma vertical forman un solo pedido.
+// (`backendVertical: 'licores'`) y uno de las capturas (`vertical: 'liquor'`) de la misma vertical forman un solo pedido.
 const BACKEND_VERTICALS = {
   grocery: 'supermercado',
   liquor: 'licores',
@@ -63,7 +63,7 @@ const orderVertical = (vertical) => (BACKEND_CODES.has(vertical) ? vertical : BA
 export function buildOrders(items, { userId, sessionId, cartId }) {
   const byVertical = new Map()
   for (const { product, qty, fromSuggestion } of items) {
-    const vertical = orderVertical(product.vertical)
+    const vertical = orderVertical(product.backendVertical ?? product.vertical)
     if (!vertical) continue
     const line = {
       entity_type: product.entityType === 'menu_item' ? 'menu_item' : 'catalog_item',

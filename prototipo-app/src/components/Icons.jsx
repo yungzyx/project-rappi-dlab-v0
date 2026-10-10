@@ -184,13 +184,6 @@ export const MoreIcon = (p) => (
   </Svg>
 )
 
-export const LampIcon = (p) => (
-  <Svg strokeWidth={1.8} {...p}>
-    <path d="M8 3.5h8l3 8H5z" />
-    <path d="M12 11.5v7M8 20.5h8" />
-  </Svg>
-)
-
 export const BellSlashIcon = (p) => (
   <Svg strokeWidth={2.2} {...p}>
     <path d="M6.5 16.5V11a5.5 5.5 0 0 1 8.8-4.4M17.5 10.5v6H8" />

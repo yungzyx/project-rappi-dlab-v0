@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { screenForBackend } from '../data/verticals'
 import { health, recommendations, toPrototypeProduct } from './client'
 import { userId } from './user'
 
@@ -16,9 +17,12 @@ const shown = new Set()
 /**
  * true la primera vez que se muestra esta sugerencia en la pestaña (concepto, vertical, origen y generación del
  * perfil): la misma clave con que AddButton cuenta su aceptación, para que las aceptadas nunca superen a las mostradas.
+ * La vertical cuenta igual como código del backend ('licores', el de la sugerencia del chat) que como id del prototipo
+ * ('liquor', el de sus productos).
  */
 export function firstShowing(row) {
-  const key = `${row.concept}|${row.vertical}|${row.origin}|${row.generation}`
+  const vertical = screenForBackend(row.vertical) ?? row.vertical
+  const key = `${row.concept}|${vertical}|${row.origin}|${row.generation}`
   if (shown.has(key)) return false
   shown.add(key)
   return true

@@ -40,6 +40,7 @@ format:  ## Formatea el código
 	$(PY) -m ruff format src tests
 
 contract:  ## Reescribe las respuestas de ejemplo de la API que usa la app (prototipo-app/src/api/fixtures)
+	@$(PY) -c 'import os, sys, rappi_ia; os.environ.get("DATABASE_URL_TEST") or sys.exit("Falta DATABASE_URL_TEST: `make contract` no puede escribir los ejemplos")'
 	RAPPI_CONTRACT_WRITE=1 $(PY) -m pytest tests/integration/test_contract.py
 
 concepts:  ## Capa 2: conceptos por producto y plato (con kNN si hay extra ml)

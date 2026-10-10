@@ -8,7 +8,6 @@ import json
 import logging
 import re
 import time
-from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Annotated, Literal
@@ -20,16 +19,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from psycopg import Connection, DataError, OperationalError
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
-from rappi_scraper.storage.search import VERTICALS
 
 from .. import config
 from ..agent.bigotes import PROTOTYPE_VERTICALS, Context
 from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
 from ..concepts.taxonomy import load_taxonomy
-from ..db import connect
 from ..events import store as events
 from ..retrieval.hybrid import MODES
+from .catalog import router as catalog_router
+from .deps import backend_vertical, get_conn
 from .services import Services, services
 
 log = logging.getLogger(__name__)
@@ -94,7 +93,6 @@ async def invalid_data(request: Request, exc: DataError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": "Dato inválido"})
 
 
-FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 EMPTY_VERTICAL_FALLBACK = {"turbo": "conveniencia"}  # mismo tipo de tienda (minimarket con entrega rápida)
 MAX_UPLOAD_BYTES = 8_000_000
 MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
@@ -105,23 +103,8 @@ AUDIO_TYPES = ("audio/", "video/webm", "video/mp4")
 MODES_LITERAL = ("propuesta", "actual")
 
 
-def get_conn() -> Iterator[Connection]:
-    """Falla rápido si Postgres no responde o una consulta se atasca (el prototipo tiene su cerebro local)."""
-    with connect(connect_timeout=3, options="-c statement_timeout=20s") as conn:
-        yield conn
-
-
 def get_services() -> Services:
     return services()
-
-
-def backend_vertical(vertical: str | None) -> str | None:
-    """Acepta el código del backend ('licores') o el id del prototipo ('liquor'). Otro valor ('pet', que no es un
-    vertical del catálogo) se trata como "sin vertical": Bigotes lo deduce del mensaje."""
-    if vertical is None:
-        return None
-    code = FROM_PROTOTYPE.get(vertical, vertical)
-    return code if code in VERTICALS else None
 
 
 def _no_nul(value):
@@ -581,3 +564,6 @@ def _check_audio_length(data: bytes) -> None:
         raise HTTPException(400, "El audio no es válido") from exc
     if seconds > MAX_AUDIO_SECONDS:
         raise HTTPException(413, f"Audio demasiado largo (máx. {MAX_AUDIO_SECONDS} s)")
+
+
+app.include_router(catalog_router)

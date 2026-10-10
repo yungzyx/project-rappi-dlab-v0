@@ -9,7 +9,15 @@ import { useAddress } from '../../../state/AddressContext'
 import { useAddToCart } from '../../../hooks/useAddToCart'
 import { useProfile } from '../../../state/ProfileContext'
 import CreditsBanner from '../CreditsBanner'
-import { LowerFees, MainTiles, NearbyStores, Promos, Shortcuts, TurboRestaurants } from '../HomeSections'
+import {
+  BestRated,
+  FastRestaurants,
+  MainTiles,
+  NearbyStores,
+  Promos,
+  Shortcuts,
+  useHomeCatalog,
+} from '../HomeSections'
 import { CREDITS } from '../../../data/home'
 import '../home.css'
 import LiveBigotes from './LiveBigotes'
@@ -61,6 +69,7 @@ function usePrefersReducedMotion() {
 export default function LiveHomeFeed({ push, active = true }) {
   const toast = useToast()
   const address = useAddress()
+  const catalog = useHomeCatalog()
   const { add: addToCart } = useAddToCart()
   const profile = useProfile()
   const reduceMotion = usePrefersReducedMotion()
@@ -379,7 +388,7 @@ export default function LiveHomeFeed({ push, active = true }) {
       />
     ),
     promos: <Promos push={push} />,
-    turbo: <TurboRestaurants push={push} />,
+    turbo: <FastRestaurants stores={catalog.fastRestaurants} push={push} />,
     plan: (
       <PlanBlock
         plan={plan}
@@ -391,8 +400,8 @@ export default function LiveHomeFeed({ push, active = true }) {
         onCheckout={() => push('checkout')}
       />
     ),
-    nearby: <NearbyStores push={push} />,
-    lower: <LowerFees push={push} />,
+    nearby: <NearbyStores stores={catalog.nearbyStores} push={push} />,
+    lower: <BestRated stores={catalog.bestRated} push={push} />,
   }
 
   return (

@@ -24,47 +24,78 @@ function slowBody(pathname) {
   }
 }
 
-function respond(route, { pathname, signal }) {
-  if (route === undefined) return Promise.resolve(json(404, { detail: 'Not Found' }))
-  if (route === 'offline') return Promise.reject(new TypeError('Failed to fetch'))
-  if (typeof route === 'number') return Promise.resolve(json(route, { detail: `HTTP ${route}` }))
-  if (typeof route === 'string' && route.startsWith('slow:')) {
-    const delay = Number(route.slice('slow:'.length))
-    return new Promise((resolve, reject) => {
-      const abort = () => {
-        clearTimeout(timer)
-        reject(new DOMException('The operation was aborted.', 'AbortError'))
-      }
-      const timer = setTimeout(() => {
-        signal?.removeEventListener('abort', abort)
-        resolve(json(200, slowBody(pathname)))
-      }, delay)
-      if (signal?.aborted) abort()
-      else signal?.addEventListener('abort', abort, { once: true })
-    })
+/** Espera `delay` ms; se rinde (como un fetch abortado) si la petición se aborta antes. */
+function wait(delay, signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer)
+      reject(new DOMException('The operation was aborted.', 'AbortError'))
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', abort)
+      resolve()
+    }, delay)
+    if (signal?.aborted) abort()
+    else signal?.addEventListener('abort', abort, { once: true })
+  })
+}
+
+const isSlow = (value) => typeof value === 'object' && value !== null && typeof value.slow === 'number'
+
+async function respond(route, req, signal) {
+  const value = typeof route === 'function' ? route(req) : route
+  if (value === undefined) return json(404, { detail: 'Not Found' })
+  if (value === 'offline') throw new TypeError('Failed to fetch')
+  if (typeof value === 'number') return value === 204 ? new Response(null, { status: 204 }) : json(value, { detail: `HTTP ${value}` })
+  if (typeof value === 'string' && value.startsWith('slow:')) {
+    await wait(Number(value.slice('slow:'.length)), signal)
+    return json(200, slowBody(req.path))
   }
-  return Promise.resolve(json(200, route))
+  if (isSlow(value)) {
+    await wait(value.slow, signal)
+    return respond(value.body, req, signal)
+  }
+  return json(200, value)
+}
+
+const KEY = /^(?:(GET|POST|PUT|DELETE) )?(\/[^?#\s]*)$/
+
+/** 'GET /ruta' o '/ruta' → 'GET /ruta'. Una clave que no calza falla aquí: si no, la ruta se vería como un 404. */
+function normalizeKey(key) {
+  const match = KEY.exec(key)
+  if (!match) throw new Error(`stubApi: clave inválida «${key}» (usa 'GET /ruta', 'POST /ruta' o '/ruta', sin query string)`)
+  const [, method = 'GET', path] = match
+  return `${method} ${path}`
+}
+
+/** El cuerpo de la petición como lo vería la API: JSON ya leído (o el texto, si no lo es); otros tipos, tal cual. */
+function parseBody(body) {
+  if (typeof body !== 'string') return body
+  try {
+    return JSON.parse(body)
+  } catch {
+    return body
+  }
 }
 
 /**
- * Reemplaza `fetch` por respuestas de ejemplo. Las claves son 'GET /health' o '/health' (sin método es GET) y se
- * comparan con la ruta sin la query. El valor puede ser:
+ * Reemplaza `fetch` por respuestas de ejemplo. Las claves son 'GET /health', 'POST /chat' (también PUT y DELETE) o
+ * '/health' (sin método es GET) y se comparan con la ruta sin la query; cualquier otra clave lanza un error. El valor puede ser:
  * - un objeto: se responde 200 con ese JSON;
- * - un número: se responde ese estado;
+ * - un número: se responde ese estado (204, sin cuerpo: el cliente lo lee como null);
  * - 'offline': el fetch falla, como sin red;
- * - 'slow:<ms>': responde la fixture de la ruta pasados esos ms (se rinde si la petición se aborta).
+ * - 'slow:<ms>': responde la fixture de la ruta pasados esos ms (se rinde si la petición se aborta);
+ * - { slow: ms, body }: responde `body` (cualquiera de estos valores) pasados esos ms;
+ * - (req) => valor: decide según `req = { method, path, query: URLSearchParams, body }` (el cuerpo, ya leído como JSON).
  * Lo que no está en `routes` responde 404. Devuelve el mock de `fetch` para revisar las llamadas.
  */
 export function stubApi(routes) {
-  const table = new Map(
-    Object.entries(routes).map(([key, route]) => {
-      const [, method = 'GET', path] = key.match(/^(?:([A-Z]+)\s+)?(\/.*)$/) ?? []
-      return [`${method} ${path}`, route]
-    }),
-  )
-  const fetchMock = vi.fn((url, { method = 'GET', signal } = {}) => {
-    const { pathname } = new URL(url)
-    return respond(table.get(`${method.toUpperCase()} ${pathname}`), { pathname, signal })
+  const table = new Map(Object.entries(routes).map(([key, route]) => [normalizeKey(key), route]))
+  const fetchMock = vi.fn(async (url, { method = 'GET', body, signal } = {}) => {
+    const { pathname, searchParams } = new URL(url)
+    const verb = method.toUpperCase()
+    const req = { method: verb, path: pathname, query: searchParams, body: parseBody(body) }
+    return respond(table.get(`${verb} ${pathname}`), req, signal)
   })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock

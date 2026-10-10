@@ -7,7 +7,7 @@ export default function StoreList({ stores, onOpen }) {
   return (
     <ul className="search-stores">
       {stores.map((store) => (
-        <li key={store.name}>
+        <li key={store.id ?? store.name}>
           <button type="button" className="search-store tap" onClick={() => onOpen(store)}>
             <Img src={store.img} className={store.logo ? 'is-logo' : undefined} />
             <span>

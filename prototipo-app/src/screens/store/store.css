@@ -163,6 +163,22 @@
   padding-top: 18px;
 }
 
+/* «Ver más» al final de los productos de un pasillo */
+.store-more {
+  display: block;
+  height: 40px;
+  margin: 16px auto 0;
+  padding: 0 24px;
+  border-radius: 99px;
+  background: #ebeff3;
+  font-size: 15.5px;
+  font-weight: 500;
+}
+
+.store-more:disabled {
+  opacity: 0.6;
+}
+
 .menu-section h2 {
   font-size: 20px;
   font-weight: 600;

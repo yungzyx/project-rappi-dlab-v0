@@ -1,22 +1,22 @@
 import { useState } from 'react'
+import { restaurants as loadRestaurants } from '../../api/catalog'
+import { useApi } from '../../api/useApi'
 import BackButton from '../../components/BackButton'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
-import Img from '../../components/Img'
+import OfflineNotice from '../../components/OfflineNotice'
 import { useToast } from '../../components/Toast'
 import {
   BoltIcon,
   ChevronDown,
-  CrownIcon,
   SearchIcon,
   SlidersIcon,
   StarIcon,
   TrophyIcon } from '../../components/Icons'
 import { useOpenSearch } from '../../hooks/useOpenSearch'
 import { useAddress } from '../../state/AddressContext'
-import { REAL_RESTAURANTS } from '../../data/realMenus'
 import { RestaurantCard } from '../home/StoreCards'
-import { BANNERS, CATEGORIES, FILTERS, ORDER_AGAIN } from './data'
+import { BANNERS, CATEGORIES, FILTERS } from './data'
 import './restaurants.css'
 
 const FILTER_ICONS = {
@@ -30,6 +30,8 @@ export default function RestaurantsScreen({ back, push }) {
   const openSearch = useOpenSearch(push)
   const [activeFilters, setActiveFilters] = useState(() => new Set())
   const [bannerIndex, setBannerIndex] = useState(0)
+  const [cuisine, setCuisine] = useState(null) // la cocina que filtra la lista, o ninguna
+  const list = useApi(() => loadRestaurants({ sort: 'rating', cuisine }), [cuisine])
 
   const toggleFilter = (id) =>
     setActiveFilters((prev) => {
@@ -85,19 +87,27 @@ export default function RestaurantsScreen({ back, push }) {
       </HScroll>
 
       <div className="rest-categories">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.id}
-            type="button"
-            className="rest-category tap"
-            onClick={() => push('search', { query: cat.query, vertical: 'restaurants' })}
-          >
-            <span className={cat.partial ? 'rest-category-img is-partial' : 'rest-category-img'}>
-              <img src={cat.img} alt="" loading="lazy" />
-            </span>
-            <span className="rest-category-label">{cat.label}</span>
-          </button>
-        ))}
+        {CATEGORIES.map((cat) => {
+          // Una cocina filtra la lista (tocarla otra vez la quita); las demás abren el buscador.
+          const isActive = cat.cuisine === cuisine
+          const onClick = cat.cuisine
+            ? () => setCuisine(isActive ? null : cat.cuisine)
+            : () => push('search', { query: cat.query, vertical: 'restaurants' })
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              className={isActive ? 'rest-category is-active tap' : 'rest-category tap'}
+              aria-pressed={cat.cuisine ? isActive : undefined}
+              onClick={onClick}
+            >
+              <span className={cat.partial ? 'rest-category-img is-partial' : 'rest-category-img'}>
+                <img src={cat.img} alt="" loading="lazy" />
+              </span>
+              <span className="rest-category-label">{cat.label}</span>
+            </button>
+          )
+        })}
       </div>
 
       <Carousel className="rest-banners" autoplayMs={4500} onIndexChange={setBannerIndex}>
@@ -106,15 +116,8 @@ export default function RestaurantsScreen({ back, push }) {
             key={banner.id}
             type="button"
             className="rest-banner"
-            aria-label={banner.title ? undefined : banner.store.name}
-            onClick={() =>
-              push('store', {
-                store: banner.store ?? {
-                  name: banner.place.replace(/^at /, ''),
-                  img: banner.img,
-                  deliveryLabel: 'FREE DELIVERY',
-                  eta: '15 min' } })
-            }
+            aria-label={banner.title ? undefined : banner.label}
+            onClick={() => toast()}
           >
             {banner.title ? (
               <>
@@ -132,49 +135,22 @@ export default function RestaurantsScreen({ back, push }) {
       </Carousel>
       <Dots count={BANNERS.length} active={bannerIndex} className="rest-banner-dots" />
 
-      <h2 className="section-title rest-title">Order again</h2>
-      <HScroll className="rest-again">
-        {ORDER_AGAIN.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className="again-card tap"
-            onClick={() =>
-              push('store', {
-                store: { name: item.name, img: item.img, eta: item.eta, deliveryLabel: 'FREE DELIVERY' } })
-            }
-          >
-            <Img src={item.img} draggable="false" />
-            <span className="again-name">{item.name}</span>
-            <span className="again-meta">
-              {item.eta}
-              <span className="free-delivery">
-                <CrownIcon size={13} />
-                FREE DELIVERY
-              </span>
-            </span>
-          </button>
-        ))}
-      </HScroll>
-
-      {REAL_RESTAURANTS.length > 0 && (
-        <>
-          <h2 className="section-title rest-title">Cerca de ti</h2>
-          <p className="rest-real-note">Menús y precios reales de Rappi Chile</p>
-          <HScroll className="rest-real">
-            {REAL_RESTAURANTS.map((store) => (
-              <RestaurantCard
-                key={store.id}
-                store={store}
-                onClick={() =>
-                  // Con el id: dos sucursales pueden tener el mismo nombre y cada una tiene su menú.
-                  push('store', {
-                    store: { id: store.id, name: store.name, img: store.img, eta: store.eta, rating: store.rating } })
-                }
-              />
-            ))}
-          </HScroll>
-        </>
+      <h2 className="section-title rest-title">{cuisine ?? 'Mejor evaluados'}</h2>
+      <p className="rest-real-note">Menús y precios reales de Rappi Chile</p>
+      {list.error && <OfflineNotice onRetry={list.retry} />}
+      {!list.data && !list.error && <div className="rest-skeleton" aria-hidden="true" />}
+      {list.data?.length === 0 && (
+        <p className="rest-empty">
+          {cuisine ? 'Todavía no hay restaurantes de esta cocina en el catálogo.' : 'Todavía no hay restaurantes en el catálogo.'}
+        </p>
+      )}
+      {list.data?.length > 0 && (
+        <div className="rest-list">
+          {list.data.map((restaurant) => (
+            // Abre su menú: el id dice cuál sucursal es (dos pueden llamarse igual).
+            <RestaurantCard key={restaurant.id} store={restaurant} onClick={() => push('store', { store: restaurant })} />
+          ))}
+        </div>
       )}
     </div>
   )

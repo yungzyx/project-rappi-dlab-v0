@@ -29,7 +29,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS } = {}) {
+export async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
@@ -40,6 +40,7 @@ async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS }
       signal: controller.signal,
     })
     if (!response.ok) throw new ApiError('http', { status: response.status })
+    if (response.status === 204) return null
     return await response.json()
   } catch (error) {
     if (error instanceof ApiError) throw error
@@ -58,6 +59,8 @@ async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS }
 export async function checkConnection({ timeout = CONNECTION_TIMEOUT_MS } = {}) {
   try {
     const response = await request('/health', { timeout })
+    // Lo que contesta JSON en /health pero no dice ok: true no es la API (otro servidor en el mismo puerto).
+    if (response?.ok !== true) return { ok: false, kind: 'offline' }
     healthCache = { at: Date.now(), value: response.capacidades ?? null }
     return { ok: true, capabilities: response.capacidades, documents: response.documentos }
   } catch (error) {
@@ -126,12 +129,20 @@ export function toPrototypeProduct(p) {
     before: p.before ?? undefined,
     discount: p.discount ?? undefined,
     store: p.store ?? undefined,
-    eta: '30 min',
+    // Tienda a la que pertenece: en un plato es el restaurante (se abre por su menú), no una tienda.
+    storeId: p.store_id ?? undefined,
+    size: p.presentation ?? undefined,
+    // La API no sabe el tiempo de entrega de un producto: no se inventa uno.
+    eta: undefined,
+    etaIcon: 'none',
     // Para registrar eventos y pedidos con los ids del catálogo real.
     entityType: p.entity_type,
     entityId: p.entity_id,
     concept: p.concept,
-    vertical: p.vertical,
+    // La vertical que usa la app es la del prototipo (la misma de la línea del carrito, sea cual sea la pantalla de
+    // origen); la del backend se guarda para el pedido.
+    vertical: screenForBackend(p.vertical) ?? p.vertical,
+    backendVertical: p.vertical,
     ageRestricted: Boolean(p.age_restricted),
   }
 }

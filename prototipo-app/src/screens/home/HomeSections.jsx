@@ -1,19 +1,12 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
+import { home, restaurants } from '../../api/catalog'
+import { useApi } from '../../api/useApi'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
 import { useToast } from '../../components/Toast'
 import { ChevronRight } from '../../components/Icons'
-import turboRestaurantesTitle from '../../assets/turbo-restaurantes-title.webp'
 import { RestaurantCard, StoreTile } from './StoreCards'
-import {
-  LOWER_FEES,
-  MAIN_TILES,
-  NEARBY_STORES,
-  PROMOS,
-  PROMO_START_INDEX,
-  SHORTCUTS,
-  TURBO_RESTAURANTS,
-} from '../../data/home'
+import { MAIN_TILES, PROMOS, PROMO_START_INDEX, SHORTCUTS } from '../../data/home'
 import './home.css'
 
 // Secciones de la Home que comparten «Rappi hoy» y el prototipo final.
@@ -102,60 +95,65 @@ export function Promos({ push, autoplayMs = 4500 }) {
   )
 }
 
-export function TurboRestaurants({ push }) {
+const BEST_RATED_COUNT = 6
+
+/**
+ * Las listas de la Home que salen del catálogo (`/catalog`): restaurantes rápidos y tiendas cerca (una llamada) y los mejor
+ * evaluados (otra). La Home nunca espera ni se bloquea: una lista que no llega, o que falla, queda vacía y su sección no se ve.
+ */
+export function useHomeCatalog() {
+  const lists = useApi(home, [])
+  const bestRated = useApi(() => restaurants({ sort: 'rating', limit: BEST_RATED_COUNT }), [])
+  return {
+    fastRestaurants: lists.data?.fastRestaurants ?? [],
+    nearbyStores: lists.data?.nearbyStores ?? [],
+    bestRated: bestRated.data ?? [],
+  }
+}
+
+/** Una fila de tarjetas de restaurante con su título; un restaurante abre su menú. Sin restaurantes, no se ve. */
+function RestaurantRow({ title, stores, push }) {
+  const titleId = useId()
+  if (stores.length === 0) return null
   return (
-    <>
-      <img
-        className="home-turbo-title"
-        src={turboRestaurantesTitle}
-        alt="En minutos · Turbo Restaurantes"
-        loading="lazy"
-      />
-      <HScroll className="home-cards">
-        {TURBO_RESTAURANTS.map((store) => (
+    <section aria-labelledby={titleId}>
+      <h2 id={titleId} className="section-title home-list-title">
+        {title}
+      </h2>
+      <HScroll className="home-cards home-cards--list">
+        {stores.map((store) => (
           <RestaurantCard key={store.id} store={store} onClick={() => push('store', { store })} />
         ))}
       </HScroll>
-    </>
+    </section>
   )
 }
 
-export function NearbyStores({ push }) {
+export const FastRestaurants = ({ stores, push }) => (
+  <RestaurantRow title="Restaurantes rápidos" stores={stores} push={push} />
+)
+
+export const BestRated = ({ stores, push }) => <RestaurantRow title="Mejor evaluados" stores={stores} push={push} />
+
+export function NearbyStores({ stores, push }) {
   const toast = useToast()
+  const titleId = useId()
+  if (stores.length === 0) return null
   return (
-    <section className="home-nearby">
+    <section className="home-nearby" aria-labelledby={titleId}>
       <div className="home-section-head">
-        <h2 className="section-title">Stores near by you</h2>
+        <h2 id={titleId} className="section-title">
+          Cerca de ti
+        </h2>
         <button type="button" className="chevron-button tap" aria-label="Ver todas" onClick={() => toast()}>
           <ChevronRight size={20} />
         </button>
       </div>
       <div className="home-store-grid">
-        {NEARBY_STORES.map((store) => (
-          <StoreTile
-            key={store.id}
-            store={store}
-            onClick={() =>
-              push('store', {
-                store: { ...store, eta: store.when, etaIcon: store.scheduled ? 'clock' : 'bolt', logo: true },
-              })
-            }
-          />
+        {stores.map((store) => (
+          <StoreTile key={store.id} store={store} onClick={() => push('store', { store })} />
         ))}
       </div>
     </section>
-  )
-}
-
-export function LowerFees({ push }) {
-  return (
-    <>
-      <h2 className="section-title home-lower-title">Now with lower fees</h2>
-      <HScroll className="home-cards home-cards--lower">
-        {LOWER_FEES.map((store) => (
-          <RestaurantCard key={store.id} store={store} onClick={() => push('store', { store })} />
-        ))}
-      </HScroll>
-    </>
   )
 }

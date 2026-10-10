@@ -1,5 +1,19 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { ApiError, beaconEvents, chat, checkConnection, health, resetHealthCache, toMessage, toPrototypeProduct } from './client'
+import { PLACEHOLDER_IMG } from '../components/Img'
+import {
+  API_URL,
+  ApiError,
+  beaconEvents,
+  chat,
+  checkConnection,
+  forget,
+  health,
+  recommendations,
+  resetHealthCache,
+  toMessage,
+  toPrototypeProduct,
+} from './client'
+import { lineKey } from '../state/CartContext'
 import { fixture, stubApi } from './testing'
 import { userId } from './user'
 
@@ -30,6 +44,34 @@ describe('de la API al prototipo', () => {
     const product = toPrototypeProduct(API_PRODUCT)
     expect(product).toMatchObject({ id: 'cat-200', price: '$1.290', discount: '-19%', entityId: '200', concept: 'cerveza' })
     expect(product.ageRestricted).toBe(true)
+  })
+
+  test('un producto lleva la vertical del prototipo, guarda la del backend y trae su tienda y presentación', () => {
+    expect(toPrototypeProduct(fixture('catalog-product'))).toMatchObject({
+      vertical: 'grocery',
+      backendVertical: 'supermercado',
+      storeId: 9101,
+      size: '180 g',
+      etaIcon: 'none',
+    })
+    // La API no sabe el tiempo de entrega de un producto: no se inventa uno.
+    expect(toPrototypeProduct(fixture('catalog-product')).eta).toBeUndefined()
+    // Una vertical que el prototipo no conoce queda con su código.
+    expect(toPrototypeProduct({ ...API_PRODUCT, vertical: 'otra' })).toMatchObject({ vertical: 'otra', backendVertical: 'otra' })
+    // Un plato no trae presentación ni siempre foto: no queda «undefined» ni «null» a la vista.
+    const dish = toPrototypeProduct(fixture('catalog-menu').sections[2].items[0])
+    expect(dish.size).toBeUndefined()
+    expect(dish.img).toBe(PLACEHOLDER_IMG)
+  })
+
+  test('un producto de la API cae en la misma línea del carrito que el mismo producto agregado desde otra pantalla', () => {
+    const dict = fixture('catalog-product')
+    const fromScreen = toPrototypeProduct(dict)
+    const fromOtherScreen = toPrototypeProduct(structuredClone(dict))
+    const fromChat = toMessage({ text: 'Mira', products: [dict] }).products[0]
+    expect(lineKey(fromOtherScreen)).toBe(lineKey(fromScreen))
+    expect(lineKey(fromChat)).toBe(lineKey(fromScreen))
+    expect(lineKey(fromScreen)).toBe('cat-91001|9101') // la oferta es producto + tienda: la vertical depende de la pantalla
   })
 
   test('la sugerencia cruzada va aparte, marcada, y las aclaraciones vuelven a preguntar', () => {
@@ -186,6 +228,18 @@ describe('checkConnection', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  test('checkConnection exige ok: true en /health', async () => {
+    // Otro servidor que contesta JSON en /health no es la API de Mochi.
+    stubApi({ '/health': { capacidades: { voz: true }, documentos: 3 } })
+    expect(await checkConnection()).toEqual({ ok: false, kind: 'offline' })
+    stubApi({ '/health': { ok: false, capacidades: { voz: true }, documentos: 3 } })
+    expect(await checkConnection()).toEqual({ ok: false, kind: 'offline' })
+    stubApi({ '/health': 204 })
+    expect(await checkConnection()).toEqual({ ok: false, kind: 'offline' })
+    stubApi({ '/health': { ok: true, capacidades: { voz: true }, documentos: 3 } })
+    expect(await checkConnection()).toMatchObject({ ok: true, documents: 3 })
+  })
+
   test('checkConnection sin API devuelve ok: false y el motivo', async () => {
     stubApi({ '/health': 'offline' })
     expect(await checkConnection()).toEqual({ ok: false, kind: 'offline' })
@@ -224,6 +278,82 @@ describe('stubApi', () => {
     expect(await failure(chat({ message: 'cerveza' }))).toMatchObject({ kind: 'http', status: 404 })
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect((await checkConnection()).ok).toBe(true)
+  })
+
+  test('stubApi distingue GET de POST en la misma ruta', async () => {
+    stubApi({ '/orders': { via: 'get' }, 'POST /orders': { via: 'post' } })
+    const call = (method) => fetch(`${API_URL}/orders`, { method }).then((response) => response.json())
+    expect(await call('GET')).toEqual({ via: 'get' })
+    expect(await call('POST')).toEqual({ via: 'post' })
+
+    // También cuando cada método responde con una función.
+    stubApi({ 'GET /orders': (req) => ({ via: req.method }), 'POST /orders': (req) => ({ via: req.method }) })
+    expect(await call('GET')).toEqual({ via: 'GET' })
+    expect(await call('POST')).toEqual({ via: 'POST' })
+
+    stubApi({ 'GET /orders': { via: 'get' } })
+    expect((await fetch(`${API_URL}/orders`, { method: 'POST' })).status).toBe(404)
+  })
+
+  test('stubApi entrega query y cuerpo a una función', async () => {
+    const seen = []
+    stubApi({
+      '/recommendations': (req) => {
+        seen.push(req)
+        return { user: req.query.get('user_id'), vertical: req.query.get('vertical') }
+      },
+      'POST /chat': (req) => {
+        seen.push(req)
+        return req.body.message === 'cerveza' ? { text: 'Mira' } : 500
+      },
+    })
+
+    expect(await recommendations('proto 1', 'licores')).toEqual({ user: 'proto 1', vertical: 'licores' })
+    expect(await chat({ message: 'cerveza', vertical: null })).toEqual({ text: 'Mira' })
+    expect(await failure(chat({ message: 'pizza' }))).toMatchObject({ kind: 'http', status: 500 })
+
+    expect(seen[0]).toMatchObject({ method: 'GET', path: '/recommendations', body: undefined })
+    expect(seen[0].query).toBeInstanceOf(URLSearchParams)
+    expect(seen[1]).toMatchObject({ method: 'POST', path: '/chat', body: { message: 'cerveza', vertical: null } })
+    expect(seen[1].query.size).toBe(0)
+  })
+
+  test('una clave mal escrita en stubApi falla en vez de dar 404', () => {
+    for (const key of ['health', 'FETCH /health', 'get /health', 'PATCH /health', 'GET health', '/health?x=1', '']) {
+      expect(() => stubApi({ [key]: {} })).toThrow(/^stubApi: clave inválida/)
+    }
+    expect(() => stubApi({ '/health': {}, 'GET /health2': {}, 'POST /chat': {}, 'PUT /a': {}, 'DELETE /a/b': {} })).not.toThrow()
+  })
+
+  test('un 204 es null, no un error', async () => {
+    stubApi({ 'DELETE /profile/proto-1': 204 })
+    expect(await forget('proto-1')).toBeNull()
+
+    const response = await fetch(`${API_URL}/profile/proto-1`, { method: 'DELETE' })
+    expect(response.status).toBe(204)
+    expect(response.body).toBeNull()
+  })
+
+  test('un valor {slow, body} responde ese cuerpo pasado el tiempo', async () => {
+    vi.useFakeTimers()
+    try {
+      stubApi({ '/health': { slow: 3000, body: fixture('health') }, 'DELETE /profile/proto-1': { slow: 100, body: 500 } })
+      let settled = false
+      const connection = checkConnection().then((result) => {
+        settled = true
+        return result
+      })
+      await vi.advanceTimersByTimeAsync(2999)
+      expect(settled).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await connection).toMatchObject({ ok: true })
+
+      const outcome = failure(forget('proto-1'))
+      await vi.advanceTimersByTimeAsync(100)
+      expect(await outcome).toMatchObject({ kind: 'http', status: 500 })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

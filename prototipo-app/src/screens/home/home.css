@@ -268,22 +268,17 @@
 }
 
 /* ---------- Turbo Restaurantes y tarjetas de restaurantes ---------- */
-.home-turbo-title {
-  width: 211px;
-  margin: 53px 0 0 var(--gutter);
-}
-
 .home-cards {
   gap: 17px;
   padding: 27px var(--gutter) 0;
   scroll-padding-left: var(--gutter);
 }
 
-.home-cards--lower {
-  padding-top: 41px;
+.home-cards--list {
+  padding-top: 24px;
 }
 
-.home-lower-title {
+.home-list-title {
   padding: 48px var(--gutter) 0;
 }
 
@@ -325,9 +320,14 @@
   text-overflow: ellipsis;
 }
 
-/* Recorte que en el video solo aparece cortado en el borde: se muestra a su ancho real */
-.featured-media.is-partial img {
-  width: auto;
+/* Tienda con logo en vez de foto: se ve entero sobre un fondo suave */
+.featured-media.is-logo {
+  background: var(--chip);
+}
+
+.featured-media.is-logo img {
+  object-fit: contain;
+  padding: 22px;
 }
 
 .featured-rating {
@@ -377,6 +377,7 @@
 .store-tile img {
   width: 99px;
   height: 63px;
+  object-fit: contain;
 }
 
 .store-name {
@@ -403,13 +404,5 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.store-icon {
-  flex: none;
-}
-
-.store-icon--bolt {
-  color: var(--orange-bolt);
 }
 
