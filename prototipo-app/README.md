@@ -58,7 +58,6 @@ Si la API se cae con la app ya abierta, las respuestas de Mochi todavía caen a 
 | `npm run format` | Formato con Prettier |
 | `npm run build` | Build de producción en `dist/` |
 | `npm run screenshots` | Regenera las capturas de este README; necesita el MVP corriendo (`make mvp`) y usa el Chrome instalado |
-| `./scripts/export-menus.sh` | Exporta los menús reales desde Postgres a `src/data/generated/menus.json` (fuera de git) |
 | `./scripts/make-icons.sh` | Regenera los íconos de pantalla de inicio desde `scripts/icon.svg` |
 
 Tests: 452 (Vitest, 10-10-2026). CI en GitHub Actions: lint, tests y build.
@@ -147,7 +146,7 @@ También:
 - **Hoja de producto:** al tocar un producto se abre una hoja con la cantidad, notas para la tienda y el total, y desde ahí se puede ir a la tienda.
 - **Mis pedidos** (en Account): cada pedido hecho en el prototipo abre su seguimiento, en curso o entregado; el carro, los favoritos, la dirección y Loyalty se guardan en el navegador y sobreviven a una recarga.
 - **Turbo** con productos y categorías (Frescos, Despensa, Picoteo) que se agregan al carro, además de las pestañas Favorites, Offers y Categories.
-- **Menús reales** de los restaurantes descargados por el scraper, en la sección "Cerca de ti" de Restaurants, con pestañas por sección. Son opcionales: se exportan con `./scripts/export-menus.sh` y no van en git ni en las capturas.
+- **Menús reales** de los restaurantes, con pestañas por sección: salen de la API (`/catalog`), el catálogo que descarga el scraper.
 - **Loyalty**, con un programa de fidelización vinculable.
 - **Si algo falla:** una pantalla con error muestra «Algo salió mal» y «Volver al inicio» sin cerrar la app, y una imagen que no carga muestra un respaldo neutro.
 
@@ -186,12 +185,12 @@ src/
 ├── assets/         Recortes de las capturas
 ├── game/           Lógica del juego de verticales: tarjetas de conocimiento, desafíos, XP, niveles, pasaporte (lógica pura, con tests)
 ├── components/     Piezas compartidas; assistant/ tiene la mascota, la barra de la Home, el buscador con Mochi y Descubre
-├── data/           Catálogo y buscador; menús reales opcionales; verticales.json del juego
+├── data/           Catálogo transcrito de las capturas, solo para el buscador local y el cerebro local de Mochi (se va en la etapa 3); verticales.json del juego
 ├── hooks/          Navegación con historial, scroll
 ├── screens/        Una carpeta por pantalla (home, deals, vertical, checkout, tracking, game…)
 ├── state/          Carrito, perfil, pedidos, hoja de producto, modo demo, dirección… (varios persisten en localStorage)
 └── styles/         Tokens de diseño y estilos globales
 docs/screenshots/   Capturas de este README
 public/             Íconos y manifiesto para "Agregar a pantalla de inicio"
-scripts/            Menús, íconos, capturas y el recorrido de `make mvp-check`
+scripts/            Íconos, capturas y el recorrido de `make mvp-check`
 ```

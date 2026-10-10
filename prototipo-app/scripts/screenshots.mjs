@@ -1,16 +1,13 @@
 // Genera las capturas de docs/screenshots recorriendo la app como un usuario (npm run screenshots).
 // Usa el Chrome instalado (playwright-core, sin descargar navegadores) y un servidor Vite propio en el 5199.
-// Los menús reales del scraper se apartan mientras corre: son datos scrapeados y no van al repo, ni en captura.
 // La app no abre sin la API: antes de capturar hay que tener el MVP corriendo (`make mvp`).
-import { existsSync, mkdirSync, renameSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 import { createServer } from 'vite'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const OUT = `${ROOT}docs/screenshots`
-const MENUS = `${ROOT}src/data/generated/menus.json`
-const MENUS_ASIDE = `${MENUS}.aparte`
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const PORT = 5199
 const BASE = `http://localhost:${PORT}/`
@@ -155,11 +152,8 @@ async function requireApi() {
 }
 
 async function main() {
-  await requireApi() // antes de apartar los menús: si no hay API, no se toca nada
+  await requireApi()
   mkdirSync(OUT, { recursive: true })
-  if (existsSync(MENUS_ASIDE) && !existsSync(MENUS)) renameSync(MENUS_ASIDE, MENUS) // corrida anterior interrumpida
-  const hadMenus = existsSync(MENUS)
-  if (hadMenus) renameSync(MENUS, MENUS_ASIDE)
 
   const server = await createServer({ root: ROOT, server: { port: PORT, strictPort: true }, logLevel: 'error' })
   let browser
@@ -172,7 +166,6 @@ async function main() {
   } finally {
     await browser?.close()
     await server.close()
-    if (hadMenus) renameSync(MENUS_ASIDE, MENUS)
   }
 }
 

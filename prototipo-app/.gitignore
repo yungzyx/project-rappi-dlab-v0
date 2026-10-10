@@ -1,5 +1,4 @@
 node_modules/
 dist/
-src/data/generated/
 # Configuración local (p. ej. VITE_API_URL para apuntar a otra API)
 .env.local
