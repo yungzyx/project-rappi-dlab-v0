@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat images purge post-refresh layers layer-report
+.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat images purge post-refresh layers layer-report contract
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -34,6 +34,9 @@ lint:  ## Revisa estilo y errores comunes
 format:  ## Formatea el código
 	$(PY) -m ruff check --fix src tests
 	$(PY) -m ruff format src tests
+
+contract:  ## Reescribe las respuestas de ejemplo de la API que usa la app (prototipo-app/src/api/fixtures)
+	RAPPI_CONTRACT_WRITE=1 $(PY) -m pytest tests/integration/test_contract.py
 
 concepts:  ## Capa 2: conceptos por producto y plato (con kNN si hay extra ml)
 	$(PY) -m rappi_ia concepts
