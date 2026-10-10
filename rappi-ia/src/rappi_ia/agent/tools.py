@@ -266,9 +266,10 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
     if catalog_ids:
         # Solo ofertas vigentes, con la misma regla que la búsqueda (v_store_format_runs): una sucursal que la última
         # corrida de su formato ya no bajó no pone el precio, así el tope y el precio mostrado coinciden.
-        # El precio es el de la oferta más barata. La tienda (id y nombre) es la más barata de las que la app abre con
-        # este producto en un pasillo (como /catalog/stores): una tienda sin pasillos, importada de un CSV antiguo, no
-        # tiene página, así que sin ninguna que se abra el id es nulo y el nombre es el de la oferta más barata.
+        # El precio, el precio anterior y la tienda (id y nombre) son los de una misma oferta: la más barata de las
+        # tiendas que la app abre con este producto en un pasillo (como /catalog/stores). Una tienda sin pasillos,
+        # importada de un CSV antiguo, no tiene página: sin ninguna que se abra vale la oferta más barata de todas y
+        # el id es nulo.
         for pid, name, price, real, store, age, store_id, presentation in conn.execute(
             """WITH latest AS (
                    SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock,
@@ -292,18 +293,11 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                    JOIN catalog_items ci ON ci.master_product_id = sp.master_product_id
                    JOIN v_store_verticals v ON v.store_id = s.store_id AND v.vertical = %(vertical)s
                    WHERE l.in_stock IS NOT FALSE
-               ),
-               cheapest AS (
-                   SELECT DISTINCT ON (master_product_id) * FROM offers ORDER BY master_product_id, price, store_id
-               ),
-               best_openable AS (
-                   SELECT DISTINCT ON (master_product_id) master_product_id, store_id, store
-                   FROM offers WHERE openable ORDER BY master_product_id, price, store_id
                )
-               SELECT c.master_product_id::text, c.name, c.price, c.real_price, coalesce(o.store, c.store), c.adult,
-                      o.store_id, c.presentation
-               FROM cheapest c
-               LEFT JOIN best_openable o USING (master_product_id)""",
+               SELECT DISTINCT ON (master_product_id) master_product_id::text, name, price, real_price, store, adult,
+                      CASE WHEN openable THEN store_id END, presentation
+               FROM offers
+               ORDER BY master_product_id, openable DESC, price, store_id""",  # con igual precio, siempre la misma
             {"ids": catalog_ids, "vertical": vertical},
         ):
             prices[("catalog_item", pid)] = (name, price, real, store, age, store_id, presentation)

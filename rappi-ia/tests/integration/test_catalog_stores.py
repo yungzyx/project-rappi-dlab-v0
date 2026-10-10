@@ -16,7 +16,7 @@ from rappi_ia.agent.tools import search_products
 from rappi_ia.agent.verticals import LOGO_BASE_URL
 from rappi_ia.api import app as api
 from rappi_ia.catalog.stores import product_detail, store_page, vertical_stores
-from rappi_ia.demo.seed import seed_demo
+from rappi_ia.demo.seed import DEMO_VERTICALS, seed_demo
 
 CENTRO, NORTE, OLD_BRANCH, DISCOVERED, PIZZERIA = 9101, 9102, 9103, 9104, 9801
 CARD_KEYS = {"id", "name", "logo", "eta", "products", "vertical"}
@@ -322,10 +322,23 @@ def test_store_endpoint_returns_the_page(client):
     assert (len(second["products"]), second["has_more"], second["page"]) == (6, False, 2)
 
 
-def search_found(conn, query: str):
-    """El producto que encuentra la búsqueda (la ruta de precios de /chat y /search) con el documento recién hecho."""
+def search_found(conn, query: str, vertical: str = "supermercado", k: int = 6):
+    """Lo que encuentra la búsqueda (la ruta de precios de /chat y /search) con los documentos recién hechos."""
     build_search_documents(conn)
-    return search_products(conn, "supermercado", query, None, None).products
+    return search_products(conn, vertical, query, None, None, k=k).products
+
+
+def assert_price_is_the_shown_stores(conn, product: dict, cache: dict | None = None) -> None:
+    """Con `store_id`, el precio, el precio anterior y el descuento del producto son los que esa tienda tiene para él
+    (los de su página): el precio y la tienda que se muestran nunca se contradicen."""
+    if product["store_id"] is None or product["entity_type"] != "catalog_item":
+        return
+    cache = {} if cache is None else cache
+    if product["store_id"] not in cache:
+        cache[product["store_id"]] = {p["id"]: p for p in all_products(conn, product["store_id"])}
+    on_its_page = cache[product["store_id"]][product["id"]]
+    for key in ("price", "price_value", "before", "discount", "store"):
+        assert product[key] == on_its_page[key], (product["id"], key)
 
 
 def test_a_product_only_sold_in_a_store_that_cannot_be_opened_has_no_store_id(seeded):
@@ -337,7 +350,7 @@ def test_a_product_only_sold_in_a_store_that_cannot_be_opened_has_no_store_id(se
     found = next(p for p in search_found(seeded, "yerba antigua") if p.entity_id == "91301").to_dict()
 
     for product in (detail, found):
-        # El precio es el de la oferta vigente más barata, como siempre; el nombre de la tienda también.
+        # Sin tienda que se abra, vale la oferta vigente más barata: su precio y el nombre de su tienda.
         assert (product["store_id"], product["store"], product["price_value"]) == (
             None,
             "Sucursal de prueba 9105",
@@ -346,18 +359,26 @@ def test_a_product_only_sold_in_a_store_that_cannot_be_opened_has_no_store_id(se
     assert detail["vertical"] == "supermercado"
 
 
-def test_a_product_sold_cheaper_in_a_store_that_cannot_be_opened_points_to_one_that_can(seeded, client):
+def test_a_product_sold_cheaper_in_a_store_that_cannot_be_opened_shows_the_price_of_one_that_can(seeded, client):
     add_branch(seeded, 9105, "prueba_9105", with_aisle=False, product_id=91001, price=990)  # más barata que 1.990
+    seeded.execute(  # el Centro lo vende con precio anterior: también ese viene de la tienda que se muestra
+        """UPDATE price_snapshots SET real_price = 2500
+           WHERE store_id = %s AND sku = 'sku-91001' AND run_id = (SELECT max(run_id) FROM scrape_runs
+                                                                    WHERE kind = 'stores')""",
+        (CENTRO,),
+    )
 
     detail = product_detail(seeded, "catalog_item", "91001")
     found = next(p for p in search_found(seeded, "papas fritas") if p.entity_id == "91001").to_dict()
 
     for product in (detail, found):
-        # El precio sigue siendo el más barato (990); la tienda es la más barata de las que se abren.
-        assert product["price_value"] == 990
+        # No los $990 de la tienda que no se abre: el precio, el anterior y el descuento son los del Centro.
         assert (product["store_id"], product["store"]) == (CENTRO, "Supermercado de prueba Centro")
+        assert (product["price_value"], product["price"]) == (1990, "$1.990")
+        assert (product["before"], product["discount"]) == ("$2.500", "-20%")
         assert client.get(f"/catalog/stores/{product['store_id']}").status_code == 200
-    assert client.get("/catalog/products/catalog_item/91001").json()["store_id"] == CENTRO
+        assert_price_is_the_shown_stores(seeded, product)
+    assert client.get("/catalog/products/catalog_item/91001").json()["price_value"] == 1990
 
 
 def test_the_store_id_of_a_product_is_the_cheapest_store_when_it_can_be_opened(seeded):
@@ -366,6 +387,26 @@ def test_the_store_id_of_a_product_is_the_cheapest_store_when_it_can_be_opened(s
 
     assert (detail["store_id"], detail["price_value"]) == (CENTRO, 1990)
     assert (found["store_id"], found["price_value"]) == (CENTRO, 1990)
+
+
+def test_whenever_a_product_has_a_store_id_its_price_is_that_stores(seeded):
+    """Todo el catálogo de prueba, con una oferta más barata en una tienda que no se abre: detalle y búsqueda."""
+    add_branch(seeded, 9105, "prueba_9105", with_aisle=False, product_id=91001, price=990)
+    cache: dict = {}
+    with_store = 0
+
+    for (product_id,) in seeded.execute("SELECT master_product_id FROM catalog_items ORDER BY 1").fetchall():
+        detail = product_detail(seeded, "catalog_item", str(product_id))
+        if detail is not None:
+            assert_price_is_the_shown_stores(seeded, detail, cache)
+            with_store += detail["store_id"] is not None
+    searched = 0
+    for vertical in DEMO_VERTICALS[:-1]:  # menos restaurantes, que no tienen páginas de tienda
+        for product in search_found(seeded, "prueba", vertical, k=60):
+            assert_price_is_the_shown_stores(seeded, product.to_dict(), cache)
+            searched += product.store_id is not None
+
+    assert with_store > 40 and searched > 40  # no es una comprobación vacía
 
 
 def test_search_products_carry_the_store_and_presentation(seeded):

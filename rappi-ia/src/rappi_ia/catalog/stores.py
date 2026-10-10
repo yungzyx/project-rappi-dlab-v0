@@ -117,9 +117,9 @@ JOIN stores s ON s.store_id = t.store_id
 LEFT JOIN brands b ON b.brand_id = s.brand_id
 ORDER BY t.products DESC, s.store_id"""
 
-# El producto del catálogo con su oferta vigente más barata de todas las tiendas. El precio es el de esa oferta; la
-# tienda (id y nombre) es la más barata de las que se abren con este producto en un pasillo, y sin ninguna, el id es
-# nulo y el nombre es el de la tienda de la oferta más barata.
+# El producto del catálogo con su oferta vigente más barata entre las tiendas que se abren con este producto en un
+# pasillo (como en /catalog/stores): el precio, el precio anterior y la tienda son de esa misma oferta. Sin ninguna
+# tienda que se abra, la oferta más barata de todas, con el id de tienda nulo.
 _CATALOG_DETAIL = f"""
 WITH latest AS (
     SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.price, ps.real_price, ps.in_stock, ps.run_id,
@@ -137,15 +137,14 @@ offers AS (
     JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
     WHERE l.in_stock IS NOT FALSE AND l.price >= %(min_price)s
 ),
-cheapest AS (SELECT store_id, price, real_price FROM offers ORDER BY price, store_id LIMIT 1),
-openable AS (SELECT store_id FROM offers WHERE openable ORDER BY price, store_id LIMIT 1)
-SELECT ci.master_product_id::text, ci.name, c.price, c.real_price, btrim(coalesce(b.name, s.name)), o.store_id,
+chosen AS (SELECT * FROM offers ORDER BY openable DESC, price, store_id LIMIT 1)
+SELECT ci.master_product_id::text, ci.name, c.price, c.real_price, btrim(coalesce(b.name, s.name)),
+       CASE WHEN c.openable THEN c.store_id END,
        NULLIF(ci.image_url, ''), ci.presentation, ci.is_alcoholic OR ci.age_restricted, ic.concept_id,
        {_OWN_VERTICAL}
-FROM cheapest c
-LEFT JOIN openable o ON true
+FROM chosen c
 JOIN catalog_items ci ON ci.master_product_id = %(id)s
-JOIN stores s ON s.store_id = coalesce(o.store_id, c.store_id)
+JOIN stores s ON s.store_id = c.store_id
 LEFT JOIN brands b ON b.brand_id = s.brand_id
 LEFT JOIN item_concepts ic ON ic.entity_type = 'catalog_item' AND ic.entity_id = ci.master_product_id::text"""
 
@@ -206,9 +205,9 @@ def store_page(
 
 def product_detail(conn: Connection, entity_type: str, entity_id: str) -> dict | None:
     """Un producto del catálogo con su oferta vigente más barata, o un plato con su último precio. `None` si no existe
-    o no tiene precio. El precio es el de la oferta vigente más barata, aunque sea de una tienda sin pasillos (una
-    importada de un CSV antiguo) que `store_page` no abre; `store_id` solo apunta a una tienda que se abre y tiene el
-    producto (`None` si no hay ninguna) y `store` es el nombre de esa tienda."""
+    o no tiene precio. Si alguna tienda que se abre lo vende (con el producto en un pasillo), el precio, el precio
+    anterior, la tienda y `store_id` son los de la oferta vigente más barata de esas tiendas; si no, los de la oferta
+    vigente más barata de todas (una tienda sin pasillos, importada de un CSV antiguo) y `store_id` es `None`."""
     item_id = int(entity_id) if entity_id.isascii() and entity_id.isdigit() else None
     if item_id is None or item_id > BIGINT_MAX:
         return None
