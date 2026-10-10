@@ -40,6 +40,7 @@ Con la API, los productos y precios de los pasos 1 a 3 salen del catálogo real 
 Es lo primero que se ve en el prototipo final. Para partir de cero: **↺ Repetir escena** (junto al interruptor, arriba a la izquierda).
 
 1. Mochi entra caminando a la Home y saluda. No sugiere productos ni mueve la Home: la Home es la de siempre, con el pasaporte de verticales justo bajo los accesos. **Qué decir:** Mochi es parte de la Home, no un canal aparte.
+1b. La primera vez, después del saludo, Mochi hace una guía de 3 pasos: el buscador, el pasaporte y «Jugar» (**Siguiente** / **Saltar**). No vuelve a aparecer; «↺ Repetir escena» la muestra de nuevo.
 2. Baja hasta «¿Qué plan tienes hoy?» y elige **Carrete**: un kit de tres verticales con un solo botón.
 3. Toca a Mochi: propone jugar una vertical que falta en el pasaporte. Con «Abrir» la sellas al entrar y, al volver, lo celebra.
 
