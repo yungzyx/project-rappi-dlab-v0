@@ -1,17 +1,15 @@
 import { Star, X } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
-import FactCard from './FactCard.jsx'
+import FactCard, { Source } from './FactCard.jsx'
 import Mascot from '../../components/assistant/Mascot'
 import Sheet from './GameSheet.jsx'
 import Stamp, { LEVEL_NAMES } from './Stamp.jsx'
-import { DATA, belongs, conceptById, related } from '../../game/data.js'
-import { FACTS } from '../../game/facts.js'
+import { cardById } from '../../game/knowledge.js'
+import { LABELS } from '../../game/verticals.js'
 import { LEVELS, explorerLevel, verticalLevel } from '../../game/progress.js'
 import { makeRound, roundStars } from '../../game/round.js'
 import { useGame } from '../../state/GameContext'
 import './round.css'
-
-const list = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} y ${items.at(-1)}`)
 
 const KIND_TITLES = {
   tipico: 'Lo típico',
@@ -20,14 +18,14 @@ const KIND_TITLES = {
   imposible: 'La pareja imposible',
   puente: 'Producto puente',
   trivia: 'Trivia',
+  conocimiento: 'Pregunta curiosa',
 }
 
-function Discover({ concept, outcome, onReveal }) {
-  const where = DATA.order.filter((v) => belongs(concept, v))
-  const combos = [...related(concept.id).complements].slice(0, 3).map(conceptById)
+/** Un dato «¿Sabías que…?»: se da vuelta y muestra el dato con su fuente. */
+function Dato({ card, outcome, onReveal }) {
   return (
     <div className="step-discover">
-      <p className="step-kicker">Concepto nuevo</p>
+      <p className="step-kicker">¿Sabías que…?</p>
       {!outcome ? (
         <button type="button" className="flip-card is-back" aria-label="Dar vuelta" onClick={onReveal}>
           <span className="flip-q" aria-hidden="true">
@@ -37,18 +35,10 @@ function Discover({ concept, outcome, onReveal }) {
         </button>
       ) : (
         <div className="flip-card is-front">
-          <span className="flip-emoji" aria-hidden="true">
-            {concept.emoji}
-          </span>
-          <h2>{concept.name}</h2>
+          <h2>{card.title}</h2>
           {outcome.xp > 0 && <p className="xp-pop">+{outcome.xp} XP</p>}
-          <p className="flip-fact">
-            Está en {where.length} {where.length === 1 ? 'vertical' : 'verticales'}, sobre todo en{' '}
-            <strong>{DATA.labels[concept.home]}</strong>.
-          </p>
-          {combos.length > 0 && (
-            <p className="flip-fact">Combina con {list(combos.map((c) => `${c.emoji} ${c.name}`))}.</p>
-          )}
+          <p className="flip-fact">{card.text}</p>
+          <Source source={card.source} />
         </div>
       )}
     </div>
@@ -86,7 +76,7 @@ function Ask({ challenge, outcome, onChoose }) {
 }
 
 function Feedback({ step, outcome, onNext }) {
-  if (step.type === 'descubrir') {
+  if (step.type === 'dato') {
     return (
       <footer className="feedback">
         <button type="button" className="btn-game" onClick={onNext} autoFocus>
@@ -105,6 +95,7 @@ function Feedback({ step, outcome, onNext }) {
       </div>
       {!outcome.ok && <p className="feedback-answer">La respuesta era {answer}.</p>}
       <p className="feedback-text">{challenge.explanation}</p>
+      {challenge.source && <Source source={challenge.source} />}
       <button type="button" className={`btn-game ${outcome.ok ? 'is-good' : 'is-bad'}`} onClick={onNext} autoFocus>
         Continuar
       </button>
@@ -119,7 +110,7 @@ function RoundEnd({ vertical, tally, levelBefore, xpBefore, onDone, doneLabel = 
   const stars = roundStars(tally.correct, tally.challenges)
   const levelAfter = verticalLevel(state, vertical)
   const leveledUp = LEVELS.indexOf(levelAfter) > LEVELS.indexOf(levelBefore)
-  const [card, ...more] = tally.cards.map((id) => FACTS.find((f) => f.id === id))
+  const [card, ...more] = tally.cards.map(cardById)
   const bonus = tally.bonus + lateBonus
   const newLevel = explorerLevel(state.xp) > explorerLevel(xpBefore) ? explorerLevel(state.xp) : null
   // Barra del nivel: parte donde estaba antes de la ronda (o en cero si subió de nivel) y se llena hasta ahora.
@@ -160,7 +151,7 @@ function RoundEnd({ vertical, tally, levelBefore, xpBefore, onDone, doneLabel = 
         <div className="end-levelup" role="status">
           <Stamp vertical={vertical} level={levelAfter} size={64} animate />
           <p>
-            Nuevo sello: {LEVEL_NAMES[levelAfter]} de {DATA.labels[vertical]}
+            Nuevo sello: {LEVEL_NAMES[levelAfter]} de {LABELS[vertical]}
           </p>
         </div>
       )}
@@ -227,19 +218,25 @@ export default function Round({ vertical, back, orderId }) {
       ...extra(t),
     }))
 
+  // Lo que entra al álbum en esta ronda (datos vistos por primera vez y preguntas acertadas por primera vez).
+  const isNew = (id) => !(game.state.discovered[vertical] ?? []).includes(id)
+
   const reveal = () => {
-    const result = game.discover(vertical, step.concept.id)
-    record(result, () => ({}))
+    const fresh = isNew(step.card.id)
+    const result = game.discover(vertical, step.card.id)
+    record(result, (t) => ({ cards: fresh ? [...t.cards, step.card.id] : t.cards }))
     setOutcome({ xp: result.xp - result.bonus })
   }
 
   const choose = (optionId) => {
     const ok = optionId === step.challenge.answer
-    const result = game.answer(vertical, ok)
+    const cardId = step.type === 'pregunta' ? step.challenge.id : undefined
+    const learned = ok && cardId && isNew(cardId)
+    const result = game.answer(vertical, ok, cardId)
     record(result, (t) => ({
       correct: t.correct + (ok ? 1 : 0),
       challenges: t.challenges + 1,
-      cards: result.card ? [...t.cards, result.card.id] : t.cards,
+      cards: learned ? [...t.cards, cardId] : t.cards,
     }))
     setOutcome({ ok, selected: optionId, xp: result.xp - result.bonus })
     // Vibración leve en teléfono; el navegador la rechaza si aún no hubo un toque (no es un error del juego).
@@ -267,10 +264,10 @@ export default function Round({ vertical, back, orderId }) {
       if (outcome && go) {
         e.preventDefault()
         next()
-      } else if (!outcome && step.type === 'descubrir' && go) {
+      } else if (!outcome && step.type === 'dato' && go) {
         e.preventDefault()
         reveal()
-      } else if (!outcome && step.type === 'desafio' && /^[1-4]$/.test(e.key)) {
+      } else if (!outcome && step.type !== 'dato' && /^[1-4]$/.test(e.key)) {
         choose(step.challenge.options[Number(e.key) - 1].id)
       }
     }
@@ -310,8 +307,8 @@ export default function Round({ vertical, back, orderId }) {
       </header>
 
       <div className="round-body" key={index}>
-        {step.type === 'descubrir' ? (
-          <Discover concept={step.concept} outcome={outcome} onReveal={reveal} />
+        {step.type === 'dato' ? (
+          <Dato card={step.card} outcome={outcome} onReveal={reveal} />
         ) : (
           <Ask challenge={step.challenge} outcome={outcome} onChoose={choose} />
         )}

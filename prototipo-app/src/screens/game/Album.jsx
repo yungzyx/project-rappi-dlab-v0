@@ -1,15 +1,10 @@
-import FactCard from './FactCard.jsx'
-import { DATA } from '../../game/data.js'
-import { FACTS, factsOf } from '../../game/facts.js'
+import FactCard, { cardTopic } from './FactCard.jsx'
+import { KNOWLEDGE, cardsOf } from '../../game/knowledge.js'
+import { LABELS, PASSPORT_ORDER } from '../../game/verticals.js'
 import { useGame } from '../../state/GameContext'
 import './album.css'
 
-const GROUPS = [
-  ...DATA.order.map((v) => ({ id: v, label: DATA.labels[v], facts: factsOf(v) })),
-  { id: 'general', label: 'Todo Rappi', facts: factsOf(null) },
-]
-
-/** Álbum de cartas «¿Sabías que…?»: bloqueadas, por leer (boca abajo) o leídas. */
+/** Álbum: las tarjetas de cada vertical, por descubrir («?»), por leer (boca abajo) o leídas, con su fuente. */
 export default function Album() {
   const { state, openCard } = useGame()
   const unlocked = new Set(state.cards)
@@ -21,43 +16,46 @@ export default function Album() {
         <h1>Álbum</h1>
       </header>
       <p className="muted album-count">
-        {unlocked.size} de {FACTS.length} cartas
+        {unlocked.size} de {KNOWLEDGE.length} datos
       </p>
-      {unlocked.size === 0 && <p className="album-empty">Juega una ronda para ganar tus primeras cartas.</p>}
+      {unlocked.size === 0 && <p className="album-empty">Juega una ronda para ganar tus primeras tarjetas.</p>}
 
-      {GROUPS.map((g) => (
-        <section key={g.id} aria-label={g.label} className="album-group">
-          <h2 className="section-title">
-            {g.label}{' '}
-            <span className="muted album-group-count">
-              {g.facts.filter((f) => unlocked.has(f.id)).length}/{g.facts.length}
-            </span>
-          </h2>
-          <ul className="album-grid">
-            {g.facts.map((f) => (
-              <li key={f.id} className={opened.has(f.id) ? 'album-wide' : undefined}>
-                {!unlocked.has(f.id) ? (
-                  <FactCard fact={f} locked />
-                ) : opened.has(f.id) ? (
-                  <FactCard fact={f} onOpen={() => openCard(f.id)} />
-                ) : (
-                  <button
-                    type="button"
-                    className="fact-card is-closed"
-                    style={{ '--fact-color': f.vertical ? `var(--v-${f.vertical})` : 'var(--rappi-red)' }}
-                    aria-label={`Leer carta: ${f.title}`}
-                    onClick={() => openCard(f.id)}
-                  >
-                    <span className="fact-card-kicker">¿Sabías que…?</span>
-                    <span className="fact-card-topic">{f.title}</span>
-                    <span className="muted">Toca para leer</span>
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      {PASSPORT_ORDER.map((v) => {
+        const cards = cardsOf(v)
+        return (
+          <section key={v} aria-label={LABELS[v]} className="album-group">
+            <h2 className="section-title">
+              {LABELS[v]}{' '}
+              <span className="muted album-group-count">
+                {cards.filter((c) => unlocked.has(c.id)).length}/{cards.length}
+              </span>
+            </h2>
+            <ul className="album-grid">
+              {cards.map((c) => (
+                <li key={c.id} className={opened.has(c.id) ? 'album-wide' : undefined}>
+                  {!unlocked.has(c.id) ? (
+                    <FactCard fact={c} locked />
+                  ) : opened.has(c.id) ? (
+                    <FactCard fact={c} />
+                  ) : (
+                    <button
+                      type="button"
+                      className="fact-card is-closed"
+                      style={{ '--fact-color': `var(--v-${c.vertical})` }}
+                      aria-label={`Leer tarjeta: ${cardTopic(c)}`}
+                      onClick={() => openCard(c.id)}
+                    >
+                      <span className="fact-card-kicker">{c.kind === 'dato' ? '¿Sabías que…?' : 'Pregunta curiosa'}</span>
+                      <span className="fact-card-topic">{cardTopic(c)}</span>
+                      <span className="muted">Toca para leer</span>
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      })}
     </div>
   )
 }

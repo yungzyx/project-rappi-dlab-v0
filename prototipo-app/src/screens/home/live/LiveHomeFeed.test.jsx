@@ -423,7 +423,7 @@ describe('Home del prototipo final', () => {
     })
 
     test('un sello ganado jugando aparece en la Home', () => {
-      seed({ visited: ['restaurantes', 'supermercado'], discovered: { licores: ['vino'] } })
+      seed({ visited: ['restaurantes', 'supermercado'], discovered: { licores: ['licores-01'] } })
       renderHome()
       expect(passport().getByRole('button', { name: /^Licores \(con sello/ })).toBeTruthy()
       expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('3')

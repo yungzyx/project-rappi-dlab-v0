@@ -6,7 +6,6 @@ import { GAME_TO_SCREEN } from '../../game/verticals.js'
 import { useGame } from '../../state/GameContext'
 import { session } from '../../state/liveMemory'
 import Album from './Album.jsx'
-import Concept from './Concept.jsx'
 import BottomNav from './GameTabs.jsx'
 import Toast from './GameToast.jsx'
 import Intro from './Intro.jsx'
@@ -79,9 +78,6 @@ function GameView({ back, push, params = {} }) {
       break
     case 'coleccion':
       screen = <Vertical {...nav} {...current.params} />
-      break
-    case 'concepto':
-      screen = <Concept {...nav} {...current.params} />
       break
     case 'ronda':
       screen = <Round {...nav} {...current.params} />

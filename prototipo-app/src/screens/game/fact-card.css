@@ -28,6 +28,12 @@
   color: var(--ink-3);
 }
 
+.game .fact-card-source a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .game .fact-card.is-locked {
   background: var(--surface-muted);
   border-top-color: #d6d6db;

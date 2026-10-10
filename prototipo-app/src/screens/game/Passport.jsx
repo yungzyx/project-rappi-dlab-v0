@@ -33,7 +33,7 @@ export default function Passport({ go }) {
         <div>
           <p className="passport-special-title">Conoce Rappi</p>
           <p className="muted">
-            {earned ? 'Llegaste a Conocedor en las 8 verticales.' : 'Llega a Conocedor en las 8 verticales.'}
+            {earned ? 'Llegaste a Conocedor en las 9 verticales.' : 'Llega a Conocedor en las 9 verticales.'}
           </p>
         </div>
       </section>

@@ -5,8 +5,8 @@ import './intro.css'
 
 const POINTS = [
   { Icon: GameController, text: 'Juega rondas cortas de 5 pasos.' },
-  { Icon: SealCheck, text: 'Gana sellos en las 8 verticales de Rappi.' },
-  { Icon: Cards, text: 'Colecciona datos curiosos del catálogo.' },
+  { Icon: SealCheck, text: 'Gana sellos en las 9 verticales de Rappi.' },
+  { Icon: Cards, text: 'Colecciona datos curiosos de cada mundo.' },
 ]
 
 /** Bienvenida de la primera vez: qué es el juego en tres frases y un botón para jugar la primera ronda. */

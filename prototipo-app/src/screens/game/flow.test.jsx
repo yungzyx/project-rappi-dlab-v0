@@ -1,8 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameApp as App } from './GameApp.testkit.jsx'
-import { conceptsOf } from '../../game/data.js'
-import { FACTS } from '../../game/facts.js'
+import { cardsOf, datosOf } from '../../game/knowledge.js'
 import { initialState, today } from '../../game/progress.js'
 import { makeRound } from '../../game/round.js'
 import { seed, stored } from '../../game/testSeed.js'
@@ -16,16 +15,17 @@ afterEach(() => {
 })
 
 const nav = () => screen.getByRole('navigation')
-// Misión de hoy casi lista: 2 conceptos y 1 acierto; falta abrir una carta (la primera, ya ganada).
+// Misión de hoy casi lista: 2 datos y 1 acierto; falta abrir una tarjeta (una ya ganada).
+const CARD = datosOf('supermercado')[0]
 const almostDone = () =>
-  seed({ cards: [FACTS[0].id], daily: { date: today(), discovered: 2, correct: 1, opened: 0, done: false } })
+  seed({ cards: [CARD.id], daily: { date: today(), discovered: 2, correct: 1, opened: 0, done: false } })
 
 describe('bienvenida', () => {
   test('la primera vez Mochi da la bienvenida y «Empezar» abre la primera ronda', () => {
     render(<App />)
     const intro = screen.getByRole('dialog', { name: 'Bienvenida' })
     fireEvent.click(within(intro).getByRole('button', { name: 'Empezar' }))
-    expect(screen.getByText('Concepto nuevo')).toBeTruthy()
+    expect(screen.getByText('¿Sabías que…?')).toBeTruthy()
     expect(stored().seenIntro).toBe(true)
   })
 
@@ -51,7 +51,7 @@ describe('misión del día', () => {
     almostDone()
     render(<App />)
     fireEvent.click(within(nav()).getByRole('button', { name: /Álbum/ }))
-    fireEvent.click(screen.getByRole('button', { name: `Leer carta: ${FACTS[0].title}` }))
+    fireEvent.click(screen.getByRole('button', { name: `Leer tarjeta: ${CARD.title}` }))
     const toast = screen.getByRole('status', { name: 'Aviso' })
     expect(within(toast).getByText('¡Misión del día completa!')).toBeTruthy()
     expect(within(toast).getByText('+50 XP · racha de 1 día')).toBeTruthy()
@@ -73,12 +73,10 @@ describe('ronda', () => {
     expect(screen.getByRole('dialog', { name: '¿Salir de la ronda?' })).toBeTruthy()
   })
 
-  test('se juega con el teclado: 1 a 4 responden, Enter sigue', () => {
-    seed({ discovered: { chocolateria: conceptsOf('chocolateria').map((c) => c.id) } })
-    const round = makeRound(
-      { ...initialState(), discovered: { chocolateria: conceptsOf('chocolateria').map((c) => c.id) } },
-      'chocolateria',
-    )
+  test('se juega con el teclado: Enter da vuelta y sigue, 1 a 4 responden', () => {
+    const all = cardsOf('chocolateria').map((c) => c.id)
+    seed({ discovered: { chocolateria: all } })
+    const round = makeRound({ ...initialState(), discovered: { chocolateria: all } }, 'chocolateria')
     render(<App />)
     fireEvent.click(
       within(screen.getByRole('region', { name: 'Camino de verticales' })).getByRole('button', {
@@ -86,12 +84,15 @@ describe('ronda', () => {
       }),
     )
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
-    const first = round[0].challenge
-    const index = first.options.findIndex((o) => o.id === first.answer)
+    fireEvent.keyDown(window, { key: 'Enter' }) // da vuelta el dato
+    expect(screen.getByText(round[0].card.text)).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'Enter' }) // sigue
+    const question = round[1].challenge
+    const index = question.options.findIndex((o) => o.id === question.answer)
     fireEvent.keyDown(window, { key: String(index + 1) })
     expect(screen.getByText('¡Correcto!')).toBeTruthy()
     fireEvent.keyDown(window, { key: 'Enter' })
-    expect(screen.getByText(round[1].challenge.question)).toBeTruthy()
+    expect(screen.getByText('¿Sabías que…?')).toBeTruthy()
   })
 
   test('al subir de nivel de explorador, el final de la ronda lo celebra', () => {
@@ -105,7 +106,7 @@ describe('ronda', () => {
     )
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
     for (const step of round) {
-      if (step.type === 'descubrir') fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
+      if (step.type === 'dato') fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
       else {
         const label = step.challenge.options.find((o) => o.id === step.challenge.answer).label
         fireEvent.click(within(screen.getByRole('group', { name: 'Opciones' })).getByRole('button', { name: label }))
@@ -121,7 +122,8 @@ describe('ronda', () => {
 
 describe('álbum', () => {
   test('la pestaña avisa cuántas cartas quedan sin leer', () => {
-    seed({ cards: FACTS.slice(0, 3).map((f) => f.id), opened: [FACTS[0].id] })
+    const [a, b, c] = datosOf('turbo').map((card) => card.id)
+    seed({ cards: [a, b, c], opened: [a] })
     render(<App />)
     expect(within(nav()).getByRole('button', { name: /2 cartas sin leer/ })).toBeTruthy()
   })
@@ -130,23 +132,23 @@ describe('álbum', () => {
     seed()
     render(<App />)
     fireEvent.click(within(nav()).getByRole('button', { name: /Álbum/ }))
-    expect(screen.getByText('Juega una ronda para ganar tus primeras cartas.')).toBeTruthy()
+    expect(screen.getByText('Juega una ronda para ganar tus primeras tarjetas.')).toBeTruthy()
   })
 })
 
 describe('camino', () => {
-  test('cada parada muestra su avance de conceptos', () => {
+  test('cada parada muestra su avance de tarjetas', () => {
     const v = 'chocolateria'
     seed({
       discovered: {
-        [v]: conceptsOf(v)
+        [v]: cardsOf(v)
           .slice(0, 3)
           .map((c) => c.id),
       },
     })
     render(<App />)
     const stop = screen.getByRole('region', { name: 'Camino de verticales' }).querySelector(`[data-vertical="${v}"]`)
-    expect(Number(stop.getAttribute('data-progress'))).toBeCloseTo(3 / conceptsOf(v).length)
+    expect(Number(stop.getAttribute('data-progress'))).toBeCloseTo(3 / 12)
   })
 
   test('el aviso se cierra solo', () => {
@@ -154,7 +156,7 @@ describe('camino', () => {
     almostDone()
     render(<App />)
     fireEvent.click(within(nav()).getByRole('button', { name: /Álbum/ }))
-    fireEvent.click(screen.getByRole('button', { name: `Leer carta: ${FACTS[0].title}` }))
+    fireEvent.click(screen.getByRole('button', { name: `Leer tarjeta: ${CARD.title}` }))
     expect(screen.getByRole('status', { name: 'Aviso' })).toBeTruthy()
     act(() => vi.advanceTimersByTime(5000))
     expect(screen.queryByRole('status', { name: 'Aviso' })).toBeNull()
