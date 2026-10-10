@@ -1,8 +1,8 @@
 {
   "actions": [
     {
-      "label": "Más ideas de carrete",
-      "query": "carrete"
+      "label": "Más ideas",
+      "query": "Cerveza Pisco Ron Vodka"
     }
   ],
   "moment": "plan",
@@ -80,6 +80,6 @@
   "reason": {
     "occasion": "carrete"
   },
-  "text": "Para tu carrete armé un kit de cerveza, bebidas gaseosas, hielo y pisco, de Licores, Express y Turbo.",
+  "text": "Tu kit «Carrete»: cerveza, bebidas gaseosas, hielo y pisco, de Licores, Express y Turbo.",
   "vertical": "licores"
 }

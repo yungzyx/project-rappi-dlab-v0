@@ -1157,6 +1157,36 @@ def test_a_recommendation_is_an_offer_so_it_skips_blocked_stores_and_adult_produ
     assert not {"110", "111"} & {p["entity_id"] for p in liked["products"]}
 
 
+def test_an_unasked_recommendation_does_not_list_licores_pharmacy_or_their_stores_in_also_in(bigotes, monkeypatch):
+    """El «También en» de «Como te gusta…» (Mochi lo dice sola) no nombra Licores ni Farmacia ni una tienda que Rappi
+    rotula Farmacia; en una respuesta pedida sí aparecen, como siempre."""
+    agent, db = bigotes
+    monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)  # el catálogo de prueba es chico
+    add_store(db, 7, "conveniencia", "Farmacia Express")
+    db.execute("UPDATE store_verticals SET subvertical = 'Farmacia' WHERE store_id = 7")
+    add_store(db, 8, "chocolateria", "Chocolatería")
+    add_product(db, 120, "Papas fritas Licorera 100 g", 2, "Snacks salados")
+    add_price(db, 2, 120, 1100)
+    add_product(db, 121, "Papas fritas Botica 100 g", 7, "Snacks salados")
+    add_price(db, 7, 121, 1200)
+    add_product(db, 122, "Papas fritas Bombonera 100 g", 8, "Snacks salados")
+    add_price(db, 8, 122, 1300)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    asked = agent.reply(db, "snacks salados", Context(vertical="supermercado"))
+    liked = agent.reply(db, "qué me recomiendas", Context(profile={"snacks-salados": 3.0}))
+
+    assert {v["vertical"] for v in asked["also_in"]["verticals"]} >= {"licores", "conveniencia", "chocolateria"}
+    assert liked["text"].startswith("Como te gusta 🥨 snacks salados")
+    elsewhere = {v["vertical"] for v in liked["also_in"]["verticals"]}
+    assert elsewhere and not elsewhere & {"licores", "farmacia", "conveniencia"}  # esta última: solo una «Farmacia»
+    stores = {s["name"] for v in liked["also_in"]["verticals"] for s in v["stores"]}
+    assert stores and not stores & {"Botillería", "Farmacia Express"}
+
+
 def test_a_conversation_follows_the_previous_request(bigotes):
     """Ronda 4: «más barata» o «de otra marca» después de «cerveza» olvidaban la cerveza y traían cualquier cosa."""
     agent, db = bigotes

@@ -15,15 +15,25 @@ from psycopg import Connection
 
 from ..agent.grouped_search import SCREEN_VERTICALS
 from ..agent.tools import VERTICAL_LABELS, Product, search_products, suggest_complement
-from ..agent.verticals import ranked_verticals
+from ..agent.verticals import contending_verticals, ranked_verticals
 from ..catalog.deals import deals
 from ..catalog.stores import product_detail
 from ..concepts.taxonomy import Concept, load_taxonomy
-from ..embeddings.base import TextEmbedder
+from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
 from ..retrieval.hybrid import _concepts_of, detect_concepts
-from .guards import is_offerable, is_plannable, offerable_vertical, plannable_occasion, unofferable_subverticals
+from .guards import (
+    is_offerable,
+    is_plannable,
+    offerable_vertical,
+    plannable_occasion,
+    plannable_vertical,
+    unofferable_subverticals,
+)
 
 KIT_SIZE = 4  # productos del kit de una ocasión
+# El concepto ya está elegido: la búsqueda léxica de su nombre (miles de platos «pizza») costaba ~140 ms por búsqueda en
+# restaurantes y la vectorial ~11 ms. Se prueba primero la vectorial y, si no trae nada (sin modelo, o documentos sin
+# embeddings), la de siempre.
 KIT_VERTICALS = 3  # verticales que se prueban por concepto del kit (las más típicas)
 SHOWN_PRODUCTS = 3  # productos de una oferta que no es un kit
 FALLBACK_VERTICALS = 3  # verticales que se prueban para decir dónde sí está lo que no se encontró
@@ -47,8 +57,8 @@ PASSPORT_ORDER = (
 )
 
 # Plantillas. {origen} es el concepto de lo que ya lleva (solo si Mochi puede proponerlo), {destino} el que se ofrece.
-PLAN_TEXT = "Para tu {occasion} armé un kit de {concepts}, de {verticals}."
-PLAN_ACTION = "Más ideas de {occasion}"
+PLAN_TEXT = "Tu kit «{occasion}»: {concepts}, de {verticals}."  # el nombre de la ocasión va tal cual, sin gramática
+PLAN_ACTION = "Más ideas"
 CART_TEXT = "Para acompañar {origen}: {destino}, en {vertical}."
 CART_TEXT_ANONYMOUS = "Para completar tu pedido: {destino}, en {vertical}."
 CHECKOUT_TEXT = "Antes de pagar: {destino}, en {vertical}. Combina con lo que llevas."
@@ -117,14 +127,18 @@ def make_offer(
 # ── plan ─────────────────────────────────────────────────────────────────────
 def plan(conn: Connection, embedder: TextEmbedder | None, occasion_id: str) -> Offer | None:
     """El kit de una ocasión: un producto por concepto (hasta KIT_SIZE), de la vertical donde es típico y repartido
-    entre verticales. Es lo único que Mochi arma con alcohol, con su marca +18, porque la persona eligió la ocasión;
-    nunca con lo sensible, farmacia, bebé ni salud."""
+    entre verticales, salvo que la ocasión tenga una fija (`vertical` en la taxonomía: «Hambre ya» es pedir comida
+    lista): entonces sale de ahí. Es lo único que Mochi arma con alcohol, con su marca +18, porque la persona eligió
+    la ocasión; nunca con lo sensible, farmacia, bebé ni salud."""
     taxonomy = load_taxonomy()
     occasion = taxonomy.occasions.get(occasion_id)
     if occasion is None or not plannable_occasion(occasion):
         raise OfferError(f"Mochi no arma un kit de «{occasion_id}»")
     concepts = [c for c in (taxonomy.concepts[i] for i in occasion.concepts) if is_plannable(c)]
-    candidates = {c.id: _kit_verticals(conn, c) for c in concepts}
+    if embedder is not None:  # cada concepto se embebe una vez, en un solo lote, aunque se busque en varias verticales
+        embedder = MemoizedQueryEmbedder(embedder)
+        embedder.embed_queries([c.name for c in concepts])
+    candidates = {c.id: _kit_verticals(conn, c, occasion.vertical) for c in concepts}
     found: dict[tuple[str, str], Product | None] = {}
 
     def pick(concept: Concept, avoid: set[str]) -> Product | None:
@@ -144,7 +158,8 @@ def plan(conn: Connection, embedder: TextEmbedder | None, occasion_id: str) -> O
         if len(kit) >= KIT_SIZE:
             break
         typical = candidates[concept.id][:1]
-        product = None if typical and typical[0] in used else pick(concept, used)
+        spread = occasion.vertical is None
+        product = None if spread and typical and typical[0] in used else pick(concept, used if spread else set())
         if product:
             kit.append((concept, product))
             used.add(product.vertical)
@@ -160,29 +175,47 @@ def plan(conn: Connection, embedder: TextEmbedder | None, occasion_id: str) -> O
         return None
     verticals = list(dict.fromkeys(p.vertical for _, p in kit))
     text = PLAN_TEXT.format(
-        occasion=occasion.name.lower(),
+        occasion=occasion.name,
         concepts=_join([c.name.lower() for c, _ in kit]),
         verticals=_join([VERTICAL_LABELS.get(v, v) for v in verticals]),
     )
-    actions = [{"label": PLAN_ACTION.format(occasion=occasion.name.lower()), "query": occasion.name.lower()}]
-    return Offer("plan", text, [p.to_dict() for _, p in kit], verticals[0], {"occasion": occasion.id}, actions)
+    # «Más ideas» busca lo que Bigotes busca para una ocasión: los nombres de sus primeros conceptos que Mochi arma
+    query = " ".join(c.name for c in concepts[:4])
+    return Offer(
+        "plan",
+        text,
+        [p.to_dict() for _, p in kit],
+        verticals[0],
+        {"occasion": occasion.id},
+        [{"label": PLAN_ACTION, "query": query}],
+    )
 
 
-def _kit_verticals(conn: Connection, concept: Concept) -> list[str]:
-    """Dónde se busca el concepto de un kit: sus verticales más típicas (Licores solo el alcohol, farmacia nunca)."""
-    allowed = [
-        v
-        for v in ranked_verticals(conn, [concept.id])
-        if v != "farmacia" and (concept.age_restricted or offerable_vertical(v))
-    ]
+def _kit_verticals(conn: Connection, concept: Concept, fixed: str | None) -> list[str]:
+    """Dónde se busca el concepto de un kit: la vertical fija de la ocasión, si tiene, y las verticales donde el
+    concepto compite (con masa mínima: unos pocos productos de otra no lo representan), las más típicas primero."""
+    allowed = [v for v in contending_verticals(conn, [concept.id]) if plannable_vertical(v, concept)]
+    if fixed and plannable_vertical(fixed, concept):
+        allowed = [fixed] + [v for v in allowed if v != fixed]
     return allowed[:KIT_VERTICALS]
 
 
 def _kit_product(conn: Connection, embedder: TextEmbedder | None, concept: Concept, vertical: str) -> Product | None:
-    outcome = search_products(
-        conn, vertical, concept.name, [concept.id], embedder, k=3, offer=True, adult_ok=concept.age_restricted
-    )
-    return next((p for p in outcome.products if p.concept == concept.id), None)
+    for mode in ("vector", "hibrido") if embedder is not None else ("hibrido",):
+        outcome = search_products(
+            conn,
+            vertical,
+            concept.name,
+            [concept.id],
+            embedder,
+            k=3,
+            mode=mode,
+            offer=True,
+            adult_ok=concept.age_restricted,
+        )
+        if product := next((p for p in outcome.products if p.concept == concept.id), None):
+            return product
+    return None
 
 
 # ── carrito, checkout y próximo pedido ───────────────────────────────────────

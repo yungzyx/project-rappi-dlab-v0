@@ -18,7 +18,7 @@ from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
-from ..offers.guards import is_offerable, offerable_vertical
+from ..offers.guards import is_offerable, offerable_vertical, unofferable_subverticals
 from ..text import normalize, tokens
 from .compose import AGE_NOTICE, Draft, TemplateComposer, notices
 from .tools import (
@@ -229,7 +229,7 @@ class Bigotes:
         # se muestra para cuidarse no es lo que se pidió.
         unmet = not intent.symptom and not products and outcome.result.unmet and outcome.cheapest_without_filter is None
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
-        also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical)
+        also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical, offer)
         text = self.composer.compose(draft)
         if missing and products:
             text = _moved(missing[0], vertical, missing[1], missing[2]) + text
@@ -416,18 +416,22 @@ class Bigotes:
             "products": [p.to_dict() for p in suggestion.products],
         }
 
-    def _also_in(self, conn, ctx: Context, intent: Intent, products, vertical) -> dict | None:
+    def _also_in(self, conn, ctx: Context, intent: Intent, products, vertical, offer: bool = False) -> dict | None:
         """Multiverticalidad visible: en qué otras verticales también hay lo que pidió (no es una sugerencia:
         no se registra ni cuenta para la regla 3). Nunca para conceptos sensibles, en "Rappi hoy" ni cuando habla de
         síntomas (quien dice que está enfermo no necesita ver dónde más venden jugo). Si aquí no hay nada, el concepto
-        es el pedido: justo entonces importa decir dónde sí está ("vodka" en farmacia)."""
+        es el pedido: justo entonces importa decir dónde sí está ("vodka" en farmacia). Si la respuesta es una oferta de
+        Mochi (`offer`), tampoco nombra las verticales ni las tiendas que no propone (offers/guards.py)."""
         concept_id = next((p.concept for p in products if p.concept), None)
         if not products and intent.concepts:
             concept_id = intent.concepts[0]
         concept = self.taxonomy.concepts.get(concept_id) if concept_id else None
         if ctx.mode != "propuesta" or concept is None or concept.sensitive:
             return None
-        verticals = available_elsewhere(conn, concept.id, {vertical})
+        if offer:  # se piden todas y se cortan después: las que no se proponen no le quitan el lugar a las que sí
+            verticals = _offerable_elsewhere(conn, available_elsewhere(conn, concept.id, {vertical}, limit=99))[:3]
+        else:
+            verticals = available_elsewhere(conn, concept.id, {vertical})
         if not verticals:
             return None
         for v in verticals:
@@ -522,6 +526,25 @@ class Bigotes:
         # Lo recomienda Mochi sola («Como te gusta…», «Veo que te gusta…»): solo intereses que puede proponer.
         allowed = {c: s for c, s in profile.items() if c in concepts and is_offerable(concepts[c])}
         return max(allowed, key=allowed.get) if allowed else None
+
+
+def _offerable_elsewhere(conn: Connection, verticals: list[dict]) -> list[dict]:
+    """«También en» sin las verticales que Mochi no propone y sin las tiendas que Rappi rotula Farmacia, Sex shop o
+    Smoking shop (el listado solo tiene sus nombres); una vertical que se queda sin tiendas se va."""
+    blocked = {
+        name
+        for (name,) in conn.execute(
+            """SELECT DISTINCT trim(s.name) FROM stores s JOIN store_verticals sv USING (store_id)
+               WHERE sv.subvertical = ANY(%s)""",
+            (unofferable_subverticals(),),
+        )
+    }
+    kept = []
+    for v in verticals:
+        stores = [s for s in v["stores"] if s["name"] not in blocked]
+        if offerable_vertical(v["vertical"]) and stores:
+            kept.append({**v, "stores": stores})
+    return kept
 
 
 def _base(intent: Intent, text: str) -> dict:

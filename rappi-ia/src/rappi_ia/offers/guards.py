@@ -22,6 +22,7 @@ from ..concepts.taxonomy import Concept, Occasion, load_taxonomy
 OFFER_BLOCKED_GROUPS = ("bebe", "salud")  # grupos de taxonomy.toml; el alcohol y el tabaco se bloquean por sus marcas
 # Parecida a catalog.stores.NOT_PUSHED_VERTICALS (lo que la Home no empuja), pero con otro motivo y otra lista.
 OFFER_BLOCKED_VERTICALS = ("farmacia", "licores")
+ALCOHOL_VERTICALS = ("licores",)  # las bloqueadas de las que el alcohol de un kit elegido sí puede salir
 NOT_PLANNABLE_OCCASIONS = ("guagua", "enfermo")  # bebé y salud: ni siquiera como kit que la persona pide
 
 
@@ -35,6 +36,12 @@ def is_plannable(concept: Concept) -> bool:
 def is_offerable(concept: Concept) -> bool:
     """Si Mochi puede proponer este concepto por su cuenta."""
     return is_plannable(concept) and not concept.age_restricted
+
+
+def plannable_vertical(vertical: str, concept: Concept) -> bool:
+    """Si el concepto de un kit puede salir de esta vertical: de las que Mochi propone y, el alcohol, también de
+    Licores. Farmacia nunca."""
+    return offerable_vertical(vertical) or (concept.age_restricted and vertical in ALCOHOL_VERTICALS)
 
 
 def plannable_occasion(occasion: Occasion) -> bool:

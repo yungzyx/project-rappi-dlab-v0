@@ -10,6 +10,7 @@ from rappi_ia.offers.guards import (
     is_plannable,
     offerable_vertical,
     plannable_occasion,
+    plannable_vertical,
     unofferable_subverticals,
 )
 
@@ -74,3 +75,12 @@ def test_baby_and_sick_occasions_are_not_planned():
     taxonomy = load_taxonomy()
     assert NOT_PLANNABLE_OCCASIONS == ("guagua", "enfermo")
     assert {o.id for o in taxonomy.occasions.values() if not plannable_occasion(o)} == {"guagua", "enfermo"}
+
+
+def test_a_kit_never_comes_from_pharmacy_and_only_alcohol_comes_from_licores():
+    for concept_id in ("cerveza", "pizza"):
+        assert not plannable_vertical("farmacia", concept(concept_id))
+    assert plannable_vertical("licores", concept("cerveza")) and plannable_vertical("licores", concept("vino"))
+    assert not plannable_vertical("licores", concept("gaseosas"))
+    for vertical in ("supermercado", "conveniencia", "turbo", "mall", "chocolateria", "restaurantes"):
+        assert plannable_vertical(vertical, concept("cerveza")) and plannable_vertical(vertical, concept("pizza"))

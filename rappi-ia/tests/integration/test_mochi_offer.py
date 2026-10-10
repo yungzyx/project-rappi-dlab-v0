@@ -75,7 +75,7 @@ def test_plan_kit_spreads_across_verticals_and_includes_chosen_alcohol_with_age_
     assert all(p["age_restricted"] == (p["concept"] in ("cerveza", "pisco", "ron")) for p in products)
     assert all(p["vertical"] != "licores" for p in products if not p["age_restricted"])  # Licores solo para el alcohol
     assert body["vertical"] == products[0]["vertical"] and body["prototype_vertical"]
-    assert "carrete" in body["text"] and body["actions"][0]["query"] == "carrete"
+    assert body["text"].startswith("Tu kit «Carrete»: cerveza, ") and body["actions"][0]["query"].startswith("Cerveza")
 
 
 def test_every_plannable_occasion_stays_clear_of_sensitive_baby_health_and_blocked_stores(client):
@@ -90,6 +90,28 @@ def test_every_plannable_occasion_stays_clear_of_sensitive_baby_health_and_block
             assert product["vertical"] != "farmacia" and product["store_id"] not in BLOCKED_STORES, plan
             assert is_plannable(concepts[product["concept"]]), (plan, product)
             assert product["age_restricted"] == (product["concept"] in ("cerveza", "pisco", "ron", "vino", "espumante"))
+
+
+def test_every_plan_speaks_good_spanish_whatever_the_occasion_name(client):
+    """«Para tu un mimo…» y «fiestas patrias» en minúscula: el texto no depende de la gramática del nombre."""
+    concepts = load_taxonomy().concepts
+    occasions = load_taxonomy().occasions
+    answered = 0
+    for plan in client.get("/mochi/plans").json():
+        reply = offer(client, "plan", {"occasion": plan["id"]})
+        if reply.status_code != 200:
+            continue
+        answered += 1
+        body = reply.json()
+        assert body["text"].startswith(f"Tu kit «{plan['name']}»: "), body["text"]  # con la mayúscula de la taxonomía
+        assert "Para tu un" not in body["text"] and "Para tu" not in body["text"]
+        [action] = body["actions"]
+        assert action["label"] == "Más ideas" and action["query"].strip()
+        assert action["query"] not in (plan["name"], plan["name"].lower(), plan["id"])
+        # la búsqueda es de los conceptos de la ocasión que Mochi arma
+        assert action["query"].split(" ")[0] in {c.name.split(" ")[0] for c in concepts.values()}
+        assert set(occasions[plan["id"]].concepts) & {c.id for c in concepts.values() if c.name in action["query"]}
+    assert answered >= 8
 
 
 def test_plan_rejects_baby_and_sick_occasions(client):
@@ -225,3 +247,57 @@ def test_invalid_requests_are_422(client):
     assert offer(client, "checkout", {"cart": []}).status_code == 422
     assert offer(client, "sin_resultado", {"query": ""}).status_code == 422
     assert offer(client, "plan", {}).status_code == 422
+
+
+class RecordingEmbedder(HashEmbedder):
+    def __init__(self):
+        super().__init__()
+        self.queries: list[str] = []
+
+    def embed_queries(self, texts):
+        self.queries += texts
+        return super().embed_queries(texts)
+
+
+def test_a_single_vertical_occasion_stays_in_its_vertical_and_embeds_each_concept_once(db):
+    """«Hambre ya» es comida lista: el kit sale de restaurantes, sin repartirse. Cada concepto se embebe una vez."""
+    seed_demo(db)
+    embedder = RecordingEmbedder()
+    embed_search_documents(db, embedder)
+    embedder.queries.clear()
+    api.app.dependency_overrides[api.get_conn] = lambda: (yield db)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
+    try:
+        body = offer(TestClient(api.app), "plan", {"occasion": "hambre"}).json()
+    finally:
+        api.app.dependency_overrides.clear()
+
+    assert load_taxonomy().occasions["hambre"].vertical == "restaurantes"
+    assert len(body["products"]) >= 3 and {p["vertical"] for p in body["products"]} == {"restaurantes"}
+    assert body["vertical"] == "restaurantes"
+    assert embedder.queries and len(embedder.queries) == len(set(embedder.queries))  # nada se embebe dos veces
+
+
+def test_a_kit_never_takes_a_concept_from_a_vertical_where_it_barely_exists(client, db):
+    """El concepto se busca solo donde compite (masa mínima): un puñado de productos de otro lado no lo representa."""
+    from rappi_ia.agent.verticals import contending_verticals
+
+    for plan in client.get("/mochi/plans").json():
+        reply = offer(client, "plan", {"occasion": plan["id"]})
+        fixed = load_taxonomy().occasions[plan["id"]].vertical
+        for product in reply.json()["products"] if reply.status_code == 200 else []:
+            allowed = set(contending_verticals(db, [product["concept"]]))
+            assert product["vertical"] in allowed | {fixed}, (plan["id"], product["name"], product["vertical"])
+
+
+def test_a_kit_is_still_built_without_an_embedding_model(db):
+    """Sin modelo (RAPPI_IA_LIGHT=1) no hay búsqueda vectorial: el kit se busca por palabras, como siempre."""
+    seed_demo(db)
+    api.app.dependency_overrides[api.get_conn] = lambda: (yield db)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(None, TemplateComposer()), None)
+    try:
+        reply = offer(TestClient(api.app), "plan", {"occasion": "carrete"})
+    finally:
+        api.app.dependency_overrides.clear()
+
+    assert reply.status_code == 200 and len(reply.json()["products"]) >= 3
