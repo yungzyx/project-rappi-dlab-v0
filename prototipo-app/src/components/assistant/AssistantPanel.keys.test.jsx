@@ -8,7 +8,11 @@ import { ProductSheetProvider } from '../../state/ProductSheetContext'
 import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
 
-const api = vi.hoisted(() => ({ health: vi.fn(async () => null), chat: vi.fn(), forget: vi.fn(), profile: vi.fn() }))
+const api = vi.hoisted(() => ({
+  chat: vi.fn(async () => ({ text: 'Para el carrete', products: [] })),
+  forget: vi.fn(),
+  profile: vi.fn(async () => ({ interests: [] })),
+}))
 vi.mock('../../api/client', async (importOriginal) => ({ ...(await importOriginal()), ...api }))
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: vi.fn(), clear: vi.fn(), settled: vi.fn() }))
 vi.mock('../../state/EventsContext', async (importOriginal) => ({ ...(await importOriginal()), useEvents: () => events }))

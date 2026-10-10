@@ -181,6 +181,7 @@ describe('Mochi flotante', () => {
     fireEvent.dragOver(mochiButton(), { dataTransfer })
     fireEvent.drop(mochiButton(), { dataTransfer })
     expect(probe.assistant.session.query).toBe(`¿Con qué acompaño ${BEER.name}?`)
+    expect(probe.assistant.session.product).toMatchObject({ name: BEER.name }) // el panel pide su complemento a la API
   })
 
   test('en silencio queda a la misma altura: sobre el carro y la barra inferior, sin taparlos', () => {

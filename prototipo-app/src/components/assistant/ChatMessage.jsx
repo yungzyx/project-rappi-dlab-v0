@@ -112,7 +112,7 @@ function AlsoIn({ alsoIn, onAction }) {
 }
 
 /** Un mensaje del chat: respuesta del asistente con tarjetas (lo elegido se muestra aparte, sin burbuja). */
-export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOpenStore, onAction }) {
+export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOpenStore, onAction, onRetry }) {
   const [revealed, setRevealed] = useState(!message.animate)
 
   if (message.typing) {
@@ -138,11 +138,6 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
         <div className="chat-bubble">
           <StreamText text={message.text} animate={message.animate} onDone={done} />
         </div>
-        {message.source === 'local' && (
-          <span className="chat-source" title="La API no respondió: contestaron las reglas del prototipo">
-            Respuesta local
-          </span>
-        )}
         {revealed && (
           <div className="chat-extras">
             {message.reason && <p className="chat-reason">{message.reason}</p>}
@@ -186,6 +181,11 @@ export default function ChatMessage({ message, onStreamDone, onOpenProduct, onOp
                   </button>
                 ))}
               </div>
+            )}
+            {message.retry && (
+              <button type="button" className="chat-action tap" onClick={onRetry}>
+                Reintentar
+              </button>
             )}
             {message.actions?.map((action) => (
               <button key={action.label} type="button" className="chat-action tap" onClick={() => onAction(action)}>

@@ -289,7 +289,8 @@ export default function MochiPresence({ screen, homeTab, raised }) {
           event.preventDefault()
           setDragging(false)
           noteEngaged()
-          assistant.open({ query: askAbout(JSON.parse(data)) })
+          const product = JSON.parse(data)
+          assistant.open({ query: askAbout(product), product })
         }}
       >
         <Mascot size={SIZE} mood={jumping ? 'jump' : menu ? 'listen' : 'idle'} />

@@ -57,7 +57,7 @@ export function ProductCard({ product, onOpenStore }) {
           className="product-ask tap"
           onClick={() => {
             setAsking(false)
-            assistant?.open({ query: askAbout(product) })
+            assistant?.open({ query: askAbout(product), product })
           }}
         >
           Preguntarle a Mochi

@@ -10,6 +10,7 @@ import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
 import { routeForScreen } from '../../data/verticals'
 import { fixture, stubApi } from '../../api/testing'
+import { askAbout } from '../../assistant/mochiAsk'
 
 const api = vi.hoisted(() => ({
   health: vi.fn(),
@@ -53,6 +54,17 @@ function stubCatalog(routes = {}) {
     ...routes,
   })
 }
+/** Un producto de la API en el formato del prototipo, como el que se arrastra a Mochi. */
+const BEER = {
+  id: 'cat-94001',
+  name: 'Cerveza negra botella 330 cc (prueba)',
+  price: '$1.990',
+  entityType: 'catalog_item',
+  entityId: '94001',
+  vertical: 'liquor',
+  concept: 'cerveza',
+}
+const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
 const bubbles = () => [...document.querySelectorAll('.chat-bubble')].map((el) => el.textContent)
 
 /** Sin chat escrito, a Mochi se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
@@ -74,6 +86,9 @@ function OpenButton() {
       </button>
       <button type="button" onClick={(e) => assistant.open({ query: e.currentTarget.dataset.query })}>
         preguntar
+      </button>
+      <button type="button" onClick={() => assistant.open({ query: askAbout(BEER), product: BEER })}>
+        arrastrar
       </button>
     </>
   )
@@ -310,25 +325,47 @@ describe('teclado y lector de pantalla', () => {
   })
 
   test('cada respuesta completa se anuncia una vez al lector de pantalla', async () => {
-    api.health.mockResolvedValue(null)
+    api.chat.mockResolvedValueOnce(apiAnswer('Mira estas cervezas'))
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
 
-    expect(screen.getByTestId('assistant-announcer').textContent).toMatch(/cerveza/i)
+    expect(screen.getByTestId('assistant-announcer').textContent).toBe('Mira estas cervezas')
   })
 })
 
-describe('qué Mochi contestó', () => {
-  test('si la API falla, la respuesta del cerebro local se marca en pantalla', async () => {
-    api.chat.mockRejectedValueOnce(new Error('API 500')).mockResolvedValueOnce(apiAnswer('Desde la API'))
+describe('si el chat falla', () => {
+  test('si chat falla se ve Sin conexión y Reintentar reenvía la pregunta', async () => {
+    api.chat.mockRejectedValueOnce(new Error('API caída')).mockResolvedValueOnce(apiAnswer('Desde la API'))
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
-    expect(screen.getByText('Respuesta local')).toBeTruthy()
-    say('pisco')
+
+    expect(bubbles()).toContain('Sin conexión')
+    expect(screen.queryByText('Respuesta local')).toBeNull() // no hay respaldo local
+    expect(screen.getByTestId('assistant-announcer').textContent).toBe('Sin conexión')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     await runUntilIdle()
-    expect(screen.queryByText('Respuesta local')).toBeNull() // la segunda vino de la API
+
+    expect(api.chat).toHaveBeenCalledTimes(2)
+    expect(api.chat.mock.calls[1][0]).toEqual(api.chat.mock.calls[0][0]) // la misma pregunta, el mismo pedido
+    expect(bubbles()).toContain('Desde la API')
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+    expect(screen.getAllByText(/Elegiste/)).toHaveLength(1) // reintentar no es otra pregunta
+  })
+
+  test('Reintentar sigue fallando: vuelve a decir Sin conexión', async () => {
+    api.chat.mockRejectedValue(new Error('API caída'))
+    await renderPanel()
+    say('cerveza')
+    await runUntilIdle()
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await runUntilIdle()
+
+    expect(api.chat).toHaveBeenCalledTimes(2)
+    expect(bubbles()).toContain('Sin conexión')
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy()
   })
 })
 
@@ -347,26 +384,47 @@ describe('temas ya sugeridos', () => {
   })
 })
 
+const VINO = { concept: 'vino', label: '🍷 Vino' }
+
 describe('lo aprendido y Olvidar', () => {
-  test('si la API aún no aprendió nada, se ve lo aprendido localmente, con su Olvidar', async () => {
-    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
+  test('Aprendiendo de ti usa solo el perfil del servidor', async () => {
+    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 })) // el perfil local ya no cuenta
+    api.profile.mockResolvedValue({ interests: [VINO] })
     await renderPanel()
-    expect(screen.getByText('🍺 Cerveza')).toBeTruthy()
+    expect(screen.getByText('Aprendiendo de ti:')).toBeTruthy()
+    expect(screen.getByText('🍷 Vino')).toBeTruthy()
+    expect(screen.queryByText('🍺 Cerveza')).toBeNull()
     expect(screen.getByText('Olvidar')).toBeTruthy()
   })
 
-  test('tras Olvidar, el saludo personalizado se va y queda la confirmación', async () => {
+  test('Aprendiendo de ti se oculta si el servidor no aprendió nada o no contesta', async () => {
     localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
+    await renderPanel() // interests: []
+    expect(screen.queryByText('Aprendiendo de ti:')).toBeNull()
+    expect(screen.queryByText('Olvidar')).toBeNull()
+
+    cleanup()
+    api.profile.mockRejectedValue(new Error('API caída'))
     await renderPanel()
-    expect(screen.getAllByText(/Vi que te gusta/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Aprendiendo de ti:')).toBeNull()
+    expect(screen.queryByText('🍺 Cerveza')).toBeNull()
+  })
+
+  test('tras Olvidar, Para ti se va y queda la confirmación', async () => {
+    api.profile.mockResolvedValue({ interests: [VINO] })
+    stubCatalog({ '/recommendations': fixture('recommendations') })
+    await renderPanel()
+    expect(screen.getByText('Gaseosa cola 500 cc (prueba)')).toBeTruthy()
     fireEvent.click(screen.getByText('Olvidar'))
     await runUntilIdle()
-    expect(document.querySelector('.bigotes-card').textContent).not.toMatch(/Vi que te gusta/)
+    expect(screen.queryByText('Gaseosa cola 500 cc (prueba)')).toBeNull()
     expect(screen.getAllByText(/olvidé lo que aprendí de ti/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Descubre con Mochi')).toBeNull()
+    expect(api.forget).toHaveBeenCalledTimes(1)
   })
 
   test('Olvidar espera la pregunta en curso y el lote de eventos antes del DELETE, y mientras no se envía nada', async () => {
-    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
+    api.profile.mockResolvedValue({ interests: [VINO] })
     const pendingChat = deferred()
     const pendingFlush = deferred()
     api.chat.mockReturnValueOnce(pendingChat.promise)
@@ -392,14 +450,19 @@ describe('lo aprendido y Olvidar', () => {
   })
 
   test('un perfil remoto que llega después de Olvidar no revive lo olvidado', async () => {
-    localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
-    const remote = deferred()
-    api.profile.mockReturnValueOnce(remote.promise)
+    api.profile.mockResolvedValueOnce({ interests: [VINO] })
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
-    remote.resolve({ interests: [{ concept: 'vino', label: '🍷 Vino' }] })
+    fireEvent.click(screen.getByRole('button', { name: 'Volver' }))
     await runUntilIdle()
-    expect(screen.queryByText('🍷 Vino')).toBeNull()
+
+    const remote = deferred()
+    api.profile.mockReturnValueOnce(remote.promise) // al reabrir, esta respuesta queda pendiente
+    fireEvent.click(screen.getByText('abrir'))
+    await runUntilIdle()
+    fireEvent.click(screen.getByText('Olvidar'))
+    remote.resolve({ interests: [{ concept: 'pisco', label: '🍸 Pisco' }] })
+    await runUntilIdle()
+    expect(screen.queryByText('🍸 Pisco')).toBeNull()
     expect(screen.queryByText('Aprendiendo de ti:')).toBeNull()
   })
 })
@@ -488,21 +551,127 @@ describe('sin resultados', () => {
   })
 })
 
-describe('Descubre con Mochi', () => {
-  test('muestra lo explorado y cada tarjeta abre una vertical que aún no abre', async () => {
+describe('Para ti y Descubre con Mochi', () => {
+  // Concepto propio de este test: lo mostrado se recuerda en la pestaña y otros tests usan la fila de ejemplo tal cual.
+  const rows = () => {
+    const data = fixture('recommendations')
+    data.rows[0].concept = 'jugos'
+    data.rows[0].products[0].concept = 'jugos'
+    return data
+  }
+
+  test('Para ti sale de recommendations y se cuenta como mostrado una vez', async () => {
+    const fetchMock = stubCatalog({ '/recommendations': rows() })
+    await renderPanel()
+
+    expect(bubbles()[0]).toBe('¡Hola! Soy Mochi, tu asistente Rappi 🧡 ¿Qué se te antoja hoy?')
+    expect(screen.getByText('Gaseosa cola 500 cc (prueba)')).toBeTruthy()
+    expect(document.querySelector('.chat-reason').textContent).toBe('Porque te interesa 🍕 pizza')
+    // Una sola petición sirve a «Para ti» y a «Descubre con Mochi».
+    expect(fetchMock.mock.calls.filter(([url]) => url.includes('/recommendations'))).toHaveLength(1)
+    const shown = tracked('suggestion_shown').filter((fields) => fields.payload.origen === 'para-ti')
+    expect(shown).toEqual([{ concept_id: 'jugos', vertical: 'express', payload: { origen: 'para-ti' } }])
+
+    // Cerrar y volver a abrir (o recargar la pantalla) no la cuenta otra vez.
+    cleanup()
+    stubCatalog({ '/recommendations': rows() })
+    await renderPanel()
+    expect(screen.getByText('Gaseosa cola 500 cc (prueba)')).toBeTruthy()
+    expect(tracked('suggestion_shown').filter((fields) => fields.payload.origen === 'para-ti')).toHaveLength(1)
+  })
+
+  test('lo que se agrega desde Para ti se cuenta como aceptado con ese origen', async () => {
+    stubCatalog({ '/recommendations': rows() })
+    await renderPanel()
+    fireEvent.click(screen.getByLabelText('Agregar Gaseosa cola 500 cc (prueba)'))
+    expect(tracked('suggestion_accepted')).toContainEqual(
+      expect.objectContaining({ concept_id: 'jugos', payload: { origen: 'para-ti' } }),
+    )
+  })
+
+  test('Para ti se oculta si recommendations viene vacío o falla', async () => {
+    stubCatalog({ '/recommendations': { user_id: 'u', interests: [], rows: [] } })
+    await renderPanel()
+    expect(bubbles()[0]).toBe('¡Hola! Soy Mochi, tu asistente Rappi 🧡 ¿Qué se te antoja hoy?')
+    expect(document.querySelector('.chat-products')).toBeNull()
+    expect(screen.queryByText('Descubre con Mochi')).toBeNull()
+
+    cleanup()
+    stubCatalog({ '/recommendations': 'offline' })
+    await renderPanel()
+    expect(bubbles().at(-1)).toMatch(/Soy Mochi/)
+    expect(document.querySelector('.chat-products')).toBeNull()
+    expect(screen.queryByText('Descubre con Mochi')).toBeNull()
+    expect(tracked('suggestion_shown')).toEqual([])
+  })
+
+  test('Descubre con Mochi muestra hasta 3 filas y cada tarjeta abre su vertical', async () => {
+    const data = fixture('recommendations')
+    const [row] = data.rows
+    data.rows = [
+      row,
+      { ...row, concept: 'helados', prototype_vertical: 'grocery', vertical: 'supermercado', reason: 'Porque te interesa 🍫 chocolate' },
+      { ...row, concept: 'snacks-salados', prototype_vertical: 'liquor', vertical: 'licores' },
+      { ...row, concept: 'jugos', prototype_vertical: 'restaurants', vertical: 'restaurantes' },
+    ]
+    stubCatalog({ '/recommendations': data })
     const push = vi.fn()
-    sessionStorage.setItem('rappi-explored', JSON.stringify(['liquor']))
     await renderPanel({ push })
 
-    expect(screen.getByRole('progressbar', { name: 'Verticales exploradas' }).getAttribute('aria-valuenow')).toBe('1')
-    expect(screen.getByRole('button', { name: 'Licores, ya la exploraste' })).toBeTruthy()
-
-    const [card] = document.querySelectorAll('.discover-card')
-    fireEvent.click(card)
+    const cards = document.querySelectorAll('.discover-card')
+    expect(cards).toHaveLength(3)
+    expect(cards[0].textContent).toContain('Gaseosas en Express')
+    expect(cards[1].textContent).toContain('Helados en Súper')
+    fireEvent.click(cards[1])
     await runUntilIdle()
-    const [[name, params]] = push.mock.calls
-    expect(name === 'vertical' ? params.id : name).not.toBe('liquor')
+    expect(push).toHaveBeenCalledWith(...routeForScreen('grocery'))
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('¿Con qué acompaño…?', () => {
+  const dropBeer = async () => {
+    fireEvent.click(screen.getByText('arrastrar'))
+    await runUntilIdle()
+  }
+
+  test('arrastrar un producto a Mochi muestra su complemento de la API', async () => {
+    const fetchMock = stubCatalog({ 'POST /mochi/offer': fixture('mochi-carrito') })
+    await renderPanel()
+    await dropBeer()
+
+    expect(api.chat).not.toHaveBeenCalled()
+    const call = fetchMock.mock.calls.find(([url]) => url.includes('/mochi/offer'))
+    expect(JSON.parse(call[1].body)).toMatchObject({
+      moment: 'carrito',
+      context: { product: { entity_type: 'catalog_item', entity_id: '94001' } },
+    })
+    expect(screen.getByText(`Elegiste «${askAbout(BEER)}»`)).toBeTruthy()
+    expect(bubbles()).toContain('Para completar tu pedido: snacks salados, en Express.')
+    fireEvent.click(screen.getByLabelText('Agregar Papas fritas clásicas 180 g (prueba)'))
+    expect(tracked('suggestion_accepted')).toContainEqual(
+      expect.objectContaining({ concept_id: 'snacks-salados', payload: { origen: 'mochi-carrito' } }),
+    )
+  })
+
+  test('sin una oferta (204), Mochi dice que no se le ocurre nada', async () => {
+    stubCatalog({ 'POST /mochi/offer': 204 })
+    await renderPanel()
+    await dropBeer()
+    expect(bubbles()).toContain('No se me ocurre nada para acompañar eso')
+  })
+
+  test('si la API no contesta, Sin conexión y Reintentar vuelve a pedir la oferta', async () => {
+    let online = false
+    stubCatalog({ 'POST /mochi/offer': () => (online ? fixture('mochi-carrito') : 'offline') })
+    await renderPanel()
+    await dropBeer()
+    expect(bubbles()).toContain('Sin conexión')
+
+    online = true
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await runUntilIdle()
+    expect(bubbles()).toContain('Para completar tu pedido: snacks salados, en Express.')
   })
 })
 
@@ -526,7 +695,6 @@ describe('servicios sin catálogo', () => {
     say('me voy de vacaciones')
     await runUntilIdle()
 
-    const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
     expect(tracked('service_shown')).toEqual([{ payload: { servicio: 'rappitravel' } }])
     expect(tracked('suggestion_shown')).toContainEqual({
       concept_id: 'dermocosmetica',
@@ -585,7 +753,6 @@ describe('aceptar una sugerencia de la API', () => {
     await runUntilIdle()
 
     fireEvent.click(screen.getByLabelText('Agregar Jugo de naranja 1 L'))
-    const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
     expect(tracked('suggestion_shown')).toHaveLength(1)
     expect(tracked('suggestion_accepted')).toHaveLength(1)
     expect(tracked('suggestion_accepted')[0]).toMatchObject({ concept_id: 'jugos', payload: { origen: 'chat' } })

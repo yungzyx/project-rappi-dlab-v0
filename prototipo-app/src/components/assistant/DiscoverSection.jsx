@@ -1,88 +1,54 @@
-import { EXPLORABLE } from '../../assistant/explored'
 import { VERTICAL_NAMES } from '../../data/verticals'
 import { MAIN_TILES, SHORTCUTS } from '../../data/home'
-import HScroll from '../HScroll'
 import Img from '../Img'
 import './discover.css'
 
 // Las mismas ilustraciones de la Home: la persona reconoce cada vertical de un vistazo.
 const TILE_IMAGES = Object.fromEntries([...MAIN_TILES, ...SHORTCUTS].map((tile) => [tile.id, tile.img]))
 
-const itemImage = (item) => (item.kind === 'product' ? item.product.img : item.store.img)
+const THUMBS = 3
+
+/** «snacks-salados» → «Snacks salados». */
+const conceptLabel = (concept) => {
+  const words = concept.replace(/-/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
 
 /**
- * «Descubre con Mochi»: cuántas verticales lleva exploradas y tarjetas que cruzan sus gustos con una vertical
- * nueva. Tocar una tarjeta (o una vertical del recorrido) la abre.
+ * «Descubre con Mochi»: tarjetas de /recommendations, cada una con un complemento de lo que le gusta a la persona en una
+ * vertical que quizá aún no abre. `rows` son las filas de la API (hasta 3); tocar una tarjeta abre su vertical.
  */
-export default function DiscoverSection({ cards, explored, onOpen }) {
-  const done = EXPLORABLE.filter((vertical) => explored.includes(vertical)).length
+export default function DiscoverSection({ rows, onOpen }) {
+  const cards = rows.filter((row) => VERTICAL_NAMES[row.prototype_vertical])
+  if (cards.length === 0) return null
 
   return (
     <section className="discover" aria-labelledby="discover-title">
-      <div className="discover-head">
-        <h2 id="discover-title" className="search-heading">
-          Descubre con Mochi
-        </h2>
-        <span className="discover-count">
-          Exploraste <b>{done}</b> de {EXPLORABLE.length}
-        </span>
-      </div>
-      <div
-        className="discover-meter"
-        role="progressbar"
-        aria-label="Verticales exploradas"
-        aria-valuemin={0}
-        aria-valuemax={EXPLORABLE.length}
-        aria-valuenow={done}
-      >
-        <span style={{ transform: `scaleX(${done / EXPLORABLE.length})` }} />
-      </div>
-
-      <HScroll className="discover-stamps">
-        {EXPLORABLE.map((vertical) => {
-          const isDone = explored.includes(vertical)
-          return (
-            <button
-              key={vertical}
-              type="button"
-              className={isDone ? 'discover-stamp is-done' : 'discover-stamp'}
-              aria-label={`${VERTICAL_NAMES[vertical]}${isDone ? ', ya la exploraste' : ''}`}
-              onClick={() => onOpen(vertical)}
-            >
-              <span className="discover-stamp-art">
-                <img src={TILE_IMAGES[vertical]} alt="" draggable="false" loading="lazy" />
-              </span>
-              <span className="discover-stamp-name">{VERTICAL_NAMES[vertical]}</span>
-            </button>
-          )
-        })}
-      </HScroll>
+      <h2 id="discover-title" className="search-heading">
+        Descubre con Mochi
+      </h2>
 
       <div className="discover-cards">
-        {cards.map((card, i) => (
+        {cards.map((row, i) => (
           <button
-            key={card.vertical}
+            key={`${row.concept}-${row.prototype_vertical}`}
             type="button"
             className="discover-card tap"
             style={{ animationDelay: `${180 + i * 80}ms` }}
-            onClick={() => onOpen(card.vertical)}
+            onClick={() => onOpen(row.prototype_vertical)}
           >
             <span className="discover-card-art" aria-hidden="true">
-              <img src={TILE_IMAGES[card.vertical]} alt="" draggable="false" loading="lazy" />
+              <img src={TILE_IMAGES[row.prototype_vertical]} alt="" draggable="false" loading="lazy" />
             </span>
             <span className="discover-card-body">
-              <small>
-                {card.from
-                  ? `Te gusta ${card.from.emoji} ${card.from.label.toLowerCase()}`
-                  : `Aún no exploras ${card.verticalName}`}
-              </small>
+              <small>{row.reason}</small>
               <strong>
-                {card.to.emoji} {card.to.label} en {card.verticalName}
+                {conceptLabel(row.concept)} en {VERTICAL_NAMES[row.prototype_vertical]}
               </strong>
               <span className="discover-card-foot">
                 <span className="discover-thumbs" aria-hidden="true">
-                  {card.items.map((item) => (
-                    <Img key={item.key} src={itemImage(item)} draggable="false" />
+                  {row.products.slice(0, THUMBS).map((product) => (
+                    <Img key={product.id} src={product.img} draggable="false" />
                   ))}
                 </span>
                 <em>Explorar</em>
