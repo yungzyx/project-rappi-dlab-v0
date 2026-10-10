@@ -15,6 +15,14 @@
       "name": "Supermercado de prueba Norte",
       "products": 33,
       "vertical": "supermercado"
+    },
+    {
+      "eta": "35 min",
+      "id": 9111,
+      "logo": "https://images.rappi.cl/marketplace/prueba-9111.png",
+      "name": "Farmacia de prueba en súper",
+      "products": 2,
+      "vertical": "supermercado"
     }
   ],
   "vertical": "supermercado"

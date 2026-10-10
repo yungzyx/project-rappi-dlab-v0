@@ -14,14 +14,18 @@ precios por unidad (fruta a granel con -90 %), y esas ofertas no salen.
 
 El precio, el de antes, la tienda y su vertical son de una misma oferta. Un producto en varias tiendas sale una vez, con
 la oferta de mayor descuento.
+
+Una oferta se propone sin que nadie la pida, así que sigue la regla de Bigotes: un producto de concepto sensible
+(`sensitive` en la taxonomía: medicamentos, salud y bienestar sexual, tabaco, vapeo) no sale en ninguna vertical.
+Sin vertical, tampoco las tiendas que no se empujan (`stores.NOT_PUSHED_*`).
 """
 
 from psycopg import Connection
 from rappi_scraper.storage.search import MIN_PRICE
 
 from ..agent.tools import Product
-from ..concepts.taxonomy import load_taxonomy
-from .stores import _CURRENT_OFFERS, _OWN_VERTICAL, NOT_PUSHED_VERTICALS, _product, downloaded_cte
+from ..concepts.taxonomy import load_taxonomy, sensitive_concepts
+from .stores import _CURRENT_OFFERS, _OWN_VERTICAL, _product, downloaded_cte, not_pushed_params
 
 MAX_DISCOUNT_PCT = 60
 
@@ -69,7 +73,11 @@ best AS (
     ORDER BY master_product_id, 1 - price / before DESC, price, store_id
 ),
 top AS (
-    SELECT * FROM best ORDER BY 1 - price / before DESC, master_product_id LIMIT %(limit)s
+    SELECT * FROM best
+    WHERE NOT EXISTS (SELECT 1 FROM item_concepts ic
+                      WHERE ic.entity_type = 'catalog_item' AND ic.entity_id = best.master_product_id::text
+                        AND ic.concept_id = ANY(%(sensitive)s))
+    ORDER BY 1 - price / before DESC, master_product_id LIMIT %(limit)s
 )
 SELECT ci.master_product_id::text, ci.name, t.price, t.before, btrim(coalesce(b.name, s.name)), t.store_id,
        NULLIF(ci.image_url, ''), ci.presentation, ci.is_alcoholic OR ci.age_restricted, ic.concept_id,
@@ -84,7 +92,8 @@ ORDER BY 1 - t.price / t.before DESC, ci.master_product_id"""
 
 def deals(conn: Connection, vertical: str | None = None, limit: int = 24) -> list[dict]:
     """Los productos que bajaron de precio (o que su tienda rebajó), del mayor descuento al menor, de una vertical si
-    se pide. Sin vertical, no entra farmacia. Restaurantes no vende productos del catálogo: no tiene ofertas."""
+    se pide. Sin vertical, no entran las tiendas que no se empujan (farmacia, sex shops, smoking shops). Ninguno es de
+    un concepto sensible. Restaurantes no vende productos del catálogo: no tiene ofertas."""
     if vertical == "restaurantes":
         return []
     sql = _DEALS.format(
@@ -93,7 +102,8 @@ def deals(conn: Connection, vertical: str | None = None, limit: int = 24) -> lis
     )
     params = {
         "vertical": vertical,
-        "not_pushed": list(NOT_PUSHED_VERTICALS),
+        **not_pushed_params(),
+        "sensitive": sorted(sensitive_concepts()),
         "min_price": MIN_PRICE,
         "limit": limit,
         "max_discount": MAX_DISCOUNT_PCT,

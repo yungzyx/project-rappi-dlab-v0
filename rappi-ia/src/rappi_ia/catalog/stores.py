@@ -23,6 +23,16 @@ BIGINT_MAX = 2**63 - 1
 # Farmacia no se empuja: no entra en «Cerca de ti» ni en las ofertas sin vertical. Restaurantes no vende productos del
 # catálogo (tiene menús), así que tampoco es una tienda de «Cerca de ti».
 NOT_PUSHED_VERTICALS = ("farmacia", "restaurantes")
+# Tampoco las tiendas que Rappi rotula con estos subverticales (store_verticals.subvertical), sea cual sea su vertical:
+# en la base real, sex shops y smoking shops (tabaco, Ley 20.105) del mall y farmacias listadas entre los súper (Cruz
+# Verde). Quien abre su vertical a propósito (Retail, Súper) sí las ve: la regla es de lo que la app propone sola.
+NOT_PUSHED_SUBVERTICALS = ("Farmacia", "Sex shop", "Smoking shop")
+
+
+def not_pushed_params() -> dict[str, list[str]]:
+    """Los parámetros que pide el CTE `downloaded` sin vertical (`downloaded_cte(False)`)."""
+    return {"not_pushed": list(NOT_PUSHED_VERTICALS), "not_pushed_subverticals": list(NOT_PUSHED_SUBVERTICALS)}
+
 
 # Las ofertas vigentes de UNA tienda con su pasillo, una por producto del catálogo (la más barata, si la tienda lo tiene
 # en dos SKU): `offers` es un CTE que usan la tarjeta, los pasillos y la página de productos.
@@ -96,7 +106,8 @@ WHERE ps.run_id = d.format_run_id AND ps.store_id = d.store_id AND sp.master_pro
                     AND (later.scraped_at, later.run_id) > (ps.scraped_at, ps.run_id))"""
 
 # Las tiendas descargadas por última vez en su formato (`downloaded`, con `store_id` y `format_run_id`): las de una
-# vertical (`%(vertical)s`) o, sin vertical, las que tienen alguna que se empuje (`%(not_pushed)s` son las que no).
+# vertical (`%(vertical)s`) o, sin vertical, las que tienen alguna que se empuje (`%(not_pushed)s` son las que no) y
+# ningún subvertical que no se empuje (`%(not_pushed_subverticals)s`, solo los propios de la tienda).
 # Una unión positiva con v_store_verticals: `NOT EXISTS` la leía entera (tres veces más lento). Con `history`, cada una
 # dice si tiene precios de corridas anteriores (`has_history`); sin ellos no hay baja de precio que buscar, y saberlo
 # cuesta recorrer los precios de las tiendas grandes.
@@ -104,17 +115,21 @@ _DOWNLOADED = """
 downloaded AS MATERIALIZED (
     SELECT DISTINCT f.store_id, f.format_run_id{history}
     FROM v_store_format_runs f
-    JOIN v_store_verticals v ON v.store_id = f.store_id AND {scope}
+    JOIN v_store_verticals v ON v.store_id = f.store_id AND {scope}{unpushed}
 )"""
+_NOT_PUSHED_SUBVERTICAL = """
+    WHERE NOT EXISTS (SELECT 1 FROM store_verticals own
+                      WHERE own.store_id = f.store_id AND own.subvertical = ANY(%(not_pushed_subverticals)s))"""
 _HAS_HISTORY = """,
            EXISTS (SELECT 1 FROM price_snapshots e
                    WHERE e.store_id = f.store_id AND e.run_id < f.format_run_id) AS has_history"""
 
 
 def downloaded_cte(in_vertical: bool, history: bool = False) -> str:
-    """El CTE `downloaded` de una vertical (parámetro `vertical`) o de las que se empujan (`not_pushed`)."""
+    """El CTE `downloaded` de una vertical (parámetro `vertical`) o de las que se empujan (`not_pushed_params`)."""
     return _DOWNLOADED.format(
         scope="v.vertical = %(vertical)s" if in_vertical else "v.vertical <> ALL(%(not_pushed)s)",
+        unpushed="" if in_vertical else _NOT_PUSHED_SUBVERTICAL,
         history=_HAS_HISTORY if history else "",
     )
 

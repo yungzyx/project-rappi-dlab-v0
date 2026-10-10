@@ -13,6 +13,10 @@ Todo sobre el catálogo de `seed_demo`. Los ocho restaurantes (9801 a 9808), con
 | 9808 | 4,9  | 10 min | $0     | ningún plato con precio: no se lista                    |
 
 Las bajas de precio salen de comparar la oferta vigente con la corrida anterior (ver `_PREVIOUS` en el seed).
+
+Tres tiendas con ofertas no se empujan (ni «Cerca de ti» ni las ofertas sin vertical): el sex shop 9611 y el smoking
+shop 9612 del mall, y la farmacia 9111 que Rappi lista entre los súper. Cada una vende un producto corriente y uno de
+concepto sensible, los dos con baja de precio (ver `_NOT_PUSHED_STORES` en el seed).
 """
 
 import math
@@ -27,11 +31,16 @@ from rappi_ia.catalog.deals import deals
 from rappi_ia.catalog.home import home
 from rappi_ia.catalog.restaurants import restaurant_menu, restaurants
 from rappi_ia.catalog.stores import vertical_stores
-from rappi_ia.demo.seed import seed_demo
+from rappi_ia.concepts.taxonomy import sensitive_concepts
+from rappi_ia.demo.seed import DEMO_VERTICALS, seed_demo
 
 PIZZERIA, SUSHI, SANDWICHES, GRILL, CAFE, PASTRY, CEVICHE, ICE_CREAM = range(9801, 9809)
 LISTED = [PIZZERIA, SUSHI, SANDWICHES, GRILL, CAFE, PASTRY, CEVICHE]
 OLD_BRANCH = 9103  # del mismo formato que 9101 pero sin ofertas vigentes
+SEX_SHOP, SMOKING_SHOP, PHARMACY_IN_SUPER = 9611, 9612, 9111
+NOT_PUSHED_STORES = {SEX_SHOP, SMOKING_SHOP, PHARMACY_IN_SUPER}
+PLAIN_DEALS = ["96101", "96201", "91401"]  # el producto corriente de cada una, con baja de precio
+SENSITIVE_DEALS = ["96102", "96202", "91402", "95001"]  # gel íntimo, papelillos, antiácido y paracetamol (farmacia)
 DISH_PHOTOS = "https://imagenes.prueba.invalid/platos/"
 CARD_KEYS = {"id", "name", "area", "cover", "rating", "eta", "fee", "cuisines"}
 STORE_KEYS = {"id", "name", "logo", "eta", "products", "vertical"}
@@ -305,12 +314,18 @@ def test_deals_by_vertical(seeded):
     assert deal_summary(deals(seeded, "licores")) == [("94001", 9401, "$1.290", "$1.590", "-19%")]
     assert deal_summary(deals(seeded, "supermercado")) == [
         ("91002", 9102, "$1.350", "$1.790", "-25%"),
+        ("91401", PHARMACY_IN_SUPER, "$1.490", "$1.790", "-17%"),
         ("91004", 9101, "$3.990", "$4.590", "-13%"),
         ("91003", 9101, "$1.790", "$1.990", "-10%"),
     ]
     assert ids_of(deals(seeded, "conveniencia")) == ["92002", "92004"]
     assert ids_of(deals(seeded, "turbo")) == ["93001"]
-    assert ids_of(deals(seeded, "mall")) == ["96001"]
+    # En Retail, que se abre a propósito, están los productos corrientes del sex shop y del smoking shop.
+    assert deal_summary(deals(seeded, "mall")) == [
+        ("96201", SMOKING_SHOP, "$990", "$1.290", "-23%"),
+        ("96101", SEX_SHOP, "$5.990", "$7.490", "-20%"),
+        ("96001", 9601, "$24.990", "$29.990", "-17%"),
+    ]
     assert ids_of(deals(seeded, "chocolateria")) == ["97001"]
     # Restaurantes no vende productos del catálogo; una vertical que no existe, tampoco.
     assert deals(seeded, "restaurantes") == []
@@ -325,10 +340,49 @@ def test_deals_limit_keeps_the_biggest_discounts(seeded):
 def test_deals_without_vertical_never_include_pharmacy(seeded):
     everything = deals(seeded, limit=100)
 
-    assert "95001" not in ids_of(everything)
+    assert "95003" not in ids_of(everything)
     assert "farmacia" not in {d["vertical"] for d in everything}
-    # El paracetamol es la mayor baja del catálogo (-33%): sin la regla encabezaría la lista. Con la vertical, sale.
-    assert deal_summary(deals(seeded, "farmacia")) == [("95001", 9501, "$1.990", "$2.990", "-33%")]
+    # La vitamina C (-17%) es una baja de la farmacia: sin la regla estaría entre las ofertas. Con la vertical, sale.
+    assert deal_summary(deals(seeded, "farmacia")) == [("95003", 9501, "$4.990", "$5.990", "-17%")]
+
+
+def test_deals_without_vertical_leave_out_stores_that_are_not_pushed(seeded):
+    everything = deals(seeded, limit=100)
+
+    # Sus productos corrientes tienen una baja de precio real (-20 %, -23 % y -17 %), pero son de un sex shop, un
+    # smoking shop y una farmacia: no se empujan.
+    assert NOT_PUSHED_STORES.isdisjoint(d["store_id"] for d in everything)
+    assert set(PLAIN_DEALS).isdisjoint(ids_of(everything))
+    # Con la vertical abierta a propósito (Retail, Súper), sus ofertas corrientes siguen ahí.
+    assert {"96101", "96201"} <= set(ids_of(deals(seeded, "mall", limit=100)))
+    assert "91401" in ids_of(deals(seeded, "supermercado", limit=100))
+
+
+def test_deals_never_push_sensitive_concepts_in_any_vertical(seeded):
+    # Los cuatro productos de prueba son de un concepto sensible y tienen una baja de precio real.
+    concepts = dict(
+        seeded.execute(
+            """SELECT entity_id, concept_id FROM item_concepts
+               WHERE entity_type = 'catalog_item' AND entity_id = ANY(%s)""",
+            (SENSITIVE_DEALS,),
+        )
+    )
+    assert set(concepts) == set(SENSITIVE_DEALS)
+    assert set(concepts.values()) <= sensitive_concepts()
+
+    for vertical in (None, *DEMO_VERTICALS):
+        found = deals(seeded, vertical, limit=100)
+        assert set(SENSITIVE_DEALS).isdisjoint(ids_of(found)), vertical
+        assert sensitive_concepts().isdisjoint(d["concept"] for d in found), vertical
+
+
+def test_a_deal_whose_concept_turns_sensitive_stops_being_offered(seeded):
+    assert "91003" in ids_of(deals(seeded, "supermercado"))  # la gaseosa del Centro, -10 %
+
+    seeded.execute("UPDATE item_concepts SET concept_id = 'medicamentos' WHERE entity_id = '91003'")
+
+    assert "91003" not in ids_of(deals(seeded, "supermercado", limit=100))
+    assert "91003" not in ids_of(deals(seeded, limit=100))
 
 
 def test_drops_agree_with_v_price_changes(seeded):
@@ -341,7 +395,7 @@ def test_drops_agree_with_v_price_changes(seeded):
                WHERE v.diferencia < 0"""
         )
     }
-    found = deals(seeded, limit=100) + deals(seeded, "farmacia")
+    found = deals(seeded, limit=100) + [d for vertical in DEMO_VERTICALS for d in deals(seeded, vertical, limit=100)]
 
     # Todas las bajas de la vista que son ofertas vigentes salen, con el mismo precio de antes (la bebida energética
     # sale con su precio de lista, no con el anterior).
@@ -350,11 +404,16 @@ def test_drops_agree_with_v_price_changes(seeded):
     }
     assert from_drops <= in_view
     # Las demás bajas de la vista no son ofertas vigentes: la mermelada (91202) está agotada y la bebida energética
-    # ya salió; las galletas del Centro (91002 en 9101) perdieron contra las de Norte, que bajaron más.
+    # ya salió; las galletas del Centro (91002 en 9101) perdieron contra las de Norte, que bajaron más; y los productos
+    # de concepto sensible (paracetamol, gel íntimo, papelillos y antiácido) no se ofrecen como oferta.
     assert in_view - from_drops == {
         (9201, "sku-92004", "$1.790"),
         (9101, "sku-91202", "$1.990"),
         (9101, "sku-91002", "$1.490"),
+        (9501, "sku-95001", "$2.990"),
+        (SEX_SHOP, "sku-96102", "$4.990"),
+        (SMOKING_SHOP, "sku-96202", "$1.690"),
+        (PHARMACY_IN_SUPER, "sku-91402", "$3.990"),
     }
 
 
@@ -450,8 +509,9 @@ def test_a_drop_only_counts_against_the_previous_price_of_the_current_offer(seed
     found = {d["entity_id"]: d for d in deals(seeded, "supermercado")}
 
     # Antes las galletas del Centro habían bajado de $1.490 a $1.290; ahora subieron, así que esa baja ya no cuenta.
-    # La de Norte, que sigue vigente, conserva la suya. La gaseosa quedó igual y el café ya no está vigente.
-    assert list(found) == ["91002"] and found["91002"]["store_id"] == 9102
+    # La de Norte, que sigue vigente, conserva la suya. La gaseosa quedó igual y el café ya no está vigente. La
+    # farmacia 9111 no se tocó: su cepillo sigue con su baja.
+    assert list(found) == ["91002", "91401"] and found["91002"]["store_id"] == 9102
 
 
 # --- Home -----------------------------------------------------------------------------------------------------------
@@ -463,11 +523,12 @@ def test_home_nearby_is_sorted_by_distance_and_skips_pharmacy(seeded):
            WHERE s.lat IS NOT NULL"""
     ).fetchall()
     by_distance = sorted(rows, key=lambda r: haversine_km(config.MVP_HOME_LAT, config.MVP_HOME_LNG, r[1], r[2]))
-    # Entre las más cercanas hay restaurantes, la farmacia 9501 y la sucursal 9103 (sin ofertas vigentes): no entran.
+    # Entre las más cercanas hay restaurantes, la farmacia 9501, la sucursal 9103 (sin ofertas vigentes) y las tres
+    # tiendas que no se empujan (las más cercanas de todas): no entran.
     expected = [
         store_id
         for store_id, _, _, vertical in by_distance
-        if vertical not in ("farmacia", "restaurantes") and store_id != OLD_BRANCH
+        if vertical not in ("farmacia", "restaurantes") and store_id != OLD_BRANCH and store_id not in NOT_PUSHED_STORES
     ][:6]
 
     nearby = home(seeded)["nearby_stores"]
@@ -477,10 +538,39 @@ def test_home_nearby_is_sorted_by_distance_and_skips_pharmacy(seeded):
     nearest = [store_id for store_id, *_ in by_distance]
     assert nearest.index(9501) < nearest.index(expected[-1]) and nearest.index(OLD_BRANCH) < nearest.index(expected[-1])
     assert all(nearest.index(store_id) < nearest.index(expected[0]) for store_id in LISTED + [ICE_CREAM])
+    assert all(nearest.index(store_id) < nearest.index(expected[0]) for store_id in NOT_PUSHED_STORES)
     assert all(set(card) == STORE_KEYS and card["products"] > 0 for card in nearby)
     # Es la misma tarjeta que da la lista de su vertical.
     assert nearby[3] == vertical_stores(seeded, "supermercado")[0]
     assert (nearby[0]["name"], nearby[0]["vertical"]) == ("Botillería de prueba Oriente", "licores")
+
+
+def test_home_nearby_never_pushes_sex_shops_smoking_shops_or_pharmacies_listed_as_supermarkets(seeded):
+    # Las tres tienen ofertas vigentes y están más cerca del punto fijo que cualquier otra tienda, pero el subvertical
+    # que Rappi les da (Sex shop, Smoking shop, Farmacia) las deja fuera de «Cerca de ti».
+    assert NOT_PUSHED_STORES.isdisjoint(ids(home(seeded)["nearby_stores"]))
+    # Quien abre Retail o Súper a propósito sí las ve: esas listas no cambian.
+    assert {SEX_SHOP, SMOKING_SHOP} <= set(ids(vertical_stores(seeded, "mall")))
+    assert PHARMACY_IN_SUPER in ids(vertical_stores(seeded, "supermercado"))
+
+
+def test_home_nearby_leaves_out_restaurants_even_when_they_have_catalog_prices(seeded):
+    # Un restaurante con precios de catálogo (una sucursal descargada) sería la tienda más cercana de la lista.
+    run_id = seeded.execute("SELECT max(run_id) FROM scrape_runs WHERE kind = 'stores'").fetchone()[0]
+    seeded.execute("INSERT INTO aisles (store_id, aisle_id, name) VALUES (%s, 100, 'Despensa')", (PIZZERIA,))
+    seeded.execute(
+        "INSERT INTO store_products (store_id, sku, master_product_id, aisle_id) VALUES (%s, 'sku-91001', 91001, 100)",
+        (PIZZERIA,),
+    )
+    seeded.execute(
+        "INSERT INTO price_snapshots (run_id, store_id, sku, price, in_stock) VALUES (%s, %s, 'sku-91001', 1990, true)",
+        (run_id, PIZZERIA),
+    )
+    # Quedó como una tienda descargada, con pasillo, producto y precio vigentes.
+    downloaded = seeded.execute("SELECT count(*) FROM v_store_format_runs WHERE store_id = %s", (PIZZERIA,))
+    assert downloaded.fetchone() == (1,)
+
+    assert PIZZERIA not in ids(home(seeded)["nearby_stores"])
 
 
 def test_home_nearby_follows_the_configured_point(seeded, monkeypatch):

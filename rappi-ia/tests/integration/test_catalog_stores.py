@@ -19,6 +19,7 @@ from rappi_ia.catalog.stores import product_detail, store_page, vertical_stores
 from rappi_ia.demo.seed import DEMO_VERTICALS, seed_demo
 
 CENTRO, NORTE, OLD_BRANCH, DISCOVERED, PIZZERIA = 9101, 9102, 9103, 9104, 9801
+PHARMACY_IN_SUPER = 9111  # Rappi la lista entre los súper (subvertical Farmacia): se abre desde su vertical
 CARD_KEYS = {"id", "name", "logo", "eta", "products", "vertical"}
 NOT_IN_CATALOG = "Esta tienda no está en el catálogo"
 
@@ -56,16 +57,17 @@ def all_products(conn, store_id: int) -> list[dict]:
 def test_vertical_stores_lists_one_card_per_format_with_current_offers(seeded):
     cards = vertical_stores(seeded, "supermercado")
 
-    # 9103 es del mismo formato que 9101 pero su última descarga es anterior; 9104 solo se descubrió.
-    assert [card["id"] for card in cards] == [CENTRO, NORTE]
+    # 9103 es del mismo formato que 9101 pero su última descarga es anterior; 9104 solo se descubrió. La farmacia que
+    # Rappi lista entre los súper (9111) sí está, con sus dos ofertas, al final.
+    assert [card["id"] for card in cards] == [CENTRO, NORTE, PHARMACY_IN_SUPER]
     assert all(set(card) == CARD_KEYS for card in cards)
-    centro, norte = cards
+    centro, norte, pharmacy = cards
     assert centro["name"] == "Supermercado de prueba Centro"
     assert centro["logo"] == f"{LOGO_BASE_URL}prueba-{CENTRO}.png"
     assert re.fullmatch(r"\d+ min", centro["eta"])
     assert centro["vertical"] == "supermercado"
     # Ofertas vigentes: el atún (corrida anterior) y la mermelada (agotada) no cuentan. Más ofertas primero.
-    assert (centro["products"], norte["products"]) == (36, 33)
+    assert (centro["products"], norte["products"], pharmacy["products"]) == (36, 33, 2)
 
 
 def test_vertical_stores_limit_and_restaurants(seeded):
@@ -114,7 +116,7 @@ def test_a_store_whose_offers_have_no_aisle_is_neither_listed_nor_opened(seeded)
     """Las tiendas importadas de un CSV antiguo tienen productos pero no pasillos: su página saldría vacía."""
     add_branch(seeded, 9105, "prueba_9105", with_aisle=False)
 
-    assert [card["id"] for card in vertical_stores(seeded, "supermercado")] == [CENTRO, NORTE]
+    assert [card["id"] for card in vertical_stores(seeded, "supermercado")] == [CENTRO, NORTE, PHARMACY_IN_SUPER]
     assert store_page(seeded, 9105) is None
 
 
@@ -124,6 +126,7 @@ def test_a_format_downloaded_in_two_branches_has_one_card_the_one_with_more_offe
     assert [(card["id"], card["products"]) for card in vertical_stores(seeded, "supermercado")] == [
         (CENTRO, 36),
         (NORTE, 33),
+        (PHARMACY_IN_SUPER, 2),
     ]
     assert store_page(seeded, 9105)["store"]["products"] == 1  # la otra sucursal sigue abierta por su id
 
@@ -303,7 +306,7 @@ def test_catalog_endpoints_accept_prototype_vertical_ids(client):
 
     assert prototype == backend
     assert backend["vertical"] == "supermercado"
-    assert [card["id"] for card in backend["stores"]] == [CENTRO, NORTE]
+    assert [card["id"] for card in backend["stores"]] == [CENTRO, NORTE, PHARMACY_IN_SUPER]
     assert client.get("/catalog/verticals/express/stores").json()["vertical"] == "conveniencia"
     assert client.get("/catalog/verticals/liquor/stores?limit=1").json()["stores"][0]["id"] == 9401
     assert client.get("/catalog/verticals/restaurantes/stores").json() == {"vertical": "restaurantes", "stores": []}

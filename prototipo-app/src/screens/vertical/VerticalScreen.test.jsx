@@ -128,6 +128,7 @@ describe('catálogo real en la vertical', () => {
     expect(params.stores.map((store) => [store.id, store.vertical])).toEqual([
       [9101, 'grocery'],
       [9102, 'grocery'],
+      [9111, 'grocery'],
     ])
 
     fireEvent.click(stores.getByText('Supermercado de prueba Norte'))

@@ -63,6 +63,28 @@ _DISCOVERED_BRANCH = (9104, "Supermercado de prueba Poniente (solo descubierta)"
 # El punto fijo de la demo (Providencia, Santiago): las tiendas de prueba se reparten a unos kilómetros alrededor.
 _HOME = (config.MVP_HOME_LAT, config.MVP_HOME_LNG)
 
+# Tiendas que la Home no empuja aunque tengan ofertas, como en la base real: un sex shop y un smoking shop del mall, y
+# una farmacia que Rappi lista entre los súper. Su subvertical (store_verticals.subvertical) es la que las delata. Están
+# pegadas al punto fijo: sin la regla, serían las primeras de «Cerca de ti». Cada una vende un producto corriente y uno
+# de concepto sensible, los dos con baja de precio.
+# (store_id, nombre, vertical, subvertical, [(master_product_id, nombre, categoría de Rappi, precio, precio antes)]).
+# fmt: off
+_NOT_PUSHED_STORES = (
+    (9611, "Sex shop (prueba)", "mall", "Sex shop", [
+        (96101, "Vela de masaje aromática (prueba)", "Velas", 5990, 7490),
+        (96102, "Gel hidratante íntimo 100 ml (prueba)", "Lubricantes", 3990, 4990),
+    ]),
+    (9612, "Smoking shop (prueba)", "mall", "Smoking shop", [
+        (96201, "Chicles de menta x 12 (prueba)", "Gomitas y caramelos", 990, 1290),
+        (96202, "Papelillos para fumar x 50 (prueba)", "Papel", 1490, 1690),
+    ]),
+    (9111, "Farmacia de prueba en súper", "supermercado", "Farmacia", [
+        (91401, "Cepillo dental infantil (prueba)", "Cepillos dentales", 1490, 1790),
+        (91402, "Antiácido efervescente x 20 (prueba)", "Antiácidos", 3490, 3990),
+    ]),
+)
+# fmt: on
+
 # (master_product_id, nombre, categoría de Rappi, +18, {vertical: (precio en la 1.ª tienda, precio en la 2.ª)}).
 # Las categorías están en concepts/category_map.csv: así `build_concepts` asigna concepto en cada vertical.
 # Un producto que figura en varios verticales (la cerveza, las papas, los pañales) es uno solo del catálogo.
@@ -208,6 +230,7 @@ _PREVIOUS = {
     (93001, 9301): 4990,
     (94001, 9401): 1590,
     (95001, 9501): 2990,
+    (95003, 9501): 5990,  # la vitamina C: una baja de farmacia que no es de un concepto sensible
     (96001, 9601): 29990,
     (97001, 9701): 2990,
     (91202, 9101): 1990,
@@ -331,6 +354,7 @@ def _aisle_layout() -> tuple[dict[str, tuple[int, int | None]], dict[int, tuple[
             of_category.update(dict.fromkeys(categories, (aisle_id, aisle_id + offset)))
     aisle_id = 100 * len(_AISLES)
     categories = [product[2] for product in _PRODUCTS] + [offer[2] for offer in _NOT_CURRENT]
+    categories += [product[2] for *_, products in _NOT_PUSHED_STORES for product in products]
     for category in dict.fromkeys(categories):
         if category not in of_category:
             aisle_id += 100
@@ -412,18 +436,31 @@ def _insert_stores(conn: Connection) -> None:
     # La sucursal de una corrida anterior comparte formato con la 9101; la descubierta no se bajó (sin raw).
     _insert_store(conn, *_OLD_BRANCH, "prueba_9101", "supermercado", placed + 1)
     _insert_store(conn, *_DISCOVERED_BRANCH, "prueba_9104", "supermercado")
+    for index, (store_id, name, vertical, subvertical, _) in enumerate(_NOT_PUSHED_STORES, start=1):
+        _insert_store(conn, store_id, name, f"prueba_{store_id}", vertical, subvertical=subvertical, nearness=index)
 
 
 def _insert_store(
-    conn: Connection, store_id: int, name: str, store_type: str, vertical: str, place: int | None = None
+    conn: Connection,
+    store_id: int,
+    name: str,
+    store_type: str,
+    vertical: str,
+    place: int | None = None,
+    subvertical: str | None = None,
+    nearness: int | None = None,
 ) -> None:
     """Una tienda con su vertical. Con `place`, es una sucursal bajada: tiene coordenadas y el `raw` de Rappi (logo y
-    minutos de entrega); sin él, solo está descubierta (los restaurantes tienen coordenadas pero no `raw`)."""
+    minutos de entrega); sin él, solo está descubierta (los restaurantes tienen coordenadas pero no `raw`). Con
+    `nearness` (1, 2…) es una sucursal bajada pegada al punto fijo, más cerca de él cuanto menor el número."""
     lat = lng = raw = None
-    if place is not None:
-        # Repartidas en una cuadrícula alrededor del punto fijo, sin repetirse (17 es primo).
-        lat = _HOME[0] + ((place * 5) % 17 - 8) * 0.004
-        lng = _HOME[1] + ((place * 3) % 17 - 8) * 0.004
+    if place is not None or nearness is not None:
+        if place is not None:
+            # Repartidas en una cuadrícula alrededor del punto fijo, sin repetirse (17 es primo).
+            lat = _HOME[0] + ((place * 5) % 17 - 8) * 0.004
+            lng = _HOME[1] + ((place * 3) % 17 - 8) * 0.004
+        else:
+            lat, lng = _HOME[0] - nearness * 0.0001, _HOME[1]
         raw = Jsonb({"image": f"prueba-{store_id}.png", "eta_value": 20 + 5 * (store_id % 4), "lat": lat, "lng": lng})
     elif vertical == "restaurantes":
         # Más cerca del punto fijo que cualquier tienda: «Cerca de ti» tiene que dejarlos fuera por ser restaurantes.
@@ -433,7 +470,10 @@ def _insert_store(
            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
         (store_id, name, store_type, CITY, f"/tiendas/{store_id}", lat, lng, raw),
     )
-    conn.execute("INSERT INTO store_verticals (store_id, vertical) VALUES (%s, %s)", (store_id, vertical))
+    conn.execute(
+        "INSERT INTO store_verticals (store_id, vertical, subvertical) VALUES (%s, %s, %s)",
+        (store_id, vertical, subvertical),
+    )
 
 
 def _insert_products(conn: Connection) -> None:
@@ -472,6 +512,11 @@ def _insert_products(conn: Connection) -> None:
             _insert_offer(conn, run_id, 9101, product_id, category, price, in_stock=False)
     for (product_id, store_id), price in _PREVIOUS.items():
         _insert_snapshot(conn, old_run, store_id, product_id, price, old=True)
+    for store_id, *_, products in _NOT_PUSHED_STORES:
+        for product_id, name, category, price, before in products:
+            _insert_catalog_item(conn, category_ids, product_id, name, category)
+            _insert_offer(conn, run_id, store_id, product_id, category, price)
+            _insert_snapshot(conn, old_run, store_id, product_id, before, old=True)
 
 
 def _insert_catalog_item(

@@ -16,7 +16,7 @@ describe('tiendas de una vertical', () => {
     const result = await verticalStores('supermercado')
 
     expect(result.vertical).toBe('grocery')
-    expect(result.stores).toHaveLength(2)
+    expect(result.stores).toHaveLength(3) // los dos súper y la farmacia que Rappi lista entre ellos
     expect(result.stores[0]).toEqual({
       id: 9101,
       name: 'Supermercado de prueba Centro',

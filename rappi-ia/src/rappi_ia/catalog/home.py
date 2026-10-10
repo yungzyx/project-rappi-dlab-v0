@@ -6,16 +6,17 @@ from rappi_scraper.storage.search import MIN_PRICE
 
 from .. import config
 from .restaurants import restaurants
-from .stores import _CURRENT_OFFERS, _OWN_VERTICAL, NOT_PUSHED_VERTICALS, _card, downloaded_cte
+from .stores import _CURRENT_OFFERS, _OWN_VERTICAL, _card, downloaded_cte, not_pushed_params
 
 NEARBY_STORES = 6
 FAST_RESTAURANTS = 2
 LOW_FEE_RESTAURANTS = 6
 
 # Las tiendas con ofertas vigentes más cercanas al punto, con coordenadas y sin las que no se empujan (farmacia,
-# restaurantes). La distancia es la del círculo máximo (haversine). Las tiendas se ordenan y se cortan solo con las que
-# tienen alguna oferta vigente (el EXISTS se detiene en la primera): así una cercana sin ofertas no ocupa un lugar y
-# los productos se cuentan solo para las que quedan. Cada tarjeta es la que da `vertical_stores`.
+# restaurantes, sex shops, smoking shops: ver `stores.NOT_PUSHED_*`). La distancia es la del círculo máximo (haversine).
+# Las tiendas se ordenan y se cortan solo con las que tienen alguna oferta vigente (el EXISTS se detiene en la primera):
+# así una cercana sin ofertas no ocupa un lugar y los productos se cuentan solo para las que quedan. Cada tarjeta es la
+# que da `vertical_stores`.
 _NEARBY = f"""
 WITH {downloaded_cte(False)},
 nearest AS MATERIALIZED (
@@ -49,5 +50,5 @@ def home(conn: Connection) -> dict:
 
 
 def _nearby_stores(conn: Connection, lat: float, lng: float, limit: int) -> list[dict]:
-    params = {"lat": lat, "lng": lng, "limit": limit, "min_price": MIN_PRICE, "not_pushed": list(NOT_PUSHED_VERTICALS)}
+    params = {"lat": lat, "lng": lng, "limit": limit, "min_price": MIN_PRICE, **not_pushed_params()}
     return [_card(*row) for row in conn.execute(_NEARBY, params)]
