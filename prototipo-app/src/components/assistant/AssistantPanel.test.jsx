@@ -475,6 +475,44 @@ describe('sugerencias mostradas', () => {
   })
 })
 
+describe('aceptar una sugerencia de la API', () => {
+  test('el chat y el «+» cuentan la mostrada una sola vez, aunque la vertical llegue como código del backend y como id del prototipo', async () => {
+    api.chat.mockResolvedValueOnce({
+      text: 'Mira estas hamburguesas',
+      products: [],
+      suggestion: {
+        // Concepto propio de este test: lo mostrado se recuerda en la pestaña y otros tests ya usaron «gaseosas».
+        concept: 'jugos',
+        vertical: 'licores', // el código del backend, como lo deja toMessage en la sugerencia
+        prototype_vertical: 'liquor',
+        reason: 'Porque llevas 🍔 hamburguesa',
+        question: '¿Te tinca sumar jugos?',
+        products: [
+          {
+            id: 'cat-1',
+            entity_type: 'catalog_item',
+            entity_id: '1',
+            name: 'Jugo de naranja 1 L',
+            price: '$1.990',
+            store: 'Botillería',
+            vertical: 'licores',
+            concept: 'jugos',
+          },
+        ],
+      },
+    })
+    await renderPanel()
+    say('una hamburguesa')
+    await runUntilIdle()
+
+    fireEvent.click(screen.getByLabelText('Agregar Jugo de naranja 1 L'))
+    const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
+    expect(tracked('suggestion_shown')).toHaveLength(1)
+    expect(tracked('suggestion_accepted')).toHaveLength(1)
+    expect(tracked('suggestion_accepted')[0]).toMatchObject({ concept_id: 'jugos', payload: { origen: 'chat' } })
+  })
+})
+
 describe('conversación', () => {
   test('el mensaje siguiente lleva el pedido anterior: «más barata» se lee sobre «cerveza»', async () => {
     api.chat.mockResolvedValueOnce({

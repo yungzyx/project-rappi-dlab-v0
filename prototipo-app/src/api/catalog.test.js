@@ -109,8 +109,9 @@ describe('un producto', () => {
       storeId: 9101,
       entityType: 'catalog_item',
       entityId: '91001',
-      etaIcon: 'clock',
+      etaIcon: 'none',
     })
+    expect(result.eta).toBeUndefined()
   })
 })
 

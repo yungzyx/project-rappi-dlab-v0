@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { toPrototypeProduct } from '../api/client'
+import { fixture } from '../api/testing'
 import { AssistantProvider } from '../state/AssistantContext'
 import { CartProvider, useCart } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
@@ -96,6 +98,28 @@ describe('ProductSheet', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Actualizar 2 · $12.580' }))
     expect(screen.getByTestId('cart').textContent).toBe('2|Bien frías')
     expect(events.track.mock.calls.filter(([type]) => type === 'cart_remove')).toHaveLength(1)
+  })
+
+  test('un producto de la API no inventa tiempo de entrega: ni la tarjeta, ni la fila, ni la hoja lo muestran', () => {
+    const item = toPrototypeProduct(fixture('catalog-product'))
+    const { container } = renderWith(
+      <>
+        <ProductCard product={item} />
+        <ul>
+          <ProductRow product={item} showStore />
+        </ul>
+      </>,
+    )
+    const noEta = (text) => expect(text).not.toMatch(/\d+\s*min|undefined|null/)
+
+    expect(container.querySelector('.store-line-eta')).toBeNull()
+    expect(container.querySelector('.store-line strong').textContent).toBe('Supermercado de prueba Centro')
+    noEta(container.textContent)
+
+    fireEvent.click(container.querySelector('.product-card-main'))
+    const dialog = screen.getByRole('dialog', { name: item.name })
+    expect(dialog.textContent).toContain('180 g')
+    noEta(dialog.textContent)
   })
 
   test('el "+" de la fila no abre la hoja', () => {

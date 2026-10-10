@@ -104,4 +104,12 @@ describe('"Para ti" desde rappi-ia', () => {
     expect(firstShowing(row)).toBe(false) // cinco visitas y una compra no son 20 % de aceptación
     expect(firstShowing({ ...row, generation: 1 })).toBe(true) // tras «Olvidar» es otra sugerencia
   })
+
+  test('la vertical cuenta igual como código del backend que como id del prototipo', () => {
+    const row = { concept: 'cerveza', origin: 'chat', generation: 0 }
+
+    expect(firstShowing({ ...row, vertical: 'licores' })).toBe(true) // la sugerencia del chat
+    expect(firstShowing({ ...row, vertical: 'liquor' })).toBe(false) // sus productos, al aceptarla
+    expect(firstShowing({ ...row, vertical: 'supermercado' })).toBe(true) // otra vertical sigue siendo otra
+  })
 })

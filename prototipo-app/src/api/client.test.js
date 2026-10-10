@@ -52,8 +52,10 @@ describe('de la API al prototipo', () => {
       backendVertical: 'supermercado',
       storeId: 9101,
       size: '180 g',
-      etaIcon: 'clock',
+      etaIcon: 'none',
     })
+    // La API no sabe el tiempo de entrega de un producto: no se inventa uno.
+    expect(toPrototypeProduct(fixture('catalog-product')).eta).toBeUndefined()
     // Una vertical que el prototipo no conoce queda con su código.
     expect(toPrototypeProduct({ ...API_PRODUCT, vertical: 'otra' })).toMatchObject({ vertical: 'otra', backendVertical: 'otra' })
     // Un plato no trae presentación ni siempre foto: no queda «undefined» ni «null» a la vista.

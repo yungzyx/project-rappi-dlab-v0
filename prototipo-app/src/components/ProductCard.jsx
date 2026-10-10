@@ -136,10 +136,12 @@ function StoreLine({ item }) {
       <StoreLogo item={item} />
       <span>
         <strong>{item.store}</strong>
-        <span className="store-line-eta">
-          <EtaIcon kind={item.etaIcon} size={15} />
-          {item.eta}
-        </span>
+        {item.eta && (
+          <span className="store-line-eta">
+            <EtaIcon kind={item.etaIcon} size={15} />
+            {item.eta}
+          </span>
+        )}
       </span>
     </span>
   )

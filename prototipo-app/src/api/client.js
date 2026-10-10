@@ -132,8 +132,9 @@ export function toPrototypeProduct(p) {
     // Tienda a la que pertenece: en un plato es el restaurante (se abre por su menú), no una tienda.
     storeId: p.store_id ?? undefined,
     size: p.presentation ?? undefined,
-    eta: '30 min',
-    etaIcon: 'clock',
+    // La API no sabe el tiempo de entrega de un producto: no se inventa uno.
+    eta: undefined,
+    etaIcon: 'none',
     // Para registrar eventos y pedidos con los ids del catálogo real.
     entityType: p.entity_type,
     entityId: p.entity_id,
