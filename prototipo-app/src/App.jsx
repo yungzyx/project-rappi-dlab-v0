@@ -4,6 +4,7 @@ import AssistantPanel from './components/assistant/AssistantPanel'
 import CartBar from './components/CartBar'
 import DemoToggle from './components/DemoToggle'
 import ErrorBoundary from './components/ErrorBoundary'
+import MochiPresence from './components/assistant/MochiPresence'
 import Nudge from './components/assistant/Nudge'
 import ProductSheet from './components/ProductSheet'
 import StatusBar from './components/StatusBar'
@@ -137,6 +138,12 @@ export default function App() {
                                     <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
                                   </>
                                 )}
+                                <MochiPresence
+                                  screen={current.name}
+                                  homeTab={homeTab}
+                                  push={push}
+                                  raised={SCREENS_WITH_NAV.has(current.name)}
+                                />
                                 <AssistantPanel push={push} vertical={vertical} depth={stack.length} />
                                 <ProductSheet />
                                 <AddressSheet />
