@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useAssistant } from '../../state/AssistantContext'
 import { formatPrice, useCart } from '../../state/CartContext'
 import { useDemo } from '../../state/DemoContext'
+import { isQuiet, noteEngaged, quietToday, wake } from '../../state/mochiQuiet'
+import { today } from '../../game/progress.js'
 import Mascot from './Mascot'
 import './mochi-presence.css'
 
@@ -34,6 +36,7 @@ export default function MochiPresence({ screen, homeTab, raised }) {
   const [side, setSide] = useState(readSide)
   const [jumping, setJumping] = useState(false)
   const [small, setSmall] = useState(false)
+  const [quiet, setQuiet] = useState(() => isQuiet(today()))
   const host = useRef(null)
   const body = useRef(null)
   const drag = useRef(null)
@@ -100,11 +103,34 @@ export default function MochiPresence({ screen, homeTab, raised }) {
   ]
   const run = (id) => {
     setMenu(false)
+    noteEngaged()
     if (id === 'search') assistant.open()
     if (id === 'try') assistant.open({ query: 'Muéstrame algo nuevo para probar' })
     if (id === 'cart') host.current?.closest('.phone')?.querySelector('.cart-bar')?.click()
     if (id === 'move') moveTo(side === 'right' ? 'left' : 'right')
+    if (id === 'quiet') {
+      quietToday(today())
+      setQuiet(true)
+    }
   }
+
+  // Silenciado por hoy: solo una pestañita en el borde, sin globos; tocarla lo despierta.
+  if (quiet)
+    return (
+      <div ref={host} className={`mochi-presence is-quiet${side === 'left' ? ' is-left' : ''}`}>
+        <button
+          type="button"
+          className="mochi-quiet-tab"
+          aria-label="Mochi está en silencio: tocar para despertarlo"
+          onClick={() => {
+            wake()
+            setQuiet(false)
+          }}
+        >
+          <Mascot size={40} badge />
+        </button>
+      </div>
+    )
 
   const down = (event) => {
     setJumping(true)

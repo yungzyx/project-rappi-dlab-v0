@@ -111,6 +111,17 @@ describe('Mochi flotante', () => {
     expect(screen.queryByRole('group', { name: 'Opciones de Mochi' })).toBeNull()
   })
 
+  test('«Silenciar por hoy» lo deja como pestañita y tocarla lo despierta', () => {
+    const { container } = render(tree())
+    fireEvent.click(mochiButton())
+    fireEvent.click(screen.getByRole('button', { name: 'Silenciar por hoy' }))
+    expect(container.querySelector('.mochi-presence').classList).toContain('is-quiet')
+    const tab = screen.getByRole('button', { name: 'Mochi está en silencio: tocar para despertarlo' })
+    fireEvent.click(tab)
+    expect(container.querySelector('.mochi-presence').classList).not.toContain('is-quiet')
+    expect(mochiButton()).toBeTruthy()
+  })
+
   test('«Buscar con Mochi» abre el buscador', () => {
     render(tree())
     fireEvent.click(mochiButton())

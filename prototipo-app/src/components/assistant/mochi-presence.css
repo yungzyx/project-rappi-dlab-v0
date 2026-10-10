@@ -116,3 +116,15 @@
     transform: translateY(6px) scale(0.92);
   }
 }
+
+/* Silenciado por hoy: asoma media cara desde el borde */
+.mochi-quiet-tab {
+  pointer-events: auto;
+  margin-right: -32px;
+  opacity: 0.85;
+}
+
+.mochi-presence.is-left .mochi-quiet-tab {
+  margin-right: 0;
+  margin-left: -32px;
+}
