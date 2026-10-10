@@ -67,6 +67,15 @@ describe('experiencia', () => {
     expect(s.answered.licores).toBe(2)
   })
 
+  test('acertar una pregunta nueva cuenta como dato nuevo de la misión del día; acertarla otra vez no', () => {
+    const [pregunta] = preguntasOf('licores')
+    const once = answer(initialState(), 'licores', true, D, pregunta.id).state
+    expect(dailyProgress(once, D).discovered).toBe(1)
+    const twice = answer(once, 'licores', true, D, pregunta.id).state
+    expect(dailyProgress(twice, D).discovered).toBe(1)
+    expect(dailyProgress(answer(initialState(), 'licores', false, D, pregunta.id).state, D).discovered).toBe(0)
+  })
+
   test('la misión del día completa suma 50 una sola vez', () => {
     const s = completeDay(initialState(), D)
     expect(dailyProgress(s, D).done).toBe(true)

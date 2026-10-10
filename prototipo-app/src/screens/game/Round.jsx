@@ -194,7 +194,7 @@ function Confetti() {
   )
 }
 
-/** Una ronda de 5 pasos en una vertical: dar vuelta conceptos nuevos y responder desafíos. */
+/** Una ronda de 5 pasos en una vertical: dar vuelta datos «¿Sabías que…?» y responder preguntas y un desafío. */
 /** `orderId`: se juega mientras llega un pedido; al final se vuelve a él. */
 export default function Round({ vertical, back, orderId }) {
   const game = useGame()

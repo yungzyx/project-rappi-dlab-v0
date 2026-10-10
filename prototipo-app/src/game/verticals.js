@@ -16,7 +16,7 @@ export const GAME_TO_SCREEN = {
 
 /**
  * Las verticales del pasaporte: las 8 del catálogo (las del mapa multivertical) y Viajes, que no tiene catálogo. Lo
- * que sale del catálogo (desafíos, mapa de conceptos) sigue usando `DATA.order`.
+ * que sale del catálogo (los desafíos) sigue usando `DATA.order`.
  */
 export const PASSPORT_ORDER = [...DATA.order, 'viajes']
 export const LABELS = { ...DATA.labels, viajes: 'Viajes' }

@@ -26,7 +26,7 @@ const BACKEND_SCREENS = {
   chocolateria: 'chocolates',
   restaurantes: 'restaurants',
 }
-const OWN_SCREENS = new Set(['turbo', 'restaurants'])
+const OWN_SCREENS = new Set(['turbo', 'restaurants', 'travel'])
 
 export const screenForBackend = (vertical) => BACKEND_SCREENS[vertical] ?? null
 

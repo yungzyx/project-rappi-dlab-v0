@@ -1,7 +1,6 @@
 import { Crown } from '@phosphor-icons/react'
 import MapView from './MapView.jsx'
 import Stamp, { LEVEL_NAMES } from './Stamp.jsx'
-import { DATA } from '../../game/data.js'
 import { conoceRappi, verticalLevel } from '../../game/progress.js'
 import { LABELS, PASSPORT_ORDER } from '../../game/verticals.js'
 import { useGame } from '../../state/GameContext'

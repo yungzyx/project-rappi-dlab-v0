@@ -83,7 +83,10 @@ export function discover(state, vertical, cardId, date) {
   return { state: out, xp: XP.discover + bonus, bonus }
 }
 
-/** Responder: 20 XP si acierta y 5 si no. Acertar una pregunta de conocimiento (`cardId`) la suma al álbum. */
+/**
+ * Responder: 20 XP si acierta y 5 si no. Acertar una pregunta de conocimiento (`cardId`) la suma al álbum y, la
+ * primera vez, cuenta como dato nuevo en la misión del día (si no, al ver los 54 datos la misión no se completa más).
+ */
 export function answer(state, vertical, isCorrect, date, cardId) {
   const gained = isCorrect ? XP.correct : XP.wrong
   const learned = isCorrect && cardId ? learn(state, vertical, cardId) : state
@@ -93,8 +96,9 @@ export function answer(state, vertical, isCorrect, date, cardId) {
     answered: { ...state.answered, [vertical]: (state.answered[vertical] ?? 0) + 1 },
     correct: isCorrect ? { ...state.correct, [vertical]: (state.correct[vertical] ?? 0) + 1 } : state.correct,
   }
-  const { state: out, bonus } = step(next, date, isCorrect ? 'correct' : null)
-  return { state: out, xp: gained + bonus, bonus }
+  const first = learned === state ? { state: next, bonus: 0 } : step(next, date, 'discovered')
+  const { state: out, bonus } = step(first.state, date, isCorrect ? 'correct' : null)
+  return { state: out, xp: gained + first.bonus + bonus, bonus: first.bonus + bonus }
 }
 
 /** Abrir una carta ya desbloqueada cuenta para la misión del día; una bloqueada no hace nada. */

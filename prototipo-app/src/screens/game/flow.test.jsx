@@ -187,6 +187,15 @@ describe('dentro del prototipo', () => {
     expect(stored().visited).toContain('turbo')
   })
 
+  test('«Abrir Viajes» la sella y abre RappiTravel (no una pantalla vacía)', () => {
+    seed()
+    const push = vi.fn()
+    render(<App params={{ vertical: 'viajes' }} push={push} />)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Abrir Viajes' }))
+    expect(push).toHaveBeenCalledWith('travel')
+    expect(stored().visited).toContain('viajes')
+  })
+
   test('el sello que gana «Abrir Turbo» queda para que Mochi lo celebre al volver a la Home', () => {
     seed()
     session.newStamp = null

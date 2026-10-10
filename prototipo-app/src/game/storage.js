@@ -1,4 +1,3 @@
-import { DATA } from './data.js'
 import { initialState } from './progress.js'
 import { cardById } from './knowledge.js'
 import { PASSPORT_ORDER, SCREEN_TO_GAME } from './verticals.js'
