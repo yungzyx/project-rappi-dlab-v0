@@ -11,7 +11,7 @@ make mvp             # esperar «MVP listo: app http://localhost:5174 · panel �
 make mvp LAN=1       # si se muestra desde un iPhone en la misma red (solo en una red de confianza)
 ```
 
-Si la app muestra **«Sin conexión con Mochi»**, la API todavía no terminó de cargar o no está corriendo: espera a «MVP listo» y toca **Reintentar** (qué más revisar, en [instalación](instalacion.md#5-el-mvp)). Antes de una presentación, `make mvp-check` comprueba que la app y la API se hablan, contra un catálogo de prueba inventado y sin tocar la base real; no lo corras junto con los tests de rappi-ia.
+Si la app muestra **«Sin conexión con Mochi»**, la API todavía no terminó de cargar o no está corriendo: espera a «MVP listo» (la pantalla vuelve a probar sola cada 2 s; **Reintentar** prueba al instante) (qué más revisar, en [instalación](instalacion.md#5-el-mvp)). Antes de una presentación, `make mvp-check` comprueba que la app y la API se hablan, contra un catálogo de prueba inventado y sin tocar la base real; no lo corras junto con los tests de rappi-ia.
 
 1. Abre el prototipo (http://localhost:5174) y deja el modo **Prototipo final** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy», la app como es hoy).
 2. Justo antes de presentar, con la API arriba: `cd rappi-ia && make warm`. Pasa por los botones del guion sin registrarlos: en frío la primera respuesta tarda de 2 a 5 s; después, menos de medio segundo. Repetirlo si la API pasó un rato sin uso.

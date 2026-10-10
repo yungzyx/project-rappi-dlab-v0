@@ -16,7 +16,7 @@ Requiere Node 22.22+ o 24.15+ (ver `.nvmrc` en la raíz). Como la app no abre si
 
 ```bash
 make mvp              # API :8000, app http://localhost:5174 y panel :5175; Ctrl-C detiene los tres
-make mvp LAN=1        # lo abre a la red local, para el iPhone (misma red wifi o su hotspot)
+make mvp LAN=1        # abre la API y la app a la red local, para el iPhone (misma red wifi o su hotspot)
 make mvp-check        # recorre la app con Chrome contra un catálogo de prueba inventado, sin tocar la base real
 ```
 
@@ -47,7 +47,7 @@ Si la API se cae con la app ya abierta, las respuestas de Mochi todavía caen a 
 *Con la API de rappi-ia: cervezas del catálogo real bajo $3.000 y, en un bloque aparte, snacks de otra tienda. Es una captura anterior: todavía con Bigotes y el chat escrito, que ya no existe.*
 
 - **Dónde busca la API:** en el mismo host desde el que se abrió la página, puerto 8000; desde el iPhone no hace falta configurar nada. Para apuntar a otra API, crea `.env.local` con `VITE_API_URL=http://localhost:8001`.
-- **Desde el iPhone:** `make mvp LAN=1` (abre la API, la app y el panel a la red; solo en una red de confianza). Sirve en la wifi de casa, con el hotspot del iPhone y con `http://nombre-del-mac.local:5174`. macOS pedirá permiso de red la primera vez.
+- **Desde el iPhone:** `make mvp LAN=1` (abre la API y la app a la red; el panel pide sus datos a `localhost:8000` y solo sirve en este equipo; solo en una red de confianza). Sirve en la wifi de casa, con el hotspot del iPhone y con `http://nombre-del-mac.local:5174`. macOS pedirá permiso de red la primera vez.
 
 ### Comandos
 

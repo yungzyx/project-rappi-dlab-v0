@@ -126,11 +126,11 @@ Requisitos (el detalle, en [docs/instalacion.md](docs/instalacion.md)):
 
 ```bash
 make mvp          # desde la raíz del repositorio; Ctrl-C detiene los tres
-make mvp LAN=1    # lo abre a la red local, para el iPhone (solo en una red de confianza)
+make mvp LAN=1    # abre la API y la app a la red local, para el iPhone (solo en una red de confianza)
 make mvp-check    # recorre la app con Chrome contra un catálogo de prueba inventado, sin tocar la base real
 ```
 
-`make mvp` revisa las dependencias, los puertos y la base (`rappi-ia doctor`, solo lectura), aplica las migraciones pendientes, arranca los tres con sus registros prefijados y avisa cuando responden. La API tarda en estar lista porque carga los modelos. No descarga nada de rappi.cl.
+`make mvp` revisa las dependencias, los puertos y la base (`rappi-ia doctor`, solo lectura), aplica las migraciones pendientes (no las de una rama sin fusionar: `MIGRATE=1` lo fuerza, ver [docs/instalacion.md](docs/instalacion.md#5-el-mvp)), arranca los tres con sus registros prefijados y avisa cuando responden. La API tarda en estar lista porque carga los modelos. No descarga nada de rappi.cl.
 
 La tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Prototipo final» y «Rappi hoy». Guion de demo: [docs/demo.md](docs/demo.md).
 
