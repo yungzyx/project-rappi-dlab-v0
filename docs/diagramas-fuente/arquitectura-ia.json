@@ -2,19 +2,19 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "Rappi: catálogo, agente Bigotes y capa de datos",
+    "title": "Rappi: catálogo, agente Mochi y capa de datos",
     "quality_profile": "showcase",
     "views": [
       {
-        "id": "conversacion",
-        "label": "Conversación",
+        "id": "consulta",
+        "label": "Consulta",
         "focus": [
           "prototipo",
           "api",
           "agente",
           "busqueda"
         ],
-        "note": "Texto, voz o foto llegan al agente, que busca dentro del vertical y verifica antes de responder."
+        "note": "Una pregunta de texto llega al agente, que busca dentro del vertical y verifica antes de responder."
       },
       {
         "id": "datos",
@@ -27,7 +27,7 @@
           "busqueda",
           "conceptos"
         ],
-        "note": "Tras cada refresh: conceptos, capa de datos (atributos, marcas, grafo), embeddings e5 y CLIP, con un índice HNSW por vertical."
+        "note": "Tras cada refresh: conceptos, capa de datos (atributos, marcas, grafo), embeddings e5, con un índice HNSW por vertical."
       },
       {
         "id": "cruce",
@@ -85,7 +85,7 @@
     },
     {
       "id": "online",
-      "label": "Conversación · online"
+      "label": "Consulta · online"
     },
     {
       "id": "cruce_lane",
@@ -128,7 +128,7 @@
       "type": "backend",
       "label": "Indexación",
       "sublabel": "conceptos + capa de datos",
-      "tag": "e5 · CLIP",
+      "tag": "e5",
       "width": 170
     },
     {
@@ -155,7 +155,7 @@
       "col": 1,
       "type": "backend",
       "label": "API FastAPI",
-      "sublabel": "/chat · /events",
+      "sublabel": "/agent · /events",
       "width": 150
     },
     {
@@ -163,7 +163,7 @@
       "lane": "online",
       "col": 2,
       "type": "backend",
-      "label": "Agente Bigotes",
+      "label": "Agente Mochi",
       "sublabel": "entender → verificar",
       "tag": "LLM opcional",
       "width": 170

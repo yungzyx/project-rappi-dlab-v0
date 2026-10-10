@@ -18,7 +18,7 @@ export const WEEKLY_SERIES = [
   {
     key: 'sin_resultado_pct',
     title: 'Búsquedas sin resultado',
-    unit: 'de búsquedas y chats',
+    unit: 'de búsquedas y preguntas al agente',
     format: formatPct,
     goodWhen: 'down',
     rate: true,

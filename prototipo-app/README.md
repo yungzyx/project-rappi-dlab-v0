@@ -41,7 +41,7 @@ La API (puerto 8000) carga los modelos antes de aceptar peticiones: `make mvp` e
 - arma la fila **"Para ti"** del inicio con lo que aprendió de ti (productos reales de otro vertical, con aviso +18 si corresponde);
 - registra eventos seudónimos y pedidos (uno por vertical) en la API, para medir las sugerencias (mostradas, aceptadas y convertidas).
 
-Si la API se cae con la app ya abierta, el chat de Mochi dice «Sin conexión» con «Reintentar» (reenvía la misma pregunta) y las ofertas que Mochi hace solo callan: ya no hay respuestas locales. La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el prototipo actual no los usa: el prototipo final tiene un buscador, sin micrófono ni cámara.
+Si la API se cae con la app ya abierta, el buscador con Mochi dice «Sin conexión» con «Reintentar» (repite la misma búsqueda) y las ofertas que Mochi hace solo callan: ya no hay respuestas locales. No hay micrófono ni cámara: el prototipo final tiene un buscador, sin chat, voz ni foto.
 
 <img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Con la API: cervezas reales bajo $3.000 y snacks de otra tienda (captura anterior, con Bigotes y el chat escrito)">
 
@@ -74,7 +74,7 @@ El interruptor junto al teléfono (tecla **D**, o Account → Modo demo en el ce
 | <img src="docs/screenshots/02-home-rappi-hoy.jpg" width="300" alt="Home de Rappi hoy"> | <img src="docs/screenshots/01-home-final.jpg" width="300" alt="Home del prototipo final con Mochi"> |
 | Buscador original | Mochi vive en la Home y la misma barra abre su buscador |
 
-En el **prototipo final** Mochi de cuerpo entero vive en la Home (`src/screens/home/live/`), sin ícono de chat. Al entrar saluda y, la primera vez, hace una guía de 3 pasos (el buscador, el pasaporte y «Jugar», con «Siguiente» y «Saltar»; no vuelve a aparecer, salvo con «Repetir escena»); no sugiere productos ni reordena la Home. La Home suma el pasaporte del juego de verticales (bajo los accesos de siempre; ver «Juego de verticales»), «¿Qué plan tienes hoy?» (un kit de varias verticales) y, al tocar a Mochi, una vertical por probar. Mochi saluda al llegar, salta, apunta y gira según lo que dice, y en espera mira alrededor, baila o se estira; sin nada que decir se asoma desde el borde y al hacer scroll se esconde, para no tapar la Home. Lo que se agrega al carro fuera de la Home lo comenta al volver, si combina con algo de otra vertical. La barra de la Home y la lupa de abajo abren el buscador con Mochi (ver más abajo), y al entregar un pedido ofrece armar el próximo. En el celular, «Repetir escena de Mochi» está en Account. «↺ Repetir escena», junto al interruptor, vuelve a empezar. Respeta «reducir movimiento» del sistema.
+En el **prototipo final** Mochi de cuerpo entero vive en la Home (`src/screens/home/live/`), sin canal aparte para escribirle. Al entrar saluda y, la primera vez, hace una guía de 3 pasos (el buscador, el pasaporte y «Jugar», con «Siguiente» y «Saltar»; no vuelve a aparecer, salvo con «Repetir escena»); no sugiere productos ni reordena la Home. La Home suma el pasaporte del juego de verticales (bajo los accesos de siempre; ver «Juego de verticales»), «¿Qué plan tienes hoy?» (un kit de varias verticales) y, al tocar a Mochi, una vertical por probar. Mochi saluda al llegar, salta, apunta y gira según lo que dice, y en espera mira alrededor, baila o se estira; sin nada que decir se asoma desde el borde y al hacer scroll se esconde, para no tapar la Home. Lo que se agrega al carro fuera de la Home lo comenta al volver, si combina con algo de otra vertical. La barra de la Home y la lupa de abajo abren el buscador con Mochi (ver más abajo), y al entregar un pedido ofrece armar el próximo. En el celular, «Repetir escena de Mochi» está en Account. «↺ Repetir escena», junto al interruptor, vuelve a empezar. Respeta «reducir movimiento» del sistema.
 
 ## Juego de verticales
 
@@ -185,7 +185,7 @@ Las pantallas de catálogo leen la API (`/catalog`, `src/api/catalog.js`) y la a
 - **Un producto muestra el precio y la tienda de su oferta vigente más barata entre las tiendas que se pueden abrir**, para que el precio y la tienda nunca se contradigan. Si ninguna tienda abrible lo vende, no ofrece «Ver tienda».
 - **Sin «Envío más barato»:** el costo de envío es $0 en el 91 % de la base, casi seguro «sin dato», así que la Home y Deals muestran «Mejor evaluados» y un envío de $0 no se presenta como gratis.
 - **Si la API falla** en una pantalla, esa pantalla muestra «Sin conexión» con «Reintentar» y el resto de la app sigue usable; una tienda que no está en la base muestra «Esta tienda no está en el catálogo».
-- **Nada local:** el buscador (`/search`), el chat (`/chat`), los kits y comentarios de Mochi (`/mochi/plans`, `/mochi/offer`), «Para ti» y «Descubre» (`/recommendations`) y lo aprendido (`/profile`) salen de la API; el cerebro local, los temas y el catálogo transcrito se borraron. Mochi no propone por su cuenta alcohol, farmacia, bebé ni salud: solo el kit de una ocasión elegida puede traer alcohol, con +18.
+- **Nada local:** el buscador (`/search`), las preguntas a Mochi (`/agent/ask`), sus kits y comentarios (`/agent/plans`, `/agent/offer`), «Para ti» y «Descubre» (`/recommendations`) y lo aprendido (`/profile`) salen de la API; el cerebro local, los temas y el catálogo transcrito se borraron. Mochi no propone por su cuenta alcohol, farmacia, bebé ni salud: solo el kit de una ocasión elegida puede traer alcohol, con +18.
 
 ## Qué es real y qué es simulado
 
@@ -200,7 +200,8 @@ Las pantallas de catálogo leen la API (`/catalog`, `src/api/catalog.js`) y la a
 
 ```text
 src/
-├── api/            Cliente de la API de rappi-ia (catálogo, chat, "Para ti", pedidos, eventos), con tiempo límite y errores tipados; fixtures/ guarda las respuestas de ejemplo que escribe el backend (`make contract` en rappi-ia)
+├── api/            Cliente de la API de rappi-ia (catálogo, agente, "Para ti", pedidos, eventos), con tiempo límite y errores tipados; fixtures/ guarda las respuestas de ejemplo que escribe el backend (`make contract` en rappi-ia)
+├── agent/          El nombre visible del agente (`name.js`: `AGENT_NAME`, hoy «Mochi»)
 ├── assistant/      El texto con que se le pregunta a Mochi por un producto (`¿Con qué acompaño…?`)
 ├── assets/         Recortes de las capturas
 ├── game/           Lógica del juego de verticales: tarjetas de conocimiento, desafíos, XP, niveles, pasaporte (lógica pura, con tests)

@@ -5,7 +5,7 @@
 //     pedido (que después verifica scripts/mvp-check.sh en la base de prueba);
 //   con --kit: busca «cerveza» en el buscador con Mochi (ve la búsqueda agrupada por vertical), vuelve a la Home, elige
 //     la ocasión «Carrete», agrega el kit que arma Mochi (`plan`) y paga; scripts/mvp-check.sh verifica después en la base
-//     de prueba que el pedido tiene líneas sembradas y al menos una aceptación `mochi-plan`;
+//     de prueba que el pedido tiene líneas sembradas y al menos una aceptación `agent-plan`;
 //   con --expect-offline: la API está detenida y la app muestra «Sin conexión con Mochi».
 // Con la API en marcha (sin --expect-offline) también falla ante un error de la página o de la consola, o una respuesta
 // 4xx/5xx, desde la primera carga; solo se ignoran las imágenes del catálogo de prueba, que no existen.

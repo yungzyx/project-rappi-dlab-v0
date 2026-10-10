@@ -1,6 +1,6 @@
-# Pruebas como usuario del chat
+# Pruebas como usuario del agente
 
-El chat de Mochi falla sobre todo con frases que nadie escribió en la evaluación: chilenismos («un completo», «copete»,
+Mochi falla sobre todo con frases que nadie escribió en la evaluación: chilenismos («un completo», «copete»,
 «pa»), faltas («serbesa», «nesecito shampu»), preguntas sobre la app («hacen delivery?»), estados de ánimo («estoy
 triste») o encargos («que me compren algo en una ferretería»). Este proceso las encuentra y las deja como regresión.
 
@@ -16,7 +16,7 @@ triste») o encargos («que me compren algo en una ferretería»). Este proceso 
 3. Agrupa los fallos por causa (palabra que falta, ocasión, intención) y arréglalos donde corresponde: palabras y
    ocasiones en `concepts/taxonomy.toml` (`query_keywords` si la palabra solo sirve para pedir y no para clasificar
    productos, como «completo»), intenciones en `agent/understand.py`.
-4. Cada fallo queda como test en `rappi-ia/tests/unit/test_user_phrases.py` (o en `test_bigotes.py` si necesita la
+4. Cada fallo queda como test en `rappi-ia/tests/unit/test_user_phrases.py` (o en `test_rappi_agent.py` si necesita la
    base), escrito antes del arreglo.
 5. Repite la ronda completa (`make probar-chat` sin archivo corre todas) para ver que no se rompió lo anterior, y
    compárala con la corrida anterior: una frase vieja que cambia de vertical o de conceptos es una regresión hasta que

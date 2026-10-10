@@ -12,7 +12,7 @@ Todo lo que ve una herramienta externa vive en el esquema **`capa`**: vistas con
 | **Atributos** | «¿Qué es?»: 83 atributos en 9 familias (sin gluten, vegano, familiar, premium, para perro…) con fuente y confianza | `concepts/attributes.toml` |
 | **Marcas y producto canónico** | «¿De qué marca?» y «¿es el mismo producto en otra tienda o vertical?» | `concepts/brands.toml`, `layers/brands.py`, `layers/canonical.py` |
 | **Grafo de conocimiento** | «¿Con qué se relaciona?»: complementa, sustituye, es de la ocasión, se vende en, tiene el atributo, marca de, sinónimo… | `concepts/relations.toml`, `layers/graph.py` |
-| **Segmentos de usuario** | «¿Qué tipo de persona es?»: 146 segmentos por comportamiento en 12 familias, con puntaje, nivel y evidencia | `concepts/segments.toml`, `layers/segments.py` |
+| **Segmentos de usuario** | «¿Qué tipo de persona es?»: 144 segmentos por comportamiento en 12 familias, con puntaje, nivel y evidencia | `concepts/segments.toml`, `layers/segments.py` |
 
 Los conceptos (la taxonomía propia de 113 tipos de producto en 20 grupos) vienen de la capa de IA y son el eje que une todo.
 

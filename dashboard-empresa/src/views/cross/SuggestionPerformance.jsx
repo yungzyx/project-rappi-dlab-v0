@@ -109,7 +109,7 @@ function SuggestionTable({ rows }) {
   ]
   return (
     <DataTable
-      caption="Rendimiento de las sugerencias cruzadas de Bigotes"
+      caption="Rendimiento de las sugerencias cruzadas del agente"
       columns={columns}
       rows={rows}
       rowKey={(row) => `${row.concepto}-${row.vertical}`}

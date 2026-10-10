@@ -106,9 +106,9 @@ export function CrossVerticalView({ source }) {
     <div className="view">
       <section className="section" aria-labelledby="sugerencias">
         <div className="section-head">
-          <h2 id="sugerencias">Bigotes entre verticales</h2>
+          <h2 id="sugerencias">El agente entre verticales</h2>
           <p>
-            Aceptada: el producto sugerido (en el chat o en «Para ti») se agregó al carro. Convertida: llegó a un pedido.
+            Aceptada: el producto sugerido (al preguntarle o en «Para ti») se agregó al carro. Convertida: llegó a un pedido.
             Por concepto sugerido y vertical donde está el producto; barras anidadas sobre la misma escala.
           </p>
           <ProvenanceBadge kind={source} />
@@ -127,7 +127,7 @@ export function CrossVerticalView({ source }) {
         <div className="section-head">
           <h2 id="servicios">Servicios sin catálogo</h2>
           <p>
-            RappiTravel y RappiFavor no tienen productos: Bigotes los ofrece cuando alguien habla de un viaje o de un
+            RappiTravel y RappiFavor no tienen productos: el agente los ofrece cuando alguien habla de un viaje o de un
             envío, y RappiFavor también cuando no encuentra lo que busca. El gancho es lo que sugiere del catálogo junto
             con el servicio (protector solar para un viaje).
           </p>
@@ -144,7 +144,7 @@ export function CrossVerticalView({ source }) {
           <h2 id="afinidad">Qué va con qué</h2>
           <p>
             Confianza = P(B | A): de quienes compran A, qué parte compra B. El lift mayor que 1 solo filtra: es simétrico
-            y no da dirección. Mínimo 30 usuarios con A y B; no cuenta lo que se agregó desde una sugerencia de Bigotes;
+            y no da dirección. Mínimo 30 usuarios con A y B; no cuenta lo que se agregó desde una sugerencia del agente;
             nunca hacia conceptos sensibles.
           </p>
           <Async fallback={null}>

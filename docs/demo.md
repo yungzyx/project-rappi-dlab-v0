@@ -19,7 +19,7 @@ Si la app muestra **«Sin conexión con Mochi»**, la API todavía no terminó d
 
 ## Recorrido
 
-En el prototipo final no se escribe en un chat: la barra de la Home abre el buscador con Mochi y se toca. El campo de arriba busca tiendas y productos; las ideas de Mochi están en los botones de «Toca y te armo algo».
+En el prototipo final no hay chat, voz ni foto: la barra de la Home abre el buscador con Mochi y se toca. El campo de arriba busca tiendas y productos; las ideas de Mochi están en los botones de «Toca y te armo algo».
 
 | # | Qué tocar | Qué mostrar | Qué decir |
 |---|---|---|---|

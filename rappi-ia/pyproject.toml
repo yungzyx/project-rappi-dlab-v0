@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rappi-ia"
 version = "0.1.0"
-description = "Conceptos, embeddings, búsqueda híbrida por vertical, agente Bigotes y analítica sobre el catálogo de Rappi Chile"
+description = "Conceptos, embeddings, búsqueda híbrida por vertical, agente de recomendaciones y analítica sobre el catálogo de Rappi Chile"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

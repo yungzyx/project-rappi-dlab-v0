@@ -8,7 +8,7 @@ Documentación: índice en [docs/README.md](docs/README.md) · cifras en [README
 
 ## Convenciones
 
-- La mascota y asistente se llama **Mochi** en todo lo que ve el usuario (antes, Bigotes). Los nombres internos del código no cambiaron (`LiveBigotes`, las clases CSS `bigotes-*`, el agente `rappi_ia/agent/bigotes.py`); los diagramas, el panel y los documentos fechados todavía dicen Bigotes.
+- La mascota y asistente se llama **Mochi** (antes, Bigotes), pero el código usa nombres neutros (`RappiAgent`, `/agent/ask`, `AgentMessage`, clases `agent-*`) porque el nombre puede cambiar. El nombre visible vive en un solo lugar por lado: en `rappi-ia`, `config.AGENT_NAME` (variable de entorno `AGENT_NAME`, por defecto «Mochi»); en la app, `prototipo-app/src/agent/name.js`. El agente no tiene chat, voz ni foto: responde por texto y el prototipo lo usa como buscador y con ofertas. Los documentos fechados todavía dicen Bigotes.
 
 - Código (funciones, módulos, variables) en inglés; todo lo que ve el usuario (logs, CLI, docs, columnas) en español.
 - `make test` y `make lint` (en rappi-scraper/ y rappi-ia/) y `npm test` y `npm run lint` (en prototipo-app/ y dashboard-empresa/) antes de dar algo por terminado. Tests de integración contra `rappi_test` (scraper) y `rappi_ia_test` (rappi-ia), para que no se pisen.
@@ -24,5 +24,5 @@ Documentación: índice en [docs/README.md](docs/README.md) · cifras en [README
 - Los datos descargados no se suben a git (`rappi-scraper/data/` está ignorado).
 - Diagramas: las fuentes JSON están en `docs/diagramas-fuente/`; el HTML y su PNG se regeneran con la skill Archify.
 - `Proyecto/` (ignorada) es un intento antiguo con LangChain: no usarlo ni moverlo al repo.
-- Nunca dos descargas a la vez contra rappi.cl: los comandos que descargan y `make images` comparten el candado `rappi-scraper/data/scraper.lock` (`flock`). La tarea semanal (`make schedule`) se programa en un solo equipo.
+- Nunca dos descargas a la vez contra rappi.cl: los comandos que descargan comparten el candado `rappi-scraper/data/scraper.lock` (`flock`). La tarea semanal (`make schedule`) se programa en un solo equipo.
 - Búsqueda por texto: la columna `tsv` (`to_tsvector('spanish', …)`, la de `rappi search`) ignora tildes normales (café = cafe) y mantiene ñ y ü a propósito (año ≠ ano); la búsqueda léxica de rappi-ia usa `tsv_unaccent`, que también quita la ñ ("panales" encuentra "pañales").

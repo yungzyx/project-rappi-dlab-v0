@@ -11,7 +11,7 @@ Versión interactiva: [rag-datos.html](../docs/diagramas/rag-datos.html). Vista 
 | Pieza | Qué hace | Dónde |
 |---|---|---|
 | Conceptos (capa 2) | Cada producto y plato → un concepto, con procedencia: categoría (mapa de 757 categorías revisadas, generado con LLM: dos etiquetadores trabajan por separado y un juez decide cuando no coinciden; 21 ajustes a mano; versionado en `category_map.csv`), reglas por palabra o vecinos cercanos (kNN) | `concepts/` |
-| Embeddings | Texto con `intfloat/multilingual-e5-base` (768 dim, caché por contenido, índice HNSW por vertical); imágenes con CLIP; voz con Whisper → texto | `embeddings/`, `agent/audio.py` |
+| Embeddings | Texto con `intfloat/multilingual-e5-base` (768 dim, caché por contenido, índice HNSW por vertical) | `embeddings/` |
 | Búsqueda híbrida | Léxico (sin tildes ni ñ, IDF) + vectorial → RRF → refuerzo por concepto, con filtros dentro de cada lista y regla de "sin resultado" | `retrieval/hybrid.py` |
 | Mochi | Entender → buscar → sugerir un complemento de otro vertical → redactar (plantillas o Claude) → verificar | `agent/` |
 | Eventos y analítica | Usuarios y eventos (hoy **simulados**), métricas de frecuencia, abandono, oportunidades y afinidad | `events/`, `analytics/` |
@@ -23,12 +23,12 @@ Desde la raíz del repositorio (requiere la base de [`rappi-scraper`](../rappi-s
 ```bash
 cd rappi-ia
 make install      # .venv + rappi-scraper (esquema) + API + tests
-make install-ml   # modelos locales: e5, CLIP, Whisper (y Claude opcional)
+make install-ml   # modelo local de texto: e5 (y Claude opcional)
 make db-test      # base rappi_ia_test (los tests no tocan rappi ni rappi_test)
 make migrate
 ```
 
-Las versiones de las librerías están fijadas en `requirements.lock.txt` (las del equipo que calculó los embeddings de la base): `make install` e `install-ml` no instalan otras. Un job de CI semanal (`.github/workflows/modelos-semanal.yml`) instala los modelos con esas versiones y comprueba que e5 embebe. Los modelos (~2 GB) se descargan de Hugging Face la primera vez que se usan. La API los carga al arrancar: hay que esperar a «Application startup complete» (con los modelos ya en caché, `make serve` arranca sin consultar Hugging Face; `RAPPI_IA_LIGHT=1` arranca sin modelos). Para que Claude redacte las respuestas, agrega `ANTHROPIC_API_KEY` en `.env`; sin clave, Mochi responde con plantillas y las mismas reglas. Otras variables en `.env.example`.
+Las versiones de las librerías están fijadas en `requirements.lock.txt` (las del equipo que calculó los embeddings de la base): `make install` e `install-ml` no instalan otras. Un job de CI semanal (`.github/workflows/modelos-semanal.yml`) instala los modelos con esas versiones y comprueba que e5 embebe. El modelo de texto (e5, ~1 GB) se descarga de Hugging Face la primera vez que se usa. La API lo carga al arrancar: hay que esperar a «Application startup complete» (con el modelo ya en caché, `make serve` arranca sin consultar Hugging Face; `RAPPI_IA_LIGHT=1` arranca sin modelos). Para que Claude redacte las respuestas, agrega `ANTHROPIC_API_KEY` en `.env`; sin clave, el agente responde con plantillas y las mismas reglas. El nombre que ve el usuario sale de `AGENT_NAME` (por defecto, Mochi). Otras variables en `.env.example`.
 
 ## Correr
 
@@ -49,7 +49,6 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `make synth` | Usuarios y eventos **simulados** para métricas y segmentos (1.500 usuarios × 26 semanas, semilla 7; reemplaza los anteriores) |
 | `make purge` | Borra el texto de las consultas con más de 90 días |
 | `make analytics` | Resumen de las métricas de negocio en la terminal |
-| `make images` | Fotos del catálogo con CLIP (miles de descargas). Toma el candado del scraper: no arranca con una descarga en curso |
 | `make serve` / `make serve-lan` | API local / abierta a la red local (ver Seguridad) |
 | `make test`, `make lint`, `make format` | Tests, revisión de estilo y formato |
 
@@ -61,15 +60,14 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 - `rappi-ia eval-sample`: arma la muestra de 200 pares (consulta, producto) para juzgar a mano (`src/rappi_ia/eval/judgments-sample.json`, con semilla fija): 120 donde el híbrido con y sin refuerzo por concepto difieren en el top 10 y 80 al azar. Se juzga a ciegas en una página privada del autor (sin mostrar el juez automático ni el modo); los juicios se copian a `src/rappi_ia/eval/judgments.json`, que todavía no existe.
 - `rappi-ia eval-human`: con esos juicios, cuánto acierta el juez automático (precisión, recall, acuerdo) y si los ítems que solo trae el refuerzo son relevantes más o menos seguido que los que solo trae sin él.
 - `rappi-ia multivertical`: regenera el mapa multivertical (`docs/mapas/mapa-multivertical.html`): productos compartidos entre verticales, conceptos junto a la vertical donde son más típicos (la regla de Mochi) y los productos y cadenas en más verticales. Página autocontenida, sin internet. La imagen `mapa-conceptos.jpg` se captura de esa página con `#figura` al final de la URL.
-- `rappi-ia embed-images --limit 50 --forzar`: una tanda chica de imágenes; `--forzar` se salta el candado del scraper y es solo para pruebas.
 
 ## API (`make serve` → http://localhost:8000/docs)
 
 | Endpoint | Para qué |
 |---|---|
-| `GET /health` | Capacidades disponibles (búsqueda semántica, voz, fotos, redacción) y documentos indexados |
-| `POST /chat` | Mochi: `{message, vertical?, user_id?, session_id?, profile?, shown_topics?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
-| `POST /chat/voice`, `POST /chat/photo` | Voz (Whisper, audio ≤ 20 s medido al decodificar) y foto (JPEG/PNG/WebP), con `shown_topics` (ids separados por coma). No se guardan |
+| `GET /health` | Capacidades disponibles (búsqueda semántica, redacción) y documentos indexados |
+| `POST /agent/ask` | El agente (Mochi): `{message, vertical?, user_id?, session_id?, profile?, shown_topics?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
+| `POST /agent/offer` · `GET /agent/plans` | Lo que el agente propone en cada momento de la app (204 si no hay una buena oferta) · las ocasiones de la Home con su kit |
 | `GET /search` | Búsqueda híbrida en un vertical, con precios vigentes |
 | `GET /recommendations` | "Para ti, de otras tiendas": intereses → complementos → otro vertical |
 | `GET /profile/{id}` · `DELETE /profile/{id}` | Lo aprendido (sin sensibles) · "Olvidar" (todo o un concepto) |
@@ -193,9 +191,9 @@ rappi-ia/
 │   ├── db.py          conexión a Postgres y migraciones (las de rappi-scraper)
 │   ├── text.py        normalización de texto (sin tildes ni ñ)
 │   ├── concepts/      taxonomía (taxonomy.toml), complementos (complements.toml), mapa de categorías (category_map.csv), reglas, kNN
-│   ├── embeddings/    e5 y CLIP, caché de texto, imágenes, índices HNSW
+│   ├── embeddings/    e5, caché de texto, índices HNSW
 │   ├── retrieval/     búsqueda híbrida por vertical
-│   ├── agent/         Mochi: entender, herramientas, redactar, voz, foto
+│   ├── agent/         el agente (`RappiAgent`): entender, herramientas, redactar
 │   ├── events/        eventos, perfil con decaimiento, "olvidar", generador simulado
 │   ├── analytics/     métricas de negocio y mapa multivertical
 │   ├── eval/          set de evaluación (queries.json), τ (thresholds.json) y muestra de juicio a mano (judgments-sample.json)
