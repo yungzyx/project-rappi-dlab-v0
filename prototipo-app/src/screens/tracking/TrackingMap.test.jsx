@@ -19,3 +19,21 @@ test('Mochi va por la ruta dibujado en SVG, con su pose de la imagen de poses', 
 test('al entregar, Mochi pone su pose feliz', () => {
   expect(rider(true).querySelector('image').getAttribute('x')).toBe('-1')
 })
+
+const pose = (props) => {
+  const { container } = render(<TrackingMap {...props} />)
+  const image = container.querySelector('.tracking-rider image')
+  return { x: image.getAttribute('x'), y: image.getAttribute('y'), almost: container.textContent.includes('¡Ya casi!') }
+}
+
+test('preparando, Mochi está tímido', () => {
+  expect(pose({ progress: 0, step: 1, delivered: false })).toEqual({ x: '0', y: '-1', almost: false })
+})
+
+test('al final de la ruta, Mochi está feliz y dice «¡Ya casi!»', () => {
+  expect(pose({ progress: 0.9, step: 2, delivered: false })).toEqual({ x: '-1', y: '0', almost: true })
+})
+
+test('entregado, feliz y sin «¡Ya casi!»', () => {
+  expect(pose({ progress: 1, step: 3, delivered: true })).toEqual({ x: '-1', y: '0', almost: false })
+})

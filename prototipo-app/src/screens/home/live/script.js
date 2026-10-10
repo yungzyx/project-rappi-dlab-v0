@@ -1,10 +1,16 @@
 // Lo que Mochi decide mostrar en la Home del prototipo final: una vertical que combina con lo agregado y kits por plan.
 // Todo sale de los datos del prototipo; no hay chat ni llamadas a la API. Un ítem es un producto o una tienda.
-import { COMPLEMENTS, TAGS, productsForTags, storesForTags } from '../../../assistant/tags'
+import {
+  COMPLEMENTS,
+  NEVER_SUGGESTED,
+  NEVER_SUGGESTED_VERTICALS,
+  TAGS,
+  mostCommon,
+  productsForTags,
+  storesForTags,
+} from '../../../assistant/tags'
 import { VERTICAL_NAMES } from '../../../data/verticals'
 
-// La salud no se aprende ni se sugiere (docs/diseno-ia.md §4, regla 6).
-const NEVER_SUGGESTED = new Set(['farmacia', 'bebe'])
 const DISCOVERY_FALLBACK = ['licor', 'vino', 'cerveza', 'belleza', 'mascota', 'snack']
 const MIN_DISCOVERY_ITEMS = 2
 
@@ -14,14 +20,8 @@ const asStore = (store) => ({ kind: 'store', key: `s-${store.name}`, vertical: s
 /** Productos y tiendas de un tema, con su vertical (los que no la traen no sirven para invitar a una). */
 function itemsFor(tag, limit = 12) {
   return [...productsForTags([tag], 30).map(asProduct), ...storesForTags([tag], 12).map(asStore)]
-    .filter((item) => item.vertical)
+    .filter((item) => item.vertical && !NEVER_SUGGESTED_VERTICALS.has(item.vertical))
     .slice(0, limit)
-}
-
-const mostCommon = (values) => {
-  const counts = new Map()
-  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1)
-  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 }
 
 // En la Home, Mochi habla de «chocolates» (lo que la persona reconoce), no de la etiqueta interna «Dulces».

@@ -76,6 +76,25 @@ describe('TrackingScreen', () => {
     expect(screen.queryByText('Mochi te arma el próximo pedido')).toBeNull()
   })
 
+  test('en «Rappi hoy» el mapa queda como antes: Mochi de frente y sin «¡Ya casi!»', () => {
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
+    renderTracking()
+    fireEvent.click(screen.getByText('pedir'))
+    const image = () => document.querySelector('.tracking-rider image')
+    act(() => vi.advanceTimersByTime(1_000)) // preparando
+    expect(image().getAttribute('y')).toBe('0')
+    act(() => vi.advanceTimersByTime(17_500)) // tramo final de la ruta
+    expect(image().getAttribute('x')).toBe('0')
+    expect(document.querySelector('.tracking-almost')).toBeNull()
+  })
+
+  test('en el prototipo final, preparando, Mochi está tímido', () => {
+    renderTracking()
+    fireEvent.click(screen.getByText('pedir'))
+    act(() => vi.advanceTimersByTime(1_000))
+    expect(document.querySelector('.tracking-rider image').getAttribute('y')).toBe('-1')
+  })
+
   describe('jugar mientras llega el pedido', () => {
     test('ofrece una ronda de la primera vertical sin sello (Express) y la abre con el pedido', () => {
       const push = vi.fn()

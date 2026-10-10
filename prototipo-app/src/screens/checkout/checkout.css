@@ -199,3 +199,65 @@
   font-weight: 700;
   box-shadow: 0 10px 24px rgba(240, 69, 43, 0.3);
 }
+
+/* «¿Me falta algo?» (prototipo final): solo si se pide, Mochi sugiere una cosa de otra vertical */
+.checkout-ask {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 8px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 99px;
+  background: var(--chip);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.checkout-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 4px 0 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fff4ec;
+}
+
+.checkout-suggestion-body p {
+  margin: 0 0 4px;
+  font-size: 14px;
+  line-height: 19px;
+}
+
+.checkout-suggestion-reason {
+  color: var(--bigotes-orange);
+  font-weight: 700;
+}
+
+.checkout-suggestion-action {
+  margin-top: 6px;
+  padding: 7px 14px;
+  border-radius: 99px;
+  background: var(--chip);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.checkout-suggestion-action.is-primary {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.checkout-suggestion-age {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(20, 20, 20, 0.78);
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: 1px;
+}

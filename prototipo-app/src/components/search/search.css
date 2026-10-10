@@ -104,3 +104,30 @@
   color: var(--ink-2);
   text-align: center;
 }
+
+/* Sin resultados en el buscador con Mochi: Mochi lleva a la vertical que lo tiene o invita a buscar distinto */
+.search-mochi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px var(--gutter);
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgba(20, 10, 5, 0.1);
+}
+
+.search-mochi p {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.search-mochi-action {
+  padding: 8px 14px;
+  border-radius: 99px;
+  background: var(--chip);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+}

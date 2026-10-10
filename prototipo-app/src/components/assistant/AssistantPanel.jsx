@@ -47,6 +47,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const [mood, setMood] = useState('idle')
   const [chipRound, setChipRound] = useState(0)
   const rootRef = useRef(null)
+  const inputRef = useRef(null)
   const timers = useRef([])
   // Preguntas en fila: la siguiente sale cuando la respuesta anterior ya está en pantalla.
   const chatQueue = useRef(Promise.resolve())
@@ -358,6 +359,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
         <label className="search-field bigotes-search-field">
           <SparkleIcon size={20} />
           <input
+            ref={inputRef}
             type="search"
             aria-label="Buscar en Rappi"
             placeholder="What do you want today?"
@@ -383,6 +385,11 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
               results={search.results}
               isEmpty={search.isEmpty}
               onOpenStore={openStore}
+              onOpenVertical={(vertical) => go(...routeForScreen(vertical))}
+              onRetry={() => {
+                search.setQuery('')
+                inputRef.current?.focus()
+              }}
             />
           </div>
         ) : (

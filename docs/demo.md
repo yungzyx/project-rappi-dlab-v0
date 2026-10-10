@@ -30,6 +30,8 @@ En el prototipo final no se escribe en un chat: la barra de la Home abre el busc
 | 5b | **Account → Orders** (o «See all» en Recent orders) | **Mis pedidos**: el pedido recién hecho con su seguimiento en curso; al tocarlo, el mapa con Mochi recorriendo la ruta. | El seguimiento avanza solo, para la demo. |
 | 6 | De vuelta en el buscador con Mochi, baja hasta **Descubre con Mochi** y toca **Explorar** en una tarjeta. | «Exploraste N de 9» con las verticales sin probar; la tarjeta dice por qué (p. ej. «Te gusta 🍺 cerveza → 🍿 Snacks en Express») y abre esa vertical. | Lo aprendido también sirve para llevar a la persona a verticales donde nunca pidió. |
 | 6b | En la Home, el acceso **Turbo**. | Productos por categoría (Frescos, Despensa, Picoteo) que se agregan al carro. | Opcional: muestra que la compra rápida también vive en el prototipo. |
+| 7 | En el buscador con Mochi, escribe **chela**. | No hay resultados con esa palabra, pero Mochi dice «… pero en Licores sí» y **Ver en Licores** lleva ahí. | Un «sin resultados» no termina en un callejón sin salida: Mochi entiende el tema. |
+| 8 | En el checkout, toca **¿Me falta algo? Pregúntale a Mochi**. | Una sola sugerencia de otra vertical con su razón («Llevas 🍺 Cerveza → …»), **Agregar** y **Deshacer**. | Mochi sugiere cuando se le pide, en el momento en que más sirve. |
 
 Con la API, los productos y precios de los pasos 1 a 3 salen del catálogo real y la sugerencia de otra vertical la decide Mochi en el servidor (con «Respuesta local» si la API no contestó). Los botones **🍫 Algo dulce**, **🎁 Un regalo** y **🔥 Ofertas de hoy**, y el campo de búsqueda (tiendas y productos, con «Recent searches» y «Popular stores» como en la app) quedan para preguntas del público.
 

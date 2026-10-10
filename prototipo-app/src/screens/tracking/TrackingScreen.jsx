@@ -23,6 +23,7 @@ const STARS = [1, 2, 3, 4, 5]
 /** Seguimiento del pedido (funcionalidad agregada): pasos que avanzan solos y Mochi recorriendo el mapa. */
 export default function TrackingScreen({ back, reset, push, params }) {
   const orders = useOrders()
+  const demo = useDemo()
   const order = orders.find(params.orderId)
   const [now, setNow] = useState(() => Date.now())
 
@@ -51,7 +52,8 @@ export default function TrackingScreen({ back, reset, push, params }) {
   return (
     <div className="screen tracking">
       <div className="tracking-map-wrap">
-        <TrackingMap progress={rideProgress(seconds)} delivered={delivered} />
+        {/* La pose que sigue la etapa y «¡Ya casi!» son del prototipo final; «Rappi hoy» queda como antes. */}
+        <TrackingMap progress={rideProgress(seconds)} delivered={delivered} step={demo.isFinal ? step : undefined} />
         <BackButton className="tracking-back" onClick={back} />
       </div>
 

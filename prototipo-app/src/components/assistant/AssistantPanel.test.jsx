@@ -8,6 +8,7 @@ import { ProductSheetProvider } from '../../state/ProductSheetContext'
 import ProductSheet from '../ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
+import { routeForScreen } from '../../data/verticals'
 
 const api = vi.hoisted(() => ({
   health: vi.fn(),
@@ -381,6 +382,30 @@ describe('sin chat escrito', () => {
     expect(screen.getByText('Products')).toBeTruthy()
     expect(screen.queryByText('Descubre con Mochi')).toBeNull()
     expect(events.track).toHaveBeenCalledWith('search', expect.objectContaining({ query: 'cerveza', modality: 'texto' }))
+  })
+})
+
+describe('sin resultados', () => {
+  const type = (text) => fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: text } })
+
+  test('sin resultados, Mochi ofrece la vertical que sí lo tiene', async () => {
+    const push = vi.fn()
+    await renderPanel({ push })
+    type('chela heladita')
+    expect(screen.getByText('Aquí no hay «chela heladita», pero en Licores sí.')).toBeTruthy()
+    expect(document.querySelector('.search-mochi .mochi')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Ver en Licores' }))
+    expect(push).toHaveBeenCalledWith(...routeForScreen('liquor'))
+  })
+
+  test('sin tema, Mochi lo dice y ofrece otra búsqueda', async () => {
+    await renderPanel()
+    type('xyzzy')
+    expect(screen.getByText('No encontré «xyzzy». ¿Lo buscamos con otras palabras?')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Probar otra búsqueda' }))
+    const field = screen.getByLabelText('Buscar en Rappi')
+    expect(field.value).toBe('')
+    expect(document.activeElement).toBe(field)
   })
 })
 
