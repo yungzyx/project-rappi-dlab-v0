@@ -1,5 +1,5 @@
 // Cliente de la API de rappi-ia (Mochi real: búsqueda híbrida y eventos).
-// Si la API no responde, todo sigue funcionando con el cerebro local (src/assistant/brain.js).
+// Sin la API la app muestra «Sin conexión con Mochi» (ver ConnectionGate).
 
 import { VERTICAL_NAMES, routeForScreen, screenForBackend } from '../data/verticals'
 import { PLACEHOLDER_IMG } from '../components/Img'
@@ -8,12 +8,26 @@ const DEFAULT_PORT = 8000
 const HEALTH_TTL_MS = 30_000
 const HEALTH_TIMEOUT_MS = 1500
 const CHAT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: contesta el cerebro local
+const CONNECTION_TIMEOUT_MS = 5_000
 
-const API_URL =
+export const API_URL =
   import.meta.env.VITE_API_URL ??
   (typeof window !== 'undefined' ? `http://${window.location.hostname || 'localhost'}:${DEFAULT_PORT}` : '')
 
 let healthCache = { at: 0, value: null }
+
+/**
+ * Por qué falló una petición a la API: `offline` (no hay quien responda, o lo que responde no es la API),
+ * `timeout` (no contestó a tiempo) o `http` (contestó con un error; `status` es su código).
+ */
+export class ApiError extends Error {
+  constructor(kind, { status, cause } = {}) {
+    super(kind === 'http' ? `API ${status}` : `API ${kind}`, { cause })
+    this.name = 'ApiError'
+    this.kind = kind
+    this.status = status
+  }
+}
 
 async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS } = {}) {
   const controller = new AbortController()
@@ -25,10 +39,29 @@ async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS }
       headers: body ? { 'content-type': 'application/json' } : undefined,
       signal: controller.signal,
     })
-    if (!response.ok) throw new Error(`API ${response.status}`)
+    if (!response.ok) throw new ApiError('http', { status: response.status })
     return await response.json()
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    // Solo el temporizador aborta; cualquier otro fallo (sin red, cuerpo que no es JSON) es una API que no está.
+    throw new ApiError(controller.signal.aborted ? 'timeout' : 'offline', { cause: error })
   } finally {
     clearTimeout(timer)
+  }
+}
+
+/**
+ * ¿Responde la API? Con sus capacidades y los documentos del catálogo, o el motivo (`offline`, `timeout`, `http`).
+ * Lo que aprende lo comparte con `health()`: si no, el primer `health()` de la app (con su límite de 1,5 s) podría
+ * guardar `null` 30 s aunque la API acabe de contestar.
+ */
+export async function checkConnection({ timeout = CONNECTION_TIMEOUT_MS } = {}) {
+  try {
+    const response = await request('/health', { timeout })
+    healthCache = { at: Date.now(), value: response.capacidades ?? null }
+    return { ok: true, capabilities: response.capacidades, documents: response.documentos }
+  } catch (error) {
+    return { ok: false, kind: error.kind }
   }
 }
 

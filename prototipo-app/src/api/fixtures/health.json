@@ -1,0 +1,11 @@
+{
+  "capacidades": {
+    "busqueda_semantica": "hash-test",
+    "faltantes": {},
+    "fotos": false,
+    "redaccion": "plantillas",
+    "voz": false
+  },
+  "documentos": 79,
+  "ok": true
+}

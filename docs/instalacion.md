@@ -80,18 +80,41 @@ caffeinate -i make post-refresh           # purga, conceptos, embeddings, evalua
 - **Evaluación:** el reporte queda en `data/eval/busqueda.md` (dentro de `rappi-ia/`).
 - **Memoria de los índices:** `make embed` (parte de `post-refresh`) construye un índice HNSW por vertical con 1 GB de `maintenance_work_mem`, solo durante esa transacción. Se ajusta con `HNSW_MAINTENANCE_WORK_MEM` en `rappi-ia/.env` (ver `.env.example`); bájalo si el equipo tiene poca memoria.
 
-## 5. Prototipo
+## 5. El MVP
 
 ```bash
 (cd prototipo-app && npm ci)
+(cd dashboard-empresa && npm ci)
+make mvp                  # desde la raíz del repositorio
 ```
 
-Para correr la demo, ver el [README](../README.md). Para abrirla desde un iPhone:
+`make mvp` levanta la API (:8000), la app (:5174) y el panel (:5175) sobre la base `rappi`, con el registro de cada uno prefijado (`[api]`, `[app]`, `[panel]`):
 
-- la API se levanta con `make serve-lan` en `rappi-ia/` (solo en una red de confianza: no tiene autenticación);
-- el prototipo se levanta con `npm run dev -- --host`, para que escuchen en la red y no solo en este Mac;
-- el prototipo busca la API en el mismo host desde el que se abrió (puerto 8000), así que no hace falta configurarlo;
-- sirve en la wifi de casa (192.168.x, 10.x), con el hotspot del iPhone (el Mac queda en 172.20.10.x) y con el nombre Bonjour del Mac (`http://nombre-del-mac.local:5174`).
+1. Revisa que estén instalados `rappi-ia/.venv` y los `node_modules` de la app y del panel, y que los puertos 8000, 5174 y 5175 estén libres. Si falta algo, dice qué comando correr.
+2. Revisa la base con `rappi-ia doctor` (solo lectura): si Postgres no responde, si la base `rappi` no existe o si no tiene catálogo, explica qué falta (sección 3) y termina.
+3. Revisa las migraciones pendientes (`rappi-ia check-migrations`, solo lectura). Las migraciones se registran por nombre de archivo: una de rama que se aplica y después se edita nunca se vuelve a aplicar. Por eso, si la base `rappi` tiene pendientes y el código no está en `origin/main`, se niega: lista las pendientes y dice cómo seguir, con una copia de la base (`createdb -T rappi rappi_staging` con la API detenida y `DATABASE_URL=postgresql:///rappi_staging make mvp`) o a sabiendas con `MIGRATE=1 make mvp`. `make serve` y `make serve-lan` hacen la misma revisión. Con otra base (como la copia) o sin pendientes no pregunta nada.
+4. Aplica las migraciones pendientes (`make migrate` en `rappi-ia/`) y arranca los tres.
+5. Cuando responden, imprime «MVP listo: app http://localhost:5174 · panel http://localhost:5175 · API http://localhost:8000/docs». La API tarda en quedar lista porque carga los modelos: la primera vez los descarga (~2,5 GB) y puede tardar varios minutos. Mientras siga viva el script la espera y avisa cada 15 s («[mvp] La API sigue arrancando (cargando modelos)…»); solo termina si el proceso se cae.
+
+Ctrl-C detiene los tres; si uno se cae solo, detiene el resto. No descarga nada de rappi.cl.
+
+**Desde un iPhone:** `make mvp LAN=1` abre la API y la app a la red local (`make serve-lan` y `--host`). El panel pide sus datos a `localhost:8000` (fijo), así que desde otro dispositivo no trae nada: solo sirve en este equipo. Solo en una red de confianza: la API no tiene autenticación.
+
+- La app busca la API en el mismo host desde el que se abrió (puerto 8000), así que no hace falta configurarla.
+- Sirve en la wifi de casa (192.168.x, 10.x), con el hotspot del iPhone (el Mac queda en 172.20.10.x) y con el nombre Bonjour del Mac (`http://nombre-del-mac.local:5174`).
+- macOS pide permiso de red la primera vez.
+
+**Si aparece «Sin conexión con Mochi»:** la app no corre sin la API y no tiene respaldo local.
+
+- ¿Está corriendo `make mvp`? Si no, levántalo desde la raíz.
+- ¿La API terminó de cargar? Espera a «MVP listo» (o a «Application startup complete» en el registro `[api]`): la pantalla vuelve a probar sola cada 2 s y entra cuando responde; **Reintentar** prueba al instante.
+- ¿Se abrió desde otro dispositivo? Entonces el MVP tiene que haberse levantado con `LAN=1`.
+- ¿La API está en otro puerto o equipo? Crea `prototipo-app/.env.local` con `VITE_API_URL=http://localhost:8001` y reinicia la app.
+- ¿La API se cayó? Mira el registro `[api]`: con Postgres caído responde 503.
+
+**`make mvp-check`** recorre la app con Chrome (Playwright, usa el Google Chrome instalado) contra un catálogo de prueba **inventado**, sin tocar la base `rappi`. Siembra `rappi_ia_test` (`rappi-ia seed-demo`, que se niega con cualquier base que no termine en `_test`), levanta una API liviana en :8010 y la app en :5184, comprueba que la Home abre conectada y que, al detener la API, aparece «Sin conexión con Mochi». Termina con «MVP check: 2 de 2 bien» y no deja nada escuchando. **Borra y vuelve a sembrar `rappi_ia_test`:** no lo corras junto con `make test` de `rappi-ia/`, que usa la misma base.
+
+También: `make contract` en `rappi-ia/` reescribe las respuestas de ejemplo de la API que usa la app (`prototipo-app/src/api/fixtures/`; el CI falla si quedan desactualizadas), y `npm run screenshots` en `prototipo-app/` necesita el MVP corriendo.
 
 ## 6. Actualización semanal
 

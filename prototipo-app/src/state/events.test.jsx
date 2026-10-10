@@ -1,7 +1,8 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { DemoProvider } from './DemoContext'
-import { EventsProvider, noteShownTopic, sessionId, shownTopics, useEvents, userId } from './EventsContext'
+import { userId } from '../api/user'
+import { EventsProvider, noteShownTopic, sessionId, shownTopics, useEvents } from './EventsContext'
 
 beforeEach(() => {
   localStorage.clear()

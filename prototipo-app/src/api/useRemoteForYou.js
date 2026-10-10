@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { health, recommendations, toPrototypeProduct } from './client'
-import { userId } from '../state/EventsContext'
+import { userId } from './user'
 
 /**
  * "Para ti" de rappi-ia: intereses aprendidos → complemento → productos reales de otro vertical, con precio.

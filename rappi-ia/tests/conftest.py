@@ -2,27 +2,30 @@ import zlib
 
 import pytest
 
-from rappi_ia.db import connect, database_url, migrate
+from rappi_ia.db import connect, database_url
+from rappi_ia.demo.seed import reset_test_database
 
 
 @pytest.fixture
-def db():
-    """Conexión a `rappi_ia_test` con el esquema recreado desde cero para cada test.
-
-    Base propia (no `rappi_test`) para que los tests de rappi-ia y del scraper no se pisen.
-    """
+def test_url():
+    """URL de `rappi_ia_test`, la única base que los tests pueden borrar."""
     try:
         url = database_url("DATABASE_URL_TEST")
     except RuntimeError:
         pytest.skip("DATABASE_URL_TEST no configurada")
     if not url.rstrip("/").endswith("rappi_ia_test"):
         pytest.fail(f"Por seguridad los tests solo borran la base rappi_ia_test, no {url}")
-    with connect(url) as conn:
-        conn.execute("DROP SCHEMA IF EXISTS capa CASCADE")
-        conn.execute("DROP SCHEMA public CASCADE")
-        conn.execute("CREATE SCHEMA public")
-        conn.commit()
-        migrate(conn)
+    return url
+
+
+@pytest.fixture
+def db(test_url):
+    """Conexión a `rappi_ia_test` con el esquema recreado desde cero para cada test.
+
+    Base propia (no `rappi_test`) para que los tests de rappi-ia y del scraper no se pisen.
+    """
+    with connect(test_url) as conn:
+        reset_test_database(conn)
         yield conn
         conn.rollback()
 
