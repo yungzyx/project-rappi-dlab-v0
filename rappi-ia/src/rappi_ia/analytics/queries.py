@@ -242,7 +242,8 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
 
 
 def trends(conn: Connection, source: str = "synthetic", weeks: int = 4, limit: int = 12) -> list[dict]:
-    """Conceptos que suben o bajan: interés (búsquedas, chat y carro) últimas N semanas vs las N anteriores."""
+    """Conceptos que suben o bajan: interés (búsquedas, preguntas al agente y carro) en las últimas N semanas
+    contra las N anteriores."""
     _check(source)
     return _rows(
         conn,

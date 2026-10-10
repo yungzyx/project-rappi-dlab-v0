@@ -339,7 +339,7 @@ FAVOR_OPEN = 0.2
 BROWSE_ONLY = 0.12  # encuentra productos y se va sin agregar nada al carro
 SUGGESTION_ACCEPT = 0.22  # probabilidad base de aceptar una sugerencia cruzada (× peso de la arista)
 SUGGESTION_CADENCE_BOOST = 0.93  # aceptar una sugerencia acorta el ritmo 7%
-MODALITIES = (("texto", 1.0),)  # solo texto; se sigue sorteando para que la semilla dé los mismos datos de antes
+MODALITIES = (("texto", 1.0),)  # solo texto; se sigue sorteando para conservar la misma secuencia aleatoria
 PREFERRED_ATTRIBUTES = ("sin-gluten", "vegano", "alto-proteina", "con-descuento")
 PREFER_SHARE = 0.85  # con qué frecuencia elige un ítem con su atributo cuando el concepto tiene alguno
 

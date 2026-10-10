@@ -68,7 +68,7 @@ export async function checkConnection({ timeout = CONNECTION_TIMEOUT_MS } = {}) 
   }
 }
 
-/** Capacidades de la API ({ busqueda_semantica, fotos, voz, … }) o null si no está disponible. Se cachea 30 s. */
+/** Capacidades de la API ({ busqueda_semantica, redaccion, … }) o null si no está disponible. Se cachea 30 s. */
 export async function health({ force = false } = {}) {
   if (!force && Date.now() - healthCache.at < HEALTH_TTL_MS) return healthCache.value
   let value
