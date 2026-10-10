@@ -5,6 +5,7 @@ import { AssistantProvider, useAssistant } from '../state/AssistantContext'
 import { CartProvider } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
 import { ProductSheetProvider, useProductSheet } from '../state/ProductSheetContext'
+import { PLACEHOLDER_IMG } from './Img'
 import { ProductCard } from './ProductCard'
 
 const beer = { id: 'cat-1', name: 'Corona Cerveza Rubia Extra', img: '', price: '$2.200', store: 'Casanova spa', storeBadge: '#333' }
@@ -22,6 +23,20 @@ test('un producto +18 lleva la marca en la tarjeta (la fila "Para ti" de la API 
     </CartProvider>,
   )
   expect(screen.queryByLabelText('Solo mayores de 18')).toBeNull()
+})
+
+test('una tarjeta sin imagen ni nombre de tienda no se rompe', () => {
+  const dish = { id: 'menu-98003', name: 'Bebida cola 500 cc (prueba)', price: '$1.990' } // store e img sin definir
+  const { container } = render(
+    <CartProvider>
+      <ProductCard product={dish} />
+    </CartProvider>,
+  )
+  expect(container.querySelector('.product-name').textContent).toBe('Bebida cola 500 cc (prueba)')
+  expect(container.querySelector('.product-media img').getAttribute('src')).toBe(PLACEHOLDER_IMG)
+  // La insignia de la tienda sale sin inicial en vez de romper la tarjeta.
+  expect(container.querySelector('.store-badge').textContent).toBe('')
+  cleanup()
 })
 
 describe('preguntarle a Mochi por un producto', () => {

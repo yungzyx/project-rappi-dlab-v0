@@ -198,7 +198,7 @@ describe('sugerencia cruzada', () => {
     await runUntilIdle()
     expect(push).toHaveBeenCalledWith(
       'store',
-      expect.objectContaining({ item: expect.objectContaining({ entityId: '1', vertical: 'licores' }) }),
+      expect.objectContaining({ item: expect.objectContaining({ entityId: '1', vertical: 'liquor', backendVertical: 'licores' }) }),
     )
   })
 })

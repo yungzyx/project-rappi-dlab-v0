@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import { ALL_PRODUCTS } from '../data/catalog'
 import { REAL_DISHES } from '../data/realMenus'
+import { toPrototypeProduct } from './client'
 import { buildOrders, conceptOf } from './orders'
+import { fixture } from './testing'
 
 const ctx = { userId: 'proto-1', sessionId: 's-1', cartId: 'c-1' }
 // Verticales que acepta POST /orders (códigos del backend).
@@ -57,6 +59,30 @@ describe('pedidos para el panel', () => {
       from_suggestion: false,
     })
     expect(orders[1].lines[0].from_suggestion).toBe(true)
+  })
+
+  test('el pedido manda la vertical del backend y el entity_id real', () => {
+    const item = toPrototypeProduct(fixture('catalog-product'))
+    const dish = toPrototypeProduct(fixture('catalog-menu').sections[0].items[0])
+    const orders = buildOrders(
+      [
+        { product: item, qty: 2 },
+        { product: dish, qty: 1 },
+      ],
+      ctx,
+    )
+    expect(orders.map((o) => o.vertical)).toEqual(['supermercado', 'restaurantes'])
+    expect(orders[0].lines[0]).toMatchObject({ entity_type: 'catalog_item', entity_id: '91001', qty: 2, unit_price: 1990 })
+    expect(orders[1].lines[0]).toMatchObject({ entity_type: 'menu_item', entity_id: '98002', unit_price: 8990 })
+
+    // Cada vertical de la API vuelve a ella tal cual, pase por la pantalla que pase.
+    ACCEPTED.forEach((vertical) => {
+      const [order] = buildOrders([{ product: toPrototypeProduct({ ...fixture('catalog-product'), vertical }), qty: 1 }], ctx)
+      expect(order.vertical).toBe(vertical)
+    })
+    // Si la vertical del backend y la de la pantalla no coinciden, manda la del backend.
+    const [turbo] = buildOrders([{ product: { ...item, vertical: 'express', backendVertical: 'turbo' }, qty: 1 }], ctx)
+    expect(turbo.vertical).toBe('turbo')
   })
 
   test('los productos de las capturas usan su id local y el concepto de sus temas', () => {

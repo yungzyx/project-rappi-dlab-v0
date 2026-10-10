@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { PLACEHOLDER_IMG } from '../components/Img'
 import {
   API_URL,
   ApiError,
@@ -12,6 +13,7 @@ import {
   toMessage,
   toPrototypeProduct,
 } from './client'
+import { lineKey } from '../state/CartContext'
 import { fixture, stubApi } from './testing'
 import { userId } from './user'
 
@@ -42,6 +44,32 @@ describe('de la API al prototipo', () => {
     const product = toPrototypeProduct(API_PRODUCT)
     expect(product).toMatchObject({ id: 'cat-200', price: '$1.290', discount: '-19%', entityId: '200', concept: 'cerveza' })
     expect(product.ageRestricted).toBe(true)
+  })
+
+  test('un producto lleva la vertical del prototipo, guarda la del backend y trae su tienda y presentación', () => {
+    expect(toPrototypeProduct(fixture('catalog-product'))).toMatchObject({
+      vertical: 'grocery',
+      backendVertical: 'supermercado',
+      storeId: 9101,
+      size: '180 g',
+      etaIcon: 'clock',
+    })
+    // Una vertical que el prototipo no conoce queda con su código.
+    expect(toPrototypeProduct({ ...API_PRODUCT, vertical: 'otra' })).toMatchObject({ vertical: 'otra', backendVertical: 'otra' })
+    // Un plato no trae presentación ni siempre foto: no queda «undefined» ni «null» a la vista.
+    const dish = toPrototypeProduct(fixture('catalog-menu').sections[2].items[0])
+    expect(dish.size).toBeUndefined()
+    expect(dish.img).toBe(PLACEHOLDER_IMG)
+  })
+
+  test('un producto de la API cae en la misma línea del carrito que el mismo producto agregado desde otra pantalla', () => {
+    const dict = fixture('catalog-product')
+    const fromScreen = toPrototypeProduct(dict)
+    const fromOtherScreen = toPrototypeProduct(structuredClone(dict))
+    const fromChat = toMessage({ text: 'Mira', products: [dict] }).products[0]
+    expect(lineKey(fromOtherScreen)).toBe(lineKey(fromScreen))
+    expect(lineKey(fromChat)).toBe(lineKey(fromScreen))
+    expect(lineKey(fromScreen)).toBe('cat-91001|grocery|Supermercado de prueba Centro')
   })
 
   test('la sugerencia cruzada va aparte, marcada, y las aclaraciones vuelven a preguntar', () => {

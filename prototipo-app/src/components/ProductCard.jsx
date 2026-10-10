@@ -120,12 +120,12 @@ export function DealCard({ deal, boxed = false, onClick }) {
   )
 }
 
-/** Logo de la tienda: imagen recortada o, si no hay, un círculo con la inicial (`storeBadge`). */
+/** Logo de la tienda: imagen recortada o, si no hay, un círculo con la inicial (`storeBadge`; sin nombre, vacío). */
 export function StoreLogo({ item }) {
   if (item.storeLogo) return <Img src={item.storeLogo} />
   return (
     <span className="store-badge" style={{ background: item.storeBadge ?? '#8b8b8b' }}>
-      {item.store.charAt(0)}
+      {item.store?.charAt(0)}
     </span>
   )
 }

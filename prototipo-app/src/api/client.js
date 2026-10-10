@@ -29,7 +29,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS } = {}) {
+export async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
@@ -129,12 +129,19 @@ export function toPrototypeProduct(p) {
     before: p.before ?? undefined,
     discount: p.discount ?? undefined,
     store: p.store ?? undefined,
+    // Tienda a la que pertenece: en un plato es el restaurante (se abre por su menú), no una tienda.
+    storeId: p.store_id ?? undefined,
+    size: p.presentation ?? undefined,
     eta: '30 min',
+    etaIcon: 'clock',
     // Para registrar eventos y pedidos con los ids del catálogo real.
     entityType: p.entity_type,
     entityId: p.entity_id,
     concept: p.concept,
-    vertical: p.vertical,
+    // La vertical que usa la app es la del prototipo (la misma de la línea del carrito, sea cual sea la pantalla de
+    // origen); la del backend se guarda para el pedido.
+    vertical: screenForBackend(p.vertical) ?? p.vertical,
+    backendVertical: p.vertical,
     ageRestricted: Boolean(p.age_restricted),
   }
 }
