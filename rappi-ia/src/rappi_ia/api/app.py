@@ -1,9 +1,8 @@
-"""API de rappi-ia: Bigotes (texto, voz, foto), búsqueda, perfil, eventos del prototipo y métricas del panel.
+"""API de rappi-ia: Bigotes (texto), búsqueda, perfil, eventos del prototipo y métricas del panel.
 
 make serve   →   http://localhost:8000/docs
 """
 
-import io
 import json
 import logging
 import re
@@ -12,7 +11,7 @@ from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -97,13 +96,7 @@ async def invalid_data(request: Request, exc: DataError) -> JSONResponse:
 
 
 EMPTY_VERTICAL_FALLBACK = {"turbo": "conveniencia"}  # mismo tipo de tienda (minimarket con entrega rápida)
-MAX_UPLOAD_BYTES = 8_000_000
 MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
-MAX_AUDIO_SECONDS = 20  # el prototipo graba hasta 7 s; esto protege a Whisper de audios de horas
-MAX_IMAGE_PIXELS = 40_000_000  # evita "bombas" de descompresión (un PNG de 17 KB puede pesar 500 MB en memoria)
-IMAGE_FORMATS = ["JPEG", "PNG", "WEBP"]  # nunca EPS/PS (Pillow llamaría a Ghostscript)
-AUDIO_TYPES = ("audio/", "video/webm", "video/mp4")
-MODES_LITERAL = ("propuesta", "actual")
 
 
 # ── Modelos ──────────────────────────────────────────────────────────────────
@@ -140,7 +133,7 @@ class EventIn(Clean):
     entity_id: str | None = Field(default=None, max_length=64)
     cart_id: str | None = Field(default=None, max_length=64)
     query: str | None = Field(default=None, max_length=500)
-    modality: Literal["texto", "voz", "foto"] | None = None
+    modality: Literal["texto"] | None = None
     results: int | None = Field(default=None, ge=0, le=1_000_000)
     unmet: bool | None = None
     value: float | None = Field(default=None, allow_inf_nan=False)
@@ -204,58 +197,6 @@ def chat(body: ChatIn, conn: Connection = Depends(get_conn), svc: Services = Dep
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     _log_chat(conn, body.user_id, body.session_id, body.message, response, "texto", body.mode)
-    return response
-
-
-@app.post("/chat/voice")
-def chat_voice(
-    audio: UploadFile = File(...),
-    vertical: str | None = Form(None, max_length=32),
-    user_id: str | None = Form(None, max_length=64),
-    session_id: str | None = Form(None, max_length=64),
-    mode: str = Form("propuesta"),
-    shown_topics: str = Form("", max_length=2000),
-    conn: Connection = Depends(get_conn),
-    svc: Services = Depends(get_services),
-) -> dict:
-    # Endpoint sin async: FastAPI lo corre en un hilo y Whisper no bloquea a las demás peticiones.
-    if svc.transcriber is None:
-        raise HTTPException(503, "Voz no disponible en este servidor (falta el extra audio)")
-    _check_mode(mode)
-    if not (audio.content_type or "").startswith(AUDIO_TYPES):
-        raise HTTPException(415, "El archivo no es audio")
-    data = _read_upload(audio)
-    _check_audio_length(data)
-    transcript = svc.transcriber.transcribe(io.BytesIO(data))  # el audio no se guarda
-    ctx = _context(conn, vertical, user_id, None, _topics(shown_topics), mode)
-    response = svc.bigotes.reply_voice(conn, transcript, ctx)
-    if not transcript.discarded:
-        _log_chat(conn, user_id, session_id, transcript.text, response, "voz", mode)
-    return response
-
-
-@app.post("/chat/photo")
-def chat_photo(
-    image: UploadFile = File(...),
-    vertical: str | None = Form(None, max_length=32),
-    user_id: str | None = Form(None, max_length=64),
-    session_id: str | None = Form(None, max_length=64),
-    mode: str = Form("propuesta"),
-    shown_topics: str = Form("", max_length=2000),
-    conn: Connection = Depends(get_conn),
-    svc: Services = Depends(get_services),
-) -> dict:
-    if svc.photo_reader is None:
-        raise HTTPException(503, "Fotos no disponibles en este servidor (falta el extra ml)")
-    _check_mode(mode)
-    from ..agent.photo import similar_items
-
-    picture = _open_image(_read_upload(image))  # la foto no se guarda
-    ctx = _context(conn, vertical, user_id, None, _topics(shown_topics), mode)
-    reading = svc.photo_reader.read(picture)
-    similar = similar_items(conn, reading.vector, svc.image_model, ctx.vertical)
-    response = svc.bigotes.reply_photo(conn, reading, similar, ctx)
-    _log_chat(conn, user_id, session_id, None, response, "foto", mode)
     return response
 
 
@@ -464,11 +405,6 @@ def analytics(
 
 
 # ── Auxiliares ───────────────────────────────────────────────────────────────
-def _topics(form_value: str) -> list[str]:
-    """`shown_topics` de un formulario (voz, foto): ids separados por coma, como mucho 50 (igual que /chat)."""
-    return [topic.strip() for topic in form_value.split(",") if topic.strip()][:50]
-
-
 def _context(conn, vertical, user_id, profile, shown_topics, mode) -> Context:
     if profile is None and user_id and mode == "propuesta":
         profile = events.profile(conn, user_id)
@@ -512,52 +448,6 @@ def _log_chat(conn, user_id, session_id, text, response, modality, mode) -> None
         conn.rollback()
         return
     conn.commit()
-
-
-def _read_upload(upload: UploadFile) -> bytes:
-    data = upload.file.read(MAX_UPLOAD_BYTES + 1)
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "Archivo demasiado grande (máx. 8 MB)")
-    return data
-
-
-def _check_mode(mode: str) -> None:
-    if mode not in MODES_LITERAL:
-        raise HTTPException(400, f"mode debe ser uno de {MODES_LITERAL}")
-
-
-def _open_image(data: bytes):
-    from PIL import Image, UnidentifiedImageError
-
-    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
-    try:
-        picture = Image.open(io.BytesIO(data), formats=IMAGE_FORMATS)
-        if picture.width * picture.height > MAX_IMAGE_PIXELS:  # Pillow solo corta sobre el doble del tope
-            raise ValueError("imagen demasiado grande")
-        picture.draft("RGB", (672, 672))  # JPEG: decodifica ya reducido
-        picture = picture.convert("RGB")
-    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, SyntaxError, ValueError) as exc:
-        raise HTTPException(400, "La imagen no es válida (se aceptan JPEG, PNG y WebP)") from exc
-    picture.thumbnail((336, 336))
-    return picture
-
-
-def _check_audio_length(data: bytes) -> None:
-    """Suma la duración decodificando, hasta pasar el tope: el WebM de MediaRecorder no la trae en la cabecera, y
-    la cabecera de otro cliente podría mentir."""
-    try:
-        import av
-
-        seconds = 0.0
-        with av.open(io.BytesIO(data)) as container:
-            for frame in container.decode(audio=0):
-                seconds += frame.samples / frame.sample_rate
-                if seconds > MAX_AUDIO_SECONDS:
-                    break
-    except Exception as exc:  # formato ilegible
-        raise HTTPException(400, "El audio no es válido") from exc
-    if seconds > MAX_AUDIO_SECONDS:
-        raise HTTPException(413, f"Audio demasiado largo (máx. {MAX_AUDIO_SECONDS} s)")
 
 
 app.include_router(catalog_router)

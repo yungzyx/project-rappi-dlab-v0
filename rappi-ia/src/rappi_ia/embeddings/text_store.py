@@ -13,11 +13,18 @@ from rappi_scraper.storage.search import SEARCH_DOCUMENTS_LOCK, VERTICALS
 
 from ..db import set_index_build_memory
 from .base import TextEmbedder, to_pgvector
-from .images import ScrapeRunning, scrape_running
 
 log = logging.getLogger(__name__)
 
 BATCH_SIZE = 256
+
+
+class ScrapeRunning(RuntimeError):
+    pass
+
+
+def scrape_running(conn: Connection) -> bool:
+    return bool(conn.execute("SELECT 1 FROM scrape_runs WHERE status = 'running' LIMIT 1").fetchone())
 
 
 def pending_texts(conn: Connection, model: str, limit: int | None = None) -> list[tuple[str, str]]:

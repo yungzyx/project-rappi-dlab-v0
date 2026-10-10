@@ -11,7 +11,6 @@ from rappi_ia.concepts import knn
 from rappi_ia.concepts.knn import ItemText, embed_texts
 from rappi_ia.embeddings import text_store
 from rappi_ia.embeddings.base import HashEmbedder
-from rappi_ia.embeddings.images import ensure_image_index
 
 NAMES = [
     "Sal",
@@ -113,10 +112,9 @@ def test_hnsw_indexes_get_more_memory_only_inside_their_transaction(db, monkeypa
     spy = SpyConnection(db)
 
     created = text_store.ensure_hnsw_indexes(spy, "modelo-test", 64)
-    ensure_image_index(spy, "clip-test")
 
     assert len(created) == len(VERTICALS)
-    assert spy.memory_at_create == ["123MB"] * (len(VERTICALS) + 1)
+    assert spy.memory_at_create == ["123MB"] * len(VERTICALS)
     assert db.execute("SHOW maintenance_work_mem").fetchone()[0] == before != "123MB"  # SET LOCAL: no queda fijado
 
 

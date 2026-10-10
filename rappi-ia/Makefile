@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat images purge post-refresh layers layer-report contract
+.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat purge post-refresh layers layer-report contract
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -15,8 +15,8 @@ install:  ## Crea .venv con rappi-scraper (esquema) + API + dev (sin modelos)
 	$(PY) -m pip install -q -c requirements.lock.txt -e ../rappi-scraper -e ".[api,dev]"
 	@test -f .env || cp .env.example .env
 
-install-ml:  ## Agrega modelos locales: e5 y CLIP (torch), Whisper y Claude opcional (~1 GB de paquetes)
-	$(PY) -m pip install -q -c requirements.lock.txt -e ".[ml,audio,llm]"
+install-ml:  ## Agrega el modelo local de texto (e5, con torch) y Claude opcional (~1 GB de paquetes)
+	$(PY) -m pip install -q -c requirements.lock.txt -e ".[ml,llm]"
 
 db-test:  ## Crea la base de tests propia (rappi_ia_test)
 	-$(PG_BIN)/createdb rappi_ia_test
@@ -61,12 +61,11 @@ synth:  ## Usuarios y eventos SIMULADOS para el panel (reemplaza los anteriores)
 analytics:  ## Resumen de métricas del panel
 	$(PY) -m rappi_ia analytics
 
-# Con los pesos ya descargados, la API no consulta huggingface.co al cargarlos (~20 peticiones por arranque).
-# Mira los modelos por defecto: con otro en .env que no está en caché, la API arranca sin esa capacidad (/health lo
+# Con el peso ya descargado, la API no consulta huggingface.co al cargarlos (~20 peticiones por arranque).
+# Mira el modelo por defecto: con otro en .env que no está en caché, la API arranca sin esa capacidad (/health lo
 # dice en «faltantes»); `make serve HF_OFFLINE=` lo descarga la primera vez.
 HF_CACHE := $(or $(HF_HUB_CACHE),$(HOME)/.cache/huggingface/hub)
-HF_MODELS := intfloat--multilingual-e5-base sentence-transformers--clip-ViT-B-32 \
-	sentence-transformers--clip-ViT-B-32-multilingual-v1 Systran--faster-whisper-small
+HF_MODELS := intfloat--multilingual-e5-base
 HF_OFFLINE := $(shell for m in $(HF_MODELS); do test -d "$(HF_CACHE)/models--$$m" || exit 0; done; echo HF_HUB_OFFLINE=1)
 
 # serve y serve-lan migran antes: tras un `git pull`, el código puede necesitar una migración nueva (sin la 019, todo
@@ -96,9 +95,6 @@ warm:  ## Calienta la API antes de una demo (con la API ya corriendo; repetirlo 
 FRASES ?=
 probar-chat:  ## Prueba el chat con las frases de usuarios (con la API corriendo; ver docs/pruebas-de-usuario.md)
 	@$(PY) scripts/probar_chat.py $(FRASES)
-
-images:  ## Fotos del catálogo con CLIP (miles de descargas: correr con el scraper detenido)
-	$(PY) -m rappi_ia embed-images
 
 purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/diseno-ia.md §2)
 	$(PY) -m rappi_ia purge

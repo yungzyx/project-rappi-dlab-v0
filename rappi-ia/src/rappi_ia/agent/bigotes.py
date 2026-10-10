@@ -20,12 +20,11 @@ from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
 from ..offers.guards import is_offerable, offerable_vertical, unofferable_subverticals
 from ..text import normalize, tokens
-from .compose import AGE_NOTICE, Draft, TemplateComposer, notices
+from .compose import Draft, TemplateComposer, notices
 from .tools import (
     VERTICAL_LABELS,
     Suggestion,
     clp,
-    products_for_keys,
     search_products,
     search_remedies,
     suggest_complement,
@@ -279,51 +278,6 @@ class Bigotes:
                     response["suggestion"] = self._suggestion(suggestion, question=hook.question)
                     response["reason"] = suggestion.reason
                     return response
-        return response
-
-    def reply_voice(self, conn: Connection, transcript, ctx: Context | None = None) -> dict:
-        """`transcript`: resultado de audio.Transcriber. Si es dudoso, confirma antes de buscar."""
-        if transcript.discarded:
-            response = _base(Intent("vacio", ""), "No te escuché bien 🙉 ¿Me lo repites o lo escribes?")
-        elif transcript.needs_confirmation:
-            response = _base(Intent("aclarar", transcript.text), f"¿Dijiste «{transcript.text}»?")
-            response["actions"] = [{"label": "Sí, buscar", "query": transcript.text}]
-        else:
-            response = self.reply(conn, transcript.text, ctx)
-        response["transcript"] = {
-            "text": transcript.text,
-            "confidence": transcript.confidence,
-            "needs_confirmation": transcript.needs_confirmation,
-            "discarded": transcript.discarded,
-        }
-        return response
-
-    def reply_photo(self, conn: Connection, reading, similar: list[tuple], ctx: Context | None = None) -> dict:
-        """`reading`: photo.PhotoReading; `similar`: photo.similar_items (vertical, tipo, id, coseno)."""
-        ctx = ctx or Context()
-        if reading.concept:
-            concept = self.taxonomy.concepts[reading.concept]
-            response = self.reply(conn, concept.name, ctx)
-            response["text"] = f"Parece {concept.label.lower()} 📸. " + response["text"]
-        elif similar:
-            vertical = ctx.vertical or similar[0][0]
-            rows = [row for row in similar if row[0] == vertical]
-            products = products_for_keys(conn, vertical, [(t, i) for _, t, i, _ in rows], [c for *_, c in rows])
-            text = "No estoy seguro de qué es, pero encontré cosas parecidas a tu foto." if products else ""
-            if any(p.age_restricted for p in products):
-                text += f" {AGE_NOTICE}"
-            response = _base(
-                Intent("buscar", "foto", vertical), text or "No logré reconocer la foto 😿 ¿Me cuentas qué es?"
-            )
-            response.update(
-                vertical=vertical,
-                prototype_vertical=PROTOTYPE_VERTICALS.get(vertical),
-                products=[p.to_dict() for p in products],
-                age_notice=any(p.age_restricted for p in products),
-            )
-        else:
-            response = _base(Intent("vacio", "foto"), "No logré reconocer la foto 😿 ¿Me cuentas qué es?")
-        response["photo"] = {"concept": reading.concept, "probability": reading.probability}
         return response
 
     # ── Partes ────────────────────────────────────────────────────────────────

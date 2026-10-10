@@ -10,14 +10,8 @@ DATA_DIR = PROJECT_ROOT / "data"  # cachés y reportes locales (fuera de git)
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-# Modelos locales. Cambiar el modelo no rompe nada: cada vector guarda `embedding_model`.
+# Modelo local de texto. Cambiar el modelo no rompe nada: cada vector guarda `embedding_model`.
 TEXT_EMBEDDING_MODEL = os.environ.get("TEXT_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
-IMAGE_EMBEDDING_MODEL = os.environ.get("IMAGE_EMBEDDING_MODEL", "clip-ViT-B-32")
-# Codificador de texto multilingüe entrenado para el mismo espacio que CLIP ViT-B/32 (consultas en español → imágenes).
-IMAGE_TEXT_EMBEDDING_MODEL = os.environ.get(
-    "IMAGE_TEXT_EMBEDDING_MODEL", "sentence-transformers/clip-ViT-B-32-multilingual-v1"
-)
-WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
 
 # Memoria para construir los índices HNSW (SET LOCAL, solo esa transacción). Con los 64 MB por defecto de Postgres
 # el grafo de la partición restaurantes (~151k × 768) no cabe y pgvector lo construye mucho más lento.

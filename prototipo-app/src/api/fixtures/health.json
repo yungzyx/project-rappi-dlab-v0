@@ -2,9 +2,7 @@
   "capacidades": {
     "busqueda_semantica": "hash-test",
     "faltantes": {},
-    "fotos": false,
-    "redaccion": "plantillas",
-    "voz": false
+    "redaccion": "plantillas"
   },
   "documentos": 138,
   "ok": true

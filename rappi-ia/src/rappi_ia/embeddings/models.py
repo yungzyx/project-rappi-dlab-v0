@@ -1,4 +1,4 @@
-"""Modelos locales: e5 para texto y CLIP para imágenes (requieren el extra `ml`: `pip install -e ".[ml]"`).
+"""Modelo local de texto: e5 (requiere el extra `ml`: `pip install -e ".[ml]"`).
 
 Se cargan una sola vez por proceso. En un Mac con Apple Silicon usan la GPU (MPS) si está disponible.
 """
@@ -56,49 +56,6 @@ class E5Embedder:
         return self._encode([f"query: {t}" for t in texts])
 
 
-class ClipEmbedder:
-    """CLIP ViT-B/32 (pesos de OpenAI) para imágenes + codificador multilingüe alineado para texto en español.
-
-    El codificador multilingüe solo está alineado con estos pesos: no mezclar con otros CLIP.
-    """
-
-    def __init__(
-        self,
-        image_model: str = config.IMAGE_EMBEDDING_MODEL,
-        text_model: str = config.IMAGE_TEXT_EMBEDDING_MODEL,
-    ):
-        from sentence_transformers import SentenceTransformer
-
-        device = _device()
-        log.info("Cargando %s y %s en %s", image_model, text_model, device)
-        self.model_name = image_model
-        self.text_model_name = text_model
-        self._image_model = SentenceTransformer(image_model, device=device)
-        self._text_model = SentenceTransformer(text_model, device=device)
-        self.dim = 512
-        self._lock = threading.Lock()  # imagen y texto: una inferencia a la vez (misma GPU)
-
-    def embed_images(self, images: list) -> np.ndarray:
-        """`images`: objetos PIL.Image en RGB."""
-        with self._lock:
-            vectors = self._image_model.encode(
-                images, batch_size=32, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False
-            )
-        return vectors.astype(np.float32)
-
-    def embed_texts(self, texts: list[str]) -> np.ndarray:
-        with self._lock:
-            vectors = self._text_model.encode(
-                texts, batch_size=64, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False
-            )
-        return vectors.astype(np.float32)
-
-
 @cache
 def text_embedder() -> E5Embedder:
     return E5Embedder()
-
-
-@cache
-def clip_embedder() -> ClipEmbedder:
-    return ClipEmbedder()

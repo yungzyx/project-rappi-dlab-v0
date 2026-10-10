@@ -1,4 +1,4 @@
-"""API contra `rappi_ia_test`, con el modelo falso de embeddings y sin modelos de voz ni foto."""
+"""API contra `rappi_ia_test`, con el modelo falso de embeddings."""
 
 import json
 import math
@@ -50,7 +50,11 @@ def test_health_reports_capabilities(client):
     body = client.get("/health").json()
     assert body["ok"] and body["documentos"] > 0
     assert body["capacidades"]["busqueda_semantica"] == "hash-test"
-    assert body["capacidades"]["voz"] is False
+
+
+def test_health_lists_no_voice_or_photo_capability(client):
+    capabilities = client.get("/health").json()["capacidades"]
+    assert set(capabilities) == {"busqueda_semantica", "redaccion", "faltantes"}
 
 
 def test_chat_accepts_prototype_vertical_and_logs_redacted_query(client, db):
@@ -185,9 +189,20 @@ def test_search_and_analytics(client):
     assert "cobertura" in client.get("/analytics/catalog").json()["data"]
 
 
-def test_voice_and_photo_need_their_models(client):
-    assert client.post("/chat/voice", files={"audio": ("a.wav", b"123", "audio/wav")}).status_code == 503
-    assert client.post("/chat/photo", files={"image": ("a.jpg", b"123", "image/jpeg")}).status_code == 503
+def test_voice_and_photo_routes_are_gone(client):
+    assert client.post("/chat/voice", files={"audio": ("a.wav", b"123", "audio/wav")}).status_code == 404
+    assert client.post("/chat/photo", files={"image": ("a.jpg", b"123", "image/jpeg")}).status_code == 404
+
+
+def test_events_accept_only_text_modality(client, db):
+    def event(modality):
+        return {"type": "search", "session_id": "s", "query": "cerveza", "modality": modality}
+
+    for modality in ("voz", "foto"):
+        assert client.post("/events", json={"user_id": "u-mod", "events": [event(modality)]}).status_code == 422
+    assert client.post("/events", json={"user_id": "u-mod", "events": [event("texto")]}).json() == {"guardados": 1}
+    saved = db.execute("SELECT modality FROM app_events WHERE user_id = 'u-mod'").fetchall()
+    assert saved == [("texto",)]
 
 
 def test_unknown_vertical_and_nul_bytes_do_not_break_chat(client):
@@ -200,147 +215,6 @@ def test_unknown_vertical_and_nul_bytes_do_not_break_chat(client):
         "events": [{"type": "search", "session_id": "s", "query": "a\u0000b", "payload": {"k": "\u0000"}}],
     }
     assert client.post("/events", json=bad).status_code == 200
-
-
-def test_uploads_reject_dangerous_or_huge_files():
-    import io
-
-    import pytest
-    from fastapi import HTTPException
-    from PIL import Image
-
-    with pytest.raises(HTTPException) as eps:
-        api._open_image(b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n")
-    assert eps.value.status_code == 400
-    huge = io.BytesIO()
-    Image.new("1", (9000, 9000)).save(huge, format="PNG")  # pocos KB en disco, 81 MP en memoria
-    with pytest.raises(HTTPException):
-        api._open_image(huge.getvalue())
-    over = io.BytesIO()  # 49 MP: sobre el tope de 40, bajo el doble (donde Pillow recién corta)
-    Image.new("1", (7000, 7000)).save(over, format="PNG")
-    with pytest.raises(HTTPException) as too_big:
-        api._open_image(over.getvalue())
-    assert too_big.value.status_code == 400
-    ok = io.BytesIO()
-    Image.new("RGB", (800, 600), "red").save(ok, format="JPEG")
-    assert api._open_image(ok.getvalue()).size[0] <= 336
-
-
-def test_long_audio_is_rejected_before_whisper():
-    import io
-    import wave
-
-    import pytest
-    from fastapi import HTTPException
-
-    pytest.importorskip("av")  # viene con el extra audio (faster-whisper); sin él /chat/voice responde 503 antes
-    long_audio = io.BytesIO()
-    with wave.open(long_audio, "wb") as w:
-        w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000)
-        w.writeframes(b"\x00\x00" * 8000 * 25)  # 25 s de silencio
-    with pytest.raises(HTTPException) as too_long:
-        api._check_audio_length(long_audio.getvalue())
-    assert too_long.value.status_code == 413
-
-
-def _streamed_webm(seconds: float) -> bytes:
-    """Opus en WebM escrito sin retroceder, como MediaRecorder: la cabecera no trae la duración."""
-    import io
-
-    av = pytest.importorskip("av")
-    import numpy as np
-
-    class Stream(io.RawIOBase):
-        def __init__(self):
-            self.data = bytearray()
-
-        def writable(self):
-            return True
-
-        def seekable(self):
-            return False
-
-        def write(self, chunk):
-            self.data += chunk
-            return len(chunk)
-
-    out, frame = Stream(), 960
-    with av.open(out, "w", format="webm") as container:
-        stream = container.add_stream("libopus", rate=48000)
-        stream.layout = "mono"
-        for i in range(int(seconds * 48000 / frame)):
-            silence = av.AudioFrame.from_ndarray(np.zeros((1, frame), dtype=np.int16), format="s16", layout="mono")
-            silence.sample_rate, silence.pts = 48000, i * frame
-            for packet in stream.encode(silence):
-                container.mux(packet)
-        for packet in stream.encode():
-            container.mux(packet)
-    return bytes(out.data)
-
-
-def test_long_webm_without_duration_is_rejected_before_whisper():
-    from fastapi import HTTPException
-
-    with pytest.raises(HTTPException) as too_long:
-        api._check_audio_length(_streamed_webm(25))
-    assert too_long.value.status_code == 413
-    api._check_audio_length(_streamed_webm(5))  # una frase normal pasa
-
-
-def test_voice_only_accepts_audio_types(client):
-    class Transcriber:
-        def transcribe(self, audio):
-            raise AssertionError("no debería llegar a Whisper")
-
-    embedder = HashEmbedder()
-    services = Services(Bigotes(embedder, TemplateComposer()), embedder, transcriber=Transcriber())
-    api.app.dependency_overrides[api.get_services] = lambda: services
-    response = client.post("/chat/voice", files={"audio": ("a.bin", b"123", "application/octet-stream")})
-    assert response.status_code == 415
-
-
-def test_voice_and_photo_respect_topics_already_shown(client):
-    """Texto → voz o foto en la misma sesión: la sugerencia de snacks no se repite (regla 3 de diseno-ia.md §4)."""
-    import io
-    import wave
-
-    import numpy as np
-    from PIL import Image
-
-    from rappi_ia.agent.audio import Transcript
-    from rappi_ia.agent.photo import PhotoReading
-
-    pytest.importorskip("av")
-
-    class Transcriber:
-        def transcribe(self, audio):
-            return Transcript("cerveza", 0.9, False, False)
-
-    class PhotoReader:
-        def read(self, picture):
-            return PhotoReading("cerveza", 0.9, None, np.zeros(512, dtype=np.float32))
-
-    embedder = HashEmbedder()
-    services = Services(
-        Bigotes(embedder, TemplateComposer()), embedder, PhotoReader(), "clip-test", transcriber=Transcriber()
-    )
-    api.app.dependency_overrides[api.get_services] = lambda: services
-    speech = io.BytesIO()
-    with wave.open(speech, "wb") as w:
-        w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000)
-        w.writeframes(b"\x00\x00" * 8000)
-    photo = io.BytesIO()
-    Image.new("RGB", (64, 64), "yellow").save(photo, format="JPEG")
-    uploads = {
-        "/chat/voice": {"audio": ("voz.wav", speech.getvalue(), "audio/wav")},
-        "/chat/photo": {"image": ("foto.jpg", photo.getvalue(), "image/jpeg")},
-    }
-
-    for path, files in uploads.items():
-        first = client.post(path, files=files, data={"vertical": "liquor"}).json()
-        again = client.post(path, files=files, data={"vertical": "liquor", "shown_topics": "snacks-salados"}).json()
-        assert first["suggestion"]["vertical"] == "supermercado", path
-        assert "suggestion" not in again, path
 
 
 def test_beacon_rejects_huge_or_broken_bodies(client):

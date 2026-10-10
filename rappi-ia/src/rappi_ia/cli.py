@@ -132,9 +132,8 @@ def cmd_map_categories(conn, args) -> None:
 
 
 def cmd_embed_text(conn, args) -> None:
-    from .embeddings.images import ScrapeRunning, scrape_running
     from .embeddings.models import text_embedder
-    from .embeddings.text_store import embed_search_documents
+    from .embeddings.text_store import ScrapeRunning, embed_search_documents, scrape_running
 
     if scrape_running(conn):  # antes de cargar el modelo
         log.error("Hay una corrida del scraper en curso: embed-text corre después (make post-refresh)")
@@ -142,26 +141,6 @@ def cmd_embed_text(conn, args) -> None:
     try:
         print(embed_search_documents(conn, text_embedder(), limit=args.limit))
     except ScrapeRunning as exc:
-        log.error("%s", exc)
-        sys.exit(1)
-
-
-def cmd_embed_images(conn, args) -> None:
-    from contextlib import nullcontext
-
-    from rappi_scraper.lock import DownloadInProgress, download_lock
-
-    from .embeddings.images import ScrapeRunning, embed_images, scrape_running
-    from .embeddings.models import clip_embedder
-
-    # El mismo candado que el scraper: nunca dos descargas a la vez (--forzar: una tanda chica, a sabiendas).
-    try:
-        with nullcontext() if args.forzar else download_lock():
-            if scrape_running(conn) and not args.forzar:  # antes de cargar modelos
-                log.error("Hay una corrida del scraper en curso: espera a que termine (o --forzar con --limit chico)")
-                sys.exit(1)
-            print(embed_images(conn, clip_embedder(), limit=args.limit, vertical=args.vertical, force=args.forzar))
-    except (DownloadInProgress, ScrapeRunning) as exc:
         log.error("%s", exc)
         sys.exit(1)
 
@@ -350,7 +329,6 @@ COMMANDS = {
     "concepts": cmd_concepts,
     "map-categories": cmd_map_categories,
     "embed-text": cmd_embed_text,
-    "embed-images": cmd_embed_images,
     "search": cmd_search,
     "eval-search": cmd_eval_search,
     "eval-sample": cmd_eval_sample,
@@ -392,12 +370,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     embed = sub.add_parser("embed-text", help="embeddings de texto de search_documents (incremental)")
     embed.add_argument("--limit", type=int, help="máximo de textos nuevos (para probar)")
-    images = sub.add_parser("embed-images", help="embeddings CLIP de fotos de productos y platos")
-    images.add_argument("--limit", type=int)
-    images.add_argument("--vertical")
-    images.add_argument(
-        "--forzar", action="store_true", help="correr aunque el scraper esté descargando (solo pruebas)"
-    )
     search = sub.add_parser("search", help="búsqueda híbrida dentro de un vertical")
     search.add_argument("query")
     search.add_argument("--vertical", required=True)

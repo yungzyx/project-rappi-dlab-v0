@@ -51,33 +51,40 @@ def test_api_connections_fail_fast(monkeypatch):
 class _FakeModel:
     model_name = "falso"
 
-    def embed_texts(self, texts):
-        return [[0.0] for _ in texts]
-
 
 def _not_cached():
     # Lo que lanza huggingface_hub (LocalEntryNotFoundError, un FileNotFoundError) con HF_HUB_OFFLINE=1
     raise FileNotFoundError("Cannot find an appropriate cached snapshot folder: outgoing traffic has been disabled")
 
 
-@pytest.mark.parametrize(
-    ("loader", "capability"),
-    [("rappi_ia.agent.audio.transcriber", "audio"), ("rappi_ia.embeddings.models.text_embedder", "ml")],
-)
-def test_a_model_missing_from_the_cache_does_not_stop_the_api(monkeypatch, loader, capability):
-    """`make serve` pone HF_HUB_OFFLINE=1 mirando los modelos por defecto: con otro WHISPER_MODEL o
-    TEXT_EMBEDDING_MODEL en .env que no está en caché, la API arranca sin esa capacidad y /health lo informa."""
+def test_a_text_model_missing_from_the_cache_does_not_stop_the_api(monkeypatch):
+    """`make serve` pone HF_HUB_OFFLINE=1 mirando el modelo por defecto: con otro TEXT_EMBEDDING_MODEL en .env que
+    no está en caché, la API arranca sin búsqueda semántica y /health lo informa."""
     monkeypatch.delenv("RAPPI_IA_LIGHT", raising=False)
-    monkeypatch.setattr("rappi_ia.embeddings.models.text_embedder", _FakeModel)
-    monkeypatch.setattr("rappi_ia.embeddings.models.clip_embedder", _FakeModel)
-    monkeypatch.setattr("rappi_ia.agent.audio.transcriber", lambda: "transcriptor")
-    monkeypatch.setattr(loader, _not_cached)
+    monkeypatch.setattr("rappi_ia.embeddings.models.text_embedder", _not_cached)
     services._load_services.cache_clear()
     try:
         loaded = services._load_services()
     finally:
         services._load_services.cache_clear()
 
-    assert "outgoing traffic has been disabled" in loaded.missing[capability]
-    assert (loaded.transcriber is None) == (capability == "audio")
-    assert (loaded.embedder is None) == (capability == "ml")
+    assert "outgoing traffic has been disabled" in loaded.missing["ml"]
+    assert loaded.embedder is None
+
+
+def test_services_load_without_image_or_audio_models(monkeypatch):
+    """Solo se carga el modelo de texto: sin CLIP, sin Whisper y sin Pillow la API arranca completa."""
+    monkeypatch.delenv("RAPPI_IA_LIGHT", raising=False)
+    monkeypatch.setattr("rappi_ia.embeddings.models.text_embedder", _FakeModel)
+    for module in ("faster_whisper", "PIL", "av"):
+        monkeypatch.setitem(sys.modules, module, None)  # importarlos fallaría
+    services._load_services.cache_clear()
+    try:
+        loaded = services._load_services()
+    finally:
+        services._load_services.cache_clear()
+
+    assert loaded.missing == {}
+    assert loaded.embedder is not None
+    assert set(loaded.capabilities) == {"busqueda_semantica", "redaccion", "faltantes"}
+    assert not hasattr(loaded, "transcriber") and not hasattr(loaded, "photo_reader")

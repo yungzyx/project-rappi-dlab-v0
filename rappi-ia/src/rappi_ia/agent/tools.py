@@ -11,7 +11,7 @@ from rappi_scraper.storage.search import MIN_PRICE
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
 from ..offers.guards import is_offerable, offerable_vertical, unofferable_subverticals
-from ..retrieval.hybrid import Filters, RetrievalResult, _concepts_of, _hydrate, retrieve
+from ..retrieval.hybrid import Filters, RetrievalResult, retrieve
 from ..text import FILLER_WORDS, LEAFLET_WARNINGS, normalize, tokens
 from .verticals import ranked_verticals
 
@@ -359,14 +359,3 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adu
             )
         )
     return [p for p in products if p.price_value is not None]
-
-
-def products_for_keys(
-    conn: Connection, vertical: str, keys: list[tuple[str, str]], scores: list[float]
-) -> list[Product]:
-    """Productos (con precio vigente) para ítems ya elegidos, p. ej. los de foto parecida. En farmacia, lo que no tiene
-    concepto tampoco (como en `search_products`)."""
-    concepts = _concepts_of(conn, keys)
-    hits = _hydrate(conn, vertical, keys, dict(zip(keys, scores, strict=True)), concepts, {}, {})
-    strict = vertical == "farmacia"
-    return _with_prices(conn, vertical, [h for h in hits if _allowed(h.concept_id, [], strict)])
