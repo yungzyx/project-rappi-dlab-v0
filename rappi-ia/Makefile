@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
+.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts knowledge embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -45,6 +45,9 @@ contract:  ## Reescribe las respuestas de ejemplo de la API que usa la app (prot
 
 concepts:  ## Capa 2: conceptos por producto y plato (con kNN si hay extra ml)
 	$(PY) -m rappi_ia concepts
+
+knowledge:  ## Tarjetas del juego en la base, con sus ligas a conceptos (después de concepts)
+	$(PY) -m rappi_ia knowledge
 
 embed:  ## Embeddings de texto (incrementales) + índices HNSW por vertical
 	$(PY) -m rappi_ia embed-text
@@ -114,6 +117,6 @@ layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.m
 	$(PY) -m rappi_ia layer-report
 
 post-refresh: migrate purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
-	$(MAKE) concepts embed eval synth layers
+	$(MAKE) concepts knowledge embed eval synth layers
 	$(MAKE) purge
-	@echo "Listo: conceptos, embeddings, evaluación y datos simulados al día."
+	@echo "Listo: conceptos, tarjetas del juego, embeddings, evaluación y datos simulados al día."

@@ -1,0 +1,506 @@
+version = "2026-10-10"
+revision = "Revisado a mano el 10-10-2026: cada propuesta de la regla quedó aceptada o rechazada."
+
+[cards.supermercado-01]
+concepts = ["verduras"]
+rejected = []
+
+[cards.supermercado-02]
+concepts = ["golosinas"]
+rejected = []
+
+[cards.supermercado-03]
+concepts = []
+rejected = []
+
+[cards.supermercado-04]
+concepts = ["frutas"]
+rejected = []
+
+[cards.supermercado-05]
+concepts = ["frutas"]
+rejected = []
+
+[cards.supermercado-06]
+concepts = ["frutas"]
+rejected = []
+
+[cards.supermercado-07]
+# rechazada «pescados-mariscos»: la salmuera de pescado es el origen de la palabra, no un producto de pescado
+# rechazada «verduras»: el tomate es ingrediente del ketchup; la tarjeta habla de la salsa
+concepts = ["salsas"]
+rejected = ["pescados-mariscos", "verduras"]
+
+[cards.supermercado-08]
+concepts = ["verduras"]
+rejected = []
+
+[cards.supermercado-09]
+concepts = ["frutos-secos"]
+rejected = []
+
+[cards.supermercado-10]
+# rechazada «salsas»: «ají» calzó por palabra clave, pero el merkén es un condimento seco, no una salsa
+# rechazada «frutos-secos»: las «semillas de» cilantro son una especia, no frutos secos
+# rechazada «verduras»: el cilantro es solo un ingrediente del merkén
+# rechazada «panaderia»: «tostadas» describe el tostado de las semillas, no el pan
+concepts = ["aceites-condimentos"]
+rejected = ["salsas", "frutos-secos", "verduras", "panaderia"]
+
+[cards.supermercado-11]
+concepts = []
+rejected = []
+
+[cards.supermercado-12]
+concepts = ["panaderia"]
+rejected = []
+
+[cards.conveniencia-01]
+# rechazada «hielo»: dato de los orígenes de la cadena, no de ese producto
+# rechazada «huevos»: dato de los orígenes de la cadena, no de ese producto
+# rechazada «lacteos»: dato de los orígenes de la cadena, no de ese producto
+# rechazada «panaderia»: dato de los orígenes de la cadena, no de ese producto
+concepts = []
+rejected = ["hielo", "huevos", "lacteos", "panaderia"]
+
+[cards.conveniencia-02]
+concepts = ["conservas"]
+rejected = []
+
+[cards.conveniencia-03]
+concepts = ["snacks-salados"]
+rejected = []
+
+[cards.conveniencia-04]
+# a mano «golosinas»: Chupa Chups es un chupetín, una golosina
+# rechazada «articulos-bebe»: «chupete» es el chupetín de Chupa Chups, no el chupete de bebé
+concepts = ["golosinas"]
+rejected = ["articulos-bebe"]
+
+[cards.conveniencia-05]
+# a mano «helados»: la tarjeta cuenta el origen del cono de helado
+concepts = ["helados"]
+rejected = []
+
+[cards.conveniencia-06]
+concepts = ["cafe"]
+rejected = []
+
+[cards.conveniencia-07]
+concepts = ["gaseosas"]
+rejected = []
+
+[cards.conveniencia-08]
+# a mano «golosinas»: el algodón de azúcar es una golosina
+# rechazada «primeros-auxilios»: «algodón» es el algodón de azúcar, no el de curaciones
+# rechazada «azucar»: «azúcar» es parte del nombre de la golosina, no el azúcar de mesa
+concepts = ["golosinas"]
+rejected = ["primeros-auxilios", "azucar"]
+
+[cards.conveniencia-09]
+concepts = ["helados"]
+rejected = []
+
+[cards.conveniencia-10]
+concepts = ["gaseosas"]
+rejected = []
+
+[cards.conveniencia-11]
+concepts = ["golosinas"]
+rejected = []
+
+[cards.conveniencia-12]
+concepts = []
+rejected = []
+
+[cards.turbo-01]
+# rechazada «tv-video»: el televisor modificado es un detalle de la anécdota del pedido por teléfono
+concepts = []
+rejected = ["tv-video"]
+
+[cards.turbo-02]
+# a mano «lacteos»: los «milk floats» son los carritos que reparten leche
+concepts = ["lacteos"]
+rejected = []
+
+[cards.turbo-03]
+# rechazada «jardin»: habla del crecimiento del bambú, no de productos de jardín
+concepts = []
+rejected = ["jardin"]
+
+[cards.turbo-04]
+concepts = ["frutas"]
+rejected = []
+
+[cards.turbo-05]
+concepts = ["pescados-mariscos"]
+rejected = []
+
+[cards.turbo-06]
+# rechazada «automotriz»: «neumático» es el correo por aire comprimido, no un neumático de auto
+concepts = []
+rejected = ["automotriz"]
+
+[cards.turbo-07]
+# rechazada «articulos-deportivos»: la bicicleta es el medio de reparto, no un artículo deportivo
+concepts = ["platos-listos"]
+rejected = ["articulos-deportivos"]
+
+[cards.turbo-08]
+# rechazada «carnes»: tarjeta de temperatura del refrigerador; los alimentos son ejemplos
+# rechazada «pescados-mariscos»: tarjeta de temperatura del refrigerador; los alimentos son ejemplos
+# rechazada «huevos»: tarjeta de temperatura del refrigerador; los alimentos son ejemplos
+concepts = []
+rejected = ["carnes", "pescados-mariscos", "huevos"]
+
+[cards.turbo-09]
+concepts = ["hielo"]
+rejected = []
+
+[cards.turbo-10]
+# rechazada «juegos-mesa»: «Domino's» es la cadena de pizzas, no el juego
+concepts = []
+rejected = ["juegos-mesa"]
+
+[cards.turbo-11]
+concepts = []
+rejected = []
+
+[cards.turbo-12]
+concepts = ["frutas"]
+rejected = []
+
+[cards.licores-01]
+concepts = ["vino"]
+rejected = []
+
+[cards.licores-02]
+# rechazada «reposteria»: la levadura silvestre fermenta cerveza; no es levadura de repostería
+concepts = ["cerveza"]
+rejected = ["reposteria"]
+
+[cards.licores-03]
+concepts = ["vino"]
+rejected = []
+
+[cards.licores-04]
+# rechazada «huevos»: «huevo» describe la forma de la tinaja
+concepts = ["vino"]
+rejected = ["huevos"]
+
+[cards.licores-05]
+# a mano «espumante»: el champán es un espumante
+concepts = ["espumante"]
+rejected = []
+
+[cards.licores-06]
+# rechazada «frutas»: las uvas son la materia prima del vino de hielo
+# rechazada «hielo»: «hielo» es parte del nombre del vino, no el producto
+# rechazada «agua»: el agua congelada es parte del proceso, no el producto
+# rechazada «jugos»: el jugo de la uva es parte del proceso, no el producto
+concepts = ["vino"]
+rejected = ["frutas", "hielo", "agua", "jugos"]
+
+[cards.licores-07]
+# rechazada «agua»: el agua es un ingrediente más de la lista de la ley
+# rechazada «reposteria»: la levadura de la cerveza no es levadura de repostería
+concepts = ["cerveza"]
+rejected = ["agua", "reposteria"]
+
+[cards.licores-08]
+concepts = ["pisco"]
+rejected = []
+
+[cards.licores-09]
+# a mano «vino»: la filoxera es una plaga de los viñedos
+concepts = ["vino"]
+rejected = []
+
+[cards.licores-10]
+concepts = ["whisky"]
+rejected = []
+
+[cards.licores-11]
+# rechazada «jardin»: «planta» es el agave del tequila, no una planta de jardín
+concepts = ["tequila"]
+rejected = ["jardin"]
+
+[cards.licores-12]
+# rechazada «licores»: el aguardiente es lo que se le agrega al vino de Oporto; la tarjeta habla del vino
+# rechazada «frutas»: la uva es la materia prima del aguardiente que se agrega
+# rechazada «azucar»: el azúcar es el residuo de la fermentación cortada, no un producto
+concepts = ["vino"]
+rejected = ["licores", "frutas", "azucar"]
+
+[cards.chocolateria-01]
+concepts = ["chocolates"]
+rejected = []
+
+[cards.chocolateria-02]
+# rechazada «flores-regalos»: son las flores del árbol de cacao
+concepts = ["chocolates"]
+rejected = ["flores-regalos"]
+
+[cards.chocolateria-03]
+# rechazada «flores-regalos»: son las flores del árbol de cacao
+concepts = ["chocolates"]
+rejected = ["flores-regalos"]
+
+[cards.chocolateria-04]
+# rechazada «arroz-legumbres»: «granos» son los granos de cacao
+concepts = ["chocolates"]
+rejected = ["arroz-legumbres"]
+
+[cards.chocolateria-05]
+concepts = ["chocolates"]
+rejected = []
+
+[cards.chocolateria-06]
+# rechazada «reposteria»: «colorantes» se nombra para decir que el chocolate ruby no los lleva
+concepts = ["chocolates"]
+rejected = ["reposteria"]
+
+[cards.chocolateria-07]
+concepts = ["chocolates"]
+rejected = []
+
+[cards.chocolateria-08]
+# rechazada «arroz-legumbres»: «granos» son los granos de cacao
+concepts = ["chocolates"]
+rejected = ["arroz-legumbres"]
+
+[cards.chocolateria-09]
+concepts = ["chocolates"]
+rejected = []
+
+[cards.chocolateria-10]
+concepts = ["chocolates"]
+rejected = []
+
+[cards.chocolateria-11]
+# rechazada «licores»: el «licor de cacao» es la pasta de cacao, sin alcohol
+# rechazada «pastas»: la «pasta» es la masa de cacao, no pasta de comer
+# rechazada «arroz-legumbres»: «granos» son los granos de cacao
+concepts = ["chocolates"]
+rejected = ["licores", "pastas", "arroz-legumbres"]
+
+[cards.chocolateria-12]
+concepts = ["chocolates", "golosinas"]
+rejected = []
+
+[cards.restaurantes-01]
+concepts = ["pizza"]
+rejected = []
+
+[cards.restaurantes-02]
+# rechazada «conservas»: habla de fermentar pescado para conservarlo, no de conservas envasadas
+# rechazada «arroz-legumbres»: el arroz es parte de la técnica de fermentación
+concepts = ["sushi", "pescados-mariscos"]
+rejected = ["conservas", "arroz-legumbres"]
+
+[cards.restaurantes-03]
+# rechazada «automotriz»: «neumáticos» es a lo que se dedicaban los creadores de la guía
+concepts = []
+rejected = ["automotriz"]
+
+[cards.restaurantes-04]
+# a mano «asiatica»: las galletas de la fortuna se sirven en los restaurantes chinos
+concepts = ["galletas", "asiatica"]
+rejected = []
+
+[cards.restaurantes-05]
+concepts = ["pescados-mariscos", "carnes"]
+rejected = []
+
+[cards.restaurantes-06]
+# a mano «peruana»: el ceviche es plato de la cocina peruana
+# rechazada «frutas»: el limón marina el pescado; la tarjeta habla del ceviche
+concepts = ["pescados-mariscos", "peruana"]
+rejected = ["frutas"]
+
+[cards.restaurantes-07]
+# rechazada «carnes»: el relleno del sándwich es detalle; la pregunta es por el nombre
+# rechazada «quesos»: el relleno del sándwich es detalle; la pregunta es por el nombre
+concepts = ["sandwiches"]
+rejected = ["carnes", "quesos"]
+
+[cards.restaurantes-08]
+concepts = ["ensaladas-bowls"]
+rejected = []
+
+[cards.restaurantes-09]
+# a mano «mexicana»: los nachos son un plato mexicano
+concepts = ["snacks-salados", "mexicana"]
+rejected = []
+
+[cards.restaurantes-10]
+concepts = ["hamburguesa"]
+rejected = []
+
+[cards.restaurantes-11]
+# rechazada «frutas»: la palta es un ingrediente del completo
+# rechazada «verduras»: el tomate es un ingrediente del completo
+# rechazada «salsas»: «salsas» solo describe los colores del completo
+concepts = ["sandwiches"]
+rejected = ["frutas", "verduras", "salsas"]
+
+[cards.restaurantes-12]
+# rechazada «huevos»: el huevo duro es un extra de la explicación; el pino es carne y cebolla
+# rechazada «frutos-secos»: «pasas» es un extra de la explicación; el pino es carne y cebolla
+concepts = ["empanadas", "carnes", "verduras"]
+rejected = ["huevos", "frutos-secos"]
+
+[cards.farmacia-01]
+concepts = []
+rejected = []
+
+[cards.farmacia-02]
+concepts = []
+rejected = []
+
+[cards.farmacia-03]
+# rechazada «jugos»: el «jugo de momia» era un remedio antiguo, no un jugo
+concepts = []
+rejected = ["jugos"]
+
+[cards.farmacia-04]
+concepts = []
+rejected = []
+
+[cards.farmacia-05]
+concepts = []
+rejected = []
+
+[cards.farmacia-06]
+concepts = []
+rejected = []
+
+[cards.farmacia-07]
+concepts = []
+rejected = []
+
+[cards.farmacia-08]
+concepts = []
+rejected = []
+
+[cards.farmacia-09]
+concepts = []
+rejected = []
+
+[cards.farmacia-10]
+# a mano «dermocosmetica»: la tarjeta habla de la piel, el órgano que cuida la dermocosmética
+concepts = ["dermocosmetica"]
+rejected = []
+
+[cards.farmacia-11]
+# a mano «cuidado-oral»: habla del esmalte de los dientes
+# rechazada «maquillaje»: «esmalte» es el esmalte dental, no el de uñas
+concepts = ["cuidado-oral"]
+rejected = ["maquillaje"]
+
+[cards.farmacia-12]
+concepts = []
+rejected = []
+
+[cards.mall-01]
+# rechazada «textil-hogar»: las cortinas de baño son un detalle de la invención del plástico de burbujas
+concepts = []
+rejected = ["textil-hogar"]
+
+[cards.mall-02]
+# rechazada «pastas»: la «pasta» de Play-Doh es una masa, no pasta de comer
+concepts = ["juguetes-infantiles"]
+rejected = ["pastas"]
+
+[cards.mall-03]
+concepts = ["juguetes-infantiles"]
+rejected = []
+
+[cards.mall-04]
+# rechazada «alimento-perro»: el perro es parte de la anécdota del velcro
+# rechazada «manualidades»: «crochet» es el gancho del que viene la palabra velcro
+concepts = []
+rejected = ["alimento-perro", "manualidades"]
+
+[cards.mall-05]
+concepts = []
+rejected = []
+
+[cards.mall-06]
+# rechazada «utiles»: la agenda es una función del teléfono, no un útil
+concepts = ["celulares"]
+rejected = ["utiles"]
+
+[cards.mall-07]
+concepts = ["juguetes-infantiles"]
+rejected = []
+
+[cards.mall-08]
+concepts = ["ropa"]
+rejected = []
+
+[cards.mall-09]
+concepts = ["calzado"]
+rejected = []
+
+[cards.mall-10]
+concepts = ["maquillaje"]
+rejected = []
+
+[cards.mall-11]
+concepts = ["juegos-mesa"]
+rejected = []
+
+[cards.mall-12]
+# rechazada «celulares»: la «carcasa» es la caja del mouse, no la funda de un celular
+concepts = ["computacion"]
+rejected = ["celulares"]
+
+[cards.viajes-01]
+concepts = []
+rejected = []
+
+[cards.viajes-02]
+concepts = []
+rejected = []
+
+[cards.viajes-03]
+concepts = []
+rejected = []
+
+[cards.viajes-04]
+concepts = []
+rejected = []
+
+[cards.viajes-05]
+concepts = []
+rejected = []
+
+[cards.viajes-06]
+concepts = []
+rejected = []
+
+[cards.viajes-07]
+# rechazada «verduras»: «Papa Westray» es el nombre de una isla
+concepts = []
+rejected = ["verduras"]
+
+[cards.viajes-08]
+concepts = []
+rejected = []
+
+[cards.viajes-09]
+concepts = []
+rejected = []
+
+[cards.viajes-10]
+concepts = []
+rejected = []
+
+[cards.viajes-11]
+concepts = []
+rejected = []
+
+[cards.viajes-12]
+concepts = []
+rejected = []

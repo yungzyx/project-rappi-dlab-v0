@@ -16,6 +16,8 @@ from rappi_scraper.storage.search import build_search_documents
 from .. import config
 from ..concepts.pipeline import build_concepts
 from ..db import migrate
+from ..game.cards import load_knowledge
+from ..layers.graph import build_relations
 
 DEMO_VERTICALS = (
     "supermercado",
@@ -404,8 +406,9 @@ def reset_test_database(conn: Connection) -> None:
 
 
 def seed_demo(conn: Connection) -> dict[str, int]:
-    """Carga el catálogo inventado en una base recién migrada, arma los documentos de búsqueda y asigna conceptos.
-    Devuelve los ítems (productos y platos) de cada vertical."""
+    """Carga el catálogo inventado en una base recién migrada, arma los documentos de búsqueda, asigna conceptos,
+    arma el grafo de relaciones y carga las tarjetas del juego. Devuelve los ítems (productos y platos) de cada
+    vertical."""
     _insert_stores(conn)
     _insert_products(conn)
     _insert_aisles(conn)
@@ -413,6 +416,8 @@ def seed_demo(conn: Connection) -> dict[str, int]:
     conn.commit()
     build_search_documents(conn)
     build_concepts(conn)
+    build_relations(conn)
+    load_knowledge(conn)
     counted = dict(
         conn.execute(
             """SELECT vertical, count(*) FROM search_documents

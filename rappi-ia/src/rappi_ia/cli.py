@@ -4,6 +4,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia migrate
     rappi-ia concepts                # capa 2: taxonomía, complementos, mapeos y conceptos por ítem
     rappi-ia concepts --solo-reporte # cobertura sin recalcular
+    rappi-ia knowledge               # tarjetas del juego y sus ligas a conceptos (después de `concepts`)
     rappi-ia map-categories          # categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar
     rappi-ia embed-text              # embeddings e5 de search_documents (incremental) + HNSW por vertical
     rappi-ia search "algo para el carrete" --vertical licores
@@ -27,6 +28,7 @@ from .concepts.report import coverage_report, render_text, write_category_propos
 from .db import connect, database_url, migrate
 from .demo.doctor import check_database, check_pending_migrations
 from .demo.seed import ensure_test_database, reset_test_database, seed_demo
+from .game.cards import load_knowledge
 from .layers.attributes import build_attributes
 from .layers.brands import build_brands
 from .layers.canonical import build_canonical
@@ -56,6 +58,14 @@ def cmd_concepts(conn, args) -> None:
                 log.warning("Sin el extra `ml` (sentence-transformers): conceptos solo por categoría y reglas")
         build_concepts(conn, embedder)
     print(render_text(coverage_report(conn)))
+
+
+def cmd_knowledge(conn, args) -> None:
+    try:
+        counts = load_knowledge(conn)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    print(f"Tarjetas del juego: {counts['tarjetas']}, ligas a conceptos: {counts['ligas']}")
 
 
 def cmd_attributes(conn, args) -> None:
@@ -327,6 +337,7 @@ COMMANDS = {
     "analytics": cmd_analytics,
     "migrate": cmd_migrate,
     "concepts": cmd_concepts,
+    "knowledge": cmd_knowledge,
     "map-categories": cmd_map_categories,
     "embed-text": cmd_embed_text,
     "search": cmd_search,
@@ -346,6 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
     concepts = sub.add_parser("concepts", help="capa 2: conceptos, complementos y mapeo de productos y platos")
     concepts.add_argument("--solo-reporte", action="store_true", help="solo muestra la cobertura actual")
     concepts.add_argument("--sin-knn", action="store_true", help="sin refinar con vecinos cercanos (embeddings)")
+    sub.add_parser("knowledge", help="tarjetas del juego en la base, con sus ligas revisadas a conceptos")
     sub.add_parser("attributes", help="capa de perfiles: atributos de cada ítem (sin gluten, vegano, familiar…)")
     lr = sub.add_parser("layer-report", help="reporte de calidad de las capas de perfiles (data/eval/capas.md)")
     lr.add_argument("--muestra", type=int, default=20, help="ítems de muestra por atributo")
