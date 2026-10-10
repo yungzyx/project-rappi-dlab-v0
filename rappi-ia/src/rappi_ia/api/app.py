@@ -27,6 +27,7 @@ from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
 from ..concepts.taxonomy import load_taxonomy
 from ..events import store as events
+from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
 from .catalog import router as catalog_router
 from .deps import Clean, backend_vertical, get_conn, get_services
@@ -308,9 +309,12 @@ def recommendations(
     """ "Para ti, de otras tiendas": intereses del usuario → complementos → productos de otro vertical."""
     interests = list(events.profile(conn, user_id))
     taxonomy = load_taxonomy()
+    # La razón nombra el interés («Porque te interesa…»): Mochi no nombra por su cuenta alcohol, salud ni lo sensible,
+    # así que esos intereses no son fuente de una fila (como en `Bigotes._top_interest`). El perfil los conserva.
+    sources = [c for c in interests if c in taxonomy.concepts and is_offerable(taxonomy.concepts[c])]
     shown: set[str] = set()
     rows = []
-    for concept in interests[:4]:
+    for concept in sources[:4]:
         suggestion = suggest_complement(conn, [concept], backend_vertical(vertical), svc.embedder, shown)
         if suggestion:
             shown.add(suggestion.concept)

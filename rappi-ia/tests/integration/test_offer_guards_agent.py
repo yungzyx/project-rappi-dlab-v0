@@ -171,6 +171,29 @@ def test_recommendations_respect_the_guards(demo_client):
     assert not any(p["age_restricted"] for row in rows for p in row["products"])
 
 
+def test_recommendations_never_name_an_unofferable_interest(demo, demo_client):
+    """«Porque te interesa 🍺 cerveza» es Mochi nombrando alcohol (o salud) por su cuenta: esos intereses no son
+    fuente de una recomendación, como en `_top_interest`. Uno ofrecible, aunque pese menos, sí."""
+    db, _ = demo
+    db.execute(  # vitaminas → jugos (jugos se ofrece y el súper de prueba vende jugo): sin la regla, sería una fila
+        """INSERT INTO concept_edges (from_concept, to_concept, method, weight, data_source)
+           VALUES ('vitaminas', 'jugos', 'curado', 0.9, 'curado')"""
+    )
+    db.commit()
+
+    def search(concept: str) -> dict:
+        return {"type": "search", "session_id": "s1", "vertical": "grocery", "concept_id": concept, "query": concept}
+
+    events = [search("cerveza")] * 3 + [search("vitaminas")] * 2 + [search("pizza")]
+    assert demo_client.post("/events", json={"user_id": "u1", "events": events}).json() == {"guardados": 6}
+    body = demo_client.get("/recommendations", params={"user_id": "u1", "limit": 6}).json()
+    assert body["interests"][:2] == ["cerveza", "vitaminas"]  # el perfil los guarda: solo no se ofrecen
+
+    reasons = [row["reason"] for row in body["rows"]]
+    assert reasons == ["Porque te interesa 🍕 pizza"]
+    assert not any(p["age_restricted"] for row in body["rows"] for p in row["products"])
+
+
 def test_a_service_hook_never_suggests_health_or_pharmacy_products(demo):
     """RappiTravel engancha protector solar (dermocosmética, del grupo salud) con una farmacia: no se propone."""
     db, embedder = demo

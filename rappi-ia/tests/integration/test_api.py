@@ -114,8 +114,8 @@ def test_events_orders_profile_recommendations_and_forget(client, db):
     assert profile["interests"][0]["concept"] == "cerveza"
 
     recs = client.get("/recommendations", params={"user_id": "u1", "vertical": "liquor"}).json()
-    assert recs["rows"][0]["concept"] == "snacks-salados" and recs["rows"][0]["vertical"] == "supermercado"
-    assert recs["rows"][0]["reason"] == "Porque te interesa 🍺 cerveza"
+    # Mochi no nombra por su cuenta un interés de alcohol: la cerveza no es fuente de una fila (el perfil la guarda).
+    assert recs["interests"][0] == "cerveza" and recs["rows"] == []
 
     forgotten = client.delete("/profile/u1", params={"concept": "cerveza"}).json()
     assert forgotten["eventos_borrados"] >= 2
