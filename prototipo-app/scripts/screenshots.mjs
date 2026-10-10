@@ -1,6 +1,7 @@
 // Genera las capturas de docs/screenshots recorriendo la app como un usuario (npm run screenshots).
 // Usa el Chrome instalado (playwright-core, sin descargar navegadores) y un servidor Vite propio en el 5199.
 // Los menús reales del scraper se apartan mientras corre: son datos scrapeados y no van al repo, ni en captura.
+// La app no abre sin la API: antes de capturar hay que tener el MVP corriendo (`make mvp`).
 import { existsSync, mkdirSync, renameSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
@@ -13,6 +14,7 @@ const MENUS_ASIDE = `${MENUS}.aparte`
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const PORT = 5199
 const BASE = `http://localhost:${PORT}/`
+const API_HEALTH = 'http://localhost:8000/health'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -145,7 +147,15 @@ async function run(page) {
   await shot('28-loyalty-vinculado')
 }
 
+async function requireApi() {
+  const response = await fetch(API_HEALTH, { signal: AbortSignal.timeout(3000) }).catch(() => null)
+  if (response?.ok) return
+  console.error('Las capturas necesitan el MVP corriendo: `make mvp`')
+  process.exit(1)
+}
+
 async function main() {
+  await requireApi() // antes de apartar los menús: si no hay API, no se toca nada
   mkdirSync(OUT, { recursive: true })
   if (existsSync(MENUS_ASIDE) && !existsSync(MENUS)) renameSync(MENUS_ASIDE, MENUS) // corrida anterior interrumpida
   const hadMenus = existsSync(MENUS)
