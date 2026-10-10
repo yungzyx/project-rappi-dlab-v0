@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator, model_v
 
 from .. import config
 from ..agent.bigotes import PROTOTYPE_VERTICALS, Context
+from ..agent.grouped_search import search_grouped
 from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
 from ..concepts.taxonomy import load_taxonomy
@@ -282,21 +283,35 @@ def chat_photo(
     return response
 
 
+GROUPED_SEARCH_LIMIT = 6  # por grupo
+VERTICAL_SEARCH_LIMIT = 10
+
+
 @app.get("/search")
 def search(
     q: str = Query(min_length=1, max_length=200),
-    vertical: str = Query(...),
+    vertical: str | None = None,
+    current: str | None = None,
     price_max: float | None = None,
-    limit: int = Query(10, ge=1, le=50),
+    limit: int | None = Query(None, ge=1, le=50),
     mode: str = Query("hibrido"),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
 ) -> dict:
+    """Con `vertical`, busca solo ahí. Sin `vertical`, en las verticales que corresponden a la consulta (más la de la
+    pantalla, `current`) y agrupa: `limit` es por grupo."""
     if mode not in MODES:
         raise HTTPException(400, f"mode debe ser uno de {MODES}")
+    if vertical is None:
+        grouped = search_grouped(
+            conn, q, svc.embedder, backend_vertical(current), limit or GROUPED_SEARCH_LIMIT, price_max, mode
+        )
+        return grouped.to_dict()
     code = backend_vertical(vertical)
     try:
-        outcome = search_products(conn, code, q, None, svc.embedder, price_max, k=limit, mode=mode)
+        outcome = search_products(
+            conn, code, q, None, svc.embedder, price_max, k=limit or VERTICAL_SEARCH_LIMIT, mode=mode
+        )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return {

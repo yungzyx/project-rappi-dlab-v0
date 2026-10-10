@@ -1,0 +1,6 @@
+{
+  "groups": [],
+  "query": "xyzzy",
+  "unmet": true,
+  "unmet_reason": "sin coincidencia léxica ni concepto; coseno máx sin vectores < τ 0.81"
+}

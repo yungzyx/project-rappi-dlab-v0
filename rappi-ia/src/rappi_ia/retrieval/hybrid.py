@@ -136,6 +136,11 @@ def _query_concepts(query: str) -> list[str]:
     return [m.target for m in _matcher().matches(query)]
 
 
+def detect_concepts(query: str) -> list[str]:
+    """Los conceptos que nombra la consulta (los mismos que usa `retrieve` cuando no se le dan)."""
+    return _query_concepts(query)
+
+
 _MATCHER = None
 
 

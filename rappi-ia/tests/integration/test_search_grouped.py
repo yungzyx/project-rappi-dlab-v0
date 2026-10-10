@@ -1,0 +1,152 @@
+"""`/search` sin vertical: busca en todas las verticales que corresponden y agrupa los resultados, con un solo
+embedding por consulta. Con `vertical`, la respuesta de siempre."""
+
+import numpy as np
+import pytest
+from fastapi.testclient import TestClient
+from rappi_scraper.storage.search import VERTICALS
+
+from rappi_ia.agent import grouped_search
+from rappi_ia.agent.bigotes import Bigotes
+from rappi_ia.agent.compose import TemplateComposer
+from rappi_ia.agent.grouped_search import SCREEN_VERTICALS, search_grouped
+from rappi_ia.agent.verticals import ranked_verticals
+from rappi_ia.api import app as api
+from rappi_ia.api.services import Services
+from rappi_ia.demo.seed import seed_demo
+from rappi_ia.embeddings.base import HashEmbedder
+from rappi_ia.embeddings.text_store import embed_search_documents
+
+
+class CountingEmbedder(HashEmbedder):
+    def __init__(self):
+        super().__init__()
+        self.query_calls = 0
+
+    def embed_queries(self, texts: list[str]) -> np.ndarray:
+        self.query_calls += 1
+        return super().embed_queries(texts)
+
+
+@pytest.fixture
+def demo(db):
+    seed_demo(db)
+    embedder = CountingEmbedder()
+    embed_search_documents(db, embedder)
+    return db, embedder
+
+
+@pytest.fixture
+def client(demo):
+    db, embedder = demo
+
+    def conn_override():
+        yield db
+
+    api.app.dependency_overrides[api.get_conn] = conn_override
+    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
+    yield TestClient(api.app)
+    api.app.dependency_overrides.clear()
+
+
+def test_grouped_search_puts_the_typical_vertical_first(demo):
+    db, embedder = demo
+    typical = ranked_verticals(db, ["cerveza"])[0]
+
+    result = search_grouped(db, "cerveza", embedder, current=None, limit=6)
+
+    groups = {group.vertical: group for group in result.groups}
+    assert result.groups[0].vertical == typical == "licores"
+    assert len(groups) >= 2  # la cerveza también está en el súper, en Express y en Turbo
+    assert all(group.products for group in result.groups)
+    assert groups["licores"].prototype_vertical == "liquor"
+    assert SCREEN_VERTICALS["turbo"] == "turbo" and SCREEN_VERTICALS["conveniencia"] == "express"  # Turbo, su pantalla
+
+
+def test_grouped_search_embeds_the_query_once(demo):
+    db, embedder = demo
+    embedder.query_calls = 0
+
+    search_grouped(db, "algo para el carrete", embedder, current=None, limit=6)
+
+    assert embedder.query_calls == 1  # las 8 verticales comparten el vector
+
+
+def test_grouped_search_looks_where_the_concept_is_typical_plus_the_current_vertical(demo, monkeypatch):
+    db, embedder = demo
+    searched = []
+    real = grouped_search.search_products
+
+    def spy(conn, vertical, *args, **kwargs):
+        searched.append(vertical)
+        return real(conn, vertical, *args, **kwargs)
+
+    monkeypatch.setattr(grouped_search, "search_products", spy)
+    typical = ranked_verticals(db, ["cerveza"])[:3]
+
+    search_grouped(db, "cerveza", embedder, current="mall", limit=6)
+    assert searched == [*typical, "mall"]
+
+    searched.clear()
+    search_grouped(db, "cerveza", embedder, current="licores", limit=6)  # ya estaba entre las típicas
+    assert searched == typical
+
+    searched.clear()
+    search_grouped(db, "algo para el carrete", embedder, current="mall", limit=6)  # sin concepto: todas
+    assert sorted(searched) == sorted(VERTICALS)
+
+
+def test_grouped_search_limit_is_per_group(demo):
+    db, embedder = demo
+
+    result = search_grouped(db, "cerveza", embedder, current=None, limit=1)
+
+    assert result.groups and all(len(group.products) == 1 for group in result.groups)
+
+
+def test_grouped_search_unmet_only_when_no_group_has_products(demo):
+    db, embedder = demo
+
+    found = search_grouped(db, "cerveza", embedder, current="mall", limit=6)  # el mall no trae cerveza, el resto sí
+    nothing = search_grouped(db, "xyzzy", embedder, current=None, limit=6)
+
+    assert found.groups and found.unmet is False and found.unmet_reason is None
+    assert nothing.groups == [] and nothing.unmet is True and nothing.unmet_reason
+
+
+def test_grouped_search_returns_products_only_and_does_not_apply_offer_guards(demo):
+    db, embedder = demo
+
+    result = search_grouped(db, "cerveza", embedder, current=None, limit=6)
+
+    products = [p for group in result.groups for p in group.products]
+    assert {p.entity_type for p in products} <= {"catalog_item", "menu_item"}  # nunca tiendas
+    assert any(p.age_restricted for p in products)  # es lo que la persona pidió: las guardias son de las ofertas
+
+
+def test_grouped_endpoint_shape(client):
+    body = client.get("/search", params={"q": "cerveza"}).json()
+
+    assert set(body) == {"query", "groups", "unmet", "unmet_reason"}
+    assert body["query"] == "cerveza" and body["unmet"] is False
+    first = body["groups"][0]
+    assert set(first) == {"vertical", "prototype_vertical", "products"}
+    assert (first["vertical"], first["prototype_vertical"]) == ("licores", "liquor")
+    assert len(first["products"]) <= 6  # el límite por grupo es 6 por defecto
+    limited = client.get("/search", params={"q": "cerveza", "current": "retail", "limit": 2}).json()
+    assert all(len(group["products"]) <= 2 for group in limited["groups"])
+    nothing = client.get("/search", params={"q": "xyzzy"}).json()
+    assert (nothing["groups"], nothing["unmet"]) == ([], True) and nothing["unmet_reason"]
+
+
+def test_vertical_search_is_unchanged(client):
+    body = client.get("/search", params={"q": "cerveza", "vertical": "licores"}).json()
+
+    assert set(body) == {"vertical", "products", "unmet", "unmet_reason"}
+    assert body["vertical"] == "licores" and body["products"] and body["unmet"] is False
+    assert client.get("/search", params={"q": "cerveza", "vertical": "liquor"}).json() == body  # id del prototipo
+    one = client.get("/search", params={"q": "cerveza", "vertical": "licores", "limit": 1}).json()
+    assert len(one["products"]) == 1
+    assert client.get("/search", params={"q": "cerveza", "vertical": "aerolineas"}).status_code == 400
+    assert client.get("/search", params={"q": "cerveza", "vertical": "pet"}).status_code == 400
+    assert client.get("/search", params={"q": "cerveza", "mode": "otro"}).status_code == 400
