@@ -3,7 +3,7 @@
 # `rappi-ia seed-demo` solo siembra DATABASE_URL_TEST (rappi_ia_test), y la API de prueba corre en :8010, la app en :5184.
 #   1. en línea: la app abre en la Home conectada;
 #   2. compra: Home → Grocery → primera tienda → agregar un producto → carrito → pagar, y en rappi_ia_test (solo lectura)
-#      queda un pedido `prototype` cuyas líneas son productos sembrados;
+#      queda un pedido `prototype` cuyas líneas son productos (o platos) sembrados;
 #   3. kit de Mochi: «cerveza» en el buscador con Mochi (grupos por vertical) → plan «Carrete» en la Home → agregar el
 #      kit → pagar, y en rappi_ia_test (solo lectura) el pedido tiene líneas sembradas y la persona dejó al menos una
 #      `suggestion_accepted` con origen `mochi-plan`;
@@ -44,8 +44,9 @@ elif [ "$status" != 0 ]; then
 fi
 
 # El pedido de la compra: el último de la app (`prototype`; los `synthetic` son del generador) y los demás de la misma
-# persona (un kit de varias verticales son varios pedidos), con todas sus líneas productos sembrados. Con el argumento
-# `kit`, además esa persona dejó al menos una `suggestion_accepted` con origen `mochi-plan` (app_events). Solo lee.
+# persona (un kit de varias verticales son varios pedidos), con todas sus líneas productos o platos sembrados (un kit
+# puede traer un plato de restaurante). Con el argumento `kit`, además esa persona dejó al menos una
+# `suggestion_accepted` con origen `mochi-plan` (app_events). Solo lee.
 # Reintenta 5 s por si el pedido o los eventos tardan en quedar confirmados.
 read -r -d '' CHECK_ORDER <<'PY' || true
 import sys
@@ -57,7 +58,9 @@ from rappi_ia.db import database_url
 QUERY = """
 SELECT o.order_id, o.vertical, o.user_id, count(*),
        count(*) FILTER (WHERE l.entity_type = 'catalog_item' AND EXISTS (
-           SELECT 1 FROM catalog_items ci WHERE ci.master_product_id::text = l.entity_id))
+                                  SELECT 1 FROM catalog_items ci WHERE ci.master_product_id::text = l.entity_id)
+                           OR l.entity_type = 'menu_item' AND EXISTS (
+                                  SELECT 1 FROM menu_items mi WHERE mi.item_id::text = l.entity_id))
 FROM app_orders o JOIN app_order_lines l USING (order_id)
 WHERE o.source = 'prototype'
 GROUP BY o.order_id, o.vertical, o.user_id, o.ts
@@ -83,8 +86,8 @@ if not rows:
 user = rows[0][2]
 for order_id, vertical, _, lines, seeded in (row for row in rows if row[2] == user):
     if seeded != lines:
-        sys.exit(f"  ✗ pedido: {order_id} tiene {lines} línea(s) y solo {seeded} son productos sembrados")
-    print(f"  ✓ pedido: {order_id} ({vertical}, {lines} línea(s), todas productos sembrados)")
+        sys.exit(f"  ✗ pedido: {order_id} tiene {lines} línea(s) y solo {seeded} son productos o platos sembrados")
+    print(f"  ✓ pedido: {order_id} ({vertical}, {lines} línea(s), todas sembradas)")
 if kit:
     if not accepted:
         sys.exit("  ✗ eventos: la persona del pedido no dejó ninguna suggestion_accepted con origen mochi-plan")
