@@ -31,7 +31,7 @@ GitHub muestra las imágenes; las versiones interactivas (HTML) hay que descarga
 | Qué | Qué muestra | Imagen | Interactivo |
 |---|---|---|---|
 | Flujo de datos | Las etapas de punta a punta: descarga → Postgres → IA offline → consulta → prototipo | [rag-datos.png](diagramas/rag-datos.png) | [rag-datos.html](diagramas/rag-datos.html) |
-| Arquitectura de la IA | Catálogo y agente Mochi por carriles: datos offline, conversación online y entre verticales | [arquitectura-ia.png](diagramas/arquitectura-ia.png) | [arquitectura-ia.html](diagramas/arquitectura-ia.html) |
+| Arquitectura de la IA | Catálogo y agente Mochi por carriles: datos offline, consulta online y entre verticales | [arquitectura-ia.png](diagramas/arquitectura-ia.png) | [arquitectura-ia.html](diagramas/arquitectura-ia.html) |
 | Scraper | Cómo `rappi refresh` descubre, descarga y guarda el catálogo | [scraper-flujo.png](diagramas/scraper-flujo.png) | [scraper-flujo.html](diagramas/scraper-flujo.html) |
 | Mapa multivertical | Qué productos y conceptos comparten las verticales, con complementos, sustitutos y «nunca junto»; se regenera con `rappi-ia multivertical` | [mapa-conceptos.jpg](mapas/mapa-conceptos.jpg) | [mapa-multivertical.html](mapas/mapa-multivertical.html) |
 
@@ -72,4 +72,4 @@ Reflejan el estado a su fecha y no se actualizan con cada corrida.
 |---|---|---|
 | [ecosistema-rappi.md](ecosistema-rappi.md) §1 y §2 | Research con fuentes públicas al 26-09-2026 | Los servicios de Rappi en Chile y cómo modelan sus datos otras super-apps comparables. El modelo de datos (§3) sigue vigente |
 | Scraper original a CSV (`rappi-csv`) | Anterior a la base de datos | Sección [«Legado»](../rappi-scraper/README.md#legado-scraper-original-a-csv-rappi-csv) del README del scraper |
-| Presentación al gerente, chat escrito y modos anteriores del prototipo | 30-09 al 09-10-2026 | En [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto), con una etiqueta por etapa |
+| Presentación al gerente y modos anteriores del prototipo | 30-09 al 09-10-2026 | En [rappi-evolucion-proyecto](https://github.com/yungzyx/rappi-evolucion-proyecto), con una etiqueta por etapa |

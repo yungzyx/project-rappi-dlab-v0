@@ -18,7 +18,8 @@ from ..concepts.taxonomy import load_taxonomy
 EVENT_TYPES = {
     "app_open",
     "search",
-    "chat",
+    "chat",  # tipo anterior de `ask`: los clientes y los datos viejos lo siguen mandando
+    "ask",
     "view_store",
     "view_item",
     "cart_add",
@@ -29,12 +30,12 @@ EVENT_TYPES = {
     "suggestion_accepted",
     "suggestion_dismissed",
     "recommendation_click",
-    "service_shown",  # Bigotes ofreció un servicio sin catálogo (payload.servicio)
+    "service_shown",  # el agente ofreció un servicio sin catálogo (payload.servicio)
     "service_opened",  # se tocó el botón que abre ese servicio
 }
 QUERY_RETENTION_DAYS = 90
 HALF_LIFE_DAYS = 14  # el interés se reduce a la mitad cada 2 semanas sin actividad
-# Solo señales positivas del propio usuario. Lo que Bigotes mostró (suggestion_shown), lo que rechazó
+# Solo señales positivas del propio usuario. Lo que el agente mostró (suggestion_shown), lo que rechazó
 # (suggestion_dismissed) o sacó del carro (cart_remove) no suma interés.
 WEIGHTS = {
     "order_placed": 5.0,
@@ -44,6 +45,7 @@ WEIGHTS = {
     "view_store": 1.0,
     "search": 1.0,
     "chat": 1.0,
+    "ask": 1.0,
     "recommendation_click": 2.0,
 }
 

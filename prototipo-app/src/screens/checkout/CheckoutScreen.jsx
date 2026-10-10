@@ -61,7 +61,7 @@ export default function CheckoutScreen({ back, push }) {
         img: product.img,
         price: product.price,
         qty,
-        // Con ellos Mochi arma el próximo pedido al entregar (oferta `proximo_pedido`).
+        // Con ellos el agente arma el próximo pedido al entregar (oferta `proximo_pedido`).
         entityType: product.entityType,
         entityId: product.entityId })),
       total: price.total,

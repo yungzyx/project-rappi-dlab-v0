@@ -1,58 +1,12 @@
-"""Piezas del agente sin base de datos: voz, foto, verificador del texto del LLM y entendimiento de precios."""
+"""Piezas del agente sin base de datos: verificador del texto del LLM y entendimiento de precios."""
 
 from types import SimpleNamespace
 
-import numpy as np
 import pytest
 
-from rappi_ia.agent.audio import assess
-from rappi_ia.agent.bigotes import Bigotes
 from rappi_ia.agent.compose import AGE_NOTICE, ClaudeComposer, Draft, TemplateComposer, facts, verify_llm_text
-from rappi_ia.agent.photo import classify
+from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.agent.understand import Intent, Understander, _clean, _price
-
-
-def _segment(avg_logprob=-0.1, no_speech_prob=0.05, compression_ratio=1.2):
-    return SimpleNamespace(avg_logprob=avg_logprob, no_speech_prob=no_speech_prob, compression_ratio=compression_ratio)
-
-
-def test_voice_clear_speech_is_accepted():
-    t = assess([_segment()], " quiero una pizza ")
-    assert (t.text, t.discarded, t.needs_confirmation) == ("quiero una pizza", False, False)
-    assert 0.9 < t.confidence <= 1
-
-
-def test_voice_low_confidence_asks_for_confirmation():
-    assert assess([_segment(avg_logprob=-1.2)], "kiero unas chelas").needs_confirmation
-    assert assess([_segment(compression_ratio=3.0)], "pizza pizza pizza pizza").needs_confirmation
-
-
-def test_voice_silence_and_known_hallucinations_are_discarded():
-    assert assess([], "").discarded
-    assert assess([_segment(no_speech_prob=0.9)], "hola").discarded
-    assert assess([_segment()], "Subtítulos realizados por la comunidad de Amara.org").discarded
-
-
-def _unit(i: int, dim: int = 8) -> np.ndarray:
-    v = np.zeros(dim, dtype=np.float32)
-    v[i] = 1.0
-    return v
-
-
-def test_photo_needs_probability_and_margin():
-    prompts = np.stack([_unit(0), _unit(1), _unit(2)])
-    labels = ["pizza", "cerveza", "otro"]
-    clear = classify(_unit(0), prompts, labels, set())
-    assert clear.concept == "pizza" and clear.probability > 0.9
-
-    ambiguous = (_unit(0) + _unit(1)) / np.sqrt(2)
-    assert classify(ambiguous, prompts, labels, set()).concept is None  # margen < 0,2
-
-
-def test_photo_never_reports_other_or_sensitive_concepts():
-    prompts = np.stack([_unit(0), _unit(1)])
-    assert classify(_unit(1), prompts, ["pizza", "otro"], set()).concept is None
-    assert classify(_unit(0), prompts, ["cigarrillos", "otro"], {"cigarrillos"}).concept is None
 
 
 def test_llm_text_verifier():
@@ -151,7 +105,7 @@ def test_price_parsing_still_ignores_decimal_units():
 )
 def test_a_decimal_followed_by_a_unit_is_not_a_price_and_does_not_fail(text):
     """Si a «mil/lucas/k» le sigue una unidad, la regex soltaba esa palabra y se quedaba con «5,5» a secas:
-    float('5,5') lanzaba ValueError (HTTP 400 en /chat, 500 en /chat/voice) y «$2.5» se leía como $25."""
+    float('5,5') lanzaba ValueError (HTTP 400 en /agent/ask) y «$2.5» se leía como $25."""
     assert _price(text)[0] is None
 
 
@@ -258,7 +212,7 @@ def test_off_topic_results_are_not_labelled_as_the_requested_concept():
     intent = Intent("buscar", "un lomo saltado", concepts=["peruana"], explicit_concepts=True, query="lomo saltado")
     pasta = SimpleNamespace(name="Vivaldi Chef Pasta Fetuccini", concept="pastas", age_restricted=False)
     no_cheapest = SimpleNamespace(cheapest_without_filter=None)
-    draft = Bigotes()._draft(intent, "supermercado", [pasta], no_cheapest, None, False)
+    draft = RappiAgent()._draft(intent, "supermercado", [pasta], no_cheapest, None, False)
     assert draft.concept_label is None
     assert "«lomo saltado»" in TemplateComposer().compose(draft) and "peruana" not in TemplateComposer().compose(draft)
 
@@ -295,3 +249,15 @@ def test_claude_puede_nombrar_a_mochi():
     refs = {"p1": "Cerveza Escudo 470 cc"}
     text = verify_llm_text("¡Hola! Aquí Mochi: te recomiendo {p1}.", refs)
     assert text == "¡Hola! Aquí Mochi: te recomiendo Cerveza Escudo 470 cc."
+
+
+def test_agent_name_comes_from_config(monkeypatch):
+    """El nombre visible del agente sale de `config.AGENT_NAME`: cambiarlo cambia el saludo y la ayuda."""
+    from rappi_ia import config
+
+    monkeypatch.setattr(config, "AGENT_NAME", "Lupe")
+    for kind in ("saludo", "ayuda"):
+        text = TemplateComposer().compose(Draft(kind=kind))
+        assert "Soy Lupe" in text and "Mochi" not in text, text
+    refs = {"p1": "Cerveza Escudo 470 cc"}
+    assert verify_llm_text("¡Hola! Aquí Lupe: te recomiendo {p1}.", refs)  # el nombre de la config no es un invento

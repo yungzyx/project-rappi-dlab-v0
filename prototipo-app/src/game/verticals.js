@@ -23,7 +23,7 @@ export const LABELS = { ...DATA.labels, viajes: 'Viajes' }
 
 export const SCREEN_TO_GAME = Object.fromEntries(Object.entries(GAME_TO_SCREEN).map(([game, screen]) => [screen, game]))
 
-/** Se puede jugar, pero ni Mochi ni el seguimiento la proponen: la salud no se empuja (docs/diseno-ia.md §4, regla 6). */
+/** Se puede jugar, pero ni el agente ni el seguimiento la proponen: la salud no se empuja (docs/diseno-ia.md §4, regla 6). */
 export const NEVER_PUSHED = new Set(['farmacia'])
 
 /** Sellos que dan el premio de la demo (envío gratis). */

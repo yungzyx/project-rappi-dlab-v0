@@ -37,7 +37,7 @@ export function Header({ source, onSourceChange, onRefresh }) {
           <ThemeToggle />
         </div>
         <p className="masthead-lede">
-          La conducta de compra y lo que la gente pide en búsquedas y chat, convertidos en decisiones para{' '}
+          La conducta de compra y lo que la gente pide en búsquedas y preguntas al agente, convertidos en decisiones para{' '}
           <strong>subir la frecuencia</strong> y <strong>bajar el abandono</strong>.
         </p>
         <div className="masthead-meta">

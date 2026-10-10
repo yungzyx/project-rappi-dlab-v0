@@ -6,7 +6,7 @@ import { verticalLabel } from '../../lib/labels.js'
 
 export function AssortmentTable({ rows }) {
   if (!rows.length) {
-    return <EmptyState title="Sin demanda registrada">Esta fuente no tiene búsquedas ni chats con concepto.</EmptyState>
+    return <EmptyState title="Sin demanda registrada">Esta fuente no tiene búsquedas ni preguntas al agente con concepto.</EmptyState>
   }
   const maxUsers = Math.max(...rows.map((row) => row.usuarios_que_buscan))
   const columns = [

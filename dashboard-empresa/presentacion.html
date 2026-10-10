@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light dark" />
     <meta
       name="description"
-      content="Propuesta para Rappi Chile: entender al usuario a través de los verticales para recomendar mejor. Catálogo público, búsqueda híbrida evaluada, el asistente Bigotes y un panel de negocio."
+      content="Propuesta para Rappi Chile: entender al usuario a través de los verticales para recomendar mejor. Catálogo público, búsqueda híbrida evaluada, el asistente Mochi y un panel de negocio."
     />
     <title>Recomendaciones entre verticales · Propuesta para Rappi Chile</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -59,13 +59,13 @@
         </div>
         <figure class="hero-figure">
           <img
-            src="/presentacion/prototipo-propuesta.jpg"
+            src="/presentacion/prototipo-final.jpg"
             width="1120"
             height="1920"
-            alt="Prototipo de la app en modo Propuesta: barra para preguntarle a Bigotes por texto, foto o voz"
+            alt="Prototipo final de la app: la Home con la barra «Busca o pídele ideas a Mochi» y el pasaporte Rappi"
             fetchpriority="high"
           />
-          <figcaption>El prototipo, en modo Propuesta. La tecla D alterna con la app como es hoy y con Bigotes vivo, un tercer modo sin chat.</figcaption>
+          <figcaption>El prototipo final. La tecla D alterna con la app como es hoy.</figcaption>
         </figure>
       </section>
 
@@ -117,19 +117,19 @@
         <div class="example">
           <figure class="example-figure">
             <img
-              src="/presentacion/bigotes-api.jpg"
-              width="1120"
-              height="1920"
-              alt="Bigotes con el catálogo real: cervezas bajo $3.000 y una sugerencia de snacks salados de otra tienda"
+              src="/presentacion/buscador-mochi.jpg"
+              width="804"
+              height="1748"
+              alt="Buscador con Mochi: productos reales de Licores para un carrete y una sugerencia de jugos y néctares de Express"
               loading="lazy"
             />
           </figure>
           <div class="example-copy">
             <h3>Un ejemplo con el catálogo real</h3>
             <p>
-              Alguien pide cerveza bajo $3.000 en Licores. Bigotes, el asistente del prototipo, responde con
-              cervezas reales y agrega una sola sugerencia de otro vertical: snacks salados, con la razón a la
-              vista.
+              Alguien toca «Arma un carrete». Mochi, el asistente del prototipo, responde con
+              productos reales de Licores y agrega una sola sugerencia de otro vertical: jugos y néctares de
+              Express, con la razón a la vista.
             </p>
             <ul class="rules">
               <li>Como máximo una sugerencia cruzada por respuesta.</li>
@@ -187,7 +187,7 @@
             />
           </a>
           <figcaption>
-            Cada punto es un concepto, junto a la vertical donde es más típico (la regla que usa Bigotes); las líneas lo
+            Cada punto es un concepto, junto a la vertical donde es más típico (la regla que usa el agente); las líneas lo
             unen con cada vertical que tiene al menos 20 productos de él. Al centro, RappiTravel y RappiFavor: servicios sin catálogo que enganchan productos de otras verticales. Catálogo del 05-10-2026.
           </figcaption>
         </figure>
@@ -209,7 +209,7 @@
             src="/presentacion/flujo-de-datos.png"
             width="2000"
             height="1037"
-            alt="Flujo de datos: rappi.cl, rappi refresh, catálogo y documentos de búsqueda en Postgres, conceptos, embeddings y evaluación, búsqueda híbrida y agente Bigotes, API, prototipo y panel"
+            alt="Flujo de datos: rappi.cl, rappi refresh, catálogo y documentos de búsqueda en Postgres, conceptos, embeddings y evaluación, búsqueda híbrida y agente Mochi, API, prototipo y panel"
             loading="lazy"
           />
         </figure>
@@ -236,8 +236,8 @@
           </div>
           <div>
             <dt>Tests automáticos</dt>
-            <dd>1.318</dd>
-            <p>Scraper 144, capa de IA 897, prototipo 187 y panel 90, con integración continua en cada cambio.</p>
+            <dd>1.900</dd>
+            <p>Scraper 144, capa de IA 1.077, prototipo 589 y panel 90, con integración continua en cada cambio.</p>
           </div>
         </dl>
         <p class="figures-note">
@@ -261,8 +261,8 @@ cd dashboard-empresa &amp;&amp; npm ci &amp;&amp; npm run dev</code></pre>
           <div>
             <h3>Con el catálogo real</h3>
             <p>
-              Postgres 17 con pgvector, Python 3.13 y unos 2 GB de modelos locales. Bigotes pasa a buscar en el
-              catálogo real, con voz y foto. La guía está en <code>docs/instalacion.md</code>.
+              Postgres 17 con pgvector, Python 3.13 y un modelo local de texto (~1 GB). Mochi pasa a buscar en el
+              catálogo real. La guía está en <code>docs/instalacion.md</code>.
             </p>
             <a class="button button--ghost" href="/">Abrir el panel con datos guardados</a>
           </div>

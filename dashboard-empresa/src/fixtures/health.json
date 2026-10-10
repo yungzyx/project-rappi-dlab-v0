@@ -3,8 +3,6 @@
   "documentos": 253959,
   "capacidades": {
     "busqueda_semantica": "intfloat/multilingual-e5-base",
-    "fotos": true,
-    "voz": true,
     "redaccion": "plantillas",
     "faltantes": {}
   }

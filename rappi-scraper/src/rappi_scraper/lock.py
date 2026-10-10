@@ -1,4 +1,4 @@
-"""Una descarga a la vez contra rappi.cl y su CDN de imágenes, para el scraper y para rappi-ia (`embed-images`).
+"""Una descarga a la vez contra rappi.cl, para todos los comandos del scraper que descargan.
 
 Un candado de archivo (`flock`) y no un PID: el sistema lo suelta solo si el proceso muere, incluso por un apagado,
 y lo ven también los comandos lanzados a mano, que el `pgrep` de la tarea semanal no alcanzaba a ver.
@@ -15,7 +15,7 @@ LOCK_FILE = DATA_DIR / "scraper.lock"
 
 
 class DownloadInProgress(RuntimeError):
-    """Otra descarga (otra terminal, la tarea semanal o `make images`) tiene el candado."""
+    """Otra descarga (otra terminal o la tarea semanal) tiene el candado."""
 
 
 @contextmanager
@@ -27,8 +27,7 @@ def download_lock(path: Path | None = None) -> Iterator[None]:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise DownloadInProgress(
-                "Ya hay una descarga en curso contra rappi.cl (otra terminal, la tarea semanal o make images): "
-                "espera a que termine."
+                "Ya hay una descarga en curso contra rappi.cl (otra terminal o la tarea semanal): espera a que termine."
             ) from None
         try:
             yield

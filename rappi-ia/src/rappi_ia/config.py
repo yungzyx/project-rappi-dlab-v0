@@ -10,22 +10,19 @@ DATA_DIR = PROJECT_ROOT / "data"  # cachés y reportes locales (fuera de git)
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-# Modelos locales. Cambiar el modelo no rompe nada: cada vector guarda `embedding_model`.
+# Modelo local de texto. Cambiar el modelo no rompe nada: cada vector guarda `embedding_model`.
 TEXT_EMBEDDING_MODEL = os.environ.get("TEXT_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
-IMAGE_EMBEDDING_MODEL = os.environ.get("IMAGE_EMBEDDING_MODEL", "clip-ViT-B-32")
-# Codificador de texto multilingüe entrenado para el mismo espacio que CLIP ViT-B/32 (consultas en español → imágenes).
-IMAGE_TEXT_EMBEDDING_MODEL = os.environ.get(
-    "IMAGE_TEXT_EMBEDDING_MODEL", "sentence-transformers/clip-ViT-B-32-multilingual-v1"
-)
-WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
 
 # Memoria para construir los índices HNSW (SET LOCAL, solo esa transacción). Con los 64 MB por defecto de Postgres
 # el grafo de la partición restaurantes (~151k × 768) no cabe y pgvector lo construye mucho más lento.
 HNSW_MAINTENANCE_WORK_MEM = os.environ.get("HNSW_MAINTENANCE_WORK_MEM", "1GB")
 
-# LLM opcional: sin ANTHROPIC_API_KEY, Bigotes responde con plantillas.
+# Nombre con que el agente se presenta ante la persona. Es el único lugar del backend donde vive.
+AGENT_NAME = os.environ.get("AGENT_NAME", "Mochi")
+
+# LLM opcional: sin ANTHROPIC_API_KEY, el agente responde con plantillas.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or None
-BIGOTES_LLM_MODEL = os.environ.get("BIGOTES_LLM_MODEL", "claude-sonnet-5")
+AGENT_LLM_MODEL = os.environ.get("AGENT_LLM_MODEL", "claude-sonnet-5")
 
 # Red local (iPhone): solo con API_ALLOW_LAN=1 (`make serve-lan`). La API no tiene autenticación.
 API_ALLOW_LAN = os.environ.get("API_ALLOW_LAN") == "1"

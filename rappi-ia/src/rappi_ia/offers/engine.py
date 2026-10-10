@@ -1,18 +1,20 @@
-"""El motor de ofertas de Mochi: qué propone en cada momento de la app, siempre desde la base (productos reales, con su
-precio vigente) y pasando por las guardias de `offers/guards.py`.
+"""El motor de ofertas del agente: qué propone en cada momento de la app, siempre desde la base (productos reales,
+con su precio vigente) y pasando por las guardias de `offers/guards.py`.
 
-Momentos (`POST /mochi/offer`): `plan` (el kit de una ocasión que la persona eligió), `carrito` (un complemento de
+Momentos (`POST /agent/offer`): `plan` (el kit de una ocasión que la persona eligió), `carrito` (un complemento de
 otra tienda), `checkout`, `proximo_pedido`, `sin_resultado` (dónde sí está lo que buscó) y `vertical_por_probar` (la
-primera vertical del pasaporte sin sello). Si no hay una buena oferta, no hay oferta (`None`: 204): Mochi no dice nada.
+primera vertical del pasaporte sin sello). Si no hay una buena oferta, no hay oferta (`None`: 204): el agente no dice
+nada.
 
-Los textos son plantillas en español. Una oferta nunca nombra un concepto que Mochi no puede proponer (el origen de un
-complemento puede ser cerveza o pañales, y el texto no lo repite).
+Los textos son plantillas en español. Una oferta nunca nombra un concepto que el agente no puede proponer (el origen
+de un complemento puede ser cerveza o pañales, y el texto no lo repite).
 """
 
 from dataclasses import dataclass, field
 
 from psycopg import Connection
 
+from .. import config
 from ..agent.grouped_search import SCREEN_VERTICALS
 from ..agent.tools import VERTICAL_LABELS, Product, search_products, suggest_complement
 from ..agent.verticals import contending_verticals, ranked_verticals
@@ -37,7 +39,7 @@ KIT_SIZE = 4  # productos del kit de una ocasión
 KIT_VERTICALS = 3  # verticales que se prueban por concepto del kit (las más típicas)
 SHOWN_PRODUCTS = 3  # productos de una oferta que no es un kit
 FALLBACK_VERTICALS = 3  # verticales que se prueban para decir dónde sí está lo que no se encontró
-DEAL_POOL = 12  # ofertas que se piden por vertical antes de quitar las que Mochi no propone
+DEAL_POOL = 12  # ofertas que se piden por vertical antes de quitar las que el agente no propone
 
 # El orden de la Home: lo que ya muestra hoy (la app tiene «Película» para panorama); después, el resto de la taxonomía.
 HOME_OCCASIONS = ("once", "carrete", "asado", "panorama", "regalo")
@@ -56,7 +58,8 @@ PASSPORT_ORDER = (
     "mall",
 )
 
-# Plantillas. {origen} es el concepto de lo que ya lleva (solo si Mochi puede proponerlo), {destino} el que se ofrece.
+# Plantillas. {origen} es el concepto de lo que ya lleva (solo si el agente puede proponerlo), {destino} el que se
+# ofrece.
 PLAN_TEXT = "Tu kit «{occasion}»: {concepts}, de {verticals}."  # el nombre de la ocasión va tal cual, sin gramática
 PLAN_ACTION = "Más ideas"
 CART_TEXT = "Para acompañar {origen}: {destino}, en {vertical}."
@@ -72,7 +75,7 @@ OPEN_ACTION = "Abrir {vertical}"
 
 
 class OfferError(ValueError):
-    """La petición no tiene sentido (una ocasión que no existe o que Mochi no arma): un 422, no un «sin oferta»."""
+    """La petición no tiene sentido (una ocasión que no existe o que el agente no arma): un 422, no un «sin oferta»."""
 
 
 @dataclass
@@ -97,7 +100,7 @@ class Offer:
 
 
 def home_occasions() -> list[dict]:
-    """Las ocasiones que Mochi arma como kit, en el orden de la Home (guagua y enfermo no)."""
+    """Las ocasiones que el agente arma como kit, en el orden de la Home (guagua y enfermo no)."""
     occasions = load_taxonomy().occasions
     ids = [i for i in HOME_OCCASIONS if i in occasions] + [i for i in occasions if i not in HOME_OCCASIONS]
     return [
@@ -128,12 +131,12 @@ def make_offer(
 def plan(conn: Connection, embedder: TextEmbedder | None, occasion_id: str) -> Offer | None:
     """El kit de una ocasión: un producto por concepto (hasta KIT_SIZE), de la vertical donde es típico y repartido
     entre verticales, salvo que la ocasión tenga una fija (`vertical` en la taxonomía: «Hambre ya» es pedir comida
-    lista): entonces sale de ahí. Es lo único que Mochi arma con alcohol, con su marca +18, porque la persona eligió
+    lista): entonces sale de ahí. Es lo único que el agente arma con alcohol, con su marca +18, porque la persona eligió
     la ocasión; nunca con lo sensible, farmacia, bebé ni salud."""
     taxonomy = load_taxonomy()
     occasion = taxonomy.occasions.get(occasion_id)
     if occasion is None or not plannable_occasion(occasion):
-        raise OfferError(f"Mochi no arma un kit de «{occasion_id}»")
+        raise OfferError(f"{config.AGENT_NAME} no arma un kit de «{occasion_id}»")
     concepts = [c for c in (taxonomy.concepts[i] for i in occasion.concepts) if is_plannable(c)]
     if embedder is not None:  # cada concepto se embebe una vez, en un solo lote, aunque se busque en varias verticales
         embedder = MemoizedQueryEmbedder(embedder)
@@ -179,7 +182,7 @@ def plan(conn: Connection, embedder: TextEmbedder | None, occasion_id: str) -> O
         concepts=_join([c.name.lower() for c, _ in kit]),
         verticals=_join([VERTICAL_LABELS.get(v, v) for v in verticals]),
     )
-    # «Más ideas» busca lo que Bigotes busca para una ocasión: los nombres de sus primeros conceptos que Mochi arma
+    # «Más ideas» busca lo que el agente busca para una ocasión: los nombres de sus primeros conceptos que arma
     query = " ".join(c.name for c in concepts[:4])
     return Offer(
         "plan",
@@ -221,7 +224,7 @@ def _kit_product(conn: Connection, embedder: TextEmbedder | None, concept: Conce
 # ── carrito, checkout y próximo pedido ───────────────────────────────────────
 def complement(conn: Connection, embedder: TextEmbedder | None, moment: str, entities: list[dict]) -> Offer | None:
     """Un complemento ofrecible (arista «complementa») de lo que hay en el carrito, el pedido o el producto, de otra
-    vertical si la hay, y que no esté ya ahí. Lo que ya está puede ser cualquier cosa: solo se ofrece lo que Mochi
+    vertical si la hay, y que no esté ya ahí. Lo que ya está puede ser cualquier cosa: solo se ofrece lo que el agente
     puede proponer."""
     keys = [(e["entity_type"], e["entity_id"]) for e in entities]
     known = _concepts_of(conn, keys)
@@ -249,7 +252,7 @@ def complement(conn: Connection, embedder: TextEmbedder | None, moment: str, ent
 
 # ── sin resultado ────────────────────────────────────────────────────────────
 def where_is_it(conn: Connection, embedder: TextEmbedder | None, query: str) -> Offer | None:
-    """La vertical que Mochi puede proponer y que sí tiene el concepto de la consulta, con hasta tres productos."""
+    """La vertical que el agente puede proponer y que sí tiene el concepto de la consulta, con hasta tres productos."""
     concepts = load_taxonomy().concepts
     for concept_id in detect_concepts(query):
         concept = concepts.get(concept_id)
@@ -272,9 +275,9 @@ def where_is_it(conn: Connection, embedder: TextEmbedder | None, query: str) -> 
 
 # ── vertical por probar ──────────────────────────────────────────────────────
 def vertical_to_try(conn: Connection, stamped: list[str]) -> Offer | None:
-    """La primera vertical del pasaporte sin sello que Mochi puede proponer (nunca farmacia ni Licores), con hasta tres
-    de sus ofertas o, en restaurantes (que no tiene ofertas), sus platos más pedidos. Una vertical sin nada que mostrar
-    se salta. `stamped`: códigos del backend."""
+    """La primera vertical del pasaporte sin sello que el agente puede proponer (nunca farmacia ni Licores), con hasta
+    tres de sus ofertas o, en restaurantes (que no tiene ofertas), sus platos más pedidos. Una vertical sin nada que
+    mostrar se salta. `stamped`: códigos del backend."""
     for vertical in PASSPORT_ORDER:
         if vertical in stamped or not offerable_vertical(vertical):
             continue
@@ -288,8 +291,8 @@ def vertical_to_try(conn: Connection, stamped: list[str]) -> Offer | None:
 
 
 def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
-    """Las ofertas de la vertical que Mochi puede proponer: ni +18, ni de un concepto que no ofrece, ni de una tienda
-    Farmacia, Sex shop o Smoking shop (`deals` ya quita lo sensible, pero con vertical no quita esas tiendas). Un
+    """Las ofertas de la vertical que el agente puede proponer: ni +18, ni de un concepto que no ofrece, ni de una
+    tienda Farmacia, Sex shop o Smoking shop (`deals` ya quita lo sensible, pero con vertical no quita esas tiendas). Un
     producto que está dos veces con otro id (el catálogo repite nombres) sale una vez."""
     concepts = load_taxonomy().concepts
     found = deals(conn, vertical, DEAL_POOL)
@@ -315,7 +318,7 @@ def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
 
 def _popular_dishes(conn: Connection) -> list[dict]:
     """Los platos populares (`is_popular`) de los conceptos que más se piden hechos en restaurantes, uno por concepto y
-    solo de los que Mochi puede proponer. Restaurantes no tiene ofertas ni otro dato de pedidos."""
+    solo de los que el agente puede proponer. Restaurantes no tiene ofertas ni otro dato de pedidos."""
     concepts = load_taxonomy().concepts
     ranked = [
         concept_id

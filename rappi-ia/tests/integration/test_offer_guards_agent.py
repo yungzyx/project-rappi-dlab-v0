@@ -1,4 +1,4 @@
-"""Las guardias de ofertas en el agente: `suggest_complement` (que usan /chat y /recommendations) y los ganchos de
+"""Las guardias de ofertas en el agente: `suggest_complement` (que usan /agent/ask y /recommendations) y los ganchos de
 servicios nunca proponen alcohol, farmacia, bebé, salud, conceptos sensibles, sex shops ni tabaquerías."""
 
 import pytest
@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_price, add_product, add_store
-from rappi_ia.agent.bigotes import Bigotes, Context
 from rappi_ia.agent.compose import TemplateComposer
+from rappi_ia.agent.rappi_agent import Context, RappiAgent
 from rappi_ia.agent.tools import search_products, suggest_complement
 from rappi_ia.agent.verticals import ranked_verticals
 from rappi_ia.api import app as api
@@ -37,7 +37,9 @@ def demo_client(demo):
         yield db
 
     api.app.dependency_overrides[api.get_conn] = conn_override
-    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
     yield TestClient(api.app)
     api.app.dependency_overrides.clear()
 
@@ -150,9 +152,9 @@ def test_a_product_flagged_for_adults_is_never_offered_whatever_its_concept(demo
     assert not any(p.age_restricted for p in suggestion.products)
 
 
-def test_chat_cross_sell_respects_the_guards(demo_client):
+def test_ask_cross_sell_respects_the_guards(demo_client):
     body = demo_client.post(
-        "/chat", json={"message": "pizza", "vertical": "restaurants", "user_id": "u1", "session_id": "s1"}
+        "/agent/ask", json={"message": "pizza", "vertical": "restaurants", "user_id": "u1", "session_id": "s1"}
     ).json()
 
     assert body["products"]  # la respuesta sí trae pizzas
@@ -197,7 +199,7 @@ def test_recommendations_never_name_an_unofferable_interest(demo, demo_client):
 def test_a_service_hook_never_suggests_health_or_pharmacy_products(demo):
     """RappiTravel engancha protector solar (dermocosmética, del grupo salud) con una farmacia: no se propone."""
     db, embedder = demo
-    agent = Bigotes(embedder, TemplateComposer())
+    agent = RappiAgent(embedder, TemplateComposer())
 
     beach = agent.reply(db, "me voy de vacaciones a la playa", Context())
 
@@ -210,7 +212,7 @@ def test_a_service_hook_never_lands_in_pharmacy(db):
     """Un concepto corriente (una mochila de viaje) que solo vende una farmacia no se propone; si otra vertical lo
     vende, la oferta sale de ahí aunque la farmacia calce primero."""
     embedder = HashEmbedder()
-    agent = Bigotes(embedder, TemplateComposer())
+    agent = RappiAgent(embedder, TemplateComposer())
     add_store(db, 11, "farmacia", "Farmacia")
     stock(db, embedder, [(902, "Mochila de viaje 40 litros", 11, "Maletas de viaje")])
     assert ranked_verticals(db, ["accesorios-moda"]) == ["farmacia"]

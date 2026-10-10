@@ -1,5 +1,5 @@
-// Cliente de la API de rappi-ia (Mochi real: búsqueda híbrida y eventos).
-// Sin la API la app muestra «Sin conexión con Mochi» (ver ConnectionGate).
+// Cliente de la API de rappi-ia (el agente: búsqueda híbrida, ofertas y eventos).
+// Sin la API la app muestra «Sin conexión» con el agente (ver ConnectionGate).
 
 import { VERTICAL_NAMES, routeForScreen, screenForBackend } from '../data/verticals'
 import { PLACEHOLDER_IMG } from '../components/Img'
@@ -7,7 +7,7 @@ import { PLACEHOLDER_IMG } from '../components/Img'
 const DEFAULT_PORT = 8000
 const HEALTH_TTL_MS = 30_000
 const HEALTH_TIMEOUT_MS = 1500
-const CHAT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: el chat muestra «Sin conexión»
+const DEFAULT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: la pregunta al agente muestra «Sin conexión»
 const CONNECTION_TIMEOUT_MS = 5_000
 
 export const API_URL =
@@ -29,7 +29,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS } = {}) {
+export async function request(path, { method = 'GET', body, timeout = DEFAULT_TIMEOUT_MS } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
@@ -68,7 +68,7 @@ export async function checkConnection({ timeout = CONNECTION_TIMEOUT_MS } = {}) 
   }
 }
 
-/** Capacidades de la API ({ busqueda_semantica, fotos, voz, … }) o null si no está disponible. Se cachea 30 s. */
+/** Capacidades de la API ({ busqueda_semantica, redaccion, … }) o null si no está disponible. Se cachea 30 s. */
 export async function health({ force = false } = {}) {
   if (!force && Date.now() - healthCache.at < HEALTH_TTL_MS) return healthCache.value
   let value
@@ -86,9 +86,9 @@ export function resetHealthCache() {
 }
 
 /** Si falla, la próxima pregunta vuelve a revisar /health en vez de fiarse del caché de 30 s. */
-export async function chat(payload) {
+export async function ask(payload) {
   try {
-    return await request('/chat', { method: 'POST', body: payload })
+    return await request('/agent/ask', { method: 'POST', body: payload })
   } catch (error) {
     resetHealthCache()
     throw error
@@ -160,7 +160,7 @@ function verticalView(vertical) {
   return screen ? { label: VERTICAL_NAMES[screen], route: routeForScreen(screen) } : { label: null, route: null }
 }
 
-/** Respuesta de /chat → mensaje del chat del prototipo ({ text, products, reason, actions, suggestion… }). */
+/** Respuesta de /agent/ask → mensaje del agente en el prototipo ({ text, products, reason, actions, suggestion… }). */
 export function toMessage(response) {
   const suggestion = response.suggestion
     ? {
@@ -171,12 +171,12 @@ export function toMessage(response) {
         vertical: response.suggestion.vertical,
         verticalLabel: verticalView(response.suggestion.vertical).label,
         route: verticalView(response.suggestion.vertical).route,
-        // El gancho de un servicio (RappiTravel) se mide con su origen; las demás, como sugerencia del chat.
-        origin: response.service ?? 'chat',
+        // El gancho de un servicio (RappiTravel) se mide con su origen; las demás, como pregunta al agente.
+        origin: response.service ?? 'agent-ask',
         products: response.suggestion.products.map((p) => ({
           ...toPrototypeProduct(p),
           fromSuggestion: true,
-          suggestionOrigin: response.service ?? 'chat',
+          suggestionOrigin: response.service ?? 'agent-ask',
         })),
       }
     : null

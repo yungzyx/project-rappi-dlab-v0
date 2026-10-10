@@ -1,3 +1,4 @@
+import { AGENT_NAME } from '../../agent/name'
 import { VERTICAL_NAMES } from '../../data/verticals'
 import { MAIN_TILES, SHORTCUTS } from '../../data/home'
 import Img from '../Img'
@@ -15,7 +16,7 @@ const conceptLabel = (concept) => {
 }
 
 /**
- * «Descubre con Mochi»: tarjetas de /recommendations, cada una con un complemento de lo que le gusta a la persona en una
+ * «Descubre con el agente»: tarjetas de /recommendations, cada una con un complemento de lo que le gusta a la persona en una
  * vertical que quizá aún no abre. `rows` son las filas de la API (hasta 3); tocar una tarjeta abre su vertical.
  */
 export default function DiscoverSection({ rows, onOpen }) {
@@ -25,7 +26,7 @@ export default function DiscoverSection({ rows, onOpen }) {
   return (
     <section className="discover" aria-labelledby="discover-title">
       <h2 id="discover-title" className="search-heading">
-        Descubre con Mochi
+        Descubre con {AGENT_NAME}
       </h2>
 
       <div className="discover-cards">

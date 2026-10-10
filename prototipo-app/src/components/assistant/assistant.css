@@ -24,12 +24,12 @@
 }
 
 /* ---------- Encabezado: el de «Rappi hoy», con el campo de Mochi ---------- */
-.bigotes-search-header {
+.agent-search-header {
   position: relative;
   margin: 0;
 }
 
-.bigotes-search-field {
+.agent-search-field {
   --ring: 1.5px;
   position: relative;
   isolation: isolate;
@@ -39,7 +39,7 @@
 }
 
 /* Borde con degradado (mismo truco que la barra de la Home): un cuadrado que gira detrás y un relleno blanco encima */
-.bigotes-search-field::before {
+.agent-search-field::before {
   content: '';
   position: absolute;
   z-index: -2;
@@ -51,7 +51,7 @@
   transform: translate(-50%, -50%) rotate(0deg);
 }
 
-.bigotes-search-field::after {
+.agent-search-field::after {
   content: '';
   position: absolute;
   z-index: -1;
@@ -60,12 +60,12 @@
   background: var(--surface);
 }
 
-.assistant.is-open .bigotes-search-field::before {
+.assistant.is-open .agent-search-field::before {
   animation: ring-turn 1100ms 120ms var(--ease-out) both;
 }
 
 /* ---------- Cuerpo ---------- */
-.bigotes-search-body {
+.agent-search-body {
   position: relative;
   flex: 1;
   overflow-y: auto;
@@ -75,42 +75,42 @@
   scrollbar-width: none;
 }
 
-.bigotes-search-body::-webkit-scrollbar {
+.agent-search-body::-webkit-scrollbar {
   display: none;
 }
 
-.assistant.has-cart .bigotes-search-body {
+.assistant.has-cart .agent-search-body {
   padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px));
 }
 
-.bigotes-block {
+.agent-block {
   padding: 0 var(--gutter);
 }
 
 /* Los bloques suben uno tras otro al abrir */
-.assistant.is-open .bigotes-card,
-.assistant.is-open .bigotes-block {
+.assistant.is-open .agent-card,
+.assistant.is-open .agent-block {
   animation: fade-up 460ms var(--ease-out) both;
 }
 
-.assistant.is-open .bigotes-card {
+.assistant.is-open .agent-card {
   animation-delay: 140ms;
 }
 
-.assistant.is-open .bigotes-block:nth-of-type(2) {
+.assistant.is-open .agent-block:nth-of-type(2) {
   animation-delay: 230ms;
 }
 
-.assistant.is-open .bigotes-block:nth-of-type(3) {
+.assistant.is-open .agent-block:nth-of-type(3) {
   animation-delay: 310ms;
 }
 
-.assistant.is-open .bigotes-block:nth-of-type(4) {
+.assistant.is-open .agent-block:nth-of-type(4) {
   animation-delay: 390ms;
 }
 
 /* ---------- Franja de Mochi: lo que sabe de ti, su respuesta y los botones ---------- */
-.bigotes-card {
+.agent-card {
   position: relative;
   margin-top: 6px;
   padding: 14px 0 6px;
@@ -121,20 +121,20 @@
     linear-gradient(#fff6f1, #fffaf7);
 }
 
-.bigotes-card-head {
+.agent-card-head {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 var(--gutter);
 }
 
-.bigotes-card-head strong {
+.agent-card-head strong {
   display: block;
   font-size: 17px;
   font-weight: 700;
 }
 
-.bigotes-card-head small {
+.agent-card-head small {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -142,11 +142,11 @@
   color: var(--ink-2);
 }
 
-.bigotes-card-mascot {
+.agent-card-mascot {
   display: block;
 }
 
-.assistant.is-open .bigotes-card-mascot {
+.assistant.is-open .agent-card-mascot {
   animation: mascot-pop 620ms 200ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
@@ -158,14 +158,14 @@
   box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.18);
 }
 
-.bigotes-asked {
+.agent-asked {
   margin: 10px var(--gutter) 0;
   font-size: 13px;
   font-weight: 600;
   color: #c2410c;
 }
 
-.bigotes-picks-label {
+.agent-picks-label {
   margin: 6px var(--gutter) 0;
   font-size: 13px;
   color: var(--ink-2);
@@ -196,10 +196,10 @@
     transition: none;
   }
 
-  .assistant.is-open .bigotes-search-field::before,
-  .assistant.is-open .bigotes-card,
-  .assistant.is-open .bigotes-block,
-  .assistant.is-open .bigotes-card-mascot {
+  .assistant.is-open .agent-search-field::before,
+  .assistant.is-open .agent-card,
+  .assistant.is-open .agent-block,
+  .assistant.is-open .agent-card-mascot {
     animation: none;
   }
 }
@@ -229,7 +229,7 @@
   position: relative;
   font-size: 13px;
   font-weight: 600;
-  color: var(--bigotes-orange);
+  color: var(--agent-orange);
   text-decoration: underline;
 }
 
@@ -241,18 +241,18 @@
 }
 
 /* ---------- Mensajes ---------- */
-.chat-row {
+.agent-msg-row {
   display: flex;
   padding: 5px var(--gutter);
   animation: bubble-in 360ms var(--ease-out) both;
 }
 
 
-.chat-bot {
+.agent-msg-bot {
   width: 100%;
 }
 
-.chat-bubble {
+.agent-msg-bubble {
   max-width: 82%;
   width: fit-content;
   padding: 11px 15px;
@@ -265,13 +265,13 @@
 }
 
 
-.chat-typing {
+.agent-msg-typing {
   display: flex;
   gap: 5px;
   padding: 15px 16px;
 }
 
-.chat-typing span {
+.agent-msg-typing span {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -279,33 +279,33 @@
   animation: typing-dot 1s ease-in-out infinite;
 }
 
-.chat-typing span:nth-child(2) {
+.agent-msg-typing span:nth-child(2) {
   animation-delay: 0.15s;
 }
 
-.chat-typing span:nth-child(3) {
+.agent-msg-typing span:nth-child(3) {
   animation-delay: 0.3s;
 }
 
-.chat-extras {
+.agent-msg-extras {
   margin-top: 8px;
 }
 
-.chat-reason {
+.agent-msg-reason {
   margin: 0 0 8px;
   font-size: 12.5px;
   color: var(--accent-text);
 }
 
-/* Tarjetas de producto dentro del chat */
-.chat-products {
+/* Tarjetas de producto dentro de la respuesta del agente */
+.agent-msg-products {
   gap: 10px;
   margin: 0 calc(-1 * var(--gutter));
   padding: 10px var(--gutter) 6px;
   scroll-padding-left: var(--gutter);
 }
 
-.chat-product {
+.agent-msg-product {
   position: relative;
   flex: none;
   width: 128px;
@@ -316,7 +316,7 @@
 }
 
 /* La tarjeta entera abre la hoja del producto; el "+" queda fuera del botón, sobre la foto. */
-.chat-product-main {
+.agent-msg-product-main {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -325,7 +325,7 @@
   cursor: pointer;
 }
 
-.chat-product-media {
+.agent-msg-product-media {
   position: relative;
   display: block;
   height: 80px;
@@ -334,7 +334,7 @@
 
 /* Las fotos recortadas traen un "+" dibujado en la franja de arriba: se muestra la parte de abajo
    (object-position bottom) y el botón real va en la esquina inferior. */
-.chat-product-media img {
+.agent-msg-product-media img {
   width: 100%;
   height: 100%;
   border-radius: 10px;
@@ -342,18 +342,18 @@
   object-position: center bottom;
 }
 
-.add-button--chat {
+.add-button--agent {
   top: 68px; /* esquina inferior de la foto (8 px de relleno + 80 px de foto, 10 px por fuera) */
   right: 2px;
   width: 30px;
   height: 30px;
 }
 
-.add-button--chat.is-open {
+.add-button--agent.is-open {
   width: 86px;
 }
 
-.chat-product-name {
+.agent-msg-product-name {
   display: -webkit-box;
   margin-top: 10px;
   font-size: 13px;
@@ -363,7 +363,7 @@
   overflow: hidden;
 }
 
-.chat-product-price {
+.agent-msg-product-price {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -371,14 +371,14 @@
   font-size: 14px;
 }
 
-.chat-product-price span {
+.agent-msg-product-price span {
   padding: 0 4px;
   background: var(--price-yellow);
   font-size: 12px;
   font-weight: 700;
 }
 
-.chat-product-store {
+.agent-msg-product-store {
   margin-top: 2px;
   font-size: 12px;
   color: var(--ink-3);
@@ -387,14 +387,14 @@
   text-overflow: ellipsis;
 }
 
-.chat-stores {
+.agent-msg-stores {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 6px;
 }
 
-.chat-store {
+.agent-msg-store {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -407,7 +407,7 @@
   animation: card-in 420ms var(--ease-out) both;
 }
 
-.chat-store img {
+.agent-msg-store img {
   flex: none;
   width: 34px;
   height: 34px;
@@ -415,18 +415,18 @@
   object-fit: cover;
 }
 
-.chat-store img.is-logo {
+.agent-msg-store img.is-logo {
   object-fit: contain;
   background: var(--surface);
 }
 
-.chat-store span {
+.agent-msg-store span {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.chat-store strong {
+.agent-msg-store strong {
   font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
@@ -434,12 +434,12 @@
   text-overflow: ellipsis;
 }
 
-.chat-store small {
+.agent-msg-store small {
   font-size: 11.5px;
   color: var(--ink-3);
 }
 
-.chat-action {
+.agent-msg-action {
   margin-top: 8px;
   padding: 9px 16px;
   border-radius: 99px;
@@ -536,10 +536,10 @@
 }
 
 /* Sugerencia cruzada de la API: bloque aparte, marcado "De otra tienda". */
-.chat-suggestion {
+.agent-msg-suggestion {
   margin-top: 12px;
 }
-.chat-suggestion-tag {
+.agent-msg-suggestion-tag {
   display: inline-block;
   margin-right: 4px;
   padding: 1px 7px;
@@ -552,19 +552,19 @@
 }
 
 /* "También en": otras verticales con oferta de lo pedido, con logos (o iniciales) de sus tiendas. */
-.chat-also {
+.agent-msg-also {
   margin-top: 12px;
 }
-.chat-also-logos {
+.agent-msg-also-logos {
   display: flex;
   flex: none;
   flex-direction: row !important;
 }
-.chat-also-logos > * + * {
+.agent-msg-also-logos > * + * {
   margin-left: -10px;
 }
-.chat-also-vertical .chat-also-logos img,
-.chat-also-initial {
+.agent-msg-also-vertical .agent-msg-also-logos img,
+.agent-msg-also-initial {
   width: 30px;
   height: 30px;
   border: 2px solid var(--surface);
@@ -572,7 +572,7 @@
   object-fit: contain;
   background: var(--surface);
 }
-.chat-also-initial {
+.agent-msg-also-initial {
   display: grid;
   place-items: center;
   background: var(--accent-soft);
@@ -582,7 +582,7 @@
 }
 
 /* Productos solo para mayores de edad: marca visible en la tarjeta. */
-.chat-product-age {
+.agent-msg-product-age {
   position: absolute;
   top: 6px;
   left: 6px;

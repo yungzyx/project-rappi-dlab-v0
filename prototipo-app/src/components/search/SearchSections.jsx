@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { home } from '../../api/catalog'
-import { offer } from '../../api/mochi'
+import { offer } from '../../api/agent'
 import { noteAccepted, noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
 import { useApi } from '../../api/useApi'
@@ -17,7 +17,7 @@ const RECENT = ['Plátano', 'Agua', 'Chocolate', 'Hamburguesa', 'Cerveza', 'Pizz
 const POPULAR_COUNT = 6
 // Productos que se ven de cada vertical; «Ver más» muestra el resto de lo que trajo la API.
 const GROUP_PREVIEW = 3
-const NO_RESULT_ORIGIN = 'mochi-sin_resultado'
+const NO_RESULT_ORIGIN = 'agent-sin_resultado'
 
 export function RecentSearches({ onPick }) {
   return (
@@ -49,7 +49,7 @@ export function PopularStores({ onOpen }) {
 /**
  * Resultados de una búsqueda escrita (`data` de `useSearch`): un grupo por vertical con su nombre, o el aviso de que no
  * hay, o «Sin conexión». Un producto se abre en su tienda (`onOpenProduct`). Mientras carga se ven los resultados
- * anteriores. Con `onOpenVertical` (solo el buscador con Mochi), sin resultados Mochi no deja un callejón sin salida:
+ * anteriores. Con `onOpenVertical` (solo el buscador con el agente), sin resultados el agente no deja un callejón sin salida:
  * ofrece la vertical que tiene lo buscado o invita a buscar con otras palabras (`onTryAnother`).
  */
 export function SearchResults({ query, data, loading = false, error = null, onRetry, onOpenProduct, onOpenVertical, onTryAnother }) {
@@ -60,7 +60,7 @@ export function SearchResults({ query, data, loading = false, error = null, onRe
   // Sin nada que mostrar, el aviso espera a que llegue la respuesta de lo escrito (no se mezcla con lo de antes).
   if (data.groups.length === 0)
     return loading ? null : onOpenVertical ? (
-      <MochiEmpty key={text} query={text} onOpenVertical={onOpenVertical} onTryAnother={onTryAnother} />
+      <AgentEmpty key={text} query={text} onOpenVertical={onOpenVertical} onTryAnother={onTryAnother} />
     ) : (
       <p className="search-empty">No results for “{text}”.</p>
     )
@@ -104,11 +104,11 @@ function ResultGroup({ group, onOpenProduct }) {
 }
 
 /**
- * La oferta `sin_resultado` de Mochi. Si no tiene nada (204) o falla, solo invita a buscar con otras palabras. Como las
+ * La oferta `sin_resultado` del agente. Si no tiene nada (204) o falla, solo invita a buscar con otras palabras. Como las
  * demás ofertas, registra su mostrada; tocar «Ver en…» cuenta una aceptada (una, con el concepto de la oferta: no se
  * agregó ningún producto), que noteAccepted cuenta una sola vez.
  */
-function MochiEmpty({ query, onOpenVertical, onTryAnother }) {
+function AgentEmpty({ query, onOpenVertical, onTryAnother }) {
   const { data: found, loading } = useApi(() => offer('sin_resultado', { query }, { userId: userId() }).catch(() => null), [query])
   const events = useEvents()
   const generation = useProfile()?.resets ?? 0
@@ -125,13 +125,13 @@ function MochiEmpty({ query, onOpenVertical, onTryAnother }) {
     onOpenVertical(found.vertical)
   }
   return (
-    <div className="search-mochi" role="status">
+    <div className="search-agent" role="status">
       <Mascot size={56} mood="listen" />
       <div>
         <p>{verticalName ? found.text : `No encontré «${query}». ¿Lo buscamos con otras palabras?`}</p>
         <button
           type="button"
-          className="search-mochi-action tap"
+          className="search-agent-action tap"
           onClick={verticalName ? see : () => onTryAnother()}
         >
           {verticalName ? `Ver en ${verticalName}` : 'Probar otra búsqueda'}

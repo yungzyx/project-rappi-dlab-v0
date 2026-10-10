@@ -54,7 +54,7 @@ export const KPI_GROUPS = [
         label: 'Búsquedas sin resultado',
         window: '30 días',
         format: formatPct,
-        definition: 'Búsquedas y consultas a Bigotes sin resultado: cada una queda registrada como demanda no satisfecha.',
+        definition: 'Búsquedas y preguntas al agente sin resultado: cada una queda registrada como demanda no satisfecha.',
       },
       {
         key: 'en_riesgo',

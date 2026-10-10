@@ -4,7 +4,7 @@ import { demandLabel, verticalLabel } from '../../lib/labels.js'
 // Palancas de docs/diseno-ia.md §5 ("Palancas que salen de estos datos").
 const TREND_ACTION = 'Ocasiones y recompra: campaña con horario y «¿Repetimos?» en su ciclo de compra.'
 const RISK_ACTION =
-  'Reactivación por ritmo: mensaje con su concepto top y una novedad del vertical, solo con consentimiento; al resto, Bigotes en la app.'
+  'Reactivación por ritmo: mensaje con su concepto top y una novedad del vertical, solo con consentimiento; al resto, el agente en la app.'
 
 function growthText(row) {
   if (row.recientes === 0) return 'sin búsquedas en las últimas 4 semanas'
@@ -45,7 +45,7 @@ function topRisingTrend(trends, opportunities, chosenConcept) {
     figure: formatSignedPct(trend.crecimiento_pct),
     unit: 'de interés en 4 semanas',
     title: trend.concepto,
-    detail: `${formatNumber(trend.recientes)} señales de interés (búsquedas, chat y carro) vs ${formatNumber(trend.anteriores)}`,
+    detail: `${formatNumber(trend.recientes)} señales de interés (búsquedas, preguntas al agente y carro) vs ${formatNumber(trend.anteriores)}`,
     action: TREND_ACTION,
     view: 'oportunidades',
     linkLabel: 'Ver tendencias',

@@ -92,7 +92,7 @@ entry AS (  -- buscó, chateó, navegó, aceptó una sugerencia o agregó desde 
             -- en cualquier vertical (o sin vertical)
     SELECT DISTINCT session_id FROM app_events
     WHERE source = %(source)s
-      AND type IN ('search', 'chat', 'view_store', 'view_item', 'suggestion_accepted', 'cart_add')
+      AND type IN ('search', 'chat', 'ask', 'view_store', 'view_item', 'suggestion_accepted', 'cart_add')
 ),
 funnel_steps AS (
     SELECT session_id, vertical, session_id IN (SELECT session_id FROM entry) AS busca,
@@ -130,7 +130,7 @@ def kpis(conn: Connection, source: str = "synthetic") -> dict:
             searches AS (  -- solo lo que sabe si encontró algo: la búsqueda local del prototipo no lo sabe (unmet NULL)
                 SELECT count(*) FILTER (WHERE unmet) AS unmet, count(*) FILTER (WHERE unmet IS NOT NULL) AS total
                 FROM app_events
-                WHERE source = %(source)s AND type IN ('search', 'chat')
+                WHERE source = %(source)s AND type IN ('search', 'chat', 'ask')
                   AND ts > {_AS_OF} - interval '{ACTIVE_DAYS} days'
             ),
             {_FUNNEL.strip()}
@@ -171,8 +171,10 @@ def weekly(conn: Connection, source: str = "synthetic") -> list[dict]:
            ),
            activity AS (
                SELECT week, count(DISTINCT user_id) AS usuarios_activos,
-                      round(100.0 * count(*) FILTER (WHERE type IN ('search', 'chat') AND unmet)
-                            / nullif(count(*) FILTER (WHERE type IN ('search', 'chat') AND unmet IS NOT NULL), 0), 1)
+                      round(100.0 * count(*) FILTER (WHERE type IN ('search', 'chat', 'ask') AND unmet)
+                            / nullif(
+                                count(*) FILTER (WHERE type IN ('search', 'chat', 'ask') AND unmet IS NOT NULL), 0
+                            ), 1)
                           AS sin_resultado_pct
                FROM ev GROUP BY week
            ),
@@ -204,7 +206,7 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
         f"""WITH unmet AS (
                 SELECT e.user_id, e.vertical, e.concept_id, lower(e.query) AS query, e.ts, u.city
                 FROM app_events e JOIN app_users u USING (user_id)
-                WHERE e.source = %(source)s AND e.unmet AND e.type IN ('search', 'chat')
+                WHERE e.source = %(source)s AND e.unmet AND e.type IN ('search', 'chat', 'ask')
                   AND (e.concept_id IS NOT NULL OR e.query IS NOT NULL)  -- la purga de 90 días deja ambas vacías
             ),
             agg AS (
@@ -216,7 +218,7 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
                                           AND ts > {_AS_OF} - make_interval(weeks => 2 * %(weeks)s)) AS anteriores
                 FROM unmet GROUP BY 1, 2, 3
             ),
-            elsewhere AS (  -- donde Bigotes lo ofrecería: la regla de agent.verticals.available_elsewhere
+            elsewhere AS (  -- donde el agente lo ofrecería: la regla de agent.verticals.available_elsewhere
                 SELECT concept_id, vertical, items FROM ({_SHARES}) s WHERE items >= %(min_items)s
             )
             SELECT a.vertical, a.concept_id, coalesce(c.emoji || ' ' || c.name, a.query) AS que,
@@ -229,7 +231,7 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
                    CASE WHEN a.concept_id IS NULL THEN 'Revisar la consulta: sumar sinónimo o concepto nuevo'
                         WHEN EXISTS (SELECT 1 FROM elsewhere e
                                      WHERE e.concept_id = a.concept_id AND e.vertical <> a.vertical)
-                             THEN 'Existe en otro vertical: que Bigotes lo ofrezca ahí'
+                             THEN 'Existe en otro vertical: que el agente lo ofrezca ahí'
                         ELSE 'Oportunidad: sumar comercios o categoría' END AS accion
             FROM agg a LEFT JOIN concepts c ON c.concept_id = a.concept_id
             WHERE a.usuarios >= %(min_users)s
@@ -240,13 +242,14 @@ def opportunities(conn: Connection, source: str = "synthetic", weeks: int = 4) -
 
 
 def trends(conn: Connection, source: str = "synthetic", weeks: int = 4, limit: int = 12) -> list[dict]:
-    """Conceptos que suben o bajan: interés (búsquedas, chat y carro) últimas N semanas vs las N anteriores."""
+    """Conceptos que suben o bajan: interés (búsquedas, preguntas al agente y carro) en las últimas N semanas
+    contra las N anteriores."""
     _check(source)
     return _rows(
         conn,
         f"""WITH e AS (
                 SELECT concept_id, ts FROM app_events
-                WHERE source = %(source)s AND concept_id IS NOT NULL AND type IN ('search', 'chat', 'cart_add')
+                WHERE source = %(source)s AND concept_id IS NOT NULL AND type IN ('search', 'chat', 'ask', 'cart_add')
             ),
             agg AS (
                 SELECT concept_id,
@@ -269,7 +272,7 @@ def funnel(conn: Connection, source: str = "synthetic") -> list[dict]:
     """Por vertical: sesiones que buscan (llegan a la vertical) → agregan al carro → inician pago → piden.
 
     La entrada (buscar, chatear, navegar, aceptar una sugerencia o agregar al carro desde una lista) se mira en toda
-    la sesión: la sugerencia cruzada de Bigotes lleva la compra a otra vertical, y exigirla en la misma dejaba fuera
+    la sesión: la sugerencia cruzada del agente lleva la compra a otra vertical, y exigirla en la misma dejaba fuera
     esos pedidos (Farmacia y Turbo quedaban en 0). Una sesión cuenta en una vertical si tuvo ahí algún evento que no
     sea ver o descartar una sugerencia: ver una sugerencia sin aceptarla no la mete en esa vertical.
     """
@@ -357,7 +360,7 @@ def at_risk(conn: Connection, source: str = "synthetic", limit: int = 100) -> li
             SELECT 'u-' || left(md5(r.user_id), 8) AS usuario, u.segment AS persona, r.status AS estado,
                    round(r.rhythm::numeric, 1) AS ritmo_dias, round(r.since::numeric, 0) AS dias_sin_pedir,
                    c.emoji || ' ' || c.name AS concepto_top, u.consent_notifications AS consiente_avisos,
-                   CASE WHEN NOT u.consent_notifications THEN 'Sin consentimiento: solo en la app (Bigotes)'
+                   CASE WHEN NOT u.consent_notifications THEN 'Sin consentimiento: solo en la app (el agente)'
                         WHEN r.status = 'perdido' THEN 'Reactivar con novedad de su concepto top'
                         ELSE 'Recordatorio en su ritmo con su concepto top + complemento' END AS accion
             FROM risk r
@@ -376,10 +379,10 @@ MIN_SUGGESTIONS_SHOWN = 10  # mostradas para calcular (y, con datos simulados, m
 
 
 def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
-    """Rendimiento de las sugerencias cruzadas de Bigotes por concepto sugerido (en el chat y en "Para ti").
+    """Rendimiento de las sugerencias cruzadas del agente por concepto sugerido (al preguntarle y en "Para ti").
 
     Aceptada = el producto sugerido se agregó al carro; convertida = llegó a un pedido. El aviso sobre el carro no
-    entra: ahí "aceptar" es abrir el chat, otra cosa. El % de aceptación necesita 10 mostradas; con la fuente
+    entra: ahí "aceptar" es abrir al agente, otra cosa. El % de aceptación necesita 10 mostradas; con la fuente
     prototipo las filas aparecen desde la primera (una demo en vivo debe verse) y el % queda vacío hasta entonces.
     """
     _check(source)
@@ -416,7 +419,7 @@ def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
 
 
 def services(conn: Connection, source: str = "synthetic") -> list[dict]:
-    """Servicios sin catálogo (RappiTravel, RappiFavor): cuántas veces Bigotes los ofreció, cuántas se abrieron y los
+    """Servicios sin catálogo (RappiTravel, RappiFavor): cuántas veces el agente los ofreció, cuántas se abrieron y los
     ganchos del catálogo (sugerencias con su origen) mostrados y aceptados. Una fila por servicio de la taxonomía."""
     _check(source)
     counts = {
@@ -483,7 +486,7 @@ def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> lis
 def affinity(conn: Connection, source: str = "synthetic", limit: int = 25) -> list[dict]:
     """Afinidad dirigida A → B: P(B | A) entre usuarios que compran A (lift como filtro), sin sensibles.
 
-    No cuenta las líneas que vinieron de una sugerencia de Bigotes (evita que el sistema se retroalimente).
+    No cuenta las líneas que vinieron de una sugerencia del agente (evita que el sistema se retroalimente).
     """
     _check(source)
     return _rows(
@@ -584,7 +587,7 @@ def assortment_vs_demand(conn: Connection, source: str = "synthetic", limit: int
         conn,
         """WITH demand AS (
                SELECT concept_id, vertical, count(DISTINCT user_id) AS usuarios FROM app_events
-               WHERE source = %(source)s AND concept_id IS NOT NULL AND type IN ('search', 'chat') GROUP BY 1, 2
+               WHERE source = %(source)s AND concept_id IS NOT NULL AND type IN ('search', 'chat', 'ask') GROUP BY 1, 2
            )
            SELECT c.emoji || ' ' || c.name AS concepto, d.vertical, d.usuarios AS usuarios_que_buscan,
                   coalesce(a.items, 0) AS items_en_catalogo,

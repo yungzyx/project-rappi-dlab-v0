@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { offer, plans as fetchPlans } from '../../../api/mochi'
+import { offer, plans as fetchPlans } from '../../../api/agent'
 import { noteShown } from '../../../api/suggestions'
 import { userId } from '../../../api/user'
 import SmartBar from '../../../components/assistant/SmartBar'
@@ -23,19 +23,19 @@ import {
 } from '../HomeSections'
 import { CREDITS } from '../../../data/home'
 import '../home.css'
-import LiveBigotes from './LiveBigotes'
+import LiveAgent from './LiveAgent'
 import { Passport, PlanBlock, STAMP_EMOJI, openItem } from './LiveBlocks'
 import { REPLAY_EVENT, markTourSeen, session, tourSeen } from '../../../state/liveMemory'
-import { isHushed, isQuiet, noteDismissed } from '../../../state/mochiQuiet'
+import { isHushed, isQuiet, noteDismissed } from '../../../state/agentQuiet'
 import { stampedVerticals, today } from '../../../game/progress.js'
 import { NEVER_PUSHED, PASSPORT_GOAL, PASSPORT_ORDER } from '../../../game/verticals.js'
 import { useGame } from '../../../state/GameContext'
 import './live.css'
 
-// Las secciones de la Home de hoy, con el pasaporte justo bajo los accesos. Mochi no sugiere productos aquí.
+// Las secciones de la Home de hoy, con el pasaporte justo bajo los accesos. El agente no sugiere productos aquí.
 const ORDER = ['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'lower']
 const T = { enter: 900, greet: 3400, greetHold: 6000, notice: 500 }
-// Silenciado por hoy (desde Mochi flotante) o callado porque lo ignoraron: no habla por su cuenta; si lo tocan, sí.
+// Silenciado por hoy (desde el agente flotante) o callado porque lo ignoraron: no habla por su cuenta; si lo tocan, sí.
 const silent = () => isQuiet(today()) || isHushed()
 
 // Guía de la primera vez, tras el saludo: el buscador, el pasaporte y «Jugar». Se ve una vez («Repetir escena» la repite).
@@ -67,7 +67,7 @@ function usePrefersReducedMotion() {
 }
 
 /**
- * Home del prototipo final: sin ícono de chat; la barra abre el buscador con Mochi. Mochi de cuerpo entero vive en
+ * Home del prototipo final: la barra abre el buscador con el agente. El agente de cuerpo entero vive en
  * la Home sin reordenarla: saluda, acompaña el pasaporte y el plan del día, y al tocarlo invita a una vertical nueva.
  */
 export default function LiveHomeFeed({ push, active = true }) {
@@ -83,17 +83,17 @@ export default function LiveHomeFeed({ push, active = true }) {
   const game = useGame()
   const stamps = stampedVerticals(game.state) // ids del juego
   const [freshStamp, setFreshStamp] = useState(() => session.newStamp)
-  const [plans, setPlans] = useState([]) // las ocasiones que Mochi sabe armar (GET /mochi/plans)
+  const [plans, setPlans] = useState([]) // las ocasiones que el agente sabe armar (GET /agent/plans)
   const [plan, setPlan] = useState(() => session.plan?.id ?? null) // la ocasión elegida
   const [kit, setKit] = useState(() => session.plan?.kit ?? null) // sus productos (la oferta `plan`); null mientras llega
   const [kitAdded, setKitAdded] = useState(null) // plan cuyo kit ya está en el carro
   const [say, setSay] = useState(null)
-  const [target, setTarget] = useState(null) // id del bloque donde se para Mochi
+  const [target, setTarget] = useState(null) // id del bloque donde se para el agente
   const [present, setPresent] = useState(() => session.played) // aún no entra a escena
   const [entering, setEntering] = useState(false)
 
   const screenRef = useRef(null)
-  const bigotesRef = useRef(null)
+  const agentRef = useRef(null)
   const blockRefs = useRef(new Map())
   const timers = useRef([])
   const hideTimer = useRef(null)
@@ -120,7 +120,7 @@ export default function LiveHomeFeed({ push, active = true }) {
   const said = useRef(null)
   const touring = useRef(false)
 
-  /** Mochi dice algo (o se calla con `null`); con `holdMs` el globo se va solo. Cada frase reemplaza a la anterior. */
+  /** El agente dice algo (o se calla con `null`); con `holdMs` el globo se va solo. Cada frase reemplaza a la anterior. */
   const speak = useCallback((next, at = null, holdMs = 0) => {
     // Cualquier otro globo que reemplace a la guía la termina: queda vista y no vuelve.
     if (touring.current && !next?.tour) {
@@ -148,7 +148,7 @@ export default function LiveHomeFeed({ push, active = true }) {
 
   const visit = useCallback(
     (vertical, route) => {
-      // Abrir la vertical en la app la sella (Explorador): Mochi lo celebra al volver.
+      // Abrir la vertical en la app la sella (Explorador): el agente lo celebra al volver.
       if (game.visit(vertical)) session.newStamp = vertical
       push(...(route ?? routeForScreen(vertical)))
     },
@@ -156,7 +156,7 @@ export default function LiveHomeFeed({ push, active = true }) {
   )
 
   // La guía: cada paso espera a que la persona siga; «Saltar» o «Listo» la terminan para siempre (speak la marca
-  // vista) y entonces Mochi muestra lo que quedó pendiente de «al volver».
+  // vista) y entonces el agente muestra lo que quedó pendiente de «al volver».
   const endTour = () => {
     speak(null)
     welcomeBack()
@@ -225,7 +225,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     // Se fue de la Home, repitió la escena, lo silenciaron mientras tanto o ya empezó la guía: ya no es el momento.
     if (!made || mine !== run.current || silent() || touring.current) return
     noteShown(events.track, made.products, {
-      origin: `mochi-${made.moment}`,
+      origin: `agent-${made.moment}`,
       concept: made.reason?.concept,
       generation: profile.resets,
     })
@@ -254,7 +254,7 @@ export default function LiveHomeFeed({ push, active = true }) {
   // las pantallas que se abren encima (`active` es si está arriba), así que corre cada vez que vuelve a estar arriba;
   // durante la guía espera, y corre al terminarla.
   function welcomeBack() {
-    // Lo pendiente se borra de la sesión recién cuando Mochi habla: en desarrollo, StrictMode monta dos veces y la
+    // Lo pendiente se borra de la sesión recién cuando el agente habla: en desarrollo, StrictMode monta dos veces y la
     // primera vez se cancelan los timers.
     if (silent()) {
       // En silencio el sello igual se marca en el pasaporte, sin globo.
@@ -305,7 +305,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     }
   }, [])
 
-  // Cuando el plan del día entra en pantalla, Mochi camina hasta él (una vez por sesión).
+  // Cuando el plan del día entra en pantalla, el agente camina hasta él (una vez por sesión).
   const hasPlans = plans.length > 0
   useEffect(() => {
     const element = blockRefs.current.get('plan')
@@ -349,7 +349,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     return () => window.removeEventListener(REPLAY_EVENT, replay)
   }, [clearTimers, speak])
 
-  // Tocar una ocasión pide su kit a la API. Sin kit (204 o sin red) la ocasión no queda elegida y Mochi no dice nada.
+  // Tocar una ocasión pide su kit a la API. Sin kit (204 o sin red) la ocasión no queda elegida y el agente no dice nada.
   const pickPlan = async (id) => {
     const chosen = plans.find((option) => option.id === id)
     const mine = (planRun.current += 1)
@@ -370,7 +370,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     }
     // Cada producto del kit es una sugerencia mostrada, con su propio concepto.
     for (const product of made.products)
-      noteShown(events.track, [product], { origin: `mochi-${made.moment}`, generation: profile.resets })
+      noteShown(events.track, [product], { origin: `agent-${made.moment}`, generation: profile.resets })
     session.plan = { id, kit: made.products } // la Home vuelve a montarse al cambiar de pestaña: el kit sigue ahí
     setKit(made.products)
     speak({ text: `${chosen.emoji} ${made.text}`, mood: 'wave', gesture: 'hop' }, 'plan', 4500)
@@ -385,7 +385,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     speak({ text: '¡Listo! Llega todo junto 🛵 Ve tu carro abajo.', mood: 'wave', gesture: 'spin' }, 'plan', 3500)
   }
 
-  // Tocar a Mochi: la API propone la primera vertical sin sello (con los sellos del juego en el contexto).
+  // Tocar al agente: la API propone la primera vertical sin sello (con los sellos del juego en el contexto).
   const poke = async () => {
     // Mientras saluda, tocarlo no cambia de tema.
     if (!session.played || poking.current) return
@@ -395,7 +395,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     try {
       made = await offer('vertical_por_probar', { stamped: stamps }, { userId: userId() })
     } catch {
-      // Sin respuesta, Mochi no dice nada.
+      // Sin respuesta, el agente no dice nada.
     } finally {
       poking.current = false
     }
@@ -410,7 +410,7 @@ export default function LiveHomeFeed({ push, active = true }) {
         )
       return
     }
-    noteShown(events.track, made.products, { origin: `mochi-${made.moment}`, generation: profile.resets })
+    noteShown(events.track, made.products, { origin: `agent-${made.moment}`, generation: profile.resets })
     const name = VERTICAL_NAMES[made.vertical] ?? made.backendVertical
     const left = PASSPORT_GOAL - stamps.length
     speak(
@@ -475,7 +475,7 @@ export default function LiveHomeFeed({ push, active = true }) {
         className="screen home home--live"
         onScroll={(event) => {
           onScroll(event)
-          bigotesRef.current?.scrolled()
+          agentRef.current?.scrolled()
         }}
         data-top={scrolled ? 'scrolled' : 'top'}
       >
@@ -502,8 +502,8 @@ export default function LiveHomeFeed({ push, active = true }) {
         </div>
       </div>
 
-      <LiveBigotes
-        ref={bigotesRef}
+      <LiveAgent
+        ref={agentRef}
         say={say}
         target={target}
         getBlock={getBlock}

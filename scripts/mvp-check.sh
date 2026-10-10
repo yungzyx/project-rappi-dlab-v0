@@ -6,7 +6,7 @@
 #      queda un pedido `prototype` cuyas líneas son productos (o platos) sembrados;
 #   3. kit de Mochi: «cerveza» en el buscador con Mochi (grupos por vertical) → plan «Carrete» en la Home → agregar el
 #      kit → pagar, y en rappi_ia_test (solo lectura) el pedido tiene líneas sembradas y la persona dejó al menos una
-#      `suggestion_accepted` con origen `mochi-plan`;
+#      `suggestion_accepted` con origen `agent-plan` (o el viejo `mochi-plan`);
 #   4. sin API: se detiene la API y la app muestra «Sin conexión con Mochi».
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -46,7 +46,7 @@ fi
 # El pedido de la compra: el último de la app (`prototype`; los `synthetic` son del generador) y los demás de la misma
 # persona (un kit de varias verticales son varios pedidos), con todas sus líneas productos o platos sembrados (un kit
 # puede traer un plato de restaurante). Con el argumento `kit`, además esa persona dejó al menos una
-# `suggestion_accepted` con origen `mochi-plan` (app_events). Solo lee.
+# `suggestion_accepted` con origen `agent-plan` (o el viejo `mochi-plan`; app_events). Solo lee.
 # Reintenta 5 s por si el pedido o los eventos tardan en quedar confirmados.
 read -r -d '' CHECK_ORDER <<'PY' || true
 import sys
@@ -68,7 +68,7 @@ ORDER BY o.ts DESC
 """
 ACCEPTED = """
 SELECT count(*) FROM app_events
-WHERE user_id = %s AND type = 'suggestion_accepted' AND payload->>'origen' = 'mochi-plan'
+WHERE user_id = %s AND type = 'suggestion_accepted' AND payload->>'origen' IN ('mochi-plan', 'agent-plan')
 """
 kit = sys.argv[1:] == ["kit"]
 
@@ -90,8 +90,8 @@ for order_id, vertical, _, lines, seeded in (row for row in rows if row[2] == us
     print(f"  ✓ pedido: {order_id} ({vertical}, {lines} línea(s), todas sembradas)")
 if kit:
     if not accepted:
-        sys.exit("  ✗ eventos: la persona del pedido no dejó ninguna suggestion_accepted con origen mochi-plan")
-    print(f"  ✓ eventos: {accepted} suggestion_accepted con origen mochi-plan")
+        sys.exit("  ✗ eventos: la persona del pedido no dejó ninguna suggestion_accepted con origen agent-plan")
+    print(f"  ✓ eventos: {accepted} suggestion_accepted con origen agent-plan")
 PY
 
 echo "Sembrando el catálogo de prueba…"

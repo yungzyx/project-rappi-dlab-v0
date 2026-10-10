@@ -79,7 +79,7 @@ function parseBody(body) {
 }
 
 /**
- * Reemplaza `fetch` por respuestas de ejemplo. Las claves son 'GET /health', 'POST /chat' (también PUT y DELETE) o
+ * Reemplaza `fetch` por respuestas de ejemplo. Las claves son 'GET /health', 'POST /agent/ask' (también PUT y DELETE) o
  * '/health' (sin método es GET) y se comparan con la ruta sin la query; cualquier otra clave lanza un error. El valor puede ser:
  * - un objeto: se responde 200 con ese JSON;
  * - un número: se responde ese estado (204, sin cuerpo: el cliente lo lee como null);

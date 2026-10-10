@@ -31,7 +31,7 @@ function ProductDetail({ product, onOpenStore }) {
   const total = formatPrice(qty * parsePrice(product.price))
 
   const confirm = () => {
-    // Cada unidad pasa por «agregar» o «quitar» como con el botón "+": mismos eventos y mismo aviso de Mochi.
+    // Cada unidad pasa por «agregar» o «quitar» como con el botón "+": mismos eventos y mismo aviso del agente.
     for (let i = inCart; i < qty; i += 1) add(product)
     for (let i = inCart; i > qty; i -= 1) remove(product)
     cart.setNote(product, note.trim())

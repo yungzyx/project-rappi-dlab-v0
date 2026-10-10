@@ -1,4 +1,4 @@
-// Ofertas de Mochi de rappi-ia: `POST /mochi/offer` (un momento de la app) y `GET /mochi/plans` (ocasiones).
+// Ofertas del agente de rappi-ia: `POST /agent/offer` (un momento de la app) y `GET /agent/plans` (ocasiones).
 import { routeForScreen } from '../data/verticals'
 import { request, toPrototypeProduct } from './client'
 
@@ -10,15 +10,15 @@ function toAction({ route, ...action }) {
 }
 
 /**
- * La oferta de Mochi para un momento (`carrito`, `checkout`, `sin_resultado`, `proximo_pedido`, `plan`,
- * `vertical_por_probar`) con su contexto, o `null` si no tiene nada que ofrecer (204): entonces Mochi no dice nada.
+ * La oferta del agente para un momento (`carrito`, `checkout`, `sin_resultado`, `proximo_pedido`, `plan`,
+ * `vertical_por_probar`) con su contexto, o `null` si no tiene nada que ofrecer (204): entonces el agente no dice nada.
  * Devuelve `{ moment, text, products, vertical, backendVertical, reason, actions }`; la `vertical` es la de la app y
- * cada producto lleva `fromSuggestion` y `suggestionOrigin: 'mochi-<momento>'` para los eventos y el pedido, y cada
+ * cada producto lleva `fromSuggestion` y `suggestionOrigin: 'agent-<momento>'` para los eventos y el pedido, y cada
  * acción la `route` de la app (`push(...route)`).
  * Si falla, lanza el `ApiError`: quien llama decide callar.
  */
 export async function offer(moment, context = {}, { userId } = {}) {
-  const response = await request('/mochi/offer', {
+  const response = await request('/agent/offer', {
     method: 'POST',
     body: { moment, ...(userId ? { user_id: userId } : {}), context },
     timeout: OFFER_TIMEOUT_MS,
@@ -30,7 +30,7 @@ export async function offer(moment, context = {}, { userId } = {}) {
     products: response.products.map((p) => ({
       ...toPrototypeProduct(p),
       fromSuggestion: true,
-      suggestionOrigin: `mochi-${moment}`,
+      suggestionOrigin: `agent-${moment}`,
     })),
     vertical: response.prototype_vertical ?? null,
     backendVertical: response.vertical,
@@ -39,5 +39,5 @@ export async function offer(moment, context = {}, { userId } = {}) {
   }
 }
 
-/** Las ocasiones que Mochi sabe armar: `[{ id, name, emoji }]`. */
-export const plans = () => request('/mochi/plans', { timeout: OFFER_TIMEOUT_MS })
+/** Las ocasiones que el agente sabe armar: `[{ id, name, emoji }]`. */
+export const plans = () => request('/agent/plans', { timeout: OFFER_TIMEOUT_MS })

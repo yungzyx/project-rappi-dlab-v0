@@ -1,8 +1,9 @@
 import { useEffect, useId, useState } from 'react'
+import { AGENT_NAME } from '../../agent/name'
 import { useAssistant } from '../../state/AssistantContext'
 import './smart-bar.css'
 
-const HINTS = ['¿Qué se te antoja hoy?', 'Busca o pídele ideas a Mochi', 'Arma un carrete 🍻']
+const HINTS = ['¿Qué se te antoja hoy?', `Busca o pídele ideas a ${AGENT_NAME}`, 'Arma un carrete 🍻']
 const ROTATE_MS = 3200
 
 export function SparkleIcon({ size = 22 }) {
@@ -31,7 +32,7 @@ export function SparkleIcon({ size = 22 }) {
   )
 }
 
-/** Barra de búsqueda inteligente de la Home: tocarla abre el buscador con Mochi. */
+/** Barra de búsqueda inteligente de la Home: tocarla abre el buscador con el agente. */
 export default function SmartBar({ compact = false }) {
   const assistant = useAssistant()
   const [hint, setHint] = useState(0)
@@ -48,7 +49,7 @@ export default function SmartBar({ compact = false }) {
       className={compact ? 'smart-bar is-compact' : 'smart-bar'}
       role="button"
       tabIndex={0}
-      aria-label="Abrir buscador con Mochi"
+      aria-label={`Abrir buscador con ${AGENT_NAME}`}
       onClick={open}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return

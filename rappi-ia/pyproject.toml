@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rappi-ia"
 version = "0.1.0"
-description = "Conceptos, embeddings, búsqueda híbrida por vertical, agente Bigotes y analítica sobre el catálogo de Rappi Chile"
+description = "Conceptos, embeddings, búsqueda híbrida por vertical, agente de recomendaciones y analítica sobre el catálogo de Rappi Chile"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -16,10 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ml = ["sentence-transformers>=3.0", "torch>=2.5", "pillow>=10", "requests>=2.31,<3"]
-audio = ["faster-whisper>=1.0"]
+ml = ["sentence-transformers>=3.0", "torch>=2.5"]
 llm = ["anthropic>=0.40"]
-api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9", "pillow>=10"]  # pillow: validar fotos subidas
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
 dev = ["pytest>=8", "ruff==0.16.9", "httpx>=0.27"]
 
 [project.scripts]

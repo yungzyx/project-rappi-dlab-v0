@@ -1,20 +1,23 @@
 // Revisa en un Chrome real que la app del MVP responda como debe (lo corre scripts/mvp-check.sh con `make mvp-check`).
 // Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--shop | --kit | --expect-offline]
-//   sin banderas: la app abre en la Home conectada, con la barra «Busca o pídele ideas a Mochi»;
+//   sin banderas: la app abre en la Home conectada, con la barra «Busca o pídele ideas a <agente>»;
 //   con --shop: Home → vertical Grocery → primera tienda → agregar un producto → carrito → pagar, y la API recibe el
 //     pedido (que después verifica scripts/mvp-check.sh en la base de prueba);
 //   con --kit: busca «cerveza» en el buscador con Mochi (ve la búsqueda agrupada por vertical), vuelve a la Home, elige
 //     la ocasión «Carrete», agrega el kit que arma Mochi (`plan`) y paga; scripts/mvp-check.sh verifica después en la base
-//     de prueba que el pedido tiene líneas sembradas y al menos una aceptación `mochi-plan`;
-//   con --expect-offline: la API está detenida y la app muestra «Sin conexión con Mochi».
+//     de prueba que el pedido tiene líneas sembradas y al menos una aceptación `agent-plan`;
+//   con --expect-offline: la API está detenida y la app muestra «Sin conexión con <agente>».
 // Con la API en marcha (sin --expect-offline) también falla ante un error de la página o de la consola, o una respuesta
 // 4xx/5xx, desde la primera carga; solo se ignoran las imágenes del catálogo de prueba, que no existen.
 // Sale con 0 si la revisión pasa y con 1 si no. Usa el Chrome instalado (playwright-core, sin descargar navegadores).
 import { parseArgs } from 'node:util'
 import { chromium } from 'playwright-core'
+import { AGENT_NAME } from '../src/agent/name.js'
 
-const HOME_HINT = 'Busca o pídele ideas a Mochi'
-const OFFLINE_TITLE = 'Sin conexión con Mochi'
+// Los textos visibles llevan el nombre del agente: salen de la misma constante que usa la app.
+const HOME_HINT = `Busca o pídele ideas a ${AGENT_NAME}`
+const OFFLINE_TITLE = `Sin conexión con ${AGENT_NAME}`
+const SEARCH_DIALOG = `Buscador con ${AGENT_NAME}`
 const TIMEOUT_MS = 20_000 // la barra rota tres frases cada 3,2 s: la de Mochi tarda hasta ~6 s en salir
 
 /** Qué dice la página ahora: ayuda a entender por qué falló una espera. */
@@ -103,7 +106,7 @@ async function checkShop(page) {
 async function checkKit(page) {
   await checkOnline(page)
   await step(page, 'abrir el buscador con Mochi', () => page.locator('.smart-bar').first().click())
-  const panel = page.getByRole('dialog', { name: 'Buscador con Mochi' })
+  const panel = page.getByRole('dialog', { name: SEARCH_DIALOG })
   await step(page, 'escribir «cerveza»', () =>
     panel.getByRole('searchbox', { name: 'Buscar en Rappi' }).fill('cerveza'),
   )

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'vitest'
-import { isHushed, isQuiet, noteDismissed, noteEngaged, quietToday, resetQuiet, wake } from './mochiQuiet'
+import { isHushed, isQuiet, noteDismissed, noteEngaged, quietToday, resetQuiet, wake } from './agentQuiet'
 
 afterEach(() => {
   resetQuiet()

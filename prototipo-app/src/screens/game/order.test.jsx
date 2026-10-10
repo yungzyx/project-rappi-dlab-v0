@@ -56,9 +56,9 @@ describe('ronda mientras llega el pedido', () => {
 
   test('cuando llega el pedido, Mochi salta en el aviso del juego', () => {
     renderRound()
-    expect(document.querySelector('.game-order .mochi')).toBeNull()
+    expect(document.querySelector('.game-order .mascot')).toBeNull()
     act(() => vi.advanceTimersByTime(21_000))
-    expect(document.querySelector('.game-order .mochi').classList).toContain('mascot--jump')
+    expect(document.querySelector('.game-order .mascot').classList).toContain('mascot--jump')
   })
 
   test('con un pedido que ya no existe no hay franja', () => {

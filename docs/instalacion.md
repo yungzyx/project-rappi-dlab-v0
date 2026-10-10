@@ -11,7 +11,7 @@ Después de clonar (paso 2), **todos los comandos parten de la raíz del reposit
 | Código (scraper, rappi-ia, prototipo, docs) | Este repositorio (privado): `gh repo clone` |
 | Base de datos (catálogo, precios, menús, conceptos, embeddings) | Un respaldo de Postgres (`.dump`) hecho en otro equipo, o una descarga nueva. **No va al repositorio:** contiene datos de rappi.cl y de sus comercios, que se usan solo con fines de investigación y demostración |
 | Configuración (`.env`) | Se crea sola desde `.env.example` al instalar. `ANTHROPIC_API_KEY` es opcional y se agrega a mano |
-| Modelos de IA (e5, CLIP, Whisper; ~2 GB) | Se descargan de Hugging Face la primera vez que se usan |
+| Modelo de IA (e5; ~1 GB) | Se descarga de Hugging Face la primera vez que se usa |
 | `node_modules`, `.venv` | Se instalan con los comandos de abajo; no se copian entre equipos |
 
 ## 1. Requisitos
@@ -94,7 +94,7 @@ make mvp                  # desde la raíz del repositorio
 2. Revisa la base con `rappi-ia doctor` (solo lectura): si Postgres no responde, si la base `rappi` no existe o si no tiene catálogo, explica qué falta (sección 3) y termina.
 3. Revisa las migraciones pendientes (`rappi-ia check-migrations`, solo lectura). Las migraciones se registran por nombre de archivo: una de rama que se aplica y después se edita nunca se vuelve a aplicar. Por eso, si la base `rappi` tiene pendientes y el código no está en `origin/main`, se niega: lista las pendientes y dice cómo seguir, con una copia de la base (`createdb -T rappi rappi_staging` con la API detenida y `DATABASE_URL=postgresql:///rappi_staging make mvp`) o a sabiendas con `MIGRATE=1 make mvp`. `make serve` y `make serve-lan` hacen la misma revisión. Con otra base (como la copia) o sin pendientes no pregunta nada.
 4. Aplica las migraciones pendientes (`make migrate` en `rappi-ia/`) y arranca los tres.
-5. Cuando responden, imprime «MVP listo: app http://localhost:5174 · panel http://localhost:5175 · API http://localhost:8000/docs». La API tarda en quedar lista porque carga los modelos: la primera vez los descarga (~2,5 GB) y puede tardar varios minutos. Mientras siga viva el script la espera y avisa cada 15 s («[mvp] La API sigue arrancando (cargando modelos)…»); solo termina si el proceso se cae.
+5. Cuando responden, imprime «MVP listo: app http://localhost:5174 · panel http://localhost:5175 · API http://localhost:8000/docs». La API tarda en quedar lista porque carga el modelo de texto: la primera vez lo descarga (~1 GB) y puede tardar varios minutos. Mientras siga viva el script la espera y avisa cada 15 s («[mvp] La API sigue arrancando (cargando modelos)…»); solo termina si el proceso se cae.
 
 Ctrl-C detiene los tres; si uno se cae solo, detiene el resto. No descarga nada de rappi.cl.
 
@@ -112,7 +112,7 @@ Ctrl-C detiene los tres; si uno se cae solo, detiene el resto. No descarga nada 
 - ¿La API está en otro puerto o equipo? Crea `prototipo-app/.env.local` con `VITE_API_URL=http://localhost:8001` y reinicia la app.
 - ¿La API se cayó? Mira el registro `[api]`: con Postgres caído responde 503.
 
-**`make mvp-check`** recorre la app con Chrome (Playwright, usa el Google Chrome instalado) contra un catálogo de prueba **inventado**, sin tocar la base `rappi`. Siembra `rappi_ia_test` (`rappi-ia seed-demo`, que se niega con cualquier base que no termine en `_test`), levanta una API liviana en :8010 y la app en :5184, comprueba que la Home abre conectada, que una compra (Home → Grocery → la primera tienda → agregar un producto → carrito → pagar) llega a la API y queda en `rappi_ia_test` como un pedido `prototype` con productos sembrados (solo lectura), que buscar «cerveza» en el buscador con Mochi muestra un grupo por vertical y que pedir el kit «Carrete» de la Home, agregarlo y pagar deja un pedido con productos sembrados y al menos una `suggestion_accepted` con origen `mochi-plan` en `app_events`, y que, al detener la API, aparece «Sin conexión con Mochi». Mientras la API está en marcha, también falla ante un error de la página o de la consola o una respuesta 4xx/5xx (solo se ignoran las imágenes de prueba, que no existen). Termina con «MVP check: 4 de 4 bien» y no deja nada escuchando. **Borra y vuelve a sembrar `rappi_ia_test`:** no lo corras junto con `make test` de `rappi-ia/`, que usa la misma base.
+**`make mvp-check`** recorre la app con Chrome (Playwright, usa el Google Chrome instalado) contra un catálogo de prueba **inventado**, sin tocar la base `rappi`. Siembra `rappi_ia_test` (`rappi-ia seed-demo`, que se niega con cualquier base que no termine en `_test`), levanta una API liviana en :8010 y la app en :5184, comprueba que la Home abre conectada, que una compra (Home → Grocery → la primera tienda → agregar un producto → carrito → pagar) llega a la API y queda en `rappi_ia_test` como un pedido `prototype` con productos sembrados (solo lectura), que buscar «cerveza» en el buscador con Mochi muestra un grupo por vertical y que pedir el kit «Carrete» de la Home, agregarlo y pagar deja un pedido con productos sembrados y al menos una `suggestion_accepted` con origen `agent-plan` en `app_events`, y que, al detener la API, aparece «Sin conexión con Mochi». Mientras la API está en marcha, también falla ante un error de la página o de la consola o una respuesta 4xx/5xx (solo se ignoran las imágenes de prueba, que no existen). Termina con «MVP check: 4 de 4 bien» y no deja nada escuchando. **Borra y vuelve a sembrar `rappi_ia_test`:** no lo corras junto con `make test` de `rappi-ia/`, que usa la misma base.
 
 También: `make contract` en `rappi-ia/` reescribe las respuestas de ejemplo de la API que usa la app (`prototipo-app/src/api/fixtures/`; el CI falla si quedan desactualizadas), y `npm run screenshots` en `prototipo-app/` necesita el MVP corriendo y, como paga una compra, deja un pedido y sus eventos (`source = 'prototype'`) en la base real.
 
@@ -129,7 +129,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 - **Qué corre:** `rappi-scraper/scripts/refresh-semanal.sh`.
   - Primero `rappi migrate` (las migraciones que haya traído un `git pull`) y `rappi refresh`: tiendas, restaurantes, búsqueda, reportes y respaldo en `data/backups/` (quedan los últimos 4).
   - Si termina bien (o solo falló el respaldo), `make post-refresh` de rappi-ia: purga (primero, para cumplir la retención aunque falle otro paso), conceptos, embeddings, evaluación, datos simulados y otra purga.
-  - Nunca corren dos descargas a la vez: los comandos que descargan (y `make images`) comparten el candado `rappi-scraper/data/scraper.lock`, que el sistema suelta aunque el proceso muera. Además, la tarea semanal tiene su propio candado, que se borra aunque la corten con una señal (Ctrl-C, cerrar la terminal).
+  - Nunca corren dos descargas a la vez: los comandos que descargan comparten el candado `rappi-scraper/data/scraper.lock`, que el sistema suelta aunque el proceso muera. Además, la tarea semanal tiene su propio candado, que se borra aunque la corten con una señal (Ctrl-C, cerrar la terminal).
 - **τ:** la evaluación semanal no guarda τ, porque `thresholds.json` está en el repositorio. Para recalibrar: `make eval` a mano en `rappi-ia/` y commit.
 - **Dormido o apagado:** si a esa hora el equipo estaba **dormido**, la tarea corre al despertar; si estaba **apagado**, esa semana se salta. Por eso conviene:
   - que no se duerma (Ajustes del Sistema → Energía → evitar el reposo automático);
@@ -145,7 +145,6 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 - **Posible bloqueo:** si 10 jobs seguidos fallan sin respuesta útil de rappi.cl (403, 429, red), la descarga se detiene, el reporte de la corrida lo marca con ⛔ y la corrida queda abierta: la próxima actualización la retoma. No hay que hacer nada salvo revisar el reporte. Si el ⛔ se repite semana tras semana con los mismos jobs, no es un bloqueo sino un error fijo de esos jobs (por ejemplo, rappi.cl cambió esas páginas): hay que revisar su error. Mientras tanto no se actualiza nada; después de unas semanas (4 intentos) esos jobs quedan fallidos y la corrida sigue.
 - **Reportes:** la salida completa queda en `rappi-scraper/data/logs/launchd.*.log` y el reporte de calidad en `rappi-scraper/data/reports/`.
 - **`rappi refresh` lanzado a mano:** `./scripts/despues-del-refresh.sh` en `rappi-ia/` espera a que termine y corre `make post-refresh`. A diferencia de la tarea semanal, recalibra τ en `thresholds.json`: si cambia, revisar y hacer commit.
-- **Fotos:** `make images` en `rappi-ia/`, a mano (son decenas de miles de descargas). Toma el mismo candado que el scraper: si hay una descarga en curso, no arranca.
 
 ## Operación
 

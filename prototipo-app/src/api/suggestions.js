@@ -7,7 +7,7 @@ const shown = new Set()
 /**
  * true la primera vez que se muestra esta sugerencia en la pestaña (concepto, vertical, origen y generación del
  * perfil): la misma clave con que AddButton cuenta su aceptación, para que las aceptadas nunca superen a las mostradas.
- * La vertical cuenta igual como código del backend ('licores', el de la sugerencia del chat) que como id del prototipo
+ * La vertical cuenta igual como código del backend ('licores', el de la sugerencia del agente) que como id del prototipo
  * ('liquor', el de sus productos).
  */
 export function firstShowing(row) {
@@ -19,9 +19,9 @@ export function firstShowing(row) {
 }
 
 /**
- * Registra la sugerencia de Mochi mostrada (`suggestion_shown`): una vez por pestaña, concepto, vertical, origen y
+ * Registra la sugerencia del agente mostrada (`suggestion_shown`): una vez por pestaña, concepto, vertical, origen y
  * generación del perfil (`generation` = `profile.resets`). `track` es `useEvents().track`; `origin` es
- * `mochi-<momento>`, `chat`, etc. Si no se dan `concept` o `vertical`, salen del primer producto. Devuelve si la
+ * `agent-<momento>`, `agent-ask`, etc. Si no se dan `concept` o `vertical`, salen del primer producto. Devuelve si la
  * registró (false si ya estaba contada o no hay concepto).
  */
 export function noteShown(track, products, { origin, concept, vertical, generation = 0 }) {

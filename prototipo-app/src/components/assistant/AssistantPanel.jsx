@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { AGENT_NAME } from '../../agent/name'
 import { storeOfProduct } from '../../api/catalog'
-import { chat, forget, profile as remoteProfile, recommendations, toMessage } from '../../api/client'
-import { offer } from '../../api/mochi'
+import { ask as askAgent, forget, profile as remoteProfile, recommendations, toMessage } from '../../api/client'
+import { offer } from '../../api/agent'
 import { firstShowing, noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
-import { askAbout } from '../../assistant/mochiAsk'
+import { askAbout } from '../../assistant/agentAsk'
 import { routeForScreen } from '../../data/verticals'
 import { PopularStores, RecentSearches, SearchResults } from '../search/SearchSections'
 import { useSearch } from '../search/useSearch'
@@ -15,7 +16,7 @@ import { useCart } from '../../state/CartContext'
 import { useDialog } from '../../hooks/useDialog'
 import { useProfile } from '../../state/ProfileContext'
 import BackButton from '../BackButton'
-import ChatMessage from './ChatMessage'
+import AgentMessage from './AgentMessage'
 import DiscoverSection from './DiscoverSection'
 import Mascot from './Mascot'
 import { SparkleIcon } from './SmartBar'
@@ -29,23 +30,22 @@ const FOR_YOU_WAIT_MS = 3000 // lo que el saludo espera «Para ti»; si tarda m�
 
 const DISCOVER_ROWS = 3
 
-const ASSISTANT_NAME = 'Mochi'
-const GREETING = `¡Hola! Soy ${ASSISTANT_NAME}, tu asistente Rappi 🧡 ¿Qué se te antoja hoy?`
+const GREETING = `¡Hola! Soy ${AGENT_NAME}, tu asistente Rappi 🧡 ¿Qué se te antoja hoy?`
 const OFFLINE = 'Sin conexión'
 const NOTHING_TO_PAIR = 'No se me ocurre nada para acompañar eso'
 const NOTHING_TO_TRY = 'No se me ocurre nada nuevo para probar'
-// Las ideas de siempre, como texto fijo: tocar una le pregunta eso a Mochi.
+// Las ideas de siempre, como texto fijo: tocar una le pregunta eso al agente.
 const CHIPS = ['🍔 ¿Qué almuerzo hoy?', '🍻 Arma un carrete', '🔥 Ofertas de hoy', '🍫 Algo dulce', '🎁 Un regalo']
 
 let nextId = 1
 
-/** Lo que sale de «Para ti» es una sugerencia de Mochi: agregarlo se cuenta como aceptada y no enseña afinidad. */
+/** Lo que sale de «Para ti» es una sugerencia del agente: agregarlo se cuenta como aceptada y no enseña afinidad. */
 const asForYou = (product) => ({ ...product, fromSuggestion: true, suggestionOrigin: 'para-ti' })
 
 /**
- * Buscador con Mochi: el buscador de siempre, con lo que Mochi sabe de la persona en bloques que se
- * tocan (sin chat escrito) y una invitación a descubrir otras verticales. Siempre montado (para no perder lo que
- * Mochi respondió); se muestra al abrirlo.
+ * Buscador con el agente: el buscador de siempre, con lo que el agente sabe de la persona en bloques que se
+ * tocan (sin escribir una pregunta) y una invitación a descubrir otras verticales. Siempre montado (para no perder lo que
+ * el agente respondió); se muestra al abrirlo.
  */
 export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const assistant = useAssistant()
@@ -61,7 +61,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const inputRef = useRef(null)
   const timers = useRef([])
   // Preguntas en fila: la siguiente sale cuando la respuesta anterior ya está en pantalla.
-  const chatQueue = useRef(Promise.resolve())
+  const askQueue = useRef(Promise.resolve())
   const lastTurn = useRef(null) // pedido anterior de la conversación (para los seguimientos)
   const profileGeneration = useRef(0) // sube al "Olvidar": un perfil remoto pedido antes ya no vale
   const [learnedRemote, setLearnedRemote] = useState(null)
@@ -106,7 +106,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     user_id: userId(),
     session_id: sessionId(),
     mode: demo.isFinal ? 'propuesta' : 'actual',
-    shown_topics: shownTopics(), // chat y «Para ti»: una sugerencia por tema en la sesión
+    shown_topics: shownTopics(), // preguntas y «Para ti»: una sugerencia por tema en la sesión
     ...extra,
   })
 
@@ -115,10 +115,10 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
    * pestaña (firstShowing): AddButton registra la mostrada que falte al aceptarla y no debe contarse dos veces.
    */
   const noteSuggestion = (message) => {
-    // Un servicio sin catálogo (RappiTravel, RappiFavor) ofrecido: cada vez que Mochi lo ofrece.
+    // Un servicio sin catálogo (RappiTravel, RappiFavor) ofrecido: cada vez que el agente lo ofrece.
     if (message.service) events.track('service_shown', { payload: { servicio: message.service } })
     if (!message.suggestion) return message
-    const { concept, vertical, origin = 'chat' } = message.suggestion
+    const { concept, vertical, origin = 'agent-ask' } = message.suggestion
     noteShownTopic(concept)
     if (firstShowing({ concept, vertical, origin, generation: profile.resets }))
       events.track('suggestion_shown', { concept_id: concept, vertical, payload: { origen: origin } })
@@ -133,7 +133,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
 
   /** Pone una respuesta en la fila: la siguiente sale cuando esta ya está en pantalla. */
   const ask = (run) => {
-    chatQueue.current = chatQueue.current.then(() => botSays(run()))
+    askQueue.current = askQueue.current.then(() => botSays(run()))
   }
 
   /**
@@ -155,7 +155,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
   /** Respuesta de la API; si no contesta, «Sin conexión» con «Reintentar» (no hay respuesta local). */
   const answer = async (text, askVertical) => {
     try {
-      const response = await chat({
+      const response = await askAgent({
         message: text,
         ...apiContext({ vertical: askVertical ?? vertical }),
         ...(lastTurn.current ? { previous: lastTurn.current } : {}),
@@ -175,13 +175,13 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     }
   }
 
-  /** Una oferta de Mochi para un momento (`carrito`, `vertical_por_probar`…); `nothing` es lo que dice si no tiene nada. */
+  /** Una oferta del agente para un momento (`carrito`, `vertical_por_probar`…); `nothing` es lo que dice si no tiene nada. */
   const offered = async (moment, context, nothing) => {
     try {
       const made = await offer(moment, context, { userId: userId() })
       if (!made) return { text: nothing }
       noteShown(events.track, made.products, {
-        origin: `mochi-${moment}`,
+        origin: `agent-${moment}`,
         concept: made.reason?.concept,
         generation: profile.resets,
       })
@@ -191,7 +191,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     }
   }
 
-  /** «¿Con qué acompaño…?»: la oferta de Mochi para ese producto (el momento `carrito`). */
+  /** «¿Con qué acompaño…?»: la oferta del agente para ese producto (el momento `carrito`). */
   const pairing = (product) =>
     offered(
       'carrito',
@@ -249,7 +249,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     remoteProfile(userId())
       .then((data) => fresh() && setLearnedRemote(data.interests.slice(0, 3)))
       .catch(() => fresh() && setLearnedRemote(null))
-    // Una sola petición sirve a «Para ti» y a «Descubre con Mochi».
+    // Una sola petición sirve a «Para ti» y a «Descubre con el agente».
     const rows = recommendations(userId())
       .then((data) => data.rows.filter((row) => row.products.length > 0))
       .catch(() => [])
@@ -281,7 +281,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     }, CLOSE_MS)
   }
 
-  // La pantalla que se abre desde Mochi se apila sobre su entrada del historial, que guarda la búsqueda: al volver,
+  // La pantalla que se abre desde el agente se apila sobre su entrada del historial, que guarda la búsqueda: al volver,
   // el panel se reabre con ella (AssistantContext).
   const leave = () => {
     if (window.history.state?.assistant)
@@ -347,7 +347,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     setDiscoverRows([])
     // Lo que ya salió (preguntas pendientes, un lote de eventos) podría recrear lo olvidado en el servidor: se
     // espera antes del DELETE, y lo que haya dejado en cola se descarta.
-    await Promise.allSettled([chatQueue.current])
+    await Promise.allSettled([askQueue.current])
     events.clear()
     clearShownTopics()
     await events.settled()
@@ -362,7 +362,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     }
   }
 
-  // Lo que Mochi muestra es su última respuesta (no un historial de chat), con lo que la persona eligió.
+  // Lo que el agente muestra es su última respuesta (no un historial), con lo que la persona eligió.
   const current = messages.findLast((m) => m.from === 'bot')
   const asked = messages.findLast((m) => m.from === 'user')
   const showAsked = asked && current && messages.indexOf(asked) < messages.indexOf(current)
@@ -377,19 +377,19 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
   return (
     <div
       ref={rootRef}
-      className={`assistant bigotes-search is-${phase}${cart.count > 0 ? ' has-cart' : ''}`}
+      className={`assistant agent-search is-${phase}${cart.count > 0 ? ' has-cart' : ''}`}
       style={style}
       role="dialog"
       aria-modal="true"
-      aria-label={`Buscador con ${ASSISTANT_NAME}`}
+      aria-label={`Buscador con ${AGENT_NAME}`}
     >
       <p className="sr-only" aria-live="polite" data-testid="assistant-announcer">
         {announcement}
       </p>
 
-      <header className="search-header bigotes-search-header">
+      <header className="search-header agent-search-header">
         <BackButton className="search-back" onClick={() => close()} />
-        <label className="search-field bigotes-search-field">
+        <label className="search-field agent-search-field">
           <SparkleIcon size={20} />
           <input
             ref={inputRef}
@@ -410,9 +410,9 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
         </label>
       </header>
 
-      <div className="bigotes-search-body">
+      <div className="agent-search-body">
         {search.hasQuery ? (
-          <div className="bigotes-block">
+          <div className="agent-block">
             <SearchResults
               query={search.query}
               data={search.data}
@@ -429,13 +429,13 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
           </div>
         ) : (
           <>
-            <section className="bigotes-card" aria-label={`Recomendaciones de ${ASSISTANT_NAME}`}>
-              <header className="bigotes-card-head">
-                <span className="bigotes-card-mascot">
+            <section className="agent-card" aria-label={`Recomendaciones de ${AGENT_NAME}`}>
+              <header className="agent-card-head">
+                <span className="agent-card-mascot">
                   <Mascot size={44} badge mood={mood} />
                 </span>
                 <span>
-                  <strong>{ASSISTANT_NAME}</strong>
+                  <strong>{AGENT_NAME}</strong>
                   <small>
                     <i className="assistant-online" /> Tu asistente Rappi
                   </small>
@@ -454,9 +454,9 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
                 </div>
               )}
 
-              {showAsked && <p className="bigotes-asked">Elegiste «{asked.text}»</p>}
+              {showAsked && <p className="agent-asked">Elegiste «{asked.text}»</p>}
               {current && (
-                <ChatMessage
+                <AgentMessage
                   key={current.id}
                   message={current}
                   onStreamDone={() => markStreamed(current.id)}
@@ -467,9 +467,9 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
                 />
               )}
 
-              <p className="bigotes-picks-label">Toca y te armo algo 👇</p>
+              <p className="agent-picks-label">Toca y te armo algo 👇</p>
               {/* Clave con prefijo: un número solo podría coincidir con la del mensaje de arriba (su id) y React lo duplicaría. */}
-              <div key={`chips-${chipRound}`} className="assistant-chips bigotes-picks">
+              <div key={`chips-${chipRound}`} className="assistant-chips agent-picks">
                 {CHIPS.map((chip, i) => (
                   <button
                     key={chip}
@@ -485,17 +485,17 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
               </div>
             </section>
 
-            <section className="bigotes-block">
+            <section className="agent-block">
               <RecentSearches onPick={search.pick} />
             </section>
 
             {discoverRows.length > 0 && (
-              <div className="bigotes-block">
+              <div className="agent-block">
                 <DiscoverSection rows={discoverRows} onOpen={(vertical) => go(...routeForScreen(vertical))} />
               </div>
             )}
 
-            <section className="bigotes-block">
+            <section className="agent-block">
               <PopularStores onOpen={openStore} />
             </section>
           </>

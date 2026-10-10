@@ -29,7 +29,7 @@ trap 'rc=$?; rm -f "$LOCK"; echo "$(date "+%F %T") exit=$rc${nota:+ ($nota)}" >>
 trap 'rm -f "$LOCK"; exit 130' INT
 trap 'rm -f "$LOCK"; exit 143' TERM
 trap 'rm -f "$LOCK"; exit 129' HUP
-if pgrep -f "rappi(_scraper)? (refresh|discover|scrape-)|post-refresh|embed-images" >/dev/null; then  # lanzada a mano
+if pgrep -f "rappi(_scraper)? (refresh|discover|scrape-)|post-refresh" >/dev/null; then  # lanzada a mano
   echo "$(date '+%F %T') hay una descarga o una actualización de rappi-ia en curso; se omite"
   nota="omitida: había una descarga o una actualización en curso"
   exit 0

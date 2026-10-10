@@ -4,12 +4,12 @@
 
 > Proyecto independiente: no está afiliado a Rappi ni cuenta con su respaldo. Las marcas pertenecen a sus dueños. La etiqueta «Rappi Chile · propuesta» del encabezado es parte de la maqueta.
 
-Panel de demostración que muestra cómo la conducta de compra y lo que la gente pide en búsquedas y chat se pueden convertir en **decisiones para subir la frecuencia y bajar el abandono**:
+Panel de demostración que muestra cómo la conducta de compra y lo que la gente pide en búsquedas y preguntas al agente se pueden convertir en **decisiones para subir la frecuencia y bajar el abandono**:
 
 - tendencias de interés por concepto;
 - demanda no satisfecha como oportunidad de negocio (en la simulación, el generador inventa una demanda creciente de «comida peruana» para mostrar cómo se ve una oportunidad; no describe la oferta real de Rappi);
 - usuarios en riesgo según su propio ritmo de compra;
-- rendimiento de las sugerencias cruzadas de Bigotes entre verticales;
+- rendimiento de las sugerencias cruzadas del agente entre verticales;
 - salud real del catálogo.
 
 Las definiciones de cada métrica y la redacción vienen de [docs/diseno-ia.md §5](../docs/diseno-ia.md#5-panel-para-la-empresa-vale-la-pena). Los datos salen de la API de [`rappi-ia`](../rappi-ia/).
@@ -23,7 +23,7 @@ El panel lo dice siempre:
 
 Las fuentes nunca se mezclan: cada respuesta se valida contra la fuente pedida.
 
-La carpeta trae además una página de presentación de la propuesta (`presentacion.html`, en la misma raíz de Vite): problema, propuesta, la red que el catálogo ya comparte entre verticales (`public/presentacion/mapa-multivertical.html`, que se regenera con `rappi-ia multivertical`), arquitectura y resultados, pensada para abrirla antes del panel. Con el servidor de desarrollo arriba está en `http://localhost:5175/presentacion.html`.
+La carpeta trae además una página de presentación de la propuesta (`presentacion.html`, en la misma raíz de Vite): problema, propuesta, la red que el catálogo ya comparte entre verticales (`public/presentacion/mapa-multivertical.html`, copia de `docs/mapas/` tras correr `rappi-ia multivertical`), arquitectura y resultados, pensada para abrirla antes del panel. Con el servidor de desarrollo arriba está en `http://localhost:5175/presentacion.html`.
 
 ## Cómo correrlo
 
@@ -92,7 +92,7 @@ Todo el panel se lee como un informe: cada sección abre con su titular numéric
 
 ### 2. Oportunidades
 
-**Demanda no satisfecha**, ordenada por usuarios. Cada fila trae qué se pide, en qué vertical, cuántos usuarios y búsquedas, el crecimiento, dónde existe y la acción sugerida. El titular suma **búsquedas**, no usuarios: una misma persona aparece en varias filas. El crecimiento dice «nueva» si la demanda solo aparece en las últimas 4 semanas, y «sin actividad en 4 semanas» si ya no se busca. En la simulación, «comida peruana» aparece arriba porque el generador la plantó como antojo creciente. «Dónde existe» usa la misma regla que Bigotes para ofrecer un concepto en otra vertical (al menos 20 productos, y restaurantes solo para lo que se pide hecho). Por eso los 3 productos «peruanos» de Farmacia y Súper, un laxante mal etiquetado, no cuentan, y la acción sugerida es sumar comercios. En la operación real, cada fila sería una señal que hay que validar antes de actuar.
+**Demanda no satisfecha**, ordenada por usuarios. Cada fila trae qué se pide, en qué vertical, cuántos usuarios y búsquedas, el crecimiento, dónde existe y la acción sugerida. El titular suma **búsquedas**, no usuarios: una misma persona aparece en varias filas. El crecimiento dice «nueva» si la demanda solo aparece en las últimas 4 semanas, y «sin actividad en 4 semanas» si ya no se busca. En la simulación, «comida peruana» aparece arriba porque el generador la plantó como antojo creciente. «Dónde existe» usa la misma regla que el agente para ofrecer un concepto en otra vertical (al menos 20 productos, y restaurantes solo para lo que se pide hecho). Por eso los 3 productos «peruanos» de Farmacia y Súper, un laxante mal etiquetado, no cuentan, y la acción sugerida es sumar comercios. En la operación real, cada fila sería una señal que hay que validar antes de actuar.
 
 **Conceptos que suben y bajan**: las últimas 4 semanas contra las 4 anteriores. Se marcan los que suben pero no tienen oferta.
 
@@ -113,11 +113,11 @@ Todo el panel se lee como un informe: cada sección abre con su titular numéric
 
 ### 4. Entre verticales
 
-- **Sugerencias de Bigotes**: cuántas se mostraron, aceptaron y convirtieron.
+- **Sugerencias del agente**: cuántas se mostraron, aceptaron y convirtieron.
 - **Afinidad dirigida A → B**: confianza P(B | A), lift y usuarios. Las aristas aprendidas de datos simulados **no las usa el agente**.
 - **Retención multi-vertical vs un vertical por estrato**, con el mismo número de compras en cada comparación (una compra es un carro: dividido en dos verticales son dos pedidos). Descarta la explicación más evidente (quien pide más también usa más verticales), pero no mide causa: eso solo lo da un A/B con grupo de control (holdout). En la simulación la diferencia existe por construcción (ver el aviso de arriba).
 
-![Entre verticales: sugerencias de Bigotes, afinidad y retención](docs/screenshots/4-verticales-escritorio-claro.jpg)
+![Entre verticales: sugerencias del agente, afinidad y retención](docs/screenshots/4-verticales-escritorio-claro.jpg)
 
 *Datos simulados: muestran la mecánica, no evidencia.*
 

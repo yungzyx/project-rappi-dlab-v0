@@ -14,8 +14,8 @@
   --orange-bolt: #f39a2b;
 
   /* Acento de la propuesta (Mochi, foco de teclado, seguimiento): más claro que el rojo de marca muestreado */
-  --bigotes-orange: #f0532b;
-  --bigotes-gradient: linear-gradient(135deg, #ff7a45, var(--bigotes-orange));
+  --agent-orange: #f0532b;
+  --agent-gradient: linear-gradient(135deg, #ff7a45, var(--agent-orange));
   --accent-soft: #fff1e8; /* chips naranja claros */
   --accent-ink: #b8300d; /* 5,5:1 sobre --accent-soft */
   --accent-text: #b3461f;
@@ -46,9 +46,9 @@
   --z-header: 20; /* encabezados pegados y compacto de la Home */
   --z-back-to-top: 21;
   --z-header-tabs: 22;
-  --z-live-bigotes: 25; /* sobre la Home, bajo la barra inferior y el carrito */
+  --z-live-agent: 25; /* sobre la Home, bajo la barra inferior y el carrito */
   --z-nav: 30;
-  --z-mochi: 37; /* Mochi flotante: sobre el carrito, bajo el buscador */
+  --z-agent: 37; /* Mochi flotante: sobre el carrito, bajo el buscador */
   --z-panel: 38; /* buscador con Mochi */
   --z-cart: 39; /* sobre el panel: el carrito se ve y se abre desde ahí */
   --z-status: 40;

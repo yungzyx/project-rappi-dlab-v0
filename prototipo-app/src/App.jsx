@@ -4,7 +4,7 @@ import AssistantPanel from './components/assistant/AssistantPanel'
 import CartBar from './components/CartBar'
 import DemoToggle from './components/DemoToggle'
 import ErrorBoundary from './components/ErrorBoundary'
-import MochiPresence from './components/assistant/MochiPresence'
+import AgentPresence from './components/assistant/AgentPresence'
 import ProductSheet from './components/ProductSheet'
 import StatusBar from './components/StatusBar'
 import { ToastProvider } from './components/Toast'
@@ -49,7 +49,7 @@ const SCREENS_WITHOUT_CART = new Set(['checkout', 'tracking', 'game'])
 // Pantallas con barra inferior: ahí la barra del carrito flota más arriba.
 const SCREENS_WITH_NAV = new Set(['home', 'turbo'])
 
-// Vertical de la pantalla actual (ids del prototipo): Mochi busca ahí primero. Turbo va con su código del
+// Vertical de la pantalla actual (ids del prototipo): el agente busca ahí primero. Turbo va con su código del
 // backend: el 'express' del prototipo es conveniencia para la API.
 export const screenVertical = (screen) =>
   screen.name === 'vertical' ? screen.params?.id : { restaurants: 'restaurants', turbo: 'turbo' }[screen.name]
@@ -126,7 +126,7 @@ export default function App() {
                               {!SCREENS_WITHOUT_CART.has(current.name) && (
                                 <CartBar raised={SCREENS_WITH_NAV.has(current.name)} push={push} />
                               )}
-                              <MochiPresence
+                              <AgentPresence
                                 screen={current.name}
                                 homeTab={homeTab}
                                 push={push}

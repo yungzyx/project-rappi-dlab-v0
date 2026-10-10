@@ -20,7 +20,7 @@ const contrast = (a, b) => {
 
 describe('contraste', () => {
   test('la etiqueta "De otra tienda" (11 px) cumple AA: 4,5:1 sobre su fondo', () => {
-    const rule = css.match(/\.chat-suggestion-tag \{([^}]*)\}/)[1]
+    const rule = css.match(/\.agent-msg-suggestion-tag \{([^}]*)\}/)[1]
     // Valor final de la propiedad: un hex directo o el token de tokens.css.
     const value = (property) => {
       const raw = rule.match(new RegExp(`\\s${property}:\\s*([^;]+)`, 'i'))[1]

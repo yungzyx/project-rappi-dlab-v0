@@ -1,4 +1,4 @@
-"""API contra `rappi_ia_test`, con el modelo falso de embeddings y sin modelos de voz ni foto."""
+"""API contra `rappi_ia_test`, con el modelo falso de embeddings."""
 
 import json
 import math
@@ -8,13 +8,14 @@ from fastapi.testclient import TestClient
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_price, add_product, add_store
-from rappi_ia.agent.bigotes import Bigotes
 from rappi_ia.agent.compose import TemplateComposer
+from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
 from rappi_ia.api.services import Services
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
+from rappi_ia.events import store as events_store
 
 
 @pytest.fixture
@@ -41,7 +42,9 @@ def client(db):
         yield db
 
     api.app.dependency_overrides[api.get_conn] = conn_override
-    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
     yield TestClient(api.app)
     api.app.dependency_overrides.clear()
 
@@ -50,12 +53,16 @@ def test_health_reports_capabilities(client):
     body = client.get("/health").json()
     assert body["ok"] and body["documentos"] > 0
     assert body["capacidades"]["busqueda_semantica"] == "hash-test"
-    assert body["capacidades"]["voz"] is False
 
 
-def test_chat_accepts_prototype_vertical_and_logs_redacted_query(client, db):
+def test_health_lists_no_voice_or_photo_capability(client):
+    capabilities = client.get("/health").json()["capacidades"]
+    assert set(capabilities) == {"busqueda_semantica", "redaccion", "faltantes"}
+
+
+def test_ask_accepts_prototype_vertical_and_logs_redacted_query(client, db):
     body = client.post(
-        "/chat",
+        "/agent/ask",
         json={
             "message": "cerveza, llámame al +56 9 1234 5678",
             "vertical": "liquor",
@@ -68,19 +75,52 @@ def test_chat_accepts_prototype_vertical_and_logs_redacted_query(client, db):
     assert {p["concept"] for p in body["products"]} == {"cerveza"}
     assert body["suggestion"]["vertical"] == "supermercado"
     query, concept, source = db.execute(
-        "SELECT query, concept_id, source FROM app_events WHERE type = 'chat'"
+        "SELECT query, concept_id, source FROM app_events WHERE type = 'ask'"
     ).fetchone()
     assert "[teléfono]" in query and "5678" not in query
     assert (concept, source) == ("cerveza", "prototype")
 
 
+def test_ask_endpoint_answers_like_chat_did(client, db):
+    body = client.post(
+        "/agent/ask", json={"message": "hola", "vertical": "liquor", "user_id": "u-ask", "session_id": "s-ask"}
+    )
+    assert body.status_code == 200
+    reply = body.json()
+    assert reply["intent"]["kind"] == "saludo" and "Soy Mochi" in reply["text"]
+    assert db.execute("SELECT type FROM app_events WHERE user_id = 'u-ask'").fetchall() == [("ask",)]
+
+
+def test_old_chat_route_is_a_clean_404(client):
+    """Una pestaña abierta antes del cambio sigue mandando a /chat: no es un 500."""
+    for path in ("/chat", "/mochi/offer", "/mochi/plans"):
+        response = client.post(path, json={"message": "cerveza", "moment": "plan", "context": {}})
+        assert response.status_code == 404, path
+    assert client.get("/mochi/plans").status_code == 404
+
+
+def test_old_chat_events_are_still_accepted_and_counted(client, db):
+    """Un lote con el tipo viejo (`chat`) y el nuevo (`ask`) se guarda entero y las métricas cuentan los dos."""
+    batch = [
+        {"type": "chat", "session_id": "s-old", "query": "cerveza", "vertical": "licores", "unmet": True, "results": 0},
+        {"type": "ask", "session_id": "s-old", "query": "vino", "vertical": "licores", "unmet": True, "results": 0},
+        {"type": "search", "session_id": "s-old", "query": "pisco", "vertical": "licores", "unmet": False},
+    ]
+    assert client.post("/events", json={"user_id": "u-old", "events": batch}).json() == {"guardados": 3}
+    saved = db.execute("SELECT type FROM app_events WHERE user_id = 'u-old' ORDER BY event_id").fetchall()
+    assert saved == [("chat",), ("ask",), ("search",)]
+    kpis = client.get("/analytics/kpis", params={"source": "prototype"}).json()["data"]
+    assert kpis["busquedas_sin_resultado_pct"] == round(100 * 2 / 3, 1)
+    assert events_store.WEIGHTS["chat"] == events_store.WEIGHTS["ask"]  # y el perfil los pesa igual
+
+
 def test_rappi_hoy_mode_has_no_suggestion_and_does_not_learn(client, db):
     body = client.post(
-        "/chat",
+        "/agent/ask",
         json={"message": "cerveza", "vertical": "liquor", "user_id": "u1", "session_id": "s1", "mode": "actual"},
     ).json()
     assert "suggestion" not in body
-    assert db.execute("SELECT concept_id FROM app_events WHERE type = 'chat'").fetchone()[0] is None
+    assert db.execute("SELECT concept_id FROM app_events WHERE type = 'ask'").fetchone()[0] is None
 
 
 def test_events_orders_profile_recommendations_and_forget(client, db):
@@ -132,7 +172,9 @@ def test_screen_vertical_without_documents_does_not_turn_everything_into_unmet_d
     """Turbo tiene tiendas pero aún no documentos: antes cada pregunta en esa pantalla era "no está" y demanda."""
     add_store(db, 9, "turbo", "Turbo")
     db.commit()
-    r = client.post("/chat", json={"message": "quiero cerveza", "vertical": "turbo", "user_id": "u", "session_id": "s"})
+    r = client.post(
+        "/agent/ask", json={"message": "quiero cerveza", "vertical": "turbo", "user_id": "u", "session_id": "s"}
+    )
     body = r.json()
     assert body["vertical"] == "licores" and body["products"] and not body["unmet"]  # sin conveniencia: lo deduce
 
@@ -185,162 +227,32 @@ def test_search_and_analytics(client):
     assert "cobertura" in client.get("/analytics/catalog").json()["data"]
 
 
-def test_voice_and_photo_need_their_models(client):
-    assert client.post("/chat/voice", files={"audio": ("a.wav", b"123", "audio/wav")}).status_code == 503
-    assert client.post("/chat/photo", files={"image": ("a.jpg", b"123", "image/jpeg")}).status_code == 503
+def test_voice_and_photo_routes_are_gone(client):
+    assert client.post("/chat/voice", files={"audio": ("a.wav", b"123", "audio/wav")}).status_code == 404
+    assert client.post("/chat/photo", files={"image": ("a.jpg", b"123", "image/jpeg")}).status_code == 404
 
 
-def test_unknown_vertical_and_nul_bytes_do_not_break_chat(client):
+def test_events_accept_only_text_modality(client, db):
+    def event(modality):
+        return {"type": "search", "session_id": "s", "query": "cerveza", "modality": modality}
+
+    for modality in ("voz", "foto"):
+        assert client.post("/events", json={"user_id": "u-mod", "events": [event(modality)]}).status_code == 422
+    assert client.post("/events", json={"user_id": "u-mod", "events": [event("texto")]}).json() == {"guardados": 1}
+    saved = db.execute("SELECT modality FROM app_events WHERE user_id = 'u-mod'").fetchall()
+    assert saved == [("texto",)]
+
+
+def test_unknown_vertical_and_nul_bytes_do_not_break_ask(client):
     for vertical in ("pet", "xyz"):
-        r = client.post("/chat", json={"message": "cerveza", "vertical": vertical})
+        r = client.post("/agent/ask", json={"message": "cerveza", "vertical": vertical})
         assert r.status_code == 200, vertical
-    assert client.post("/chat", json={"message": "cerve\u0000za", "vertical": "liquor"}).status_code == 200
+    assert client.post("/agent/ask", json={"message": "cerve\u0000za", "vertical": "liquor"}).status_code == 200
     bad = {
         "user_id": "u9",
         "events": [{"type": "search", "session_id": "s", "query": "a\u0000b", "payload": {"k": "\u0000"}}],
     }
     assert client.post("/events", json=bad).status_code == 200
-
-
-def test_uploads_reject_dangerous_or_huge_files():
-    import io
-
-    import pytest
-    from fastapi import HTTPException
-    from PIL import Image
-
-    with pytest.raises(HTTPException) as eps:
-        api._open_image(b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n")
-    assert eps.value.status_code == 400
-    huge = io.BytesIO()
-    Image.new("1", (9000, 9000)).save(huge, format="PNG")  # pocos KB en disco, 81 MP en memoria
-    with pytest.raises(HTTPException):
-        api._open_image(huge.getvalue())
-    over = io.BytesIO()  # 49 MP: sobre el tope de 40, bajo el doble (donde Pillow recién corta)
-    Image.new("1", (7000, 7000)).save(over, format="PNG")
-    with pytest.raises(HTTPException) as too_big:
-        api._open_image(over.getvalue())
-    assert too_big.value.status_code == 400
-    ok = io.BytesIO()
-    Image.new("RGB", (800, 600), "red").save(ok, format="JPEG")
-    assert api._open_image(ok.getvalue()).size[0] <= 336
-
-
-def test_long_audio_is_rejected_before_whisper():
-    import io
-    import wave
-
-    import pytest
-    from fastapi import HTTPException
-
-    pytest.importorskip("av")  # viene con el extra audio (faster-whisper); sin él /chat/voice responde 503 antes
-    long_audio = io.BytesIO()
-    with wave.open(long_audio, "wb") as w:
-        w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000)
-        w.writeframes(b"\x00\x00" * 8000 * 25)  # 25 s de silencio
-    with pytest.raises(HTTPException) as too_long:
-        api._check_audio_length(long_audio.getvalue())
-    assert too_long.value.status_code == 413
-
-
-def _streamed_webm(seconds: float) -> bytes:
-    """Opus en WebM escrito sin retroceder, como MediaRecorder: la cabecera no trae la duración."""
-    import io
-
-    av = pytest.importorskip("av")
-    import numpy as np
-
-    class Stream(io.RawIOBase):
-        def __init__(self):
-            self.data = bytearray()
-
-        def writable(self):
-            return True
-
-        def seekable(self):
-            return False
-
-        def write(self, chunk):
-            self.data += chunk
-            return len(chunk)
-
-    out, frame = Stream(), 960
-    with av.open(out, "w", format="webm") as container:
-        stream = container.add_stream("libopus", rate=48000)
-        stream.layout = "mono"
-        for i in range(int(seconds * 48000 / frame)):
-            silence = av.AudioFrame.from_ndarray(np.zeros((1, frame), dtype=np.int16), format="s16", layout="mono")
-            silence.sample_rate, silence.pts = 48000, i * frame
-            for packet in stream.encode(silence):
-                container.mux(packet)
-        for packet in stream.encode():
-            container.mux(packet)
-    return bytes(out.data)
-
-
-def test_long_webm_without_duration_is_rejected_before_whisper():
-    from fastapi import HTTPException
-
-    with pytest.raises(HTTPException) as too_long:
-        api._check_audio_length(_streamed_webm(25))
-    assert too_long.value.status_code == 413
-    api._check_audio_length(_streamed_webm(5))  # una frase normal pasa
-
-
-def test_voice_only_accepts_audio_types(client):
-    class Transcriber:
-        def transcribe(self, audio):
-            raise AssertionError("no debería llegar a Whisper")
-
-    embedder = HashEmbedder()
-    services = Services(Bigotes(embedder, TemplateComposer()), embedder, transcriber=Transcriber())
-    api.app.dependency_overrides[api.get_services] = lambda: services
-    response = client.post("/chat/voice", files={"audio": ("a.bin", b"123", "application/octet-stream")})
-    assert response.status_code == 415
-
-
-def test_voice_and_photo_respect_topics_already_shown(client):
-    """Texto → voz o foto en la misma sesión: la sugerencia de snacks no se repite (regla 3 de diseno-ia.md §4)."""
-    import io
-    import wave
-
-    import numpy as np
-    from PIL import Image
-
-    from rappi_ia.agent.audio import Transcript
-    from rappi_ia.agent.photo import PhotoReading
-
-    pytest.importorskip("av")
-
-    class Transcriber:
-        def transcribe(self, audio):
-            return Transcript("cerveza", 0.9, False, False)
-
-    class PhotoReader:
-        def read(self, picture):
-            return PhotoReading("cerveza", 0.9, None, np.zeros(512, dtype=np.float32))
-
-    embedder = HashEmbedder()
-    services = Services(
-        Bigotes(embedder, TemplateComposer()), embedder, PhotoReader(), "clip-test", transcriber=Transcriber()
-    )
-    api.app.dependency_overrides[api.get_services] = lambda: services
-    speech = io.BytesIO()
-    with wave.open(speech, "wb") as w:
-        w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000)
-        w.writeframes(b"\x00\x00" * 8000)
-    photo = io.BytesIO()
-    Image.new("RGB", (64, 64), "yellow").save(photo, format="JPEG")
-    uploads = {
-        "/chat/voice": {"audio": ("voz.wav", speech.getvalue(), "audio/wav")},
-        "/chat/photo": {"image": ("foto.jpg", photo.getvalue(), "image/jpeg")},
-    }
-
-    for path, files in uploads.items():
-        first = client.post(path, files=files, data={"vertical": "liquor"}).json()
-        again = client.post(path, files=files, data={"vertical": "liquor", "shown_topics": "snacks-salados"}).json()
-        assert first["suggestion"]["vertical"] == "supermercado", path
-        assert "suggestion" not in again, path
 
 
 def test_beacon_rejects_huge_or_broken_bodies(client):
@@ -395,7 +307,7 @@ def test_the_beacon_only_accepts_the_apps_origin(client, db):
     )  # curl en la red de confianza
 
 
-def test_events_and_chat_have_size_limits(client):
+def test_events_and_ask_have_size_limits(client):
     big = "x" * 1000
     for event in (
         {"type": "app_open", "session_id": "s", "concept_id": big},
@@ -405,7 +317,7 @@ def test_events_and_chat_have_size_limits(client):
     ):
         assert client.post("/events", json={"user_id": "u-big", "events": [event]}).status_code == 422
     huge_profile = {f"c{i}": 1.0 for i in range(500)}
-    assert client.post("/chat", json={"message": "cerveza", "profile": huge_profile}).status_code == 422
+    assert client.post("/agent/ask", json={"message": "cerveza", "profile": huge_profile}).status_code == 422
 
 
 def test_sensitive_suggestions_never_show_in_the_panel(client, db):
@@ -582,10 +494,15 @@ CASES = [
         },
         None,
     ),
-    ("chat con log surrogate", "/chat", None, b'{"message":"cerveza \\ud83d","user_id":"revision-u","session_id":"s"}'),
     (
-        "chat con log 500",
-        "/chat",
+        "ask con log surrogate",
+        "/agent/ask",
+        None,
+        b'{"message":"cerveza \\ud83d","user_id":"revision-u","session_id":"s"}',
+    ),
+    (
+        "ask con log 500",
+        "/agent/ask",
         {"message": "cerveza " + "9" * 492, "user_id": "revision-u", "session_id": "s"},
         None,
     ),
@@ -607,10 +524,10 @@ def test_odd_query_params_never_return_500(client, path):
     assert client.get(path).status_code < 500
 
 
-def test_demo_chat_suggestion_order_reaches_the_panel(client):
+def test_demo_ask_suggestion_order_reaches_the_panel(client):
     """El camino de la demo: Bigotes sugiere algo de otra vertical, se acepta, se pide y el panel lo cuenta."""
     chat = client.post(
-        "/chat", json={"message": "cerveza", "vertical": "liquor", "user_id": "u1", "session_id": "s1"}
+        "/agent/ask", json={"message": "cerveza", "vertical": "liquor", "user_id": "u1", "session_id": "s1"}
     ).json()
     sug = chat["suggestion"]
     assert sug["vertical"] == "supermercado" and sug["prototype_vertical"] == "grocery"
@@ -681,9 +598,9 @@ def test_demo_chat_suggestion_order_reaches_the_panel(client):
     assert panel("kpis")["pedidos_30d"] == 2
 
 
-def test_chat_follows_up_on_the_previous_turn(client):
-    first = client.post("/chat", json={"message": "cerveza", "vertical": "liquor"}).json()
+def test_ask_follows_up_on_the_previous_turn(client):
+    first = client.post("/agent/ask", json={"message": "cerveza", "vertical": "liquor"}).json()
     previous = {"query": first["intent"]["query"], "concepts": first["intent"]["concepts"], "vertical": "liquor"}
-    follow = client.post("/chat", json={"message": "más barata", "previous": previous}).json()
+    follow = client.post("/agent/ask", json={"message": "más barata", "previous": previous}).json()
     assert follow["intent"]["follow_up"] and follow["vertical"] == "licores"
     assert {p["concept"] for p in follow["products"]} == {"cerveza"}

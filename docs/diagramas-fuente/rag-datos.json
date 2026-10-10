@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "dataflow",
   "meta": {
-    "title": "RAG de Rappi: de rappi.cl a Bigotes y el prototipo",
+    "title": "RAG de Rappi: de rappi.cl a Mochi y el prototipo",
     "quality_profile": "showcase",
     "views": [
       {
@@ -37,7 +37,7 @@
           "conceptos",
           "eval",
           "retrieve",
-          "bigotes"
+          "agente"
         ],
         "note": "Léxico + vectorial dentro del vertical, fusión RRF, refuerzo por concepto y regla de sin resultado con τ."
       },
@@ -45,19 +45,19 @@
         "id": "apps",
         "label": "4. API y prototipo",
         "focus": [
-          "bigotes",
+          "agente",
           "api",
           "apps",
           "eventos"
         ],
-        "note": "La API expone chat, voz, foto y analítica; el prototipo y el panel la consumen y registran eventos."
+        "note": "La API expone el agente, sus ofertas y la analítica; el prototipo y el panel la consumen y registran eventos."
       },
       {
         "id": "cruce",
         "label": "5. Entre verticales",
         "focus": [
           "conceptos",
-          "bigotes",
+          "agente",
           "eventos",
           "retrieve"
         ],
@@ -185,9 +185,9 @@
       "tag": "concepto · τ"
     },
     {
-      "id": "bigotes",
+      "id": "agente",
       "type": "backend",
-      "label": "Agente Bigotes",
+      "label": "Agente Mochi",
       "sublabel": "busca y responde",
       "stage": 3,
       "row": 0,
@@ -197,7 +197,7 @@
       "id": "api",
       "type": "cloud",
       "label": "API :8000",
-      "sublabel": "chat · voz · foto",
+      "sublabel": "agent · analytics",
       "stage": 4,
       "row": 0,
       "tag": "make serve"
@@ -287,7 +287,7 @@
     {
       "id": "complementos",
       "from": "conceptos",
-      "to": "bigotes",
+      "to": "agente",
       "label": "complementos",
       "route": "straight",
       "fromSide": "right",
@@ -296,7 +296,7 @@
     {
       "id": "hits",
       "from": "retrieve",
-      "to": "bigotes",
+      "to": "agente",
       "label": "resultados",
       "variant": "emphasis",
       "route": "straight",
@@ -309,7 +309,7 @@
     },
     {
       "id": "respuesta",
-      "from": "bigotes",
+      "from": "agente",
       "to": "api",
       "label": "respuesta",
       "variant": "emphasis",
@@ -321,7 +321,7 @@
       "id": "json",
       "from": "api",
       "to": "apps",
-      "label": "chat y métricas",
+      "label": "preguntas y ofertas",
       "route": "straight",
       "fromSide": "bottom",
       "toSide": "top",
@@ -361,7 +361,7 @@
       "items": [
         "Siempre dentro de un vertical: léxico por IDF y vectorial e5",
         "RRF y refuerzo por concepto; sin resultado si nada calza y el coseno queda bajo τ",
-        "Bigotes arma la respuesta con plantillas o, con clave, con Claude"
+        "El agente arma la respuesta con plantillas o, con clave, con Claude"
       ]
     },
     {
@@ -370,7 +370,7 @@
       "items": [
         "Catálogo = muestra pública: hasta 24 productos por sub-pasillo",
         "Usuarios y eventos: simulados",
-        "Claude es opcional: sin clave, Bigotes responde con plantillas"
+        "Claude es opcional: sin clave, el agente responde con plantillas"
       ]
     }
   ]

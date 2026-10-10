@@ -29,13 +29,12 @@ Versión interactiva: [diagramas/rag-datos.html](diagramas/rag-datos.html) (desc
 ```text
 OFFLINE (después de cada refresh)
 catálogo (capa 1) ─┬─► documentos de búsqueda por vertical ─► embeddings de texto (e5, caché por content_hash) ─► HNSW por partición
-                   ├─► imágenes de productos y platos ─► embeddings CLIP ─► image_embeddings
                    └─► mapeo a conceptos (categoría → reglas → embeddings) ─► item_concepts + aristas
 
 ONLINE (cada consulta)
-texto / voz→texto / foto ─► entender (intención, vertical, conceptos, filtros)
+texto ─► entender (intención, vertical, conceptos, filtros)
    ─► recuperar en el vertical, con filtros duros dentro de cada lista:
-      léxico (tsvector) + vectorial (coseno) [+ imagen] ─► fusión RRF ─► refuerzo por concepto
+      léxico (tsvector) + vectorial (coseno) ─► fusión RRF ─► refuerzo por concepto
    ─► precios y stock actuales por SQL (nunca desde el embedding)
    ─► componer (plantilla o LLM, en JSON) ─► verificar ─► responder + registrar evento
 ```
@@ -94,7 +93,6 @@ Decisiones:
 | Marca de producto entre verticales | `trademark` normalizado | Media: solo una minoría de los productos trae marca (datos parciales) | Análisis de surtido |
 | Usuario ↔ concepto | Eventos → perfil con decaimiento | Hoy simulada | Recomendaciones y panel |
 | Consulta ↔ concepto ↔ vertical | Entendimiento de la consulta | Probabilística | Tendencias y demanda no satisfecha |
-| Foto ↔ producto | Espacio CLIP (imagen ↔ imagen, texto ↔ imagen) | Aproximada | Buscar por foto |
 
 ### No se relacionan (o no se deben mezclar)
 
@@ -102,47 +100,37 @@ Decisiones:
 - **Plato y producto por id:** no comparten llave; solo el concepto.
 - **Cadenas entre verticales.** `brands` no identifica cadenas: cubre una minoría de las tiendas (datos parciales), casi siempre con una tienda por marca, y no incluye Lider ni Unimarc. Por nombre, cadenas como Unimarc, Cruz Verde u OXXO sí aparecen en 2 o 3 verticales. El nombre normalizado sirve para analizar surtido, pero no como puente de recomendación: ese puente es el concepto.
 - **"No está en el catálogo" ≠ "Rappi no lo vende":** la muestra pública trae hasta 24 productos por sub-pasillo. La demanda no satisfecha es una **señal que hay que validar**, no una prueba.
-- **Vectores de modelos distintos:** e5 y CLIP viven en espacios distintos. Nunca se comparan entre sí; se fusionan por ranking (RRF), no por puntaje.
+- **Vectores de modelos distintos:** si algún día se suma otro modelo, vivirá en otro espacio. Nunca se comparan entre sí; se fusionan por ranking (RRF), no por puntaje.
 - **Datos simulados con datos reales:** cada usuario, evento y pedido lleva `source` (`synthetic` o `prototype`). El panel los muestra marcados y nunca los suma con métricas reales.
 
 ### Privacidad
 
-- **Audio y fotos del usuario:** no se guardan. Solo queda el texto transcrito o los conceptos detectados.
 - **Consultas guardadas:** se guardan con los datos personales redactados (RUT, teléfono, correo, dirección) y se retienen 90 días. Después solo quedan agregados por concepto.
 - **"Olvidar":** borra o anonimiza los eventos de ese concepto (o de todo el usuario), no solo el perfil.
 - **Avisos:** "avisar cuando llegue" y los mensajes de reactivación requieren consentimiento explícito.
 - **En el panel:** los usuarios aparecen con un id seudónimo. Las listas a nivel de usuario nunca incluyen conceptos sensibles.
 
-## 3. Lógica de embeddings multimodal
+## 3. Lógica de embeddings
 
 | Entrada | Qué se hace | Modelo (local, sin costo por uso) | Dónde queda |
 |---|---|---|---|
 | **Texto** (catálogo y consultas) | Embedding con prefijos `passage:` (documentos) y `query:` (consultas y etiquetas de conceptos) | `intfloat/multilingual-e5-base` (768 dimensiones, máx. 512 tokens) | Caché `text_embeddings` → `search_documents.embedding`, con un HNSW por partición |
-| **Imagen del catálogo y de los platos** | Embedding de la foto del producto o plato | `sentence-transformers/clip-ViT-B-32`, pesos de OpenAI (512 dimensiones) | `image_embeddings` (solo el vector; la imagen no se guarda) |
-| **Foto del usuario** | 1. Conceptos por clasificación *zero-shot* contra "una foto de {concepto}", con una clase "otro". Un concepto solo cuenta con probabilidad ≥ 0,5 y un margen ≥ 0,2 sobre el segundo. 2. Productos visualmente parecidos en el vertical | CLIP (imagen) + `sentence-transformers/clip-ViT-B-32-multilingual-v1` (texto en español al mismo espacio; solo está alineado con los pesos de OpenAI; máx. 128 tokens) | No se guarda. Se registran los conceptos detectados, nunca los sensibles |
-| **Voz** | **No se embebe el audio.** Voz → texto → mismo camino que el texto | Whisper vía `faster-whisper`: modelo `small`, `int8` en CPU, `language='es'`, `vad_filter=True`, `condition_on_previous_text=False` | Se guarda el texto (redactado) y la modalidad `voz` en el evento |
-
-**Control de calidad de la voz:**
-- Se descarta el audio si `no_speech_prob` > 0,6 o si el texto está en una lista de alucinaciones conocidas de Whisper (p. ej. "Subtítulos realizados por la comunidad de Amara.org").
-- Confianza = `exp(avg_logprob)`. Si es < 0,5 o si `compression_ratio` > 2,4, Mochi pregunta "¿Dijiste…?".
 
 **Cómo se combinan:**
-- Toda entrada termina en (vertical, conceptos, texto y, si hay foto, un vector de imagen).
-- Cada fuente aporta una lista ordenada (léxica, vectorial de texto, vectorial de imagen) y se fusionan con RRF.
-- Los conceptos detectados en la foto refuerzan los resultados que comparten concepto.
+- Toda consulta termina en (vertical, conceptos y texto).
+- Cada fuente aporta una lista ordenada (léxica y vectorial de texto) y se fusionan con RRF.
 - Cada vector guarda su `embedding_model`.
 
 **¿Por qué modelos locales?** No requieren claves de API, los datos no salen del equipo y no tienen costo por uso. Se pueden cambiar sin rehacer el diseño: el caché se separa por modelo.
 
 ## 4. Comportamiento del agente (Mochi)
 
-Mochi es el nombre que ve el usuario (antes, Bigotes). En el código el agente conserva su nombre: `rappi_ia/agent/bigotes.py` y la clase `Bigotes`.
+Mochi es el nombre que ve el usuario (antes, Bigotes). El código usa nombres neutros porque el nombre puede cambiar: `rappi_ia/agent/rappi_agent.py` y la clase `RappiAgent`; el nombre visible sale de `config.AGENT_NAME` (variable de entorno `AGENT_NAME`, por defecto «Mochi»). El agente responde solo por texto (`POST /agent/ask`); sus ofertas salen de `POST /agent/offer` y `GET /agent/plans`.
 
 **Flujo por turno:** entender → decidir herramienta(s) → recuperar → componer → verificar → registrar.
 
 **Herramientas** (en `rappi-ia/src/rappi_ia/agent/`):
 - `buscar_productos(vertical, consulta, conceptos, precio_max)`: `search_products` en `tools.py`
-- `buscar_por_foto(imagen, vertical?)`: `photo.py` (los productos parecidos requieren haber corrido `make images`)
 - `recomendar_complementos(conceptos, vertical_actual)`: `suggest_complement` en `tools.py`
 - `buscar_remedios(sintoma)`: `search_remedies` en `tools.py` (remedios sin receta que nombran el síntoma)
 - **Servicios sin catálogo** (`[[service]]` en `taxonomy.toml`): RappiTravel (viajes, vuelos, hoteles) y RappiFavor (envíos, compras en cualquier tienda, trámites). Si la consulta los nombra y no nombra un producto, Mochi lleva a su pantalla y, en «Propuesta», sugiere un gancho del catálogo (RappiTravel: protector solar, traje de baño o maleta). Lo que no está en el catálogo se ofrece con RappiFavor.
@@ -191,7 +179,7 @@ Mochi es el nombre que ve el usuario (antes, Bigotes). En el código el agente c
 
 > Desde el 09-10-2026, herramienta para más adelante (`dashboard-empresa/`), fuera de la propuesta del prototipo.
 
-**Sí, si se enfoca en decisiones y no en gráficos.** Las conversaciones y búsquedas son una encuesta continua de lo que la gente quiere. El panel convierte eso, junto con la conducta de compra, en acciones para **subir la frecuencia y bajar el abandono**.
+**Sí, si se enfoca en decisiones y no en gráficos.** Las preguntas al agente y las búsquedas son una encuesta continua de lo que la gente quiere. El panel convierte eso, junto con la conducta de compra, en acciones para **subir la frecuencia y bajar el abandono**.
 
 **Métricas** (definidas en SQL en `rappi-ia/src/rappi_ia/analytics/queries.py`):
 
@@ -205,9 +193,9 @@ Mochi es el nombre que ve el usuario (antes, Bigotes). En el código el agente c
 | En riesgo / perdido | En riesgo: días desde el último pedido > máx(2 × ritmo, 21). Perdido: > máx(3 × ritmo, 45). Los usuarios con 1 compra van aparte ("sin segunda compra"): un carro dividido en dos verticales son dos pedidos, pero una sola compra |
 | Retención | Hizo al menos un pedido entre los días 61 y 120 desde su primer pedido |
 | Usuarios multi-vertical | Pidieron en 2 o más verticales en 60 días. Su retención se compara **a igual número de compras (carros) y antigüedad**: quien pide más cae más en dos verticales y además retiene más, así que la comparación directa no mide el efecto |
-| Sugerencia aceptada / convertida | Aceptada: el producto sugerido (en el chat o en "Para ti") se agregó al carro; cuenta una vez por sugerencia (concepto, vertical y origen) en la pestaña, igual que la mostrada, así las aceptadas nunca superan a las mostradas: quitarlo y volver a agregarlo, o agregarlo otra vez en el carro siguiente, no es otra aceptación. Convertida: llegó a un pedido. El aviso sobre el carro se mide aparte: ahí aceptar es abrir el chat |
+| Sugerencia aceptada / convertida | Aceptada: el producto sugerido (al preguntarle al agente o en "Para ti") se agregó al carro; cuenta una vez por sugerencia (concepto, vertical y origen) en la pestaña, igual que la mostrada, así las aceptadas nunca superan a las mostradas: quitarlo y volver a agregarlo, o agregarlo otra vez en el carro siguiente, no es otra aceptación. Convertida: llegó a un pedido. El aviso sobre el carro se mide aparte: ahí aceptar es abrir al agente |
 | Servicios sin catálogo | Por servicio (RappiTravel, RappiFavor): veces que Mochi lo ofreció (`service_shown`), que se abrió (`service_opened`) y ganchos del catálogo mostrados y aceptados (sugerencias con `origen` = el servicio). Vista «Entre verticales» |
-| Embudo por vertical | Sesiones que buscan (llegan a la vertical) → agregan al carro → inician pago → piden. La entrada (buscar, chatear, navegar, aceptar una sugerencia o agregar al carro desde una lista, que solo manda el agregado) se mira en toda la sesión, porque la sugerencia cruzada lleva el pedido a otra vertical. Una sesión cuenta en una vertical si tuvo ahí algún evento que no sea ver o descartar una sugerencia: ver una sugerencia sin aceptarla no la mete en esa vertical. Por eso una sesión puede contar en dos verticales: la conversión global (el titular) cuenta cada sesión una vez |
+| Embudo por vertical | Sesiones que buscan (llegan a la vertical) → agregan al carro → inician pago → piden. La entrada (buscar, preguntarle al agente, navegar, aceptar una sugerencia o agregar al carro desde una lista, que solo manda el agregado) se mira en toda la sesión, porque la sugerencia cruzada lleva el pedido a otra vertical. Una sesión cuenta en una vertical si tuvo ahí algún evento que no sea ver o descartar una sugerencia: ver una sugerencia sin aceptarla no la mete en esa vertical. Por eso una sesión puede contar en dos verticales: la conversión global (el titular) cuenta cada sesión una vez |
 
 **Vistas** (además de una pestaña Resumen con los indicadores y las palancas):
 
@@ -256,8 +244,6 @@ erDiagram
     CATALOG_ITEM ||--o{ ITEM_CONCEPT : tiene
     MENU_ITEM ||--o{ ITEM_CONCEPT : tiene
     SEARCH_DOCUMENT }o--|| TEXT_EMBEDDING : "content_hash"
-    CATALOG_ITEM ||--o{ IMAGE_EMBEDDING : "image_url"
-    MENU_ITEM ||--o{ IMAGE_EMBEDDING : "image_url"
     APP_USER ||--o{ APP_EVENT : genera
     APP_USER ||--o{ APP_ORDER : hace
     APP_ORDER ||--o{ APP_ORDER_LINE : contiene
@@ -270,6 +256,7 @@ Notas del modelo:
 - **Platos y productos:** no hay una tabla de platos estándar. Un plato y un producto del súper se conectan al compartir concepto en `item_concepts`.
 - **Eventos:** `APP_EVENT` lleva `session_id` (una sesión termina tras 30 minutos sin actividad) y `cart_id` en los eventos de carro (`cart_add`, `cart_remove`, `checkout_start`, `order_placed`).
 - **Líneas de pedido:** `APP_ORDER_LINE` puede apuntar a un producto o a un plato.
+- **Tabla sin uso:** `image_embeddings` (de una versión anterior) sigue en la base, sin que nada la escriba ni la lea; una migración para borrarla se dejó fuera para no tocar el historial.
 - **Procedencia:** todo dato inferido guarda `method` (`curado`, `llm`, `regla`, `embedding`, `coocurrencia`), `confidence`, `model_version` y fecha. Los datos de usuario guardan `source`.
 - **H3:** queda para después, porque no lo necesita ninguna vista de este plan.
 
@@ -279,8 +266,8 @@ Notas del modelo:
 |---|---|---|---|
 | 0. Diseño | Este documento, los diagramas y docs sin contradicciones | Validación Archify y revisión adversarial | Hecha |
 | 1. Conceptos (capa 2) | `concepts`, `category_map`, `item_concepts`, `concept_edges` y `rappi-ia concepts` | Cobertura ≥ 85% y precisión revisada por muestreo | Hecha |
-| 2. Embeddings y búsqueda híbrida | `embed-text`, `embed-images`, `retrieve()` y set de evaluación | P@10, MRR y nDCG@10 (Recall@10 no se calcula): léxico vs vectorial vs híbrido; calibración de τ | Hecha |
-| 3. Agente | Mochi en el backend (texto, foto, voz; el prototipo actual solo usa el texto) | Tests de reglas de conducta y escenarios | Hecha |
+| 2. Embeddings y búsqueda híbrida | `embed-text`, `retrieve()` y set de evaluación | P@10, MRR y nDCG@10 (Recall@10 no se calcula): léxico vs vectorial vs híbrido; calibración de τ | Hecha |
+| 3. Agente | Mochi en el backend (solo texto) | Tests de reglas de conducta y escenarios | Hecha |
 | 4. API | FastAPI | Tests de endpoints | Hecha |
 | 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados | Hecha |
 | 6. Prototipo conectado | Cliente API con respaldo local (salió en la etapa 3 del MVP: hoy la app exige la API), eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |

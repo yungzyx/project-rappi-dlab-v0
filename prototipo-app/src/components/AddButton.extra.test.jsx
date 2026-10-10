@@ -6,7 +6,7 @@ import { AssistantProvider } from '../state/AssistantContext'
 import { CartProvider } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
 import { ProfileProvider } from '../state/ProfileContext'
-import { MOCHI_CART_EVENT, session } from '../state/liveMemory'
+import { AGENT_CART_EVENT, session } from '../state/liveMemory'
 import AddButton from './AddButton'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
@@ -60,10 +60,10 @@ describe('AddButton (extra)', () => {
 
   test('en el prototipo final, agregar avisa a Mochi', () => {
     const heard = vi.fn()
-    window.addEventListener(MOCHI_CART_EVENT, heard)
+    window.addEventListener(AGENT_CART_EVENT, heard)
     render(<AddButton product={heineken} />, { wrapper: Providers })
     add()
-    window.removeEventListener(MOCHI_CART_EVENT, heard)
+    window.removeEventListener(AGENT_CART_EVENT, heard)
     expect(heard).toHaveBeenCalledTimes(1)
     expect(heard.mock.calls[0][0].detail.product).toMatchObject({ id: heineken.id })
   })
@@ -71,10 +71,10 @@ describe('AddButton (extra)', () => {
   test('en «Rappi hoy» agregar no avisa a Mochi', () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     const heard = vi.fn()
-    window.addEventListener(MOCHI_CART_EVENT, heard)
+    window.addEventListener(AGENT_CART_EVENT, heard)
     render(<AddButton product={heineken} />, { wrapper: Providers })
     add()
-    window.removeEventListener(MOCHI_CART_EVENT, heard)
+    window.removeEventListener(AGENT_CART_EVENT, heard)
     expect(heard).not.toHaveBeenCalled()
   })
 

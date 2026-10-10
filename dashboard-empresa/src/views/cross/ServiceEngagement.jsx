@@ -4,7 +4,7 @@ import { formatNumber, formatPct } from '../../lib/format.js'
 
 const COLUMNS = [
   { key: 'nombre', header: 'Servicio', primary: true },
-  { key: 'ofrecido', header: 'Bigotes lo ofreció', numeric: true, render: (row) => formatNumber(row.ofrecido) },
+  { key: 'ofrecido', header: 'El agente lo ofreció', numeric: true, render: (row) => formatNumber(row.ofrecido) },
   {
     key: 'abierto',
     header: 'Se abrió',
@@ -25,11 +25,11 @@ const COLUMNS = [
   },
 ]
 
-/** Servicios sin catálogo (RappiTravel, RappiFavor): ofrecidos por Bigotes, abiertos y ganchos del catálogo aceptados. */
+/** Servicios sin catálogo (RappiTravel, RappiFavor): ofrecidos por el agente, abiertos y ganchos del catálogo aceptados. */
 export function ServiceEngagement({ rows }) {
   if (!rows.some((row) => row.ofrecido)) {
     return (
-      <EmptyState title="Bigotes todavía no ofreció servicios">
+      <EmptyState title="El agente todavía no ofreció servicios">
         Aparecen cuando alguien habla de un viaje o de un envío, o no encuentra lo que busca.
       </EmptyState>
     )

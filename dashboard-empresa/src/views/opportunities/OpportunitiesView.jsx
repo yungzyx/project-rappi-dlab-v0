@@ -95,7 +95,7 @@ export function OpportunitiesView({ source }) {
         <div className="section-head">
           <h2 id="oportunidades">Lo que piden y no encuentran</h2>
           <p>
-            Cada búsqueda o consulta a Bigotes sin resultado es una encuesta: qué falta, dónde y para cuántos usuarios.
+            Cada búsqueda o pregunta al agente sin resultado es una encuesta: qué falta, dónde y para cuántos usuarios.
             Agrupada por concepto (o consulta, si no calza con ninguno) y vertical; ordenada por usuarios distintos.
             Crecimiento: últimas 4 semanas contra las 4 anteriores.
           </p>
@@ -115,7 +115,7 @@ export function OpportunitiesView({ source }) {
         <div className="section-head">
           <h2 id="tendencias">Conceptos que suben y bajan</h2>
           <p>
-            Señales de interés (búsquedas, chat y agregados al carro): últimas 4 semanas contra las 4 anteriores, sin
+            Señales de interés (búsquedas, preguntas al agente y agregados al carro): últimas 4 semanas contra las 4 anteriores, sin
             conceptos sensibles. Mismo largo de barra = mismo cambio en ambas listas; «sin oferta» = además es demanda
             no satisfecha.
           </p>

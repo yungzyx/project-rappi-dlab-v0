@@ -135,7 +135,7 @@ PERSONAS = [
         0.03,
     ),
     # Compran en una sola vertical: sin ellas, «¿retiene más quien usa dos verticales?» no tenía contra qué comparar.
-    # Bigotes igual puede llevarlas a otra con una sugerencia aceptada.
+    # El agente igual puede llevarlas a otra con una sugerencia aceptada.
     Persona(
         "rutina",
         0.14,
@@ -334,12 +334,12 @@ CHECKOUT_ABANDON_SHARE = 0.4  # de los carros abandonados, la parte que alcanza 
 MULTI_VERTICAL_RETENTION = 0.55  # riesgo × 0,55 si compró en 2+ verticales en 60 días
 TRIP = 0.03  # sesiones que hablan de un viaje (RappiTravel)
 TRAVEL_OPEN = 0.35  # de ellas, las que abren RappiTravel
-FAVOR_OFFER = 0.6  # búsquedas sin resultado donde Bigotes ofrece RappiFavor (en «Propuesta»)
+FAVOR_OFFER = 0.6  # búsquedas sin resultado donde el agente ofrece RappiFavor (en «Propuesta»)
 FAVOR_OPEN = 0.2
 BROWSE_ONLY = 0.12  # encuentra productos y se va sin agregar nada al carro
 SUGGESTION_ACCEPT = 0.22  # probabilidad base de aceptar una sugerencia cruzada (× peso de la arista)
 SUGGESTION_CADENCE_BOOST = 0.93  # aceptar una sugerencia acorta el ritmo 7%
-MODALITIES = (("texto", 0.8), ("voz", 0.12), ("foto", 0.08))
+MODALITIES = (("texto", 1.0),)  # solo texto; se sigue sorteando para conservar la misma secuencia aleatoria
 PREFERRED_ATTRIBUTES = ("sin-gluten", "vegano", "alto-proteina", "con-descuento")
 PREFER_SHARE = 0.85  # con qué frecuencia elige un ítem con su atributo cuando el concepto tiene alguno
 
@@ -351,7 +351,7 @@ class Catalog:
     items: dict[tuple[str, str], list[tuple[str, str, float]]]
     edges: dict[str, list[tuple[str, float]]]
     names: dict[str, str]
-    ranked: dict[str, list[str]]  # concepto sugerible → verticales en el orden de Bigotes (`ranked_verticals`)
+    ranked: dict[str, list[str]]  # concepto sugerible → verticales en el orden del agente (`ranked_verticals`)
     # (vertical, concepto, atributo) → ítems con ese atributo: solo los usa quien lo prefiere. Aparte de `items` para no
     # inflar el surtido de las demás personas (una muestra al azar casi no trae ítems sin gluten o veganos).
     preferred: dict[tuple[str, str, str], list[tuple[str, str, float]]] = field(default_factory=dict)
@@ -521,7 +521,7 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
             unmet=True,
         )
         s.recent_unmet.append(ts)
-        if rng.random() < FAVOR_OFFER:  # Bigotes ofrece pedirlo con RappiFavor
+        if rng.random() < FAVOR_OFFER:  # el agente ofrece pedirlo con RappiFavor
             favor = {"servicio": "rappifavor"}
             emit("service_shown", clock + timedelta(seconds=2), payload=favor)
             if rng.random() < FAVOR_OPEN:
@@ -530,7 +530,7 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
 
     if rng.random() < TRIP:  # habla de un viaje: RappiTravel y su gancho del catálogo (protector solar)
         travel, hook = {"servicio": "rappitravel"}, {"origen": "rappitravel"}
-        emit("chat", clock, query="me voy de vacaciones", modality=_modality(rng), results=0)
+        emit("ask", clock, query="me voy de vacaciones", modality=_modality(rng), results=0)
         emit("service_shown", clock + timedelta(seconds=2), payload=travel)
         if rng.random() < TRAVEL_OPEN:
             emit("service_opened", clock + timedelta(seconds=12), payload=travel)
@@ -555,7 +555,7 @@ def _session(rng, catalog: Catalog, s: UserState, ts: datetime, start: datetime,
     concept = _weighted(rng, s.persona.interests[vertical])
     prefer = s.persona.prefer
     item = catalog.pick(rng, vertical, concept, prefer)
-    kind = "chat" if rng.random() < 0.3 else "search"
+    kind = "ask" if rng.random() < 0.3 else "search"
     emit(
         kind,
         clock,
@@ -669,7 +669,7 @@ def _maybe_wish(rng, week: float):
 
 
 def _suggestion(catalog: Catalog, concept: str, vertical: str):
-    """Complemento curado en OTRO vertical con ítems reales: el primero en el orden de Bigotes (`ranked_verticals`,
+    """Complemento curado en OTRO vertical con ítems reales: el primero en el orden del agente (`ranked_verticals`,
     donde el concepto es más típico y restaurantes solo para lo que se pide hecho), no uno al azar."""
     for target, weight in sorted(catalog.edges.get(concept, []), key=lambda e: -e[1]):
         verticals = [v for v in catalog.ranked.get(target, []) if v != vertical and (v, target) in catalog.items]

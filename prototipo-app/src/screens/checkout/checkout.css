@@ -100,7 +100,7 @@
 .checkout-change {
   font-size: 14px;
   font-weight: 600;
-  color: var(--bigotes-orange);
+  color: var(--agent-orange);
 }
 
 .checkout-eta {
@@ -231,7 +231,7 @@
 }
 
 .checkout-suggestion-reason {
-  color: var(--bigotes-orange);
+  color: var(--agent-orange);
   font-weight: 700;
 }
 

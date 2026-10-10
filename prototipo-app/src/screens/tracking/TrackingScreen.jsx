@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { AGENT_NAME } from '../../agent/name'
 import BackButton from '../../components/BackButton'
 import Sheet from '../../components/Sheet'
 import { useToast } from '../../components/Toast'
 import { StarIcon } from '../../components/Icons'
 import { HeadsetIcon } from '../../components/LineIcons'
-import { offer } from '../../api/mochi'
+import { offer } from '../../api/agent'
 import { noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
 import { useAssistant } from '../../state/AssistantContext'
@@ -12,7 +13,7 @@ import { formatPrice } from '../../state/CartContext'
 import { useDemo } from '../../state/DemoContext'
 import { useEvents } from '../../state/EventsContext'
 import { useGame } from '../../state/GameContext'
-import { isHushed, isQuiet } from '../../state/mochiQuiet'
+import { isHushed, isQuiet } from '../../state/agentQuiet'
 import { useOrders } from '../../state/OrdersContext'
 import { useProfile } from '../../state/ProfileContext'
 import { VERTICAL_NAMES } from '../../data/verticals'
@@ -25,7 +26,7 @@ import './tracking.css'
 const TICK_MS = 500
 const STARS = [1, 2, 3, 4, 5]
 
-/** Seguimiento del pedido (funcionalidad agregada): pasos que avanzan solos y Mochi recorriendo el mapa. */
+/** Seguimiento del pedido (funcionalidad agregada): pasos que avanzan solos y el agente recorriendo el mapa. */
 export default function TrackingScreen({ back, reset, push, params }) {
   const orders = useOrders()
   const demo = useDemo()
@@ -160,21 +161,21 @@ function Delivered({ order }) {
   const events = useEvents()
   const profile = useProfile()
   const [rating, setRating] = useState(0)
-  // El próximo pedido que arma Mochi (oferta `proximo_pedido` de la API); sin oferta, sin tarjeta.
+  // El próximo pedido que arma el agente (oferta `proximo_pedido` de la API); sin oferta, sin tarjeta.
   const [next, setNext] = useState(null)
   const items = order.items
     .filter((item) => item.entityId != null)
     .map((item) => ({ entity_type: item.entityType, entity_id: item.entityId }))
 
   useEffect(() => {
-    // En silencio (por hoy o porque lo ignoraron) Mochi no ofrece nada, así que tampoco se le pide.
+    // En silencio (por hoy o porque lo ignoraron) el agente no ofrece nada, así que tampoco se le pide.
     if (!demo.isFinal || !items.length || isQuiet(today()) || isHushed()) return undefined
     let current = true
     offer('proximo_pedido', { items }, { userId: userId() }).then(
       (made) => {
         if (!current || !made) return
         noteShown(events.track, made.products, {
-          origin: `mochi-${made.moment}`,
+          origin: `agent-${made.moment}`,
           concept: made.reason?.concept,
           generation: profile.resets,
         })
@@ -226,7 +227,7 @@ function Delivered({ order }) {
           }
         >
           <span>✨ ¿Y ahora {next.label}?</span>
-          <small>Mochi te arma el próximo pedido</small>
+          <small>{AGENT_NAME} te arma el próximo pedido</small>
         </button>
       )}
     </>

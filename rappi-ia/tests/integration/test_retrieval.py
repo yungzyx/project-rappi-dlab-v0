@@ -7,8 +7,7 @@ from conftest import add_price, add_product, add_store
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.db import connect, database_url
 from rappi_ia.embeddings.base import HashEmbedder
-from rappi_ia.embeddings.images import ScrapeRunning
-from rappi_ia.embeddings.text_store import embed_search_documents, hnsw_index_name
+from rappi_ia.embeddings.text_store import ScrapeRunning, embed_search_documents, hnsw_index_name
 from rappi_ia.retrieval import hybrid
 from rappi_ia.retrieval.hybrid import Filters, retrieve
 

@@ -1,5 +1,5 @@
 """Dependencias que comparten la app y sus routers (la conexión, los servicios, el vertical del backend y la limpieza
-de las entradas): viven aparte para que `app.py` incluya los routers (`catalog.py`, `mochi.py`) sin que ellos tengan
+de las entradas): viven aparte para que `app.py` incluya los routers (`catalog.py`, `agent.py`) sin que ellos tengan
 que importar `app`."""
 
 from collections.abc import Iterator
@@ -8,7 +8,7 @@ from psycopg import Connection
 from pydantic import BaseModel, model_validator
 from rappi_scraper.storage.search import VERTICALS
 
-from ..agent.bigotes import PROTOTYPE_VERTICALS
+from ..agent.rappi_agent import PROTOTYPE_VERTICALS
 from ..db import connect
 from .services import Services, services
 
@@ -23,7 +23,7 @@ def get_conn() -> Iterator[Connection]:
 
 def backend_vertical(vertical: str | None) -> str | None:
     """Acepta el código del backend ('licores') o el id del prototipo ('liquor'). Otro valor ('pet', que no es un
-    vertical del catálogo) se trata como "sin vertical": Bigotes lo deduce del mensaje."""
+    vertical del catálogo) se trata como "sin vertical": el agente lo deduce del mensaje."""
     if vertical is None:
         return None
     code = FROM_PROTOTYPE.get(vertical, vertical)

@@ -7,9 +7,9 @@ from fastapi.testclient import TestClient
 from rappi_scraper.storage.search import VERTICALS
 
 from rappi_ia.agent import grouped_search
-from rappi_ia.agent.bigotes import Bigotes
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.grouped_search import SCREEN_VERTICALS, search_grouped
+from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.agent.verticals import ranked_verticals
 from rappi_ia.api import app as api
 from rappi_ia.api.services import Services
@@ -71,7 +71,9 @@ def client(demo):
         yield db
 
     api.app.dependency_overrides[api.get_conn] = conn_override
-    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
     yield TestClient(api.app)
     api.app.dependency_overrides.clear()
 

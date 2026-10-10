@@ -33,7 +33,7 @@ jobs:
         run: >-
           python -m pip install -c requirements.lock.txt
           --extra-index-url https://download.pytorch.org/whl/cpu
-          -e ../rappi-scraper -e ".[api,dev,ml,audio]"
+          -e ../rappi-scraper -e ".[api,dev,ml]"
 
       - name: e5 carga y embebe
         run: >-

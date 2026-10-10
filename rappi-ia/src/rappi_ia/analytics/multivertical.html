@@ -144,7 +144,7 @@ body.figura #mapa-conceptos { margin: 0; border: 0; }
     <div class="card-head">
       <div>
         <h2>Mapa de conceptos</h2>
-        <p>Cada punto es un concepto (cerveza, pañales, café…), ubicado y coloreado según la vertical donde es más típico, la misma regla que usa Bigotes. Las líneas lo unen con cada vertical que tiene al menos <span id="minItems"></span> productos de él. Al centro, los servicios sin catálogo (RappiTravel, RappiFavor): la línea punteada va a lo que Bigotes sugiere junto con ellos.</p>
+        <p>Cada punto es un concepto (cerveza, pañales, café…), ubicado y coloreado según la vertical donde es más típico, la misma regla que usa el agente. Las líneas lo unen con cada vertical que tiene al menos <span id="minItems"></span> productos de él. Al centro, los servicios sin catálogo (RappiTravel, RappiFavor): la línea punteada va a lo que el agente sugiere junto con ellos.</p>
       </div>
       <div class="controls">
         <label><input type="checkbox" id="showComp"> Complementos</label>
@@ -343,7 +343,7 @@ document.getElementById('minItems').textContent = DATA.minItems;
     const t = el('text', { x: vpos[v].x, y: vpos[v].y + 32, 'text-anchor': 'middle', class: 'vlabel' }, svg);
     t.textContent = DATA.labels[v];
   }
-  // Servicios sin catálogo: al centro, con línea punteada a sus ganchos (lo que Bigotes sugiere con ellos).
+  // Servicios sin catálogo: al centro, con línea punteada a sus ganchos (lo que el agente sugiere con ellos).
   const services = DATA.services || [];
   services.forEach((s, i) => {
     s.x = C + (i - (services.length - 1) / 2) * 92; s.y = C;
@@ -358,8 +358,8 @@ document.getElementById('minItems').textContent = DATA.minItems;
     name.textContent = s.name;
     const show = () => {
       panel.innerHTML = `<h3>${esc(s.emoji)} ${esc(s.name)}</h3><p class="sub">Servicio sin catálogo: ${esc(s.pitch)}.</p>
-        ${s.hooks.length ? `<p class="sub" style="margin-top:14px">Bigotes lo ofrece y sugiere del catálogo:</p><div class="chips">${s.hooks.map((h) => byId[h] ? `<span class="chip">${esc(byId[h].emoji)} ${esc(byId[h].name)}</span>` : '').join('')}</div>`
-          : '<p class="sub" style="margin-top:14px">Bigotes lo ofrece cuando algo no está en el catálogo: un Rappitendero lo compra en otra tienda.</p>'}`;
+        ${s.hooks.length ? `<p class="sub" style="margin-top:14px">El agente lo ofrece y sugiere del catálogo:</p><div class="chips">${s.hooks.map((h) => byId[h] ? `<span class="chip">${esc(byId[h].emoji)} ${esc(byId[h].name)}</span>` : '').join('')}</div>`
+          : '<p class="sub" style="margin-top:14px">El agente lo ofrece cuando algo no está en el catálogo: un Rappitendero lo compra en otra tienda.</p>'}`;
     };
     for (const target of [node, t, name]) { target.addEventListener('mouseenter', show); target.addEventListener('focus', show); }
   });
@@ -396,7 +396,7 @@ document.getElementById('minItems').textContent = DATA.minItems;
     svg.querySelectorAll('.cnode, .clabel').forEach((n) => n.classList.toggle('on', near.has(n.dataset.c)));
     const rows = Object.entries(c.items).sort((x, y) => y[1] - x[1]);
     const max = rows[0][1];
-    panel.innerHTML = `<h3>${esc(c.emoji)} ${esc(c.name)}</h3><p class="sub">${esc(c.group)}${c.sensitive ? ' · sensible: Bigotes no lo sugiere solo' : ''}</p>
+    panel.innerHTML = `<h3>${esc(c.emoji)} ${esc(c.name)}</h3><p class="sub">${esc(c.group)}${c.sensitive ? ' · sensible: el agente no lo sugiere solo' : ''}</p>
       <p class="sub">Más típico en <b style="color:var(--ink)">${label(c.home)}</b> · productos por vertical:</p>
       <div class="bars">${rows.map(([v, n]) => `<div class="bar"><span>${label(v)}</span><span class="track"><span class="fill" style="width:${(n * 100) / max}%;background:${color(v)}"></span></span><span class="v num">${fmt(n)}</span></div>`).join('')}</div>
       ${comp.length ? `<p class="sub" style="margin-top:14px">Complementos curados:</p><div class="chips">${comp.map((o) => byId[o] ? `<span class="chip" data-go="${esc(o)}">${esc(byId[o].emoji)} ${esc(byId[o].name)}</span>` : '').join('')}</div>` : ''}
