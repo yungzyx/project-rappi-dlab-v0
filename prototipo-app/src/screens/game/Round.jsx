@@ -260,7 +260,8 @@ export default function Round({ vertical, back, orderId }) {
     if (finished || confirmExit) return undefined
     const onKey = (e) => {
       if (e.repeat) return
-      const go = e.key === 'Enter' || e.key === ' '
+      // Enter sobre un enlace (la fuente) lo abre: no sigue la ronda.
+      const go = (e.key === 'Enter' || e.key === ' ') && !e.target.closest?.('a')
       if (outcome && go) {
         e.preventDefault()
         next()
@@ -268,7 +269,8 @@ export default function Round({ vertical, back, orderId }) {
         e.preventDefault()
         reveal()
       } else if (!outcome && step.type !== 'dato' && /^[1-4]$/.test(e.key)) {
-        choose(step.challenge.options[Number(e.key) - 1].id)
+        const option = step.challenge.options[Number(e.key) - 1]
+        if (option) choose(option.id)
       }
     }
     window.addEventListener('keydown', onKey)

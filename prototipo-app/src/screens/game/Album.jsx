@@ -42,7 +42,7 @@ export default function Album() {
                       type="button"
                       className="fact-card is-closed"
                       style={{ '--fact-color': `var(--v-${c.vertical})` }}
-                      aria-label={`Leer tarjeta: ${cardTopic(c)}`}
+                      aria-label={`Leer tarjeta: ${c.kind === 'dato' ? c.title : `Pregunta curiosa, ${c.question}`}`}
                       onClick={() => openCard(c.id)}
                     >
                       <span className="fact-card-kicker">{c.kind === 'dato' ? '¿Sabías que…?' : 'Pregunta curiosa'}</span>

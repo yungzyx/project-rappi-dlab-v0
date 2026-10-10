@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { GameApp as App } from './GameApp.testkit.jsx'
 import { PASSPORT_ORDER } from '../../game/verticals.js'
 import { DATA } from '../../game/data.js'
-import { KNOWLEDGE, cardsOf, datosOf } from '../../game/knowledge.js'
+import { KNOWLEDGE, cardsOf, datosOf, preguntasOf } from '../../game/knowledge.js'
 import { LABELS } from '../../game/verticals.js'
 import { today } from '../../game/progress.js'
 import { KEY } from '../../game/storage.js'
@@ -83,6 +83,17 @@ describe('álbum', () => {
     expect(document.querySelectorAll('.fact-card.is-locked')).toHaveLength(KNOWLEDGE.length)
     expect(screen.getByText(`0 de ${KNOWLEDGE.length} datos`)).toBeTruthy()
     expect(screen.getByRole('region', { name: 'Viajes' })).toBeTruthy()
+  })
+
+  test('cada pregunta cerrada del álbum tiene su propia etiqueta (con la pregunta)', () => {
+    const preguntas = preguntasOf('licores')
+    const ids = preguntas.map((c) => c.id)
+    preload({ discovered: { licores: ids }, cards: ids })
+    render(<App />)
+    tab('Álbum')
+    const labels = screen.getAllByRole('button', { name: /^Leer tarjeta: Pregunta curiosa/ }).map((b) => b.getAttribute('aria-label'))
+    expect(new Set(labels).size).toBe(preguntas.length)
+    expect(labels[0]).toContain(preguntas[0].question)
   })
 
   test('abrir una tarjeta del álbum la muestra con «Fuente: …» y cuenta para la misión del día', () => {

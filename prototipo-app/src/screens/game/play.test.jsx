@@ -55,6 +55,31 @@ describe('ronda', () => {
     expect(stored().xp).toBe(10)
   })
 
+  test('la tecla 4 en una pregunta de 3 alternativas no hace nada (ni deja un error)', () => {
+    startRound('supermercado')
+    fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    const errors = []
+    const onError = (e) => {
+      errors.push(e.message)
+      e.preventDefault()
+    }
+    window.addEventListener('error', onError)
+    fireEvent.keyDown(window, { key: '4' })
+    window.removeEventListener('error', onError)
+    expect(errors).toEqual([])
+    expect(screen.queryByText('¡Correcto!')).toBeNull()
+    expect(screen.queryByText('Casi')).toBeNull()
+  })
+
+  test('Enter sobre «Fuente: …» abre el enlace y no sigue la ronda', () => {
+    const [dato] = makeRound(initialState(), 'chocolateria')
+    startRound('chocolateria')
+    fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
+    fireEvent.keyDown(screen.getByRole('link', { name: dato.card.source.title }), { key: 'Enter' })
+    expect(screen.getByRole('heading', { level: 2, name: dato.card.title })).toBeTruthy()
+  })
+
   test('una pregunta curiosa: ¡Correcto! con 20 XP, explicación y fuente; errar muestra la respuesta y 5 XP', () => {
     const round = makeRound(initialState(), 'supermercado')
     startRound('supermercado')
