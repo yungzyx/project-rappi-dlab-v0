@@ -4,45 +4,50 @@ Maqueta navegable de la app de Rappi Chile, hecha a partir de capturas y videos 
 
 > Imágenes, logos y marcas pertenecen a Rappi y a sus dueños; se usan solo como maqueta de demostración. Proyecto independiente, no afiliado ni respaldado por Rappi.
 
-Hecho con Vite + React 19. Funciona de dos maneras:
+Hecho con Vite + React 19. **Necesita la API de [`rappi-ia`](../rappi-ia/)**: sin ella no abre y muestra «Sin conexión con Mochi» con un botón «Reintentar» (ya no hay un modo local que funcione solo en el navegador). Con la API, Mochi busca en el catálogo real. Las imágenes que no cargan muestran un respaldo neutro.
 
-- **Sin backend (modo local):** todo corre en el navegador. Mochi responde con reglas locales sobre los datos del prototipo y las imágenes que no cargan muestran un respaldo neutro.
-- **Con la API de [`rappi-ia`](../rappi-ia/):** Mochi busca en el catálogo real. Si la API no responde o tarda más de 8 s, contestan las reglas locales y la respuesta lo marca con «Respuesta local».
+![Modo demo: la misma app en el prototipo final y en «Rappi hoy»](docs/screenshots/00-modo-demo.jpg)
 
-![Modo demo: la misma app en el prototipo final y en «Rappi hoy» (modo local)](docs/screenshots/00-modo-demo.jpg)
-
-*Salvo que se indique lo contrario, las capturas de este README están tomadas en modo local (sin API) y sin los menús reales del scraper.*
+*Salvo que se indique lo contrario, las capturas de este README son anteriores al MVP conectado: se tomaron en modo local (sin API) y sin los menús reales del scraper. `npm run screenshots` ahora necesita el MVP corriendo.*
 
 ## Cómo correrlo
 
-Requiere Node 22.22+ o 24.15+ (ver `.nvmrc` en la raíz). Desde la raíz del repositorio:
+Requiere Node 22.22+ o 24.15+ (ver `.nvmrc` en la raíz). Como la app no abre sin la API, se levanta con el resto del MVP, desde la raíz del repositorio:
+
+```bash
+make mvp              # API :8000, app http://localhost:5174 y panel :5175; Ctrl-C detiene los tres
+make mvp LAN=1        # lo abre a la red local, para el iPhone (misma red wifi o su hotspot)
+make mvp-check        # recorre la app con Chrome contra un catálogo de prueba inventado, sin tocar la base real
+```
+
+Requisitos y qué hacer si falla algo: [docs/instalacion.md](../docs/instalacion.md#5-el-mvp). Para correr solo la app, con la API ya levantada por su cuenta (`cd rappi-ia && make serve`):
 
 ```bash
 cd prototipo-app
 npm ci
 npm run dev              # http://localhost:5174
-npm run dev -- --host    # para abrirlo en el iPhone (misma red wifi o su hotspot)
+npm run dev -- --host    # para abrirlo en el iPhone
 ```
 
 En el iPhone, desde Safari: **Compartir → Agregar a pantalla de inicio**. Se abre a pantalla completa con el ícono de Mochi y el gesto "volver" funciona.
 
-### Con la API de `rappi-ia`
+### La API de `rappi-ia`
 
-Si la API está corriendo (`cd rappi-ia && make serve`, puerto 8000; carga los modelos antes de aceptar peticiones, así que conviene abrir el prototipo después de «Application startup complete»), Mochi deja de ser un conjunto de reglas:
+La API (puerto 8000) carga los modelos antes de aceptar peticiones: `make mvp` espera a que responda y, si la app se abrió antes, «Reintentar» vuelve a probar. Con ella, Mochi:
 
 - busca en el **catálogo real** con búsqueda híbrida por vertical, con precios vigentes;
 - sugiere un complemento **de otra tienda** en un bloque aparte;
 - arma la fila **"Para ti"** del inicio con lo que aprendió de ti (productos reales de otro vertical, con aviso +18 si corresponde);
 - registra eventos seudónimos y pedidos (uno por vertical) en la API, para medir las sugerencias (mostradas, aceptadas y convertidas).
 
-La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el prototipo actual no los usa: el prototipo final tiene un buscador, sin micrófono ni cámara.
+Si la API se cae con la app ya abierta, las respuestas de Mochi todavía caen a las reglas locales y lo marcan con «Respuesta local» (se van en la etapa 3 del MVP). La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el prototipo actual no los usa: el prototipo final tiene un buscador, sin micrófono ni cámara.
 
 <img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Con la API: cervezas reales bajo $3.000 y snacks de otra tienda (captura anterior, con Bigotes y el chat escrito)">
 
 *Con la API de rappi-ia: cervezas del catálogo real bajo $3.000 y, en un bloque aparte, snacks de otra tienda. Es una captura anterior: todavía con Bigotes y el chat escrito, que ya no existe.*
 
 - **Dónde busca la API:** en el mismo host desde el que se abrió la página, puerto 8000; desde el iPhone no hace falta configurar nada. Para apuntar a otra API, crea `.env.local` con `VITE_API_URL=http://localhost:8001`.
-- **Desde el iPhone:** arranca la API con `make serve-lan` (abre la API a la red; solo en una red de confianza). Sirve en la wifi de casa, con el hotspot del iPhone y con `http://nombre-del-mac.local:5174`. macOS pedirá permiso de red la primera vez.
+- **Desde el iPhone:** `make mvp LAN=1` (abre la API, la app y el panel a la red; solo en una red de confianza). Sirve en la wifi de casa, con el hotspot del iPhone y con `http://nombre-del-mac.local:5174`. macOS pedirá permiso de red la primera vez.
 
 ### Comandos
 
@@ -52,11 +57,11 @@ La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el p
 | `npm run lint` | ESLint (reglas de React Hooks) |
 | `npm run format` | Formato con Prettier |
 | `npm run build` | Build de producción en `dist/` |
-| `npm run screenshots` | Regenera las capturas de este README en modo local (usa el Chrome instalado) |
+| `npm run screenshots` | Regenera las capturas de este README; necesita el MVP corriendo (`make mvp`) y usa el Chrome instalado |
 | `./scripts/export-menus.sh` | Exporta los menús reales desde Postgres a `src/data/generated/menus.json` (fuera de git) |
 | `./scripts/make-icons.sh` | Regenera los íconos de pantalla de inicio desde `scripts/icon.svg` |
 
-Tests: 232 (Vitest, 09-10-2026). CI en GitHub Actions: lint, tests y build.
+Tests: 452 (Vitest, 10-10-2026). CI en GitHub Actions: lint, tests y build.
 
 **Accesibilidad:** el buscador con Mochi y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), cada respuesta de Mochi se anuncia completa al lector de pantalla y las áreas táctiles miden al menos 40 px.
 
@@ -167,9 +172,8 @@ Además: Pharmacy, Retail, Express, Pet, Chocolates, Loyalty, buscador, página 
 ## Qué es real y qué es simulado
 
 - **Real:** las pantallas (recortes de las capturas), los precios y productos que se ven en ellas, los menús del scraper (si se exportan), el carrito, los pedidos y el historial del navegador.
-  - **Con la API** también son reales: la búsqueda y los productos y precios que muestra Mochi.
+  - **De la API** vienen también la búsqueda y los productos y precios que muestra Mochi.
 - **Simulado:** el pago y el seguimiento (el pedido «llega» a los 20 s), y el progreso del juego (solo en el navegador).
-  - **Sin la API** también son simuladas las respuestas de Mochi (reglas sobre los datos del prototipo).
 - **Privacidad:** el id de usuario es seudónimo (`proto-…`, guardado en este navegador). El carro, los favoritos, la dirección, Loyalty y los pedidos también se guardan solo en este navegador. "Olvidar" borra lo aprendido también en la API. En modo "Rappi hoy" no se aprende.
 - **Supuestos:** textos cortados en el borde de las capturas, algunos ratings y tiempos de entrega; están marcados como "supuesto" en los archivos `data.js`.
 
@@ -177,7 +181,7 @@ Además: Pharmacy, Retail, Express, Pet, Chocolates, Loyalty, buscador, página 
 
 ```text
 src/
-├── api/            Cliente de la API de rappi-ia (chat, "Para ti", pedidos); si no responde, modo local
+├── api/            Cliente de la API de rappi-ia (chat, "Para ti", pedidos, eventos), con tiempo límite y errores tipados; fixtures/ guarda las respuestas de ejemplo que escribe el backend (`make contract` en rappi-ia)
 ├── assistant/      Mochi local: temas, respuestas y recomendaciones (lógica pura, con tests)
 ├── assets/         Recortes de las capturas
 ├── game/           Lógica del juego de verticales: tarjetas de conocimiento, desafíos, XP, niveles, pasaporte (lógica pura, con tests)
@@ -189,5 +193,5 @@ src/
 └── styles/         Tokens de diseño y estilos globales
 docs/screenshots/   Capturas de este README
 public/             Íconos y manifiesto para "Agregar a pantalla de inicio"
-scripts/            Menús, íconos y capturas
+scripts/            Menús, íconos, capturas y el recorrido de `make mvp-check`
 ```

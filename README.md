@@ -53,7 +53,7 @@ El efecto real (frecuencia, venta cruzada, verticales nuevas por persona) solo s
 2. **Postgres + pgvector.** El catálogo (capa 1) y `search_documents`, una partición por vertical.
 3. **IA offline.** Cada producto y plato recibe un concepto (capa 2), y los conceptos se enlazan con sus complementos. Una capa de datos suma atributos, medidas, marcas, un grafo de conocimiento y segmentos, y los expone en el esquema `capa` ([docs/capa-de-datos.md](docs/capa-de-datos.md)). Cada documento recibe un embedding de un modelo local multilingüe (e5), con un índice vectorial por vertical.
 4. **Consulta.** Búsqueda híbrida dentro de la vertical: por palabras y por significado, combinadas por posición (RRF) y reforzadas por el concepto pedido. Mochi arma la respuesta y la sugerencia cruzada.
-5. **Prototipo.** La API (FastAPI, puerto 8000) atiende al prototipo (5174). Sin la API, el prototipo responde con reglas locales y lo marca («Respuesta local»).
+5. **Prototipo.** La API (FastAPI, puerto 8000) atiende al prototipo (5174). El prototipo no abre sin la API: muestra «Sin conexión con Mochi» (se levantan juntos con `make mvp`).
 
 **Mochi** en la API conversa por texto, voz (Whisper) o foto (CLIP); el prototipo usa solo el texto, como buscador. Reconoce servicios sin catálogo (un viaje lleva a **RappiTravel**, un envío o trámite a **RappiFavor**). Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó. Diseño completo: [docs/diseno-ia.md](docs/diseno-ia.md).
 
@@ -114,26 +114,29 @@ Documentos al 04-10-2026 (segunda descarga semanal automática); «Con concepto�
 
 ## Probarlo
 
-### Sin base de datos (unos 2 minutos)
+### El MVP (`make mvp`)
 
-Requiere Node 22.22+ o 24.15+:
+Un comando levanta la API de rappi-ia (:8000), la app (:5174) y el panel (:5175). **La app no corre sin la API:** si no responde, muestra «Sin conexión con Mochi» con un botón «Reintentar». Ya no hay una versión que funcione sola en el navegador.
+
+Requisitos (el detalle, en [docs/instalacion.md](docs/instalacion.md)):
+
+- Postgres con la base `rappi` cargada (ver «Con el catálogo real»).
+- `make install` en `rappi-scraper/` y `make install install-ml` en `rappi-ia/`.
+- `npm ci` en `prototipo-app/` y en `dashboard-empresa/` (Node 22.22+ o 24.15+).
 
 ```bash
-cd prototipo-app && npm ci && npm run dev   # http://localhost:5174
+make mvp          # desde la raíz del repositorio; Ctrl-C detiene los tres
+make mvp LAN=1    # lo abre a la red local, para el iPhone (solo en una red de confianza)
+make mvp-check    # recorre la app con Chrome contra un catálogo de prueba inventado, sin tocar la base real
 ```
 
-La tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Prototipo final» y «Rappi hoy». Sin la API, Mochi responde con reglas locales sobre los datos de las capturas. Guion de demo: [docs/demo.md](docs/demo.md).
+`make mvp` revisa las dependencias, los puertos y la base (`rappi-ia doctor`, solo lectura), aplica las migraciones pendientes, arranca los tres con sus registros prefijados y avisa cuando responden. La API tarda en estar lista porque carga los modelos. No descarga nada de rappi.cl.
+
+La tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Prototipo final» y «Rappi hoy». Guion de demo: [docs/demo.md](docs/demo.md).
 
 ### Con el catálogo real
 
-Requiere la base `rappi` (se restaura desde un respaldo) y la capa de IA instalada: ver [docs/instalacion.md](docs/instalacion.md).
-
-```bash
-cd rappi-ia && make serve          # API en http://localhost:8000 (esperar «Application startup complete»)
-cd prototipo-app && npm run dev    # http://localhost:5174
-```
-
-Con la API, Mochi busca en el catálogo real con precios vigentes. La API no tiene autenticación y por defecto escucha solo en el equipo local (`make serve-lan` la abre a la red, solo en una red de confianza). `make schedule` en `rappi-scraper/` programa la actualización semanal (domingos 03:00) seguida de `make post-refresh` en rappi-ia.
+La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y se deja al día con la capa de IA: ver [docs/instalacion.md](docs/instalacion.md), secciones 3 y 4. Con ella, Mochi busca en el catálogo real con precios vigentes. La API no tiene autenticación y por defecto escucha solo en el equipo local (`make mvp LAN=1` y `make serve-lan` la abren a la red, solo en una red de confianza). `make schedule` en `rappi-scraper/` programa la actualización semanal (domingos 03:00) seguida de `make post-refresh` en rappi-ia.
 
 ## Qué es real y qué es simulado
 
@@ -162,6 +165,7 @@ Con la API, Mochi busca en el catálogo real con precios vigentes. La API no tie
 │   ├── diagramas/          diagramas (PNG e interactivos) y sus fuentes en diagramas-fuente/
 │   ├── mapas/              mapa multivertical y mapa de conceptos
 │   └── resultados/         reportes de evaluación versionados (fuente de las cifras)
+├── Makefile, scripts/      `make mvp` y `make mvp-check`: levantan y recorren el MVP
 ├── .github/workflows/      CI (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build)
 └── CLAUDE.md               convenciones para asistentes de código
 ```

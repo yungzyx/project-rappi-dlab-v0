@@ -1,17 +1,19 @@
 # Guion de demo del MVP
 
-Unos 10 minutos para mostrar el prototipo final a una persona del negocio: qué ve el usuario en la app, cómo Mochi cruza verticales y cómo invita a descubrir las que no usa (pasaporte y juego). Se hace con la API corriendo; sin ella Mochi responde con reglas locales.
+Unos 10 minutos para mostrar el prototipo final a una persona del negocio: qué ve el usuario en la app, cómo Mochi cruza verticales y cómo invita a descubrir las que no usa (pasaporte y juego). Se hace con el MVP corriendo (`make mvp`): la app no abre sin la API.
 
 ## Antes de empezar
 
-En dos terminales del Mac donde está la base:
+En una terminal del Mac donde está la base, desde la raíz del repositorio:
 
 ```bash
-cd rappi-ia && make serve            # esperar «Application startup complete» (carga los modelos)
-cd prototipo-app && npm run dev      # http://localhost:5174
+make mvp             # esperar «MVP listo: app http://localhost:5174 · panel …» (la API carga los modelos antes)
+make mvp LAN=1       # si se muestra desde un iPhone en la misma red (solo en una red de confianza)
 ```
 
-1. Abre el prototipo y deja el modo **Prototipo final** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy», la app como es hoy).
+Si la app muestra **«Sin conexión con Mochi»**, la API todavía no terminó de cargar o no está corriendo: espera a «MVP listo» y toca **Reintentar** (qué más revisar, en [instalación](instalacion.md#5-el-mvp)). Antes de una presentación, `make mvp-check` comprueba que la app y la API se hablan, contra un catálogo de prueba inventado y sin tocar la base real; no lo corras junto con los tests de rappi-ia.
+
+1. Abre el prototipo (http://localhost:5174) y deja el modo **Prototipo final** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy», la app como es hoy).
 2. Justo antes de presentar, con la API arriba: `cd rappi-ia && make warm`. Pasa por los botones del guion sin registrarlos: en frío la primera respuesta tarda de 2 a 5 s; después, menos de medio segundo. Repetirlo si la API pasó un rato sin uso.
 3. Para empezar sin rastros de pruebas anteriores, toca la barra de la Home («¿Qué se te antoja hoy?») para abrir el buscador con Mochi y, arriba, en «Aprendiendo de ti», toca **Olvidar**: borra lo aprendido y los eventos del usuario de este navegador, y Mochi lo confirma («Listo, olvidé lo que aprendí de ti»). El botón solo aparece si Mochi ya aprendió algo.
 
