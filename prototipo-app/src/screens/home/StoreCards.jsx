@@ -5,14 +5,13 @@ import './home.css'
 
 /**
  * Tarjeta ancha de restaurante o tienda (Home, Deals, Favorites).
- * Campos opcionales: rating, deliveryLabel (píldora amarilla), fee (costo de envío), distance, partial, logo (la foto es un
- * logo y se ve entera).
+ * Campos opcionales: rating, deliveryLabel (píldora amarilla), fee (costo de envío), distance, logo (la foto es un logo y
+ * se ve entera).
  */
 export function RestaurantCard({ store, onClick }) {
-  const media = ['featured-media', store.logo && 'is-logo', store.partial && 'is-partial'].filter(Boolean).join(' ')
   return (
     <button type="button" className="featured-card tap" onClick={onClick}>
-      <span className={media}>
+      <span className={store.logo ? 'featured-media is-logo' : 'featured-media'}>
         <Img src={store.img} draggable="false" />
       </span>
       <span className="featured-name">

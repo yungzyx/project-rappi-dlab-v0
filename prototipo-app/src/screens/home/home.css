@@ -320,11 +320,6 @@
   text-overflow: ellipsis;
 }
 
-/* Recorte que en el video solo aparece cortado en el borde: se muestra a su ancho real */
-.featured-media.is-partial img {
-  width: auto;
-}
-
 /* Tienda con logo en vez de foto: se ve entero sobre un fondo suave */
 .featured-media.is-logo {
   background: var(--chip);

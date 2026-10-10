@@ -92,34 +92,6 @@ export function ProductCard({ product, onOpenStore }) {
   )
 }
 
-/** Oferta de restaurante (Crazy Deals, Top 10 Pizzas). `boxed` = tarjeta blanca sobre fondo gris. */
-export function DealCard({ deal, boxed = false, onClick }) {
-  return (
-    <div className={boxed ? 'deal-card is-boxed' : 'deal-card'}>
-      <button type="button" className="product-card-main tap" onClick={onClick}>
-      <span className="deal-media">
-        <Img src={deal.img} draggable="false" />
-      </span>
-      <span className="deal-price">{deal.price}</span>
-      <span className="deal-discount">
-        <span className="deal-pct">
-          {deal.proDiscount && (
-            <svg width="15" height="12" viewBox="0 0 24 18" aria-hidden="true">
-              <path d="M1 4l5.5 4.5L12 1l5.5 7.5L23 4l-2.5 13h-17z" fill="currentColor" />
-            </svg>
-          )}
-          {deal.discount}
-        </span>
-        <s>{deal.before}</s>
-      </span>
-      <span className="deal-name">{deal.name}</span>
-      <StoreLine item={deal} />
-      </button>
-      <AddButton product={deal} className={boxed ? 'add-button--boxed' : 'add-button--deal'} />
-    </div>
-  )
-}
-
 /** Logo de la tienda: imagen recortada o, si no hay, un círculo con la inicial (`storeBadge`; sin nombre, vacío). */
 export function StoreLogo({ item }) {
   if (item.storeLogo) return <Img src={item.storeLogo} />

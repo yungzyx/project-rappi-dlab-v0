@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { menu as loadMenu, store as loadShop } from '../../api/catalog'
+import { menu as loadMenu } from '../../api/catalog'
 import { cartEventFields } from '../../api/orders'
 import { useApi } from '../../api/useApi'
+import { useShopAisles } from '../../api/useShopAisles'
 import BackButton from '../../components/BackButton'
 import ProductRow from '../../components/ProductRow'
 import Img from '../../components/Img'
@@ -43,18 +44,12 @@ export default function StoreScreen({ back, params }) {
   const events = useEvents()
   const { track } = useProfile()
   const [mode, setMode] = useState(MODES[0])
-  const [aisle, setAisle] = useState(null) // el pasillo que se eligió; sin elegir, la API trae el primero
-  // Los pasillos de la tienda se siguen viendo mientras llegan los productos del que se acaba de elegir.
-  const [aisles, setAisles] = useState([])
-  // Las páginas que se sumaron con «Ver más», de un pasillo: valen solo mientras sea el que se ve.
-  const [more, setMore] = useState(null)
-  const [loadingMore, setLoadingMore] = useState(false)
   const scrollRef = useRef(null)
-  const { data, error, retry } = useApi(
-    () => (id === null ? null : restaurant ? readMenu(id) : loadShop(id, { aisle })),
-    [id, restaurant, aisle],
-  )
-  if (data?.aisles && data.aisles !== aisles) setAisles(data.aisles)
+  // Un restaurante trae su menú; una tienda, sus pasillos de a una página (cada uno pide solo lo suyo).
+  const menu = useApi(() => (id === null || !restaurant ? null : readMenu(id)), [id, restaurant])
+  const shop = useShopAisles(restaurant ? null : id)
+  const { data, error, retry } = restaurant ? menu : shop
+  const { aisles, aisle, setAisle, products, hasMore, loadMore, loadingMore } = shop
 
   const notInCatalog = id === null || error?.status === 404
   // Lo que manda la API (foto, tiempo, nota) reemplaza al enlace; mientras llega se ve lo que traía el enlace.
@@ -80,30 +75,6 @@ export default function StoreScreen({ back, params }) {
   const toggleFavorite = () => {
     favorites.toggle(store)
     toast(isFavorite ? 'Quitada de favoritos' : 'Agregada a favoritos')
-  }
-
-  // Los productos que se ven de un pasillo: su primera página y las que se sumaron.
-  const aisleKey = data?.products ? `${data.store.id}:${data.aisle?.id}` : null
-  const added = more?.key === aisleKey ? more : null
-  const products = data?.products ? [...data.products, ...(added?.products ?? [])] : []
-  const hasMore = added ? added.hasMore : Boolean(data?.hasMore)
-
-  const loadMoreProducts = async () => {
-    const page = (added?.page ?? data.page) + 1
-    setLoadingMore(true)
-    try {
-      const next = await loadShop(data.store.id, { aisle: data.aisle.id, page })
-      const seen = new Set(products.map((product) => product.id))
-      setMore({
-        key: aisleKey,
-        products: [...(added?.products ?? []), ...next.products.filter((product) => !seen.has(product.id))],
-        page: next.page,
-        hasMore: next.hasMore })
-    } catch {
-      toast('No se pudo cargar más productos')
-    } finally {
-      setLoadingMore(false)
-    }
   }
 
   // Un producto que llegó por parámetro y no está en lo que se ve se muestra destacado arriba.
@@ -162,7 +133,7 @@ export default function StoreScreen({ back, params }) {
               </>
             )}
 
-            {aisles.length > 0 && <AisleTabs aisles={aisles} active={aisle ?? data?.aisle?.id} onChoose={setAisle} />}
+            {aisles.length > 0 && <AisleTabs aisles={aisles} active={aisle} onChoose={setAisle} />}
             {error && <OfflineNotice onRetry={retry} />}
             {!data && !error && <MenuSkeleton tabs={aisles.length === 0} />}
             {data?.sections && <RealMenu sections={data.sections} scrollRef={scrollRef} />}
@@ -175,7 +146,7 @@ export default function StoreScreen({ back, params }) {
                     ))}
                   </ul>
                   {hasMore && (
-                    <button type="button" className="store-more tap" disabled={loadingMore} onClick={loadMoreProducts}>
+                    <button type="button" className="store-more tap" disabled={loadingMore} onClick={loadMore}>
                       Ver más
                     </button>
                   )}
