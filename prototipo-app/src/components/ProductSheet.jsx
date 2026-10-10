@@ -57,7 +57,8 @@ function ProductDetail({ product, onOpenStore }) {
       {product.description && <p className="product-sheet-description">{product.description}</p>}
 
       {product.store &&
-        (onOpenStore ? (
+        // «Ver tienda» abre la tienda por su id: sin `storeId` no hay a cuál ir y solo se muestra el nombre.
+        (onOpenStore && product.storeId ? (
           <button type="button" className="product-sheet-store tap" onClick={openStore}>
             <StoreLogo item={product} />
             <span>{product.store}</span>

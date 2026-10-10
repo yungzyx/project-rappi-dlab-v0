@@ -184,6 +184,7 @@ describe('sugerencia cruzada', () => {
             entity_id: '1',
             name: 'Bebida Pepsi 1,5 L',
             store: 'Botillería',
+            store_id: 7, // sin tienda conocida la hoja no ofrece «Ver tienda»
             vertical: 'licores',
           },
         ],

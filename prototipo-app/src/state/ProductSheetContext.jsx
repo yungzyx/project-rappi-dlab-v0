@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 // Sin proveedor (tests sueltos de una tarjeta) tocar un producto no hace nada.
 const ProductSheetContext = createContext({ open: () => {}, close: () => {}, current: null })
 
-/** Producto abierto en la hoja inferior. `open(product, { onOpenStore })`: la hoja ofrece «Ver tienda» si viene. */
+/** Producto abierto en la hoja inferior. `open(product, { onOpenStore })`: la hoja ofrece «Ver tienda» si viene y el producto sabe su tienda (`storeId`). */
 export function ProductSheetProvider({ children }) {
   const [current, setCurrent] = useState(null)
   const [isOpen, setIsOpen] = useState(false)

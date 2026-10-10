@@ -23,6 +23,7 @@ const beer = {
   before: '$8.490',
   discount: '-26%',
   store: 'Liquidos',
+  storeId: 7,
   storeBadge: '#333',
   vertical: 'liquor',
 }
@@ -76,6 +77,16 @@ describe('ProductSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ }))
     expect(onOpenStore).toHaveBeenCalledTimes(1)
+  })
+
+  test('sin tienda conocida (storeId) la hoja muestra su nombre pero no ofrece «Ver tienda»', () => {
+    const onOpenStore = vi.fn()
+    renderWith(<ProductCard product={{ ...beer, storeId: undefined }} onOpenStore={onOpenStore} />)
+    fireEvent.click(screen.getByText(beer.name))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByText('Liquidos')).toBeTruthy()
+    expect(dialog.queryByRole('button', { name: /Ver tienda/ })).toBeNull()
+    expect(onOpenStore).not.toHaveBeenCalled()
   })
 
   test('el contador y la nota van al carrito; al reabrir dice «Actualizar»', () => {

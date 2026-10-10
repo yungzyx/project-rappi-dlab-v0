@@ -5,7 +5,7 @@ import ProductRow from '../../components/ProductRow'
 const TABS_OFFSET = 112
 
 /**
- * Menú real de un restaurante (datos del scraper): pestañas de sección fijas arriba que siguen el scroll
+ * Menú de un restaurante (`menu(id)` de la API): pestañas de sección fijas arriba que siguen el scroll
  * y llevan a cada sección al tocarlas. `scrollRef` es el contenedor con scroll de la página de tienda.
  */
 export default function RealMenu({ sections, scrollRef }) {

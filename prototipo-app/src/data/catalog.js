@@ -2,7 +2,7 @@
 import { LOWER_FEES, MOST_ORDERED, NEW_IN_RAPPI, CRAZY_DEALS, TOP_PIZZAS, GROCERY_SECTIONS } from '../screens/deals/data'
 import { TURBO_RESTAURANTS, NEARBY_STORES } from './home'
 import { BEST_RESTAURANTS, BEST_GROCERY } from '../screens/favorites/data'
-import { VERTICAL_PRODUCTS, VERTICAL_STORES } from '../screens/vertical/data'
+import { VERTICAL_PRODUCTS, VERTICAL_STORES } from './verticalCatalog'
 import { REAL_DISHES, REAL_RESTAURANTS } from './realMenus'
 
 function uniqueByName(items) {
