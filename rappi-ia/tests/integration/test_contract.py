@@ -40,7 +40,13 @@ class Example:
 
 
 # Las etapas siguientes agregan aquí los endpoints que la app consume.
-CONTRACT: tuple[Example, ...] = (Example("health", "GET", "/health"),)
+CONTRACT: tuple[Example, ...] = (
+    Example("health", "GET", "/health"),
+    Example("catalog-vertical-stores", "GET", "/catalog/verticals/supermercado/stores"),
+    Example("catalog-store", "GET", "/catalog/stores/9101"),
+    Example("catalog-store-page-2", "GET", "/catalog/stores/9101?page=2"),
+    Example("catalog-product", "GET", "/catalog/products/catalog_item/91001"),
+)
 
 
 @pytest.fixture

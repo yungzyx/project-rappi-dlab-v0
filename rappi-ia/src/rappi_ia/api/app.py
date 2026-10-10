@@ -581,3 +581,9 @@ def _check_audio_length(data: bytes) -> None:
         raise HTTPException(400, "El audio no es válido") from exc
     if seconds > MAX_AUDIO_SECONDS:
         raise HTTPException(413, f"Audio demasiado largo (máx. {MAX_AUDIO_SECONDS} s)")
+
+
+# Al final: el router necesita get_conn y backend_vertical de este módulo.
+from .catalog import router as catalog_router  # noqa: E402
+
+app.include_router(catalog_router)

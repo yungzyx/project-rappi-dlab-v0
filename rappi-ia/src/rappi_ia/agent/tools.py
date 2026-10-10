@@ -44,6 +44,8 @@ class Product:
     store: str | None
     img: str | None
     age_restricted: bool = False
+    store_id: int | None = None
+    presentation: str | None = None
 
     def to_dict(self) -> dict:
         discount = None
@@ -63,6 +65,8 @@ class Product:
             "store": self.store,
             "img": self.img,
             "age_restricted": self.age_restricted,
+            "store_id": self.store_id,
+            "presentation": self.presentation,
         }
 
 
@@ -262,7 +266,7 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
     if catalog_ids:
         # Solo ofertas vigentes, con la misma regla que la búsqueda (v_store_format_runs): una sucursal que la última
         # corrida de su formato ya no bajó no pone el precio, así el tope y el precio mostrado coinciden.
-        for pid, name, price, real, store, age in conn.execute(
+        for pid, name, price, real, store, age, store_id, presentation in conn.execute(
             """WITH latest AS (
                    SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock,
                           ps.run_id
@@ -272,7 +276,7 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                    ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC, ps.run_id DESC  -- el desempate de la vista
                )
                SELECT DISTINCT ON (sp.master_product_id) sp.master_product_id::text, ci.name, l.price, l.real_price,
-                      coalesce(b.name, s.name), ci.is_alcoholic OR ci.age_restricted
+                      coalesce(b.name, s.name), ci.is_alcoholic OR ci.age_restricted, l.store_id, ci.presentation
                FROM latest l
                JOIN store_products sp USING (store_id, sku)
                JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
@@ -281,13 +285,13 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                JOIN catalog_items ci ON ci.master_product_id = sp.master_product_id
                JOIN v_store_verticals v ON v.store_id = s.store_id AND v.vertical = %(vertical)s
                WHERE l.in_stock IS NOT FALSE
-               ORDER BY sp.master_product_id, l.price""",
+               ORDER BY sp.master_product_id, l.price, l.store_id""",  # store_id: con igual precio, siempre la misma
             {"ids": catalog_ids, "vertical": vertical},
         ):
-            prices[("catalog_item", pid)] = (name, price, real, store, age)
+            prices[("catalog_item", pid)] = (name, price, real, store, age, store_id, presentation)
     if menu_ids:
-        for iid, name, price, real, store in conn.execute(
-            """SELECT DISTINCT ON (mi.item_id) mi.item_id::text, mi.name, mp.price, mp.real_price, s.name
+        for iid, name, price, real, store, store_id in conn.execute(
+            """SELECT DISTINCT ON (mi.item_id) mi.item_id::text, mi.name, mp.price, mp.real_price, s.name, mi.store_id
                FROM menu_items mi
                JOIN stores s USING (store_id)
                LEFT JOIN menu_price_snapshots mp ON mp.item_id = mi.item_id
@@ -295,14 +299,14 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                ORDER BY mi.item_id, mp.scraped_at DESC NULLS LAST""",
             (menu_ids,),
         ):
-            prices[("menu_item", iid)] = (name, price, real, store, False)
+            prices[("menu_item", iid)] = (name, price, real, store, False, store_id, None)
     taxonomy = load_taxonomy()
     products = []
     for hit in hits:
         found = prices.get((hit.entity_type, hit.entity_id))
         if found is None:  # sin precio vigente en el vertical (agotado o sin stock): no se ofrece
             continue
-        name, price, real, store, age = found
+        name, price, real, store, age, store_id, presentation = found
         concept = taxonomy.concepts.get(hit.concept_id) if hit.concept_id else None
         prefix = "cat" if hit.entity_type == "catalog_item" else "menu"
         products.append(
@@ -319,6 +323,8 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                 store=store or hit.metadata.get("restaurante"),
                 img=hit.metadata.get("imagen"),
                 age_restricted=bool(age) or bool(concept and concept.age_restricted),
+                store_id=store_id,
+                presentation=presentation or None,
             )
         )
     return [p for p in products if p.price_value is not None]
