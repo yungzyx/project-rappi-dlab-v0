@@ -23,7 +23,7 @@ El panel lo dice siempre:
 
 Las fuentes nunca se mezclan: cada respuesta se valida contra la fuente pedida.
 
-La carpeta trae además una página de presentación de la propuesta (`presentacion.html`, en la misma raíz de Vite): problema, propuesta, la red que el catálogo ya comparte entre verticales (`public/presentacion/mapa-multivertical.html`, que se regenera con `rappi-ia multivertical`), arquitectura y resultados, pensada para abrirla antes del panel. Con el servidor de desarrollo arriba está en `http://localhost:5175/presentacion.html`.
+La carpeta trae además una página de presentación de la propuesta (`presentacion.html`, en la misma raíz de Vite): problema, propuesta, la red que el catálogo ya comparte entre verticales (`public/presentacion/mapa-multivertical.html`, copia de `docs/mapas/` tras correr `rappi-ia multivertical`), arquitectura y resultados, pensada para abrirla antes del panel. Con el servidor de desarrollo arriba está en `http://localhost:5175/presentacion.html`.
 
 ## Cómo correrlo
 

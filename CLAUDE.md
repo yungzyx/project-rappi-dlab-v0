@@ -8,7 +8,7 @@ Documentación: índice en [docs/README.md](docs/README.md) · cifras en [README
 
 ## Convenciones
 
-- La mascota y asistente se llama **Mochi** (antes, Bigotes), pero el código usa nombres neutros (`RappiAgent`, `/agent/ask`, `AgentMessage`, clases `agent-*`) porque el nombre puede cambiar. El nombre visible vive en un solo lugar por lado: en `rappi-ia`, `config.AGENT_NAME` (variable de entorno `AGENT_NAME`, por defecto «Mochi»); en la app, `prototipo-app/src/agent/name.js`. El agente responde por texto y el prototipo lo usa como buscador y con ofertas. Los documentos fechados y las páginas generadas (`docs/mapas/mapa-multivertical.html` y `dashboard-empresa/public/presentacion/mapa-multivertical.html`) todavía dicen Bigotes hasta que se regeneren (`rappi-ia multivertical`).
+- La mascota y asistente se llama **Mochi** (antes, Bigotes), pero el código usa nombres neutros (`RappiAgent`, `/agent/ask`, `AgentMessage`, clases `agent-*`) porque el nombre puede cambiar. El nombre visible vive en un solo lugar por lado: en `rappi-ia`, `config.AGENT_NAME` (variable de entorno `AGENT_NAME`, por defecto «Mochi»); en la app, `prototipo-app/src/agent/name.js`. El agente responde por texto y el prototipo lo usa como buscador y con ofertas. Los documentos fechados todavía dicen Bigotes.
 
 - Código (funciones, módulos, variables) en inglés; todo lo que ve el usuario (logs, CLI, docs, columnas) en español.
 - `make test` y `make lint` (en rappi-scraper/ y rappi-ia/) y `npm test` y `npm run lint` (en prototipo-app/ y dashboard-empresa/) antes de dar algo por terminado. Tests de integración contra `rappi_test` (scraper) y `rappi_ia_test` (rappi-ia), para que no se pisen.
@@ -22,6 +22,7 @@ Documentación: índice en [docs/README.md](docs/README.md) · cifras en [README
 - Mover la carpeta del proyecto rompe los `.venv` (rutas absolutas): recrearlos con `make install` en rappi-scraper y `make install install-ml` en rappi-ia. No moverla con un proceso del scraper corriendo.
 - Capa de datos para otras herramientas (atributos, medidas, marcas, grafo, segmentos): código en `rappi-ia/src/rappi_ia/layers/`, reglas en TOML junto a `taxonomy.toml`, vistas estables en el esquema `capa` (migraciones 022 a 026); `make layers` la recalcula y [docs/capa-de-datos.md](docs/capa-de-datos.md) la explica. Cada vista y columna de `capa` lleva comentario en español.
 - Los datos descargados no se suben a git (`rappi-scraper/data/` está ignorado).
+- Mapa multivertical: `rappi-ia multivertical` solo escribe `docs/mapas/mapa-multivertical.html`; después hay que copiarlo a `dashboard-empresa/public/presentacion/mapa-multivertical.html` (no hay un paso que lo haga).
 - Diagramas: las fuentes JSON están en `docs/diagramas-fuente/`; el HTML y su PNG se regeneran con la skill Archify.
 - `Proyecto/` (ignorada) es un intento antiguo con LangChain: no usarlo ni moverlo al repo.
 - Nunca dos descargas a la vez contra rappi.cl: los comandos que descargan comparten el candado `rappi-scraper/data/scraper.lock` (`flock`). La tarea semanal (`make schedule`) se programa en un solo equipo.
