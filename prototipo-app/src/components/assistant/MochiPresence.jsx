@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAddToCart } from '../../hooks/useAddToCart'
 import { useAssistant } from '../../state/AssistantContext'
 import { formatPrice, useCart } from '../../state/CartContext'
 import { useDemo } from '../../state/DemoContext'
-import { isQuiet, noteEngaged, quietToday, wake } from '../../state/mochiQuiet'
+import { MOCHI_CART_EVENT } from '../../state/liveMemory'
+import { isHushed, isQuiet, noteDismissed, noteEngaged, quietToday, wake } from '../../state/mochiQuiet'
 import { today } from '../../game/progress.js'
 import Mascot from './Mascot'
 import './mochi-presence.css'
@@ -15,6 +17,7 @@ const SIZE = 68
 const JUMP_MS = 900 // al tocarlo salta, como en la Home
 const SMALL_AFTER_SCROLL_MS = 750 // al hacer scroll se achica y vuelve un rato después
 const DRAG_THRESHOLD_PX = 8 // menos que esto es un toque, no un arrastre
+const CART_BUBBLE_MS = 4000
 
 const readSide = () => {
   try {
@@ -32,6 +35,8 @@ export default function MochiPresence({ screen, homeTab, raised }) {
   const demo = useDemo()
   const assistant = useAssistant()
   const cart = useCart()
+  const { remove } = useAddToCart()
+  const [added, setAdded] = useState(null) // lo último agregado, mientras dura su globo
   const [menu, setMenu] = useState(false)
   const [side, setSide] = useState(readSide)
   const [jumping, setJumping] = useState(false)
@@ -61,6 +66,22 @@ export default function MochiPresence({ screen, homeTab, raised }) {
     }
     phone.addEventListener('scroll', onScroll, true)
     return () => phone.removeEventListener('scroll', onScroll, true)
+  }, [hidden])
+
+  // Al agregar al carro, una confirmación corta con «Deshacer». No sugiere nada: eso queda para la Home al volver.
+  // En silencio (por hoy o porque lo ignoraron) no dice nada.
+  useEffect(() => {
+    if (hidden) return undefined
+    const onAdded = (event) => {
+      if (isQuiet(today()) || isHushed()) return
+      setMenu(false)
+      setAdded(event.detail.product)
+      setJumping(true)
+      later('jump', () => setJumping(false), JUMP_MS)
+      later('added', () => setAdded(null), CART_BUBBLE_MS)
+    }
+    window.addEventListener(MOCHI_CART_EVENT, onAdded)
+    return () => window.removeEventListener(MOCHI_CART_EVENT, onAdded)
   }, [hidden])
 
   // Escape o tocar fuera cierran el menú; con Escape el foco vuelve a Mochi.
@@ -168,6 +189,33 @@ export default function MochiPresence({ screen, homeTab, raised }) {
 
   return (
     <div ref={host} className={classes.join(' ')}>
+      {added && !menu && (
+        <div className="mochi-popover mochi-bubble" role="status">
+          <button
+            type="button"
+            className="mochi-bubble-close"
+            aria-label="Cerrar"
+            onClick={() => {
+              noteDismissed()
+              setAdded(null)
+            }}
+          >
+            ×
+          </button>
+          <p>¡Listo! {added.name} está en tu carrito.</p>
+          <button
+            type="button"
+            className="mochi-action tap"
+            onClick={() => {
+              noteEngaged()
+              remove(added)
+              setAdded(null)
+            }}
+          >
+            Deshacer
+          </button>
+        </div>
+      )}
       {menu && (
         <div className="mochi-popover" role="group" aria-label="Opciones de Mochi">
           <p>¿Qué hacemos juntos?</p>

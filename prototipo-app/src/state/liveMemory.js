@@ -9,6 +9,9 @@ export function rememberAdded(product) {
   session.lastAdded = product
 }
 
+/** Evento de ventana con que se avisa a Mochi flotante que algo se agregó al carro (detalle: `{ product }`). */
+export const MOCHI_CART_EVENT = 'mochi-carrito'
+
 /** Evento de ventana con que el botón «Repetir escena» (fuera del teléfono) avisa a la Home. */
 export const REPLAY_EVENT = 'bigotes-vivo-repetir'
 

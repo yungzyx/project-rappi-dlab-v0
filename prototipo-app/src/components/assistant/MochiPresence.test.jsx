@@ -1,10 +1,17 @@
 import { useEffect } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { today } from '../../game/progress.js'
 import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { CartProvider, formatPrice, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
+import { MOCHI_CART_EVENT } from '../../state/liveMemory'
+import { QUIET_KEY, resetQuiet } from '../../state/mochiQuiet'
+import { ProfileProvider } from '../../state/ProfileContext'
 import MochiPresence, { SIDE_KEY } from './MochiPresence'
+
+const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
+vi.mock('../../state/EventsContext', async (importOriginal) => ({ ...(await importOriginal()), useEvents: () => events }))
 
 const BEER = { id: 'b1', name: 'Cerveza Escudo 470 cc', price: '$1.380', vertical: 'liquor', store: 'Botillería' }
 
@@ -22,6 +29,7 @@ function Probe() {
 
 const tree = (props = {}) => (
   <DemoProvider>
+    <ProfileProvider>
     <AssistantProvider>
       <CartProvider>
         <div className="phone">
@@ -30,6 +38,7 @@ const tree = (props = {}) => (
         </div>
       </CartProvider>
     </AssistantProvider>
+    </ProfileProvider>
   </DemoProvider>
 )
 const mochiButton = () => screen.queryByRole('button', { name: 'Mochi: ayuda y opciones' })
@@ -37,7 +46,49 @@ const mochiButton = () => screen.queryByRole('button', { name: 'Mochi: ayuda y o
 beforeEach(() => localStorage.setItem('rappi-proto-demo-mode', 'final'))
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
+  resetQuiet()
   localStorage.clear()
+})
+
+const added = (product) => act(() => window.dispatchEvent(new CustomEvent(MOCHI_CART_EVENT, { detail: { product } })))
+const bubble = () => document.querySelector('.mochi-bubble')
+
+describe('Mochi y el carro', () => {
+  test('al agregar dice «¡Listo! … está en tu carrito» y se va a los 4 s', () => {
+    vi.useFakeTimers()
+    render(tree())
+    added(BEER)
+    expect(bubble().textContent).toContain(`¡Listo! ${BEER.name} está en tu carrito.`)
+    act(() => vi.advanceTimersByTime(4000))
+    expect(bubble()).toBeNull()
+  })
+
+  test('«Deshacer» quita el producto', () => {
+    render(tree())
+    act(() => probe.cart.add(BEER))
+    added(BEER)
+    fireEvent.click(screen.getByRole('button', { name: 'Deshacer' }))
+    expect(probe.cart.count).toBe(0)
+    expect(bubble()).toBeNull()
+  })
+
+  test('silenciado no dice nada', () => {
+    localStorage.setItem(QUIET_KEY, today())
+    render(tree())
+    added(BEER)
+    expect(bubble()).toBeNull()
+  })
+
+  test('cerrar el globo cuenta como ignorarlo: a la segunda, se calla', () => {
+    render(tree())
+    for (let i = 0; i < 2; i++) {
+      added(BEER)
+      fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
+    }
+    added(BEER)
+    expect(bubble()).toBeNull()
+  })
 })
 
 describe('Mochi flotante', () => {

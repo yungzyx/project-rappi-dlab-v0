@@ -128,3 +128,25 @@
   margin-right: 0;
   margin-left: -32px;
 }
+
+/* Confirmación al agregar al carro */
+.mochi-bubble {
+  position: relative;
+  padding-right: 34px;
+}
+
+.mochi-bubble .mochi-action {
+  justify-self: start;
+}
+
+.mochi-bubble-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--ink-2);
+  font-size: 18px;
+  line-height: 28px;
+}
