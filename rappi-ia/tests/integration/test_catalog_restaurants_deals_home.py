@@ -372,6 +372,69 @@ def test_a_store_rebate_is_a_deal_even_without_earlier_prices(seeded):
     ]
 
 
+def list_price(conn, store_id: int, product_id: int, real_price: int) -> None:
+    """La tienda marca un precio de lista para una oferta del catálogo de prueba."""
+    conn.execute(
+        """UPDATE price_snapshots SET real_price = %s, discount_pct = 100 * (1 - price / %s)
+           WHERE store_id = %s AND sku = %s AND run_id = (SELECT max(run_id) FROM price_snapshots)""",
+        (real_price, real_price, store_id, f"sku-{product_id}"),
+    )
+
+
+def test_deals_leave_out_discounts_above_sixty_percent(seeded):
+    before = ids_of(deals(seeded, limit=100))
+    # El jugo (91005) cuesta $1.590. Un precio de lista de $10.600 son -85 %: un precio por kilo contra uno por
+    # unidad (como en la fruta a granel), no una rebaja real.
+    list_price(seeded, 9101, 91005, 10600)
+
+    assert "91005" not in ids_of(deals(seeded, limit=100))
+    assert "91005" not in ids_of(deals(seeded, "supermercado", limit=100))
+    assert ids_of(deals(seeded, limit=100)) == before  # lo demás queda igual
+
+    # Con -40 % sí es una oferta.
+    list_price(seeded, 9101, 91005, 2650)
+
+    assert deal_summary([d for d in deals(seeded, limit=100) if d["entity_id"] == "91005"]) == [
+        ("91005", 9101, "$1.590", "$2.650", "-40%")
+    ]
+
+
+def test_the_discount_cap_is_inclusive_at_sixty_percent(seeded):
+    list_price(seeded, 9101, 91005, 3975)  # $1.590 de $3.975: -60 % justo
+
+    assert "91005" in ids_of(deals(seeded, "supermercado", limit=100))
+
+    list_price(seeded, 9101, 91005, 3980)  # -60,05 %
+
+    assert "91005" not in ids_of(deals(seeded, "supermercado", limit=100))
+
+
+def test_deals_leave_out_drops_above_sixty_percent_too(seeded):
+    # La gaseosa (91003, $1.790) venía de $6.000 en la corrida anterior: -70 %.
+    seeded.execute(
+        "UPDATE price_snapshots SET price = 6000 "
+        "WHERE store_id = 9101 AND sku = 'sku-91003' AND scraped_at < now() - interval '1 day'"
+    )
+
+    assert "91003" not in ids_of(deals(seeded, limit=100))
+
+
+def test_an_impossible_discount_in_one_store_does_not_hide_the_real_one_in_another(seeded):
+    # Las galletas (91002) tienen su mayor baja en Norte (9102). Si esa fuera de -80 %, sale la del Centro (-13 %).
+    seeded.execute(
+        "UPDATE price_snapshots SET price = 6750 "
+        "WHERE store_id = 9102 AND sku = 'sku-91002' AND scraped_at < now() - interval '1 day'"
+    )
+
+    found = {d["entity_id"]: d for d in deals(seeded, "supermercado", limit=100)}
+
+    assert (found["91002"]["store_id"], found["91002"]["before"], found["91002"]["discount"]) == (
+        9101,
+        "$1.490",
+        "-13%",
+    )
+
+
 def test_a_drop_only_counts_against_the_previous_price_of_the_current_offer(seeded):
     new_run = seeded.execute(
         "INSERT INTO scrape_runs (kind, status) VALUES ('stores', 'done') RETURNING run_id"
