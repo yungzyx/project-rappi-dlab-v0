@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { beaconEvents, chat, health, resetHealthCache, toMessage, toPrototypeProduct } from './client'
+import { ApiError, beaconEvents, chat, checkConnection, health, resetHealthCache, toMessage, toPrototypeProduct } from './client'
+import { fixture, stubApi } from './testing'
+import { userId } from './user'
 
 const API_PRODUCT = {
   id: 'cat-200',
@@ -20,6 +22,7 @@ const API_PRODUCT = {
 afterEach(() => {
   vi.unstubAllGlobals()
   resetHealthCache()
+  localStorage.clear()
 })
 
 describe('de la API al prototipo', () => {
@@ -126,13 +129,100 @@ describe('chat', () => {
         vi.fn((_url, { signal }) => new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('abortado'))))),
       )
       const pending = chat({ message: 'cerveza' })
-      const outcome = expect(pending).rejects.toThrow('abortado')
+      const outcome = expect(pending).rejects.toMatchObject({ kind: 'timeout' })
       await vi.advanceTimersByTimeAsync(7999)
       await vi.advanceTimersByTimeAsync(1)
       await outcome
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+const failure = (promise) => promise.then(() => null, (error) => error)
+
+describe('errores de la API', () => {
+  test('una respuesta 500 es ApiError http con su estado', async () => {
+    stubApi({ 'POST /chat': 500 })
+    const error = await failure(chat({ message: 'cerveza' }))
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ kind: 'http', status: 500 })
+  })
+
+  test('sin red es ApiError offline', async () => {
+    stubApi({ 'POST /chat': 'offline' })
+    const error = await failure(chat({ message: 'cerveza' }))
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error.kind).toBe('offline')
+  })
+
+  test('pasado el tiempo límite es ApiError timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      stubApi({ 'POST /chat': 'slow:60000' })
+      const outcome = failure(chat({ message: 'cerveza' }))
+      await vi.advanceTimersByTimeAsync(8000)
+      const error = await outcome
+      expect(error).toBeInstanceOf(ApiError)
+      expect(error.kind).toBe('timeout')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('checkConnection', () => {
+  test('checkConnection con la API arriba devuelve ok y sus capacidades', async () => {
+    const body = fixture('health')
+    stubApi({ '/health': body })
+    expect(await checkConnection()).toEqual({ ok: true, capabilities: body.capacidades, documents: body.documentos })
+  })
+
+  test('checkConnection sin API devuelve ok: false y el motivo', async () => {
+    stubApi({ '/health': 'offline' })
+    expect(await checkConnection()).toEqual({ ok: false, kind: 'offline' })
+    stubApi({ '/health': 500 })
+    expect(await checkConnection()).toEqual({ ok: false, kind: 'http' })
+  })
+
+  test('checkConnection no espera a una API más lenta que su tiempo límite', async () => {
+    vi.useFakeTimers()
+    try {
+      stubApi({ '/health': 'slow:6000' })
+      const outcome = checkConnection()
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(await outcome).toEqual({ ok: false, kind: 'timeout' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('una API lenta pero dentro del tiempo límite responde con sus capacidades', async () => {
+    vi.useFakeTimers()
+    try {
+      stubApi({ '/health': 'slow:3000' })
+      const outcome = checkConnection()
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(await outcome).toMatchObject({ ok: true, documents: fixture('health').documentos })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('stubApi', () => {
+  test('lo que no está en las rutas responde 404, y una ruta sin método es GET', async () => {
+    const fetchMock = stubApi({ '/health': fixture('health') })
+    expect(await failure(chat({ message: 'cerveza' }))).toMatchObject({ kind: 'http', status: 404 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect((await checkConnection()).ok).toBe(true)
+  })
+})
+
+describe('usuario compartido', () => {
+  test('el usuario guardado conserva su id', () => {
+    localStorage.setItem('rappi-proto-user', 'proto-0123456789abcdef')
+    expect(userId()).toBe('proto-0123456789abcdef')
   })
 })
 

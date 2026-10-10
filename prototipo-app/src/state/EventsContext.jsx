@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react'
 import { beaconEvents, health, sendEvents } from '../api/client'
+import { randomId, readStore, userId, writeStore } from '../api/user'
 import { useDemo } from './DemoContext'
 
 // Eventos de uso para el panel de la empresa (búsquedas, carrito, sugerencias, pedidos). Se envían en lotes a
 // rappi-ia; sin API, se descartan en silencio. En "Rappi hoy" se envían sin concepto: Mochi no aprende.
-const USER_KEY = 'rappi-proto-user'
 const SESSION_KEY = 'rappi-proto-session'
 const SESSION_IDLE_MS = 30 * 60 * 1000 // una sesión termina tras 30 min sin actividad
 const FLUSH_MS = 5000
@@ -18,39 +18,6 @@ function withinLimits(event) {
     if (typeof clipped[field] === 'string') clipped[field] = clipped[field].slice(0, max)
   }
   return clipped
-}
-
-// randomUUID solo existe en contexto seguro (https o localhost): abierta por la IP de la red (iPhone) no está, y el
-// respaldo con la hora daba ids adivinables. getRandomValues sí funciona por http.
-function randomId(prefix) {
-  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(8))
-  return `${prefix}-${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`
-}
-
-function readStore(storage, key) {
-  try {
-    return storage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function writeStore(storage, key, value) {
-  try {
-    storage.setItem(key, value)
-  } catch {
-    // Modo privado: el id vive solo en memoria.
-  }
-}
-
-/** Id seudónimo de este navegador (no es una cuenta ni un dato personal). */
-export function userId() {
-  let id = readStore(localStorage, USER_KEY)
-  if (!id) {
-    id = randomId('proto')
-    writeStore(localStorage, USER_KEY, id)
-  }
-  return id
 }
 
 /** Sesión vigente (se renueva tras 30 min sin actividad), con `change` aplicado a lo que vive con ella. */
