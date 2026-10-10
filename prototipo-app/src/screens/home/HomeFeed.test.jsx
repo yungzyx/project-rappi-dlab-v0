@@ -47,9 +47,9 @@ describe('Home de «Rappi hoy»', () => {
     return render(<HomeFeed push={vi.fn()} />, { wrapper: Providers })
   }
 
-  test('es la app como es hoy: buscador plano, sin Bigotes ni fila «Para ti»', () => {
+  test('es la app como es hoy: buscador plano, sin Mochi ni fila «Para ti»', () => {
     renderHome()
-    expect(screen.queryByRole('button', { name: 'Abrir buscador con Bigotes' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Abrir buscador con Mochi' })).toBeNull()
     expect(document.querySelector('.for-you')).toBeNull()
     expect(document.querySelector('.search-bar')).not.toBeNull()
   })

@@ -11,7 +11,7 @@ const TILE_IMAGES = Object.fromEntries([...MAIN_TILES, ...SHORTCUTS].map((tile) 
 const itemImage = (item) => (item.kind === 'product' ? item.product.img : item.store.img)
 
 /**
- * «Descubre con Bigotes»: cuántas verticales lleva exploradas y tarjetas que cruzan sus gustos con una vertical
+ * «Descubre con Mochi»: cuántas verticales lleva exploradas y tarjetas que cruzan sus gustos con una vertical
  * nueva. Tocar una tarjeta (o una vertical del recorrido) la abre.
  */
 export default function DiscoverSection({ cards, explored, onOpen }) {
@@ -21,7 +21,7 @@ export default function DiscoverSection({ cards, explored, onOpen }) {
     <section className="discover" aria-labelledby="discover-title">
       <div className="discover-head">
         <h2 id="discover-title" className="search-heading">
-          Descubre con Bigotes
+          Descubre con Mochi
         </h2>
         <span className="discover-count">
           Exploraste <b>{done}</b> de {EXPLORABLE.length}

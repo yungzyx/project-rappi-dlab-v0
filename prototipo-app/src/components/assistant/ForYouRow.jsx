@@ -5,7 +5,7 @@ import { SparkleIcon } from './SmartBar'
 import './for-you.css'
 
 /**
- * Fila de recomendaciones de Bigotes (prototipo final): productos de otras verticales con la razón visible.
+ * Fila de recomendaciones de Mochi (prototipo final): productos de otras verticales con la razón visible.
  * Tocar un producto abre su tienda (con el producto, que la tienda registra como visto).
  */
 export default function ForYouRow({ title, reason, products, push }) {

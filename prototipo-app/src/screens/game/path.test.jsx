@@ -27,7 +27,7 @@ describe('camino', () => {
     }
   })
 
-  test('Bigotes marca la parada con menos avance', () => {
+  test('Mochi marca la parada con menos avance', () => {
     const others = Object.fromEntries(DATA.order.filter((v) => v !== 'farmacia').map((v) => [v, [conceptsOf(v)[0].id]]))
     preload({ discovered: others })
     render(<App />)

@@ -13,7 +13,7 @@ import './home.css'
 const COLLAPSE_AT_PX = 150
 const BACK_TO_TOP_FROM_PX = 600
 
-/** La Home de «Rappi hoy»: tal como es la app, sin Bigotes. La del prototipo final es LiveHomeFeed. */
+/** La Home de «Rappi hoy»: tal como es la app, sin Mochi. La del prototipo final es LiveHomeFeed. */
 export default function HomeFeed({ push }) {
   const address = useAddress()
   const openSearch = () => push('search')

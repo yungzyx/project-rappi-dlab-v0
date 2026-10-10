@@ -22,7 +22,7 @@ import { useGame } from '../../../state/GameContext'
 import { PLANS, discoveryFor, planKit } from './script'
 import './live.css'
 
-// Las secciones de la Home de hoy, con el pasaporte justo bajo los accesos. Bigotes no sugiere productos aquí.
+// Las secciones de la Home de hoy, con el pasaporte justo bajo los accesos. Mochi no sugiere productos aquí.
 const ORDER = ['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'lower']
 const T = { enter: 900, greet: 3400, greetHold: 6000, notice: 500 }
 const GREETING = '¡Hola! Ahora vivo en tu Home 👋 Prueba verticales nuevas y junta sellos en tu pasaporte.'
@@ -45,10 +45,10 @@ function usePrefersReducedMotion() {
 }
 
 /**
- * Home del prototipo final: sin ícono de chat; la barra abre el buscador con Bigotes. Bigotes de cuerpo entero vive en
+ * Home del prototipo final: sin ícono de chat; la barra abre el buscador con Mochi. Mochi de cuerpo entero vive en
  * la Home sin reordenarla: saluda, acompaña el pasaporte y el plan del día, y al tocarlo invita a una vertical nueva.
  */
-export default function LiveHomeFeed({ push }) {
+export default function LiveHomeFeed({ push, active = true }) {
   const toast = useToast()
   const address = useAddress()
   const { add: addToCart } = useAddToCart()
@@ -62,7 +62,7 @@ export default function LiveHomeFeed({ push }) {
   const [plan, setPlan] = useState(() => session.plan)
   const [kitAdded, setKitAdded] = useState(null) // plan cuyo kit ya está en el carro
   const [say, setSay] = useState(null)
-  const [target, setTarget] = useState(null) // id del bloque donde se para Bigotes
+  const [target, setTarget] = useState(null) // id del bloque donde se para Mochi
   const [present, setPresent] = useState(() => session.played) // aún no entra a escena
   const [entering, setEntering] = useState(false)
   const kit = useMemo(() => (plan ? planKit(plan) : []), [plan])
@@ -89,7 +89,7 @@ export default function LiveHomeFeed({ push }) {
     [clearTimers],
   )
 
-  /** Bigotes dice algo (o se calla con `null`); con `holdMs` el globo se va solo. Cada frase reemplaza a la anterior. */
+  /** Mochi dice algo (o se calla con `null`); con `holdMs` el globo se va solo. Cada frase reemplaza a la anterior. */
   const speak = useCallback((next, at = null, holdMs = 0) => {
     clearTimeout(hideTimer.current)
     setSay(next)
@@ -109,7 +109,7 @@ export default function LiveHomeFeed({ push }) {
 
   const visit = useCallback(
     (vertical, route) => {
-      // Abrir la vertical en la app la sella (Explorador): Bigotes lo celebra al volver.
+      // Abrir la vertical en la app la sella (Explorador): Mochi lo celebra al volver.
       if (game.visit(vertical)) session.newStamp = vertical
       push(...(route ?? routeForScreen(vertical)))
     },
@@ -139,10 +139,11 @@ export default function LiveHomeFeed({ push }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replays])
 
-  // Al volver a la Home: celebra un sello nuevo o comenta lo último que se agregó al carro.
+  // Al volver a la Home: celebra un sello nuevo o comenta lo último que se agregó al carro. La Home queda montada bajo
+  // las pantallas que se abren encima (`active` es si está arriba), así que corre cada vez que vuelve a estar arriba.
   useEffect(() => {
-    if (!session.played) return
-    // Lo pendiente se borra de la sesión recién cuando Bigotes habla: en desarrollo, StrictMode monta dos veces y la
+    if (!active || !session.played) return
+    // Lo pendiente se borra de la sesión recién cuando Mochi habla: en desarrollo, StrictMode monta dos veces y la
     // primera vez se cancelan los timers.
     if (session.newStamp) {
       const name = VERTICAL_NAMES[session.newStamp]
@@ -155,7 +156,7 @@ export default function LiveHomeFeed({ push }) {
             text: left
               ? `¡Sello nuevo de ${name}! 🎉 Te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis.`
               : `¡Sello de ${name}! 🎉 Desbloqueaste el envío gratis.`,
-            mood: 'wave',
+            mood: 'jump',
             gesture: 'spin',
           },
           null,
@@ -185,11 +186,11 @@ export default function LiveHomeFeed({ push }) {
         )
       }
     }
-    // Solo al montar.
+    // Solo al volver a estar arriba (y al montar).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [active])
 
-  // Cuando el plan del día entra en pantalla, Bigotes camina hasta él (una vez por sesión).
+  // Cuando el plan del día entra en pantalla, Mochi camina hasta él (una vez por sesión).
   useEffect(() => {
     const element = blockRefs.current.get('plan')
     if (!element || typeof IntersectionObserver === 'undefined') return undefined

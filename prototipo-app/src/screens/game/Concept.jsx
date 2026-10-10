@@ -46,7 +46,7 @@ export default function Concept({ vertical, id, back }) {
       </div>
 
       <p className="concept-fact card">
-        {formatNumber(c.items[vertical] ?? 0)} {unit} en {DATA.labels[vertical]}. Bigotes lo asocia sobre todo con{' '}
+        {formatNumber(c.items[vertical] ?? 0)} {unit} en {DATA.labels[vertical]}. Mochi lo asocia sobre todo con{' '}
         <strong>{DATA.labels[c.home]}</strong>.
       </p>
 

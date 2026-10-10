@@ -1,13 +1,13 @@
 # rappi-dlab · Que Rappi se conozca más allá de una vertical
 
-Propuesta para Rappi Chile: un **prototipo navegable de la app** en el que Bigotes, la mochila de Rappi con bigote, vive en la Home, busca contigo y te invita a descubrir verticales que no usas, con un pasaporte de sellos y un juego que también se ofrece mientras llega tu pedido. Detrás hay datos reales: el catálogo público de rappi.cl en Postgres + pgvector, una búsqueda híbrida evaluada y una capa de datos que entiende qué es cada producto.
+Propuesta para Rappi Chile: un **prototipo navegable de la app** en el que Mochi, la mochila de Rappi con bigote, vive en la Home, busca contigo y te invita a descubrir verticales que no usas, con un pasaporte de sellos y un juego que también se ofrece mientras llega tu pedido. Detrás hay datos reales: el catálogo público de rappi.cl en Postgres + pgvector, una búsqueda híbrida evaluada y una capa de datos que entiende qué es cada producto.
 
 > [!NOTE]
 > Proyecto independiente: no está afiliado a Rappi ni cuenta con su respaldo. Rappi y las demás marcas mencionadas pertenecen a sus respectivos dueños.
 
 [![CI](https://github.com/yungzyx/rappi-dlab/actions/workflows/ci.yml/badge.svg)](https://github.com/yungzyx/rappi-dlab/actions/workflows/ci.yml)
 
-<img src="prototipo-app/docs/screenshots/00-modo-demo.jpg" width="320" alt="Prototipo final: Bigotes en la Home, el buscador con Bigotes y el pasaporte">
+<img src="prototipo-app/docs/screenshots/00-modo-demo.jpg" width="320" alt="Prototipo final: Mochi en la Home, el buscador con Mochi y el pasaporte">
 
 *El prototipo final. El interruptor de arriba (tecla **D**) alterna con la app como es hoy.*
 
@@ -23,14 +23,14 @@ La señal existe: cada búsqueda y cada pedido dice algo de quien lo hace. Pero 
 
 | Pieza | Qué hace |
 |---|---|
-| **Bigotes en la Home** | Bigotes de cuerpo entero vive en la Home, sin ícono de chat ni canal aparte. Saluda, acompaña el pasaporte y el plan del día («¿Qué plan tienes hoy?», un kit de varias verticales) y, al tocarlo, propone una vertical por probar. |
-| **Buscador con Bigotes** | La barra de la Home abre el buscador de siempre con lo que Bigotes sabe de ti: lo aprendido (con «Olvidar»), ideas para tocar («Arma un carrete»), búsqueda de tiendas y productos y «Descubre con Bigotes». Sin chat escrito. |
+| **Mochi en la Home** | Mochi de cuerpo entero vive en la Home, sin ícono de chat ni canal aparte. Saluda, acompaña el pasaporte y el plan del día («¿Qué plan tienes hoy?», un kit de varias verticales) y, al tocarlo, propone una vertical por probar. |
+| **Buscador con Mochi** | La barra de la Home abre el buscador de siempre con lo que Mochi sabe de ti: lo aprendido (con «Olvidar»), ideas para tocar («Arma un carrete»), búsqueda de tiendas y productos y «Descubre con Mochi». Sin chat escrito. |
 | **Pasaporte Rappi y juego de verticales** | Un sello por vertical (8). Se gana abriendo la vertical o jugando: rondas cortas con conceptos y desafíos sobre el catálogo real, niveles, misión del día y cartas «¿Sabías que…?». Con 4 sellos, envío gratis (idea para probar, no una promoción). |
 | **Mientras llega el pedido** | El seguimiento ofrece «Juega mientras llega tu pedido»: una ronda de una vertical sin sello, con el tiempo que falta arriba. La espera se aprovecha para descubrir otra vertical. |
 
-| La Home | El buscador con Bigotes | El juego | Mientras llega el pedido |
+| La Home | El buscador con Mochi | El juego | Mientras llega el pedido |
 |:---:|:---:|:---:|:---:|
-| <img src="prototipo-app/docs/screenshots/01-home-final.jpg" width="190" alt="Home con Bigotes y el pasaporte"> | <img src="prototipo-app/docs/screenshots/20-asistente.jpg" width="190" alt="Buscador con Bigotes"> | <img src="prototipo-app/docs/screenshots/31-juego-camino.jpg" width="190" alt="Camino del juego de verticales"> | <img src="prototipo-app/docs/screenshots/32-juego-espera.jpg" width="190" alt="Ronda con la franja del pedido"> |
+| <img src="prototipo-app/docs/screenshots/01-home-final.jpg" width="190" alt="Home con Mochi y el pasaporte"> | <img src="prototipo-app/docs/screenshots/20-asistente.jpg" width="190" alt="Buscador con Mochi"> | <img src="prototipo-app/docs/screenshots/31-juego-camino.jpg" width="190" alt="Camino del juego de verticales"> | <img src="prototipo-app/docs/screenshots/32-juego-espera.jpg" width="190" alt="Ronda con la franja del pedido"> |
 
 ### Cómo cruza las verticales
 
@@ -52,18 +52,18 @@ El efecto real (frecuencia, venta cruzada, verticales nuevas por persona) solo s
 1. **Descarga (semanal).** `rappi refresh` lee las páginas públicas de rappi.cl y guarda catálogo, menús y precios con historial.
 2. **Postgres + pgvector.** El catálogo (capa 1) y `search_documents`, una partición por vertical.
 3. **IA offline.** Cada producto y plato recibe un concepto (capa 2), y los conceptos se enlazan con sus complementos. Una capa de datos suma atributos, medidas, marcas, un grafo de conocimiento y segmentos, y los expone en el esquema `capa` ([docs/capa-de-datos.md](docs/capa-de-datos.md)). Cada documento recibe un embedding de un modelo local multilingüe (e5), con un índice vectorial por vertical.
-4. **Consulta.** Búsqueda híbrida dentro de la vertical: por palabras y por significado, combinadas por posición (RRF) y reforzadas por el concepto pedido. Bigotes arma la respuesta y la sugerencia cruzada.
+4. **Consulta.** Búsqueda híbrida dentro de la vertical: por palabras y por significado, combinadas por posición (RRF) y reforzadas por el concepto pedido. Mochi arma la respuesta y la sugerencia cruzada.
 5. **Prototipo.** La API (FastAPI, puerto 8000) atiende al prototipo (5174). Sin la API, el prototipo responde con reglas locales y lo marca («Respuesta local»).
 
-**Bigotes** en la API conversa por texto, voz (Whisper) o foto (CLIP); el prototipo usa solo el texto, como buscador. Reconoce servicios sin catálogo (un viaje lleva a **RappiTravel**, un envío o trámite a **RappiFavor**). Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó. Diseño completo: [docs/diseno-ia.md](docs/diseno-ia.md).
+**Mochi** en la API conversa por texto, voz (Whisper) o foto (CLIP); el prototipo usa solo el texto, como buscador. Reconoce servicios sin catálogo (un viaje lleva a **RappiTravel**, un envío o trámite a **RappiFavor**). Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó. Diseño completo: [docs/diseno-ia.md](docs/diseno-ia.md).
 
 ## Grafos y diagramas
 
 | Qué | Para qué | Dónde |
 |---|---|---|
 | Mapa multivertical | Qué productos y conceptos comparten las verticales, con complementos, sustitutos y «nunca junto» | [docs/mapas/mapa-multivertical.html](docs/mapas/mapa-multivertical.html) (descargar y abrir; se regenera con `rappi-ia multivertical`) |
-| Mapa de conceptos | Cada concepto junto a la vertical donde es más típico (la regla de Bigotes) | [docs/mapas/mapa-conceptos.jpg](docs/mapas/mapa-conceptos.jpg) |
-| Flujo de datos | Del catálogo a la respuesta de Bigotes | [PNG](docs/diagramas/rag-datos.png) · [interactivo](docs/diagramas/rag-datos.html) |
+| Mapa de conceptos | Cada concepto junto a la vertical donde es más típico (la regla de Mochi) | [docs/mapas/mapa-conceptos.jpg](docs/mapas/mapa-conceptos.jpg) |
+| Flujo de datos | Del catálogo a la respuesta de Mochi | [PNG](docs/diagramas/rag-datos.png) · [interactivo](docs/diagramas/rag-datos.html) |
 | Arquitectura por carriles | Qué hace cada pieza de la IA | [PNG](docs/diagramas/arquitectura-ia.png) · [interactivo](docs/diagramas/arquitectura-ia.html) |
 | Scraper | Cómo se descarga el catálogo | [PNG](docs/diagramas/scraper-flujo.png) · [interactivo](docs/diagramas/scraper-flujo.html) |
 
@@ -122,7 +122,7 @@ Requiere Node 22.22+ o 24.15+:
 cd prototipo-app && npm ci && npm run dev   # http://localhost:5174
 ```
 
-La tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Prototipo final» y «Rappi hoy». Sin la API, Bigotes responde con reglas locales sobre los datos de las capturas. Guion de demo: [docs/demo.md](docs/demo.md).
+La tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Prototipo final» y «Rappi hoy». Sin la API, Mochi responde con reglas locales sobre los datos de las capturas. Guion de demo: [docs/demo.md](docs/demo.md).
 
 ### Con el catálogo real
 
@@ -133,11 +133,11 @@ cd rappi-ia && make serve          # API en http://localhost:8000 (esperar «App
 cd prototipo-app && npm run dev    # http://localhost:5174
 ```
 
-Con la API, Bigotes busca en el catálogo real con precios vigentes. La API no tiene autenticación y por defecto escucha solo en el equipo local (`make serve-lan` la abre a la red, solo en una red de confianza). `make schedule` en `rappi-scraper/` programa la actualización semanal (domingos 03:00) seguida de `make post-refresh` en rappi-ia.
+Con la API, Mochi busca en el catálogo real con precios vigentes. La API no tiene autenticación y por defecto escucha solo en el equipo local (`make serve-lan` la abre a la red, solo en una red de confianza). `make schedule` en `rappi-scraper/` programa la actualización semanal (domingos 03:00) seguida de `make post-refresh` en rappi-ia.
 
 ## Qué es real y qué es simulado
 
-- **Real:** el catálogo, los precios y los menús (de rappi.cl), los conceptos, la capa de datos, la búsqueda y las respuestas de Bigotes con la API. Las pantallas del prototipo son recortes de capturas de la app.
+- **Real:** el catálogo, los precios y los menús (de rappi.cl), los conceptos, la capa de datos, la búsqueda y las respuestas de Mochi con la API. Las pantallas del prototipo son recortes de capturas de la app.
 - **Simulado:** el pago, el seguimiento del pedido (llega a los 20 s), los usuarios y eventos para segmentos y métricas, y el progreso del juego.
 - **Uso responsable:** solo páginas públicas sin barreras técnicas, sin APIs internas ni inicio de sesión, una descarga a la vez con pausas de 1,5 a 3 s y una actualización por semana. Sin datos personales: los usuarios son simulados o del prototipo (id seudónimo). Los datos descargados no se publican ni están en el repositorio. Fines de investigación y demostración; un uso comercial requeriría autorización de Rappi.
 
@@ -154,8 +154,8 @@ Con la API, Bigotes busca en el catálogo real con precios vigentes. La API no t
 
 ```text
 .
-├── prototipo-app/          el prototipo final (Vite + React): Bigotes, buscador, pasaporte y juego de verticales
-├── rappi-ia/               conceptos, embeddings, búsqueda, capa de datos, Bigotes y API (comando `rappi-ia`)
+├── prototipo-app/          el prototipo final (Vite + React): Mochi, buscador, pasaporte y juego de verticales
+├── rappi-ia/               conceptos, embeddings, búsqueda, capa de datos, Mochi y API (comando `rappi-ia`)
 ├── rappi-scraper/          descarga del catálogo público → Postgres + pgvector (comando `rappi`; migraciones de toda la base)
 ├── dashboard-empresa/      panel de negocio para más adelante (Vite + React; datos simulados)
 ├── docs/                   propuesta, diseño, decisiones, demo, instalación y resultados

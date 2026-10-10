@@ -2,11 +2,13 @@
 
 Guía breve para asistentes de IA que trabajan en este repositorio.
 
-rappi-dlab es un prototipo independiente (no afiliado a Rappi): baja el catálogo público de Rappi Chile por vertical a Postgres + pgvector, con búsqueda híbrida evaluada, el agente Bigotes (recomendaciones entre verticales) y el prototipo final de la app (Bigotes en la Home, buscador con Bigotes, pasaporte y juego de verticales). El panel de negocio (`dashboard-empresa/`, datos simulados) queda como herramienta para más adelante, fuera de la propuesta. El historial completo (modos anteriores, presentación) está en el repo `rappi-evolucion-proyecto`.
+rappi-dlab es un prototipo independiente (no afiliado a Rappi): baja el catálogo público de Rappi Chile por vertical a Postgres + pgvector, con búsqueda híbrida evaluada, el agente Mochi (recomendaciones entre verticales) y el prototipo final de la app (Mochi en la Home, buscador con Mochi, pasaporte y juego de verticales). El panel de negocio (`dashboard-empresa/`, datos simulados) queda como herramienta para más adelante, fuera de la propuesta. El historial completo (modos anteriores, presentación) está en el repo `rappi-evolucion-proyecto`.
 
 Documentación: índice en [docs/README.md](docs/README.md) · cifras en [README.md#resultados](README.md#resultados) · decisiones en [docs/decisiones.md](docs/decisiones.md) · instalación y operación en [docs/instalacion.md](docs/instalacion.md).
 
 ## Convenciones
+
+- La mascota y asistente se llama **Mochi** en todo lo que ve el usuario (antes, Bigotes). Los nombres internos del código no cambiaron (`LiveBigotes`, las clases CSS `bigotes-*`, el agente `rappi_ia/agent/bigotes.py`); los diagramas, el panel y los documentos fechados todavía dicen Bigotes.
 
 - Código (funciones, módulos, variables) en inglés; todo lo que ve el usuario (logs, CLI, docs, columnas) en español.
 - `make test` y `make lint` (en rappi-scraper/ y rappi-ia/) y `npm test` y `npm run lint` (en prototipo-app/ y dashboard-empresa/) antes de dar algo por terminado. Tests de integración contra `rappi_test` (scraper) y `rappi_ia_test` (rappi-ia), para que no se pisen.

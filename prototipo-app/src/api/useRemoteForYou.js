@@ -40,7 +40,7 @@ export function useRemoteForYou(enabled, generation = 0) {
           reason: first.reason,
           concept: first.concept,
           vertical: first.vertical,
-          // Es una sugerencia de Bigotes: los pedidos que salgan de aquí no cuentan para aprender afinidad.
+          // Es una sugerencia de Mochi: los pedidos que salgan de aquí no cuentan para aprender afinidad.
           products: first.products.map((p) => ({
             ...toPrototypeProduct(p),
             fromSuggestion: true,

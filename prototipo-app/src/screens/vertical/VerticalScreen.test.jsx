@@ -89,7 +89,7 @@ describe('entradas al embudo desde una vertical', () => {
     expect(push).toHaveBeenCalledWith('search', { vertical: 'liquor' })
   })
 
-  test('en la Propuesta, el buscador de la vertical es el de Bigotes', () => {
+  test('en la Propuesta, el buscador de la vertical es el de Mochi', () => {
     const push = renderVertical('liquor')
     fireEvent.click(screen.getByText('Search stores or products'))
     expect(push).not.toHaveBeenCalled()

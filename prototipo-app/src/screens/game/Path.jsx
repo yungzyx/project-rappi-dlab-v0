@@ -142,7 +142,7 @@ export default function Path({ go, open: openAtStart = null }) {
                 {isHere && (
                   <div className={`path-here ${OFFSETS[i] > 0 ? 'is-left' : 'is-right'}`} aria-hidden="true">
                     <Mascot size={52} mood="wave" />
-                    <span>¡Aquí!</span>
+                    <span className="path-here-label">¡Aquí!</span>
                   </div>
                 )}
                 <span className="path-node-wrap">

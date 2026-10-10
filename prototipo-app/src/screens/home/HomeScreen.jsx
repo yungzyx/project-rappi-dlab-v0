@@ -16,12 +16,12 @@ const NAV_ITEMS = [
 ]
 
 /** Contenedor de las 4 pestañas de la barra inferior. La pestaña activa la guarda App. */
-export default function HomeScreen({ push, tab, setTab }) {
+export default function HomeScreen({ push, tab, setTab, active }) {
   const demo = useDemo()
   const openSearch = useOpenSearch(push)
   return (
     <>
-      {tab === 'home' && (demo.isFinal ? <LiveHomeFeed push={push} /> : <HomeFeed push={push} />)}
+      {tab === 'home' && (demo.isFinal ? <LiveHomeFeed push={push} active={active} /> : <HomeFeed push={push} />)}
       {tab === 'offers' && <DealsScreen push={push} />}
       {tab === 'favorites' && <FavoritesScreen push={push} />}
       {tab === 'account' && <AccountScreen onBack={() => setTab('home')} push={push} />}

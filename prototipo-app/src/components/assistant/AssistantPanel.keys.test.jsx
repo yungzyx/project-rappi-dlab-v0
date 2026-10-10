@@ -42,7 +42,7 @@ afterEach(() => {
   localStorage.clear()
 })
 
-describe('la respuesta de Bigotes nunca sale repetida', () => {
+describe('la respuesta de Mochi nunca sale repetida', () => {
   test('al abrir, cerrar, volver a abrir y tocar ideas siempre se ve una sola respuesta', async () => {
     render(
       <DemoProvider>

@@ -32,9 +32,9 @@ const MIN_TYPING_MS = 450
 let nextId = 1
 
 /**
- * Buscador con Bigotes: el buscador de siempre, con lo que Bigotes sabe de la persona en bloques que se
+ * Buscador con Mochi: el buscador de siempre, con lo que Mochi sabe de la persona en bloques que se
  * tocan (sin chat escrito) y una invitación a descubrir otras verticales. Siempre montado (para no perder lo que
- * Bigotes respondió); se muestra al abrirlo.
+ * Mochi respondió); se muestra al abrirlo.
  */
 export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const assistant = useAssistant()
@@ -103,7 +103,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
    * pestaña (firstShowing): AddButton registra la mostrada que falte al aceptarla y no debe contarse dos veces.
    */
   const noteSuggestion = (message) => {
-    // Un servicio sin catálogo (RappiTravel, RappiFavor) ofrecido: cada vez que Bigotes lo ofrece.
+    // Un servicio sin catálogo (RappiTravel, RappiFavor) ofrecido: cada vez que Mochi lo ofrece.
     if (message.service) events.track('service_shown', { payload: { servicio: message.service } })
     if (!message.suggestion) return message
     const { concept, vertical, origin = 'chat' } = message.suggestion
@@ -138,7 +138,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     return message
   }
 
-  /** Respuesta de las reglas del prototipo: queda marcada en pantalla para que se sepa qué Bigotes contestó. */
+  /** Respuesta de las reglas del prototipo: queda marcada en pantalla para que se sepa qué Mochi contestó. */
   const localReply = (message) => noteLocalSuggestions({ ...message, source: 'local' })
 
   /** Respuesta de la API; si no está o falla, el cerebro local de siempre. */
@@ -237,7 +237,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     }, CLOSE_MS)
   }
 
-  // La pantalla que se abre desde Bigotes se apila sobre su entrada del historial, que guarda la búsqueda: al volver,
+  // La pantalla que se abre desde Mochi se apila sobre su entrada del historial, que guarda la búsqueda: al volver,
   // el panel se reabre con ella (AssistantContext).
   const leave = () => {
     if (window.history.state?.assistant)
@@ -324,7 +324,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     }
   }
 
-  // Lo que Bigotes muestra es su última respuesta (no un historial de chat), con lo que la persona eligió.
+  // Lo que Mochi muestra es su última respuesta (no un historial de chat), con lo que la persona eligió.
   const current = messages.findLast((m) => m.from === 'bot')
   const asked = messages.findLast((m) => m.from === 'user')
   const showAsked = asked && current && messages.indexOf(asked) < messages.indexOf(current)

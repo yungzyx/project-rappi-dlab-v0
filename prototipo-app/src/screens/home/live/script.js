@@ -1,4 +1,4 @@
-// Lo que Bigotes decide mostrar en la Home del prototipo final: una vertical que combina con lo agregado y kits por plan.
+// Lo que Mochi decide mostrar en la Home del prototipo final: una vertical que combina con lo agregado y kits por plan.
 // Todo sale de los datos del prototipo; no hay chat ni llamadas a la API. Un ítem es un producto o una tienda.
 import { COMPLEMENTS, TAGS, productsForTags, storesForTags } from '../../../assistant/tags'
 import { VERTICAL_NAMES } from '../../../data/verticals'
@@ -24,7 +24,7 @@ const mostCommon = (values) => {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 }
 
-// En la Home, Bigotes habla de «chocolates» (lo que la persona reconoce), no de la etiqueta interna «Dulces».
+// En la Home, Mochi habla de «chocolates» (lo que la persona reconoce), no de la etiqueta interna «Dulces».
 const SPOKEN_LABELS = { dulce: 'Chocolates' }
 const describe = (tag) => ({ tag, label: SPOKEN_LABELS[tag] ?? TAGS[tag].label, emoji: TAGS[tag].emoji })
 

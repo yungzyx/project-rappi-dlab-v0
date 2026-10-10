@@ -1062,7 +1062,7 @@ def test_a_symptom_with_a_named_vertical_stays_there(pharmacy):
 def test_questions_about_the_app_get_an_answer_not_products(bigotes):
     agent, db = bigotes
     help_ = agent.reply(db, "quien eres", Context())
-    assert not help_["products"] and "Bigotes" in help_["text"]
+    assert not help_["products"] and "Mochi" in help_["text"]
     assert [a["query"] for a in help_["actions"]] == ["algo para el carrete", "tengo hambre", "tengo fiebre"]
     assert "envío" in agent.reply(db, "hacen delivery?", Context())["text"]
     assert "Ofertas" in agent.reply(db, "tienen ofertas?", Context())["text"]

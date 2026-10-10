@@ -14,7 +14,7 @@ const suggestionFields = (nudge) => ({
   payload: { from: nudge.tag, to: nudge.complement, origen: 'aviso' },
 })
 
-/** Burbuja de Bigotes sobre la barra del carrito: "¿Te tinca sumar 🍿 snacks?" → abre el chat con esa búsqueda. */
+/** Burbuja de Mochi sobre la barra del carrito: "¿Te tinca sumar 🍿 snacks?" → abre el chat con esa búsqueda. */
 export default function Nudge({ raised }) {
   const { nudge, dismiss } = useNudge()
   const assistant = useAssistant()

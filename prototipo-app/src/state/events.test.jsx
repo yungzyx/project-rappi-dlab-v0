@@ -69,7 +69,7 @@ describe('eventos', () => {
     expect(body.events[1]).toMatchObject({ query: 'chelas', concept_id: 'cerveza' })
   })
 
-  test('en modo "Rappi hoy" los eventos van sin concepto: Bigotes no aprende', async () => {
+  test('en modo "Rappi hoy" los eventos van sin concepto: Mochi no aprende', async () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     const fetchMock = vi.fn(async (url) => ({ ok: true, json: async () => (String(url).endsWith('/health') ? { capacidades: {} } : {}) }))
     vi.stubGlobal('fetch', fetchMock)

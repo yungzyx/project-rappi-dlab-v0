@@ -7,7 +7,7 @@ import { initialState, today } from '../../game/progress.js'
 import { makeRound } from '../../game/round.js'
 import { seed, stored } from '../../game/testSeed.js'
 import { routeForScreen } from '../../data/verticals'
-import { REPLAY_EVENT } from '../../state/liveMemory'
+import { REPLAY_EVENT, session } from '../../state/liveMemory'
 
 beforeEach(() => localStorage.clear())
 afterEach(() => {
@@ -21,7 +21,7 @@ const almostDone = () =>
   seed({ cards: [FACTS[0].id], daily: { date: today(), discovered: 2, correct: 1, opened: 0, done: false } })
 
 describe('bienvenida', () => {
-  test('la primera vez Bigotes da la bienvenida y «Empezar» abre la primera ronda', () => {
+  test('la primera vez Mochi da la bienvenida y «Empezar» abre la primera ronda', () => {
     render(<App />)
     const intro = screen.getByRole('dialog', { name: 'Bienvenida' })
     fireEvent.click(within(intro).getByRole('button', { name: 'Empezar' }))
@@ -183,6 +183,15 @@ describe('dentro del prototipo', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Abrir Turbo' }))
     expect(push).toHaveBeenCalledWith(...routeForScreen('turbo'))
     expect(stored().visited).toContain('turbo')
+  })
+
+  test('el sello que gana «Abrir Turbo» queda para que Mochi lo celebre al volver a la Home', () => {
+    seed()
+    session.newStamp = null
+    render(<App params={{ vertical: 'turbo' }} push={vi.fn()} />)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Abrir Turbo' }))
+    expect(session.newStamp).toBe('turbo')
+    session.newStamp = null
   })
 
   test('«Repetir escena» con una ronda a medias la empieza de nuevo', () => {

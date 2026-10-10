@@ -1,5 +1,5 @@
-/* Prototipo final: Bigotes de cuerpo entero dentro de la Home, bloques que se reordenan y foco con fondo oscuro. */
-/* La capa de Bigotes es hermana de la Home (no hija): las dos llevan las variables. */
+/* Prototipo final: Mochi de cuerpo entero dentro de la Home, bloques que se reordenan y foco con fondo oscuro. */
+/* La capa de Mochi es hermana de la Home (no hija): las dos llevan las variables. */
 .home--live,
 .live-layer {
   --live-accent: #c43d20; /* rojo Rappi más oscuro: texto blanco encima con 5,2:1 */
@@ -341,7 +341,7 @@
   white-space: nowrap;
 }
 
-/* ---------- Bigotes y su globo ---------- */
+/* ---------- Mochi y su globo ---------- */
 .live-layer {
   position: absolute;
   inset: 0;
@@ -432,23 +432,18 @@
   transform-origin: 50% 95%; /* desde los pies */
 }
 
-.live-bigotes .mascot-arm-left {
-  transform-box: view-box;
-  transform-origin: 18px 68px;
-}
-
-/* Saludo de entrada: llega, da un saltito y agita el brazo tres veces */
+/* Saludo de entrada: llega, da un saltito y levanta los brazos */
 .live-gesture--greet {
   animation: live-hello-body 1.7s var(--live-glide) 0.75s;
 }
 
-.live-bigotes .live-gesture--greet .mascot-arm,
-.live-bigotes .live-gesture--wave .mascot-arm {
-  animation: live-arm-wave 1.5s ease-in-out 0.75s;
+/* Los gestos con brazos (saludar, señalar, bailar, estirarse) ponen la pose feliz de Mochi; mirar, la tímida */
+.live-bigotes .live-gesture--greet .mochi .mochi-sprite {
+  animation: live-pose-happy 1.5s step-end 0.75s;
 }
 
-.live-bigotes .live-gesture--wave .mascot-arm {
-  animation-delay: 0s;
+.live-bigotes .live-gesture--wave .mochi .mochi-sprite {
+  animation: live-pose-happy 1.5s step-end;
 }
 
 .live-gesture--wave {
@@ -463,16 +458,16 @@
   animation: live-lean 1.8s var(--live-glide);
 }
 
-.live-bigotes .live-gesture--point .mascot-arm-left {
-  animation: live-arm-point 1.8s var(--live-glide);
+.live-bigotes .live-gesture--point .mochi .mochi-sprite {
+  animation: live-pose-happy 1.8s step-end;
 }
 
 .live-gesture--spin {
   animation: live-spin 900ms var(--live-glide);
 }
 
-.live-bigotes .live-gesture--look .mascot-pupil {
-  animation: live-look 2.2s ease-in-out;
+.live-bigotes .live-gesture--look .mochi .mochi-sprite {
+  animation: live-pose-shy 2.2s step-end;
 }
 
 .live-gesture--look {
@@ -483,23 +478,16 @@
   animation: live-dance 1.8s ease-in-out;
 }
 
-.live-bigotes .live-gesture--dance .mascot-arm,
-.live-bigotes .live-gesture--stretch .mascot-arm {
-  animation: live-arm-wave 1.8s ease-in-out;
+.live-bigotes .live-gesture--dance .mochi .mochi-sprite {
+  animation: live-pose-happy 1.8s step-end;
 }
 
-.live-bigotes .live-gesture--dance .mascot-arm-left,
-.live-bigotes .live-gesture--stretch .mascot-arm-left {
-  animation: live-arm-up 1.8s ease-in-out;
+.live-bigotes .live-gesture--stretch .mochi .mochi-sprite {
+  animation: live-pose-happy 1.3s step-end;
 }
 
 .live-gesture--stretch {
   animation: live-stretch 1.3s var(--live-glide);
-}
-
-/* Al hablar se mueve con lo que dice */
-.live-bigotes .mascot--talk .mascot-figure {
-  animation: live-talk-bob 0.36s ease-in-out infinite alternate;
 }
 
 @keyframes live-hello-body {
@@ -521,47 +509,22 @@
   }
 }
 
-@keyframes live-arm-wave {
+/* Al tocarlo o al celebrar, el salto gana sobre la pose del gesto */
+.live-bigotes .live-gesture .mochi.mascot--jump .mochi-sprite {
+  animation: none;
+}
+
+@keyframes live-pose-happy {
   0%,
-  100% {
-    transform: rotate(0);
-  }
-  15%,
-  45%,
-  75% {
-    transform: rotate(-62deg);
-  }
-  30%,
-  60%,
-  90% {
-    transform: rotate(-22deg);
+  95% {
+    background-position: 100% 0;
   }
 }
 
-/* Brazo izquierdo estirado hacia la izquierda: apunta al globo y al bloque */
-@keyframes live-arm-point {
+@keyframes live-pose-shy {
   0%,
-  100% {
-    transform: rotate(0);
-  }
-  20%,
-  80% {
-    transform: rotate(-55deg);
-  }
-  50% {
-    transform: rotate(-45deg);
-  }
-}
-
-/* Brazo izquierdo arriba, para bailar y estirarse */
-@keyframes live-arm-up {
-  0%,
-  100% {
-    transform: rotate(0);
-  }
-  30%,
-  70% {
-    transform: rotate(48deg);
+  95% {
+    background-position: 0 100%;
   }
 }
 
@@ -624,21 +587,6 @@
   }
 }
 
-@keyframes live-look {
-  0%,
-  100% {
-    transform: none;
-  }
-  20%,
-  40% {
-    transform: translate(-3.5px, -1px);
-  }
-  60%,
-  80% {
-    transform: translate(3.5px, -1px);
-  }
-}
-
 @keyframes live-dance {
   0%,
   100% {
@@ -668,15 +616,6 @@
   }
 }
 
-@keyframes live-talk-bob {
-  from {
-    transform: rotate(-2deg);
-  }
-  to {
-    transform: translateY(-2px) rotate(2deg);
-  }
-}
-
 .live-bubble {
   position: absolute;
   top: 6px;
@@ -696,7 +635,7 @@
   animation: live-bubble-in 360ms var(--live-spring);
 }
 
-/* Abajo en la pantalla, el globo crece hacia arriba desde la cabeza de Bigotes */
+/* Abajo en la pantalla, el globo crece hacia arriba desde la cabeza de Mochi */
 .live-bigotes.is-low .live-bubble {
   top: auto;
   bottom: 46px;
@@ -745,6 +684,7 @@
   .live-bigotes.is-entering .live-bigotes-body,
   .live-hop,
   .live-gesture,
+  .live-gesture .mochi-sprite,
   .live-bubble,
   .live-bubble-actions,
   .live-kit,

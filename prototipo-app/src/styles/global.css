@@ -232,7 +232,7 @@ img {
   }
 }
 
-/* Solo para lectores de pantalla (p. ej. el anuncio de cada respuesta de Bigotes). */
+/* Solo para lectores de pantalla (p. ej. el anuncio de cada respuesta de Mochi). */
 .sr-only {
   position: absolute;
   width: 1px;

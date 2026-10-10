@@ -1,4 +1,4 @@
-// Cliente de la API de rappi-ia (Bigotes real: búsqueda híbrida y eventos).
+// Cliente de la API de rappi-ia (Mochi real: búsqueda híbrida y eventos).
 // Si la API no responde, todo sigue funcionando con el cerebro local (src/assistant/brain.js).
 
 import { VERTICAL_NAMES, routeForScreen, screenForBackend } from '../data/verticals'

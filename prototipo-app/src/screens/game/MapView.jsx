@@ -8,7 +8,7 @@ const C = SIZE / 2
 const R_VERTICAL = 140
 const angleOf = (i) => ((i * 360) / DATA.order.length - 90) * (Math.PI / 180)
 
-// Cada concepto queda en un racimo junto a su vertical típica (la regla de Bigotes y del mapa multivertical):
+// Cada concepto queda en un racimo junto a su vertical típica (la regla de Mochi y del mapa multivertical):
 // filas de 5 puntos que se acercan al centro.
 const DOTS = DATA.order.flatMap((v, i) => {
   const base = angleOf(i)

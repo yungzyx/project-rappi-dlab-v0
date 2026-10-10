@@ -13,7 +13,7 @@ import { useDemo } from '../state/DemoContext'
 const accepted = new Set()
 
 /**
- * Agregar y quitar una unidad del carrito con todo lo que eso implica (perfil, eventos, memoria de Bigotes).
+ * Agregar y quitar una unidad del carrito con todo lo que eso implica (perfil, eventos, memoria de Mochi).
  * Lo usan el botón "+" de los productos y la hoja de producto.
  */
 export function useAddToCart() {
@@ -41,7 +41,7 @@ export function useAddToCart() {
         events.track('suggestion_shown', fields)
       events.track('suggestion_accepted', fields)
     }
-    // En el prototipo final no hay aviso: Bigotes lo comenta al volver a la Home.
+    // En el prototipo final no hay aviso: Mochi lo comenta al volver a la Home.
     if (demo.isFinal) rememberAdded(item)
   }
 
