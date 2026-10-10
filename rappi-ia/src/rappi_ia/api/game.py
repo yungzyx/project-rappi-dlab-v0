@@ -9,8 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from psycopg import Connection
 from pydantic import Field
 
+from .. import config
 from ..game import GAME_VERTICALS
 from ..game.cards import list_cards
+from ..game.challenges import make_challenge
 from ..game.state import get_state, save_state
 from .deps import Clean, get_conn
 
@@ -67,6 +69,20 @@ def cards(vertical: Annotated[str | None, Query()] = None, conn: Connection = De
     if vertical is not None and vertical not in GAME_VERTICALS:
         raise HTTPException(422, f"Esta vertical no es del juego: {vertical}")
     return {"cards": list_cards(conn, vertical)}
+
+
+@router.get("/challenge", response_model=None)
+def challenge(
+    vertical: Annotated[str, Query(min_length=1, max_length=64)],
+    seed: Annotated[str, Query(min_length=1, max_length=64)],
+    conn: Connection = Depends(get_conn),
+) -> dict | Response:
+    """Un desafío de 4 alternativas para la vertical, armado con los conceptos y las relaciones de la base: la misma
+    semilla da el mismo desafío. 204 si la vertical no tiene datos para armar uno (Viajes no tiene catálogo)."""
+    if vertical not in GAME_VERTICALS:
+        raise HTTPException(422, f"Esta vertical no es del juego: {vertical}")
+    made = make_challenge(conn, vertical, seed, config.GAME_MIN_ITEMS)
+    return Response(status_code=204) if made is None else made
 
 
 @router.get("/state/{user_id}", response_model=None)

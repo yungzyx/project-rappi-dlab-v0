@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+from rappi_ia import config
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
@@ -109,6 +110,7 @@ CONTRACT: tuple[Example, ...] = (
         {"moment": "vertical_por_probar", "context": {"stamped": ["supermercado"]}},
     ),
     Example("game-cards", "GET", "/game/cards?vertical=supermercado"),
+    Example("game-challenge", "GET", "/game/challenge?vertical=supermercado&seed=0"),
     Example(
         "game-state-put",
         "PUT",
@@ -134,8 +136,9 @@ CONTRACT: tuple[Example, ...] = (
 
 
 @pytest.fixture
-def client(db):
+def client(db, monkeypatch):
     seed_demo(db)
+    monkeypatch.setattr(config, "GAME_MIN_ITEMS", 1)  # el catálogo de prueba es chico: sus conceptos tienen 1 a 7 ítems
     # /health estima los documentos con las estadísticas de Postgres: si el autovacuum analizara solo algunas
     # particiones, la cifra saldría parcial. Con pocas filas ANALYZE las lee todas y la estimación es exacta.
     db.execute("ANALYZE search_documents")

@@ -1,0 +1,27 @@
+{
+  "anchor": "galletas",
+  "answer": "cafe",
+  "explanation": "Mochi sugiere 🍪 Galletas y ☕ Café juntos.",
+  "id": "supermercado:combo:galletas:0",
+  "kind": "combo",
+  "options": [
+    {
+      "id": "joyeria",
+      "label": "💍 Joyería y relojes"
+    },
+    {
+      "id": "juguetes-infantiles",
+      "label": "🧸 Juguetes"
+    },
+    {
+      "id": "hamburguesa",
+      "label": "🍔 Hamburguesa"
+    },
+    {
+      "id": "cafe",
+      "label": "☕ Café"
+    }
+  ],
+  "question": "¿Qué combina con 🍪 Galletas?",
+  "vertical": "supermercado"
+}
