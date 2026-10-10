@@ -1,11 +1,11 @@
-"""`POST /mochi/offer` y `GET /mochi/plans`: lo que Mochi propone en cada momento, sobre el catálogo de prueba
+"""`POST /agent/offer` y `GET /agent/plans`: lo que el agente propone en cada momento, sobre el catálogo de prueba
 (`seed_demo`), con las guardias de `offers/guards.py`."""
 
 import pytest
 from fastapi.testclient import TestClient
 
-from rappi_ia.agent.bigotes import Bigotes
 from rappi_ia.agent.compose import TemplateComposer
+from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
 from rappi_ia.api.services import Services
 from rappi_ia.concepts.taxonomy import load_taxonomy
@@ -14,7 +14,7 @@ from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
 from rappi_ia.offers.guards import OFFER_BLOCKED_VERTICALS, is_offerable, is_plannable
 
-# Tiendas de prueba que Rappi rotula Sex shop, Smoking shop y Farmacia: Mochi no ofrece nada de ellas.
+# Tiendas de prueba que Rappi rotula Sex shop, Smoking shop y Farmacia: el agente no ofrece nada de ellas.
 BLOCKED_STORES = {9611, 9612, 9111}
 BLOCKED_PRODUCTS = {"96101", "96102", "96201", "96202", "91401", "91402"}
 
@@ -34,7 +34,9 @@ def client(db):
         yield db
 
     api.app.dependency_overrides[api.get_conn] = conn_override
-    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
     yield TestClient(api.app)
     api.app.dependency_overrides.clear()
 
@@ -44,11 +46,11 @@ def item(entity_id: str, entity_type: str = "catalog_item") -> dict:
 
 
 def offer(client, moment: str, context: dict):
-    return client.post("/mochi/offer", json={"moment": moment, "context": context})
+    return client.post("/agent/offer", json={"moment": moment, "context": context})
 
 
 def assert_offerable(body: dict) -> None:
-    """Lo que Mochi propone sola: nada de alcohol, farmacia, bebé, salud, sensibles, +18 ni tiendas bloqueadas."""
+    """Lo que el agente propone sola: nada de alcohol, farmacia, bebé, salud, sensibles, +18 ni tiendas bloqueadas."""
     concepts = load_taxonomy().concepts
     assert body["vertical"] not in OFFER_BLOCKED_VERTICALS
     assert body["products"]
@@ -78,9 +80,18 @@ def test_plan_kit_spreads_across_verticals_and_includes_chosen_alcohol_with_age_
     assert body["text"].startswith("Tu kit «Carrete»: cerveza, ") and body["actions"][0]["query"].startswith("Cerveza")
 
 
+def test_agent_offer_and_plans_routes(client):
+    """Las rutas son /agent/offer y /agent/plans; las de /mochi/* ya no existen."""
+    plans = client.get("/agent/plans")
+    assert plans.status_code == 200 and {"id", "name", "emoji"} <= set(plans.json()[0])
+    assert offer(client, "plan", {"occasion": "carrete"}).status_code == 200
+    assert client.get("/mochi/plans").status_code == 404
+    assert client.post("/mochi/offer", json={"moment": "plan", "context": {}}).status_code == 404
+
+
 def test_every_plannable_occasion_stays_clear_of_sensitive_baby_health_and_blocked_stores(client):
     concepts = load_taxonomy().concepts
-    plans = client.get("/mochi/plans").json()
+    plans = client.get("/agent/plans").json()
     assert len(plans) == 13
 
     for plan in plans:
@@ -97,7 +108,7 @@ def test_every_plan_speaks_good_spanish_whatever_the_occasion_name(client):
     concepts = load_taxonomy().concepts
     occasions = load_taxonomy().occasions
     answered = 0
-    for plan in client.get("/mochi/plans").json():
+    for plan in client.get("/agent/plans").json():
         reply = offer(client, "plan", {"occasion": plan["id"]})
         if reply.status_code != 200:
             continue
@@ -108,7 +119,7 @@ def test_every_plan_speaks_good_spanish_whatever_the_occasion_name(client):
         [action] = body["actions"]
         assert action["label"] == "Más ideas" and action["query"].strip()
         assert action["query"] not in (plan["name"], plan["name"].lower(), plan["id"])
-        # la búsqueda es de los conceptos de la ocasión que Mochi arma
+        # la búsqueda es de los conceptos de la ocasión que el agente arma
         assert action["query"].split(" ")[0] in {c.name.split(" ")[0] for c in concepts.values()}
         assert set(occasions[plan["id"]].concepts) & {c.id for c in concepts.values() if c.name in action["query"]}
     assert answered >= 8
@@ -131,7 +142,7 @@ def test_cart_offer_never_returns_alcohol_or_pharmacy_even_if_cart_has_them(clie
     beer = offer(client, "carrito", {"product": item(BEER)}).json()
     assert beer["moment"] == "carrito" and beer["reason"] == {"concept": "snacks-salados", "from_concept": "cerveza"}
     assert beer["vertical"] == "conveniencia" and beer["prototype_vertical"] == "express"
-    assert "cerveza" not in beer["text"].lower()  # el origen no se nombra: Mochi no habla de alcohol sola
+    assert "cerveza" not in beer["text"].lower()  # el origen no se nombra: el agente no habla de alcohol sola
     assert beer["text"] == "Para completar tu pedido: snacks salados, en Express."
     assert {p["concept"] for p in beer["products"]} == {"snacks-salados"} and len(beer["products"]) <= 3
     assert beer["actions"][0]["route"] == ["express"] and beer["actions"][0]["query"] == "snacks salados"
@@ -168,7 +179,7 @@ def test_no_good_offer_is_204(client):
         ("checkout", {"cart": [item(DIAPERS), item(VITAMIN_C)]}),
         ("proximo_pedido", {"items": [item(PARACETAMOL)]}),
         ("sin_resultado", {"query": "xyzzy"}),  # no nombra ningún concepto
-        ("sin_resultado", {"query": "cerveza helada"}),  # lo que se pide por su nombre no lo ofrece Mochi sola
+        ("sin_resultado", {"query": "cerveza helada"}),  # lo que se pide por su nombre no lo ofrece el agente sola
         ("sin_resultado", {"query": "pañales talla g"}),
         (
             "vertical_por_probar",
@@ -209,7 +220,7 @@ def test_vertical_to_try_skips_stamped_and_pharmacy(client):
 
 
 def test_plans_lists_offerable_occasions_in_home_order(client):
-    reply = client.get("/mochi/plans")
+    reply = client.get("/agent/plans")
 
     assert reply.status_code == 200
     plans = reply.json()
@@ -242,7 +253,7 @@ def test_next_order_offers_a_complement_of_what_was_ordered(client):
 
 
 def test_invalid_requests_are_422(client):
-    assert client.post("/mochi/offer", json={"moment": "nada", "context": {}}).status_code == 422
+    assert client.post("/agent/offer", json={"moment": "nada", "context": {}}).status_code == 422
     assert offer(client, "carrito", {"product": {"entity_type": "store", "entity_id": "1"}}).status_code == 422
     assert offer(client, "checkout", {"cart": []}).status_code == 422
     assert offer(client, "sin_resultado", {"query": ""}).status_code == 422
@@ -266,7 +277,9 @@ def test_a_single_vertical_occasion_stays_in_its_vertical_and_embeds_each_concep
     embed_search_documents(db, embedder)
     embedder.queries.clear()
     api.app.dependency_overrides[api.get_conn] = lambda: (yield db)
-    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
     try:
         body = offer(TestClient(api.app), "plan", {"occasion": "hambre"}).json()
     finally:
@@ -282,7 +295,7 @@ def test_a_kit_never_takes_a_concept_from_a_vertical_where_it_barely_exists(clie
     """El concepto se busca solo donde compite (masa mínima): un puñado de productos de otro lado no lo representa."""
     from rappi_ia.agent.verticals import contending_verticals
 
-    for plan in client.get("/mochi/plans").json():
+    for plan in client.get("/agent/plans").json():
         reply = offer(client, "plan", {"occasion": plan["id"]})
         fixed = load_taxonomy().occasions[plan["id"]].vertical
         for product in reply.json()["products"] if reply.status_code == 200 else []:
@@ -294,7 +307,7 @@ def test_a_kit_is_still_built_without_an_embedding_model(db):
     """Sin modelo (RAPPI_IA_LIGHT=1) no hay búsqueda vectorial: el kit se busca por palabras, como siempre."""
     seed_demo(db)
     api.app.dependency_overrides[api.get_conn] = lambda: (yield db)
-    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(None, TemplateComposer()), None)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(RappiAgent(None, TemplateComposer()), None)
     try:
         reply = offer(TestClient(api.app), "plan", {"occasion": "carrete"})
     finally:

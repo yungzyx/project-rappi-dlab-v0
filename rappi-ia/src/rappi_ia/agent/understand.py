@@ -57,7 +57,7 @@ VERTICAL_MENTIONS = {
     "conveniencia": ["oxxo", "minimarket", "almacen de barrio"],
     "chocolateria": ["chocolateria"],
 }
-# Sobre lo que Bigotes recuerda: se contesta antes de buscar («olvida lo que te dije» traía un dije de joyería).
+# Sobre lo que el agente recuerda: se contesta antes de buscar («olvida lo que te dije» traía un dije de joyería).
 # Frases, no palabras sueltas: «olvídate de la pizza» o «lámina de privacidad» son pedidos.
 MEMORY_QUESTIONS = [
     "olvida lo que",
@@ -145,7 +145,7 @@ APP_QUESTIONS = {
         "no ha llegado",
         "llego mal",
     ],
-    # Fuera de tema: se contesta con humor y se vuelve a lo que Bigotes sabe hacer; no es demanda no atendida.
+    # Fuera de tema: se contesta con humor y se vuelve a lo que el agente sabe hacer; no es demanda no atendida.
     "fuera": [
         "clima",
         "chiste",

@@ -56,7 +56,7 @@ let api
 beforeEach(() => {
   localStorage.setItem('rappi-proto-demo-mode', 'final')
   events.track.mockClear()
-  api = stubApi({ 'POST /mochi/offer': fixture('mochi-checkout') })
+  api = stubApi({ 'POST /agent/offer': fixture('agent-offer-checkout') })
 })
 afterEach(() => {
   cleanup()
@@ -64,7 +64,7 @@ afterEach(() => {
   localStorage.clear()
 })
 const offerRequests = () =>
-  api.mock.calls.filter(([url]) => url.endsWith('/mochi/offer')).map(([, init]) => JSON.parse(init.body))
+  api.mock.calls.filter(([url]) => url.endsWith('/agent/offer')).map(([, init]) => JSON.parse(init.body))
 
 describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
   // Primero: lo mostrado se recuerda lo que dura la pestaña (este archivo).
@@ -80,7 +80,7 @@ describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
   })
 
   test('¿Me falta algo? pide la oferta solo al tocarlo y dice Tu carrito está completo en un 204', async () => {
-    api = stubApi({ 'POST /mochi/offer': 204 })
+    api = stubApi({ 'POST /agent/offer': 204 })
     renderCheckout([PISCO, PIZZA])
     await act(async () => {})
     expect(offerRequests()).toEqual([]) // nada aparece ni se pide por su cuenta
@@ -109,7 +109,7 @@ describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
     expect(document.querySelector('.checkout-suggestion')).toBeNull()
     await ask()
     const card = document.querySelector('.checkout-suggestion')
-    expect(card.querySelector('.checkout-suggestion-reason').textContent).toBe(fixture('mochi-checkout').text)
+    expect(card.querySelector('.checkout-suggestion-reason').textContent).toBe(fixture('agent-offer-checkout').text)
     expect(card.querySelector('.checkout-suggestion-product').textContent).toMatch(/^Hielo en cubos 2 kg \(prueba\) · \$1\.490 · Turbo/)
     expect(card.querySelector('.mochi')).toBeTruthy()
     expect(screen.queryByLabelText('Solo mayores de 18')).toBeNull()
@@ -128,21 +128,21 @@ describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
   })
 
   test('si la oferta es de alcohol, lleva su aviso +18', async () => {
-    const body = fixture('mochi-checkout')
+    const body = fixture('agent-offer-checkout')
     body.products[0].age_restricted = true
-    api = stubApi({ 'POST /mochi/offer': body })
+    api = stubApi({ 'POST /agent/offer': body })
     renderCheckout([PIZZA])
     await ask()
     expect(screen.getByLabelText('Solo mayores de 18').textContent).toBe('+18')
   })
 
   test('si la API no contesta, Mochi no dice nada y se puede volver a pedir', async () => {
-    api = stubApi({ 'POST /mochi/offer': 'offline' })
+    api = stubApi({ 'POST /agent/offer': 'offline' })
     renderCheckout()
     await ask()
     expect(document.querySelector('.checkout-suggestion')).toBeNull()
     expect(screen.queryByText('Tu carrito está completo')).toBeNull()
-    api = stubApi({ 'POST /mochi/offer': fixture('mochi-checkout') })
+    api = stubApi({ 'POST /agent/offer': fixture('agent-offer-checkout') })
     await ask()
     expect(document.querySelector('.checkout-suggestion')).not.toBeNull()
   })

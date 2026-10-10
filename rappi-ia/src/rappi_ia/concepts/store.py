@@ -161,7 +161,7 @@ def menu_items_for_assignment(conn: Connection) -> list[tuple[str, str, str | No
 
 
 def refresh_assortment(conn: Connection) -> None:
-    """Surtido por concepto y vertical (y por tienda, para «También en») que leen Bigotes y el panel: vistas
+    """Surtido por concepto y vertical (y por tienda, para «También en») que leen el agente y el panel: vistas
     materializadas de las migraciones 012 y 016. CONCURRENTLY: la API sigue leyendo la versión anterior mientras
     se recalculan."""
     conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY concept_assortment")

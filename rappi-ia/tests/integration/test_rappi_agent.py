@@ -1,4 +1,4 @@
-"""Conducta de Bigotes (docs/diseno-ia.md §4) contra `rappi_ia_test`, con el modelo falso de embeddings."""
+"""Conducta del agente (docs/diseno-ia.md §4) contra `rappi_ia_test`, con el modelo falso de embeddings."""
 
 from dataclasses import replace
 
@@ -7,7 +7,7 @@ from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_dish, add_price, add_product, add_store
 from rappi_ia.agent import verticals
-from rappi_ia.agent.bigotes import Bigotes, Context
+from rappi_ia.agent.rappi_agent import Context, RappiAgent
 from rappi_ia.agent.tools import search_products
 from rappi_ia.agent.verticals import ranked_verticals
 from rappi_ia.concepts.pipeline import build_concepts
@@ -17,7 +17,7 @@ from rappi_ia.retrieval import hybrid
 
 
 @pytest.fixture
-def bigotes(db):
+def rappi_agent(db):
     add_store(db, 1, "supermercado", "Súper")
     add_store(db, 2, "licores", "Botillería")
     add_store(db, 3, "restaurantes", "Pizzería")
@@ -39,11 +39,11 @@ def bigotes(db):
     build_concepts(db)
     embedder = HashEmbedder()
     embed_search_documents(db, embedder)
-    return Bigotes(embedder), db
+    return RappiAgent(embedder), db
 
 
-def test_greeting_does_not_hide_the_request_and_suggests_cross_vertical(bigotes):
-    agent, db = bigotes
+def test_greeting_does_not_hide_the_request_and_suggests_cross_vertical(rappi_agent):
+    agent, db = rappi_agent
     r = agent.reply(db, "hola, quiero cerveza", Context(vertical="licores"))
 
     assert r["intent"]["kind"] == "buscar" and r["vertical"] == "licores"
@@ -55,15 +55,15 @@ def test_greeting_does_not_hide_the_request_and_suggests_cross_vertical(bigotes)
     assert r["reason"] == r["suggestion"]["reason"] == "Porque llevas 🍺 cerveza"
 
 
-def test_no_cross_suggestion_in_rappi_hoy_mode_or_when_topic_already_shown(bigotes):
-    agent, db = bigotes
+def test_no_cross_suggestion_in_rappi_hoy_mode_or_when_topic_already_shown(rappi_agent):
+    agent, db = rappi_agent
     assert "suggestion" not in agent.reply(db, "cerveza", Context(vertical="licores", mode="actual"))
     shown = Context(vertical="licores", shown_topics=["snacks-salados"])
     assert "suggestion" not in agent.reply(db, "cerveza", shown)
 
 
-def test_tobacco_only_when_asked_by_name(bigotes):
-    agent, db = bigotes
+def test_tobacco_only_when_asked_by_name(rappi_agent):
+    agent, db = rappi_agent
     carrete = agent.reply(db, "algo para el carrete", Context(vertical="licores"))
     assert "cigarrillos" not in {p["concept"] for p in carrete["products"]}
     asked = agent.reply(db, "cigarrillos marlboro", Context(vertical="licores"))
@@ -71,18 +71,18 @@ def test_tobacco_only_when_asked_by_name(bigotes):
     assert "suggestion" not in asked  # un concepto sensible nunca es origen de una sugerencia
 
 
-def test_price_filter_and_cheapest_alternative(bigotes):
-    agent, db = bigotes
+def test_price_filter_and_cheapest_alternative(rappi_agent):
+    agent, db = rappi_agent
     cheap = agent.reply(db, "cerveza bajo 2 mil", Context(vertical="licores"))
     assert [p["entity_id"] for p in cheap["products"]] == ["200"]
     none = agent.reply(db, "cerveza bajo 500", Context(vertical="licores"))
     assert none["products"] == [] and "$1.290" in none["text"] and not none["unmet"]
 
 
-def test_price_cap_never_shows_another_concept(bigotes):
+def test_price_cap_never_shows_another_concept(rappi_agent):
     """Con tope, lo que cabe bajo el tope era otra cosa (vasos, chocolates) y se mostraba con «Porque llevas
     cerveza»; el «no hay bajo $X, el más barato cuesta $Y» nunca se alcanzaba."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     for pid, name, category, price in [
         (210, "Vasos Plásticos Desechables 10 u", "Vajilla desechable", 250),
         (211, "Chocolate Trencito 25 g", "Chocolates", 300),
@@ -100,10 +100,10 @@ def test_price_cap_never_shows_another_concept(bigotes):
     assert "No encontré" in r["text"] and "$1.290" in r["text"] and not r["unmet"]
 
 
-def test_cheapest_without_the_cap_is_also_of_the_requested_concept(bigotes):
+def test_cheapest_without_the_cap_is_also_of_the_requested_concept(rappi_agent):
     """Sin tope, el súper no trae cervezas entre sus resultados (un vaso calza la palabra y no es «sin resultado»):
     «el más barato» no puede ser otra cosa, como las papas fritas a $1.990."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_product(db, 220, "Vaso Schop Vidrio 500 ml", 1, "Vajilla")
     add_price(db, 1, 220, 2500)
     db.execute("UPDATE catalog_items SET description = 'Ideal para servir cerveza' WHERE master_product_id = 220")
@@ -119,10 +119,10 @@ def test_cheapest_without_the_cap_is_also_of_the_requested_concept(bigotes):
     assert "más barato" not in r["text"] and "$1.990" not in r["text"]
 
 
-def test_unmet_by_cosine_shows_nothing_and_is_recorded(bigotes, monkeypatch):
+def test_unmet_by_cosine_shows_nothing_and_is_recorded(rappi_agent, monkeypatch):
     """Sin concepto nombrado, «sin resultado» lo decide el coseno bajo τ: antes se mostraban sus vecinos igual
     (arena para gato a quien pedía un pasaje de avión, que hoy va a RappiTravel) y la demanda no se anotaba."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
 
     r = agent.reply(db, "kombucha de jengibre artesanal", Context(vertical="supermercado"))
@@ -132,10 +132,10 @@ def test_unmet_by_cosine_shows_nothing_and_is_recorded(bigotes, monkeypatch):
     assert "Lo anoté" in r["text"]
 
 
-def test_a_query_without_words_to_search_is_not_recorded_as_unmet(bigotes, monkeypatch):
+def test_a_query_without_words_to_search_is_not_recorded_as_unmet(rappi_agent, monkeypatch):
     """«té» es stopword: la regla léxica estricta nunca puede confirmarlo y, sin concepto nombrado, solo quedaba el
     coseno bajo τ. Express y Licores respondían «No encontré «té»… Lo anoté» teniendo decenas de tés."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_product(db, 820, "Té Supremo Canela 20 bolsitas", 1, "Té e infusiones")
     add_price(db, 1, 820, 1990)
     db.commit()
@@ -152,10 +152,10 @@ def test_a_query_without_words_to_search_is_not_recorded_as_unmet(bigotes, monke
         assert not r["unmet"] and r["products"] and "Lo anoté" not in r["text"], text
 
 
-def test_symptoms_are_not_recorded_as_unmet_demand(bigotes, monkeypatch):
+def test_symptoms_are_not_recorded_as_unmet_demand(rappi_agent, monkeypatch):
     """Sin remedios para el síntoma se muestra lo de cuidarse: no mostrar lo pedido no es falta de surtido. «tengo
     tos» quedaba anotado como demanda no satisfecha por el coseno bajo τ."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
 
     r = agent.reply(db, "tengo tos", Context(vertical="supermercado"))
@@ -163,11 +163,11 @@ def test_symptoms_are_not_recorded_as_unmet_demand(bigotes, monkeypatch):
     assert not r["unmet"] and "Lo anoté" not in r["text"]
 
 
-def test_conditioner_finds_conditioners_and_soap_finds_soap(bigotes):
+def test_conditioner_finds_conditioners_and_soap_finds_soap(rappi_agent):
     """El concepto de la consulta sale de las keywords y el del producto de su categoría: si no coinciden
     («acondicionador» era keyword de higiene-personal y los acondicionadores están en cuidado-cabello), el foco se
     quedaba con el jabón. Se arregla en la taxonomía, no cediendo el foco ante las palabras."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     for pid, name, category in [
         (800, "Acondicionador Sedal Ceramidas 340 ml", "Acondicionador"),
         (801, "Acondicionador Pantene Rizos Definidos 400 ml", "Acondicionador"),
@@ -188,11 +188,11 @@ def test_conditioner_finds_conditioners_and_soap_finds_soap(bigotes):
     assert [p.entity_id for p in soap.products] == ["802"]
 
 
-def test_chance_word_matches_do_not_replace_the_concept_of_the_query(bigotes):
+def test_chance_word_matches_do_not_replace_the_concept_of_the_query(rappi_agent):
     """La coincidencia estricta mira todo el texto (descripción y categoría incluidas) y el stemming junta palabras
     (flores/flor, perfume/perfuma): si el foco cedía ante esa mayoría, «flores» mostraba azúcar flor y ron Flor de
     Caña, y «perfume» un suavizante y un limpiapisos que «perfuman»."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     for pid, name, category, description in [
         (810, "Ramo de Rosas Rojas 12 u", "Regalos", None),
         (811, "Azúcar Flor Iansa 1 kg", "Azúcar y endulzantes", None),
@@ -219,10 +219,10 @@ def test_chance_word_matches_do_not_replace_the_concept_of_the_query(bigotes):
     assert [p.entity_id for p in perfume.products] == ["813"]
 
 
-def test_filler_prices_are_never_shown(bigotes):
+def test_filler_prices_are_never_shown(rappi_agent):
     """$0 y $1 son precios de relleno de platos que dependen de sus opciones: pasaban cualquier tope y se ofrecían
     a «$0»."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     for item_id, name, price in [
         (530, "Completo Dinámico", 0),
         (531, "Completo Elige Tu Salsa", 1),
@@ -241,10 +241,10 @@ def test_filler_prices_are_never_shown(bigotes):
     assert "532" in shown and not {"530", "531"} & set(shown)
 
 
-def test_the_price_shown_is_from_the_current_branch_not_an_old_one(bigotes):
+def test_the_price_shown_is_from_the_current_branch_not_an_old_one(rappi_agent):
     """608121 en Licores: una sucursal que solo salió en la corrida 1 lo tenía a $39.950 y la vigente del mismo formato
-    lo vende a $77.940. La búsqueda ya filtraba por $77.940, pero Bigotes mostraba $39.950 de la sucursal vieja."""
-    agent, db = bigotes
+    lo vende a $77.940. La búsqueda ya filtraba por $77.940, pero el agente mostraba $39.950 de la sucursal vieja."""
+    agent, db = rappi_agent
     for store_id, name in [(4, "Mi Market Vieja"), (5, "Mi Market Licores")]:
         add_store(db, store_id, "licores", name)
     db.execute("UPDATE stores SET store_type = 'mi_market_licores' WHERE store_id IN (4, 5)")
@@ -269,11 +269,11 @@ def test_the_price_shown_is_from_the_current_branch_not_an_old_one(bigotes):
         assert [(p.entity_id, p.price_value, p.store) for p in products] == [("230", 77940, "Mi Market Licores")]
 
 
-def test_a_price_saved_twice_with_the_same_date_is_still_shown(bigotes):
+def test_a_price_saved_twice_with_the_same_date_is_still_shown(rappi_agent):
     """Importar dos veces el mismo CSV legacy guarda el precio con la misma fecha en dos corridas. El último precio se
     elegía sin desempate y, si no era el de la corrida que la vigencia toma por última (desempata por run_id), Bigotes
     ocultaba el producto aunque estuviera en la búsqueda."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 6, "licores", "Botillería Centro")
     add_product(db, 240, "Pisco Mistral 35° 750 cc", 6, "Pisco")
     new_run = "INSERT INTO scrape_runs (kind, status) VALUES ('legacy_csv', 'done') RETURNING run_id"
@@ -292,24 +292,24 @@ def test_a_price_saved_twice_with_the_same_date_is_still_shown(bigotes):
     assert [p.entity_id for p in products] == ["240"]
 
 
-def test_ambiguous_between_restaurant_and_store_asks(bigotes):
-    agent, db = bigotes
+def test_ambiguous_between_restaurant_and_store_asks(rappi_agent):
+    agent, db = rappi_agent
     r = agent.reply(db, "quiero pizza")
     assert r["intent"]["kind"] == "aclarar"
     assert {a["vertical"] for a in r["actions"]} == {"restaurantes", "supermercado"}
     assert r["text"].startswith("¿🍕 Pizza")
 
 
-def test_unmet_demand_is_flagged_and_said(bigotes):
-    agent, db = bigotes
+def test_unmet_demand_is_flagged_and_said(rappi_agent):
+    agent, db = rappi_agent
     r = agent.reply(db, "kebab mixto", Context(vertical="restaurantes"))
     assert r["unmet"] and r["products"] == []
     assert "No encontré" in r["text"] and "Lo anoté" in r["text"]
 
 
-def test_greeting_mentions_only_offerable_interests(bigotes):
+def test_greeting_mentions_only_offerable_interests(rappi_agent):
     """Mochi no saluda con «Veo que te gusta…» de algo sensible, alcohol, salud ni bebé: pasa al siguiente interés."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     blocked = {"cigarrillos": 9.0, "cerveza": 3.0, "panales": 2.5, "vitaminas": 2.0, "medicamentos": 1.5}
     for profile in (blocked, {"cerveza": 1.0}, {"panales": 1.0}, {"vitaminas": 1.0}):
         assert "Veo que" not in agent.reply(db, "hola", Context(profile=profile))["text"], profile
@@ -317,24 +317,24 @@ def test_greeting_mentions_only_offerable_interests(bigotes):
     assert "snacks salados" in hello["text"].lower() and "cerveza" not in hello["text"].lower()
 
 
-def test_explicit_request_wins_over_occasion(bigotes):
-    agent, db = bigotes
+def test_explicit_request_wins_over_occasion(rappi_agent):
+    agent, db = rappi_agent
     r = agent.reply(db, "cervezas y papas fritas para el carrete", Context(vertical="licores"))
     assert r["intent"]["kind"] == "ocasion" and r["intent"]["occasion"] == "carrete"
     assert set(r["intent"]["concepts"]) == {"cerveza", "snacks-salados"}
     assert {p["concept"] for p in r["products"]} <= {"cerveza", "snacks-salados"}
 
 
-def test_symptoms_without_pharmacy_remedies_never_bring_medicines(bigotes):
-    agent, db = bigotes
+def test_symptoms_without_pharmacy_remedies_never_bring_medicines(rappi_agent):
+    agent, db = rappi_agent
     r = agent.reply(db, "tengo fiebre", Context(vertical="supermercado"))
     assert "medicamentos" not in {p["concept"] for p in r["products"]}
 
 
-def test_symptoms_starting_with_me_are_symptoms_and_bring_no_unlabeled_painkillers(bigotes):
+def test_symptoms_starting_with_me_are_symptoms_and_bring_no_unlabeled_painkillers(rappi_agent):
     """«me duele la cabeza» se limpiaba a «duele la cabeza» antes de buscar el síntoma, y mostraba un analgésico sin
     concepto que calzaba la palabra «cabeza»."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_product(db, 710, "Anacin Max Dolor de Cabeza X 8 Comprimidos", 1, "Analgésicos sistémicos")
     add_price(db, 1, 710, 2600)
     db.commit()
@@ -348,11 +348,11 @@ def test_symptoms_starting_with_me_are_symptoms_and_bring_no_unlabeled_painkille
     assert "710" not in [p["entity_id"] for p in r["products"]]
 
 
-def test_unlabeled_medicines_are_never_shown_for_symptoms_or_in_pharmacy(bigotes, monkeypatch):
+def test_unlabeled_medicines_are_never_shown_for_symptoms_or_in_pharmacy(rappi_agent, monkeypatch):
     """El filtro de sensibles miraba solo el concepto: un medicamento sin concepto (su categoría, «Analgésicos
     sistémicos», no está en category_map.csv) pasaba siempre. «tengo tos» mostraba antitusivos y «me siento mal»,
     laxantes, traídos por cercanía. Con síntomas, o en farmacia, lo que no tiene concepto no se muestra."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 11, "farmacia", "Farmacia")
     for pid, name, store, category in [
         (710, "Anacin Max Dolor de Cabeza y Tos X 8 Comprimidos", 1, "Analgésicos sistémicos"),
@@ -374,11 +374,11 @@ def test_unlabeled_medicines_are_never_shown_for_symptoms_or_in_pharmacy(bigotes
     assert "712" in shown and "711" not in shown
 
 
-def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none(bigotes):
+def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none(rappi_agent):
     """En una ocasión, el origen de la sugerencia salía de todos sus conceptos: «regalo para mi polola» mostraba solo
     chocolates y decía «Porque llevas 🍷 vino». A quien tiene fiebre se le hacía venta cruzada («Porque llevas 🍎
     frutas», sin frutas en la respuesta), aunque con síntomas ni siquiera se muestra «También en»."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 10, "chocolateria", "Chocolatería")
     for pid, name, store, category in [
         (600, "Chocolate Sahne-Nuss 250 g", 10, "Chocolates"),
@@ -406,24 +406,24 @@ def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none
     assert "suggestion" not in sick and sick["reason"] is None
 
 
-def test_the_pizza_answer_has_no_cross_suggestion_of_alcohol_and_so_no_age_notice(bigotes):
+def test_the_pizza_answer_has_no_cross_suggestion_of_alcohol_and_so_no_age_notice(rappi_agent):
     """Antes la pizza sugería cerveza y la nota +18 cubría esa sugerencia. El alcohol ya no es un complemento
     (offers/guards.py, que manda sobre docs/diseno-ia.md regla 6b): la pizza no trae cerveza ni nota +18."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     r = agent.reply(db, "pizza", Context(vertical="restaurantes"))
     assert r["products"] and "suggestion" not in r and not r["age_notice"]
 
 
-def test_unmet_is_recorded_even_with_a_price_cap(bigotes):
-    agent, db = bigotes
+def test_unmet_is_recorded_even_with_a_price_cap(rappi_agent):
+    agent, db = rappi_agent
     r = agent.reply(db, "kebab bajo 10 mil", Context(vertical="restaurantes"))
     assert r["unmet"] and "Lo anoté" in r["text"]
 
 
-def test_occasion_picks_its_vertical_without_asking_about_its_first_concept(bigotes):
+def test_occasion_picks_its_vertical_without_asking_about_its_first_concept(rappi_agent):
     """Antes el vertical salía solo del primer concepto de la ocasión: 'tengo hambre' preguntaba por pizza (o iba
     al súper) y un carrete iba adonde estuviera la cerveza aunque el resto de la ocasión estuviera en otro lado."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     hungry = agent.reply(db, "tengo hambre", Context())
     assert hungry["intent"]["kind"] == "ocasion" and hungry["vertical"] == "restaurantes"  # vertical fijo
     # Carrete: cerveza (2 en licores) va primero, pero snacks (3 en el súper) pesa más en el total de la ocasión.
@@ -438,10 +438,10 @@ def test_occasion_picks_its_vertical_without_asking_about_its_first_concept(bigo
 
 
 @pytest.fixture
-def pharmacy_bigotes(bigotes):
+def pharmacy_rappi_agent(rappi_agent):
     """Farmacia con las categorías que esos productos tienen en la base (category_map.csv): «Antiácidos» y
     «Gotas, lubricantes y lágrimas» son medicamentos, «Lubricantes» es bienestar sexual."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 11, "farmacia", "Farmacia")
     products = [
         (700, "Sal de Fruta Eno Limón 5 g", "Antiácidos"),
@@ -459,9 +459,9 @@ def pharmacy_bigotes(bigotes):
 
 
 @pytest.fixture
-def remedies_bigotes(bigotes):
+def remedies_rappi_agent(rappi_agent):
     """Farmacia con remedios para la fiebre (uno con receta) y algo para el súper."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 11, "farmacia", "Farmacia")
     for pid, name in [
         (800, "Paracetamol 500 mg para la fiebre y el dolor 16 comprimidos"),
@@ -481,10 +481,10 @@ def remedies_bigotes(bigotes):
     return agent, db
 
 
-def test_a_symptom_goes_to_pharmacy_with_remedies_and_no_notice(remedies_bigotes):
+def test_a_symptom_goes_to_pharmacy_with_remedies_and_no_notice(remedies_rappi_agent):
     """«tengo fiebre» iba a Express con sopas y jugos, escondía los remedios y agregaba «consulta a un químico
     farmacéutico»: cortaba la compra. Ahora va a Farmacia con lo que se vende para eso, nunca con receta."""
-    agent, db = remedies_bigotes
+    agent, db = remedies_rappi_agent
     for ctx in (Context(), Context(vertical="conveniencia")):
         r = agent.reply(db, "tengo fiebre", ctx)
         ids = [p["entity_id"] for p in r["products"]]
@@ -494,10 +494,10 @@ def test_a_symptom_goes_to_pharmacy_with_remedies_and_no_notice(remedies_bigotes
         assert not r.get("suggestion") and not r.get("also_in") and not r["unmet"]
 
 
-def test_a_symptom_without_remedies_for_it_gets_the_painkillers(remedies_bigotes):
+def test_a_symptom_without_remedies_for_it_gets_the_painkillers(remedies_rappi_agent):
     """Si nada en la farmacia nombra el síntoma («me siento mal», «tengo tos»), no se muestra cualquier medicamento
     que calce por cercanía: los analgésicos, y el texto no habla de la ocasión."""
-    agent, db = remedies_bigotes
+    agent, db = remedies_rappi_agent
     for text in ["me siento mal", "tengo tos"]:
         r = agent.reply(db, text, Context(vertical="supermercado"))
         ids = [p["entity_id"] for p in r["products"]]
@@ -510,9 +510,9 @@ def test_a_symptom_without_remedies_for_it_gets_the_painkillers(remedies_bigotes
     assert not agent.reply(db, "tengo fiebre", Context())["text"].startswith("No encontré")
 
 
-def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
+def test_a_trip_opens_rappitravel_and_suggests_something_for_it(rappi_agent):
     """RappiTravel no tiene catálogo: Bigotes lleva a su pantalla y suma un gancho del catálogo para el viaje."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 11, "farmacia", "Farmacia")
     add_store(db, 12, "mall", "Tienda")
     add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
@@ -538,10 +538,10 @@ def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
     assert "suggestion" not in agent.reply(db, "me voy de vacaciones", Context(mode="actual"))
 
 
-def test_the_trip_hook_depends_on_where_you_go(bigotes):
+def test_the_trip_hook_depends_on_where_you_go(rappi_agent):
     """«playa» engancha un traje de baño (no el protector solar: es de farmacia y salud); «nieve», una chaqueta; un
     viaje sin contexto, una mochila de viaje."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 11, "farmacia", "Farmacia")
     add_store(db, 12, "mall", "Tienda")
     for pid, name, store, category in [
@@ -569,25 +569,25 @@ def test_the_trip_hook_depends_on_where_you_go(bigotes):
     assert hook("busco un hotel en puerto varas") == ("¿Te falta una mochila de viaje? 🎒", ["902"])
 
 
-def test_a_gift_can_be_sent_with_rappifavor(bigotes):
-    agent, db = bigotes
+def test_a_gift_can_be_sent_with_rappifavor(rappi_agent):
+    agent, db = rappi_agent
     r = agent.reply(db, "un regalo para mi mamá", Context())
     assert {"label": "Mandarlo con RappiFavor", "route": ["favor"], "service": "rappifavor"} in r["actions"]
     assert r["service"] == "rappifavor"
     assert not agent.reply(db, "un regalo para mi mamá", Context(mode="actual"))["actions"]
 
 
-def test_an_errand_opens_rappifavor(bigotes):
-    agent, db = bigotes
+def test_an_errand_opens_rappifavor(rappi_agent):
+    agent, db = rappi_agent
     r = agent.reply(db, "se me quedaron las llaves en la oficina", Context())
     assert r["service"] == "rappifavor"
     assert r["actions"] == [{"label": "Abrir RappiFavor", "route": ["favor"], "service": "rappifavor"}]
     assert "suggestion" not in r
 
 
-def test_what_is_not_in_the_catalog_can_be_bought_with_rappifavor(bigotes, monkeypatch):
+def test_what_is_not_in_the_catalog_can_be_bought_with_rappifavor(rappi_agent, monkeypatch):
     """«No está en el catálogo» era el final: ahora RappiFavor lo compra en otra tienda (solo en «Propuesta»)."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     monkeypatch.setattr(hybrid, "thresholds", lambda: {"supermercado": 0.99})
     r = agent.reply(db, "kombucha de jengibre", Context(vertical="supermercado"))
     assert (
@@ -599,10 +599,10 @@ def test_what_is_not_in_the_catalog_can_be_bought_with_rappifavor(bigotes, monke
     assert actual["unmet"] and not actual["actions"]
 
 
-def test_sensitive_concepts_are_found_when_asked_by_their_plain_name(pharmacy_bigotes):
+def test_sensitive_concepts_are_found_when_asked_by_their_plain_name(pharmacy_rappi_agent):
     """«medicamentos» y «lubricante» no asignan productos, pero en la consulta nombran el concepto: sin él, los
     sensibles quedaban ocultos («necesito medicamentos» iba al súper y «lubricante» no encontraba nada)."""
-    agent, db = pharmacy_bigotes
+    agent, db = pharmacy_rappi_agent
     medicines = agent.reply(db, "necesito medicamentos", Context())
     assert medicines["vertical"] == "farmacia"
     assert "700" in [p["entity_id"] for p in medicines["products"]]
@@ -619,10 +619,10 @@ def test_sensitive_concepts_are_found_when_asked_by_their_plain_name(pharmacy_bi
     assert "701" not in [p["entity_id"] for p in eyes["products"]]
 
 
-def test_words_that_only_ask_for_a_sensitive_concept_do_not_hide_what_was_asked(bigotes, monkeypatch):
+def test_words_that_only_ask_for_a_sensitive_concept_do_not_hide_what_was_asked(rappi_agent, monkeypatch):
     """Con otras palabras, «lubricante» y «medicamentos» son un complemento: «lubricante wd-40» mostraba lubricantes
     íntimos con el aviso +18 y «pastillero para medicamentos», analgésicos en vez de pastilleros."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 11, "farmacia", "Farmacia")
     add_store(db, 12, "mall", "Ferretería")
     for pid, name, store, category in [
@@ -646,10 +646,10 @@ def test_words_that_only_ask_for_a_sensitive_concept_do_not_hide_what_was_asked(
     assert [p["entity_id"] for p in pills["products"]] == ["910"]
 
 
-def test_hunger_includes_roast_and_fried_chicken(bigotes):
+def test_hunger_includes_roast_and_fried_chicken(rappi_agent):
     """Los conceptos de la ocasión son el foco de la búsqueda: desde que el pollo asado o frito es `pollo-preparado`
     (y no `pollo`), «tengo hambre» lo descartaba."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_dish(db, 520, "Pollo Asado Entero", 3, "Pollos")
     db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, 520, 9990)")
     db.commit()
@@ -661,17 +661,17 @@ def test_hunger_includes_roast_and_fried_chicken(bigotes):
     assert "520" in [p["entity_id"] for p in r["products"]]
 
 
-def test_concept_without_assortment_goes_to_its_group_vertical(bigotes):
-    agent, db = bigotes
+def test_concept_without_assortment_goes_to_its_group_vertical(rappi_agent):
+    agent, db = rappi_agent
     r = agent.reply(db, "quiero sushi", Context())  # no hay sushi en ningún vertical
     assert r["vertical"] == "restaurantes" and r["unmet"]
 
 
 @pytest.fixture
-def volume_bigotes(bigotes):
+def volume_rappi_agent(rappi_agent):
     """Como en la base real: restaurantes tiene muchos más ítems de casi todo que las tiendas (cada local lista sus
     papas fritas y su schop), aunque en su catálogo esos conceptos pesen poco."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 4, "restaurantes", "Sanguchería")
     dishes = [
         (501, "Papas fritas medianas"),
@@ -705,34 +705,34 @@ def volume_bigotes(bigotes):
     return agent, db
 
 
-def test_cross_suggestion_goes_where_the_concept_is_typical_not_where_there_are_more_items(volume_bigotes):
+def test_cross_suggestion_goes_where_the_concept_is_typical_not_where_there_are_more_items(volume_rappi_agent):
     """Restaurantes tiene 3 papas fritas y el súper 1, pero en el súper los snacks son su catálogo y en el
     restaurante un acompañamiento: la sugerencia para la cerveza viene del súper."""
-    agent, db = volume_bigotes
+    agent, db = volume_rappi_agent
     r = agent.reply(db, "cerveza", Context(vertical="licores"))
     assert r["suggestion"]["concept"] == "snacks-salados"
     assert r["suggestion"]["vertical"] == "supermercado"
 
 
-def test_store_products_asked_from_home_go_to_a_store_without_asking(volume_bigotes):
+def test_store_products_asked_from_home_go_to_a_store_without_asking(volume_rappi_agent):
     """Hay más cervezas en restaurantes (3) que en Licores (2): antes preguntaba "¿restaurante o Licores?"."""
-    agent, db = volume_bigotes
+    agent, db = volume_rappi_agent
     r = agent.reply(db, "quiero cerveza", Context())
     assert r["intent"]["kind"] == "buscar"
     assert r["vertical"] == "licores"
 
 
-def test_prepared_food_still_goes_to_restaurants(volume_bigotes):
-    agent, db = volume_bigotes
+def test_prepared_food_still_goes_to_restaurants(volume_rappi_agent):
+    agent, db = volume_rappi_agent
     r = agent.reply(db, "una hamburguesa", Context())
     assert r["vertical"] == "restaurantes"
     assert {p["concept"] for p in r["products"]} == {"hamburguesa"}
 
 
-def test_answer_shows_other_verticals_with_offer_and_real_stores(volume_bigotes, monkeypatch):
+def test_answer_shows_other_verticals_with_offer_and_real_stores(volume_rappi_agent, monkeypatch):
     """Multiverticalidad visible: la cerveza también está en el súper (y no se ofrece el restaurante, donde es
     un acompañamiento). Cada vertical trae sus tiendas: nombre y logo si el scraper lo guardó."""
-    agent, db = volume_bigotes
+    agent, db = volume_rappi_agent
     monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)  # el catálogo de prueba es chico
     add_product(db, 300, "Cerveza Cristal Lata 470 cc", 1, "Cervezas")
     add_price(db, 1, 300, 990)
@@ -749,10 +749,10 @@ def test_answer_shows_other_verticals_with_offer_and_real_stores(volume_bigotes,
     assert super_["stores"] == [{"name": "Súper", "logo": None}]
 
 
-def test_other_verticals_also_when_the_current_one_has_nothing(bigotes, monkeypatch):
+def test_other_verticals_also_when_the_current_one_has_nothing(rappi_agent, monkeypatch):
     """«También en» tomaba el concepto de los productos mostrados: justo cuando la vertical actual no tiene lo pedido
     («vodka» en farmacia) no decía dónde sí está."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)  # el catálogo de prueba es chico
     add_store(db, 11, "farmacia", "Farmacia")
     for pid, name, store, category in [
@@ -773,14 +773,14 @@ def test_other_verticals_also_when_the_current_one_has_nothing(bigotes, monkeypa
     assert [v["vertical"] for v in r["also_in"]["verticals"]] == ["licores"]
 
 
-def test_no_other_verticals_for_sensitive_or_in_rappi_hoy(volume_bigotes):
-    agent, db = volume_bigotes
+def test_no_other_verticals_for_sensitive_or_in_rappi_hoy(volume_rappi_agent):
+    agent, db = volume_rappi_agent
     assert "also_in" not in agent.reply(db, "cigarrillos marlboro", Context(vertical="licores"))
     assert "also_in" not in agent.reply(db, "una hamburguesa", Context(mode="actual"))
 
 
-def test_other_verticals_do_not_repeat_a_chain(volume_bigotes, monkeypatch):
-    agent, db = volume_bigotes
+def test_other_verticals_do_not_repeat_a_chain(volume_rappi_agent, monkeypatch):
+    agent, db = volume_rappi_agent
     monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)
     add_store(db, 5, "conveniencia", "Súper")  # la misma cadena también en Express
     add_store(db, 6, "conveniencia", "Minimarket")
@@ -800,10 +800,10 @@ def test_other_verticals_do_not_repeat_a_chain(volume_bigotes, monkeypatch):
     assert also["supermercado"] == ["Almacén"]  # "Súper" ya salió en Express
 
 
-def test_other_verticals_are_ordered_by_how_much_offer_they_have(volume_bigotes, monkeypatch):
+def test_other_verticals_are_ordered_by_how_much_offer_they_have(volume_rappi_agent, monkeypatch):
     """Para "¿dónde más lo encuentro?" pesa la cantidad: una chocolatería con 1 cerveza (el 100% de su catálogo
     chico) no va antes que un súper con 2."""
-    agent, db = volume_bigotes
+    agent, db = volume_rappi_agent
     monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)
     add_store(db, 8, "chocolateria", "Chocolatería")
     for pid, store in [(300, 1), (301, 1), (305, 8)]:
@@ -817,10 +817,10 @@ def test_other_verticals_are_ordered_by_how_much_offer_they_have(volume_bigotes,
     assert [v["vertical"] for v in r["also_in"]["verticals"]] == ["supermercado", "chocolateria"]
 
 
-def test_no_other_verticals_when_talking_about_symptoms(volume_bigotes, monkeypatch):
+def test_no_other_verticals_when_talking_about_symptoms(volume_rappi_agent, monkeypatch):
     """«malestar» y «cuidarme» son de la ocasión «Me siento mal» pero no de SYMPTOMS: sacaban Licores de la vertical,
     y aun así mostraban «También en» (con Licores)."""
-    agent, db = volume_bigotes
+    agent, db = volume_rappi_agent
     monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)
     add_store(db, 9, "conveniencia", "Express")
     for pid, store in [(400, 1), (401, 9)]:
@@ -871,10 +871,10 @@ def _assortment(db, rows, totals=REAL_TOTALS):
         )
 
 
-def test_a_small_vertical_needs_enough_offer_to_be_chosen(bigotes):
+def test_a_small_vertical_needs_enough_offer_to_be_chosen(rappi_agent):
     """Por participación, una vertical chica ganaba con un puñado de productos: «pan» iba a chocolaterías (46 de sus
     1.145 ítems) con 431 en el súper, y «quiero pastas» mostraba lasañas de una pastelería."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     _assortment(
         db,
         [("panaderia", "chocolateria", 10), ("panaderia", "supermercado", 150)],
@@ -898,10 +898,10 @@ def test_a_small_vertical_needs_enough_offer_to_be_chosen(bigotes):
     assert set(ranked_verticals(db, ["panaderia"])) == {"chocolateria", "conveniencia", "turbo", "supermercado"}
 
 
-def test_a_sick_person_is_never_sent_to_a_liquor_store(bigotes):
+def test_a_sick_person_is_never_sent_to_a_liquor_store(rappi_agent):
     """En Licores el jugo pesa más que en el súper (es para mezclar): «tengo fiebre, quiero jugo» iba a una
     botillería."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     _assortment(
         db,
         [
@@ -917,11 +917,11 @@ def test_a_sick_person_is_never_sent_to_a_liquor_store(bigotes):
     assert intent.vertical != "licores"
 
 
-def test_a_gift_is_not_sent_to_a_liquor_store(bigotes):
+def test_a_gift_is_not_sent_to_a_liquor_store(rappi_agent):
     """En una ocasión se suman conceptos muy distintos y el piso de masa lo fija la tienda con más oferta de
     cualquiera: en «regalo», los juguetes y joyas del Mall dejaban fuera a las chocolaterías (419 chocolates) y un
     regalo pedido desde el inicio iba a Licores, con vinos y espumantes y el aviso +18."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     _assortment(
         db,
         [
@@ -945,10 +945,10 @@ def test_a_gift_is_not_sent_to_a_liquor_store(bigotes):
     assert intent.vertical == "chocolateria"
 
 
-def test_ambiguity_is_measured_with_the_same_share_that_ranks(bigotes):
+def test_ambiguity_is_measured_with_the_same_share_that_ranks(rappi_agent):
     """La vertical se elige por participación, pero la ambigüedad se medía con conteos: con restaurantes 5 veces más
     grande, ningún concepto llegaba al umbral (0 de 112) y «aclarar» no salía nunca. Cifras de la base real."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     _assortment(
         db,
         [
@@ -973,8 +973,8 @@ def test_ambiguity_is_measured_with_the_same_share_that_ranks(bigotes):
     assert agent.understander.understand(db, "comida latina").kind == "buscar"
 
 
-def test_packaged_sweets_are_not_offered_from_restaurants(bigotes):
-    agent, db = bigotes
+def test_packaged_sweets_are_not_offered_from_restaurants(rappi_agent):
+    agent, db = rappi_agent
     add_store(db, 10, "chocolateria", "Chocolatería")
     for pid, store in [(600, 10), (601, 10)]:
         add_product(db, pid, f"Chocolate Sahne-Nuss {pid} g", store, "Chocolates")
@@ -988,8 +988,8 @@ def test_packaged_sweets_are_not_offered_from_restaurants(bigotes):
 
 
 @pytest.fixture
-def trip(bigotes):
-    agent, db = bigotes
+def trip(rappi_agent):
+    agent, db = rappi_agent
     add_store(db, 11, "farmacia", "Farmacia")
     add_store(db, 12, "mall", "Tienda")
     add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
@@ -1017,8 +1017,8 @@ def test_the_beach_hook_respects_rappi_hoy_and_topics_already_shown(trip):
 
 
 @pytest.fixture
-def pharmacy(bigotes):
-    agent, db = bigotes
+def pharmacy(rappi_agent):
+    agent, db = rappi_agent
     add_store(db, 11, "farmacia", "Farmacia")
     for pid, name, category, price in [
         (800, "Paracetamol 500 mg para la fiebre y el dolor 16 comprimidos", "Analgésicos tópicos", 1490),
@@ -1057,8 +1057,8 @@ def test_a_symptom_with_a_named_vertical_stays_there(pharmacy):
     assert r["intent"]["vertical"] == "supermercado" and r["vertical"] == "supermercado"
 
 
-def test_questions_about_the_app_get_an_answer_not_products(bigotes):
-    agent, db = bigotes
+def test_questions_about_the_app_get_an_answer_not_products(rappi_agent):
+    agent, db = rappi_agent
     help_ = agent.reply(db, "quien eres", Context())
     assert not help_["products"] and "Mochi" in help_["text"]
     assert [a["query"] for a in help_["actions"]] == ["algo para el carrete", "tengo hambre", "tengo fiebre"]
@@ -1073,9 +1073,9 @@ def test_questions_about_the_app_get_an_answer_not_products(bigotes):
     assert not order["products"] and not order.get("unmet") and "Mis pedidos" in order["text"]
 
 
-def test_cheap_shows_the_cheapest_first(bigotes):
+def test_cheap_shows_the_cheapest_first(rappi_agent):
     """Reordenar solo los 6 más relevantes no daba lo más barato: hay que mirar más candidatos."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     for pid in range(210, 225):  # 15 cervezas caras más relevantes por nombre, y la barata al final
         add_product(db, pid, f"Cerveza Cerveza Cerveza premium {pid}", 2, "Cervezas")
         add_price(db, 2, pid, 9990)
@@ -1089,18 +1089,18 @@ def test_cheap_shows_the_cheapest_first(bigotes):
     assert pricey == sorted(pricey, reverse=True) and pricey[0] == 9990
 
 
-def test_a_recommendation_uses_what_the_user_likes(bigotes):
-    agent, db = bigotes
+def test_a_recommendation_uses_what_the_user_likes(rappi_agent):
+    agent, db = rappi_agent
     liked = agent.reply(db, "qué me recomiendas", Context(profile={"snacks-salados": 3.0}))
     assert liked["text"].startswith("Como te gusta 🥨 snacks salados 😉") and liked["products"]
     unknown = agent.reply(db, "qué me recomiendas", Context())
     assert unknown["intent"]["kind"] == "ayuda" and unknown["actions"]
 
 
-def test_a_recommendation_never_pushes_alcohol_baby_or_health_interests(bigotes):
+def test_a_recommendation_never_pushes_alcohol_baby_or_health_interests(rappi_agent):
     """«Qué me recomiendas» responde con el interés más alto: si es de los que Mochi no propone solo, pasa al
     siguiente ofrecible y, si no hay, a los ejemplos de siempre."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     for profile in ({"cerveza": 3.0}, {"panales": 3.0}, {"vitaminas": 3.0}, {"cerveza": 3.0, "cigarrillos": 9.0}):
         r = agent.reply(db, "qué me recomiendas", Context(profile=profile))
         assert r["intent"]["kind"] == "ayuda" and r["actions"] and not r["products"], profile
@@ -1109,10 +1109,10 @@ def test_a_recommendation_never_pushes_alcohol_baby_or_health_interests(bigotes)
     assert r["text"].startswith("Como te gusta 🥨 snacks salados") and "cerveza" not in r["text"].lower()
 
 
-def test_a_recommendation_is_an_offer_so_it_skips_blocked_stores_and_adult_products(bigotes):
+def test_a_recommendation_is_an_offer_so_it_skips_blocked_stores_and_adult_products(rappi_agent):
     """«Como te gusta…» lo propone Mochi sin que se lo pidan: no trae un producto que solo vende una tienda que Rappi
     rotula Smoking shop, ni uno +18 bajo un concepto corriente (a quien lo pide por su nombre sí se le muestra)."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_store(db, 4, "mall", "Smoking shop del mall")
     db.execute("UPDATE store_verticals SET subvertical = 'Smoking shop' WHERE store_id = 4")
     add_store(db, 5, "supermercado", "Súper nocturno")
@@ -1134,10 +1134,10 @@ def test_a_recommendation_is_an_offer_so_it_skips_blocked_stores_and_adult_produ
     assert not {"110", "111"} & {p["entity_id"] for p in liked["products"]}
 
 
-def test_an_unasked_recommendation_does_not_list_licores_pharmacy_or_their_stores_in_also_in(bigotes, monkeypatch):
+def test_an_unasked_recommendation_does_not_list_licores_pharmacy_or_their_stores_in_also_in(rappi_agent, monkeypatch):
     """El «También en» de «Como te gusta…» (Mochi lo dice sola) no nombra Licores ni Farmacia ni una tienda que Rappi
     rotula Farmacia; en una respuesta pedida sí aparecen, como siempre."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)  # el catálogo de prueba es chico
     add_store(db, 7, "conveniencia", "Farmacia Express")
     db.execute("UPDATE store_verticals SET subvertical = 'Farmacia' WHERE store_id = 7")
@@ -1164,9 +1164,9 @@ def test_an_unasked_recommendation_does_not_list_licores_pharmacy_or_their_store
     assert stores and not stores & {"Botillería", "Farmacia Express"}
 
 
-def test_a_conversation_follows_the_previous_request(bigotes):
+def test_a_conversation_follows_the_previous_request(rappi_agent):
     """Ronda 4: «más barata» o «de otra marca» después de «cerveza» olvidaban la cerveza y traían cualquier cosa."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     first = agent.reply(db, "cerveza", Context(vertical="licores"))
     shown = [p["entity_id"] for p in first["products"]]
     previous = {"query": first["intent"]["query"], "concepts": first["intent"]["concepts"],
@@ -1179,17 +1179,17 @@ def test_a_conversation_follows_the_previous_request(bigotes):
     assert other["products"] and shown[0] not in [p["entity_id"] for p in other["products"]]
 
 
-def test_a_concept_named_with_generic_words_is_searched_by_its_name(bigotes, monkeypatch):
+def test_a_concept_named_with_generic_words_is_searched_by_its_name(rappi_agent, monkeypatch):
     """«algo más sano» se entiende como ensaladas, pero esas palabras no están en ningún producto: la búsqueda traía
     pizza y pescado. Si nada es del concepto pedido, se busca por el nombre del concepto."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     add_dish(db, 520, "Ensalada César con pollo", 3, "Ensaladas", ["Ensaladas"])
     db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, 520, 6990)")
     db.commit()
     build_search_documents(db)
     build_concepts(db)
     embed_search_documents(db, agent.embedder)
-    from rappi_ia.agent import bigotes as module
+    from rappi_ia.agent import rappi_agent as module
 
     real = module.search_products
 
@@ -1206,8 +1206,8 @@ def test_a_concept_named_with_generic_words_is_searched_by_its_name(bigotes, mon
 
 
 @pytest.fixture
-def ice_creams(bigotes):
-    agent, db = bigotes
+def ice_creams(rappi_agent):
+    agent, db = rappi_agent
     add_store(db, 4, "turbo", "Turbo")
     for pid, name, store in [
         (300, "Helado de chocolate 1 L", 1),
@@ -1257,9 +1257,9 @@ def test_one_product_elsewhere_is_not_enough_to_leave(ice_creams):
     assert agent.reply(db, "helado de lavanda", Context(vertical="supermercado"))["vertical"] == "supermercado"
 
 
-def test_few_results_are_completed_with_the_concept(bigotes, monkeypatch):
+def test_few_results_are_completed_with_the_concept(rappi_agent, monkeypatch):
     """«unos puchos» mostraba un solo producto: se completa con la búsqueda por el nombre del concepto."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     for pid in range(203, 207):
         add_product(db, pid, f"Cigarrillos Lucky {pid} 20 u", 2, "Cigarrillos")
         add_price(db, 2, pid, 5000)
@@ -1267,7 +1267,7 @@ def test_few_results_are_completed_with_the_concept(bigotes, monkeypatch):
     build_search_documents(db)
     build_concepts(db)
     embed_search_documents(db, agent.embedder)
-    from rappi_ia.agent import bigotes as module
+    from rappi_ia.agent import rappi_agent as module
 
     real = module.search_products
 
@@ -1304,10 +1304,10 @@ def test_a_named_vertical_is_never_left(ice_creams):
     assert agent.reply(db, "helado de lúcuma en el súper", Context())["vertical"] == "supermercado"
 
 
-def test_a_concept_this_vertical_barely_has_goes_where_it_is(bigotes, monkeypatch):
+def test_a_concept_this_vertical_barely_has_goes_where_it_is(rappi_agent, monkeypatch):
     """«vino» desde Farmacia mostraba mascarillas: Farmacia casi no tiene vino y Licores sí."""
-    agent, db = bigotes
-    from rappi_ia.agent import bigotes as module
+    agent, db = rappi_agent
+    from rappi_ia.agent import rappi_agent as module
 
     monkeypatch.setattr(module, "MIN_HOME_ITEMS", 2)  # la base de prueba es chica: Licores tiene 2 cervezas
     r = agent.reply(db, "cerveza", Context(vertical="supermercado"))
@@ -1316,9 +1316,9 @@ def test_a_concept_this_vertical_barely_has_goes_where_it_is(bigotes, monkeypatc
     assert agent.reply(db, "cerveza en el súper", Context(vertical="supermercado"))["vertical"] == "supermercado"
 
 
-def test_a_remedy_for_a_symptom_searches_the_symptom_not_the_word_remedy(remedies_bigotes):
+def test_a_remedy_for_a_symptom_searches_the_symptom_not_the_word_remedy(remedies_rappi_agent):
     """«remedio para la tos» traía remedios para el estómago: calzaban con la palabra «remedio»."""
-    agent, db = remedies_bigotes
+    agent, db = remedies_rappi_agent
     add_product(db, 806, "Remedio natural para el estómago 20 comprimidos", 11, "Antiácidos")
     add_price(db, 11, 806, 2990)
     db.commit()
@@ -1329,9 +1329,9 @@ def test_a_remedy_for_a_symptom_searches_the_symptom_not_the_word_remedy(remedie
     assert r["vertical"] == "farmacia" and sorted(p["entity_id"] for p in r["products"]) == ["800", "801"]
 
 
-def test_without_x_leaves_out_what_names_x(bigotes):
+def test_without_x_leaves_out_what_names_x(rappi_agent):
     """sushi → «sin palta» mostraba rolls con palta: el nombre que dice «palta» (y no «sin palta») queda fuera."""
-    agent, db = bigotes
+    agent, db = rappi_agent
     for pid, name in [(530, "Roll palta salmón"), (531, "Roll sin palta queso"), (532, "Roll tempura queso")]:
         add_dish(db, pid, name, 3, "Sushi", ["Sushi"])
         db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, %s, 5990)", (pid,))
@@ -1373,8 +1373,8 @@ def test_a_detail_elsewhere_must_be_of_the_concept(ice_creams):
     assert r["vertical"] == "supermercado" and all(p["concept"] == "helados" for p in r["products"])
 
 
-def test_the_memory_answer_is_true_in_rappi_hoy(bigotes):
-    agent, db = bigotes
+def test_the_memory_answer_is_true_in_rappi_hoy(rappi_agent):
+    agent, db = rappi_agent
     assert "Recuerdo" not in agent.reply(db, "qué sabes de mí", Context(mode="actual"))["text"]
 
 
@@ -1392,10 +1392,10 @@ def test_free_from_shows_only_what_says_so_even_when_cheap(ice_creams):
     assert r["products"] and all("sin azúcar" in p["name"] for p in r["products"])
 
 
-def test_a_remedy_treats_the_symptom_not_just_mentions_it(remedies_bigotes):
+def test_a_remedy_treats_the_symptom_not_just_mentions_it(remedies_rappi_agent):
     """Con el catálogo del 04-10, «tengo fiebre» mostraba laxantes y antiácidos: su prospecto nombra la fiebre en las
     advertencias. Y el paracetamol, que no la nombra, no aparecía."""
-    agent, db = remedies_bigotes
+    agent, db = remedies_rappi_agent
     add_product(
         db, 807, "Ciruelax laxante 75 mg. Advertencias: consulte a su médico si presenta fiebre", 11, "Laxantes"
     )

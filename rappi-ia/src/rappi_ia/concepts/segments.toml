@@ -18,7 +18,7 @@ window_days = 120
 half_life_days = 45.0
 min_signals = 3
 levels = { bajo = 2.0, medio = 5.0, alto = 10.0 }
-events = { order_line = 3.0, cart_add = 1.5, search = 1.0, chat = 1.0, view_item = 0.3 }
+events = { order_line = 3.0, cart_add = 1.5, search = 1.0, chat = 1.0, ask = 1.0, view_item = 0.3 }
 
 [[segment]]
 id = "compra-sin-gluten"
@@ -1124,7 +1124,7 @@ levels = { bajo = 0.5, medio = 0.65, alto = 0.8 }
 id = "receptivo-a-sugerencias"
 name = "Receptivo a sugerencias"
 family = "relacion"
-description = "Acepta una buena parte de lo que Bigotes sugiere."
+description = "Acepta una buena parte de lo que el agente sugiere."
 metric = { name = "aceptacion_sugerencias", min = 0.3 }
 levels = { bajo = 0.3, medio = 0.5, alto = 0.7 }
 
@@ -1132,36 +1132,18 @@ levels = { bajo = 0.3, medio = 0.5, alto = 0.7 }
 id = "ignora-sugerencias"
 name = "Ignora sugerencias"
 family = "relacion"
-description = "Casi nunca acepta lo que Bigotes sugiere."
+description = "Casi nunca acepta lo que el agente sugiere."
 metric = { name = "aceptacion_sugerencias", max = 0.05, stronger = "lower" }
 levels = { bajo = 0.05, medio = 0.03, alto = 0.01 }
 
 [[segment]]
 id = "usa-chat"
-name = "Usa el chat"
+name = "Pregunta al agente"
 family = "relacion"
-description = "Pide con frecuencia por el chat de texto."
+description = "Le pide con frecuencia cosas al agente, por texto."
 signals = { modality = ["texto"] }
-events = { chat = 1.0 }
+events = { chat = 1.0, ask = 1.0 }
 min_signals = 4
-
-[[segment]]
-id = "usa-voz"
-name = "Usa la voz"
-family = "relacion"
-description = "Pide con frecuencia por voz."
-signals = { modality = ["voz"] }
-events = { chat = 1.0, search = 1.0 }
-min_signals = 2
-
-[[segment]]
-id = "usa-foto"
-name = "Usa la foto"
-family = "relacion"
-description = "Pide con frecuencia con una foto."
-signals = { modality = ["foto"] }
-events = { chat = 1.0, search = 1.0 }
-min_signals = 2
 
 [[segment]]
 id = "usa-rappitravel"
@@ -1169,7 +1151,7 @@ name = "Usa RappiTravel"
 family = "servicios"
 description = "Abre o busca RappiTravel."
 signals = { services = ["rappitravel"] }
-events = { service_opened = 3.0, service_shown = 0.5, chat = 1.0 }
+events = { service_opened = 3.0, service_shown = 0.5, chat = 1.0, ask = 1.0 }
 min_signals = 2
 
 [[segment]]
@@ -1178,7 +1160,7 @@ name = "Usa RappiFavor"
 family = "servicios"
 description = "Abre o busca RappiFavor."
 signals = { services = ["rappifavor"] }
-events = { service_opened = 3.0, service_shown = 0.5, chat = 1.0 }
+events = { service_opened = 3.0, service_shown = 0.5, chat = 1.0, ask = 1.0 }
 min_signals = 2
 
 [[segment]]

@@ -1,4 +1,4 @@
-"""Bigotes: un turno de conversación = entender → herramientas → componer → verificar → registrar.
+"""El agente, un turno de conversación: entender → herramientas → componer → verificar → registrar.
 
 Reglas de conducta (docs/diseno-ia.md §4) que se aplican aquí, en código:
 1. Solo productos recuperados de la base, con precio vigente.        → tools.search_products
@@ -78,7 +78,7 @@ DETAIL_ALIASES = {
 }
 
 
-class Bigotes:
+class RappiAgent:
     def __init__(self, embedder: TextEmbedder | None = None, composer=None):
         self.embedder = embedder
         self.composer = composer or TemplateComposer()
@@ -95,7 +95,7 @@ class Bigotes:
         }
 
     def reply(self, conn: Connection, message: str, ctx: Context | None = None, offer: bool = False) -> dict:
-        """Con `offer`, la respuesta es algo que Mochi propone sin que se lo pidan (el «Como te gusta…» de «qué me
+        """Con `offer`, la respuesta es algo que el agente propone sin que se lo pidan (el «Como te gusta…» de «qué me
         recomiendas»): sus productos pasan por las guardias de offers/guards.py (`search_products(..., offer=True)`)."""
         ctx = ctx or Context()
         intent = self.understander.understand(conn, message, ctx.vertical, previous=ctx.previous)
@@ -375,7 +375,7 @@ class Bigotes:
         no se registra ni cuenta para la regla 3). Nunca para conceptos sensibles, en "Rappi hoy" ni cuando habla de
         síntomas (quien dice que está enfermo no necesita ver dónde más venden jugo). Si aquí no hay nada, el concepto
         es el pedido: justo entonces importa decir dónde sí está ("vodka" en farmacia). Si la respuesta es una oferta de
-        Mochi (`offer`), tampoco nombra las verticales ni las tiendas que no propone (offers/guards.py)."""
+        el agente (`offer`), tampoco nombra las verticales ni las tiendas que no propone (offers/guards.py)."""
         concept_id = next((p.concept for p in products if p.concept), None)
         if not products and intent.concepts:
             concept_id = intent.concepts[0]
@@ -477,13 +477,14 @@ class Bigotes:
 
     def _top_interest(self, profile: dict[str, float]) -> str | None:
         concepts = self.taxonomy.concepts
-        # Lo recomienda Mochi sola («Como te gusta…», «Veo que te gusta…»): solo intereses que puede proponer.
+        # Lo recomienda el agente por su cuenta («Como te gusta…», «Veo que te gusta…»): solo intereses que puede
+        # proponer.
         allowed = {c: s for c, s in profile.items() if c in concepts and is_offerable(concepts[c])}
         return max(allowed, key=allowed.get) if allowed else None
 
 
 def _offerable_elsewhere(conn: Connection, verticals: list[dict]) -> list[dict]:
-    """«También en» sin las verticales que Mochi no propone y sin las tiendas que Rappi rotula Farmacia, Sex shop o
+    """«También en» sin las verticales que el agente no propone y sin las tiendas que Rappi rotula Farmacia, Sex shop o
     Smoking shop (el listado solo tiene sus nombres); una vertical que se queda sin tiendas se va."""
     blocked = {
         name

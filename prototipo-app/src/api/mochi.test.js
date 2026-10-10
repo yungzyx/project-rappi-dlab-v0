@@ -6,7 +6,7 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('Mochi', () => {
   test('offer devuelve null en un 204 y marca los productos como sugerencia de Mochi', async () => {
-    stubApi({ 'POST /mochi/offer': (req) => (req.body.moment === 'carrito' ? fixture('mochi-carrito') : 204) })
+    stubApi({ 'POST /agent/offer': (req) => (req.body.moment === 'carrito' ? fixture('agent-offer-carrito') : 204) })
     const made = await offer('carrito', { product: { entity_type: 'catalog_item', entity_id: '94001' } })
     expect(made).toMatchObject({
       moment: 'carrito',
@@ -28,7 +28,7 @@ describe('Mochi', () => {
   })
 
   test('offer manda el momento, el contexto y el usuario', async () => {
-    const calls = stubApi({ 'POST /mochi/offer': fixture('mochi-plan') })
+    const calls = stubApi({ 'POST /agent/offer': fixture('agent-offer-plan') })
     await offer('plan', { occasion: 'carrete' }, { userId: 'u1' })
     expect(JSON.parse(calls.mock.calls[0][1].body)).toEqual({
       moment: 'plan',
@@ -38,13 +38,13 @@ describe('Mochi', () => {
   })
 
   test('las acciones traen la ruta de la pantalla de la app (Turbo tiene la suya) o ninguna si la vertical no se conoce', async () => {
-    const body = fixture('mochi-carrito')
+    const body = fixture('agent-offer-carrito')
     body.actions = [
       { label: 'Ver hielo', query: 'hielo', route: ['turbo'] },
       { label: 'Más ideas', query: 'cerveza' },
       { label: 'Sin pantalla', route: [null] },
     ]
-    stubApi({ 'POST /mochi/offer': body })
+    stubApi({ 'POST /agent/offer': body })
     const made = await offer('carrito', { product: { entity_type: 'catalog_item', entity_id: '94001' } })
     expect(made.actions).toEqual([
       { label: 'Ver hielo', query: 'hielo', route: ['turbo'] },
@@ -54,7 +54,7 @@ describe('Mochi', () => {
   })
 
   test('plans devuelve las ocasiones', async () => {
-    stubApi({ '/mochi/plans': fixture('mochi-plans') })
+    stubApi({ '/agent/plans': fixture('agent-plans') })
     const list = await plans()
     expect(list[0]).toEqual({ id: 'once', name: 'Once', emoji: '☕' })
   })

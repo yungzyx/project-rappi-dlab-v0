@@ -114,7 +114,7 @@ describe('pedidos para el panel', () => {
     const products = [
       ...fixture('search-grouped').groups.flatMap((group) => group.products),
       ...fixture('catalog-store').products,
-      ...fixture('mochi-plan').products,
+      ...fixture('agent-offer-plan').products,
     ].map(toPrototypeProduct)
     const orders = buildOrders(
       products.map((product) => ({ product, qty: 1 })),

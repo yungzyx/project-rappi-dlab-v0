@@ -2,7 +2,7 @@
 lectura, consultas parametrizadas.
 
 Un restaurante es una tienda de la vertical `restaurantes`. Se lista y se abre solo si tiene al menos un plato con
-precio, y el precio de un plato es su último precio (como lo muestra Bigotes): uno de relleno (bajo `MIN_PRICE`) o sin
+precio, y el precio de un plato es su último precio (como lo muestra el agente): uno de relleno (bajo `MIN_PRICE`) o sin
 dato cuenta como desconocido y el plato no sale. La base no guarda logos de restaurantes, así que la portada es la foto
 de uno de sus platos: un plato popular, o el primero con foto.
 """

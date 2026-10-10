@@ -31,7 +31,7 @@ MIN_VERTICAL_ITEMS = 3  # un concepto «se vende en» una vertical con al menos 
 MIN_VERTICAL_SHARE = 0.05  # …y el 5 % de lo que tiene en la vertical donde más vende
 MIN_SESSIONS = 30  # sesiones mínimas para aprender que dos conceptos se buscan juntos…
 MIN_USERS = 5  # …de al menos tantas personas distintas: una sola no hace una relación (y no se re-identifica)
-SEARCH_TYPES = ("search", "chat", "view_item")  # lo que la persona hace; el carro puede venir de una sugerencia
+SEARCH_TYPES = ("search", "chat", "ask", "view_item")  # lo que la persona hace; el carro puede venir de una sugerencia
 DERIVED_RELATIONS = ("es_tipo_de", "de_ocasion", "se_vende_en", "tiene_atributo") + (
     "marca_de",
     "equivale",

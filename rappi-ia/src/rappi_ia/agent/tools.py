@@ -1,6 +1,6 @@
-"""Herramientas de Bigotes: buscar en un vertical (con precios vigentes por SQL) y sugerir un complemento.
+"""Herramientas del agente: buscar en un vertical (con precios vigentes por SQL) y sugerir un complemento.
 
-Todo producto que Bigotes muestra pasa por aquí: sale de la base, con su precio vigente, nunca inventado.
+Todo producto que el agente muestra pasa por aquí: sale de la base, con su precio vigente, nunca inventado.
 """
 
 from dataclasses import dataclass, field
@@ -106,7 +106,7 @@ def search_products(
 ) -> SearchOutcome:
     """Con `concepts=None`, los conceptos los detecta la búsqueda en la consulta (endpoint /search). Con `symptom` (o
     en farmacia) no se muestra lo que no tiene concepto: podría ser un medicamento sin categoría mapeada. Con `offer`,
-    la búsqueda es de una oferta de Mochi y solo trae lo que puede proponer por su cuenta: nada +18 ni de tiendas
+    la búsqueda es de una oferta del agente y solo trae lo que puede proponer por su cuenta: nada +18 ni de tiendas
     Farmacia, Sex shop o Smoking shop (offers/guards.py); el concepto y la vertical los elige quien llama. `adult_ok`
     deja pasar lo +18 en una oferta: solo para el kit de una ocasión que la persona eligió (alcohol con su marca)."""
     result = retrieve(
@@ -184,8 +184,8 @@ def suggest_complement(
     embedder: TextEmbedder | None,
     exclude: set[str] = frozenset(),
 ) -> Suggestion | None:
-    """Mejor complemento que Mochi pueda proponer (offers/guards.py: ni alcohol, farmacia, bebé, salud ni sensibles),
-    preferentemente de OTRO vertical, con productos reales."""
+    """Mejor complemento que el agente pueda proponer (offers/guards.py: ni alcohol, farmacia, bebé, salud ni
+    sensibles), preferentemente de OTRO vertical, con productos reales."""
     taxonomy = load_taxonomy()
     sources = [c for c in source_concepts if c in taxonomy.concepts and not taxonomy.concepts[c].sensitive]
     if not sources:
@@ -239,7 +239,7 @@ def _focus(hits, concepts: list[str], unmet: bool, capped: bool = False):
     - "Sin resultado" no muestra nada, nombre o no un concepto: mostrar una pizza a quien pidió kebab, o los vecinos
       de un coseno bajo τ, sería inventar una respuesta (y la demanda no se anotaría).
     - Con tope de precio (`capped`), si nada del concepto pedido cabe bajo el tope tampoco se muestra otra cosa:
-      Bigotes dice cuánto cuesta lo más barato de lo pedido.
+      El agente dice cuánto cuesta lo más barato de lo pedido.
     - El foco no cede ante productos de otro concepto que calzan las palabras: esa coincidencia mira todo el texto y
       el stemming junta palabras («flores» calza con azúcar flor). Que el concepto de la consulta (keywords) y el de
       los productos (categoría) coincidan se asegura en la taxonomía.
@@ -268,8 +268,8 @@ def _verticals_for(conn: Connection, concept_id: str, current_vertical: str | No
     return [v for v in verticals if v != current_vertical] + [v for v in verticals if v == current_vertical]
 
 
-# Una oferta de Mochi no sale de una tienda que Rappi rotula Farmacia, Sex shop o Smoking shop, esté en la vertical que
-# esté: entre las tiendas que quedan, vale la más barata.
+# Una oferta del agente no sale de una tienda que Rappi rotula Farmacia, Sex shop o Smoking shop, esté en la vertical
+# que esté: entre las tiendas que quedan, vale la más barata.
 _OFFER_STORES = """
                      AND NOT EXISTS (SELECT 1 FROM store_verticals own
                                      WHERE own.store_id = l.store_id AND own.subvertical = ANY(%(blocked)s))"""

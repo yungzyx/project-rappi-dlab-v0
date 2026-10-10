@@ -62,15 +62,15 @@ beforeEach(async () => {
 })
 
 // Una oferta por momento, con los ejemplos del contrato; los momentos sin ejemplo responden 204.
-const OFFER_FIXTURES = { plan: 'mochi-plan', carrito: 'mochi-carrito', vertical_por_probar: 'mochi-vertical-por-probar' }
+const OFFER_FIXTURES = { plan: 'agent-offer-plan', carrito: 'agent-offer-carrito', vertical_por_probar: 'agent-offer-vertical-por-probar' }
 const stubMochi = (routes = {}) =>
   stubApi({
-    '/mochi/plans': fixture('mochi-plans'),
-    'POST /mochi/offer': (req) => (OFFER_FIXTURES[req.body.moment] ? fixture(OFFER_FIXTURES[req.body.moment]) : 204),
+    '/agent/plans': fixture('agent-plans'),
+    'POST /agent/offer': (req) => (OFFER_FIXTURES[req.body.moment] ? fixture(OFFER_FIXTURES[req.body.moment]) : 204),
     ...routes,
   })
 const offerRequests = (mock = api) =>
-  mock.mock.calls.filter(([url]) => url.endsWith('/mochi/offer')).map(([, init]) => JSON.parse(init.body))
+  mock.mock.calls.filter(([url]) => url.endsWith('/agent/offer')).map(([, init]) => JSON.parse(init.body))
 const tracked = (type, origin) =>
   events.track.mock.calls.filter(([name, fields]) => name === type && fields.payload?.origen === origin)
 
@@ -179,12 +179,12 @@ describe('Home del prototipo final', () => {
     expect(second.textContent).toMatch(/^Tu pasaporte Rappi/)
   })
 
-  describe('los momentos de Mochi salen de /mochi/offer', () => {
+  describe('los momentos de Mochi salen de /agent/offer', () => {
     const status = (container) => container.querySelector('.live-layer [role="status"]').textContent
     const LOOSE_CART = { id: 'cat-94001', name: 'Cerveza rubia lata 470 cc (prueba)', vertical: 'liquor', entityType: 'catalog_item', entityId: '94001' }
 
     test('el kit sale de la API y agregarlo registra una aceptación por producto', async () => {
-      const kit = fixture('mochi-plan')
+      const kit = fixture('agent-offer-plan')
       renderHome()
       await advance(100)
       // Las ocasiones son las del servidor, con su nombre.
@@ -211,13 +211,13 @@ describe('Home del prototipo final', () => {
     test('la Home muestra solo los 5 primeros planes, en el orden del servidor', async () => {
       renderHome()
       await advance(100)
-      const names = fixture('mochi-plans').map((option) => option.name)
+      const names = fixture('agent-plans').map((option) => option.name)
       expect(names.length).toBeGreaterThan(5)
       expect(screen.getAllByRole('radio').map((chip) => chip.lastChild.textContent)).toEqual(names.slice(0, 5))
     })
 
     test('si el servidor no arma el kit (204) o no contesta, el chip no se queda marcado y Mochi no dice nada', async () => {
-      stubMochi({ 'POST /mochi/offer': 204 })
+      stubMochi({ 'POST /agent/offer': 204 })
       const { container } = renderHome()
       await advance(900 + 3400 + 6000)
       fireEvent.click(screen.getByRole('radio', { name: 'Carrete' }))
@@ -226,7 +226,7 @@ describe('Home del prototipo final', () => {
       expect(screen.queryByText(/^Tu kit en/)).toBeNull()
       expect(status(container)).toBe('')
 
-      stubMochi({ 'POST /mochi/offer': 'offline' })
+      stubMochi({ 'POST /agent/offer': 'offline' })
       fireEvent.click(screen.getByRole('radio', { name: 'Asado' }))
       await advance(3000)
       expect(screen.getByRole('radio', { name: 'Asado' }).getAttribute('aria-checked')).toBe('false')
@@ -234,7 +234,7 @@ describe('Home del prototipo final', () => {
     })
 
     test('si no llegan las ocasiones, el bloque del plan no ofrece chips (no hay kits locales)', async () => {
-      stubMochi({ '/mochi/plans': 'offline' })
+      stubMochi({ '/agent/plans': 'offline' })
       renderHome()
       await advance(300)
       expect(screen.queryByRole('radio')).toBeNull()
@@ -242,7 +242,7 @@ describe('Home del prototipo final', () => {
 
     test('el comentario del carrito usa la oferta de la API y calla en un 204', async () => {
       const push = vi.fn()
-      const carrito = fixture('mochi-carrito')
+      const carrito = fixture('agent-offer-carrito')
       memory.session.played = true
       memory.session.lastAdded = LOOSE_CART
       const { container } = renderHome({ push })
@@ -261,7 +261,7 @@ describe('Home del prototipo final', () => {
       expect(push).toHaveBeenLastCalledWith('vertical', { id: 'express' })
 
       cleanup()
-      stubMochi({ 'POST /mochi/offer': 204 })
+      stubMochi({ 'POST /agent/offer': 204 })
       memory.session.newStamp = null // abrir Express sí selló la vertical; esto es solo el comentario
       memory.session.lastAdded = LOOSE_CART
       const empty = renderHome()
@@ -286,7 +286,7 @@ describe('Home del prototipo final', () => {
     })
 
     test('tocar a Mochi sin nada que ofrecer (204) calla; con todo sellado celebra', async () => {
-      stubMochi({ 'POST /mochi/offer': 204 })
+      stubMochi({ 'POST /agent/offer': 204 })
       const { container } = renderHome()
       await advance(900 + 3400 + 6000)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
@@ -622,7 +622,7 @@ describe('Home del prototipo final', () => {
     })
 
     test('Mochi nunca propone Farmacia, aunque sea la única sin sello', async () => {
-      stubMochi({ 'POST /mochi/offer': 204 }) // el servidor tampoco la ofrece
+      stubMochi({ 'POST /agent/offer': 204 }) // el servidor tampoco la ofrece
       seed({ visited: [...DATA.order, 'viajes'].filter((v) => v !== 'farmacia') })
       const { container } = renderHome()
       await advance(900 + 3400)

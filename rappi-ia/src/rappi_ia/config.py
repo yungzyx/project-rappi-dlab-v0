@@ -17,9 +17,12 @@ TEXT_EMBEDDING_MODEL = os.environ.get("TEXT_EMBEDDING_MODEL", "intfloat/multilin
 # el grafo de la partición restaurantes (~151k × 768) no cabe y pgvector lo construye mucho más lento.
 HNSW_MAINTENANCE_WORK_MEM = os.environ.get("HNSW_MAINTENANCE_WORK_MEM", "1GB")
 
-# LLM opcional: sin ANTHROPIC_API_KEY, Bigotes responde con plantillas.
+# Nombre con que el agente se presenta ante la persona. Es el único lugar del backend donde vive.
+AGENT_NAME = os.environ.get("AGENT_NAME", "Mochi")
+
+# LLM opcional: sin ANTHROPIC_API_KEY, el agente responde con plantillas.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or None
-BIGOTES_LLM_MODEL = os.environ.get("BIGOTES_LLM_MODEL", "claude-sonnet-5")
+AGENT_LLM_MODEL = os.environ.get("AGENT_LLM_MODEL", "claude-sonnet-5")
 
 # Red local (iPhone): solo con API_ALLOW_LAN=1 (`make serve-lan`). La API no tiene autenticación.
 API_ALLOW_LAN = os.environ.get("API_ALLOW_LAN") == "1"

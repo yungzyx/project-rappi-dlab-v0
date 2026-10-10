@@ -38,7 +38,7 @@ let api
 beforeEach(() => {
   vi.useFakeTimers()
   events.track.mockClear()
-  api = stubApi({ 'POST /mochi/offer': fixture('mochi-proximo-pedido') })
+  api = stubApi({ 'POST /agent/offer': fixture('agent-offer-proximo-pedido') })
 })
 afterEach(() => {
   cleanup()
@@ -81,7 +81,7 @@ const deliver = async () => {
   await act(() => vi.advanceTimersByTimeAsync(21_000))
 }
 const offerRequests = () =>
-  api.mock.calls.filter(([url]) => url.endsWith('/mochi/offer')).map(([, init]) => JSON.parse(init.body))
+  api.mock.calls.filter(([url]) => url.endsWith('/agent/offer')).map(([, init]) => JSON.parse(init.body))
 const NEXT_CARD = /¿Y ahora/
 
 describe('TrackingScreen', () => {
@@ -131,7 +131,7 @@ describe('TrackingScreen', () => {
 
     cleanup()
     localStorage.clear()
-    api = stubApi({ 'POST /mochi/offer': 204 })
+    api = stubApi({ 'POST /agent/offer': 204 })
     renderTracking()
     await deliver()
     expect(offerRequests()).toHaveLength(1)
@@ -139,7 +139,7 @@ describe('TrackingScreen', () => {
 
     cleanup()
     localStorage.clear()
-    api = stubApi({ 'POST /mochi/offer': 'offline' })
+    api = stubApi({ 'POST /agent/offer': 'offline' })
     renderTracking()
     await deliver()
     expect(screen.queryByRole('button', { name: NEXT_CARD })).toBeNull()

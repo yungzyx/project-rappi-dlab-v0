@@ -4,7 +4,7 @@
 # - `keywords` se usan para reglas sobre nombres de productos, platos y consultas. Se escriben con tildes
 #   y se normalizan al cargar (sin tildes ni ñ, minúsculas). Una palabra suelta también calza su plural
 #   (s/es); las frases calzan completas. Evitar palabras ambiguas (collar, arnés, papel, filtro, tenis).
-# - `sensitive = true`: Bigotes nunca lo sugiere por iniciativa propia (solo responde si se lo piden). Sus keywords no
+# - `sensitive = true`: el agente nunca lo sugiere por iniciativa propia (solo responde si se lo piden). Sus keywords no
 #   pueden ser palabras de uso común («puro», «pipa», «lubricante»): el plato o el utensilio quedaría oculto como sensible.
 #   Su nombre de una sola palabra («Medicamentos») tampoco asigna productos (concepts/assign.py).
 # - `query_keywords`: palabras que sirven para pedir el concepto en una consulta, pero que no asignan productos
@@ -1034,7 +1034,7 @@ id = "enfermo"
 name = "Me siento mal"
 emoji = "🤒"
 keywords = ["enfermo", "enferma", "me siento mal", "me duele", "resfriado", "gripe", "dolor", "fiebre", "malestar", "cuidarme"]
-concepts = ["sopas", "jugos", "te", "frutas"]  # sin farmacia; con farmacia, Bigotes busca remedios (agent/bigotes.py)
+concepts = ["sopas", "jugos", "te", "frutas"]  # sin farmacia; con farmacia, el agente busca remedios (agent/rappi_agent.py)
 
 [[occasion]]
 id = "once"
@@ -1109,9 +1109,9 @@ keywords = ["mi nieto", "mi nieta", "mi sobrino", "mi sobrina", "regalo para un 
 concepts = ["juguetes-infantiles", "juegos-mesa", "golosinas", "chocolates"]
 vertical = "mall"
 
-# Servicios de Rappi sin catálogo de productos. Bigotes los reconoce por sus keywords (si la consulta no nombra un
+# Servicios de Rappi sin catálogo de productos. El agente los reconoce por sus keywords (si la consulta no nombra un
 # producto), lleva a su pantalla del prototipo (`route`) y, si tiene ganchos, sugiere UN producto del catálogo que lo
-# acompaña. RappiFavor además se ofrece cuando algo no está en el catálogo (agent/bigotes.py).
+# acompaña. RappiFavor además se ofrece cuando algo no está en el catálogo (agent/rappi_agent.py).
 [[service]]
 id = "rappitravel"
 name = "RappiTravel"

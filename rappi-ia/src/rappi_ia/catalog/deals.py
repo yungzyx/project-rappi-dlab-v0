@@ -15,7 +15,7 @@ precios por unidad (fruta a granel con -90 %), y esas ofertas no salen.
 El precio, el de antes, la tienda y su vertical son de una misma oferta. Un producto en varias tiendas sale una vez, con
 la oferta de mayor descuento.
 
-Una oferta se propone sin que nadie la pida, así que sigue la regla de Bigotes: un producto de concepto sensible
+Una oferta se propone sin que nadie la pida, así que sigue la regla del agente: un producto de concepto sensible
 (`sensitive` en la taxonomía: medicamentos, salud y bienestar sexual, tabaco, vapeo) no sale en ninguna vertical.
 Sin vertical, tampoco las tiendas que no se empujan (`stores.NOT_PUSHED_*`).
 """

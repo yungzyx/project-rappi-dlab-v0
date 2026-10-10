@@ -146,7 +146,7 @@ def test_where_it_exists_follows_the_rule_bigotes_uses(db):
     assert rows["peruana"]["existe_en"] is None
     assert rows["peruana"]["accion"] == "Oportunidad: sumar comercios o categoría"
     assert rows["cerveza"]["existe_en"] == "supermercado"
-    assert rows["cerveza"]["accion"] == "Existe en otro vertical: que Bigotes lo ofrezca ahí"
+    assert rows["cerveza"]["accion"] == "Existe en otro vertical: que el agente lo ofrezca ahí"
 
 
 def test_cart_abandonment_follows_the_definition(db):
@@ -545,6 +545,14 @@ def test_at_risk_uses_pseudonyms_and_no_sensitive_concepts(simulated):
         assert row["usuario"].startswith("u-") and len(row["usuario"]) == 10
         assert "syn-" not in row["usuario"]
         assert row["estado"] in {"en_riesgo", "perdido"}
+
+
+def test_synthetic_events_are_text_only_and_the_agent_ones_are_ask(simulated):
+    db, _ = simulated
+    modalities = db.execute("SELECT DISTINCT modality FROM app_events WHERE source = 'synthetic'").fetchall()
+    assert {m for (m,) in modalities} == {"texto", None}  # None: los eventos que no son consultas
+    types = {t for (t,) in db.execute("SELECT DISTINCT type FROM app_events WHERE source = 'synthetic'")}
+    assert "ask" in types and "chat" not in types
 
 
 def test_learned_synthetic_edges_are_never_used_by_the_agent(simulated):

@@ -1,4 +1,4 @@
-"""Prueba el chat como lo usaría alguien: manda cada frase a /chat y resume la respuesta en una o dos líneas.
+"""Prueba el chat como lo usaría alguien: manda cada frase a /agent/ask y resume la respuesta en una o dos líneas.
 
 Uso (con la API corriendo):  make probar-chat            # todas las rondas de src/rappi_ia/eval/frases_usuarios
                              make probar-chat FRASES=archivo.txt
@@ -23,7 +23,8 @@ def chat(text: str, vertical: str | None, previous: dict | None = None) -> tuple
     body = {"message": text, "mode": "propuesta", **({"vertical": vertical} if vertical else {})}
     if previous:
         body["previous"] = previous
-    request = urllib.request.Request(f"{API}/chat", json.dumps(body).encode(), {"Content-Type": "application/json"})
+    url, headers = f"{API}/agent/ask", {"Content-Type": "application/json"}
+    request = urllib.request.Request(url, json.dumps(body).encode(), headers)
     start = time.time()
     try:
         with urllib.request.urlopen(request, timeout=60) as response:

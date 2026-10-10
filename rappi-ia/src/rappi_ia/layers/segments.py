@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 RULES_FILE = Path(__file__).resolve().parents[1] / "concepts" / "segments.toml"
 LOCAL_TZ = ZoneInfo("America/Santiago")  # las horas y los días de una regla son los de la persona
-SIGNAL_EVENT_TYPES = ("search", "chat", "view_item", "cart_add", "service_shown", "service_opened")
+SIGNAL_EVENT_TYPES = ("search", "chat", "ask", "view_item", "cart_add", "service_shown", "service_opened")
 MIN_CARTS_FOR_ABANDONMENT = 3
 MIN_SUGGESTIONS_SHOWN = 5
 MIN_BRANDED_LINES = 5
@@ -39,7 +39,7 @@ CONTEXT_PIECES = (
 )
 EVENT_TYPES = frozenset(
     {
-        *("app_open", "search", "chat", "view_store", "view_item", "cart_add", "cart_remove", "checkout_start"),
+        *("app_open", "search", "chat", "ask", "view_store", "view_item", "cart_add", "cart_remove", "checkout_start"),
         *("order_placed", "suggestion_shown", "suggestion_accepted", "suggestion_dismissed", "recommendation_click"),
         *("service_shown", "service_opened", "order_line"),
     }

@@ -344,7 +344,7 @@ def test_store_endpoint_returns_the_page(client):
 
 
 def search_found(conn, query: str, vertical: str = "supermercado", k: int = 6):
-    """Lo que encuentra la búsqueda (la ruta de precios de /chat y /search) con los documentos recién hechos."""
+    """Lo que encuentra la búsqueda (la ruta de precios de /agent/ask y /search) con los documentos recién hechos."""
     build_search_documents(conn)
     return search_products(conn, vertical, query, None, None, k=k).products
 
@@ -382,7 +382,7 @@ def test_a_product_only_sold_in_a_store_that_cannot_be_opened_has_no_store_id(se
 
 def test_the_store_name_of_a_searched_product_has_no_stray_spaces_like_the_catalog(seeded):
     """La base real tiene tiendas como «Fenix Minimarket » y «A3D »: /catalog ya recorta el nombre, y la búsqueda (la
-    ruta de /chat y /search) tiene que mostrar el mismo."""
+    ruta de /agent/ask y /search) tiene que mostrar el mismo."""
     seeded.execute("UPDATE stores SET name = ' Supermercado de prueba Centro  ' WHERE store_id = %s", (CENTRO,))
 
     detail = product_detail(seeded, "catalog_item", "91001")

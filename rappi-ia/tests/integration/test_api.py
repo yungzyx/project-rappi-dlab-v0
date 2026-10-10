@@ -8,13 +8,14 @@ from fastapi.testclient import TestClient
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_price, add_product, add_store
-from rappi_ia.agent.bigotes import Bigotes
 from rappi_ia.agent.compose import TemplateComposer
+from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
 from rappi_ia.api.services import Services
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
+from rappi_ia.events import store as events_store
 
 
 @pytest.fixture
@@ -41,7 +42,9 @@ def client(db):
         yield db
 
     api.app.dependency_overrides[api.get_conn] = conn_override
-    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
     yield TestClient(api.app)
     api.app.dependency_overrides.clear()
 
@@ -57,9 +60,9 @@ def test_health_lists_no_voice_or_photo_capability(client):
     assert set(capabilities) == {"busqueda_semantica", "redaccion", "faltantes"}
 
 
-def test_chat_accepts_prototype_vertical_and_logs_redacted_query(client, db):
+def test_ask_accepts_prototype_vertical_and_logs_redacted_query(client, db):
     body = client.post(
-        "/chat",
+        "/agent/ask",
         json={
             "message": "cerveza, llámame al +56 9 1234 5678",
             "vertical": "liquor",
@@ -72,19 +75,52 @@ def test_chat_accepts_prototype_vertical_and_logs_redacted_query(client, db):
     assert {p["concept"] for p in body["products"]} == {"cerveza"}
     assert body["suggestion"]["vertical"] == "supermercado"
     query, concept, source = db.execute(
-        "SELECT query, concept_id, source FROM app_events WHERE type = 'chat'"
+        "SELECT query, concept_id, source FROM app_events WHERE type = 'ask'"
     ).fetchone()
     assert "[teléfono]" in query and "5678" not in query
     assert (concept, source) == ("cerveza", "prototype")
 
 
+def test_ask_endpoint_answers_like_chat_did(client, db):
+    body = client.post(
+        "/agent/ask", json={"message": "hola", "vertical": "liquor", "user_id": "u-ask", "session_id": "s-ask"}
+    )
+    assert body.status_code == 200
+    reply = body.json()
+    assert reply["intent"]["kind"] == "saludo" and "Soy Mochi" in reply["text"]
+    assert db.execute("SELECT type FROM app_events WHERE user_id = 'u-ask'").fetchall() == [("ask",)]
+
+
+def test_old_chat_route_is_a_clean_404(client):
+    """Una pestaña abierta antes del cambio sigue mandando a /chat: no es un 500."""
+    for path in ("/chat", "/mochi/offer", "/mochi/plans"):
+        response = client.post(path, json={"message": "cerveza", "moment": "plan", "context": {}})
+        assert response.status_code == 404, path
+    assert client.get("/mochi/plans").status_code == 404
+
+
+def test_old_chat_events_are_still_accepted_and_counted(client, db):
+    """Un lote con el tipo viejo (`chat`) y el nuevo (`ask`) se guarda entero y las métricas cuentan los dos."""
+    batch = [
+        {"type": "chat", "session_id": "s-old", "query": "cerveza", "vertical": "licores", "unmet": True, "results": 0},
+        {"type": "ask", "session_id": "s-old", "query": "vino", "vertical": "licores", "unmet": True, "results": 0},
+        {"type": "search", "session_id": "s-old", "query": "pisco", "vertical": "licores", "unmet": False},
+    ]
+    assert client.post("/events", json={"user_id": "u-old", "events": batch}).json() == {"guardados": 3}
+    saved = db.execute("SELECT type FROM app_events WHERE user_id = 'u-old' ORDER BY event_id").fetchall()
+    assert saved == [("chat",), ("ask",), ("search",)]
+    kpis = client.get("/analytics/kpis", params={"source": "prototype"}).json()["data"]
+    assert kpis["busquedas_sin_resultado_pct"] == round(100 * 2 / 3, 1)
+    assert events_store.WEIGHTS["chat"] == events_store.WEIGHTS["ask"]  # y el perfil los pesa igual
+
+
 def test_rappi_hoy_mode_has_no_suggestion_and_does_not_learn(client, db):
     body = client.post(
-        "/chat",
+        "/agent/ask",
         json={"message": "cerveza", "vertical": "liquor", "user_id": "u1", "session_id": "s1", "mode": "actual"},
     ).json()
     assert "suggestion" not in body
-    assert db.execute("SELECT concept_id FROM app_events WHERE type = 'chat'").fetchone()[0] is None
+    assert db.execute("SELECT concept_id FROM app_events WHERE type = 'ask'").fetchone()[0] is None
 
 
 def test_events_orders_profile_recommendations_and_forget(client, db):
@@ -136,7 +172,9 @@ def test_screen_vertical_without_documents_does_not_turn_everything_into_unmet_d
     """Turbo tiene tiendas pero aún no documentos: antes cada pregunta en esa pantalla era "no está" y demanda."""
     add_store(db, 9, "turbo", "Turbo")
     db.commit()
-    r = client.post("/chat", json={"message": "quiero cerveza", "vertical": "turbo", "user_id": "u", "session_id": "s"})
+    r = client.post(
+        "/agent/ask", json={"message": "quiero cerveza", "vertical": "turbo", "user_id": "u", "session_id": "s"}
+    )
     body = r.json()
     assert body["vertical"] == "licores" and body["products"] and not body["unmet"]  # sin conveniencia: lo deduce
 
@@ -205,11 +243,11 @@ def test_events_accept_only_text_modality(client, db):
     assert saved == [("texto",)]
 
 
-def test_unknown_vertical_and_nul_bytes_do_not_break_chat(client):
+def test_unknown_vertical_and_nul_bytes_do_not_break_ask(client):
     for vertical in ("pet", "xyz"):
-        r = client.post("/chat", json={"message": "cerveza", "vertical": vertical})
+        r = client.post("/agent/ask", json={"message": "cerveza", "vertical": vertical})
         assert r.status_code == 200, vertical
-    assert client.post("/chat", json={"message": "cerve\u0000za", "vertical": "liquor"}).status_code == 200
+    assert client.post("/agent/ask", json={"message": "cerve\u0000za", "vertical": "liquor"}).status_code == 200
     bad = {
         "user_id": "u9",
         "events": [{"type": "search", "session_id": "s", "query": "a\u0000b", "payload": {"k": "\u0000"}}],
@@ -269,7 +307,7 @@ def test_the_beacon_only_accepts_the_apps_origin(client, db):
     )  # curl en la red de confianza
 
 
-def test_events_and_chat_have_size_limits(client):
+def test_events_and_ask_have_size_limits(client):
     big = "x" * 1000
     for event in (
         {"type": "app_open", "session_id": "s", "concept_id": big},
@@ -279,7 +317,7 @@ def test_events_and_chat_have_size_limits(client):
     ):
         assert client.post("/events", json={"user_id": "u-big", "events": [event]}).status_code == 422
     huge_profile = {f"c{i}": 1.0 for i in range(500)}
-    assert client.post("/chat", json={"message": "cerveza", "profile": huge_profile}).status_code == 422
+    assert client.post("/agent/ask", json={"message": "cerveza", "profile": huge_profile}).status_code == 422
 
 
 def test_sensitive_suggestions_never_show_in_the_panel(client, db):
@@ -456,10 +494,15 @@ CASES = [
         },
         None,
     ),
-    ("chat con log surrogate", "/chat", None, b'{"message":"cerveza \\ud83d","user_id":"revision-u","session_id":"s"}'),
     (
-        "chat con log 500",
-        "/chat",
+        "ask con log surrogate",
+        "/agent/ask",
+        None,
+        b'{"message":"cerveza \\ud83d","user_id":"revision-u","session_id":"s"}',
+    ),
+    (
+        "ask con log 500",
+        "/agent/ask",
         {"message": "cerveza " + "9" * 492, "user_id": "revision-u", "session_id": "s"},
         None,
     ),
@@ -481,10 +524,10 @@ def test_odd_query_params_never_return_500(client, path):
     assert client.get(path).status_code < 500
 
 
-def test_demo_chat_suggestion_order_reaches_the_panel(client):
+def test_demo_ask_suggestion_order_reaches_the_panel(client):
     """El camino de la demo: Bigotes sugiere algo de otra vertical, se acepta, se pide y el panel lo cuenta."""
     chat = client.post(
-        "/chat", json={"message": "cerveza", "vertical": "liquor", "user_id": "u1", "session_id": "s1"}
+        "/agent/ask", json={"message": "cerveza", "vertical": "liquor", "user_id": "u1", "session_id": "s1"}
     ).json()
     sug = chat["suggestion"]
     assert sug["vertical"] == "supermercado" and sug["prototype_vertical"] == "grocery"
@@ -555,9 +598,9 @@ def test_demo_chat_suggestion_order_reaches_the_panel(client):
     assert panel("kpis")["pedidos_30d"] == 2
 
 
-def test_chat_follows_up_on_the_previous_turn(client):
-    first = client.post("/chat", json={"message": "cerveza", "vertical": "liquor"}).json()
+def test_ask_follows_up_on_the_previous_turn(client):
+    first = client.post("/agent/ask", json={"message": "cerveza", "vertical": "liquor"}).json()
     previous = {"query": first["intent"]["query"], "concepts": first["intent"]["concepts"], "vertical": "liquor"}
-    follow = client.post("/chat", json={"message": "más barata", "previous": previous}).json()
+    follow = client.post("/agent/ask", json={"message": "más barata", "previous": previous}).json()
     assert follow["intent"]["follow_up"] and follow["vertical"] == "licores"
     assert {p["concept"] for p in follow["products"]} == {"cerveza"}

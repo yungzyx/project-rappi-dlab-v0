@@ -240,7 +240,7 @@ def test_report_measures_unmet_as_bigotes_records_it():
     assert (quality["mostrado"]["detectadas"], quality["mostrado"]["recall"]) == (1, 0.5)
     assert quality["mostrado"]["no_detectadas_detalle"] == ["licores: pasaje de avión"]
     report = render_markdown(summarize([*hybrid, *shown]), quality, taus, {}, saved=False, model="e5")
-    assert "Lo que registra Bigotes" in report
+    assert "Lo que registra el agente" in report
     assert "detectadas: 1 · falsas alarmas: 0 · precisión: 1.0 · recall: 0.5" in report
     assert "- La búsqueda las marca, pero se muestran productos: licores: pasaje de avión" in report
 

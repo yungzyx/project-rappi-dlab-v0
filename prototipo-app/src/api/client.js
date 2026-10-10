@@ -88,7 +88,7 @@ export function resetHealthCache() {
 /** Si falla, la próxima pregunta vuelve a revisar /health en vez de fiarse del caché de 30 s. */
 export async function chat(payload) {
   try {
-    return await request('/chat', { method: 'POST', body: payload })
+    return await request('/agent/ask', { method: 'POST', body: payload })
   } catch (error) {
     resetHealthCache()
     throw error
@@ -160,7 +160,7 @@ function verticalView(vertical) {
   return screen ? { label: VERTICAL_NAMES[screen], route: routeForScreen(screen) } : { label: null, route: null }
 }
 
-/** Respuesta de /chat → mensaje del chat del prototipo ({ text, products, reason, actions, suggestion… }). */
+/** Respuesta de /agent/ask → mensaje del chat del prototipo ({ text, products, reason, actions, suggestion… }). */
 export function toMessage(response) {
   const suggestion = response.suggestion
     ? {

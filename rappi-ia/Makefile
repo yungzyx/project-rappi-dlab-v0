@@ -86,7 +86,7 @@ ANALYTICS := kpis weekly opportunities trends funnel cohorts rhythm at-risk sugg
 
 warm:  ## Calienta la API antes de una demo (con la API ya corriendo; repetirlo tras un rato sin uso)
 	@for q in $(DEMO_PHRASES); do \
-	  curl -s -o /dev/null -w "  %{time_total}s  $$q\n" -X POST $(API)/chat -H 'Content-Type: application/json' \
+	  curl -s -o /dev/null -w "  %{time_total}s  $$q\n" -X POST $(API)/agent/ask -H 'Content-Type: application/json' \
 	    -d "{\"message\": \"$$q\"}" || exit 1; done
 	@for m in $(ANALYTICS); do for s in synthetic prototype; do \
 	  curl -s -o /dev/null $(API)/analytics/$$m?source=$$s; done; done

@@ -1,6 +1,6 @@
 """La búsqueda de la app sin vertical: la misma consulta en todas las verticales que corresponden, agrupada.
 
-Es la búsqueda que la persona escribe, así que no lleva las guardias de las ofertas de Mochi (la cerveza trae
+Es la búsqueda que la persona escribe, así que no lleva las guardias de las ofertas del agente (la cerveza trae
 Licores) ni se personaliza; lo sensible, como siempre, solo si se nombra (`_allowed` en agent/tools.py). Los resultados
 son productos y platos, nunca tiendas.
 """
@@ -15,7 +15,7 @@ from ..concepts.taxonomy import Occasion, load_taxonomy
 from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
 from ..retrieval.hybrid import detect_concepts
 from ..text import normalize
-from .bigotes import PROTOTYPE_VERTICALS
+from .rappi_agent import PROTOTYPE_VERTICALS
 from .tools import Product, search_products
 from .verticals import ranked_verticals
 
@@ -104,7 +104,7 @@ def search_grouped(
 ) -> GroupedResult:
     """Productos por vertical, con `limit` por grupo y solo los grupos que traen algo. Con un concepto detectado el
     orden es el de sus verticales típicas. Una ocasión sin concepto nombrado («algo para el carrete») se busca como
-    Bigotes: sus conceptos (sin los sensibles: una ocasión no los nombra), en sus verticales típicas. Sin ninguno de
+    el agente: sus conceptos (sin los sensibles: una ocasión no los nombra), en sus verticales típicas. Sin ninguno de
     los dos, solo las verticales que calzan todas las palabras o, si ninguna, las muy cercanas (ALL_VERTICALS_TAU):
     primero las que calzan y luego por la cercanía vectorial. La pantalla actual (`current`), si trae productos, va
     siempre primero (el resto conserva su orden); sin productos, no aparece. `unmet` solo si ningún grupo trae

@@ -113,7 +113,7 @@ def retrieve(
     max_cosine = max(cosines.values()) if cosines else None
     if filters.price_max is not None and query_vector is not None:
         # Como la coincidencia estricta, el coseno de "sin resultado" se mide sin el tope: lo que el vertical tiene a
-        # otro precio no es demanda no satisfecha (Bigotes dice cuánto cuesta lo más barato).
+        # otro precio no es demanda no satisfecha (el agente dice cuánto cuesta lo más barato).
         unfiltered = _vector(conn, vertical, query_vector, embedder, Filters(entity_types=filters.entity_types))
         max_cosine = max((cosine for _, cosine in unfiltered), default=None)
     concept_here = _concept_in_vertical(conn, vertical, query_concepts)
@@ -215,7 +215,7 @@ def _strict_lexical_count(conn: Connection, vertical: str, query: str, filters: 
 
 def _has_words(conn: Connection, query: str) -> bool:
     """¿Le queda alguna palabra a la consulta sin las stopwords? «té» es stopword: no hay nada que calzar. Tampoco
-    cuentan las de saludo, cortesía o pedido en cualquier lugar: Bigotes solo las limpia al inicio («té porfa»)."""
+    cuentan las de saludo, cortesía o pedido en cualquier lugar: el agente solo las limpia al inicio («té porfa»)."""
     words = " ".join(word for word in tokens(query) if word not in FILLER_WORDS)
     return conn.execute("SELECT length(to_tsvector('spanish', es_unaccent(%s))) > 0", (words,)).fetchone()[0]
 

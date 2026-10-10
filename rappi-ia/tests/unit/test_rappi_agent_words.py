@@ -2,7 +2,7 @@
 
 import pytest
 
-from rappi_ia.agent.bigotes import _moved, _names, _stem
+from rappi_ia.agent.rappi_agent import _moved, _names, _stem
 
 
 @pytest.mark.parametrize(
@@ -32,9 +32,9 @@ def test_a_vertical_with_a_few_is_not_said_to_have_none():
 
 @pytest.fixture(scope="module")
 def agent():
-    from rappi_ia.agent.bigotes import Bigotes
+    from rappi_ia.agent.rappi_agent import RappiAgent
 
-    return Bigotes()
+    return RappiAgent()
 
 
 @pytest.mark.parametrize(

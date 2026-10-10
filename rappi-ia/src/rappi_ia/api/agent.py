@@ -1,5 +1,5 @@
-"""Las ofertas de Mochi: lo que propone en cada momento de la app, desde la base y pasando por las guardias
-(rappi_ia/offers). Sin una buena oferta responde 204: Mochi no dice nada.
+"""Las ofertas del agente: lo que propone en cada momento de la app, desde la base y pasando por las guardias
+(rappi_ia/offers). Sin una buena oferta responde 204: el agente no dice nada.
 
 `app.py` incluye este router; las dependencias viven en `deps.py`, así este módulo no importa `app`.
 """
@@ -14,7 +14,7 @@ from ..offers.engine import OfferError, home_occasions, make_offer
 from .deps import Clean, backend_vertical, get_conn, get_services
 from .services import Services
 
-router = APIRouter(prefix="/mochi", tags=["mochi"])
+router = APIRouter(prefix="/agent", tags=["agent"])
 
 MAX_LINES = 100  # como un pedido (OrderIn)
 
@@ -90,7 +90,7 @@ OfferIn = Annotated[PlanIn | CartIn | CheckoutIn | NoResultIn | NextOrderIn | To
 @router.post("/offer", responses={204: {"description": "Sin una buena oferta para este momento"}})
 def offer(body: OfferIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)):
     """La oferta de un momento: `{ moment, text, products, vertical, prototype_vertical, reason, actions }`, o 204.
-    Una ocasión que no existe, o que Mochi no arma (guagua, enfermo), es un 422."""
+    Una ocasión que no existe, o que el agente no arma (guagua, enfermo), es un 422."""
     context = body.context.model_dump()
     if body.moment == "vertical_por_probar":
         context["stamped"] = [v for v in map(backend_vertical, context["stamped"]) if v]
@@ -103,5 +103,5 @@ def offer(body: OfferIn, conn: Connection = Depends(get_conn), svc: Services = D
 
 @router.get("/plans")
 def plans() -> list[dict]:
-    """Las ocasiones que Mochi arma como kit, para la Home: `[{ id, name, emoji }]`."""
+    """Las ocasiones que el agente arma como kit, para la Home: `[{ id, name, emoji }]`."""
     return home_occasions()

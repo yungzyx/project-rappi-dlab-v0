@@ -15,8 +15,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from rappi_ia.agent.bigotes import Bigotes
 from rappi_ia.agent.compose import TemplateComposer
+from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
 from rappi_ia.api.services import Services
 from rappi_ia.demo.seed import seed_demo
@@ -53,31 +53,31 @@ CONTRACT: tuple[Example, ...] = (
     Example("search-grouped", "GET", "/search?q=cerveza"),
     Example("search-grouped-unmet", "GET", "/search?q=xyzzy"),
     Example(
-        "chat",
+        "agent-ask",
         "POST",
-        "/chat",
+        "/agent/ask",
         {"message": "pizza", "vertical": "restaurants", "user_id": "u-contrato", "session_id": "s-contrato"},
     ),
     Example("recommendations", "GET", "/recommendations?user_id=u-contrato&vertical=restaurants"),
-    Example("mochi-plans", "GET", "/mochi/plans"),
-    Example("mochi-plan", "POST", "/mochi/offer", {"moment": "plan", "context": {"occasion": "carrete"}}),
+    Example("agent-plans", "GET", "/agent/plans"),
+    Example("agent-offer-plan", "POST", "/agent/offer", {"moment": "plan", "context": {"occasion": "carrete"}}),
     Example(
-        "mochi-carrito",
+        "agent-offer-carrito",
         "POST",
-        "/mochi/offer",
+        "/agent/offer",
         {"moment": "carrito", "context": {"product": {"entity_type": "catalog_item", "entity_id": "94001"}}},
     ),
     Example(
-        "mochi-carrito-nada",
+        "agent-offer-carrito-nada",
         "POST",
-        "/mochi/offer",
+        "/agent/offer",
         {"moment": "carrito", "context": {"product": {"entity_type": "catalog_item", "entity_id": "91007"}}},
         status=204,
     ),
     Example(
-        "mochi-checkout",
+        "agent-offer-checkout",
         "POST",
-        "/mochi/offer",
+        "/agent/offer",
         {
             "moment": "checkout",
             "context": {
@@ -89,21 +89,21 @@ CONTRACT: tuple[Example, ...] = (
         },
     ),
     Example(
-        "mochi-sin-resultado",
+        "agent-offer-sin-resultado",
         "POST",
-        "/mochi/offer",
+        "/agent/offer",
         {"moment": "sin_resultado", "context": {"query": "pizza hawaiana"}},
     ),
     Example(
-        "mochi-proximo-pedido",
+        "agent-offer-proximo-pedido",
         "POST",
-        "/mochi/offer",
+        "/agent/offer",
         {"moment": "proximo_pedido", "context": {"items": [{"entity_type": "menu_item", "entity_id": "98001"}]}},
     ),
     Example(
-        "mochi-vertical-por-probar",
+        "agent-offer-vertical-por-probar",
         "POST",
-        "/mochi/offer",
+        "/agent/offer",
         {"moment": "vertical_por_probar", "context": {"stamped": ["supermercado"]}},
     ),
 )
@@ -122,7 +122,9 @@ def client(db):
         yield db
 
     api.app.dependency_overrides[api.get_conn] = conn_override
-    api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
     test_client = TestClient(api.app)
     # Un perfil con un interés (pizza) para que /recommendations tenga filas que mostrar.
     interest = {

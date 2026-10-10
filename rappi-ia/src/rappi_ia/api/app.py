@@ -1,4 +1,4 @@
-"""API de rappi-ia: Bigotes (texto), búsqueda, perfil, eventos del prototipo y métricas del panel.
+"""API de rappi-ia: el agente (texto), búsqueda, perfil, eventos del prototipo y métricas del panel.
 
 make serve   →   http://localhost:8000/docs
 """
@@ -20,17 +20,17 @@ from psycopg import Connection, DataError, OperationalError
 from pydantic import Field, ValidationError, field_validator
 
 from .. import config
-from ..agent.bigotes import PROTOTYPE_VERTICALS, Context
 from ..agent.grouped_search import search_grouped
+from ..agent.rappi_agent import PROTOTYPE_VERTICALS, Context
 from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
 from ..concepts.taxonomy import load_taxonomy
 from ..events import store as events
 from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
+from .agent import router as agent_router
 from .catalog import router as catalog_router
 from .deps import Clean, backend_vertical, get_conn, get_services
-from .mochi import router as mochi_router
 from .services import Services, services
 
 log = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="rappi-ia", version="0.1.0", description="Bigotes, búsqueda por vertical y panel empresa", lifespan=lifespan
+    title="rappi-ia", version="0.1.0", description="El agente, búsqueda por vertical y panel empresa", lifespan=lifespan
 )
 
 
@@ -109,7 +109,7 @@ class PreviousTurnIn(Clean):
     product_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=24)
 
 
-class ChatIn(Clean):
+class AskIn(Clean):
     message: str = Field(min_length=1, max_length=500)
     vertical: str | None = None
     user_id: str | None = Field(default=None, max_length=64)
@@ -170,7 +170,7 @@ class OrderIn(Clean):
     lines: list[OrderLineIn] = Field(min_length=1, max_length=100)
 
 
-# ── Bigotes ──────────────────────────────────────────────────────────────────
+# ── Agente ──────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
     # Estimación de las estadísticas de Postgres: contar las ~250 mil filas leía ~390 MB en cada chequeo (el prototipo
@@ -185,18 +185,18 @@ def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_ser
     return {"ok": True, "documentos": documents, "capacidades": svc.capabilities}
 
 
-@app.post("/chat")
-def chat(body: ChatIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
+@app.post("/agent/ask")
+def ask(body: AskIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
     ctx = _context(conn, body.vertical, body.user_id, body.profile, body.shown_topics, body.mode)
     if body.previous and body.previous.concepts:
         previous = body.previous.model_dump()
         previous["vertical"] = backend_vertical(previous["vertical"])
         ctx = replace(ctx, previous=previous)
     try:
-        response = svc.bigotes.reply(conn, body.message, ctx)
+        response = svc.agent.reply(conn, body.message, ctx)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    _log_chat(conn, body.user_id, body.session_id, body.message, response, "texto", body.mode)
+    _log_ask(conn, body.user_id, body.session_id, body.message, response, "texto", body.mode)
     return response
 
 
@@ -250,8 +250,9 @@ def recommendations(
     """ "Para ti, de otras tiendas": intereses del usuario → complementos → productos de otro vertical."""
     interests = list(events.profile(conn, user_id))
     taxonomy = load_taxonomy()
-    # La razón nombra el interés («Porque te interesa…»): Mochi no nombra por su cuenta alcohol, salud ni lo sensible,
-    # así que esos intereses no son fuente de una fila (como en `Bigotes._top_interest`). El perfil los conserva.
+    # La razón nombra el interés («Porque te interesa…»): el agente no nombra por su cuenta alcohol, salud ni lo
+    # sensible, así que esos intereses no son fuente de una fila (como en `RappiAgent._top_interest`). El perfil los
+    # conserva.
     sources = [c for c in interests if c in taxonomy.concepts and is_offerable(taxonomy.concepts[c])]
     shown: set[str] = set()
     rows = []
@@ -413,7 +414,7 @@ def _context(conn, vertical, user_id, profile, shown_topics, mode) -> Context:
 
 def _searchable(conn: Connection, vertical: str | None) -> str | None:
     """Un vertical todavía sin documentos (Turbo, antes de que termine la descarga) haría que todo diera "no está"
-    y se anotara como demanda: se usa el más parecido o, si tampoco tiene, Bigotes deduce el vertical del mensaje."""
+    y se anotara como demanda: se usa el más parecido o, si tampoco tiene, el agente deduce el vertical del mensaje."""
     for candidate in (vertical, EMPTY_VERTICAL_FALLBACK.get(vertical)):
         if (
             candidate
@@ -425,7 +426,7 @@ def _searchable(conn: Connection, vertical: str | None) -> str | None:
     return None
 
 
-def _log_chat(conn, user_id, session_id, text, response, modality, mode) -> None:
+def _log_ask(conn, user_id, session_id, text, response, modality, mode) -> None:
     """Registra la consulta (redactada) para tendencias y demanda no satisfecha. En "Rappi hoy" no se aprende."""
     if not user_id or not session_id:
         return
@@ -433,7 +434,7 @@ def _log_chat(conn, user_id, session_id, text, response, modality, mode) -> None
     event = events.Event(
         user_id=user_id,
         session_id=session_id,
-        type="chat",
+        type="ask",
         vertical=response.get("vertical"),
         concept_id=concepts[0] if concepts and mode == "propuesta" else None,
         query=text,
@@ -451,4 +452,4 @@ def _log_chat(conn, user_id, session_id, text, response, modality, mode) -> None
 
 
 app.include_router(catalog_router)
-app.include_router(mochi_router)
+app.include_router(agent_router)

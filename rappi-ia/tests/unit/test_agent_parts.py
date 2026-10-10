@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from rappi_ia.agent.bigotes import Bigotes
 from rappi_ia.agent.compose import AGE_NOTICE, ClaudeComposer, Draft, TemplateComposer, facts, verify_llm_text
+from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.agent.understand import Intent, Understander, _clean, _price
 
 
@@ -105,7 +105,7 @@ def test_price_parsing_still_ignores_decimal_units():
 )
 def test_a_decimal_followed_by_a_unit_is_not_a_price_and_does_not_fail(text):
     """Si a «mil/lucas/k» le sigue una unidad, la regex soltaba esa palabra y se quedaba con «5,5» a secas:
-    float('5,5') lanzaba ValueError (HTTP 400 en /chat) y «$2.5» se leía como $25."""
+    float('5,5') lanzaba ValueError (HTTP 400 en /agent/ask) y «$2.5» se leía como $25."""
     assert _price(text)[0] is None
 
 
@@ -212,7 +212,7 @@ def test_off_topic_results_are_not_labelled_as_the_requested_concept():
     intent = Intent("buscar", "un lomo saltado", concepts=["peruana"], explicit_concepts=True, query="lomo saltado")
     pasta = SimpleNamespace(name="Vivaldi Chef Pasta Fetuccini", concept="pastas", age_restricted=False)
     no_cheapest = SimpleNamespace(cheapest_without_filter=None)
-    draft = Bigotes()._draft(intent, "supermercado", [pasta], no_cheapest, None, False)
+    draft = RappiAgent()._draft(intent, "supermercado", [pasta], no_cheapest, None, False)
     assert draft.concept_label is None
     assert "«lomo saltado»" in TemplateComposer().compose(draft) and "peruana" not in TemplateComposer().compose(draft)
 
@@ -249,3 +249,15 @@ def test_claude_puede_nombrar_a_mochi():
     refs = {"p1": "Cerveza Escudo 470 cc"}
     text = verify_llm_text("¡Hola! Aquí Mochi: te recomiendo {p1}.", refs)
     assert text == "¡Hola! Aquí Mochi: te recomiendo Cerveza Escudo 470 cc."
+
+
+def test_agent_name_comes_from_config(monkeypatch):
+    """El nombre visible del agente sale de `config.AGENT_NAME`: cambiarlo cambia el saludo y la ayuda."""
+    from rappi_ia import config
+
+    monkeypatch.setattr(config, "AGENT_NAME", "Lupe")
+    for kind in ("saludo", "ayuda"):
+        text = TemplateComposer().compose(Draft(kind=kind))
+        assert "Soy Lupe" in text and "Mochi" not in text, text
+    refs = {"p1": "Cerveza Escudo 470 cc"}
+    assert verify_llm_text("¡Hola! Aquí Lupe: te recomiendo {p1}.", refs)  # el nombre de la config no es un invento

@@ -2,7 +2,7 @@
 
 `rappi-ia multivertical` escribe una página autocontenida (sin internet) en docs/mapas/:
 productos compartidos entre verticales, el mapa radial de conceptos (cada uno junto a la vertical donde es más
-típico, la misma regla de Bigotes) y los productos y cadenas que están en más verticales.
+típico, la misma regla del agente) y los productos y cadenas que están en más verticales.
 """
 
 import json

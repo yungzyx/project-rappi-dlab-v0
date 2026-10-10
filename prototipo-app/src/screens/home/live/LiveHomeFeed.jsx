@@ -83,7 +83,7 @@ export default function LiveHomeFeed({ push, active = true }) {
   const game = useGame()
   const stamps = stampedVerticals(game.state) // ids del juego
   const [freshStamp, setFreshStamp] = useState(() => session.newStamp)
-  const [plans, setPlans] = useState([]) // las ocasiones que Mochi sabe armar (GET /mochi/plans)
+  const [plans, setPlans] = useState([]) // las ocasiones que Mochi sabe armar (GET /agent/plans)
   const [plan, setPlan] = useState(() => session.plan?.id ?? null) // la ocasión elegida
   const [kit, setKit] = useState(() => session.plan?.kit ?? null) // sus productos (la oferta `plan`); null mientras llega
   const [kitAdded, setKitAdded] = useState(null) // plan cuyo kit ya está en el carro

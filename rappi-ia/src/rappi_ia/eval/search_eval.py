@@ -5,7 +5,7 @@ Es una etiqueta automática y ruidosa (depende de la precisión de la capa 2), p
 modos, así que la comparación es justa. Métricas: P@10, MRR y nDCG@10 (ganancia binaria).
 
 Además del ranking (`retrieve`), mide lo que ve el usuario: los productos de `search_products` (lo que muestran
-/search y Bigotes) y «sin resultado» con la regla con que Bigotes lo registra.
+/search y el agente) y «sin resultado» con la regla con que el agente lo registra.
 """
 
 import json
@@ -55,7 +55,7 @@ class QueryRun:
     concept_in_vertical: bool
     names_concept: bool = False
     items: list[dict] = field(default_factory=list)  # los resultados (tipo, id, texto, concepto): muestra de juicio
-    shown_unmet: bool | None = None  # solo en SHOWN: «sin resultado» como lo registra Bigotes (y nada a la vista)
+    shown_unmet: bool | None = None  # solo en SHOWN: «sin resultado» como lo registra el agente (y nada a la vista)
     has_words: bool = True  # le queda alguna palabra sin las stopwords («té» no): sin ellas no hay «sin resultado»
 
 
@@ -72,8 +72,9 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                 continue
             shown_unmet = None
             if mode == SHOWN:
-                # Como /search: los conceptos los detecta la consulta. Bigotes registra la demanda solo sin productos, y
-                # nunca por síntomas: ahí los medicamentos se ocultan por la regla 6d, no por falta de surtido.
+                # Como /search: los conceptos los detecta la consulta. El agente registra la demanda solo sin
+                # productos, y nunca por síntomas: ahí los medicamentos se ocultan por la regla 6d, no por falta de
+                # surtido.
                 outcome = search_products(conn, q["vertical"], q["query"], None, embedder, k=K)
                 result = outcome.result
                 items = [(p.entity_type, p.entity_id, p.name, p.concept) for p in outcome.products]
@@ -208,7 +209,7 @@ def calibrate_tau(runs: list[QueryRun], candidates=None) -> dict[str, float]:
 
 
 def unmet_quality(runs: list[QueryRun], taus: dict[str, float], run_taus: dict[str, float] | None = None) -> dict:
-    """«Sin resultado» de la búsqueda (modo híbrido, con `taus`) y, si se corrió, el que registra Bigotes («mostrado»:
+    """«Sin resultado» de la búsqueda (modo híbrido, con `taus`) y, si se corrió, el que registra el agente («mostrado»:
     marcado y sin productos a la vista, con los τ vigentes al correr la evaluación, `run_taus`; por defecto `taus`)."""
     hybrid = [r for r in runs if r.mode == "hibrido"]
     quality = _detection(hybrid, [_is_unmet(r, taus.get(r.vertical, DEFAULT_TAU)) for r in hybrid])
@@ -286,7 +287,7 @@ def render_markdown(
     if SHOWN in summary:
         lines += [
             "",
-            f"`{SHOWN}`: lo que ve el usuario. Son los productos que devuelve `search_products` (/search y Bigotes):"
+            f"`{SHOWN}`: lo que ve el usuario. Son los productos que devuelve `search_products` (/search y el agente):"
             " sin sensibles no pedidos, enfocados en el concepto que detecta la consulta, con precio vigente y sin"
             " repetidos. Si muestra menos de 10, P@10 y nDCG@10 bajan.",
         ]
@@ -365,7 +366,7 @@ def render_markdown(
         shown = unmet["mostrado"]
         lines += [
             "",
-            "Lo que registra Bigotes (`search_products`: la búsqueda marca «sin resultado» y no se muestra ningún"
+            "Lo que registra el agente (`search_products`: la búsqueda marca «sin resultado» y no se muestra ningún"
             " producto), con los τ vigentes al correr la evaluación:",
             "",
             _detection_line(shown),

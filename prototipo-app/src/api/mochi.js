@@ -1,4 +1,4 @@
-// Ofertas de Mochi de rappi-ia: `POST /mochi/offer` (un momento de la app) y `GET /mochi/plans` (ocasiones).
+// Ofertas de Mochi de rappi-ia: `POST /agent/offer` (un momento de la app) y `GET /agent/plans` (ocasiones).
 import { routeForScreen } from '../data/verticals'
 import { request, toPrototypeProduct } from './client'
 
@@ -18,7 +18,7 @@ function toAction({ route, ...action }) {
  * Si falla, lanza el `ApiError`: quien llama decide callar.
  */
 export async function offer(moment, context = {}, { userId } = {}) {
-  const response = await request('/mochi/offer', {
+  const response = await request('/agent/offer', {
     method: 'POST',
     body: { moment, ...(userId ? { user_id: userId } : {}), context },
     timeout: OFFER_TIMEOUT_MS,
@@ -40,4 +40,4 @@ export async function offer(moment, context = {}, { userId } = {}) {
 }
 
 /** Las ocasiones que Mochi sabe armar: `[{ id, name, emoji }]`. */
-export const plans = () => request('/mochi/plans', { timeout: OFFER_TIMEOUT_MS })
+export const plans = () => request('/agent/plans', { timeout: OFFER_TIMEOUT_MS })

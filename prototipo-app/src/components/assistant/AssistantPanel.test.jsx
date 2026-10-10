@@ -552,7 +552,7 @@ describe('sin resultados', () => {
   }
 
   test('sin resultados, Mochi ofrece la vertical que sí lo tiene', async () => {
-    stubCatalog({ 'POST /mochi/offer': fixture('mochi-sin-resultado') })
+    stubCatalog({ 'POST /agent/offer': fixture('agent-offer-sin-resultado') })
     const push = vi.fn()
     await renderPanel({ push })
     await type('pizza hawaiana')
@@ -563,7 +563,7 @@ describe('sin resultados', () => {
   })
 
   test('sin una oferta (204), Mochi lo dice y ofrece otra búsqueda', async () => {
-    stubCatalog({ 'POST /mochi/offer': 204 })
+    stubCatalog({ 'POST /agent/offer': 204 })
     await renderPanel()
     await type('xyzzy')
     expect(screen.getByText('No encontré «xyzzy». ¿Lo buscamos con otras palabras?')).toBeTruthy()
@@ -659,12 +659,12 @@ describe('¿Con qué acompaño…?', () => {
   }
 
   test('arrastrar un producto a Mochi muestra su complemento de la API', async () => {
-    const fetchMock = stubCatalog({ 'POST /mochi/offer': fixture('mochi-carrito') })
+    const fetchMock = stubCatalog({ 'POST /agent/offer': fixture('agent-offer-carrito') })
     await renderPanel()
     await dropBeer()
 
     expect(api.chat).not.toHaveBeenCalled()
-    const call = fetchMock.mock.calls.find(([url]) => url.includes('/mochi/offer'))
+    const call = fetchMock.mock.calls.find(([url]) => url.includes('/agent/offer'))
     expect(JSON.parse(call[1].body)).toMatchObject({
       moment: 'carrito',
       context: { product: { entity_type: 'catalog_item', entity_id: '94001' } },
@@ -678,7 +678,7 @@ describe('¿Con qué acompaño…?', () => {
   })
 
   test('sin una oferta (204), Mochi dice que no se le ocurre nada', async () => {
-    stubCatalog({ 'POST /mochi/offer': 204 })
+    stubCatalog({ 'POST /agent/offer': 204 })
     await renderPanel()
     await dropBeer()
     expect(bubbles()).toContain('No se me ocurre nada para acompañar eso')
@@ -686,7 +686,7 @@ describe('¿Con qué acompaño…?', () => {
 
   test('si la API no contesta, Sin conexión y Reintentar vuelve a pedir la oferta', async () => {
     let online = false
-    stubCatalog({ 'POST /mochi/offer': () => (online ? fixture('mochi-carrito') : 'offline') })
+    stubCatalog({ 'POST /agent/offer': () => (online ? fixture('agent-offer-carrito') : 'offline') })
     await renderPanel()
     await dropBeer()
     expect(bubbles()).toContain('Sin conexión')
@@ -706,12 +706,12 @@ describe('«¿Qué puedo probar?» (una oferta pedida desde fuera)', () => {
 
   test('muestra la vertical por probar de la API, sin pasar por el chat', async () => {
     const push = vi.fn()
-    const fetchMock = stubCatalog({ 'POST /mochi/offer': fixture('mochi-vertical-por-probar') })
+    const fetchMock = stubCatalog({ 'POST /agent/offer': fixture('agent-offer-vertical-por-probar') })
     await renderPanel({ push })
     await askToTry()
 
     expect(api.chat).not.toHaveBeenCalled()
-    const call = fetchMock.mock.calls.find(([url]) => url.includes('/mochi/offer'))
+    const call = fetchMock.mock.calls.find(([url]) => url.includes('/agent/offer'))
     expect(JSON.parse(call[1].body)).toMatchObject({
       moment: 'vertical_por_probar',
       context: { stamped: ['restaurantes', 'supermercado'] },
@@ -725,7 +725,7 @@ describe('«¿Qué puedo probar?» (una oferta pedida desde fuera)', () => {
   test('sin una oferta (204) lo dice, y si la API no contesta, Sin conexión y Reintentar', async () => {
     let online = false
     stubCatalog({
-      'POST /mochi/offer': () => (online ? 204 : 'offline'),
+      'POST /agent/offer': () => (online ? 204 : 'offline'),
     })
     await renderPanel()
     await askToTry()

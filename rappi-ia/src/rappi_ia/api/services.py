@@ -7,8 +7,8 @@ import threading
 from dataclasses import dataclass, field
 from functools import cache
 
-from ..agent.bigotes import Bigotes
 from ..agent.compose import default_composer
+from ..agent.rappi_agent import RappiAgent
 from ..embeddings.base import TextEmbedder
 
 log = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class Services:
-    bigotes: Bigotes
+    agent: RappiAgent
     embedder: TextEmbedder | None = None
     missing: dict[str, str] = field(default_factory=dict)
 
@@ -24,7 +24,7 @@ class Services:
     def capabilities(self) -> dict:
         return {
             "busqueda_semantica": self.embedder.model_name if self.embedder else None,
-            "redaccion": self.bigotes.composer.name,
+            "redaccion": self.agent.composer.name,
             "faltantes": self.missing,
         }
 
@@ -55,6 +55,6 @@ def _load_services() -> Services:
             missing["ml"] = f"no se pudo cargar el modelo: {exc}"
     else:
         missing["modelos"] = "RAPPI_IA_LIGHT=1"
-    bigotes = Bigotes(embedder, default_composer())
-    log.info("Servicios listos: %s", {k: v for k, v in Services(bigotes, embedder).capabilities.items() if v})
-    return Services(bigotes, embedder, missing)
+    agent = RappiAgent(embedder, default_composer())
+    log.info("Servicios listos: %s", {k: v for k, v in Services(agent, embedder).capabilities.items() if v})
+    return Services(agent, embedder, missing)

@@ -1,6 +1,6 @@
 """Tiendas y productos del catálogo con el precio vigente de cada tienda. Solo lectura, consultas parametrizadas.
 
-Oferta vigente: la misma regla que el precio que muestra Bigotes (`_with_prices`, agent/tools.py) y que la búsqueda
+Oferta vigente: la misma regla que el precio que muestra el agente (`_with_prices`, agent/tools.py) y que la búsqueda
 (`_OFFER_PRICES`, rappi_scraper/storage/search.py): el último precio de la tienda para ese SKU es de la corrida
 `format_run_id` de su formato (`v_store_format_runs`, migración 019) y `in_stock` no es `false`. Además, el precio tiene
 que ser real (desde `MIN_PRICE`): uno de relleno cuenta como desconocido y el producto no se ofrece.
@@ -22,7 +22,8 @@ BIGINT_MAX = 2**63 - 1
 
 # Farmacia no se empuja: no entra en «Cerca de ti» ni en las ofertas sin vertical. Restaurantes no vende productos del
 # catálogo (tiene menús), así que tampoco es una tienda de «Cerca de ti».
-# Lo que Mochi no ofrece por su cuenta tiene su propia lista (offers/guards.py), que reutiliza NOT_PUSHED_SUBVERTICALS.
+# Lo que el agente no ofrece por su cuenta tiene su propia lista (offers/guards.py), que reutiliza
+# NOT_PUSHED_SUBVERTICALS.
 NOT_PUSHED_VERTICALS = ("farmacia", "restaurantes")
 # Tampoco las tiendas que Rappi rotula con estos subverticales (store_verticals.subvertical), sea cual sea su vertical:
 # en la base real, sex shops y smoking shops (tabaco, Ley 20.105) del mall y farmacias listadas entre los súper (Cruz
@@ -197,7 +198,7 @@ JOIN stores s ON s.store_id = c.store_id
 LEFT JOIN brands b ON b.brand_id = s.brand_id
 LEFT JOIN item_concepts ic ON ic.entity_type = 'catalog_item' AND ic.entity_id = ci.master_product_id::text"""
 
-# Un plato con su último precio (como lo muestra Bigotes).
+# Un plato con su último precio (como lo muestra el agente).
 _MENU_DETAIL = """
 SELECT mi.item_id::text, mi.name, mp.price, mp.real_price, s.name, s.store_id, NULLIF(mi.image_url, ''), ic.concept_id
 FROM menu_items mi

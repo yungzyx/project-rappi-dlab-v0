@@ -185,14 +185,14 @@ const failure = (promise) => promise.then(() => null, (error) => error)
 
 describe('errores de la API', () => {
   test('una respuesta 500 es ApiError http con su estado', async () => {
-    stubApi({ 'POST /chat': 500 })
+    stubApi({ 'POST /agent/ask': 500 })
     const error = await failure(chat({ message: 'cerveza' }))
     expect(error).toBeInstanceOf(ApiError)
     expect(error).toMatchObject({ kind: 'http', status: 500 })
   })
 
   test('sin red es ApiError offline', async () => {
-    stubApi({ 'POST /chat': 'offline' })
+    stubApi({ 'POST /agent/ask': 'offline' })
     const error = await failure(chat({ message: 'cerveza' }))
     expect(error).toBeInstanceOf(ApiError)
     expect(error.kind).toBe('offline')
@@ -201,7 +201,7 @@ describe('errores de la API', () => {
   test('pasado el tiempo límite es ApiError timeout', async () => {
     vi.useFakeTimers()
     try {
-      stubApi({ 'POST /chat': 'slow:60000' })
+      stubApi({ 'POST /agent/ask': 'slow:60000' })
       const outcome = failure(chat({ message: 'cerveza' }))
       await vi.advanceTimersByTimeAsync(8000)
       const error = await outcome
@@ -311,7 +311,7 @@ describe('stubApi', () => {
         seen.push(req)
         return { user: req.query.get('user_id'), vertical: req.query.get('vertical'), rows: [] }
       },
-      'POST /chat': (req) => {
+      'POST /agent/ask': (req) => {
         seen.push(req)
         return req.body.message === 'cerveza' ? { text: 'Mira' } : 500
       },
@@ -323,7 +323,7 @@ describe('stubApi', () => {
 
     expect(seen[0]).toMatchObject({ method: 'GET', path: '/recommendations', body: undefined })
     expect(seen[0].query).toBeInstanceOf(URLSearchParams)
-    expect(seen[1]).toMatchObject({ method: 'POST', path: '/chat', body: { message: 'cerveza', vertical: null } })
+    expect(seen[1]).toMatchObject({ method: 'POST', path: '/agent/ask', body: { message: 'cerveza', vertical: null } })
     expect(seen[1].query.size).toBe(0)
   })
 
@@ -331,7 +331,7 @@ describe('stubApi', () => {
     for (const key of ['health', 'FETCH /health', 'get /health', 'PATCH /health', 'GET health', '/health?x=1', '']) {
       expect(() => stubApi({ [key]: {} })).toThrow(/^stubApi: clave inválida/)
     }
-    expect(() => stubApi({ '/health': {}, 'GET /health2': {}, 'POST /chat': {}, 'PUT /a': {}, 'DELETE /a/b': {} })).not.toThrow()
+    expect(() => stubApi({ '/health': {}, 'GET /health2': {}, 'POST /agent/ask': {}, 'PUT /a': {}, 'DELETE /a/b': {} })).not.toThrow()
   })
 
   test('un 204 es null, no un error', async () => {
