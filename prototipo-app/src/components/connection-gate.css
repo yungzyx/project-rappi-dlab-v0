@@ -20,6 +20,12 @@
   text-align: center;
 }
 
+.connection-message {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
 .connection-card h1 {
   margin-top: 6px;
   font-size: 24px;

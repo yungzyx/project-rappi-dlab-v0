@@ -178,6 +178,14 @@ describe('checkConnection', () => {
     expect(await checkConnection()).toEqual({ ok: true, capabilities: body.capacidades, documents: body.documentos })
   })
 
+  test('lo que aprendió la puerta lo comparte health(): sin otra llamada a la red', async () => {
+    const body = fixture('health')
+    const fetchMock = stubApi({ '/health': body })
+    await checkConnection()
+    expect(await health()).toEqual(body.capacidades)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   test('checkConnection sin API devuelve ok: false y el motivo', async () => {
     stubApi({ '/health': 'offline' })
     expect(await checkConnection()).toEqual({ ok: false, kind: 'offline' })

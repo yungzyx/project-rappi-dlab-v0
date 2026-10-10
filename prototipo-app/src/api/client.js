@@ -50,10 +50,15 @@ async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS }
   }
 }
 
-/** ¿Responde la API? Con sus capacidades y los documentos del catálogo, o el motivo (`offline`, `timeout`, `http`). */
+/**
+ * ¿Responde la API? Con sus capacidades y los documentos del catálogo, o el motivo (`offline`, `timeout`, `http`).
+ * Lo que aprende lo comparte con `health()`: si no, el primer `health()` de la app (con su límite de 1,5 s) podría
+ * guardar `null` 30 s aunque la API acabe de contestar.
+ */
 export async function checkConnection({ timeout = CONNECTION_TIMEOUT_MS } = {}) {
   try {
     const response = await request('/health', { timeout })
+    healthCache = { at: Date.now(), value: response.capacidades ?? null }
     return { ok: true, capabilities: response.capacidades, documents: response.documentos }
   } catch (error) {
     return { ok: false, kind: error.kind }
