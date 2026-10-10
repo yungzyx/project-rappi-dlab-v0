@@ -73,11 +73,12 @@ En el **prototipo final** Mochi de cuerpo entero vive en la Home (`src/screens/h
 
 ## Juego de verticales
 
-En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de verticales (traído de `rappi-juego-verticales`, que queda como histórico): 8 sellos (Súper, Express, Turbo, Licores, Chocolatería, Restaurantes, Farmacia y Rappi Mall), uno por vertical en nivel Explorador o más. Un sello se gana jugando (descubrir un concepto) o abriendo la vertical en la app; Conocedor y Experto, solo jugando, y se ven en el borde del sello. Con 4 sellos, envío gratis en la demo.
+En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de verticales (traído de `rappi-juego-verticales`, que queda como histórico): 9 sellos (Súper, Express, Turbo, Licores, Chocolatería, Restaurantes, Farmacia, Rappi Mall y Viajes), uno por vertical en nivel Explorador o más. Un sello se gana jugando (descubrir un dato) o abriendo la vertical en la app (Viajes: RappiTravel); Conocedor y Experto, solo jugando, y se ven en el borde del sello. Con 4 sellos, envío gratis en la demo.
 
 - **Desde la Home:** el título del pasaporte abre el pasaporte del juego; «Jugar», su camino de verticales; cada sello, su hoja con «Jugar» y «Abrir {vertical}». Mochi, al tocarlo, propone jugar la primera vertical sin sello.
 - **Mientras llega el pedido:** el seguimiento ofrece «Juega mientras llega tu pedido», una ronda de 5 pasos en una vertical sin sello. Arriba, una franja con el tiempo que falta; si el pedido llega a mitad de ronda, avisa con «Ver pedido».
-- **El juego:** rondas (conceptos que se dan vuelta y desafíos de 4 opciones), XP y nivel, misión del día y racha, y un álbum de cartas «¿Sabías que…?». Los datos son agregados del catálogo del 05-10-2026 (`src/data/verticales.json`, sin conceptos sensibles; `npm run datos -- "<04 Mapa multivertical.html>"` los regenera).
+- **El juego:** cada vertical enseña su mundo (el cacao en Chocolatería, el vino y el pisco en Licores, aviones y destinos en Viajes; Súper, Express y Turbo traen temas variados). Una ronda tiene 5 pasos: 2 datos «¿Sabías que…?» que se dan vuelta, 2 preguntas curiosas y 1 desafío del catálogo (Viajes, sin catálogo: 3 preguntas). Los datos van al álbum con su fuente, que se abre en otra pestaña. Además, XP y nivel (Conocedor: 6 de las 12 tarjetas y 3 aciertos; Experto: las 12 y 8), misión del día y racha.
+- **Contenido:** 108 tarjetas (6 datos y 6 preguntas por vertical) en `src/game/knowledge.json`, escritas con palabras propias y verificadas una por una contra su fuente ([informe](../docs/resultados/juego-verificacion-2026-10-09.md)). Los desafíos del catálogo usan agregados del catálogo del 05-10-2026 (`src/data/verticales.json`, sin conceptos sensibles; `npm run datos -- "<04 Mapa multivertical.html>"` los regenera).
 - **Farmacia** se puede jugar desde el pasaporte, pero ni Mochi ni el seguimiento la proponen (la salud no se empuja). Licores lleva la marca «+18».
 - El progreso es de demo: se guarda solo en el navegador. «Repetir escena» lo deja como al empezar.
 
@@ -179,7 +180,7 @@ src/
 ├── api/            Cliente de la API de rappi-ia (chat, "Para ti", pedidos); si no responde, modo local
 ├── assistant/      Mochi local: temas, respuestas y recomendaciones (lógica pura, con tests)
 ├── assets/         Recortes de las capturas
-├── game/           Lógica del juego de verticales: desafíos, cartas, XP, niveles, pasaporte (lógica pura, con tests)
+├── game/           Lógica del juego de verticales: tarjetas de conocimiento, desafíos, XP, niveles, pasaporte (lógica pura, con tests)
 ├── components/     Piezas compartidas; assistant/ tiene la mascota, la barra de la Home, el buscador con Mochi y Descubre
 ├── data/           Catálogo y buscador; menús reales opcionales; verticales.json del juego
 ├── hooks/          Navegación con historial, scroll

@@ -44,6 +44,7 @@ Las fuentes JSON de los diagramas están en [diagramas-fuente/](diagramas-fuente
 | Las cifras vigentes, con qué tipo de dato es cada una | [README.md#resultados](../README.md#resultados) |
 | Los reportes de evaluación de la búsqueda, uno por fecha | [resultados/](resultados/) (`busqueda-*.md`) |
 | La precisión medida de conceptos, atributos y marcas | [resultados/capas-precision-2026-10-06.md](resultados/capas-precision-2026-10-06.md) y [la muestra nueva](resultados/capas-precision-2026-10-06-nueva-muestra.md) |
+| Cómo se verificaron los datos del juego de verticales (fuente de cada tarjeta) | [resultados/juego-verificacion-2026-10-09.md](resultados/juego-verificacion-2026-10-09.md) |
 
 ## 4. Operación
 
