@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { forVertical, forYou, greeting, reply, suggestions } from './brain'
+import { forYou, greeting, reply, suggestions } from './brain'
 import { TAGS, productsForTags } from './tags'
 import { ALL_PRODUCTS } from '../data/catalog'
 
@@ -96,34 +96,9 @@ describe('personalización', () => {
   })
 })
 
-describe('forVertical', () => {
-  test('sin perfil, recomienda el complemento del tema de la vertical, de otra vertical', () => {
-    const picks = forVertical('liquor', EMPTY_PROFILE)
-    expect(picks.reason).toMatch(/Combina con/)
-    expect(picks.products.length).toBeGreaterThan(0)
-    picks.products.forEach((product) => expect(product.name).not.toMatch(/cerveza/i))
-  })
-
-  test('llena la fila aunque el tema favorito tenga un solo complemento', () => {
-    expect(forVertical('liquor', { top: ['licor'] }).products.length).toBeGreaterThanOrEqual(3)
-  })
-
-  test('con perfil, parte del tema favorito y excluye lo pedido', () => {
-    const all = forVertical('pharmacy', BEER_PROFILE)
-    expect(all.reason).toMatch(/Porque te gusta/)
-    const excluded = forVertical('pharmacy', BEER_PROFILE, new Set([all.products[0].id]))
-    expect(excluded.products.map((product) => product.id)).not.toContain(all.products[0].id)
-  })
-
-  test('una vertical desconocida sin perfil no recomienda nada', () => {
-    expect(forVertical('nada', EMPTY_PROFILE).products).toEqual([])
-  })
-})
-
 describe('sugerencias del cerebro local', () => {
   test('van marcadas como sugerencia, con su origen: sus pedidos no cuentan como compra orgánica', () => {
     const origins = {
-      'vertical-para-ti': forVertical('liquor', EMPTY_PROFILE).products,
       'para-ti-local': [...forYou(BEER_PROFILE).products, ...forYou(EMPTY_PROFILE).products],
       'chat-local': reply('una hamburguesa', EMPTY_PROFILE).suggestion.products,
     }

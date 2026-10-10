@@ -111,14 +111,7 @@ Mochi es la mochila Rappi con bigote. En la app usa 4 poses de una sola imagen (
 
 ### Recomendaciones entre verticales
 
-Capturas en modo local: las reglas locales usan los productos del prototipo. Con la API, las mismas filas se llenan con productos reales de otro vertical.
-
-| En cada vertical |
-|:---:|
-| <img src="docs/screenshots/22-para-ti-vertical.jpg" width="240" alt="Para ti en Liquor"> |
-| "Para ti, de otras tiendas": en Liquor recomienda carnes y snacks del súper, con la razón visible. |
-
-En la Home esa tarea la hace Mochi de cuerpo entero (ver «Modo demo»): ya no hay fila «Para ti» en la Home.
+En el prototipo final no hay filas de sugerencias al entrar a una vertical ni en la Home: Mochi recomienda entre verticales cuando se le pide (el buscador con Mochi, «Preguntarle a Mochi» en un producto) y, en la Home, comenta lo agregado si combina con algo de otra vertical.
 
 ### Mochi fuera de la Home
 
