@@ -12,6 +12,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia analytics               # resumen de métricas del panel (frecuencia, abandono, oportunidades…)
     rappi-ia multivertical           # mapa multivertical (docs/mapas/)
     rappi-ia seed-demo               # catálogo de prueba inventado, SOLO en la base DATABASE_URL_TEST (_test)
+    rappi-ia doctor                  # revisa (solo lectura) que DATABASE_URL tenga catálogo; sale 1 si no
 """
 
 import argparse
@@ -22,6 +23,7 @@ from . import config
 from .concepts.pipeline import build_concepts
 from .concepts.report import coverage_report, render_text, write_category_proposals
 from .db import connect, database_url, migrate
+from .demo.doctor import check_database
 from .demo.seed import ensure_test_database, reset_test_database, seed_demo
 from .layers.attributes import build_attributes
 from .layers.brands import build_brands
@@ -296,10 +298,23 @@ def cmd_seed_demo(conn, args) -> None:
     print(f"Catálogo de prueba listo: {sum(counts.values())} ítems en {len(counts)} verticales")
 
 
-# Comandos que no usan la conexión de DATABASE_URL.
-OWN_CONNECTION = {"seed-demo"}
+def cmd_doctor(conn, args) -> None:
+    """Abre su propia conexión (`conn` llega vacío): así un Postgres caído da el mensaje, no un traceback."""
+    try:
+        url = database_url()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+    ready, message = check_database(url)
+    print(message)
+    if not ready:
+        sys.exit(1)
+
+
+# Comandos que no usan la conexión de DATABASE_URL (la abren ellos o usan otra).
+OWN_CONNECTION = {"seed-demo", "doctor"}
 
 COMMANDS = {
+    "doctor": cmd_doctor,
     "seed-demo": cmd_seed_demo,
     "measures": cmd_measures,
     "brands": cmd_brands,
@@ -393,6 +408,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "seed-demo", help="reconstruye DATABASE_URL_TEST (debe terminar en _test) con un catálogo de prueba inventado"
     )
+    sub.add_parser("doctor", help="revisa que la base (DATABASE_URL) tenga catálogo; no escribe nada")
     return parser
 
 
