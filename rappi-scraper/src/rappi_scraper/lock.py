@@ -27,8 +27,7 @@ def download_lock(path: Path | None = None) -> Iterator[None]:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise DownloadInProgress(
-                "Ya hay una descarga en curso contra rappi.cl (otra terminal o la tarea semanal): "
-                "espera a que termine."
+                "Ya hay una descarga en curso contra rappi.cl (otra terminal o la tarea semanal): espera a que termine."
             ) from None
         try:
             yield
