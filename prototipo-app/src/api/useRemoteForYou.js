@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { screenForBackend } from '../data/verticals'
-import { health, recommendations, toPrototypeProduct } from './client'
+import { health, recommendations } from './client'
+import { firstShowing } from './suggestions'
 import { userId } from './user'
 
 /**
@@ -12,21 +12,9 @@ import { userId } from './user'
 // Lo que dura la pestaña: la Home se desmonta al abrir una tienda o cambiar de pestaña, y al volver no hay que pedir
 // la fila otra vez ni contarla de nuevo como mostrada.
 let cachedRow = null
-const shown = new Set()
 
-/**
- * true la primera vez que se muestra esta sugerencia en la pestaña (concepto, vertical, origen y generación del
- * perfil): la misma clave con que AddButton cuenta su aceptación, para que las aceptadas nunca superen a las mostradas.
- * La vertical cuenta igual como código del backend ('licores', el de la sugerencia del chat) que como id del prototipo
- * ('liquor', el de sus productos).
- */
-export function firstShowing(row) {
-  const vertical = screenForBackend(row.vertical) ?? row.vertical
-  const key = `${row.concept}|${vertical}|${row.origin}|${row.generation}`
-  if (shown.has(key)) return false
-  shown.add(key)
-  return true
-}
+// Task 8 borra este hook; `firstShowing` vive ahora en suggestions.js.
+export { firstShowing }
 
 export function useRemoteForYou(enabled, generation = 0) {
   const [row, setRow] = useState(() => (cachedRow?.generation === generation ? cachedRow : null))
@@ -46,7 +34,7 @@ export function useRemoteForYou(enabled, generation = 0) {
           vertical: first.vertical,
           // Es una sugerencia de Mochi: los pedidos que salgan de aquí no cuentan para aprender afinidad.
           products: first.products.map((p) => ({
-            ...toPrototypeProduct(p),
+            ...p,
             fromSuggestion: true,
             suggestionOrigin: 'para-ti',
           })),

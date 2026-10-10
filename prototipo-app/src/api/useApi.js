@@ -8,8 +8,10 @@ const sameDeps = (a, b) => a.length === b.length && a.every((value, i) => Object
  * - Mientras carga, o si las dependencias cambiaron, `data` y `error` son `null`: nunca se muestra lo de otra llamada.
  * - La respuesta de una llamada vieja (otras dependencias, u otro intento) se ignora, y desmontar también la descarta.
  * - `retry()` vuelve a llamar a `load` con las mismas dependencias.
+ * - Con `keepPrevious`, mientras carga la nueva llamada `data` sigue siendo la del último resultado (con `loading`
+ *   en true): para listas que se refrescan al escribir y no deben parpadear. El `error` de antes sí se descarta.
  */
-export function useApi(load, deps = []) {
+export function useApi(load, deps = [], { keepPrevious = false } = {}) {
   const [attempt, setAttempt] = useState(0)
   // La última respuesta, con las dependencias y el intento que la pidieron: solo vale mientras sigan siendo los actuales.
   const [result, setResult] = useState(null)
@@ -36,7 +38,7 @@ export function useApi(load, deps = []) {
 
   const settled = result !== null && result.attempt === attempt && sameDeps(result.deps, deps)
   return {
-    data: settled ? result.data : null,
+    data: settled || keepPrevious ? (result?.data ?? null) : null,
     error: settled ? result.error : null,
     loading: !settled,
     retry,

@@ -6,6 +6,7 @@ let firstShowing
 
 const api = vi.hoisted(() => ({ health: vi.fn(), recommendations: vi.fn() }))
 vi.mock('./client', async (importOriginal) => ({ ...(await importOriginal()), ...api }))
+const { toPrototypeProduct } = await vi.importActual('./client')
 
 const ROW = {
   reason: 'Porque te interesa 🍺 cerveza',
@@ -29,7 +30,8 @@ describe('"Para ti" desde rappi-ia', () => {
     ;({ useRemoteForYou, firstShowing } = await import('./useRemoteForYou'))
     vi.clearAllMocks()
     api.health.mockResolvedValue({ voz: true })
-    api.recommendations.mockResolvedValue({ rows: [ROW] })
+    // `recommendations` ya entrega los productos en el formato del prototipo.
+    api.recommendations.mockResolvedValue({ rows: [{ ...ROW, products: ROW.products.map(toPrototypeProduct) }] })
   })
 
   test('con API y algo aprendido, la fila viene de rappi-ia y sus productos cuentan como sugerencia', async () => {
