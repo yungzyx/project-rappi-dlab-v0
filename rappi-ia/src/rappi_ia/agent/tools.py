@@ -281,7 +281,7 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                ),
                offers AS (
                    SELECT sp.master_product_id, ci.name, l.price, l.real_price, l.store_id,
-                          coalesce(b.name, s.name) AS store, ci.is_alcoholic OR ci.age_restricted AS adult,
+                          btrim(coalesce(b.name, s.name)) AS store, ci.is_alcoholic OR ci.age_restricted AS adult,
                           ci.presentation,
                           EXISTS (SELECT 1 FROM aisles a WHERE a.store_id = l.store_id AND a.aisle_id = l.aisle_id
                                                            AND a.parent_aisle_id IS NULL) AS openable

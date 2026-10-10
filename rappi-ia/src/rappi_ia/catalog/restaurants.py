@@ -139,7 +139,7 @@ def _card(store_id: int, full_name: str, rating, eta: str | None, fee, cover: st
 
 
 def _split_name(full_name: str) -> tuple[str, str]:
-    """«Vapiano - Las Condes» es el local «Vapiano» del área «Las Condes»: separa el último « - » (como `toRestaurant`
-    de la app); sin él, el nombre queda entero y no hay área."""
+    """«Vapiano - Las Condes» es el local «Vapiano» del área «Las Condes»: separa en el último « - » y recorta los
+    espacios; sin él, el nombre queda entero y no hay área."""
     before, separator, after = full_name.strip().rpartition(" - ")
     return (before.strip(), after.strip()) if separator else (after, "")

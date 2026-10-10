@@ -380,6 +380,24 @@ def test_a_product_only_sold_in_a_store_that_cannot_be_opened_has_no_store_id(se
     assert detail["vertical"] == "supermercado"
 
 
+def test_the_store_name_of_a_searched_product_has_no_stray_spaces_like_the_catalog(seeded):
+    """La base real tiene tiendas como «Fenix Minimarket » y «A3D »: /catalog ya recorta el nombre, y la búsqueda (la
+    ruta de /chat y /search) tiene que mostrar el mismo."""
+    seeded.execute("UPDATE stores SET name = ' Supermercado de prueba Centro  ' WHERE store_id = %s", (CENTRO,))
+
+    detail = product_detail(seeded, "catalog_item", "91001")
+    found = next(p for p in search_found(seeded, "papas fritas") if p.entity_id == "91001").to_dict()
+
+    assert detail["store"] == found["store"] == "Supermercado de prueba Centro"
+
+    seeded.execute("INSERT INTO brands (brand_id, name) VALUES (77, 'Marca de prueba  ')")
+    seeded.execute("UPDATE stores SET brand_id = 77 WHERE store_id = %s", (CENTRO,))
+
+    assert next(p for p in search_found(seeded, "papas fritas") if p.entity_id == "91001").to_dict()["store"] == (
+        "Marca de prueba"
+    )
+
+
 def test_a_product_sold_cheaper_in_a_store_that_cannot_be_opened_shows_the_price_of_one_that_can(seeded, client):
     add_branch(seeded, 9105, "prueba_9105", with_aisle=False, product_id=91001, price=990)  # más barata que 1.990
     seeded.execute(  # el Centro lo vende con precio anterior: también ese viene de la tienda que se muestra

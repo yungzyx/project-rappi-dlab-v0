@@ -1,8 +1,7 @@
 """Catálogo de la app: tiendas, pasillos, productos, restaurantes, ofertas y Home reales con el precio vigente de cada
 tienda (solo lectura).
 
-`app.py` incluye este router al final de su módulo, porque necesita `get_conn` y `backend_vertical`: este módulo se
-importa desde `app`, no al revés ni por separado.
+`app.py` incluye este router; `get_conn` y `backend_vertical` viven en `deps.py`, así este módulo no importa `app`.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,7 +11,7 @@ from ..catalog.deals import deals
 from ..catalog.home import home
 from ..catalog.restaurants import Sort, restaurant_menu, restaurants
 from ..catalog.stores import product_detail, store_page, vertical_stores
-from .app import backend_vertical, get_conn
+from .deps import backend_vertical, get_conn
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 

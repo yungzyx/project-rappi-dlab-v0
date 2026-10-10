@@ -1,4 +1,6 @@
 import logging
+import subprocess
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,6 +20,15 @@ def test_startup_loads_services_before_first_request(monkeypatch, caplog):
         assert "Servicios cargados en" in caplog.text  # en la salida de uvicorn, no en un logger sin handler
     finally:
         services._load_services.cache_clear()
+
+
+@pytest.mark.parametrize("module", ["rappi_ia.api.deps", "rappi_ia.api.catalog", "rappi_ia.api.app"])
+def test_each_api_module_imports_on_its_own(module):
+    """El router del catálogo y la app se importan en cualquier orden: `api.catalog` se importaba solo después de
+    `api.app` (una importación circular), y el próximo router habría repetido el truco."""
+    result = subprocess.run([sys.executable, "-c", f"import {module}"], capture_output=True, text=True, check=False)
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_api_connections_fail_fast(monkeypatch):
