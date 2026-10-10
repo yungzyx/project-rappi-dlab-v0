@@ -13,7 +13,7 @@ IA_PY=rappi-ia/.venv/bin/python
 CHECK=prototipo-app/scripts/mvp-check.mjs
 APP=http://localhost:5184
 
-need_command node "instala Node (la versión de .nvmrc) y vuelve a correr \`make mvp-check\`."
+need_command node "instala Node (la versión de .nvmrc) o revisa tu PATH, y vuelve a correr \`make mvp-check\`."
 need_command curl "viene con macOS; revisa tu PATH."
 need_command lsof "viene con macOS; revisa tu PATH."
 need_dir rappi-ia/.venv "corre \`make install\` en rappi-ia."
@@ -22,8 +22,20 @@ exit_if_missing
 require_free_ports 8010 5184
 
 # La misma URL que usa seed-demo (rappi-ia/.env; una variable ya exportada gana). Nunca se imprime: puede traer la clave.
-if ! TEST_URL=$("$IA_PY" -c 'from rappi_ia.db import database_url; print(database_url("DATABASE_URL_TEST"))' 2>/dev/null); then
+# Solo la variable que falta sale con 3; cualquier otro error (un .venv roto, por ejemplo) se deja ver tal cual.
+READ_TEST_URL='import sys
+from rappi_ia.db import database_url
+
+try:
+    print(database_url("DATABASE_URL_TEST"))
+except RuntimeError:
+    sys.exit(3)'
+status=0
+TEST_URL=$("$IA_PY" -c "$READ_TEST_URL") || status=$?
+if [ "$status" = 3 ]; then
   fail "Falta DATABASE_URL_TEST en rappi-ia/.env (la base de tests; ver rappi-ia/.env.example)."
+elif [ "$status" != 0 ]; then
+  fail "No pude leer DATABASE_URL_TEST con $IA_PY (código $status): mira el error de arriba."
 fi
 
 echo "Sembrando el catálogo de prueba…"

@@ -128,8 +128,14 @@ all_alive() { # 0 mientras sigan vivos todos los procesos de start; si uno muri�
   done
 }
 
-wait_for_url() { # wait_for_url <nombre> <url> <segundos> <etiqueta del proceso>: sale con 1 si no responde a tiempo
-  local name=$1 url=$2 limit=$3 tag=$4 seconds=0 entry pid=""
+PROGRESS_EVERY=${PROGRESS_EVERY:-15} # segundos entre avisos de wait_for_url cuando espera sin límite
+
+# wait_for_url <nombre> <url> <segundos> <etiqueta del proceso> [aviso]
+# Espera a que la URL responda y sale con 1 si el proceso se detiene o si pasan los segundos. Con 0 segundos no hay
+# límite: espera mientras el proceso siga vivo y cada 15 s avisa «[mvp] <nombre> sigue arrancando (<aviso>)…» (la API
+# tarda minutos la primera vez, cuando descarga los modelos).
+wait_for_url() {
+  local name=$1 url=$2 limit=$3 tag=$4 hint=${5:-} seconds=0 entry pid=""
   for entry in $STARTED; do
     if [ "${entry%%:*}" = "$tag" ]; then pid=${entry#*:}; fi
   done
@@ -137,10 +143,13 @@ wait_for_url() { # wait_for_url <nombre> <url> <segundos> <etiqueta del proceso>
     if ! kill -0 "$pid" 2>/dev/null; then
       fail "$name se detuvo antes de quedar listo: mira el registro [$tag] más arriba."
     fi
-    if [ "$seconds" -ge "$limit" ]; then
+    if [ "$limit" != 0 ] && [ "$seconds" -ge "$limit" ]; then
       fail "$name no respondió en $limit s ($url): mira el registro [$tag] más arriba."
     fi
     sleep 1
     seconds=$((seconds + 1))
+    if [ "$limit" = 0 ] && [ $((seconds % PROGRESS_EVERY)) = 0 ]; then
+      echo "[mvp] $name sigue arrancando${hint:+ ($hint)}…"
+    fi
   done
 }
