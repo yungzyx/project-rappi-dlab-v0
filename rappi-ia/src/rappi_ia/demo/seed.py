@@ -132,19 +132,28 @@ _MENUS = [
 ]
 
 
+def _refuse_non_test(name: str) -> None:
+    print(
+        f"Por seguridad, seed-demo solo siembra una base de prueba (nombre terminado en _test), no {name}",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+
+
 def ensure_test_database(url: str) -> None:
     """Se detiene (código 2) si la base no es de prueba: `seed-demo` la borra entera antes de sembrar."""
     name = urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
     if not name.endswith("_test"):
-        print(
-            f"Por seguridad, seed-demo solo siembra una base de prueba (nombre terminado en _test), no {name}",
-            file=sys.stderr,
-        )
-        raise SystemExit(2)
+        _refuse_non_test(name)
 
 
 def reset_test_database(conn: Connection) -> None:
-    """Deja la base vacía con todas las migraciones aplicadas (borra los esquemas `capa` y `public`)."""
+    """Deja la base vacía con todas las migraciones aplicadas (borra los esquemas `capa` y `public`).
+    Revisa a qué base está conectada de verdad: `postgresql:///rappi_test?dbname=rappi` pasa la revisión del nombre de
+    la URL pero conecta a `rappi`."""
+    name = conn.execute("SELECT current_database()").fetchone()[0]
+    if not name.endswith("_test"):
+        _refuse_non_test(name)
     conn.execute("DROP SCHEMA IF EXISTS capa CASCADE")
     conn.execute("DROP SCHEMA public CASCADE")
     conn.execute("CREATE SCHEMA public")

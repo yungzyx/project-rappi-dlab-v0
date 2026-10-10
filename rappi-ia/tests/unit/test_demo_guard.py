@@ -3,7 +3,7 @@
 import pytest
 
 from rappi_ia import cli
-from rappi_ia.demo.seed import ensure_test_database
+from rappi_ia.demo.seed import ensure_test_database, reset_test_database
 
 
 def test_seed_demo_command_refuses_a_database_not_ending_in_test(capsys):
@@ -38,3 +38,34 @@ def test_seed_demo_reads_the_test_url_and_never_opens_database_url(monkeypatch, 
 
     assert refused.value.code == 2
     assert "rappi_produccion" in capsys.readouterr().err
+
+
+class FakeConnection:
+    """Una conexión que dice estar en otra base y apunta todo lo que le piden."""
+
+    def __init__(self, database):
+        self.database = database
+        self.statements = []
+
+    def execute(self, query, *args):
+        self.statements.append(query)
+        return self
+
+    def fetchone(self):
+        return (self.database,)
+
+    def commit(self):
+        self.statements.append("COMMIT")
+
+
+def test_reset_refuses_a_connection_to_a_database_not_ending_in_test(capsys):
+    """`postgresql:///rappi_test?dbname=rappi` pasa la revisión del nombre de la URL, pero conecta a `rappi`."""
+    conn = FakeConnection("rappi")
+
+    with pytest.raises(SystemExit) as refused:
+        reset_test_database(conn)
+
+    assert refused.value.code == 2
+    message = capsys.readouterr().err
+    assert "solo siembra una base de prueba" in message and message.strip().endswith("no rappi")
+    assert conn.statements == ["SELECT current_database()"]  # nada se borró
