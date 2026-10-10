@@ -27,6 +27,31 @@ describe('ronda', () => {
     expect([round[1].challenge.id, round[4].challenge.id]).toContain(p3)
   })
 
+  test('con todo visto, 3 rondas seguidas muestran los 6 datos y las 6 preguntas de la vertical', () => {
+    for (const v of PASSPORT_ORDER) {
+      const shown = new Set()
+      for (const answered of [0, 3, 6]) {
+        const state = { ...initialState(), discovered: { [v]: cardsOf(v).map((c) => c.id) }, answered: { [v]: answered } }
+        for (const step of makeRound(state, v)) if (step.type !== 'desafio') shown.add(step.card?.id ?? step.challenge.id)
+      }
+      expect(shown.size, v).toBe(12)
+    }
+  })
+
+  test('una pregunta fallada vuelve en la ronda siguiente con las alternativas en otro orden', () => {
+    const first = makeRound(initialState(), 'supermercado')
+    const missed = first[1].challenge
+    const learned = first[4].challenge.id
+    const datos = first.filter((s) => s.type === 'dato').map((s) => s.card.id)
+    const state = { ...initialState(), discovered: { supermercado: [...datos, learned] }, answered: { supermercado: 3 } }
+    const again = makeRound(state, 'supermercado').find((s) => s.challenge?.id === missed.id).challenge
+    const labels = (ch) => ch.options.map((o) => o.label)
+    const answerLabel = (ch) => ch.options.find((o) => o.id === ch.answer).label
+    expect(labels(again)).not.toEqual(labels(missed))
+    expect([...labels(again)].sort()).toEqual([...labels(missed)].sort())
+    expect(answerLabel(again)).toBe(answerLabel(missed))
+  })
+
   test('Viajes no tiene catálogo: 2 datos y 3 preguntas', () => {
     expect(types(makeRound(initialState(), 'viajes'))).toEqual(['dato', 'pregunta', 'dato', 'pregunta', 'pregunta'])
   })
