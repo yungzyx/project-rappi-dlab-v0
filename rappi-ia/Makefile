@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat purge post-refresh layers layer-report contract
+.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -93,8 +93,8 @@ warm:  ## Calienta la API antes de una demo (con la API ya corriendo; repetirlo 
 	@curl -s -o /dev/null $(API)/analytics/catalog && echo "Lista: API caliente."
 
 FRASES ?=
-probar-chat:  ## Prueba el chat con las frases de usuarios (con la API corriendo; ver docs/pruebas-de-usuario.md)
-	@$(PY) scripts/probar_chat.py $(FRASES)
+probar-agente:  ## Prueba al agente con las frases de usuarios (con la API corriendo; ver docs/pruebas-de-usuario.md)
+	@$(PY) scripts/probar_agente.py $(FRASES)
 
 purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/diseno-ia.md §2)
 	$(PY) -m rappi_ia purge

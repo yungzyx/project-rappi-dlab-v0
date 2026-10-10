@@ -8,7 +8,7 @@ Hecho con Vite + React 19. **Necesita la API de [`rappi-ia`](../rappi-ia/)**: si
 
 ![Modo demo: la misma app en el prototipo final y en «Rappi hoy»](docs/screenshots/00-modo-demo.jpg)
 
-*Las capturas de las pantallas se tomaron o se revisaron el 10-10-2026 con el MVP corriendo y el catálogo real (`npm run screenshots`); solo la ficha de Mochi, la de voz y la de «Con la API» con Bigotes son anteriores. `npm run screenshots` necesita el MVP corriendo y, como paga una compra, deja un pedido y sus eventos (`source = 'prototype'`) en la base.*
+*Las capturas de las pantallas se tomaron o se revisaron el 10-10-2026 con el MVP corriendo y el catálogo real (`npm run screenshots`); solo la ficha de Mochi es anterior. `npm run screenshots` necesita el MVP corriendo y, como paga una compra, deja un pedido y sus eventos (`source = 'prototype'`) en la base.*
 
 ## Cómo correrlo
 
@@ -41,11 +41,7 @@ La API (puerto 8000) carga los modelos antes de aceptar peticiones: `make mvp` e
 - arma la fila **"Para ti"** del inicio con lo que aprendió de ti (productos reales de otro vertical, con aviso +18 si corresponde);
 - registra eventos seudónimos y pedidos (uno por vertical) en la API, para medir las sugerencias (mostradas, aceptadas y convertidas).
 
-Si la API se cae con la app ya abierta, el buscador con Mochi dice «Sin conexión» con «Reintentar» (repite la misma búsqueda) y las ofertas que Mochi hace solo callan: ya no hay respuestas locales. No hay micrófono ni cámara: el prototipo final tiene un buscador, sin chat, voz ni foto.
-
-<img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Con la API: cervezas reales bajo $3.000 y snacks de otra tienda (captura anterior, con Bigotes y el chat escrito)">
-
-*Con la API de rappi-ia: cervezas del catálogo real bajo $3.000 y, en un bloque aparte, snacks de otra tienda. Es una captura anterior: todavía con Bigotes y el chat escrito, que ya no existe.*
+Si la API se cae con la app ya abierta, el buscador con Mochi dice «Sin conexión» con «Reintentar» (repite la misma búsqueda) y las ofertas que Mochi hace solo callan: ya no hay respuestas locales.
 
 - **Dónde busca la API:** en el mismo host desde el que se abrió la página, puerto 8000; desde el iPhone no hace falta configurar nada. Para apuntar a otra API, crea `.env.local` con `VITE_API_URL=http://localhost:8001`.
 - **Desde el iPhone:** `make mvp LAN=1` (abre la API y la app a la red; el panel pide sus datos a `localhost:8000` y solo sirve en este equipo; solo en una red de confianza). Sirve en la wifi de casa, con el hotspot del iPhone y con `http://nombre-del-mac.local:5174`. macOS pedirá permiso de red la primera vez.
@@ -96,7 +92,7 @@ En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de vert
 
 ### Mochi, el buscador
 
-En el prototipo final no hay chat escrito, voz ni foto: la barra de la Home («¿Qué se te antoja hoy?») abre el buscador con Mochi, que reúne el buscador de siempre y lo que Mochi sabe de ti:
+En el prototipo final la barra de la Home («¿Qué se te antoja hoy?») abre el buscador con Mochi, que reúne el buscador de siempre y lo que Mochi sabe de ti:
 
 - **Aprendiendo de ti:** arriba muestra lo que va aprendiendo («🍺 Cerveza · 🥃 Copete») y un botón **Olvidar** que lo borra, también en la API.
 - **Toca y te armo algo:** botones con ideas fijas («¿Qué almuerzo hoy?», «Arma un carrete», «Algo dulce»). Al tocar uno, Mochi responde con productos y tiendas; si abres una tienda desde ahí y vuelves, la búsqueda sigue donde estaba.
@@ -106,8 +102,6 @@ En el prototipo final no hay chat escrito, voz ni foto: la barra de la Home («�
 <img src="docs/screenshots/20-asistente.jpg" width="300" alt="Buscador con Mochi tras tocar «Arma un carrete»">
 
 *Buscador con Mochi tras tocar «Arma un carrete» (con el MVP corriendo).*
-
-La captura `docs/screenshots/21-voz.jpg` es de una versión anterior del prototipo (voz), que ya no existe.
 
 Mochi es la mochila Rappi con bigote. En la app usa 4 poses de una sola imagen (`src/assets/mochi-poses.webp`): frontal (quieto), feliz (saluda o lo señalas con el mouse), tímido (piensa o escucha) y saltando (al tocarlo). Respira, se inclina hacia el mouse y, en la Home, salta, gira y baila según lo que dice.
 

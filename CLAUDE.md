@@ -8,7 +8,7 @@ Documentación: índice en [docs/README.md](docs/README.md) · cifras en [README
 
 ## Convenciones
 
-- La mascota y asistente se llama **Mochi** (antes, Bigotes), pero el código usa nombres neutros (`RappiAgent`, `/agent/ask`, `AgentMessage`, clases `agent-*`) porque el nombre puede cambiar. El nombre visible vive en un solo lugar por lado: en `rappi-ia`, `config.AGENT_NAME` (variable de entorno `AGENT_NAME`, por defecto «Mochi»); en la app, `prototipo-app/src/agent/name.js`. El agente no tiene chat, voz ni foto: responde por texto y el prototipo lo usa como buscador y con ofertas. Los documentos fechados todavía dicen Bigotes.
+- La mascota y asistente se llama **Mochi** (antes, Bigotes), pero el código usa nombres neutros (`RappiAgent`, `/agent/ask`, `AgentMessage`, clases `agent-*`) porque el nombre puede cambiar. El nombre visible vive en un solo lugar por lado: en `rappi-ia`, `config.AGENT_NAME` (variable de entorno `AGENT_NAME`, por defecto «Mochi»); en la app, `prototipo-app/src/agent/name.js`. El agente responde por texto y el prototipo lo usa como buscador y con ofertas. Los documentos fechados todavía dicen Bigotes.
 
 - Código (funciones, módulos, variables) en inglés; todo lo que ve el usuario (logs, CLI, docs, columnas) en español.
 - `make test` y `make lint` (en rappi-scraper/ y rappi-ia/) y `npm test` y `npm run lint` (en prototipo-app/ y dashboard-empresa/) antes de dar algo por terminado. Tests de integración contra `rappi_test` (scraper) y `rappi_ia_test` (rappi-ia), para que no se pisen.

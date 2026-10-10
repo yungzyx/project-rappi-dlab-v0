@@ -1,7 +1,7 @@
-"""Prueba el chat como lo usaría alguien: manda cada frase a /agent/ask y resume la respuesta en una o dos líneas.
+"""Prueba al agente como lo usaría alguien: manda cada frase a /agent/ask y resume la respuesta en una o dos líneas.
 
-Uso (con la API corriendo):  make probar-chat            # todas las rondas de src/rappi_ia/eval/frases_usuarios
-                             make probar-chat FRASES=archivo.txt
+Uso (con la API corriendo):  make probar-agente          # todas las rondas de src/rappi_ia/eval/frases_usuarios
+                             make probar-agente FRASES=archivo.txt
 Las líneas que empiezan con # son comentarios; «frase|vertical» la manda desde esa vertical; «+ frase» sigue la
 conversación (manda el pedido anterior, como el prototipo). No registra eventos (sin user_id). Leer la salida
 buscando: productos que no tienen que ver, verticales raras, avisos que sobran, «Lo anoté» para algo que sí existe.
@@ -19,7 +19,7 @@ API = os.environ.get("API", "http://localhost:8000").rstrip("/")
 DEFAULT = Path(__file__).resolve().parents[1] / "src" / "rappi_ia" / "eval" / "frases_usuarios"
 
 
-def chat(text: str, vertical: str | None, previous: dict | None = None) -> tuple[dict, float]:
+def ask(text: str, vertical: str | None, previous: dict | None = None) -> tuple[dict, float]:
     body = {"message": text, "mode": "propuesta", **({"vertical": vertical} if vertical else {})}
     if previous:
         body["previous"] = previous
@@ -59,7 +59,7 @@ def main(paths: list[str]) -> None:
                 continue
             follow = line.startswith("+")
             text, _, vertical = line.lstrip("+ ").partition("|")
-            response, seconds = chat(text.strip(), vertical.strip() or None, previous if follow else None)
+            response, seconds = ask(text.strip(), vertical.strip() or None, previous if follow else None)
             print(("  " if follow else "") + summary(text.strip(), response, seconds))
             intent = response.get("intent") or {}
             if intent.get("concepts"):

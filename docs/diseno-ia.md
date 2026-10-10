@@ -125,7 +125,7 @@ Decisiones:
 
 ## 4. Comportamiento del agente (Mochi)
 
-Mochi es el nombre que ve el usuario (antes, Bigotes). El código usa nombres neutros porque el nombre puede cambiar: `rappi_ia/agent/rappi_agent.py` y la clase `RappiAgent`; el nombre visible sale de `config.AGENT_NAME` (variable de entorno `AGENT_NAME`, por defecto «Mochi»). El agente responde solo por texto (`POST /agent/ask`); sus ofertas salen de `POST /agent/offer` y `GET /agent/plans`. No hay chat, voz ni foto.
+Mochi es el nombre que ve el usuario (antes, Bigotes). El código usa nombres neutros porque el nombre puede cambiar: `rappi_ia/agent/rappi_agent.py` y la clase `RappiAgent`; el nombre visible sale de `config.AGENT_NAME` (variable de entorno `AGENT_NAME`, por defecto «Mochi»). El agente responde solo por texto (`POST /agent/ask`); sus ofertas salen de `POST /agent/offer` y `GET /agent/plans`.
 
 **Flujo por turno:** entender → decidir herramienta(s) → recuperar → componer → verificar → registrar.
 
@@ -256,7 +256,7 @@ Notas del modelo:
 - **Platos y productos:** no hay una tabla de platos estándar. Un plato y un producto del súper se conectan al compartir concepto en `item_concepts`.
 - **Eventos:** `APP_EVENT` lleva `session_id` (una sesión termina tras 30 minutos sin actividad) y `cart_id` en los eventos de carro (`cart_add`, `cart_remove`, `checkout_start`, `order_placed`).
 - **Líneas de pedido:** `APP_ORDER_LINE` puede apuntar a un producto o a un plato.
-- **Tabla sin uso:** `image_embeddings` (de cuando el agente buscaba por foto) sigue en la base, sin que nada la escriba ni la lea; una migración para borrarla se dejó fuera para no tocar el historial.
+- **Tabla sin uso:** `image_embeddings` (de una versión anterior) sigue en la base, sin que nada la escriba ni la lea; una migración para borrarla se dejó fuera para no tocar el historial.
 - **Procedencia:** todo dato inferido guarda `method` (`curado`, `llm`, `regla`, `embedding`, `coocurrencia`), `confidence`, `model_version` y fecha. Los datos de usuario guardan `source`.
 - **H3:** queda para después, porque no lo necesita ninguna vista de este plan.
 
@@ -267,7 +267,7 @@ Notas del modelo:
 | 0. Diseño | Este documento, los diagramas y docs sin contradicciones | Validación Archify y revisión adversarial | Hecha |
 | 1. Conceptos (capa 2) | `concepts`, `category_map`, `item_concepts`, `concept_edges` y `rappi-ia concepts` | Cobertura ≥ 85% y precisión revisada por muestreo | Hecha |
 | 2. Embeddings y búsqueda híbrida | `embed-text`, `retrieve()` y set de evaluación | P@10, MRR y nDCG@10 (Recall@10 no se calcula): léxico vs vectorial vs híbrido; calibración de τ | Hecha |
-| 3. Agente | Mochi en el backend (solo texto; sin chat, voz ni foto) | Tests de reglas de conducta y escenarios | Hecha |
+| 3. Agente | Mochi en el backend (solo texto) | Tests de reglas de conducta y escenarios | Hecha |
 | 4. API | FastAPI | Tests de endpoints | Hecha |
 | 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados | Hecha |
 | 6. Prototipo conectado | Cliente API con respaldo local (salió en la etapa 3 del MVP: hoy la app exige la API), eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |
