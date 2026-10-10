@@ -11,6 +11,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia synth                   # usuarios y eventos SIMULADOS para el panel (reemplaza los anteriores)
     rappi-ia analytics               # resumen de métricas del panel (frecuencia, abandono, oportunidades…)
     rappi-ia multivertical           # mapa multivertical (docs/mapas/)
+    rappi-ia seed-demo               # catálogo de prueba inventado, SOLO en la base DATABASE_URL_TEST (_test)
 """
 
 import argparse
@@ -20,7 +21,8 @@ import sys
 from . import config
 from .concepts.pipeline import build_concepts
 from .concepts.report import coverage_report, render_text, write_category_proposals
-from .db import connect, migrate
+from .db import connect, database_url, migrate
+from .demo.seed import ensure_test_database, reset_test_database, seed_demo
 from .layers.attributes import build_attributes
 from .layers.brands import build_brands
 from .layers.canonical import build_canonical
@@ -281,7 +283,24 @@ def cmd_multivertical(conn, args) -> None:
     print(f"Mapa multivertical: {len(data['concepts'])} conceptos, {len(data['shared'])} pares de verticales → {path}")
 
 
+def cmd_seed_demo(conn, args) -> None:
+    """Abre su propia conexión (`conn` llega vacío): solo DATABASE_URL_TEST, nunca la base real."""
+    try:
+        url = database_url("DATABASE_URL_TEST")
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+    ensure_test_database(url)
+    with connect(url) as test_conn:
+        reset_test_database(test_conn)
+        counts = seed_demo(test_conn)
+    print(f"Catálogo de prueba listo: {sum(counts.values())} ítems en {len(counts)} verticales")
+
+
+# Comandos que no usan la conexión de DATABASE_URL.
+OWN_CONNECTION = {"seed-demo"}
+
 COMMANDS = {
+    "seed-demo": cmd_seed_demo,
     "measures": cmd_measures,
     "brands": cmd_brands,
     "canonical": cmd_canonical,
@@ -371,6 +390,9 @@ def build_parser() -> argparse.ArgumentParser:
     mv.add_argument("--salida", help="archivo HTML (por defecto docs/mapas/)")
     analytics = sub.add_parser("analytics", help="resumen de métricas del panel")
     analytics.add_argument("--fuente", choices=("synthetic", "prototype"), default="synthetic")
+    sub.add_parser(
+        "seed-demo", help="reconstruye DATABASE_URL_TEST (debe terminar en _test) con un catálogo de prueba inventado"
+    )
     return parser
 
 
@@ -388,8 +410,11 @@ def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     configure_logging(args.verbose)
     try:
-        with connect() as conn:
-            COMMANDS[args.command](conn, args)
+        if args.command in OWN_CONNECTION:
+            COMMANDS[args.command](None, args)
+        else:
+            with connect() as conn:
+                COMMANDS[args.command](conn, args)
     except KeyboardInterrupt:
         log.warning("Interrumpido.")
         sys.exit(130)
