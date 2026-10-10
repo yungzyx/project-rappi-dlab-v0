@@ -511,7 +511,8 @@ class Bigotes:
 
     def _top_interest(self, profile: dict[str, float]) -> str | None:
         concepts = self.taxonomy.concepts
-        allowed = {c: s for c, s in profile.items() if c in concepts and not concepts[c].sensitive}
+        # Lo recomienda Mochi sola («Como te gusta…», «Veo que te gusta…»): solo intereses que puede proponer.
+        allowed = {c: s for c, s in profile.items() if c in concepts and is_offerable(concepts[c])}
         return max(allowed, key=allowed.get) if allowed else None
 
 

@@ -17,6 +17,7 @@ Las reglas viven solo aquí; las consultas de productos las aplican con `search_
 from ..concepts.taxonomy import Concept
 
 OFFER_BLOCKED_GROUPS = ("bebe", "salud")  # grupos de taxonomy.toml; el alcohol y el tabaco se bloquean por sus marcas
+# Parecida a catalog.stores.NOT_PUSHED_VERTICALS (lo que la Home no empuja), pero con otro motivo y otra lista.
 OFFER_BLOCKED_VERTICALS = ("farmacia", "licores")
 
 

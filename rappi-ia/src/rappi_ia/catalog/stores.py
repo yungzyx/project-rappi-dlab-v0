@@ -22,6 +22,7 @@ BIGINT_MAX = 2**63 - 1
 
 # Farmacia no se empuja: no entra en «Cerca de ti» ni en las ofertas sin vertical. Restaurantes no vende productos del
 # catálogo (tiene menús), así que tampoco es una tienda de «Cerca de ti».
+# Lo que Mochi no ofrece por su cuenta tiene su propia lista (offers/guards.py), que reutiliza NOT_PUSHED_SUBVERTICALS.
 NOT_PUSHED_VERTICALS = ("farmacia", "restaurantes")
 # Tampoco las tiendas que Rappi rotula con estos subverticales (store_verticals.subvertical), sea cual sea su vertical:
 # en la base real, sex shops y smoking shops (tabaco, Ley 20.105) del mall y farmacias listadas entre los súper (Cruz

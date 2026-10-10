@@ -308,11 +308,14 @@ def test_unmet_demand_is_flagged_and_said(bigotes):
     assert "No encontré" in r["text"] and "Lo anoté" in r["text"]
 
 
-def test_greeting_mentions_only_non_sensitive_interests(bigotes):
+def test_greeting_mentions_only_offerable_interests(bigotes):
+    """Mochi no saluda con «Veo que te gusta…» de algo sensible, alcohol, salud ni bebé: pasa al siguiente interés."""
     agent, db = bigotes
-    hello = agent.reply(db, "hola", Context(profile={"cerveza": 3.0, "cigarrillos": 9.0}))
-    assert "cerveza" in hello["text"] and "cigarrillo" not in hello["text"].lower()
-    assert "Veo que" not in agent.reply(db, "hola", Context(profile={"cigarrillos": 9.0}))["text"]
+    blocked = {"cigarrillos": 9.0, "cerveza": 3.0, "panales": 2.5, "vitaminas": 2.0, "medicamentos": 1.5}
+    for profile in (blocked, {"cerveza": 1.0}, {"panales": 1.0}, {"vitaminas": 1.0}):
+        assert "Veo que" not in agent.reply(db, "hola", Context(profile=profile))["text"], profile
+    hello = agent.reply(db, "hola", Context(profile={**blocked, "snacks-salados": 0.5}))
+    assert "snacks salados" in hello["text"].lower() and "cerveza" not in hello["text"].lower()
 
 
 def test_explicit_request_wins_over_occasion(bigotes):
@@ -1111,10 +1114,22 @@ def test_cheap_shows_the_cheapest_first(bigotes):
 
 def test_a_recommendation_uses_what_the_user_likes(bigotes):
     agent, db = bigotes
-    liked = agent.reply(db, "qué me recomiendas", Context(profile={"cerveza": 3.0}))
-    assert liked["text"].startswith("Como te gusta 🍺 cerveza 😉 Mira") and liked["products"]
+    liked = agent.reply(db, "qué me recomiendas", Context(profile={"snacks-salados": 3.0}))
+    assert liked["text"].startswith("Como te gusta 🥨 snacks salados 😉") and liked["products"]
     unknown = agent.reply(db, "qué me recomiendas", Context())
     assert unknown["intent"]["kind"] == "ayuda" and unknown["actions"]
+
+
+def test_a_recommendation_never_pushes_alcohol_baby_or_health_interests(bigotes):
+    """«Qué me recomiendas» responde con el interés más alto: si es de los que Mochi no propone solo, pasa al
+    siguiente ofrecible y, si no hay, a los ejemplos de siempre."""
+    agent, db = bigotes
+    for profile in ({"cerveza": 3.0}, {"panales": 3.0}, {"vitaminas": 3.0}, {"cerveza": 3.0, "cigarrillos": 9.0}):
+        r = agent.reply(db, "qué me recomiendas", Context(profile=profile))
+        assert r["intent"]["kind"] == "ayuda" and r["actions"] and not r["products"], profile
+        assert "Como te gusta" not in r["text"]
+    r = agent.reply(db, "qué me recomiendas", Context(profile={"cerveza": 3.0, "panales": 2.0, "snacks-salados": 0.5}))
+    assert r["text"].startswith("Como te gusta 🥨 snacks salados") and "cerveza" not in r["text"].lower()
 
 
 def test_a_conversation_follows_the_previous_request(bigotes):
