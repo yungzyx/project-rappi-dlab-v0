@@ -20,6 +20,10 @@ from ..concepts.taxonomy import load_taxonomy
 
 BIGINT_MAX = 2**63 - 1
 
+# Farmacia no se empuja: no entra en «Cerca de ti» ni en las ofertas sin vertical. Restaurantes no vende productos del
+# catálogo (tiene menús), así que tampoco es una tienda de «Cerca de ti».
+NOT_PUSHED_VERTICALS = ("farmacia", "restaurantes")
+
 # Las ofertas vigentes de UNA tienda con su pasillo, una por producto del catálogo (la más barata, si la tienda lo tiene
 # en dos SKU): `offers` es un CTE que usan la tarjeta, los pasillos y la página de productos.
 _STORE_OFFERS = """
@@ -74,12 +78,51 @@ WHERE o.aisle_id = %(aisle_id)s
 ORDER BY ci.name, ci.master_product_id
 LIMIT %(limit)s OFFSET %(offset)s"""
 
+# Las ofertas vigentes de la tienda `d` (una fila con `store_id` y `format_run_id` de v_store_format_runs), por su
+# último precio `ps`, con su producto `sp` y su pasillo `a`. Solo se leen los precios de la corrida de su formato (por
+# su llave, sin recorrer el historial), y uno vale si ningún precio posterior del mismo SKU lo reemplazó, que es lo
+# mismo que "el último precio es de esa corrida". Es la regla de _STORE_OFFERS, _CATALOG_DETAIL y _with_prices dicha
+# desde las tiendas: la usan las tarjetas de una vertical, «Cerca de ti» y las ofertas (rappi_ia/catalog/). Va tras un
+# SELECT que elige columnas de `ps` y `sp`, dentro de un LATERAL o de un EXISTS.
+_CURRENT_OFFERS = """
+FROM price_snapshots ps
+JOIN store_products sp ON sp.store_id = ps.store_id AND sp.sku = ps.sku
+JOIN aisles a ON a.store_id = sp.store_id AND a.aisle_id = sp.aisle_id AND a.parent_aisle_id IS NULL
+WHERE ps.run_id = d.format_run_id AND ps.store_id = d.store_id AND sp.master_product_id IS NOT NULL
+  AND ps.in_stock IS NOT FALSE AND ps.price >= %(min_price)s
+  AND NOT EXISTS (SELECT 1 FROM price_snapshots later
+                  WHERE later.store_id = ps.store_id AND later.sku = ps.sku
+                    AND later.scraped_at >= ps.scraped_at
+                    AND (later.scraped_at, later.run_id) > (ps.scraped_at, ps.run_id))"""
+
+# Las tiendas descargadas por última vez en su formato (`downloaded`, con `store_id` y `format_run_id`): las de una
+# vertical (`%(vertical)s`) o, sin vertical, las que tienen alguna que se empuje (`%(not_pushed)s` son las que no).
+# Una unión positiva con v_store_verticals: `NOT EXISTS` la leía entera (tres veces más lento). Con `history`, cada una
+# dice si tiene precios de corridas anteriores (`has_history`); sin ellos no hay baja de precio que buscar, y saberlo
+# cuesta recorrer los precios de las tiendas grandes.
+_DOWNLOADED = """
+downloaded AS MATERIALIZED (
+    SELECT DISTINCT f.store_id, f.format_run_id{history}
+    FROM v_store_format_runs f
+    JOIN v_store_verticals v ON v.store_id = f.store_id AND {scope}
+)"""
+_HAS_HISTORY = """,
+           EXISTS (SELECT 1 FROM price_snapshots e
+                   WHERE e.store_id = f.store_id AND e.run_id < f.format_run_id) AS has_history"""
+
+
+def downloaded_cte(in_vertical: bool, history: bool = False) -> str:
+    """El CTE `downloaded` de una vertical (parámetro `vertical`) o de las que se empujan (`not_pushed`)."""
+    return _DOWNLOADED.format(
+        scope="v.vertical = %(vertical)s" if in_vertical else "v.vertical <> ALL(%(not_pushed)s)",
+        history=_HAS_HISTORY if history else "",
+    )
+
+
 # Una tarjeta por formato (store_type) del vertical: la sucursal que la última corrida de su formato bajó. Si hubiera
-# varias en esa corrida, la de más ofertas. Solo se leen los precios de esa corrida (por su llave, sin recorrer el
-# historial), y uno vale si ningún precio posterior del mismo SKU lo reemplazó, que es lo mismo que "el último precio
-# es de esa corrida". Las tarjetas se cortan antes de unir con tiendas y marcas. El LATERAL hace que el plan busque
-# por llave en vez de leer price_snapshots entero (el plan sin él tardaba el doble).
-_VERTICAL_STORES = """
+# varias en esa corrida, la de más ofertas. Las tarjetas se cortan antes de unir con tiendas y marcas. El LATERAL hace
+# que el plan busque por llave en vez de leer price_snapshots entero (el plan sin él tardaba el doble).
+_VERTICAL_STORES = f"""
 WITH downloaded AS MATERIALIZED (
     SELECT f.store_id, f.format, f.format_run_id
     FROM v_store_format_runs f
@@ -89,18 +132,7 @@ WITH downloaded AS MATERIALIZED (
 offers AS (
     SELECT d.format, d.store_id, o.master_product_id
     FROM downloaded d
-    CROSS JOIN LATERAL (
-        SELECT sp.master_product_id
-        FROM price_snapshots ps
-        JOIN store_products sp ON sp.store_id = ps.store_id AND sp.sku = ps.sku
-        JOIN aisles a ON a.store_id = sp.store_id AND a.aisle_id = sp.aisle_id AND a.parent_aisle_id IS NULL
-        WHERE ps.run_id = d.format_run_id AND ps.store_id = d.store_id AND sp.master_product_id IS NOT NULL
-          AND ps.in_stock IS NOT FALSE AND ps.price >= %(min_price)s
-          AND NOT EXISTS (SELECT 1 FROM price_snapshots later
-                          WHERE later.store_id = ps.store_id AND later.sku = ps.sku
-                            AND later.scraped_at >= ps.scraped_at
-                            AND (later.scraped_at, later.run_id) > (ps.scraped_at, ps.run_id))
-    ) o
+    CROSS JOIN LATERAL (SELECT sp.master_product_id {_CURRENT_OFFERS}) o
 ),
 counted AS (
     SELECT format, store_id, count(DISTINCT master_product_id) AS products FROM offers GROUP BY format, store_id

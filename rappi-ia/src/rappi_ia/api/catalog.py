@@ -1,4 +1,5 @@
-"""Catálogo de la app: tiendas, pasillos y productos reales con el precio vigente de cada tienda (solo lectura).
+"""Catálogo de la app: tiendas, pasillos, productos, restaurantes, ofertas y Home reales con el precio vigente de cada
+tienda (solo lectura).
 
 `app.py` incluye este router al final de su módulo, porque necesita `get_conn` y `backend_vertical`: este módulo se
 importa desde `app`, no al revés ni por separado.
@@ -7,6 +8,9 @@ importa desde `app`, no al revés ni por separado.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Connection
 
+from ..catalog.deals import deals
+from ..catalog.home import home
+from ..catalog.restaurants import Sort, restaurant_menu, restaurants
 from ..catalog.stores import product_detail, store_page, vertical_stores
 from .app import backend_vertical, get_conn
 
@@ -15,6 +19,7 @@ router = APIRouter(prefix="/catalog", tags=["catalog"])
 STORE_NOT_FOUND = "Esta tienda no está en el catálogo"
 PRODUCT_NOT_FOUND = "Este producto no está en el catálogo"
 VERTICAL_NOT_FOUND = "Esta vertical no está en el catálogo"
+RESTAURANT_NOT_FOUND = "Este restaurante no está en el catálogo"
 
 
 @router.get("/verticals/{vertical}/stores")
@@ -49,3 +54,41 @@ def product(entity_type: str, entity_id: str, conn: Connection = Depends(get_con
     if reply is None:
         raise HTTPException(404, PRODUCT_NOT_FOUND)
     return reply
+
+
+@router.get("/restaurants")
+def restaurant_list(
+    cuisine: str | None = None,
+    sort: Sort = "rating",
+    limit: int = Query(30, ge=1, le=100),
+    conn: Connection = Depends(get_conn),
+) -> list[dict]:
+    """Los restaurantes con algún plato con precio, de una cocina si se pide, por nota, tiempo de entrega o envío."""
+    return restaurants(conn, cuisine or None, sort, limit)
+
+
+@router.get("/restaurants/{store_id}/menu")
+def restaurant_menu_page(store_id: int, conn: Connection = Depends(get_conn)) -> dict:
+    """El restaurante con su menú por secciones; los populares primero en «Lo más pedido»."""
+    reply = restaurant_menu(conn, store_id)
+    if reply is None:
+        raise HTTPException(404, RESTAURANT_NOT_FOUND)
+    return reply
+
+
+@router.get("/deals")
+def deals_list(
+    vertical: str | None = None, limit: int = Query(24, ge=1, le=100), conn: Connection = Depends(get_conn)
+) -> list[dict]:
+    """Los productos que bajaron de precio o que su tienda rebajó, de mayor a menor descuento. Una vertical es el código
+    del backend o el id del prototipo; sin ella, no entra farmacia."""
+    code = backend_vertical(vertical or None)
+    if vertical and code is None:
+        raise HTTPException(404, VERTICAL_NOT_FOUND)
+    return deals(conn, code, limit)
+
+
+@router.get("/home")
+def home_lists(conn: Connection = Depends(get_conn)) -> dict:
+    """Las listas del catálogo para la Home: tiendas cerca de ti, restaurantes rápidos y con envío barato."""
+    return home(conn)

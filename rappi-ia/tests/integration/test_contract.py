@@ -46,6 +46,10 @@ CONTRACT: tuple[Example, ...] = (
     Example("catalog-store", "GET", "/catalog/stores/9101"),
     Example("catalog-store-page-2", "GET", "/catalog/stores/9101?page=2"),
     Example("catalog-product", "GET", "/catalog/products/catalog_item/91001"),
+    Example("catalog-restaurants", "GET", "/catalog/restaurants"),
+    Example("catalog-menu", "GET", "/catalog/restaurants/9801/menu"),
+    Example("catalog-deals", "GET", "/catalog/deals"),
+    Example("catalog-home", "GET", "/catalog/home"),
 )
 
 

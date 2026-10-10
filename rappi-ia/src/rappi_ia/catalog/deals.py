@@ -1,0 +1,95 @@
+"""Ofertas: productos con una baja de precio real o con una rebaja de la tienda, en una oferta vigente. Solo lectura,
+consultas parametrizadas.
+
+Una oferta es una oferta vigente de una tienda que se abre (la regla de `stores._CURRENT_OFFERS`) con un precio de
+antes mayor que el actual:
+
+- si la tienda marca un precio de lista (`real_price`) por encima del actual (`discount_pct` > 0), ese es el de
+  antes: es el que la tarjeta del producto en su tienda ya muestra;
+- si no, el precio anterior de la misma tienda cuando bajó (`v_price_changes`, con `diferencia` negativa en la
+  corrida de la oferta). Una baja seguida de una subida, o un precio que no cambió, no cuenta.
+
+El precio, el de antes, la tienda y su vertical son de una misma oferta. Un producto en varias tiendas sale una vez, con
+la oferta de mayor descuento.
+"""
+
+from psycopg import Connection
+from rappi_scraper.storage.search import MIN_PRICE
+
+from ..agent.tools import Product
+from ..concepts.taxonomy import load_taxonomy
+from .stores import _CURRENT_OFFERS, _OWN_VERTICAL, NOT_PUSHED_VERTICALS, _product, downloaded_cte
+
+# Primero se buscan las filas que cambiaron en la corrida de cada tienda (las que la tienda rebajó y las que bajaron de
+# precio) y solo a ellas se les aplica la regla de oferta vigente: aplicarla a todas las filas de todas las tiendas
+# (140.000 en la base real) tarda varias veces más. El precio anterior es el del snapshot anterior del mismo SKU en la
+# tienda, que es la definición de v_price_changes (`lag` por tienda y SKU); se busca por el índice (store_id, sku,
+# scraped_at) solo para las filas de la corrida, porque la ventana de la vista no se puede acotar a unas tiendas sin
+# recorrer casi todo el historial. Un test compara ambas.
+_DEALS = f"""
+WITH {{downloaded}},
+changed AS MATERIALIZED (
+    SELECT d.store_id, d.format_run_id, cur.sku,
+           CASE WHEN cur.real_price > cur.price THEN cur.real_price ELSE prev.price END AS before
+    FROM downloaded d
+    CROSS JOIN LATERAL (
+        SELECT c.sku, c.price, c.real_price, c.scraped_at, c.run_id
+        FROM price_snapshots c WHERE c.run_id = d.format_run_id AND c.store_id = d.store_id
+    ) cur
+    LEFT JOIN LATERAL (
+        SELECT p.price FROM price_snapshots p
+        WHERE p.store_id = d.store_id AND p.sku = cur.sku AND p.scraped_at < cur.scraped_at
+          AND d.has_history AND NOT coalesce(cur.real_price > cur.price, false)
+        ORDER BY p.scraped_at DESC
+        LIMIT 1
+    ) prev ON true
+    WHERE cur.real_price > cur.price OR prev.price > cur.price
+),
+offers AS (
+    SELECT d.store_id, o.master_product_id, o.price, d.before
+    FROM changed d
+    CROSS JOIN LATERAL (
+        SELECT sp.master_product_id, ps.price
+        {_CURRENT_OFFERS}
+          AND ps.sku = d.sku
+    ) o
+),
+best AS (
+    SELECT DISTINCT ON (master_product_id) master_product_id, store_id, price, before
+    FROM offers
+    ORDER BY master_product_id, 1 - price / before DESC, price, store_id
+),
+top AS (
+    SELECT * FROM best ORDER BY 1 - price / before DESC, master_product_id LIMIT %(limit)s
+)
+SELECT ci.master_product_id::text, ci.name, t.price, t.before, btrim(coalesce(b.name, s.name)), t.store_id,
+       NULLIF(ci.image_url, ''), ci.presentation, ci.is_alcoholic OR ci.age_restricted, ic.concept_id,
+       {{vertical}}
+FROM top t
+JOIN catalog_items ci ON ci.master_product_id = t.master_product_id
+JOIN stores s ON s.store_id = t.store_id
+LEFT JOIN brands b ON b.brand_id = s.brand_id
+LEFT JOIN item_concepts ic ON ic.entity_type = 'catalog_item' AND ic.entity_id = ci.master_product_id::text
+ORDER BY 1 - t.price / t.before DESC, ci.master_product_id"""
+
+
+def deals(conn: Connection, vertical: str | None = None, limit: int = 24) -> list[dict]:
+    """Los productos que bajaron de precio (o que su tienda rebajó), del mayor descuento al menor, de una vertical si
+    se pide. Sin vertical, no entra farmacia. Restaurantes no vende productos del catálogo: no tiene ofertas."""
+    if vertical == "restaurantes":
+        return []
+    sql = _DEALS.format(
+        downloaded=downloaded_cte(vertical is not None, history=True),
+        vertical=_OWN_VERTICAL if vertical is None else "%(vertical)s",
+    )
+    params = {"vertical": vertical, "not_pushed": list(NOT_PUSHED_VERTICALS), "min_price": MIN_PRICE, "limit": limit}
+    taxonomy = load_taxonomy()
+    products: list[Product] = []
+    for id_, name, price, before, store, store_id, image, presentation, adult, concept, own in conn.execute(
+        sql, params
+    ):
+        # `before` va como precio de lista: `Product.to_dict` calcula el descuento y lo deja si es mayor que el precio.
+        products.append(
+            _product((id_, name, price, before, image, presentation, adult, concept), own, store, store_id, taxonomy)
+        )
+    return [product.to_dict() for product in products]

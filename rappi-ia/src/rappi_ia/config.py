@@ -34,3 +34,7 @@ API_CORS_ORIGINS = [
     for o in os.environ.get("API_CORS_ORIGINS", "http://localhost:5174,http://localhost:5175").split(",")
     if o.strip()
 ]
+
+# Ciudad fija de la demo (Santiago): «Cerca de ti» mide la distancia a este punto de Providencia.
+MVP_HOME_LAT = float(os.environ.get("MVP_HOME_LAT", "-33.4263"))
+MVP_HOME_LNG = float(os.environ.get("MVP_HOME_LNG", "-70.6106"))

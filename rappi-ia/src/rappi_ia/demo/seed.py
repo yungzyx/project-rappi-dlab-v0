@@ -13,6 +13,7 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 from rappi_scraper.storage.search import build_search_documents
 
+from .. import config
 from ..concepts.pipeline import build_concepts
 from ..db import migrate
 
@@ -30,6 +31,8 @@ DEMO_VERTICALS = (
 CITY = "Santiago"
 
 # Dos tiendas por vertical: (store_id, nombre). Los precios de cada producto se dan en ese mismo orden.
+# Los restaurantes son ocho: los dos primeros sin área en el nombre; los demás, «Local - Área» como los de Rappi (el
+# último no tiene ningún plato con precio, así que no se lista).
 # fmt: off
 _STORES = {
     "supermercado": ((9101, "Supermercado de prueba Centro"), (9102, "Supermercado de prueba Norte")),
@@ -39,7 +42,16 @@ _STORES = {
     "farmacia": ((9501, "Farmacia de prueba Centro"), (9502, "Farmacia de prueba Sur")),
     "mall": ((9601, "Tienda mall de prueba Centro"), (9602, "Tienda mall de prueba Norte")),
     "chocolateria": ((9701, "Chocolatería de prueba Centro"), (9702, "Chocolatería de prueba Oriente")),
-    "restaurantes": ((9801, "Pizzería de prueba Centro"), (9802, "Sushi y hamburguesas de prueba Norte")),
+    "restaurantes": (
+        (9801, "Pizzería de prueba Centro"),
+        (9802, "Sushi y hamburguesas de prueba Norte"),
+        (9803, "Sándwiches de prueba - Providencia"),
+        (9804, "Parrilla de prueba - Ñuñoa"),
+        (9805, "Café de prueba - Las Condes"),
+        (9806, "Pastelería de prueba - Vitacura"),
+        (9807, "Cevichería de prueba - Santiago"),
+        (9808, "Heladería de prueba - Ñuñoa"),
+    ),
 }
 # fmt: on
 
@@ -48,8 +60,8 @@ _STORES = {
 _OLD_BRANCH = (9103, "Supermercado de prueba Sur (corrida anterior)")
 _DISCOVERED_BRANCH = (9104, "Supermercado de prueba Poniente (solo descubierta)")
 
-# Providencia, Santiago: las tiendas de prueba se reparten a unos kilómetros alrededor.
-_HOME = (-33.4263, -70.6106)
+# El punto fijo de la demo (Providencia, Santiago): las tiendas de prueba se reparten a unos kilómetros alrededor.
+_HOME = (config.MVP_HOME_LAT, config.MVP_HOME_LNG)
 
 # (master_product_id, nombre, categoría de Rappi, +18, {vertical: (precio en la 1.ª tienda, precio en la 2.ª)}).
 # Las categorías están en concepts/category_map.csv: así `build_concepts` asigna concepto en cada vertical.
@@ -182,7 +194,30 @@ _AISLES = [
 # Productos sin foto, para probar que una tarjeta sin imagen no se rompe.
 _NO_IMAGE = {97005}
 
-# Menús de los dos restaurantes, en el orden de _STORES["restaurantes"]:
+# El precio que tenían en la corrida anterior (hace siete días) las ofertas que cambiaron: (producto, tienda) -> precio.
+# Casi todas bajaron; el jugo no cambió; la mermelada bajó pero está agotada; el paracetamol es de farmacia. Las papas
+# del Centro, en cambio, subieron ($1.790 antes): se siembran aparte, junto a la sucursal que las vendía.
+_PREVIOUS = {
+    (91002, 9101): 1490,  # las galletas bajaron en las dos tiendas: la baja mayor es la de Norte
+    (91002, 9102): 1790,
+    (91003, 9101): 1990,
+    (91004, 9101): 4590,
+    (91005, 9101): 1590,
+    (92002, 9201): 1890,
+    (92004, 9201): 1790,
+    (93001, 9301): 4990,
+    (94001, 9401): 1590,
+    (95001, 9501): 2990,
+    (96001, 9601): 29990,
+    (97001, 9701): 2990,
+    (91202, 9101): 1990,
+}
+
+# Ofertas con precio de lista de la tienda (real_price) por encima del actual: (producto, tienda) -> precio de lista.
+# La bebida energética ya tiene la rebaja de la tienda y además bajó de precio: vale el precio de lista.
+_LIST_PRICE = {(92004, 9201): 1990}
+
+# Menús de los restaurantes, en el orden de _STORES["restaurantes"]:
 # (cocinas, {sección: [(item_id, plato, precio)]}).
 # Las secciones y cocinas son de category_map.csv (tipos «seccion_menu» y «cocina»); los platos que nombran su tipo
 # (pizza, roll, hamburguesa) también calzan por regla.
@@ -209,7 +244,76 @@ _MENUS = [
             "Bebidas": [(98008, "Jugo natural de naranja (prueba)", 2490)],
         },
     ),
+    (
+        ["Americana"],
+        {
+            "Sándwiches": [
+                (98009, "Hot dog completo (prueba)", 3490),
+                (98010, "Churrasco italiano (prueba)", 5990),
+            ],
+            "Bebidas": [(98011, "Bebida lima limón 500 cc (prueba)", 1790)],
+        },
+    ),
+    (
+        ["Carnes"],
+        {
+            "Parrilla": [
+                (98012, "Parrillada para dos (prueba)", 24990),
+                (98013, "Choripán (prueba)", 3990),
+            ],
+            "Bebidas": [(98014, "Agua mineral 500 cc (prueba)", 1290)],
+        },
+    ),
+    (
+        ["Desayunos"],
+        {
+            "Desayunos": [
+                (98015, "Tostada con palta (prueba)", 4290),
+                (98016, "Café latte 12 oz (prueba)", 2490),
+                (98017, "Combo desayuno de la casa (prueba)", None),  # sin precio: no sale en el menú
+            ],
+        },
+    ),
+    (
+        ["Pastelería y Postres"],
+        {
+            "Pasteles": [
+                (98018, "Torta tres leches porción (prueba)", 3990),
+                (98019, "Kuchen de manzana porción (prueba)", 3290),
+            ],
+        },
+    ),
+    (
+        ["Pescados y Mariscos"],
+        {
+            "Para Compartir": [(98020, "Ceviche mixto (prueba)", 8990)],
+            "Platos de Fondo con Acompañamiento": [(98021, "Reineta frita con puré (prueba)", 7490)],
+        },
+    ),
+    (
+        ["Pastelería y Postres"],
+        # Ningún plato con precio (uno sin precio y otro de relleno, bajo MIN_PRICE): el local no se lista.
+        {"Postres": [(98022, "Helado artesanal (prueba)", None), (98023, "Cucurucho (prueba)", 5)]},
+    ),
 ]
+
+# El detalle de cada restaurante, en el mismo orden: (nota, opiniones, tiempo de entrega, costo de envío). Sin nota ni
+# tiempo, como pasa con muchos locales reales (en la base real solo 335 de 3.798 tienen nota).
+_DETAILS = [
+    (4.6, 120, "25 min", 1490),
+    (None, None, "35 min", 0),
+    (4.2, 60, "15 min", 990),
+    (4.8, 300, "40 min", 2490),
+    (3.9, 25, "", 1990),
+    (4.6, 80, "20 min", 690),
+    (None, None, "30 min", 0),
+    (4.9, 10, "10 min", 0),  # el más rápido, barato y mejor nota... pero sin platos con precio
+]
+
+# Platos destacados (is_popular) y platos sin foto: la portada de un local es la foto de su plato popular, o la del
+# primero con foto. El de Cevichería no tiene ninguna foto.
+_POPULAR_DISHES = {98002, 98004, 98010, 98015}
+_NO_DISH_IMAGE = {98003, 98005, 98017, 98020, 98021}
 
 
 def _aisle_layout() -> tuple[dict[str, tuple[int, int | None]], dict[int, tuple[str, int | None]]]:
@@ -314,13 +418,16 @@ def _insert_store(
     conn: Connection, store_id: int, name: str, store_type: str, vertical: str, place: int | None = None
 ) -> None:
     """Una tienda con su vertical. Con `place`, es una sucursal bajada: tiene coordenadas y el `raw` de Rappi (logo y
-    minutos de entrega); sin él, solo está descubierta."""
+    minutos de entrega); sin él, solo está descubierta (los restaurantes tienen coordenadas pero no `raw`)."""
     lat = lng = raw = None
     if place is not None:
         # Repartidas en una cuadrícula alrededor del punto fijo, sin repetirse (17 es primo).
         lat = _HOME[0] + ((place * 5) % 17 - 8) * 0.004
         lng = _HOME[1] + ((place * 3) % 17 - 8) * 0.004
         raw = Jsonb({"image": f"prueba-{store_id}.png", "eta_value": 20 + 5 * (store_id % 4), "lat": lat, "lng": lng})
+    elif vertical == "restaurantes":
+        # Más cerca del punto fijo que cualquier tienda: «Cerca de ti» tiene que dejarlos fuera por ser restaurantes.
+        lat, lng = _HOME[0] + (store_id - 9800) * 0.0004, _HOME[1]
     conn.execute(
         """INSERT INTO stores (store_id, name, store_type, city, path, lat, lng, raw)
            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
@@ -344,9 +451,17 @@ def _insert_products(conn: Connection) -> None:
         for vertical, prices in offers.items():
             for (store_id, _), price in zip(_STORES[vertical], prices, strict=True):
                 if price is not None:
-                    _insert_offer(conn, run_id, store_id, product_id, category, price)
+                    _insert_offer(
+                        conn,
+                        run_id,
+                        store_id,
+                        product_id,
+                        category,
+                        price,
+                        real_price=_LIST_PRICE.get((product_id, store_id)),
+                    )
 
-    # Antes de bajar el precio de las papas en el Centro, valían $1.790; la sucursal de una corrida anterior las vendía.
+    # Las papas del Centro valían $1.790 y subieron; la sucursal de una corrida anterior las vendía a ese precio.
     _insert_snapshot(conn, old_run, 9101, 91001, 1790, old=True)
     _insert_offer(conn, old_run, _OLD_BRANCH[0], 91001, "Snacks salados", 1790, old=True)
     for product_id, name, category, reason, price in _NOT_CURRENT:
@@ -355,6 +470,8 @@ def _insert_products(conn: Connection) -> None:
             _insert_offer(conn, old_run, 9101, product_id, category, price, old=True)
         else:
             _insert_offer(conn, run_id, 9101, product_id, category, price, in_stock=False)
+    for (product_id, store_id), price in _PREVIOUS.items():
+        _insert_snapshot(conn, old_run, store_id, product_id, price, old=True)
 
 
 def _insert_catalog_item(
@@ -381,6 +498,7 @@ def _insert_offer(
     price: int,
     in_stock: bool = True,
     old: bool = False,
+    real_price: int | None = None,
 ) -> None:
     """El producto en una tienda (con su pasillo y subpasillo) y su precio en una corrida."""
     aisle_id, subaisle_id = _AISLE_OF_CATEGORY[category]
@@ -389,16 +507,24 @@ def _insert_offer(
            VALUES (%s, %s, %s, %s, %s)""",
         (store_id, f"sku-{product_id}", product_id, aisle_id, subaisle_id),
     )
-    _insert_snapshot(conn, run_id, store_id, product_id, price, in_stock, old)
+    _insert_snapshot(conn, run_id, store_id, product_id, price, in_stock, old, real_price)
 
 
 def _insert_snapshot(
-    conn: Connection, run_id: int, store_id: int, product_id: int, price: int, in_stock: bool = True, old: bool = False
+    conn: Connection,
+    run_id: int,
+    store_id: int,
+    product_id: int,
+    price: int,
+    in_stock: bool = True,
+    old: bool = False,
+    real_price: int | None = None,
 ) -> None:
+    discount = round(100 * (1 - price / real_price)) if real_price else None
     conn.execute(
-        """INSERT INTO price_snapshots (run_id, store_id, sku, price, in_stock, scraped_at)
-           VALUES (%s, %s, %s, %s, %s, now() - make_interval(days => %s))""",
-        (run_id, store_id, f"sku-{product_id}", price, in_stock, 7 if old else 0),
+        """INSERT INTO price_snapshots (run_id, store_id, sku, price, real_price, discount_pct, in_stock, scraped_at)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, now() - make_interval(days => %s))""",
+        (run_id, store_id, f"sku-{product_id}", price, real_price, discount, in_stock, 7 if old else 0),
     )
 
 
@@ -422,7 +548,14 @@ def _insert_restaurants(conn: Connection) -> None:
     run_id = conn.execute(
         "INSERT INTO scrape_runs (kind, status) VALUES ('restaurants', 'done') RETURNING run_id"
     ).fetchone()[0]
-    for (store_id, _), (cuisines, sections) in zip(_STORES["restaurantes"], _MENUS, strict=True):
+    for (store_id, _), (cuisines, sections), (rating, reviews, eta, fee) in zip(
+        _STORES["restaurantes"], _MENUS, _DETAILS, strict=True
+    ):
+        conn.execute(
+            """INSERT INTO restaurant_details (store_id, rating, review_count, delivery_cost, eta)
+               VALUES (%s, %s, %s, %s, %s)""",
+            (store_id, rating, reviews, fee, eta),
+        )
         for cuisine in cuisines:
             conn.execute("INSERT INTO cuisines (name) VALUES (%s) ON CONFLICT DO NOTHING", (cuisine,))
             conn.execute("INSERT INTO restaurant_cuisines (store_id, cuisine) VALUES (%s, %s)", (store_id, cuisine))
@@ -433,10 +566,12 @@ def _insert_restaurants(conn: Connection) -> None:
                 (store_id, section_id, section, position),
             )
             for item_id, name, price in dishes:
+                image = None if item_id in _NO_DISH_IMAGE else f"https://imagenes.prueba.invalid/platos/{item_id}.png"
                 conn.execute(
-                    """INSERT INTO menu_items (item_id, rappi_item_id, store_id, section_id, name)
-                       VALUES (%s, %s, %s, %s, %s)""",
-                    (item_id, item_id, store_id, section_id, name),
+                    """INSERT INTO menu_items (item_id, rappi_item_id, store_id, section_id, name, image_url,
+                                               is_popular)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                    (item_id, item_id, store_id, section_id, name, image, item_id in _POPULAR_DISHES),
                 )
                 conn.execute(
                     "INSERT INTO menu_price_snapshots (run_id, item_id, price, is_available) VALUES (%s, %s, %s, true)",
