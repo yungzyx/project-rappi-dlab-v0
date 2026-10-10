@@ -47,6 +47,8 @@ const TOUR = [
 
 const GREETING = '¡Hola! Ahora vivo en tu Home 👋 Prueba verticales nuevas y junta sellos en tu pasaporte.'
 
+const HOME_PLANS = 5 // la Home muestra solo los primeros planes del servidor (once, carrete, asado, panorama, regalo)
+
 const ACTIONS_HOLD = 12000 // un globo con botones se va solo después de esto (no queda tapando la Home)
 
 /** Un toque de vibración en los momentos clave (solo donde el navegador lo permite, como Android). */
@@ -295,7 +297,7 @@ export default function LiveHomeFeed({ push, active = true }) {
   useEffect(() => {
     let current = true
     fetchPlans().then(
-      (list) => current && setPlans(list),
+      (list) => current && setPlans(list.slice(0, HOME_PLANS)),
       () => {},
     )
     return () => {

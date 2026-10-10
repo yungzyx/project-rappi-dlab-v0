@@ -211,6 +211,14 @@ describe('Home del prototipo final', () => {
       expect(screen.getByRole('button', { name: /En tu carro · Ir a pagar/ })).toBeTruthy()
     })
 
+    test('la Home muestra solo los 5 primeros planes, en el orden del servidor', async () => {
+      renderHome()
+      await advance(100)
+      const names = fixture('mochi-plans').map((option) => option.name)
+      expect(names.length).toBeGreaterThan(5)
+      expect(screen.getAllByRole('radio').map((chip) => chip.lastChild.textContent)).toEqual(names.slice(0, 5))
+    })
+
     test('si el servidor no arma el kit (204) o no contesta, el chip no se queda marcado y Mochi no dice nada', async () => {
       stubMochi({ 'POST /mochi/offer': 204 })
       const { container } = renderHome()
