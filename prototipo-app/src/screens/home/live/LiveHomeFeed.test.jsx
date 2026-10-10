@@ -20,6 +20,7 @@ let useAssistant
 beforeEach(async () => {
   vi.resetModules()
   localStorage.setItem('rappi-proto-demo-mode', 'final')
+  localStorage.setItem('rappi-proto-guia-vista', '1') // como quien ya vio la guía (sus tests la quitan)
   await import('../../../state/EventsContext')
   const demo = await import('../../../state/DemoContext')
   const profile = await import('../../../state/ProfileContext')
@@ -230,6 +231,72 @@ describe('Home del prototipo final', () => {
       await advance(500)
     }
     expect(quiet.isHushed()).toBe(true)
+  })
+
+  describe('guía de la primera vez', () => {
+    beforeEach(() => localStorage.removeItem('rappi-proto-guia-vista'))
+    const status = (container) => container.querySelector('.live-layer [role="status"]').textContent
+    const at = (container) => container.querySelector('.live-bigotes').dataset.at
+    const AFTER_GREETING = 900 + 6000 + 3000 // entra, saluda y termina de escribir el primer paso
+    const next = async (name) => {
+      fireEvent.click(screen.getByRole('button', { name }))
+      await advance(3000)
+    }
+
+    test('la primera vez, después del saludo, Mochi muestra el buscador, el pasaporte y «Jugar»', async () => {
+      const { container } = renderHome()
+      await advance(AFTER_GREETING)
+      expect(status(container)).toMatch(/^Arriba está mi buscador/)
+      await next('Siguiente')
+      expect(status(container)).toMatch(/pasaporte/)
+      expect(at(container)).toBe('passport')
+      await next('Siguiente')
+      expect(status(container)).toMatch(/«Jugar»/)
+      expect(at(container)).toBe('passport')
+      await next('Listo')
+      expect(status(container)).toBe('')
+      expect(localStorage.getItem(memory.TOUR_KEY)).toBeTruthy()
+    })
+
+    test('«Saltar» la termina y no vuelve', async () => {
+      const { container } = renderHome()
+      await advance(AFTER_GREETING)
+      await next('Saltar')
+      expect(status(container)).toBe('')
+      cleanup()
+      memory.session.played = false
+      const again = renderHome()
+      await advance(AFTER_GREETING + 6000)
+      expect(status(again.container)).not.toMatch(/buscador|pasaporte|Jugar/)
+    })
+
+    test('la segunda visita no la muestra', async () => {
+      localStorage.setItem(memory.TOUR_KEY, '1')
+      const { container } = renderHome()
+      await advance(AFTER_GREETING)
+      expect(status(container)).not.toMatch(/^Arriba está mi buscador/)
+    })
+
+    test('«Repetir escena» la vuelve a mostrar', async () => {
+      localStorage.setItem(memory.TOUR_KEY, '1')
+      const { container } = renderHome()
+      await advance(AFTER_GREETING)
+      act(() => memory.resetLive())
+      await advance(AFTER_GREETING)
+      expect(status(container)).toMatch(/^Arriba está mi buscador/)
+    })
+
+    test('con «reducir movimiento» también funciona', async () => {
+      const original = window.matchMedia
+      window.matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} })
+      try {
+        const { container } = renderHome()
+        await advance(6000 + 3000)
+        expect(status(container)).toMatch(/^Arriba está mi buscador/)
+      } finally {
+        window.matchMedia = original
+      }
+    })
   })
 
   test('tocar a Mochi después del saludo propone una vertical que falta en el pasaporte', async () => {

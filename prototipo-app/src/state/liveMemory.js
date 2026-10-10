@@ -9,6 +9,25 @@ export function rememberAdded(product) {
   session.lastAdded = product
 }
 
+/** La guía de la primera vez (3 pasos tras el saludo) ya se vio o se saltó: se recuerda en el navegador. */
+export const TOUR_KEY = 'rappi-proto-guia-vista'
+
+export function tourSeen() {
+  try {
+    return localStorage.getItem(TOUR_KEY) !== null
+  } catch {
+    return true // sin almacenamiento, mejor no repetirla en cada visita
+  }
+}
+
+export function markTourSeen() {
+  try {
+    localStorage.setItem(TOUR_KEY, '1')
+  } catch {
+    // Sin almacenamiento: vale lo que dura la pestaña (la guía ya terminó).
+  }
+}
+
 /** Evento de ventana con que se avisa a Mochi flotante que algo se agregó al carro (detalle: `{ product }`). */
 export const MOCHI_CART_EVENT = 'mochi-carrito'
 
@@ -25,5 +44,10 @@ export function resetLive() {
     planPrompted: false,
   })
   resetQuiet()
+  try {
+    localStorage.removeItem(TOUR_KEY)
+  } catch {
+    // Nada guardado que borrar.
+  }
   window.dispatchEvent(new Event(REPLAY_EVENT))
 }

@@ -49,7 +49,11 @@ async function run(page) {
   }
   const center = (selector) => page.locator(selector).first().evaluate((el) => el.scrollIntoView({ block: 'center' }))
   const reset = async () => {
-    await page.evaluate(() => localStorage.clear())
+    // Como quien ya vio la guía de la primera vez: sus globos taparían las capturas de la Home.
+    await page.evaluate(() => {
+      localStorage.clear()
+      localStorage.setItem('rappi-proto-guia-vista', '1')
+    })
     await page.goto(`${BASE}?r=${Date.now()}`)
     await page.waitForSelector('.home-shortcuts')
   }

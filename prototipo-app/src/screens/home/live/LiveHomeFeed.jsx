@@ -14,7 +14,7 @@ import { CREDITS } from '../../../data/home'
 import '../home.css'
 import LiveBigotes from './LiveBigotes'
 import { Passport, PlanBlock, STAMP_EMOJI, openItem } from './LiveBlocks'
-import { REPLAY_EVENT, session } from '../../../state/liveMemory'
+import { REPLAY_EVENT, markTourSeen, session, tourSeen } from '../../../state/liveMemory'
 import { isHushed, isQuiet, noteDismissed } from '../../../state/mochiQuiet'
 import { DATA } from '../../../game/data.js'
 import { stampedVerticals, today } from '../../../game/progress.js'
@@ -28,6 +28,13 @@ const ORDER = ['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'l
 const T = { enter: 900, greet: 3400, greetHold: 6000, notice: 500 }
 // Silenciado por hoy (desde Mochi flotante) o callado porque lo ignoraron: no habla por su cuenta; si lo tocan, sí.
 const silent = () => isQuiet(today()) || isHushed()
+
+// Guía de la primera vez, tras el saludo: el buscador, el pasaporte y «Jugar». Se ve una vez («Repetir escena» la repite).
+const TOUR = [
+  { text: 'Arriba está mi buscador: búscame lo que quieras o pídeme ideas 🔎', at: 'essentials', gesture: 'point' },
+  { text: 'Este es tu pasaporte: cada vertical nueva que pruebas te da un sello 🎟️', at: 'passport', gesture: 'point' },
+  { text: 'Toca «Jugar» y gana sellos jugando rondas cortas ✨', at: 'passport', gesture: 'hop' },
+]
 
 const GREETING = '¡Hola! Ahora vivo en tu Home 👋 Prueba verticales nuevas y junta sellos en tu pasaporte.'
 
@@ -120,6 +127,32 @@ export default function LiveHomeFeed({ push, active = true }) {
     [game, push],
   )
 
+  // La guía: cada paso espera a que la persona siga; «Saltar» o «Listo» la terminan para siempre.
+  const touring = useRef(false)
+  const endTour = () => {
+    touring.current = false
+    markTourSeen()
+    speak(null)
+  }
+  const showTour = (step) => {
+    touring.current = true
+    const last = step === TOUR.length - 1
+    speak(
+      {
+        text: TOUR[step].text,
+        mood: 'wave',
+        gesture: TOUR[step].gesture,
+        actions: last
+          ? [{ label: 'Listo', onClick: endTour }]
+          : [
+              { label: 'Siguiente', onClick: () => showTour(step + 1) },
+              { label: 'Saltar', onClick: endTour },
+            ],
+      },
+      TOUR[step].at,
+    )
+  }
+
   const openFromBlock = (item) => {
     if (item.vertical && game.visit(item.vertical)) session.newStamp = item.vertical
     openItem(item, push)
@@ -138,6 +171,10 @@ export default function LiveHomeFeed({ push, active = true }) {
       setEntering(false)
       session.played = true
     })
+    // Cuando el saludo termina, la primera vez: la guía (en silencio, no).
+    later((reduceMotion ? 0 : T.enter) + T.greetHold, () => {
+      if (!silent() && !tourSeen()) showTour(0)
+    })
     return clearTimers
     // Solo al montar (o al repetir la escena).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -146,7 +183,7 @@ export default function LiveHomeFeed({ push, active = true }) {
   // Al volver a la Home: celebra un sello nuevo o comenta lo último que se agregó al carro. La Home queda montada bajo
   // las pantallas que se abren encima (`active` es si está arriba), así que corre cada vez que vuelve a estar arriba.
   useEffect(() => {
-    if (!active || !session.played) return
+    if (!active || !session.played || touring.current) return
     // Lo pendiente se borra de la sesión recién cuando Mochi habla: en desarrollo, StrictMode monta dos veces y la
     // primera vez se cancelan los timers.
     if (silent()) {
