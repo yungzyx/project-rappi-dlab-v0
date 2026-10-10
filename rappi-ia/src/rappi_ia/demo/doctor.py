@@ -1,8 +1,23 @@
 """Chequeo de la base antes de levantar el MVP (`rappi-ia doctor`): solo lee, nunca escribe."""
 
+import re
+
 import psycopg
 
 from ..db import connect
+
+
+def _connection_problem(exc: psycopg.Error) -> str:
+    """Qué decir cuando no se pudo abrir la conexión: Postgres caído o la base que no existe piden cosas distintas."""
+    text = str(exc).strip()
+    missing = re.search(r'database "([^"]+)" does not exist', text)
+    if missing:
+        return f"La base {missing.group(1)} no existe: créala y carga un respaldo (docs/instalacion.md, sección 3)."
+    reason = (text.splitlines() or [type(exc).__name__])[0]
+    return (
+        f"No puedo conectar con Postgres ({reason}). Revisa que esté corriendo y que DATABASE_URL apunte "
+        "a la base rappi (ver docs/instalacion.md)."
+    )
 
 
 def check_database(url: str) -> tuple[bool, str]:
@@ -10,11 +25,7 @@ def check_database(url: str) -> tuple[bool, str]:
     try:
         conn = connect(url, connect_timeout=3)
     except psycopg.Error as exc:
-        reason = (str(exc).strip().splitlines() or [type(exc).__name__])[0]
-        return False, (
-            f"No puedo conectar con Postgres ({reason}). Revisa que esté corriendo y que DATABASE_URL apunte "
-            "a la base rappi (ver docs/instalacion.md)."
-        )
+        return False, _connection_problem(exc)
     with conn:
         conn.read_only = True
         try:

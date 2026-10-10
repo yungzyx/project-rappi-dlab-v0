@@ -1,6 +1,7 @@
 """`rappi-ia doctor`: explica en español por qué la base no está lista antes de levantar el MVP."""
 
 import pytest
+from psycopg.conninfo import make_conninfo
 
 from rappi_ia import cli
 from rappi_ia.db import connect
@@ -17,6 +18,18 @@ def test_doctor_explains_unreachable_postgres():
     assert ready is False
     assert message.startswith("No puedo conectar con Postgres")
     assert "docs/instalacion.md" in message
+
+
+def test_doctor_explains_a_missing_database(test_url):
+    """Postgres arriba pero sin la base: el consejo no es «revisa que esté corriendo»."""
+    missing = make_conninfo(test_url, dbname="rappi_no_existe_prueba")
+
+    ready, message = check_database(missing)
+
+    assert ready is False
+    assert message.startswith("La base rappi_no_existe_prueba no existe")
+    assert "créala y carga un respaldo (docs/instalacion.md, sección 3)" in message
+    assert "revisa que esté corriendo" not in message
 
 
 def test_doctor_explains_empty_catalog(db, test_url):
