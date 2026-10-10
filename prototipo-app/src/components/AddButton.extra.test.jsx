@@ -74,6 +74,14 @@ describe('AddButton (extra)', () => {
     expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
   })
 
+  test('si se quita lo último agregado (p. ej. «Deshacer»), Mochi no lo comenta al volver a la Home', () => {
+    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
+    add()
+    expect(session.lastAdded).toMatchObject({ id: heineken.id })
+    fireEvent.click(screen.getByLabelText(/^Quitar uno de /))
+    expect(session.lastAdded).toBeNull()
+  })
+
   test('en el prototipo final, agregar avisa a Mochi', () => {
     const heard = vi.fn()
     window.addEventListener(MOCHI_CART_EVENT, heard)

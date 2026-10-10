@@ -1,8 +1,8 @@
 import { cartEventFields, conceptOf } from '../api/orders'
 import { firstShowing } from '../api/useRemoteForYou'
 import { productTags } from '../assistant/tags'
-import { MOCHI_CART_EVENT, rememberAdded } from '../state/liveMemory'
-import { useCart } from '../state/CartContext'
+import { MOCHI_CART_EVENT, rememberAdded, session } from '../state/liveMemory'
+import { lineKey, useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
 import { WEIGHTS, useProfile } from '../state/ProfileContext'
 import { useDemo } from '../state/DemoContext'
@@ -50,8 +50,11 @@ export function useAddToCart() {
   }
 
   const remove = (item) => {
+    const lastUnit = cart.qtyOf(item) <= 1
     cart.remove(item)
     cartEvent('cart_remove', item)
+    // Lo que sale del carro (o se deshace) ya no es «lo último agregado»: Mochi no lo comenta al volver a la Home.
+    if (lastUnit && session.lastAdded && lineKey(session.lastAdded) === lineKey(item)) session.lastAdded = null
   }
 
   return { add, remove, qtyOf: cart.qtyOf }

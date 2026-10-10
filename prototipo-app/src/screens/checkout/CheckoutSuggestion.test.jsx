@@ -13,6 +13,7 @@ vi.mock('../../state/EventsContext', async (importOriginal) => ({ ...(await impo
 
 const BEER = ALL_PRODUCTS.find((product) => product.vertical === 'liquor' && productTags(product).includes('cerveza'))
 const PHARMACY = ALL_PRODUCTS.find((product) => productTags(product).includes('farmacia'))
+const PIZZA = ALL_PRODUCTS.find((product) => productTags(product).includes('pizza'))
 
 const probe = {}
 function Probe() {
@@ -90,6 +91,13 @@ describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
     expect(checkoutSuggestion([{ product: PHARMACY, qty: 1 }])).toBeNull()
     renderCheckout([PHARMACY])
     expect(screen.queryByRole('button', { name: '¿Me falta algo? Pregúntale a Mochi' })).toBeNull()
+  })
+
+  test('si sugiere alcohol, lleva su aviso +18 (el catálogo local no lo marca)', () => {
+    expect(checkoutSuggestion([{ product: PIZZA, qty: 1 }]).to.label).toBe('Cerveza')
+    renderCheckout([PIZZA])
+    ask()
+    expect(screen.getByLabelText('Solo mayores de 18').textContent).toBe('+18')
   })
 
   test('en «Rappi hoy» no aparece', () => {

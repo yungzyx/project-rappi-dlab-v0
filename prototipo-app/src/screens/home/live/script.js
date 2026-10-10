@@ -1,6 +1,14 @@
 // Lo que Mochi decide mostrar en la Home del prototipo final: una vertical que combina con lo agregado y kits por plan.
 // Todo sale de los datos del prototipo; no hay chat ni llamadas a la API. Un ítem es un producto o una tienda.
-import { COMPLEMENTS, NEVER_SUGGESTED, TAGS, mostCommon, productsForTags, storesForTags } from '../../../assistant/tags'
+import {
+  COMPLEMENTS,
+  NEVER_SUGGESTED,
+  NEVER_SUGGESTED_VERTICALS,
+  TAGS,
+  mostCommon,
+  productsForTags,
+  storesForTags,
+} from '../../../assistant/tags'
 import { VERTICAL_NAMES } from '../../../data/verticals'
 
 const DISCOVERY_FALLBACK = ['licor', 'vino', 'cerveza', 'belleza', 'mascota', 'snack']
@@ -12,7 +20,7 @@ const asStore = (store) => ({ kind: 'store', key: `s-${store.name}`, vertical: s
 /** Productos y tiendas de un tema, con su vertical (los que no la traen no sirven para invitar a una). */
 function itemsFor(tag, limit = 12) {
   return [...productsForTags([tag], 30).map(asProduct), ...storesForTags([tag], 12).map(asStore)]
-    .filter((item) => item.vertical)
+    .filter((item) => item.vertical && !NEVER_SUGGESTED_VERTICALS.has(item.vertical))
     .slice(0, limit)
 }
 

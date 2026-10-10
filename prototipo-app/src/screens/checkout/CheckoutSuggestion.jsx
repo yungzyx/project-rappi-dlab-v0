@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { conceptOf } from '../../api/orders'
 import { firstShowing } from '../../api/useRemoteForYou'
-import { NEVER_SUGGESTED, TAGS, productTags } from '../../assistant/tags'
+import { NEVER_SUGGESTED, TAGS, isAlcohol, productTags } from '../../assistant/tags'
 import Mascot from '../../components/assistant/Mascot'
 import { useAddToCart } from '../../hooks/useAddToCart'
 import { lineKey, useCart } from '../../state/CartContext'
@@ -74,7 +74,11 @@ export default function CheckoutSuggestion() {
         </p>
         <p className="checkout-suggestion-product">
           {product.name} · {product.price} · {to.verticalName}
-          {product.ageRestricted && <span className="product-age"> +18</span>}
+          {isAlcohol(product) && (
+            <span className="checkout-suggestion-age" aria-label="Solo mayores de 18">
+              +18
+            </span>
+          )}
         </p>
         {added ? (
           <button
