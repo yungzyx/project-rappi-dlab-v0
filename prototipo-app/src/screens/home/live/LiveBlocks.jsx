@@ -1,69 +1,31 @@
 import HScroll from '../../../components/HScroll'
-import Img from '../../../components/Img'
 import { ProductCard } from '../../../components/ProductCard'
 import { storeOfProduct } from '../../../api/catalog'
 import { formatPrice, parsePrice } from '../../../state/CartContext'
-import { storeFor } from '../../../data/catalog'
 import { VERTICAL_NAMES } from '../../../data/verticals'
-import { EtaIcon } from '../../../components/StoreMeta'
 import { stampedVerticals, verticalLevel } from '../../../game/progress.js'
 import { GAME_TO_SCREEN, PASSPORT_GOAL, PASSPORT_ORDER } from '../../../game/verticals.js'
-import { PLANS } from './script'
 
-/** Abre la tienda de un producto o una tienda (un producto o plato de la API la abre por su id). */
-export function openItem(item, push) {
-  if (item.kind === 'store') return push('store', { store: item.store })
-  const { product } = item
+/** Abre la tienda de un producto o plato que Mochi ofreció (por su id; sin él, con el nombre y el logo que trae). */
+export function openItem(product, push) {
   return push('store', {
     store:
       product.storeId != null
         ? storeOfProduct(product)
-        : (storeFor({ name: product.store }) ?? { name: product.store, img: product.storeLogo ?? product.img, logo: true }),
+        : { name: product.store, img: product.storeLogo ?? product.img, logo: true },
     item: product,
   })
 }
 
-function StoreItem({ store, onClick }) {
-  return (
-    <button type="button" className="live-store tap" onClick={onClick}>
-      <span className={store.logo ? 'live-store-logo is-logo' : 'live-store-logo'}>
-        <Img src={store.img} draggable="false" />
-      </span>
-      <span className="live-store-name">{store.name}</span>
-      <span className="live-store-eta">
-        <EtaIcon kind={store.etaIcon ?? 'bolt'} />
-        {store.eta}
-      </span>
-    </button>
-  )
-}
-
-function ItemRow({ items, onOpen }) {
-  return (
-    <HScroll className="live-items">
-      {items.map((item, i) => (
-        <div key={item.key} className="live-item" style={{ '--i': i }}>
-          {item.kind === 'product' ? (
-            <ProductCard product={item.product} onOpenStore={() => onOpen(item)} />
-          ) : (
-            <StoreItem store={item.store} onClick={() => onOpen(item)} />
-          )}
-        </div>
-      ))}
-    </HScroll>
-  )
-}
-
-/** «¿Qué plan tienes hoy?»: Mochi arma un kit de varias verticales para la ocasión. */
-export function PlanBlock({ plan, kit, added, onPick, onOpen, onAddKit, onCheckout }) {
-  const products = kit.filter((item) => item.kind === 'product')
-  const total = products.reduce((sum, item) => sum + parsePrice(item.product.price), 0)
-  const verticals = [...new Set(kit.map((item) => VERTICAL_NAMES[item.vertical] ?? item.vertical))]
+/** «¿Qué plan tienes hoy?»: las ocasiones salen de la API y Mochi arma, también con la API, un kit de varias verticales. */
+export function PlanBlock({ plans, plan, kit, added, onPick, onOpen, onAddKit, onCheckout }) {
+  const total = (kit ?? []).reduce((sum, product) => sum + parsePrice(product.price), 0)
+  const verticals = [...new Set((kit ?? []).map((product) => VERTICAL_NAMES[product.vertical] ?? product.vertical))]
   return (
     <section className="live-card live-card--plan">
       <h2 className="live-plan-title">¿Qué plan tienes hoy?</h2>
       <div className="live-plan-chips" role="radiogroup" aria-label="Plan de hoy">
-        {PLANS.map((option) => (
+        {plans.map((option) => (
           <button
             key={option.id}
             type="button"
@@ -73,26 +35,31 @@ export function PlanBlock({ plan, kit, added, onPick, onOpen, onAddKit, onChecko
             onClick={() => onPick(option.id)}
           >
             <span aria-hidden="true">{option.emoji}</span>
-            {option.label}
+            {option.name}
           </button>
         ))}
       </div>
-      {plan ? (
+      {kit?.length ? (
         <div key={plan} className="live-kit">
           <p className="live-kit-meta">
             Tu kit en {verticals.length} {verticals.length === 1 ? 'vertical' : 'verticales'}: {verticals.join(', ')}
           </p>
-          <ItemRow items={kit} onOpen={onOpen} />
-          {products.length > 0 &&
-            (added ? (
-              <button type="button" className="live-kit-add is-added tap" onClick={onCheckout}>
-                ✓ En tu carro · Ir a pagar
-              </button>
-            ) : (
-              <button type="button" className="live-kit-add tap" onClick={onAddKit}>
-                Agregar el kit · {formatPrice(total)}
-              </button>
+          <HScroll className="live-items">
+            {kit.map((product, i) => (
+              <div key={product.id} className="live-item" style={{ '--i': i }}>
+                <ProductCard product={product} onOpenStore={() => onOpen(product)} />
+              </div>
             ))}
+          </HScroll>
+          {added ? (
+            <button type="button" className="live-kit-add is-added tap" onClick={onCheckout}>
+              ✓ En tu carro · Ir a pagar
+            </button>
+          ) : (
+            <button type="button" className="live-kit-add tap" onClick={onAddKit}>
+              Agregar el kit · {formatPrice(total)}
+            </button>
+          )}
         </div>
       ) : (
         <p className="live-plan-empty">Elige uno y te armo todo de una, de las tiendas que hagan falta.</p>

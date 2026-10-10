@@ -34,6 +34,7 @@ const ASSISTANT_NAME = 'Mochi'
 const GREETING = `¡Hola! Soy ${ASSISTANT_NAME}, tu asistente Rappi 🧡 ¿Qué se te antoja hoy?`
 const OFFLINE = 'Sin conexión'
 const NOTHING_TO_PAIR = 'No se me ocurre nada para acompañar eso'
+const NOTHING_TO_TRY = 'No se me ocurre nada nuevo para probar'
 // Las ideas de siempre, como texto fijo: tocar una le pregunta eso a Mochi.
 const CHIPS = ['🍔 ¿Qué almuerzo hoy?', '🍻 Arma un carrete', '🔥 Ofertas de hoy', '🍫 Algo dulce', '🎁 Un regalo']
 
@@ -162,30 +163,41 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     }
   }
 
-  /** «¿Con qué acompaño…?»: la oferta de Mochi para ese producto (el momento `carrito`). */
-  const pairing = async (product) => {
+  /** Una oferta de Mochi para un momento (`carrito`, `vertical_por_probar`…); `nothing` es lo que dice si no tiene nada. */
+  const offered = async (moment, context, nothing) => {
     try {
-      const made = await offer(
-        'carrito',
-        { product: { entity_type: product.entityType, entity_id: product.entityId } },
-        { userId: userId() },
-      )
-      if (!made) return { text: NOTHING_TO_PAIR }
+      const made = await offer(moment, context, { userId: userId() })
+      if (!made) return { text: nothing }
       noteShown(events.track, made.products, {
-        origin: 'mochi-carrito',
+        origin: `mochi-${moment}`,
         concept: made.reason?.concept,
         generation: profile.resets,
       })
       return { text: made.text, products: made.products, actions: made.actions }
     } catch {
-      return offline(() => pairing(product))
+      return offline(() => offered(moment, context, nothing))
     }
   }
+
+  /** «¿Con qué acompaño…?»: la oferta de Mochi para ese producto (el momento `carrito`). */
+  const pairing = (product) =>
+    offered(
+      'carrito',
+      { product: { entity_type: product.entityType, entity_id: product.entityId } },
+      NOTHING_TO_PAIR,
+    )
 
   const askPairing = (product) => {
     if (forgetting) return
     addMessage({ from: 'user', text: askAbout(product) })
     ask(() => pairing(product))
+  }
+
+  /** «¿Qué puedo probar?» y similares: la oferta que pidió quien abrió el buscador (`{ moment, context }`). */
+  const askOffer = ({ moment, context }, text) => {
+    if (forgetting) return
+    addMessage({ from: 'user', text })
+    ask(() => offered(moment, context, NOTHING_TO_TRY))
   }
 
   /** El saludo, con «Para ti» de /recommendations (sin él si la API no contesta o no tiene nada que recomendar). */
@@ -233,6 +245,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
 
     if (messages.length === 0) greet(rows)
     if (session.product) later(() => askPairing(session.product), OPEN_MS)
+    else if (session.offer) later(() => askOffer(session.offer, session.query), OPEN_MS)
     else if (session.query) later(() => send(session.query), OPEN_MS)
     setChipRound((r) => r + 1)
     // Solo al abrir una sesión nueva; el resto del estado se lee en ese momento.

@@ -26,7 +26,8 @@ vi.mock('../../state/EventsContext', async (importOriginal) => ({
 }))
 
 // Un producto de Licores y uno del Súper: el carro va en dos pedidos.
-const BEER = ALL_PRODUCTS.find((product) => product.id === 'p-heineken')
+// La cerveza llega como las de la API: con su tipo e id reales.
+const BEER = { ...ALL_PRODUCTS.find((product) => product.id === 'p-heineken'), entityType: 'catalog_item', entityId: '94001' }
 const AVOCADO = ALL_PRODUCTS.find((product) => product.id === 'p-palta')
 
 /** Llena el carro y abre el checkout, como al tocar la barra del carrito. */
@@ -113,6 +114,14 @@ describe('inicio de pago', () => {
     fireEvent.click(screen.getByText(/Place order/))
     await vi.waitFor(() => expect(api.sendOrder).toHaveBeenCalledTimes(2))
     expect(checkoutStarts()).toHaveLength(2)
+  })
+
+  test('el pedido guardado lleva el tipo y el id de cada línea (con ellos Mochi arma el próximo pedido)', async () => {
+    renderCheckout()
+    fireEvent.click(screen.getByText(/Place order/))
+    await vi.waitFor(() => expect(api.sendOrder).toHaveBeenCalledTimes(2))
+    const [order] = JSON.parse(localStorage.getItem('rappi-proto-orders'))
+    expect(order.items.find((item) => item.entityId === '94001')).toMatchObject({ entityType: 'catalog_item' })
   })
 
   test('el inicio de pago llega al servidor antes que el pedido (la hora la pone el servidor al recibir)', async () => {

@@ -68,10 +68,19 @@ describe('sugerencias de Mochi', () => {
     expect(track.mock.calls.filter(([type]) => type === 'suggestion_accepted')).toHaveLength(2)
   })
 
-  test('sin concepto no registra nada', () => {
+  test('sin concepto no registra la mostrada, pero la aceptada sí (sin concept_id), una vez por producto', () => {
     const track = vi.fn()
     noteShown(track, [], { origin: 'mochi-carrito', vertical: 'express' })
-    noteAccepted(track, [{ id: 'x', name: 'Algo', vertical: 'express' }], { origin: 'mochi-carrito' })
     expect(track).not.toHaveBeenCalled()
+
+    const loose = { id: 'x', name: 'Algo', vertical: 'express', entityId: '77' }
+    expect(noteAccepted(track, [loose, { ...loose, id: 'y', entityId: '78' }], { origin: 'mochi-carrito' })).toBe(2)
+    expect(track.mock.calls.map(([type]) => type)).toEqual(['suggestion_accepted', 'suggestion_accepted'])
+    expect(track).toHaveBeenCalledWith('suggestion_accepted', {
+      concept_id: undefined,
+      vertical: 'express',
+      payload: { origen: 'mochi-carrito' },
+    })
+    expect(noteAccepted(track, [loose], { origin: 'mochi-carrito' })).toBe(0)
   })
 })

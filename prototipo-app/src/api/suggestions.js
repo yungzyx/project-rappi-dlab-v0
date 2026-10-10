@@ -42,19 +42,19 @@ const accepted = new Set()
 /**
  * Registra `suggestion_accepted` por cada producto de `products` que aún no se contó (agregar un kit completo cuenta una
  * aceptación por producto; los "+" siguientes y quitar y volver a agregar no cuentan otra). Cada una lleva su concepto y
- * su vertical, y antes registra la mostrada que faltase: lo aceptado siempre tiene su mostrada. `origin` y `generation`
- * como en `noteShown`. Devuelve cuántas registró.
+ * su vertical, y antes registra la mostrada que faltase: lo aceptado siempre tiene su mostrada (salvo si no tiene
+ * concepto: entonces va sin `concept_id`). `origin` y `generation` como en `noteShown`. Devuelve cuántas registró.
  */
 export function noteAccepted(track, products, { origin, generation = 0 }) {
   let count = 0
   for (const product of products ?? []) {
     const concept = conceptOf(product)
-    if (!concept) continue
     const vertical = product.vertical
-    const key = `${generation}|${concept}|${screenForBackend(vertical) ?? vertical}|${origin}`
+    // Sin concepto la aceptada se registra igual (sin concept_id), contada por producto.
+    const key = `${generation}|${concept ?? `producto:${product.entityId ?? product.id}`}|${screenForBackend(vertical) ?? vertical}|${origin}`
     if (accepted.has(key)) continue
     accepted.add(key)
-    noteShown(track, null, { origin, concept, vertical, generation })
+    if (concept) noteShown(track, null, { origin, concept, vertical, generation })
     track('suggestion_accepted', { concept_id: concept, vertical, payload: { origen: origin } })
     count += 1
   }

@@ -4,14 +4,19 @@ import Sheet from '../../components/Sheet'
 import { useToast } from '../../components/Toast'
 import { StarIcon } from '../../components/Icons'
 import { HeadsetIcon } from '../../components/LineIcons'
-import { COMPLEMENTS, TAGS, tagsOf } from '../../assistant/tags'
+import { offer } from '../../api/mochi'
+import { noteShown } from '../../api/suggestions'
+import { userId } from '../../api/user'
 import { useAssistant } from '../../state/AssistantContext'
 import { formatPrice } from '../../state/CartContext'
 import { useDemo } from '../../state/DemoContext'
+import { useEvents } from '../../state/EventsContext'
 import { useGame } from '../../state/GameContext'
+import { isHushed, isQuiet } from '../../state/mochiQuiet'
 import { useOrders } from '../../state/OrdersContext'
+import { useProfile } from '../../state/ProfileContext'
 import { VERTICAL_NAMES } from '../../data/verticals'
-import { waitingRoundVertical } from '../../game/progress.js'
+import { today, waitingRoundVertical } from '../../game/progress.js'
 import { GAME_TO_SCREEN } from '../../game/verticals.js'
 import TrackingMap from './TrackingMap'
 import { STEPS, minutesLeft, rideProgress, stepAt } from './progress'
@@ -152,10 +157,37 @@ function Delivered({ order }) {
   const toast = useToast()
   const demo = useDemo()
   const assistant = useAssistant()
+  const events = useEvents()
+  const profile = useProfile()
   const [rating, setRating] = useState(0)
-  // Sugerencia cruzada después de la entrega: el complemento de lo que se pidió.
-  const tag = order.items.flatMap((item) => tagsOf(item.name)).find((candidate) => COMPLEMENTS[candidate])
-  const next = tag && TAGS[COMPLEMENTS[tag][0]]
+  // El próximo pedido que arma Mochi (oferta `proximo_pedido` de la API); sin oferta, sin tarjeta.
+  const [next, setNext] = useState(null)
+  const items = order.items
+    .filter((item) => item.entityId != null)
+    .map((item) => ({ entity_type: item.entityType, entity_id: item.entityId }))
+
+  useEffect(() => {
+    // En silencio (por hoy o porque lo ignoraron) Mochi no ofrece nada, así que tampoco se le pide.
+    if (!demo.isFinal || !items.length || isQuiet(today()) || isHushed()) return undefined
+    let current = true
+    offer('proximo_pedido', { items }, { userId: userId() }).then(
+      (made) => {
+        if (!current || !made) return
+        noteShown(events.track, made.products, {
+          origin: `mochi-${made.moment}`,
+          concept: made.reason?.concept,
+          generation: profile.resets,
+        })
+        setNext({ context: { items }, label: made.actions.find((action) => action.query)?.query ?? 'algo más' })
+      },
+      () => {},
+    )
+    return () => {
+      current = false
+    }
+    // Una vez por pedido entregado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id, demo.isFinal])
 
   const rate = (value) => {
     setRating(value)
@@ -186,11 +218,14 @@ function Delivered({ order }) {
         <button
           type="button"
           className="tracking-next tap"
-          onClick={() => assistant.open({ query: next.label })}
+          onClick={() =>
+            assistant.open({
+              query: `¿Y ahora ${next.label}?`,
+              offer: { moment: 'proximo_pedido', context: next.context },
+            })
+          }
         >
-          <span>
-            ✨ ¿Y ahora {next.emoji} {next.label.toLowerCase()}?
-          </span>
+          <span>✨ ¿Y ahora {next.label}?</span>
           <small>Mochi te arma el próximo pedido</small>
         </button>
       )}

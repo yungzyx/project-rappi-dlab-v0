@@ -1,16 +1,25 @@
+import { useEffect } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { fixture, stubApi } from '../../api/testing'
 import { ToastProvider } from '../../components/Toast'
-import { AssistantProvider } from '../../state/AssistantContext'
+import { today } from '../../game/progress.js'
+import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { GameProvider } from '../../state/GameContext'
+import { QUIET_KEY, noteDismissed, resetQuiet } from '../../state/mochiQuiet'
 import { OrdersProvider, useOrders } from '../../state/OrdersContext'
+import { ProfileProvider } from '../../state/ProfileContext'
 import TrackingScreen from './TrackingScreen'
 
+const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
+vi.mock('../../state/EventsContext', async (importOriginal) => ({ ...(await importOriginal()), useEvents: () => events }))
+
+// Lo que se pidió son productos de la API: la línea guarda su tipo e id, con los que Mochi arma el próximo pedido.
 const ORDER = {
-  stores: ['Unimarc'],
-  items: [{ name: 'Palta', img: 'palta.webp', price: '$1.000', qty: 1 }],
-  total: 1000,
+  stores: ['Pizzería de prueba'],
+  items: [{ name: 'Pizza (prueba)', img: 'pizza.webp', price: '$7.990', qty: 1, entityType: 'menu_item', entityId: '95001' }],
+  total: 7990,
 }
 
 function Harness({ reset, push }) {
@@ -25,55 +34,140 @@ function Harness({ reset, push }) {
   return <TrackingScreen back={() => {}} reset={reset} push={push} params={{ orderId: order.id }} />
 }
 
-beforeEach(() => vi.useFakeTimers())
+let api
+beforeEach(() => {
+  vi.useFakeTimers()
+  events.track.mockClear()
+  api = stubApi({ 'POST /mochi/offer': fixture('mochi-proximo-pedido') })
+})
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
+  vi.unstubAllGlobals()
+  resetQuiet()
   localStorage.clear()
 })
+
+const probe = {}
+function Probe() {
+  const assistant = useAssistant()
+  useEffect(() => {
+    probe.assistant = assistant
+  })
+  return null
+}
 
 const renderTracking = (reset = vi.fn(), push = vi.fn()) =>
   render(
     <DemoProvider>
-      <AssistantProvider>
-        <OrdersProvider>
-          <GameProvider>
-            <ToastProvider>
-              <Harness reset={reset} push={push} />
-            </ToastProvider>
-          </GameProvider>
-        </OrdersProvider>
-      </AssistantProvider>
+      <ProfileProvider>
+        <AssistantProvider>
+          <OrdersProvider>
+            <GameProvider>
+              <ToastProvider>
+                <Probe />
+                <Harness reset={reset} push={push} />
+              </ToastProvider>
+            </GameProvider>
+          </OrdersProvider>
+        </AssistantProvider>
+      </ProfileProvider>
     </DemoProvider>,
   )
 
-const deliver = () => {
+// Hace el pedido y deja pasar el reloj hasta la entrega, con la respuesta de la API ya recibida.
+const deliver = async () => {
   fireEvent.click(screen.getByText('pedir'))
-  act(() => vi.advanceTimersByTime(21_000))
+  await act(() => vi.advanceTimersByTimeAsync(21_000))
 }
+const offerRequests = () =>
+  api.mock.calls.filter(([url]) => url.endsWith('/mochi/offer')).map(([, init]) => JSON.parse(init.body))
+const NEXT_CARD = /¿Y ahora/
 
 describe('TrackingScreen', () => {
-  test('al entregar aparece «Volver al inicio», que reinicia la pila', () => {
+  // Primero: lo mostrado se recuerda lo que dura la pestaña (este archivo).
+  test('al entregar, la tarjeta ¿Y ahora…? sale de la API', async () => {
+    renderTracking()
+    await deliver()
+    expect(offerRequests()).toEqual([
+      {
+        moment: 'proximo_pedido',
+        user_id: expect.any(String),
+        context: { items: [{ entity_type: 'menu_item', entity_id: '95001' }] },
+      },
+    ])
+    const card = screen.getByRole('button', { name: NEXT_CARD })
+    expect(card.textContent).toContain('¿Y ahora bebidas gaseosas?')
+    expect(card.textContent).toContain('Mochi te arma el próximo pedido')
+    expect(events.track).toHaveBeenCalledWith('suggestion_shown', {
+      concept_id: 'gaseosas',
+      vertical: 'express',
+      payload: { origen: 'mochi-proximo_pedido' },
+    })
+
+    // Tocarla abre el buscador con esa misma oferta, para agregar lo que arma.
+    fireEvent.click(card)
+    expect(probe.assistant.session.offer).toEqual({
+      moment: 'proximo_pedido',
+      context: { items: [{ entity_type: 'menu_item', entity_id: '95001' }] },
+    })
+  })
+
+  test('al entregar aparece «Volver al inicio», que reinicia la pila', async () => {
     const reset = vi.fn()
     renderTracking(reset)
     fireEvent.click(screen.getByText('pedir'))
     expect(screen.queryByText('Volver al inicio')).toBeNull()
-    act(() => vi.advanceTimersByTime(21_000))
+    await act(() => vi.advanceTimersByTimeAsync(21_000))
     fireEvent.click(screen.getByText('Volver al inicio'))
     expect(reset).toHaveBeenCalled()
   })
 
-  test('en el prototipo final, al entregar Mochi ofrece armar el próximo pedido', () => {
+  test('antes de la entrega no pide nada, y sin oferta (204) o sin respuesta la tarjeta no aparece', async () => {
     renderTracking()
-    deliver()
-    expect(screen.getByText('Mochi te arma el próximo pedido')).toBeTruthy()
+    fireEvent.click(screen.getByText('pedir'))
+    await act(() => vi.advanceTimersByTimeAsync(5_000))
+    expect(offerRequests()).toEqual([])
+
+    cleanup()
+    localStorage.clear()
+    api = stubApi({ 'POST /mochi/offer': 204 })
+    renderTracking()
+    await deliver()
+    expect(offerRequests()).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: NEXT_CARD })).toBeNull()
+
+    cleanup()
+    localStorage.clear()
+    api = stubApi({ 'POST /mochi/offer': 'offline' })
+    renderTracking()
+    await deliver()
+    expect(screen.queryByRole('button', { name: NEXT_CARD })).toBeNull()
+    expect(screen.getByText('Volver al inicio')).toBeTruthy()
   })
 
-  test('en «Rappi hoy», al entregar no hay oferta de Mochi', () => {
+  test('Mochi en silencio no pide el próximo pedido', async () => {
+    localStorage.setItem(QUIET_KEY, today())
+    renderTracking()
+    await deliver()
+    expect(offerRequests()).toEqual([])
+    expect(screen.queryByRole('button', { name: NEXT_CARD })).toBeNull()
+
+    cleanup()
+    localStorage.clear()
+    noteDismissed()
+    noteDismissed() // lo ignoraron dos veces seguidas
+    renderTracking()
+    await deliver()
+    expect(offerRequests()).toEqual([])
+  })
+
+  test('en «Rappi hoy», al entregar no hay oferta de Mochi (ni se pide)', async () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     renderTracking()
-    deliver()
-    expect(screen.queryByText('Mochi te arma el próximo pedido')).toBeNull()
+    await deliver()
+    expect(offerRequests()).toEqual([])
+    expect(screen.queryByRole('button', { name: NEXT_CARD })).toBeNull()
   })
 
   test('en «Rappi hoy» el mapa queda como antes: Mochi de frente y sin «¡Ya casi!»', () => {
@@ -106,9 +200,9 @@ describe('TrackingScreen', () => {
       expect(push).toHaveBeenCalledWith('game', { round: 'conveniencia', orderId: expect.stringMatching(/^order-/) })
     })
 
-    test('al entregar, la tarjeta ya no está', () => {
+    test('al entregar, la tarjeta ya no está', async () => {
       renderTracking()
-      deliver()
+      await deliver()
       expect(screen.queryByRole('button', { name: /Juega mientras llega tu pedido/ })).toBeNull()
     })
 

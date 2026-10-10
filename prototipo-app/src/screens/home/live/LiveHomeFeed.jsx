@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { offer, plans as fetchPlans } from '../../../api/mochi'
+import { noteShown } from '../../../api/suggestions'
+import { userId } from '../../../api/user'
 import SmartBar from '../../../components/assistant/SmartBar'
 import { useToast } from '../../../components/Toast'
 import { ChevronDown } from '../../../components/Icons'
-import { TAGS, tagsOf } from '../../../assistant/tags'
 import { VERTICAL_NAMES, routeForScreen } from '../../../data/verticals'
 import { useScrollState } from '../../../hooks/useScrollState'
 import { useAddress } from '../../../state/AddressContext'
 import { useAddToCart } from '../../../hooks/useAddToCart'
+import { useEvents } from '../../../state/EventsContext'
 import { useProfile } from '../../../state/ProfileContext'
 import CreditsBanner from '../CreditsBanner'
 import {
@@ -25,9 +28,8 @@ import { Passport, PlanBlock, STAMP_EMOJI, openItem } from './LiveBlocks'
 import { REPLAY_EVENT, markTourSeen, session, tourSeen } from '../../../state/liveMemory'
 import { isHushed, isQuiet, noteDismissed } from '../../../state/mochiQuiet'
 import { stampedVerticals, today } from '../../../game/progress.js'
-import { GAME_TO_SCREEN, NEVER_PUSHED, PASSPORT_GOAL, PASSPORT_ORDER } from '../../../game/verticals.js'
+import { NEVER_PUSHED, PASSPORT_GOAL, PASSPORT_ORDER } from '../../../game/verticals.js'
 import { useGame } from '../../../state/GameContext'
-import { PLANS, discoveryFor, planKit } from './script'
 import './live.css'
 
 // Las secciones de la Home de hoy, con el pasaporte justo bajo los accesos. Mochi no sugiere productos aquí.
@@ -72,19 +74,21 @@ export default function LiveHomeFeed({ push, active = true }) {
   const catalog = useHomeCatalog()
   const { add: addToCart } = useAddToCart()
   const profile = useProfile()
+  const events = useEvents()
   const reduceMotion = usePrefersReducedMotion()
   const [replays, setReplays] = useState(0)
 
   const game = useGame()
   const stamps = stampedVerticals(game.state) // ids del juego
   const [freshStamp, setFreshStamp] = useState(() => session.newStamp)
-  const [plan, setPlan] = useState(() => session.plan)
+  const [plans, setPlans] = useState([]) // las ocasiones que Mochi sabe armar (GET /mochi/plans)
+  const [plan, setPlan] = useState(() => session.plan?.id ?? null) // la ocasión elegida
+  const [kit, setKit] = useState(() => session.plan?.kit ?? null) // sus productos (la oferta `plan`); null mientras llega
   const [kitAdded, setKitAdded] = useState(null) // plan cuyo kit ya está en el carro
   const [say, setSay] = useState(null)
   const [target, setTarget] = useState(null) // id del bloque donde se para Mochi
   const [present, setPresent] = useState(() => session.played) // aún no entra a escena
   const [entering, setEntering] = useState(false)
-  const kit = useMemo(() => (plan ? planKit(plan) : []), [plan])
 
   const screenRef = useRef(null)
   const bigotesRef = useRef(null)
@@ -92,6 +96,8 @@ export default function LiveHomeFeed({ push, active = true }) {
   const timers = useRef([])
   const hideTimer = useRef(null)
   const run = useRef(0) // cambia al repetir la escena o al salir: lo que estaba esperando ya no sigue
+  const planRun = useRef(0) // cambia en cada ocasión elegida: el kit de una anterior ya no vale
+  const poking = useRef(false) // ya se pidió la vertical por probar: otro toque no pide otra
   const [{ scrolled }, onScroll] = useScrollState()
 
   const later = useCallback((ms, fn) => timers.current.push(setTimeout(fn, ms)), [])
@@ -172,9 +178,9 @@ export default function LiveHomeFeed({ push, active = true }) {
     )
   }
 
-  const openFromBlock = (item) => {
-    if (item.vertical && game.visit(item.vertical)) session.newStamp = item.vertical
-    openItem(item, push)
+  const openFromBlock = (product) => {
+    if (product.vertical && game.visit(product.vertical)) session.newStamp = product.vertical
+    openItem(product, push)
   }
 
   // Primera vez en la Home: entra y saluda. No sugiere nada ni mueve la Home.
@@ -199,6 +205,48 @@ export default function LiveHomeFeed({ push, active = true }) {
     // Solo al montar (o al repetir la escena).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replays])
+
+  // Lo último que se agregó al carro lo comenta la oferta `carrito` de la API; sin oferta (204) o si falla, no dice nada.
+  async function commentOn(added) {
+    if (added.entityId == null) return
+    const mine = run.current
+    let made = null
+    try {
+      made = await offer(
+        'carrito',
+        { product: { entity_type: added.entityType, entity_id: added.entityId } },
+        { userId: userId() },
+      )
+    } catch {
+      return
+    }
+    // Se fue de la Home, repitió la escena, lo silenciaron mientras tanto o ya empezó la guía: ya no es el momento.
+    if (!made || mine !== run.current || silent() || touring.current) return
+    noteShown(events.track, made.products, {
+      origin: `mochi-${made.moment}`,
+      concept: made.reason?.concept,
+      generation: profile.resets,
+    })
+    const see = made.actions.find((action) => action.route)
+    speak(
+      {
+        text: made.text,
+        mood: 'wave',
+        actions: [
+          ...(see ? [{ label: see.label, onClick: () => visit(made.vertical, see.route) }] : []),
+          {
+            label: 'Ahora no',
+            onClick: () => {
+              noteDismissed()
+              speak(null)
+            },
+          },
+        ],
+      },
+      null,
+      ACTIONS_HOLD,
+    )
+  }
 
   // Al volver a la Home: celebra un sello nuevo o comenta lo último que se agregó al carro. La Home queda montada bajo
   // las pantallas que se abren encima (`active` es si está arriba), así que corre cada vez que vuelve a estar arriba;
@@ -232,31 +280,8 @@ export default function LiveHomeFeed({ push, active = true }) {
       later(1800, () => setFreshStamp(null))
     } else if (session.lastAdded) {
       const added = session.lastAdded
-      const tag = tagsOf(`${added.name} ${added.store ?? ''}`).find((candidate) => TAGS[candidate])
-      const pairing = tag ? discoveryFor({ tag, vertical: added.vertical }) : null
       later(T.notice, () => (session.lastAdded = null))
-      if (pairing) {
-        later(T.notice, () =>
-          speak(
-            {
-              text: `Vi que agregaste ${added.name.split(' ').slice(0, 3).join(' ')}. Con eso combina ${pairing.label.toLowerCase()} ${pairing.emoji}, en ${pairing.verticalName}.`,
-              mood: 'wave',
-              actions: [
-                { label: `Ver ${pairing.verticalName}`, onClick: () => visit(pairing.vertical) },
-                {
-                  label: 'Ahora no',
-                  onClick: () => {
-                    noteDismissed()
-                    speak(null)
-                  },
-                },
-              ],
-            },
-            null,
-            ACTIONS_HOLD,
-          ),
-        )
-      }
+      commentOn(added)
     }
   }
   useEffect(() => {
@@ -266,10 +291,23 @@ export default function LiveHomeFeed({ push, active = true }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
+  // Las ocasiones del plan del día salen de la API; sin ellas el bloque no ofrece nada (no hay kits locales).
+  useEffect(() => {
+    let current = true
+    fetchPlans().then(
+      (list) => current && setPlans(list),
+      () => {},
+    )
+    return () => {
+      current = false
+    }
+  }, [])
+
   // Cuando el plan del día entra en pantalla, Mochi camina hasta él (una vez por sesión).
+  const hasPlans = plans.length > 0
   useEffect(() => {
     const element = blockRefs.current.get('plan')
-    if (!element || typeof IntersectionObserver === 'undefined') return undefined
+    if (!hasPlans || !element || typeof IntersectionObserver === 'undefined') return undefined
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting || session.planPrompted || !session.played || silent() || touring.current) return
@@ -288,15 +326,17 @@ export default function LiveHomeFeed({ push, active = true }) {
     )
     observer.observe(element)
     return () => observer.disconnect()
-  }, [speak])
+  }, [speak, hasPlans])
 
   // «Repetir la escena» desde fuera del teléfono.
   useEffect(() => {
     const replay = () => {
       run.current += 1
       clearTimers()
+      planRun.current += 1
       setFreshStamp(null)
       setPlan(null)
+      setKit(null)
       setKitAdded(null)
       setPresent(false)
       speak(null)
@@ -307,57 +347,78 @@ export default function LiveHomeFeed({ push, active = true }) {
     return () => window.removeEventListener(REPLAY_EVENT, replay)
   }, [clearTimers, speak])
 
-  const pickPlan = (id) => {
-    const chosen = PLANS.find((option) => option.id === id)
-    session.plan = id
+  // Tocar una ocasión pide su kit a la API. Sin kit (204 o sin red) la ocasión no queda elegida y Mochi no dice nada.
+  const pickPlan = async (id) => {
+    const chosen = plans.find((option) => option.id === id)
+    const mine = (planRun.current += 1)
+    session.plan = null
     setPlan(id)
-    profile.trackTags(chosen.tags, 1)
-    const next = planKit(id)
-    const verticals = new Set(next.map((item) => item.vertical)).size
-    speak(
-      {
-        text: `${chosen.emoji} ${chosen.line} ${next.length} cosas de ${verticals} verticales.`,
-        mood: 'wave',
-        gesture: 'hop',
-      },
-      'plan',
-      4500,
-    )
+    setKit(null)
+    setKitAdded(null)
+    let made = null
+    try {
+      made = await offer('plan', { occasion: id }, { userId: userId() })
+    } catch {
+      // Sin respuesta: queda como estaba.
+    }
+    if (mine !== planRun.current) return // eligió otra ocasión (o repitió la escena) mientras llegaba
+    if (!made?.products.length) {
+      setPlan(null)
+      return
+    }
+    // Cada producto del kit es una sugerencia mostrada, con su propio concepto.
+    for (const product of made.products)
+      noteShown(events.track, [product], { origin: `mochi-${made.moment}`, generation: profile.resets })
+    session.plan = { id, kit: made.products } // la Home vuelve a montarse al cambiar de pestaña: el kit sigue ahí
+    setKit(made.products)
+    speak({ text: `${chosen.emoji} ${made.text}`, mood: 'wave', gesture: 'hop' }, 'plan', 4500)
   }
 
-  // Igual que el «+» de cada producto: al carro, al perfil y a los eventos del panel.
+  // Igual que el «+» de cada producto: al carro, al perfil y a los eventos del panel (una aceptación por producto).
   const addKit = () => {
-    const products = kit.filter((item) => item.kind === 'product').map((item) => item.product)
-    for (const product of products) addToCart(product)
+    for (const product of kit) addToCart(product)
     setKitAdded(plan)
     buzz()
-    toast(`Agregaste ${products.length} productos del kit`)
+    toast(`Agregaste ${kit.length} productos del kit`)
     speak({ text: '¡Listo! Llega todo junto 🛵 Ve tu carro abajo.', mood: 'wave', gesture: 'spin' }, 'plan', 3500)
   }
 
-  const poke = () => {
+  // Tocar a Mochi: la API propone la primera vertical sin sello (con los sellos del juego en el contexto).
+  const poke = async () => {
     // Mientras saluda, tocarlo no cambia de tema.
-    if (!session.played) return
-    // La primera vertical sin sello del pasaporte; Farmacia nunca (la salud no se empuja).
-    const missing = PASSPORT_ORDER.find((v) => !stamps.includes(v) && !NEVER_PUSHED.has(v))
-    if (!missing) {
-      speak(
-        { text: '¡Ya probaste de todo! Eres oficialmente multivertical 🏆', mood: 'wave', gesture: 'spin' },
-        null,
-        3500,
-      )
+    if (!session.played || poking.current) return
+    poking.current = true
+    const mine = run.current
+    let made = null
+    try {
+      made = await offer('vertical_por_probar', { stamped: stamps }, { userId: userId() })
+    } catch {
+      // Sin respuesta, Mochi no dice nada.
+    } finally {
+      poking.current = false
+    }
+    if (mine !== run.current) return
+    if (!made) {
+      // Sin nada que proponer: si el pasaporte no tiene más que Farmacia (la salud no se empuja), lo celebra.
+      if (!PASSPORT_ORDER.some((v) => !stamps.includes(v) && !NEVER_PUSHED.has(v)))
+        speak(
+          { text: '¡Ya probaste de todo! Eres oficialmente multivertical 🏆', mood: 'wave', gesture: 'spin' },
+          null,
+          3500,
+        )
       return
     }
-    const name = VERTICAL_NAMES[GAME_TO_SCREEN[missing]]
+    noteShown(events.track, made.products, { origin: `mochi-${made.moment}`, generation: profile.resets })
+    const name = VERTICAL_NAMES[made.vertical] ?? made.backendVertical
     const left = PASSPORT_GOAL - stamps.length
     speak(
       {
-        text: `¿Y si pruebas ${name} ${STAMP_EMOJI[missing]}? Juega una ronda y te llevas su sello.${left > 0 ? ` Te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis.` : ''}`,
+        text: `¿Y si pruebas ${name} ${STAMP_EMOJI[made.backendVertical] ?? ''}? Juega una ronda y te llevas su sello.${left > 0 ? ` Te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis.` : ''}`,
         mood: 'wave',
         gesture: 'hop',
         actions: [
-          { label: `Jugar ${name}`, onClick: () => push('game', { round: missing }) },
-          { label: `Abrir ${name}`, onClick: () => visit(GAME_TO_SCREEN[missing]) },
+          { label: `Jugar ${name}`, onClick: () => push('game', { round: made.backendVertical }) },
+          { label: `Abrir ${name}`, onClick: () => visit(made.vertical) },
           {
             label: 'Después',
             onClick: () => {
@@ -391,6 +452,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     turbo: <FastRestaurants stores={catalog.fastRestaurants} push={push} />,
     plan: (
       <PlanBlock
+        plans={plans}
         plan={plan}
         kit={kit}
         added={kitAdded === plan}

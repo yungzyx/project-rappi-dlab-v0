@@ -85,52 +85,6 @@
   }
 }
 
-.live-store {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  width: 139px;
-  text-align: left;
-}
-
-.live-store-logo {
-  display: grid;
-  place-items: center;
-  width: 139px;
-  height: 139px;
-  border-radius: 18px;
-  background: var(--tile);
-  overflow: hidden;
-}
-
-.live-store-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.live-store-logo.is-logo img {
-  width: 78%;
-  height: 78%;
-  object-fit: contain;
-}
-
-.live-store-name {
-  margin-top: 9px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 19px;
-}
-
-.live-store-eta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 3px;
-  color: var(--ink-2);
-  font-size: 13px;
-}
-
 /* ---------- ¿Qué plan tienes hoy? ---------- */
 .live-plan-title {
   padding: 0 18px;

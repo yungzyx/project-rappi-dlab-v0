@@ -1,19 +1,26 @@
 import { useEffect } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { productTags } from '../../assistant/tags'
-import { ALL_PRODUCTS } from '../../data/catalog'
+import { fixture, stubApi } from '../../api/testing'
 import { CartProvider, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { ProfileProvider } from '../../state/ProfileContext'
-import CheckoutSuggestion, { checkoutSuggestion } from './CheckoutSuggestion'
+import CheckoutSuggestion from './CheckoutSuggestion'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
 vi.mock('../../state/EventsContext', async (importOriginal) => ({ ...(await importOriginal()), useEvents: () => events }))
 
-const BEER = ALL_PRODUCTS.find((product) => product.vertical === 'liquor' && productTags(product).includes('cerveza'))
-const PHARMACY = ALL_PRODUCTS.find((product) => productTags(product).includes('farmacia'))
-const PIZZA = ALL_PRODUCTS.find((product) => productTags(product).includes('pizza'))
+// Productos de la API, como llegan al carro: con su tipo e id reales.
+const PISCO = {
+  id: 'cat-94005',
+  name: 'Pisco 35° 750 cc (prueba)',
+  price: '$6.990',
+  vertical: 'liquor',
+  entityType: 'catalog_item',
+  entityId: '94005',
+  concept: 'pisco',
+}
+const PIZZA = { id: 'menu-95001', name: 'Pizza (prueba)', price: '$7.990', vertical: 'restaurants', entityType: 'menu_item', entityId: '95001' }
 
 const probe = {}
 function Probe() {
@@ -23,7 +30,7 @@ function Probe() {
   })
   return null
 }
-const renderCheckout = (products = [BEER]) => {
+const renderCheckout = (products = [PISCO]) => {
   const view = render(
     <DemoProvider>
       <ProfileProvider>
@@ -37,72 +44,117 @@ const renderCheckout = (products = [BEER]) => {
   act(() => products.forEach((product) => probe.cart.add(product)))
   return view
 }
-const ask = () => fireEvent.click(screen.getByRole('button', { name: '¿Me falta algo? Pregúntale a Mochi' }))
-const shownAtCheckout = () =>
-  events.track.mock.calls.filter(([type, fields]) => type === 'suggestion_shown' && fields.payload?.origen === 'checkout')
+const ASK = '¿Me falta algo? Pregúntale a Mochi'
+const ask = async () => {
+  fireEvent.click(screen.getByRole('button', { name: ASK }))
+  await act(async () => {}) // la respuesta de la API
+}
+const tracked = (type) =>
+  events.track.mock.calls.filter(([name, fields]) => name === type && fields.payload?.origen === 'mochi-checkout')
 
-beforeEach(() => localStorage.setItem('rappi-proto-demo-mode', 'final'))
+let api
+beforeEach(() => {
+  localStorage.setItem('rappi-proto-demo-mode', 'final')
+  events.track.mockClear()
+  api = stubApi({ 'POST /mochi/offer': fixture('mochi-checkout') })
+})
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
   localStorage.clear()
 })
+const offerRequests = () =>
+  api.mock.calls.filter(([url]) => url.endsWith('/mochi/offer')).map(([, init]) => JSON.parse(init.body))
 
 describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
   // Primero: lo mostrado se recuerda lo que dura la pestaña (este archivo).
-  test('pedirla registra suggestion_shown con origen checkout, una sola vez', () => {
+  test('pedirla registra suggestion_shown con origen mochi-checkout, una sola vez', async () => {
     renderCheckout()
-    ask()
-    expect(shownAtCheckout()).toHaveLength(1)
+    await ask()
+    expect(tracked('suggestion_shown')).toHaveLength(1)
+    expect(tracked('suggestion_shown')[0][1]).toMatchObject({ concept_id: 'hielo', vertical: 'turbo' })
     cleanup()
     renderCheckout()
-    ask()
-    expect(shownAtCheckout()).toHaveLength(1)
+    await ask()
+    expect(tracked('suggestion_shown')).toHaveLength(1)
   })
 
-  test('al principio solo está el botón; al tocarlo sugiere algo de otra vertical que combina, con la razón', () => {
+  test('¿Me falta algo? pide la oferta solo al tocarlo y dice Tu carrito está completo en un 204', async () => {
+    api = stubApi({ 'POST /mochi/offer': 204 })
+    renderCheckout([PISCO, PIZZA])
+    await act(async () => {})
+    expect(offerRequests()).toEqual([]) // nada aparece ni se pide por su cuenta
+    expect(screen.queryByText('Tu carrito está completo')).toBeNull()
+
+    await ask()
+    expect(offerRequests()).toEqual([
+      {
+        moment: 'checkout',
+        user_id: expect.any(String),
+        context: {
+          cart: [
+            { entity_type: 'catalog_item', entity_id: '94005' },
+            { entity_type: 'menu_item', entity_id: '95001' },
+          ],
+        },
+      },
+    ])
+    expect(screen.getByText('Tu carrito está completo')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: ASK })).toBeNull()
+    expect(events.track.mock.calls.filter(([name]) => name === 'suggestion_shown')).toHaveLength(0)
+  })
+
+  test('al tocarlo muestra la oferta del servidor: su texto, el producto y su razón', async () => {
     renderCheckout()
     expect(document.querySelector('.checkout-suggestion')).toBeNull()
-    ask()
+    await ask()
     const card = document.querySelector('.checkout-suggestion')
-    expect(card.querySelector('.checkout-suggestion-reason').textContent).toMatch(/^Llevas 🍺 Cerveza → \S+ \S/)
+    expect(card.querySelector('.checkout-suggestion-reason').textContent).toBe(fixture('mochi-checkout').text)
+    expect(card.querySelector('.checkout-suggestion-product').textContent).toMatch(/^Hielo en cubos 2 kg \(prueba\) · \$1\.490 · Turbo/)
     expect(card.querySelector('.mochi')).toBeTruthy()
-    expect(checkoutSuggestion([{ product: BEER, qty: 1 }]).product.vertical).not.toBe('liquor')
+    expect(screen.queryByLabelText('Solo mayores de 18')).toBeNull()
   })
 
-  test('agregarla la suma al carro con «Deshacer», que la quita', () => {
+  test('agregarla la suma al carro como sugerencia aceptada, con «Deshacer» que la quita', async () => {
     renderCheckout()
-    ask()
+    await ask()
     fireEvent.click(screen.getByRole('button', { name: 'Agregar' }))
     expect(probe.cart.count).toBe(2)
+    const added = probe.cart.items.find(({ product }) => product.entityId === '93002')
+    expect(added.product).toMatchObject({ fromSuggestion: true, suggestionOrigin: 'mochi-checkout' })
+    expect(tracked('suggestion_accepted')).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: 'Deshacer' }))
     expect(probe.cart.count).toBe(1)
   })
 
-  test('nunca sugiere algo que ya está en el carro', () => {
-    const first = checkoutSuggestion([{ product: BEER, qty: 1 }]).product
-    const next = checkoutSuggestion([
-      { product: BEER, qty: 1 },
-      { product: first, qty: 1 },
-    ])
-    expect(next?.product.id).not.toBe(first.id)
-  })
-
-  test('con solo productos de farmacia no sugiere nada (ni ofrece el botón)', () => {
-    expect(checkoutSuggestion([{ product: PHARMACY, qty: 1 }])).toBeNull()
-    renderCheckout([PHARMACY])
-    expect(screen.queryByRole('button', { name: '¿Me falta algo? Pregúntale a Mochi' })).toBeNull()
-  })
-
-  test('si sugiere alcohol, lleva su aviso +18 (el catálogo local no lo marca)', () => {
-    expect(checkoutSuggestion([{ product: PIZZA, qty: 1 }]).to.label).toBe('Cerveza')
+  test('si la oferta es de alcohol, lleva su aviso +18', async () => {
+    const body = fixture('mochi-checkout')
+    body.products[0].age_restricted = true
+    api = stubApi({ 'POST /mochi/offer': body })
     renderCheckout([PIZZA])
-    ask()
+    await ask()
     expect(screen.getByLabelText('Solo mayores de 18').textContent).toBe('+18')
+  })
+
+  test('si la API no contesta, Mochi no dice nada y se puede volver a pedir', async () => {
+    api = stubApi({ 'POST /mochi/offer': 'offline' })
+    renderCheckout()
+    await ask()
+    expect(document.querySelector('.checkout-suggestion')).toBeNull()
+    expect(screen.queryByText('Tu carrito está completo')).toBeNull()
+    api = stubApi({ 'POST /mochi/offer': fixture('mochi-checkout') })
+    await ask()
+    expect(document.querySelector('.checkout-suggestion')).not.toBeNull()
+  })
+
+  test('sin nada en el carro no ofrece el botón', async () => {
+    renderCheckout([])
+    expect(screen.queryByRole('button', { name: ASK })).toBeNull()
   })
 
   test('en «Rappi hoy» no aparece', () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     renderCheckout()
-    expect(screen.queryByRole('button', { name: '¿Me falta algo? Pregúntale a Mochi' })).toBeNull()
+    expect(screen.queryByRole('button', { name: ASK })).toBeNull()
   })
 })

@@ -90,6 +90,17 @@ function OpenButton() {
       <button type="button" onClick={() => assistant.open({ query: askAbout(BEER), product: BEER })}>
         arrastrar
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          assistant.open({
+            query: 'Muéstrame algo nuevo para probar',
+            offer: { moment: 'vertical_por_probar', context: { stamped: ['restaurantes', 'supermercado'] } },
+          })
+        }
+      >
+        qué puedo probar
+      </button>
     </>
   )
 }
@@ -672,6 +683,46 @@ describe('¿Con qué acompaño…?', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     await runUntilIdle()
     expect(bubbles()).toContain('Para completar tu pedido: snacks salados, en Express.')
+  })
+})
+
+describe('«¿Qué puedo probar?» (una oferta pedida desde fuera)', () => {
+  const askToTry = async () => {
+    fireEvent.click(screen.getByText('qué puedo probar'))
+    await runUntilIdle()
+  }
+
+  test('muestra la vertical por probar de la API, sin pasar por el chat', async () => {
+    const push = vi.fn()
+    const fetchMock = stubCatalog({ 'POST /mochi/offer': fixture('mochi-vertical-por-probar') })
+    await renderPanel({ push })
+    await askToTry()
+
+    expect(api.chat).not.toHaveBeenCalled()
+    const call = fetchMock.mock.calls.find(([url]) => url.includes('/mochi/offer'))
+    expect(JSON.parse(call[1].body)).toMatchObject({
+      moment: 'vertical_por_probar',
+      context: { stamped: ['restaurantes', 'supermercado'] },
+    })
+    expect(screen.getByText('Elegiste «Muéstrame algo nuevo para probar»')).toBeTruthy()
+    expect(bubbles()).toContain('Aún no pruebas Express: mira estas ofertas.')
+    fireEvent.click(screen.getByRole('button', { name: /^Abrir Express/ }))
+    expect(push).toHaveBeenCalledWith(...routeForScreen('express'))
+  })
+
+  test('sin una oferta (204) lo dice, y si la API no contesta, Sin conexión y Reintentar', async () => {
+    let online = false
+    stubCatalog({
+      'POST /mochi/offer': () => (online ? 204 : 'offline'),
+    })
+    await renderPanel()
+    await askToTry()
+    expect(bubbles()).toContain('Sin conexión')
+
+    online = true
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await runUntilIdle()
+    expect(bubbles()).toContain('No se me ocurre nada nuevo para probar')
   })
 })
 

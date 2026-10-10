@@ -5,6 +5,8 @@ import { today } from '../../game/progress.js'
 import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { CartProvider, formatPrice, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
+import { GameProvider } from '../../state/GameContext'
+import { seed } from '../../game/testSeed.js'
 import { MOCHI_DRAG_TYPE } from '../../assistant/mochiAsk'
 import { MOCHI_CART_EVENT, resetLive } from '../../state/liveMemory'
 import { QUIET_KEY, resetQuiet } from '../../state/mochiQuiet'
@@ -31,14 +33,16 @@ function Probe() {
 const tree = (props = {}) => (
   <DemoProvider>
     <ProfileProvider>
-    <AssistantProvider>
-      <CartProvider>
-        <div className="phone">
-          <Probe />
-          <MochiPresence screen="vertical" homeTab="home" push={vi.fn()} raised={false} {...props} />
-        </div>
-      </CartProvider>
-    </AssistantProvider>
+      <AssistantProvider>
+        <CartProvider>
+          <GameProvider>
+            <div className="phone">
+              <Probe />
+              <MochiPresence screen="vertical" homeTab="home" push={vi.fn()} raised={false} {...props} />
+            </div>
+          </GameProvider>
+        </CartProvider>
+      </AssistantProvider>
     </ProfileProvider>
   </DemoProvider>
 )
@@ -131,6 +135,18 @@ describe('Mochi flotante', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('group', { name: 'Opciones de Mochi' })).toBeNull()
     expect(document.activeElement).toBe(mochiButton())
+  })
+
+  test('«¿Qué puedo probar?» abre el buscador con la oferta de la vertical por probar y los sellos del juego', () => {
+    seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
+    render(tree())
+    fireEvent.click(mochiButton())
+    fireEvent.click(screen.getByRole('button', { name: '¿Qué puedo probar?' }))
+    expect(probe.assistant.isOpen).toBe(true)
+    const { offer } = probe.assistant.session
+    expect(offer.moment).toBe('vertical_por_probar')
+    expect(offer.context.stamped.sort()).toEqual(['licores', 'restaurantes', 'supermercado'])
+    expect(probe.assistant.session.query).toBe('Muéstrame algo nuevo para probar')
   })
 
   test('con carro, la segunda opción es revisarlo con el total', () => {

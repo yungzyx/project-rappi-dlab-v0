@@ -14,7 +14,7 @@ describe('Mochi', () => {
       backendVertical: 'conveniencia',
       text: 'Para completar tu pedido: snacks salados, en Express.',
       reason: { concept: 'snacks-salados', from_concept: 'cerveza' },
-      actions: [{ label: 'Ver snacks salados', query: 'snacks salados', route: ['express'] }],
+      actions: [{ label: 'Ver snacks salados', query: 'snacks salados', route: ['vertical', { id: 'express' }] }],
     })
     expect(made.products[0]).toMatchObject({
       entityId: '91001',
@@ -35,6 +35,22 @@ describe('Mochi', () => {
       user_id: 'u1',
       context: { occasion: 'carrete' },
     })
+  })
+
+  test('las acciones traen la ruta de la pantalla de la app (Turbo tiene la suya) o ninguna si la vertical no se conoce', async () => {
+    const body = fixture('mochi-carrito')
+    body.actions = [
+      { label: 'Ver hielo', query: 'hielo', route: ['turbo'] },
+      { label: 'Más ideas', query: 'cerveza' },
+      { label: 'Sin pantalla', route: [null] },
+    ]
+    stubApi({ 'POST /mochi/offer': body })
+    const made = await offer('carrito', { product: { entity_type: 'catalog_item', entity_id: '94001' } })
+    expect(made.actions).toEqual([
+      { label: 'Ver hielo', query: 'hielo', route: ['turbo'] },
+      { label: 'Más ideas', query: 'cerveza' },
+      { label: 'Sin pantalla' },
+    ])
   })
 
   test('plans devuelve las ocasiones', async () => {
