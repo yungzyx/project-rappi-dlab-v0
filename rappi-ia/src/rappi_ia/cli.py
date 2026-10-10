@@ -13,17 +13,19 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia multivertical           # mapa multivertical (docs/mapas/)
     rappi-ia seed-demo               # catálogo de prueba inventado, SOLO en la base DATABASE_URL_TEST (_test)
     rappi-ia doctor                  # revisa (solo lectura) que DATABASE_URL tenga catálogo; sale 1 si no
+    rappi-ia check-migrations        # se niega a migrar la base real desde una rama sin fusionar (MIGRATE=1 lo fuerza)
 """
 
 import argparse
 import logging
+import os
 import sys
 
 from . import config
 from .concepts.pipeline import build_concepts
 from .concepts.report import coverage_report, render_text, write_category_proposals
 from .db import connect, database_url, migrate
-from .demo.doctor import check_database
+from .demo.doctor import check_database, check_pending_migrations
 from .demo.seed import ensure_test_database, reset_test_database, seed_demo
 from .layers.attributes import build_attributes
 from .layers.brands import build_brands
@@ -310,10 +312,25 @@ def cmd_doctor(conn, args) -> None:
         sys.exit(1)
 
 
+def cmd_check_migrations(conn, args) -> None:
+    """Va antes de `migrate` en `make mvp` y `make serve`. Abre su propia conexión (`conn` llega vacío)."""
+    try:
+        url = database_url()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+    allowed, message = check_pending_migrations(url, force=os.environ.get("MIGRATE") == "1")
+    if not allowed:
+        print(message, file=sys.stderr)
+        sys.exit(1)
+    if message:
+        print(message)
+
+
 # Comandos que no usan la conexión de DATABASE_URL (la abren ellos o usan otra).
-OWN_CONNECTION = {"seed-demo", "doctor"}
+OWN_CONNECTION = {"seed-demo", "doctor", "check-migrations"}
 
 COMMANDS = {
+    "check-migrations": cmd_check_migrations,
     "doctor": cmd_doctor,
     "seed-demo": cmd_seed_demo,
     "measures": cmd_measures,
@@ -409,6 +426,10 @@ def build_parser() -> argparse.ArgumentParser:
         "seed-demo", help="reconstruye DATABASE_URL_TEST (debe terminar en _test) con un catálogo de prueba inventado"
     )
     sub.add_parser("doctor", help="revisa que la base (DATABASE_URL) tenga catálogo; no escribe nada")
+    sub.add_parser(
+        "check-migrations",
+        help="se niega si la base rappi tiene migraciones pendientes y el código no está en origin/main (MIGRATE=1)",
+    )
     return parser
 
 

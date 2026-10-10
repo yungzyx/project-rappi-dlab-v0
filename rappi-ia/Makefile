@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat images purge post-refresh layers layer-report contract
+.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts embed eval synth analytics serve serve-lan warm probar-chat images purge post-refresh layers layer-report contract
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -23,6 +23,10 @@ db-test:  ## Crea la base de tests propia (rappi_ia_test)
 
 migrate:  ## Aplica migraciones pendientes (viven en rappi-scraper)
 	$(PY) -m rappi_ia migrate
+
+# Sin «##»: no sale en `make help` (la guardia de serve, serve-lan y make mvp; no se corre a mano). MIGRATE=1 la fuerza.
+check-migrations:
+	$(PY) -m rappi_ia check-migrations
 
 test:  ## Tests (unitarios + integración contra rappi_ia_test)
 	$(PY) -m pytest
@@ -65,11 +69,12 @@ HF_MODELS := intfloat--multilingual-e5-base sentence-transformers--clip-ViT-B-32
 HF_OFFLINE := $(shell for m in $(HF_MODELS); do test -d "$(HF_CACHE)/models--$$m" || exit 0; done; echo HF_HUB_OFFLINE=1)
 
 # serve y serve-lan migran antes: tras un `git pull`, el código puede necesitar una migración nueva (sin la 019, todo
-# lo que muestra productos respondía 500).
-serve: migrate  ## API en http://localhost:8000, solo este Mac (docs en /docs)
+# lo que muestra productos respondía 500). Antes de migrar, check-migrations se niega a aplicar a la base real las
+# migraciones de una rama sin fusionar (se registran por nombre de archivo: una editada después no se vuelve a aplicar).
+serve: check-migrations migrate  ## API en http://localhost:8000, solo este Mac (docs en /docs)
 	$(HF_OFFLINE) $(PY) -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8000
 
-serve-lan: migrate  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
+serve-lan: check-migrations migrate  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
 	$(HF_OFFLINE) API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --host 0.0.0.0 --port 8000
 
 # Las frases del guion (docs/demo.md) sin user_id: no se registran. Frío, «una hamburguesa» tarda 2 a 5 s; caliente, 0,3 s.
