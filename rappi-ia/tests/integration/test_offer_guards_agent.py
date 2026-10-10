@@ -199,3 +199,39 @@ def test_a_service_hook_never_lands_in_pharmacy(db):
     assert ranked_verticals(db, ["accesorios-moda"])[0] == "farmacia"
     suggestion = agent.reply(db, "busco un hotel en puerto varas", Context())["suggestion"]
     assert suggestion["vertical"] == "mall" and [p["entity_id"] for p in suggestion["products"]] == ["903"]
+
+
+def test_complement_never_lands_in_licores(db):
+    """«Ni Licores»: una gaseosa que solo vende una botillería no se propone desde Licores; si otra vertical la
+    vende, la oferta sale de ahí aunque Licores calce primero."""
+    embedder = HashEmbedder()
+    add_store(db, 3, "restaurantes", "Pizzería")
+    add_store(db, 2, "licores", "Botillería (prueba)")
+    stock(
+        db,
+        embedder,
+        [(210, "Gaseosa cola 1,5 L (prueba)", 2, "Gaseosas"), (211, "Gaseosa lima 1,5 L (prueba)", 2, "Gaseosas")],
+    )
+    assert ranked_verticals(db, ["gaseosas"]) == ["licores"]
+    assert suggest_complement(db, ["pizza"], "restaurantes", embedder) is None
+
+    add_store(db, 1, "supermercado", "Súper (prueba)")
+    stock(db, embedder, [(212, "Gaseosa naranja 1,5 L (prueba)", 1, "Gaseosas")])
+    assert ranked_verticals(db, ["gaseosas"])[0] == "licores"
+    suggestion = suggest_complement(db, ["pizza"], "restaurantes", embedder)
+    assert suggestion.concept == "gaseosas" and suggestion.vertical == "supermercado"
+    assert [p.entity_id for p in suggestion.products] == ["212"]
+
+
+def test_a_soda_sold_only_by_a_licores_store_in_the_seed_is_not_suggested(demo):
+    db, embedder = demo
+    sodas = "SELECT master_product_id FROM catalog_items WHERE name ILIKE 'Gaseosa%'"
+    skus = f"SELECT sku FROM store_products WHERE master_product_id IN ({sodas})"
+    db.execute(f"DELETE FROM price_snapshots WHERE sku IN ({skus})")  # noqa: S608 (consultas fijas)
+    db.execute(f"DELETE FROM store_products WHERE master_product_id IN ({sodas})")  # noqa: S608
+    db.commit()
+    stock(db, embedder, [(94901, "Gaseosa cola 1,5 L botillería (prueba)", 9401, "Gaseosas")])
+    assert ranked_verticals(db, ["gaseosas"]) == ["licores"]
+
+    suggestion = suggest_complement(db, ["pizza"], "restaurantes", embedder)  # pasa a la arista siguiente, si hay
+    assert suggestion is None or (suggestion.concept != "gaseosas" and suggestion.vertical != "licores")

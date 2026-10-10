@@ -6,8 +6,8 @@ Una oferta es todo lo que Mochi muestra sin que se lo hayan pedido: la sugerenci
 - salud o farmacia: el grupo «Farmacia y cuidado personal» entero (medicamentos, vitaminas, higiene, dermocosmética);
 - bebé;
 - un concepto sensible;
-- un producto de la vertical Farmacia, ni de una tienda que Rappi rotula Farmacia, Sex shop o Smoking shop (aunque
-  esté en otra vertical).
+- un producto de las verticales Farmacia y Licores, ni de una tienda que Rappi rotula Farmacia, Sex shop o Smoking
+  shop (aunque esté en otra vertical).
 
 Quien lo pide por su nombre (una búsqueda, una pregunta al chat) sí lo recibe: las guardias son de lo que se ofrece, no
 de lo que se encuentra. Esto reemplaza a docs/diseno-ia.md regla 6b, que permitía el alcohol como complemento con +18.
@@ -17,7 +17,7 @@ Las reglas viven solo aquí; las consultas de productos las aplican con `search_
 from ..concepts.taxonomy import Concept
 
 OFFER_BLOCKED_GROUPS = ("bebe", "salud")  # grupos de taxonomy.toml; el alcohol y el tabaco se bloquean por sus marcas
-OFFER_BLOCKED_VERTICALS = ("farmacia",)
+OFFER_BLOCKED_VERTICALS = ("farmacia", "licores")
 
 
 def is_offerable(concept: Concept) -> bool:

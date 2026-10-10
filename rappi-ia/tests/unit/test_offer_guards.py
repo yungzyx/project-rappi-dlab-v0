@@ -47,9 +47,9 @@ def test_everyday_concepts_are_offerable():
         assert is_offerable(concept(concept_id)), concept_id
 
 
-def test_the_pharmacy_is_the_only_blocked_vertical():
-    assert OFFER_BLOCKED_VERTICALS == ("farmacia",)
-    assert {v for v in DEMO_VERTICALS if not offerable_vertical(v)} == {"farmacia"}
+def test_pharmacy_and_licores_are_the_only_blocked_verticals():
+    assert OFFER_BLOCKED_VERTICALS == ("farmacia", "licores")
+    assert {v for v in DEMO_VERTICALS if not offerable_vertical(v)} == {"farmacia", "licores"}
 
 
 def test_stores_labelled_pharmacy_sex_shop_or_smoking_shop_are_the_ones_stage_2_does_not_push():
