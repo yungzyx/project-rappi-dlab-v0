@@ -24,15 +24,17 @@ describe('favoritos por tienda', () => {
     expect(result.current.isFavorite(norte)).toBe(true)
   })
 
-  test('los favoritos guardados antes, solo con nombre, se siguen cargando y se reconocen por nombre', () => {
-    localStorage.setItem('rappi-proto-favorites', JSON.stringify([{ name: 'Délice', img: 'x.webp' }]))
+  test('los favoritos guardados antes con tiendas locales (sin id numérico) se descartan al cargar: ya no existen', () => {
+    const saved = [{ id: 9101, name: 'Unimarc' }]
+    localStorage.setItem(
+      'rappi-proto-favorites',
+      JSON.stringify([{ name: 'Délice', img: 'x.webp' }, { id: 'delice', name: 'Délice 2' }, ...saved]),
+    )
     const { result } = favorites()
-    expect(result.current.stores).toHaveLength(1)
-    expect(result.current.isFavorite({ name: 'Délice' })).toBe(true)
-    expect(result.current.isFavorite({ id: 9101, name: 'Délice' })).toBe(true) // el nombre es lo único que había
-
-    act(() => result.current.toggle({ name: 'Délice' }))
-    expect(result.current.stores).toEqual([])
+    expect(result.current.stores).toEqual(saved)
+    expect(result.current.isFavorite({ name: 'Délice' })).toBe(false)
+    // Lo guardado también queda limpio.
+    expect(JSON.parse(localStorage.getItem('rappi-proto-favorites'))).toEqual(saved)
   })
 
   test('una tienda con id no se confunde con otra que se llama igual pero ya trae su propio id', () => {

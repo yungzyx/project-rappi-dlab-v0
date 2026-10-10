@@ -53,9 +53,9 @@ export function toPrototypeStore(card) {
  */
 export const storeOfProduct = (product) => ({ id: product.storeId, name: product.store, vertical: product.vertical })
 
-/** Las tiendas de una vertical (código del backend o id del prototipo): `{ vertical, stores }`. */
-export async function verticalStores(vertical) {
-  const reply = await read(`/catalog/verticals/${segment(vertical)}/stores`)
+/** Las tiendas de una vertical (código del backend o id del prototipo), `limit` como máximo: `{ vertical, stores }`. */
+export async function verticalStores(vertical, { limit } = {}) {
+  const reply = await read(`/catalog/verticals/${segment(vertical)}/stores`, { limit })
   return { vertical: screenForBackend(reply.vertical) ?? reply.vertical, stores: reply.stores.map(toPrototypeStore) }
 }
 

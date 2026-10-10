@@ -71,7 +71,7 @@ describe('de la API al prototipo', () => {
     const fromChat = toMessage({ text: 'Mira', products: [dict] }).products[0]
     expect(lineKey(fromOtherScreen)).toBe(lineKey(fromScreen))
     expect(lineKey(fromChat)).toBe(lineKey(fromScreen))
-    expect(lineKey(fromScreen)).toBe('cat-91001|grocery|Supermercado de prueba Centro')
+    expect(lineKey(fromScreen)).toBe('cat-91001|9101') // la oferta es producto + tienda: la vertical depende de la pantalla
   })
 
   test('la sugerencia cruzada va aparte, marcada, y las aclaraciones vuelven a preguntar', () => {

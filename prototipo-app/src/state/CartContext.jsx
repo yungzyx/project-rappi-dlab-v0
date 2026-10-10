@@ -18,10 +18,15 @@ export function formatPrice(value) {
 }
 
 /**
- * Clave de una línea: la oferta (producto + vertical + tienda). Un producto del catálogo de la API ("cat-<id>")
- * se vende en varias tiendas y verticales con el mismo id: cada oferta va en su propia línea.
+ * Clave de una línea: la oferta. Un producto del catálogo de la API ("cat-<id>") se vende en varias tiendas con el mismo
+ * id: cada tienda va en su propia línea. La tienda es su `storeId`; la vertical no cuenta, porque depende de la pantalla
+ * (Lider Big llega como `grocery` desde una oferta y como `express` desde su página) y partiría el mismo producto en dos
+ * líneas y dos pedidos. Sin `storeId` (productos locales), la oferta es producto + vertical + nombre de la tienda.
  */
-export const lineKey = (product) => `${product.id}|${product.vertical ?? ''}|${product.store ?? ''}`
+export const lineKey = (product) =>
+  product.storeId != null
+    ? `${product.id}|${product.storeId}`
+    : `${product.id}|${product.vertical ?? ''}|${product.store ?? ''}`
 
 const isLine = (line) =>
   line && typeof line === 'object' && line.product?.id != null && Number.isInteger(line.qty) && line.qty > 0
@@ -33,7 +38,27 @@ const isStoredCart = (value) =>
   typeof value.lines === 'object' &&
   Object.values(value.lines).every(isLine)
 
-const loadCart = () => loadStored(STORAGE_KEY, isStoredCart, null) ?? { id: newCartId(), lines: {} }
+// Un carro guardado con las claves de antes (id|vertical|tienda) vuelve a la clave de hoy, y las líneas que ahora son la
+// misma oferta se suman: así agregar el producto otra vez no abre una línea nueva.
+const rekeyed = (lines) =>
+  Object.values(lines).reduce((byKey, line) => {
+    const key = lineKey(line.product)
+    const same = byKey[key]
+    byKey[key] = same
+      ? {
+          ...same,
+          qty: same.qty + line.qty,
+          fromSuggestion: Boolean(same.fromSuggestion || line.fromSuggestion),
+          note: same.note ?? line.note,
+        }
+      : line
+    return byKey
+  }, {})
+
+const loadCart = () => {
+  const stored = loadStored(STORAGE_KEY, isStoredCart, null)
+  return stored ? { id: stored.id, lines: rekeyed(stored.lines) } : { id: newCartId(), lines: {} }
+}
 
 /** Carrito del prototipo: ofertas con su cantidad. Se guarda en el navegador para sobrevivir a una recarga. */
 export function CartProvider({ children }) {

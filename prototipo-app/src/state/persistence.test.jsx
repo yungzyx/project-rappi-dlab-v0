@@ -10,10 +10,10 @@ afterEach(() => localStorage.clear())
 describe('persistencia en el navegador', () => {
   test('favoritos: sobreviven a una recarga, sin el menú real', () => {
     const first = renderHook(() => useFavorites(), { wrapper: FavoritesProvider })
-    act(() => first.result.current.toggle({ name: 'Délice', img: 'x.webp', sections: [{ items: [] }] }))
+    act(() => first.result.current.toggle({ id: 9801, name: 'Délice', img: 'x.webp', sections: [{ items: [] }] }))
     first.unmount()
     const second = renderHook(() => useFavorites(), { wrapper: FavoritesProvider })
-    expect(second.result.current.isFavorite({ name: 'Délice' })).toBe(true)
+    expect(second.result.current.isFavorite({ id: 9801, name: 'Délice' })).toBe(true)
     expect(second.result.current.stores[0].sections).toBeUndefined()
   })
 

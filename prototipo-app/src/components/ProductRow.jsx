@@ -1,6 +1,7 @@
 import { useProductSheet } from '../state/ProductSheetContext'
 import AddButton from './AddButton'
 import Img from './Img'
+import './product-card.css' // la marca +18 (.product-age) es la de ProductCard
 import './product-row.css'
 
 /** Producto en formato lista (página de tienda y resultados del buscador). Tocarlo abre su hoja; el "+" va aparte. */
@@ -21,6 +22,11 @@ export default function ProductRow({ product, showStore = false, showDescription
         </span>
         <span className="product-row-media">
           <Img src={product.img} />
+          {product.ageRestricted && (
+            <span className="product-age" aria-label="Solo mayores de 18">
+              +18
+            </span>
+          )}
         </span>
       </button>
       <AddButton product={product} className="add-button--row" />

@@ -11,17 +11,17 @@ const SAVED = [
 ]
 const save = (stores) => localStorage.setItem('rappi-proto-favorites', JSON.stringify(stores))
 
-/** Tres supermercados: la pantalla muestra solo los dos primeros. */
-const supermarkets = () => {
+/** Los supermercados, y la API respeta `limit` (el fixture trae tres: sin él serían los tres). */
+const supermarkets = (req) => {
   const reply = fixture('catalog-vertical-stores')
-  return { ...reply, stores: [...reply.stores, { ...reply.stores[0], id: 9103, name: 'Supermercado de prueba Sur' }] }
+  return { ...reply, stores: reply.stores.slice(0, Number(req.query.get('limit') ?? 30)) }
 }
 
 const stubFavorites = (extra = {}) =>
   stubApi({
     // La API respeta `limit`: sin él serían 7.
     '/catalog/restaurants': (req) => fixture('catalog-restaurants').slice(0, Number(req.query.get('limit') ?? 30)),
-    '/catalog/verticals/supermercado/stores': supermarkets(),
+    '/catalog/verticals/supermercado/stores': supermarkets,
     ...extra,
   })
 
@@ -78,11 +78,22 @@ describe('Favoritos con el catálogo real', () => {
     await screen.findByRole('region', { name: 'Los mejores restaurantes' })
   })
 
-  test('los favoritos guardados antes, solo con nombre, se siguen viendo', async () => {
-    save([{ name: 'Délice', img: 'x.webp' }])
+  test('los favoritos guardados antes con una tienda local (sin id numérico) ya no se muestran: no existen', async () => {
+    save([{ name: 'Délice', img: 'x.webp' }, { id: 'delice', name: 'Délice 2', img: 'y.webp' }, ...SAVED])
     stubFavorites()
     renderFavorites()
-    expect(region('Tus favoritos').getByAltText('Délice')).toBeTruthy()
+    expect(
+      region('Tus favoritos')
+        .getAllByRole('button')
+        .map((button) => button.querySelector('img').alt),
+    ).toEqual(['Pizzería de prueba Centro', 'Supermercado de prueba Centro'])
+    expect(screen.queryByAltText('Délice')).toBeNull()
+    await screen.findByRole('region', { name: 'Los mejores restaurantes' })
+
+    cleanup()
+    save([{ name: 'Délice', img: 'x.webp' }])
+    renderFavorites()
+    expect(region('Tus favoritos').getByText('Marca una tienda con ♥ y aparece aquí.')).toBeTruthy()
     await screen.findByRole('region', { name: 'Los mejores restaurantes' })
   })
 
@@ -102,9 +113,17 @@ describe('Favoritos con el catálogo real', () => {
       'Pastelería de prueba',
       'Sándwiches de prueba',
     ])
-    expect(titles('Los mejores supermercados')).toEqual(['Supermercado de prueba Centro', 'Supermercado de prueba Norte'])
-    const asked = fetchMock.mock.calls.map(([url]) => new URL(url)).find((url) => url.pathname === '/catalog/restaurants')
-    expect(Object.fromEntries(asked.searchParams)).toEqual({ sort: 'rating', limit: '4' })
+    expect(titles('Los mejores supermercados')).toEqual([
+      'Supermercado de prueba Centro',
+      'Supermercado de prueba Norte',
+    ])
+    // Pide solo lo que muestra.
+    const askedPath = (path) =>
+      Object.fromEntries(
+        fetchMock.mock.calls.map(([url]) => new URL(url)).find((url) => url.pathname === path).searchParams,
+      )
+    expect(askedPath('/catalog/restaurants')).toEqual({ sort: 'rating', limit: '4' })
+    expect(askedPath('/catalog/verticals/supermercado/stores')).toEqual({ limit: '2' })
   })
 
   test('ninguna tienda tocable en Favoritos es local (como en Restaurantes, Ofertas y Home): cada push de tienda lleva un id numérico', async () => {

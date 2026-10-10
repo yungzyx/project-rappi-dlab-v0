@@ -29,6 +29,15 @@ describe('tiendas de una vertical', () => {
     expect(lastPath(fetchMock)).toBe('/catalog/verticals/supermercado/stores')
   })
 
+  test('verticalStores pide solo las tiendas que se necesitan (limit); sin límite no manda query', async () => {
+    const fetchMock = stubApi({ '/catalog/verticals/supermercado/stores': fixture('catalog-vertical-stores') })
+
+    await verticalStores('supermercado')
+    expect(lastQuery(fetchMock)).toEqual({})
+    await verticalStores('supermercado', { limit: 2 })
+    expect(lastQuery(fetchMock)).toEqual({ limit: '2' })
+  })
+
   test('acepta el id del prototipo, que la API traduce', async () => {
     const reply = fixture('catalog-vertical-stores')
     const fetchMock = stubApi({ '/catalog/verticals/liquor/stores': { ...reply, vertical: 'licores' } })

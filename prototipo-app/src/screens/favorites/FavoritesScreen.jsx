@@ -18,7 +18,7 @@ const BEST_SUPERMARKETS = 2
 export default function FavoritesScreen({ push }) {
   const favorites = useFavorites()
   const bestRestaurants = useApi(() => restaurants({ sort: 'rating', limit: BEST_RESTAURANTS }), [])
-  const supermarkets = useApi(() => verticalStores('supermercado'), [])
+  const supermarkets = useApi(() => verticalStores('supermercado', { limit: BEST_SUPERMARKETS }), [])
   const openStore = (store) => push('store', { store })
 
   return (
@@ -44,7 +44,7 @@ export default function FavoritesScreen({ push }) {
 
       {supermarkets.data?.stores.length > 0 && (
         <Section title="Los mejores supermercados">
-          <CardRow stores={supermarkets.data.stores.slice(0, BEST_SUPERMARKETS)} onOpen={openStore} />
+          <CardRow stores={supermarkets.data.stores} onOpen={openStore} />
         </Section>
       )}
 
