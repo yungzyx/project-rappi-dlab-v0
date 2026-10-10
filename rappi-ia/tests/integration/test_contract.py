@@ -52,6 +52,13 @@ CONTRACT: tuple[Example, ...] = (
     Example("catalog-home", "GET", "/catalog/home"),
     Example("search-grouped", "GET", "/search?q=cerveza"),
     Example("search-grouped-unmet", "GET", "/search?q=xyzzy"),
+    Example(
+        "chat",
+        "POST",
+        "/chat",
+        {"message": "pizza", "vertical": "restaurants", "user_id": "u-contrato", "session_id": "s-contrato"},
+    ),
+    Example("recommendations", "GET", "/recommendations?user_id=u-contrato&vertical=restaurants"),
     Example("mochi-plans", "GET", "/mochi/plans"),
     Example("mochi-plan", "POST", "/mochi/offer", {"moment": "plan", "context": {"occasion": "carrete"}}),
     Example(
@@ -116,7 +123,17 @@ def client(db):
 
     api.app.dependency_overrides[api.get_conn] = conn_override
     api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
-    yield TestClient(api.app)
+    test_client = TestClient(api.app)
+    # Un perfil con un interés (pizza) para que /recommendations tenga filas que mostrar.
+    interest = {
+        "type": "search",
+        "session_id": "s-contrato",
+        "vertical": "restaurants",
+        "concept_id": "pizza",
+        "query": "pizza",
+    }
+    assert test_client.post("/events", json={"user_id": "u-contrato", "events": [interest]}).status_code == 200
+    yield test_client
     api.app.dependency_overrides.clear()
 
 
