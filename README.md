@@ -34,7 +34,7 @@ La señal existe: cada búsqueda y cada pedido dice algo de quien lo hace. Pero 
 
 ### Cómo cruza las verticales
 
-La app busca en las verticales que corresponden a la consulta (en todas si no detecta un concepto) y muestra un grupo por vertical, con la de la pantalla primero. Los intereses se guardan como **conceptos** comunes a todas (cerveza, snacks salados, pañales…), y una recomendación cruzada sigue tres pasos: concepto → complemento → búsqueda en la otra vertical.
+La app busca en las verticales que corresponden a la consulta (las de su concepto o su ocasión, como «carrete»; sin ninguno, en todas, y quedan solo las que calzan las palabras o se parecen mucho) y muestra un grupo por vertical, con la de la pantalla primero. Los intereses se guardan como **conceptos** comunes a todas (cerveza, snacks salados, pañales…), y una recomendación cruzada sigue tres pasos: concepto → complemento → búsqueda en la otra vertical.
 
 | Lo que hace la persona | Concepto | Complemento | Dónde se busca | Qué ve |
 |---|---|---|---|---|
@@ -52,7 +52,7 @@ El efecto real (frecuencia, venta cruzada, verticales nuevas por persona) solo s
 1. **Descarga (semanal).** `rappi refresh` lee las páginas públicas de rappi.cl y guarda catálogo, menús y precios con historial.
 2. **Postgres + pgvector.** El catálogo (capa 1) y `search_documents`, una partición por vertical.
 3. **IA offline.** Cada producto y plato recibe un concepto (capa 2), y los conceptos se enlazan con sus complementos. Una capa de datos suma atributos, medidas, marcas, un grafo de conocimiento y segmentos, y los expone en el esquema `capa` ([docs/capa-de-datos.md](docs/capa-de-datos.md)). Cada documento recibe un embedding de un modelo local multilingüe (e5), con un índice vectorial por vertical.
-4. **Consulta.** Búsqueda híbrida por vertical (la app consulta las verticales de la consulta, o todas si no detecta un concepto, y muestra un grupo por vertical): por palabras y por significado, combinadas por posición (RRF) y reforzadas por el concepto pedido. Mochi arma la respuesta y la sugerencia cruzada.
+4. **Consulta.** Búsqueda híbrida por vertical (la app consulta las verticales de la consulta, las de su concepto o su ocasión, o todas si no detecta ninguno, y muestra un grupo por vertical): por palabras y por significado, combinadas por posición (RRF) y reforzadas por el concepto pedido. Mochi arma la respuesta y la sugerencia cruzada.
 5. **Prototipo.** La API (FastAPI, puerto 8000) atiende al prototipo (5174). El prototipo no abre sin la API: muestra «Sin conexión con Mochi» (se levantan juntos con `make mvp`). Las verticales, las tiendas con sus pasillos, los restaurantes con su menú, Turbo, Ofertas, Favoritos y la Home leen el catálogo real de la API (`/catalog`); el buscador y Mochi (chat, kits, comentarios, «Para ti» y lo aprendido) también salen de la API, sin datos ni respuestas locales.
 
 **Mochi** en la API conversa por texto, voz (Whisper) o foto (CLIP); el prototipo usa solo el texto, como buscador. Reconoce servicios sin catálogo (un viaje lleva a **RappiTravel**, un envío o trámite a **RappiFavor**). Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó. Diseño completo: [docs/diseno-ia.md](docs/diseno-ia.md).

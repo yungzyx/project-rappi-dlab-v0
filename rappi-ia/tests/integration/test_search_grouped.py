@@ -13,6 +13,7 @@ from rappi_ia.agent.grouped_search import SCREEN_VERTICALS, search_grouped
 from rappi_ia.agent.verticals import ranked_verticals
 from rappi_ia.api import app as api
 from rappi_ia.api.services import Services
+from rappi_ia.concepts.taxonomy import load_taxonomy
 from rappi_ia.demo.seed import seed_demo
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
@@ -26,6 +27,32 @@ class CountingEmbedder(HashEmbedder):
     def embed_queries(self, texts: list[str]) -> np.ndarray:
         self.query_calls += 1
         return super().embed_queries(texts)
+
+
+class FixedCosineEmbedder(HashEmbedder):
+    """Toda consulta queda a coseno `cosine` de todo documento: como e5, donde los cosenos se concentran y aun una
+    consulta sin sentido supera el τ de las verticales con τ bajo (Mall y chocolaterías, 0,70)."""
+
+    def __init__(self, cosine: float):
+        super().__init__(model_name=f"coseno-fijo-{cosine}")
+        self.cosine = cosine
+
+    def embed_documents(self, texts: list[str]) -> np.ndarray:
+        out = np.zeros((len(texts), self.dim), dtype=np.float32)
+        out[:, 0] = 1.0
+        return out
+
+    def embed_queries(self, texts: list[str]) -> np.ndarray:
+        out = np.zeros((len(texts), self.dim), dtype=np.float32)
+        out[:, 0], out[:, 1] = self.cosine, (1 - self.cosine**2) ** 0.5
+        return out
+
+
+def _fixed_cosine(db, cosine: float) -> FixedCosineEmbedder:
+    seed_demo(db)
+    embedder = FixedCosineEmbedder(cosine)
+    embed_search_documents(db, embedder)
+    return embedder
 
 
 @pytest.fixture
@@ -67,7 +94,7 @@ def test_grouped_search_embeds_the_query_once(demo):
     db, embedder = demo
     embedder.query_calls = 0
 
-    search_grouped(db, "algo para el carrete", embedder, current=None, limit=6)
+    search_grouped(db, "lata", embedder, current=None, limit=6)
 
     assert embedder.query_calls == 1  # las 8 verticales comparten el vector
 
@@ -92,7 +119,7 @@ def test_grouped_search_looks_where_the_concept_is_typical_plus_the_current_vert
     assert searched == typical
 
     searched.clear()
-    search_grouped(db, "algo para el carrete", embedder, current="mall", limit=6)  # sin concepto: todas
+    search_grouped(db, "lata", embedder, current="mall", limit=6)  # sin concepto ni ocasión: todas
     assert sorted(searched) == sorted(VERTICALS)
 
 
@@ -188,3 +215,67 @@ def test_vertical_search_is_unchanged(client):
     assert client.get("/search", params={"q": "cerveza", "vertical": "aerolineas"}).status_code == 400
     assert client.get("/search", params={"q": "cerveza", "vertical": "pet"}).status_code == 400
     assert client.get("/search", params={"q": "cerveza", "mode": "otro"}).status_code == 400
+
+
+def test_grouped_search_without_a_concept_is_unmet_for_nonsense_although_low_tau_verticals_pass(db):
+    embedder = _fixed_cosine(db, 0.8)  # sobre el τ del Mall, las chocolaterías y Turbo; bajo el de todas a la vez
+
+    for query in ("xyzzy", "asdfgh"):
+        result = search_grouped(db, query, embedder, current=None, limit=6)
+
+        assert (result.groups, result.unmet) == ([], True), query
+        assert result.unmet_reason
+
+
+def test_grouped_search_without_a_concept_keeps_close_neighbours_over_the_all_verticals_cut(db):
+    embedder = _fixed_cosine(db, 0.95)
+
+    result = search_grouped(db, "xyzzy", embedder, current=None, limit=6)
+
+    assert result.groups and result.unmet is False  # el corte es más estricto, no «siempre sin resultado»
+
+
+def test_grouped_search_with_an_exact_word_in_one_vertical_shows_only_that_group(db):
+    embedder = _fixed_cosine(db, 0.8)
+    assert grouped_search.detect_concepts("ultradelgadas") == []
+
+    result = search_grouped(db, "ultradelgadas", embedder, current="mall", limit=6)
+
+    assert [group.vertical for group in result.groups] == ["farmacia"]  # solo las toallas; ni la pantalla actual
+    assert "Toallas higiénicas ultradelgadas x 10 (prueba)" in [p.name for p in result.groups[0].products]
+
+
+def test_grouped_search_for_an_occasion_goes_to_the_verticals_of_its_concepts(demo, monkeypatch):
+    db, embedder = demo
+    carrete = load_taxonomy().occasions["carrete"]
+    assert grouped_search.detect_concepts("algo para el carrete") == []
+    searched = []
+    real = grouped_search.search_products
+
+    def spy(conn, vertical, *args, **kwargs):
+        searched.append(vertical)
+        return real(conn, vertical, *args, **kwargs)
+
+    monkeypatch.setattr(grouped_search, "search_products", spy)
+
+    result = search_grouped(db, "algo para el carrete", embedder, current=None, limit=6)
+
+    assert searched == ranked_verticals(db, list(carrete.concepts))[:3]
+    assert result.groups and result.unmet is False
+    assert {p.concept for group in result.groups for p in group.products} <= set(carrete.concepts)
+    assert embedder.query_calls == 1
+
+
+def test_grouped_search_never_shows_a_sensitive_product_that_was_not_named(demo):
+    db, embedder = demo
+    sensitive = {c.id for c in load_taxonomy().concepts.values() if c.sensitive}
+    reached = 0
+    # Palabras de productos sensibles del seed (paracetamol, antiácido, gel íntimo) que no nombran su concepto.
+    for query in ("comprimidos", "efervescente", "hidratante", "prueba"):
+        assert grouped_search.detect_concepts(query) == [], query
+        result = search_grouped(db, query, embedder, current="farmacia", limit=50)
+
+        shown = [p for group in result.groups for p in group.products]
+        assert not [p.name for p in shown if p.concept in sensitive], query
+        reached += bool(shown)
+    assert reached >= 3  # las búsquedas traen otros productos: el filtro es de lo sensible, no de todo
