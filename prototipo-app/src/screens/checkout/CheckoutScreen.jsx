@@ -9,6 +9,7 @@ import { CardIcon, PinIcon } from '../../components/LineIcons'
 import { useAddress } from '../../state/AddressContext'
 import { sessionId, useEvents, userId } from '../../state/EventsContext'
 import { formatPrice, lineKey, useCart } from '../../state/CartContext'
+import CheckoutSuggestion from './CheckoutSuggestion'
 import { useOrders } from '../../state/OrdersContext'
 import { DEFAULT_TIP, TIPS, priceBreakdown } from './pricing'
 import './checkout.css'
@@ -115,6 +116,7 @@ export default function CheckoutScreen({ back, push }) {
             <ProductRow key={lineKey(product)} product={product} showStore />
           ))}
         </ul>
+        <CheckoutSuggestion />
 
         {!pickup && (
           <>
