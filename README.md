@@ -34,7 +34,7 @@ La señal existe: cada búsqueda y cada pedido dice algo de quien lo hace. Pero 
 
 ### Cómo cruza las verticales
 
-La app busca en todas las verticales y muestra un grupo por vertical, con la de la pantalla primero (quien está en Licores ve Licores arriba). Los intereses se guardan como **conceptos** comunes a todas (cerveza, snacks salados, pañales…), y una recomendación cruzada sigue tres pasos: concepto → complemento → búsqueda en la otra vertical.
+La app busca en las verticales que corresponden a la consulta (en todas si no detecta un concepto) y muestra un grupo por vertical, con la de la pantalla primero. Los intereses se guardan como **conceptos** comunes a todas (cerveza, snacks salados, pañales…), y una recomendación cruzada sigue tres pasos: concepto → complemento → búsqueda en la otra vertical.
 
 | Lo que hace la persona | Concepto | Complemento | Dónde se busca | Qué ve |
 |---|---|---|---|---|

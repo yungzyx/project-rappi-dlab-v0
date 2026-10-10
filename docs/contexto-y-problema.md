@@ -26,9 +26,9 @@ Sin ese mapa de contenido no se puede:
 
 ### Cómo lo aborda este prototipo
 
-**Buscar dentro del vertical; entender al usuario a través de los verticales.**
+**Buscar en las verticales de la consulta; entender al usuario a través de los verticales.**
 
-- La búsqueda sigue aislada por vertical: quien está en Licores quiere resultados de Licores.
+- La búsqueda va a las verticales que corresponden a la consulta (a todas si no detecta un concepto) y muestra un grupo por vertical, con la de la pantalla primero.
 - Los intereses del usuario se guardan como **conceptos** comunes a todos los verticales (cerveza, snacks, pañales).
 - La recomendación cruzada va de concepto → complemento → búsqueda en el índice del otro vertical. Por ejemplo, quien lleva cerveza en Licores ve snacks de Express, marcados "De Express" y con su razón visible.
 

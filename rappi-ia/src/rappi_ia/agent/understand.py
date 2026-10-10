@@ -1,7 +1,7 @@
 """Entender el mensaje: intención, vertical, conceptos, ocasión, filtros y consulta limpia (reglas; sin LLM).
 
-Corrige los errores del cerebro por reglas del prototipo:
-- un saludo al inicio ya no tapa el pedido ("hola, quiero sushi" → buscar sushi), y "hola buenas" u
+Lo que hace:
+- un saludo al inicio no tapa el pedido ("hola, quiero sushi" → buscar sushi), y "hola buenas" u
   "ok gracias" son saludo/agradecimiento, no una búsqueda;
 - palabras completas, no substrings ("bebestibles" no es bebé);
 - a la búsqueda va la consulta limpia (sin saludo, sin "quiero/tienen", sin el tope de precio);
