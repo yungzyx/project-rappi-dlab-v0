@@ -1,16 +1,18 @@
 import Img from '../../components/Img'
-import { BoltIcon, ClockIcon, StarIcon } from '../../components/Icons'
-import { StoreMeta } from '../../components/StoreMeta'
+import { StarIcon } from '../../components/Icons'
+import { EtaIcon, StoreMeta } from '../../components/StoreMeta'
 import './home.css'
 
 /**
  * Tarjeta ancha de restaurante o tienda (Home, Deals, Favorites).
- * Campos opcionales: rating, deliveryLabel (píldora amarilla), fee (costo de envío), distance, partial.
+ * Campos opcionales: rating, deliveryLabel (píldora amarilla), fee (costo de envío), distance, partial, logo (la foto es un
+ * logo y se ve entera).
  */
 export function RestaurantCard({ store, onClick }) {
+  const media = ['featured-media', store.logo && 'is-logo', store.partial && 'is-partial'].filter(Boolean).join(' ')
   return (
     <button type="button" className="featured-card tap" onClick={onClick}>
-      <span className={store.partial ? 'featured-media is-partial' : 'featured-media'}>
+      <span className={media}>
         <Img src={store.img} draggable="false" />
       </span>
       <span className="featured-name">
@@ -27,17 +29,18 @@ export function RestaurantCard({ store, onClick }) {
   )
 }
 
-/** Logo de tienda + nombre + horario, para la grilla "Stores near by you". */
+/** Logo de tienda + nombre + tiempo de entrega (si lo hay), para la grilla «Cerca de ti». */
 export function StoreTile({ store, onClick }) {
-  const Icon = store.scheduled ? ClockIcon : BoltIcon
   return (
     <button type="button" className="store-tile tap" onClick={onClick}>
       <Img src={store.img} />
       <span className="store-name">{store.name}</span>
-      <span className="store-when">
-        <Icon size={15} className={store.scheduled ? 'store-icon' : 'store-icon store-icon--bolt'} />
-        <span>{store.when}</span>
-      </span>
+      {store.eta && (
+        <span className="store-when">
+          <EtaIcon kind={store.etaIcon} size={15} />
+          <span>{store.eta}</span>
+        </span>
+      )}
     </button>
   )
 }

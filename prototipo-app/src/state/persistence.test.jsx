@@ -13,7 +13,7 @@ describe('persistencia en el navegador', () => {
     act(() => first.result.current.toggle({ name: 'Délice', img: 'x.webp', sections: [{ items: [] }] }))
     first.unmount()
     const second = renderHook(() => useFavorites(), { wrapper: FavoritesProvider })
-    expect(second.result.current.isFavorite('Délice')).toBe(true)
+    expect(second.result.current.isFavorite({ name: 'Délice' })).toBe(true)
     expect(second.result.current.stores[0].sections).toBeUndefined()
   })
 

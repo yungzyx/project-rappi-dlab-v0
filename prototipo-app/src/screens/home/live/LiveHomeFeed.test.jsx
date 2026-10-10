@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+import { fixture, stubApi } from '../../../api/testing'
 import { DATA } from '../../../game/data.js'
 import { KEY } from '../../../game/storage.js'
 import { seed } from '../../../game/testSeed.js'
@@ -57,6 +58,7 @@ beforeEach(async () => {
     return strict ? <StrictMode>{tree}</StrictMode> : tree
   }
   vi.useFakeTimers()
+  stubApi({}) // la Home pide su catálogo a la API: sin respuestas, esas secciones no se ven
 })
 
 beforeAll(() => {
@@ -70,6 +72,7 @@ afterAll(() => {
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
+  vi.unstubAllGlobals()
   localStorage.clear()
 })
 
@@ -130,6 +133,30 @@ describe('Home del prototipo final', () => {
     expect(screen.queryByText(/^Nuevo para ti:/)).toBeNull()
     expect(container.querySelector('.is-dim, .is-dimmed, [inert]')).toBeNull()
     expect(screen.queryByRole('button', { name: '¡Sí, tráelos!' })).toBeNull()
+  })
+
+  test('las listas de la API van en los bloques de siempre; si fallan, la Home sigue igual', async () => {
+    stubApi({
+      '/catalog/home': fixture('catalog-home'),
+      '/catalog/restaurants': fixture('catalog-restaurants').slice(0, 6),
+    })
+    const { container } = renderHome()
+    await advance(300)
+    const block = (id) => container.querySelector(`.live-block--${id}`)
+    expect(within(block('turbo')).getByText('Restaurantes rápidos')).toBeTruthy()
+    expect(within(block('nearby')).getByText('Cerca de ti')).toBeTruthy()
+    expect(within(block('nearby')).getByText('Supermercado de prueba Centro')).toBeTruthy()
+    expect(within(block('lower')).getByText('Mejor evaluados')).toBeTruthy()
+    expect(blockOrder(container)).toEqual(['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'lower'])
+
+    cleanup()
+    stubApi({ '/catalog/home': 'offline', '/catalog/restaurants': 'offline' })
+    const failed = renderHome()
+    await advance(300)
+    expect(failed.container.querySelector('.live-block--nearby').textContent).toBe('')
+    expect(failed.container.querySelector('.live-block--lower').textContent).toBe('')
+    expect(blockOrder(failed.container)).toEqual(['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'lower'])
+    expect(screen.queryByText('Sin conexión')).toBeNull()
   })
 
   test('el pasaporte va justo bajo los accesos de siempre', () => {

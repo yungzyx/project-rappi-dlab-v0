@@ -197,10 +197,42 @@ describe('sugerencia cruzada', () => {
     fireEvent.click(screen.getByText('Bebida Pepsi 1,5 L'))
     fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ })) // la tarjeta abre la hoja del producto
     await runUntilIdle()
-    expect(push).toHaveBeenCalledWith(
-      'store',
-      expect.objectContaining({ item: expect.objectContaining({ entityId: '1', vertical: 'liquor', backendVertical: 'licores' }) }),
-    )
+    expect(push).toHaveBeenCalledWith('store', {
+      // La tienda de la API se abre por su id, con la vertical del prototipo; no se busca por nombre en el catálogo local.
+      store: { id: 7, name: 'Botillería', vertical: 'liquor' },
+      item: expect.objectContaining({ entityId: '1', vertical: 'liquor', backendVertical: 'licores' }),
+    })
+  })
+
+  test('el «Ver tienda» de un plato abre el menú de su restaurante por id', async () => {
+    const push = vi.fn()
+    api.chat.mockResolvedValueOnce({
+      ...apiAnswer('Mira estas hamburguesas', 'hamburguesa'),
+      suggestion: {
+        ...apiAnswer('', 'hamburguesa').suggestion,
+        products: [
+          {
+            id: 'menu-5',
+            entity_type: 'menu_item',
+            entity_id: '5',
+            name: 'Hamburguesa clásica',
+            store: 'Hamburguesería de prueba',
+            store_id: 9803,
+            vertical: 'restaurantes',
+          },
+        ],
+      },
+    })
+    await renderPanel({ push })
+    say('una hamburguesa')
+    await runUntilIdle()
+
+    fireEvent.click(screen.getByText('Hamburguesa clásica'))
+    fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ }))
+    await runUntilIdle()
+    expect(push).toHaveBeenCalledWith('store', expect.objectContaining({
+      store: { id: 9803, name: 'Hamburguesería de prueba', vertical: 'restaurants' },
+    }))
   })
 })
 

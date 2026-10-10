@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { PLACEHOLDER_IMG } from '../components/Img'
-import { deals, home, menu, product, restaurants, store, toPrototypeStore, verticalStores } from './catalog'
-import { ApiError } from './client'
+import { deals, home, menu, product, restaurants, store, storeOfProduct, toPrototypeStore, verticalStores } from './catalog'
+import { ApiError, toPrototypeProduct } from './client'
 import { fixture, stubApi } from './testing'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -241,5 +241,16 @@ describe('toPrototypeStore', () => {
   test('una vertical que el prototipo no conoce queda con su código', () => {
     const card = { id: 1, name: 'T', logo: 'x.png', eta: '10 min', products: 1, vertical: 'otra' }
     expect(toPrototypeStore(card).vertical).toBe('otra')
+  })
+})
+
+describe('storeOfProduct', () => {
+  test('la tienda de un producto de la API se abre por su id, con la vertical del prototipo', () => {
+    const [cola] = fixture('catalog-deals')
+    expect(storeOfProduct(toPrototypeProduct(cola))).toEqual({
+      id: 9102,
+      name: 'Supermercado de prueba Norte',
+      vertical: 'grocery',
+    })
   })
 })

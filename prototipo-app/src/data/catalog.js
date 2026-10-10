@@ -1,7 +1,16 @@
 // Índice de todo lo que muestra el prototipo, para el buscador y la página de tienda.
-import { LOWER_FEES, MOST_ORDERED, NEW_IN_RAPPI, CRAZY_DEALS, TOP_PIZZAS, GROCERY_SECTIONS } from '../screens/deals/data'
-import { TURBO_RESTAURANTS, NEARBY_STORES } from './home'
-import { BEST_RESTAURANTS, BEST_GROCERY } from '../screens/favorites/data'
+import {
+  BEST_GROCERY,
+  BEST_RESTAURANTS,
+  CRAZY_DEALS,
+  GROCERY_SECTIONS,
+  LOWER_FEES,
+  MOST_ORDERED,
+  NEARBY_STORES,
+  NEW_IN_RAPPI,
+  TOP_PIZZAS,
+  TURBO_RESTAURANTS,
+} from './transcribedCatalog'
 import { VERTICAL_PRODUCTS, VERTICAL_STORES } from './verticalCatalog'
 import { REAL_DISHES, REAL_RESTAURANTS } from './realMenus'
 

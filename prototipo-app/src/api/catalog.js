@@ -47,6 +47,12 @@ export function toPrototypeStore(card) {
   }
 }
 
+/**
+ * La tienda de un producto o plato de la API, para abrir su página (`push('store', { store })`): se abre por su id.
+ * Un plato (`vertical: 'restaurants'`) abre el menú de su restaurante.
+ */
+export const storeOfProduct = (product) => ({ id: product.storeId, name: product.store, vertical: product.vertical })
+
 /** Las tiendas de una vertical (código del backend o id del prototipo): `{ vertical, stores }`. */
 export async function verticalStores(vertical) {
   const reply = await read(`/catalog/verticals/${segment(vertical)}/stores`)

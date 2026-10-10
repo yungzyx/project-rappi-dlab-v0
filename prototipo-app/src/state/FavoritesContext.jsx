@@ -8,6 +8,12 @@ const isStoredStores = (value) =>
 // Sin el menú real (`sections`): la pestaña solo necesita nombre y foto, y el catálogo completa el resto al abrirla.
 const light = (stores) => stores.map(({ sections: _sections, ...store }) => store)
 
+/**
+ * ¿Es la misma tienda? Por `id` cuando las dos lo traen (dos sucursales pueden llamarse igual); los favoritos guardados
+ * antes solo tienen nombre, y con ellos se compara por nombre.
+ */
+const sameStore = (a, b) => (a.id != null && b.id != null ? String(a.id) === String(b.id) : a.name === b.name)
+
 const FavoritesContext = createContext(null)
 
 /** Tiendas que el usuario marca con ♥ en la página de tienda; se suman a "Favorite stores" y se guardan en el navegador. */
@@ -21,10 +27,12 @@ export function FavoritesProvider({ children }) {
   const value = useMemo(
     () => ({
       stores,
-      isFavorite: (name) => stores.some((store) => store.name === name),
+      isFavorite: (store) => stores.some((saved) => sameStore(saved, store)),
       toggle: (store) =>
         setStores((prev) =>
-          prev.some((s) => s.name === store.name) ? prev.filter((s) => s.name !== store.name) : [store, ...prev],
+          prev.some((saved) => sameStore(saved, store))
+            ? prev.filter((saved) => !sameStore(saved, store))
+            : [store, ...prev],
         ),
     }),
     [stores],

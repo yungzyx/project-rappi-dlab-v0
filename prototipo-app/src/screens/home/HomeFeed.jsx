@@ -5,7 +5,15 @@ import { ChevronDown } from '../../components/Icons'
 import { useScrollState } from '../../hooks/useScrollState'
 import { useAddress } from '../../state/AddressContext'
 import CreditsBanner from './CreditsBanner'
-import { LowerFees, MainTiles, NearbyStores, Promos, Shortcuts, TurboRestaurants } from './HomeSections'
+import {
+  BestRated,
+  FastRestaurants,
+  MainTiles,
+  NearbyStores,
+  Promos,
+  Shortcuts,
+  useHomeCatalog,
+} from './HomeSections'
 import { CREDITS } from '../../data/home'
 import './home.css'
 
@@ -16,6 +24,7 @@ const BACK_TO_TOP_FROM_PX = 600
 /** La Home de «Rappi hoy»: tal como es la app, sin Mochi. La del prototipo final es LiveHomeFeed. */
 export default function HomeFeed({ push }) {
   const address = useAddress()
+  const catalog = useHomeCatalog()
   const openSearch = () => push('search')
   const screenRef = useRef(null)
   const [{ collapsed: isCollapsed, showBackToTop }, onScroll] = useScrollState({
@@ -55,9 +64,9 @@ export default function HomeFeed({ push }) {
         <MainTiles push={push} />
         <Shortcuts push={push} />
         <Promos push={push} />
-        <TurboRestaurants push={push} />
-        <NearbyStores push={push} />
-        <LowerFees push={push} />
+        <FastRestaurants stores={catalog.fastRestaurants} push={push} />
+        <NearbyStores stores={catalog.nearbyStores} push={push} />
+        <BestRated stores={catalog.bestRated} push={push} />
       </div>
     </>
   )

@@ -24,6 +24,9 @@
   height: 59px;
   border-radius: 50%;
   overflow: hidden;
+  /* mismo anillo gris que las tiendas de la app */
+  border: 2px solid #eceef1;
+  animation: fav-in 360ms var(--ease-out);
 }
 
 .favorite-logo img {
@@ -32,10 +35,10 @@
   object-fit: cover;
 }
 
-/* Tiendas agregadas con ♥: foto recortada en círculo con el mismo anillo gris */
-.favorite-logo.is-new {
-  border: 2px solid #eceef1;
-  animation: fav-in 360ms var(--ease-out);
+/* Tienda con logo en vez de foto: se ve entero */
+.favorite-logo.is-logo img {
+  object-fit: contain;
+  padding: 6px;
 }
 
 @keyframes fav-in {
@@ -43,6 +46,13 @@
     transform: scale(0.6);
     opacity: 0;
   }
+}
+
+.favorites-empty {
+  padding: 26px var(--gutter) 0;
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 .favorites-row {

@@ -59,7 +59,7 @@ export default function StoreScreen({ back, params }) {
   const notInCatalog = id === null || error?.status === 404
   // Lo que manda la API (foto, tiempo, nota) reemplaza al enlace; mientras llega se ve lo que traía el enlace.
   const store = data?.store ?? given
-  const isFavorite = favorites.isFavorite(store.name)
+  const isFavorite = favorites.isFavorite(store)
 
   // Una vez por tienda: StrictMode monta dos veces en desarrollo, y cambiar de pasillo vuelve a traer la misma tienda.
   const tracked = useRef(null)

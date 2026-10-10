@@ -1,6 +1,7 @@
 import HScroll from '../../../components/HScroll'
 import Img from '../../../components/Img'
 import { ProductCard } from '../../../components/ProductCard'
+import { storeOfProduct } from '../../../api/catalog'
 import { formatPrice, parsePrice } from '../../../state/CartContext'
 import { storeFor } from '../../../data/catalog'
 import { VERTICAL_NAMES } from '../../../data/verticals'
@@ -9,16 +10,15 @@ import { stampedVerticals, verticalLevel } from '../../../game/progress.js'
 import { GAME_TO_SCREEN, PASSPORT_GOAL, PASSPORT_ORDER } from '../../../game/verticals.js'
 import { PLANS } from './script'
 
-/** Abre la tienda de un producto o una tienda (un plato real abre su sucursal por id). */
+/** Abre la tienda de un producto o una tienda (un producto o plato de la API la abre por su id). */
 export function openItem(item, push) {
   if (item.kind === 'store') return push('store', { store: item.store })
   const { product } = item
   return push('store', {
-    store: storeFor({ id: product.storeId, name: product.store }) ?? {
-      name: product.store,
-      img: product.storeLogo ?? product.img,
-      logo: true,
-    },
+    store:
+      product.storeId != null
+        ? storeOfProduct(product)
+        : (storeFor({ name: product.store }) ?? { name: product.store, img: product.storeLogo ?? product.img, logo: true }),
     item: product,
   })
 }

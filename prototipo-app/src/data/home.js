@@ -6,7 +6,6 @@ import chipPharmacy from '../assets/chip-pharmacy.webp'
 import chipRetail from '../assets/chip-retail.webp'
 import chipLiquor from '../assets/chip-liquor.webp'
 import chipExpress from '../assets/chip-express.webp'
-import chipPet from '../assets/chip-pet.webp'
 import chipChocolates from '../assets/chip-chocolates.webp'
 import chipRappiTravel from '../assets/chip-rappitravel.webp'
 import chipLoyalty from '../assets/chip-loyalty.webp'
@@ -14,14 +13,6 @@ import chipBenefitsPro from '../assets/chip-benefitspro.webp'
 import chipRappiFavorOff from '../assets/chip-rappifavor-off.webp'
 import bannerDescuentos from '../assets/banner-descuentos.webp'
 import bannerCena from '../assets/banner-cena.webp'
-import featKfc from '../assets/feat-kfc.webp'
-import featMcd from '../assets/feat-mcd.webp'
-import storeUnimarc from '../assets/store-unimarc.webp'
-import storeFarmacias from '../assets/store-farmacias.webp'
-import storeCruzVerde from '../assets/store-cruzverde.webp'
-import storeOxxo from '../assets/store-oxxo.webp'
-import storeMiMarket from '../assets/store-mimarket.webp'
-import storeLiquidos from '../assets/store-liquidos.webp'
 
 export const CREDITS = {
   logo: creditsCoin,
@@ -44,7 +35,6 @@ export const SHORTCUTS = [
   { id: 'retail', label: 'Retail', img: chipRetail, route: ['vertical', { id: 'retail' }] },
   { id: 'liquor', label: 'Liquor', img: chipLiquor, route: ['vertical', { id: 'liquor' }] },
   { id: 'express', label: 'Express', img: chipExpress, route: ['vertical', { id: 'express' }] },
-  { id: 'pet', label: 'Pet', img: chipPet, route: ['vertical', { id: 'pet' }] },
   { id: 'chocolates', label: 'Chocolates', img: chipChocolates, route: ['vertical', { id: 'chocolates' }] },
   { id: 'rappitravel', label: 'RappiTravel', img: chipRappiTravel, route: ['travel'] },
   { id: 'loyalty', label: 'Loyalty', img: chipLoyalty, route: ['loyalty'] },
@@ -65,20 +55,3 @@ export const PROMOS = [
   { id: 'cena', label: 'Cena con descuento', img: bannerCena, fit: 'cover', route: ['restaurants'] },
 ]
 export const PROMO_START_INDEX = 1
-
-export const TURBO_RESTAURANTS = [
-  { id: 'kfc', name: 'Kfc Turbo', rating: '4.6', eta: '9 mins', distance: '1.2 km', img: featKfc, turbo: true },
-  { id: 'mcd', name: "Mcdonald's Turbo", rating: '4.5', eta: '9 mins', distance: '1.4 km', img: featMcd, turbo: true },
-]
-
-export const NEARBY_STORES = [
-  { id: 'unimarc', name: 'Unimarc', when: 'Sun, 9 AM', scheduled: true, img: storeUnimarc },
-  { id: 'farmacias', name: 'Farmacias Ahumada', when: 'Sun, 11 AM', img: storeFarmacias },
-  { id: 'cruzverde', name: 'Cruz Verde', when: '26 min or sooner', img: storeCruzVerde },
-  { id: 'oxxo', name: 'OXXO', when: '21 min or sooner', img: storeOxxo },
-  { id: 'mimarket', name: 'Mi Market', when: '25 min or sooner', img: storeMiMarket },
-  { id: 'liquidos', name: 'Liquidos', when: '23 min or sooner', img: storeLiquidos },
-]
-
-// En el video la fila de la Home queda tapada por la barra; se usa la misma lista que en Deals.
-export { LOWER_FEES } from '../screens/deals/data'

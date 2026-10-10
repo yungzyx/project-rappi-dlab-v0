@@ -70,8 +70,3 @@
   padding: 0 var(--gutter);
   scroll-padding-left: var(--gutter);
 }
-
-.card-row--static {
-  display: flex;
-  overflow: hidden;
-}

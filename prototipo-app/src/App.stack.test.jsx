@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+import { stubApi } from './api/testing'
 import App from './App'
 
 vi.mock('./api/client', async (importOriginal) => ({
@@ -14,11 +15,13 @@ afterAll(() => {
   delete Element.prototype.scrollTo
 })
 beforeEach(() => {
+  stubApi({}) // la Home pide su catálogo a la API
   localStorage.setItem('rappi-proto-demo-mode', 'actual')
   window.history.replaceState(null, '', '/')
 })
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
   localStorage.clear()
 })
 

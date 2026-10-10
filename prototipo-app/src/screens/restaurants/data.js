@@ -14,21 +14,17 @@ export const FILTERS = [
 ]
 
 // "Experiencia Culinaria" queda cortada en el borde de la captura; se recorta igual.
+// `cuisine`: la cocina de la API (`/catalog/restaurants?cuisine=`) que filtra la lista; sin ella, la categoría abre el buscador.
 export const CATEGORIES = [
   { id: 'turbo', label: 'Turbo Restaurantes', img: rcatTurbo, query: 'turbo' },
-  { id: 'pizzas', label: 'Pizzas', img: rcatPizza, query: 'pizza' },
-  { id: 'hamburguesa', label: 'Hamburguesa', img: rcatBurger, query: 'burger' },
-  { id: 'culinaria', label: 'Experiencia Culinaria', img: rcatCulinaria, partial: true, query: 'restaurante' },
+  { id: 'pizzas', label: 'Pizzas', img: rcatPizza, cuisine: 'Pizzas' },
+  { id: 'hamburguesa', label: 'Hamburguesa', img: rcatBurger, cuisine: 'Hamburguesa' },
+  { id: 'culinaria', label: 'Experiencia Culinaria', img: rcatCulinaria, partial: true, cuisine: 'Experiencias Culinarias' },
 ]
 
-// En la captura solo se ve el primer banner (Tung Fong).
+// En la captura solo se ve el primer banner (Tung Fong). Son publicidad de la app, no tiendas del catálogo: no abren ninguna.
 export const BANNERS = [
-  { id: 'tungfong', img: bannerTungFong, store: { name: 'Tung Fong', img: bannerTungFong, eta: '30 min', deliveryLabel: 'FREE DELIVERY' } },
+  { id: 'tungfong', label: 'Tung Fong', img: bannerTungFong },
   { id: 'streetwrap', title: 'Enjoy Up to 40% Off', place: 'at Street Wrap', img: againStreetWrap },
   { id: 'mcd', title: 'Enjoy Up to 33% Off', place: "at Mcdonald's - Turbo", img: againMcd },
-]
-
-export const ORDER_AGAIN = [
-  { id: 'streetwrap', name: 'Street Wrap', eta: '14 min', img: againStreetWrap },
-  { id: 'mcd', name: "Mcdonald's - Turbo", eta: '11 min', img: againMcd },
 ]
