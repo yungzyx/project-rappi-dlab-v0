@@ -286,6 +286,64 @@ describe('Home del prototipo final', () => {
       expect(status(container)).toMatch(/^Arriba está mi buscador/)
     })
 
+    test('si tocan a Mochi en medio, la guía termina (vista) y Mochi sigue celebrando al volver', async () => {
+      seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
+      const { container, rerender } = renderHome()
+      await advance(AFTER_GREETING)
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(3000)
+      expect(status(container)).toMatch(/^¿Y si pruebas/)
+      expect(localStorage.getItem(memory.TOUR_KEY)).toBeTruthy()
+      rerender(homeTree({ active: false }))
+      memory.session.newStamp = 'liquor'
+      rerender(homeTree({ active: true }))
+      await advance(2000)
+      expect(status(container)).toMatch(/^¡Sello nuevo de Licores!/)
+    })
+
+    test('no pisa lo que la persona pidió tocando a Mochi justo antes', async () => {
+      const { container } = renderHome()
+      await advance(900 + 3400 + 700)
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(5000)
+      expect(status(container)).toMatch(/^¿Y si pruebas/)
+    })
+
+    test('el plan del día no interrumpe la guía', async () => {
+      let seePlan
+      globalThis.IntersectionObserver = class {
+        constructor(callback) {
+          seePlan = callback
+        }
+        observe() {}
+        disconnect() {}
+      }
+      try {
+        const { container } = renderHome()
+        await advance(AFTER_GREETING)
+        act(() => seePlan([{ isIntersecting: true }]))
+        await advance(1000)
+        expect(status(container)).toMatch(/^Arriba está mi buscador/)
+      } finally {
+        delete globalThis.IntersectionObserver
+      }
+    })
+
+    test('al terminar la guía, Mochi muestra lo pendiente de «al volver»', async () => {
+      seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
+      const { container, rerender } = renderHome()
+      await advance(AFTER_GREETING)
+      rerender(homeTree({ active: false })) // se abrió algo encima en medio de la guía
+      memory.session.newStamp = 'liquor'
+      rerender(homeTree({ active: true }))
+      await advance(2000)
+      expect(status(container)).toMatch(/^Arriba está mi buscador/) // la guía sigue
+      await next('Siguiente')
+      await next('Siguiente')
+      await next('Listo')
+      expect(status(container)).toMatch(/^¡Sello nuevo de Licores!/)
+    })
+
     test('con «reducir movimiento» también funciona', async () => {
       const original = window.matchMedia
       window.matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} })

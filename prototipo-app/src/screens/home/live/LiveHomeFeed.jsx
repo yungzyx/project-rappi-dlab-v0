@@ -100,13 +100,25 @@ export default function LiveHomeFeed({ push, active = true }) {
     [clearTimers],
   )
 
+  // El globo a la vista y si es de la guía de la primera vez (se leen en timers y efectos, no en el render).
+  const said = useRef(null)
+  const touring = useRef(false)
+
   /** Mochi dice algo (o se calla con `null`); con `holdMs` el globo se va solo. Cada frase reemplaza a la anterior. */
   const speak = useCallback((next, at = null, holdMs = 0) => {
+    // Cualquier otro globo que reemplace a la guía la termina: queda vista y no vuelve.
+    if (touring.current && !next?.tour) {
+      touring.current = false
+      markTourSeen()
+    }
+    if (next?.tour) touring.current = true
+    said.current = next
     clearTimeout(hideTimer.current)
     setSay(next)
     setTarget(at)
     if (next && holdMs)
       hideTimer.current = setTimeout(() => {
+        said.current = null
         setSay(null)
         setTarget(null)
       }, holdMs)
@@ -127,18 +139,17 @@ export default function LiveHomeFeed({ push, active = true }) {
     [game, push],
   )
 
-  // La guía: cada paso espera a que la persona siga; «Saltar» o «Listo» la terminan para siempre.
-  const touring = useRef(false)
+  // La guía: cada paso espera a que la persona siga; «Saltar» o «Listo» la terminan para siempre (speak la marca
+  // vista) y entonces Mochi muestra lo que quedó pendiente de «al volver».
   const endTour = () => {
-    touring.current = false
-    markTourSeen()
     speak(null)
+    welcomeBack()
   }
   const showTour = (step) => {
-    touring.current = true
     const last = step === TOUR.length - 1
     speak(
       {
+        tour: true,
         text: TOUR[step].text,
         mood: 'wave',
         gesture: TOUR[step].gesture,
@@ -171,9 +182,10 @@ export default function LiveHomeFeed({ push, active = true }) {
       setEntering(false)
       session.played = true
     })
-    // Cuando el saludo termina, la primera vez: la guía (en silencio, no).
+    // Cuando el saludo termina, la primera vez: la guía (en silencio, no; ni encima de algo que la persona pidió).
     later((reduceMotion ? 0 : T.enter) + T.greetHold, () => {
-      if (!silent() && !tourSeen()) showTour(0)
+      const free = !said.current || said.current.text === GREETING
+      if (free && !silent() && !tourSeen()) showTour(0)
     })
     return clearTimers
     // Solo al montar (o al repetir la escena).
@@ -181,9 +193,9 @@ export default function LiveHomeFeed({ push, active = true }) {
   }, [replays])
 
   // Al volver a la Home: celebra un sello nuevo o comenta lo último que se agregó al carro. La Home queda montada bajo
-  // las pantallas que se abren encima (`active` es si está arriba), así que corre cada vez que vuelve a estar arriba.
-  useEffect(() => {
-    if (!active || !session.played || touring.current) return
+  // las pantallas que se abren encima (`active` es si está arriba), así que corre cada vez que vuelve a estar arriba;
+  // durante la guía espera, y corre al terminarla.
+  function welcomeBack() {
     // Lo pendiente se borra de la sesión recién cuando Mochi habla: en desarrollo, StrictMode monta dos veces y la
     // primera vez se cancelan los timers.
     if (silent()) {
@@ -238,6 +250,10 @@ export default function LiveHomeFeed({ push, active = true }) {
         )
       }
     }
+  }
+  useEffect(() => {
+    if (!active || !session.played || touring.current) return
+    welcomeBack()
     // Solo al volver a estar arriba (y al montar).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
@@ -248,7 +264,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     if (!element || typeof IntersectionObserver === 'undefined') return undefined
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting || session.planPrompted || !session.played || silent()) return
+        if (!entry.isIntersecting || session.planPrompted || !session.played || silent() || touring.current) return
         session.planPrompted = true
         speak(
           {
