@@ -31,6 +31,7 @@ from ..retrieval.hybrid import MODES
 from .agent import router as agent_router
 from .catalog import router as catalog_router
 from .deps import Clean, backend_vertical, get_conn, get_services
+from .game import router as game_router
 from .services import Services, services
 
 log = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=config.API_CORS_ORIGINS,
     allow_origin_regex=cors_origin_regex(config.API_ALLOW_LAN),
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["content-type"],
 )
 
@@ -453,3 +454,4 @@ def _log_ask(conn, user_id, session_id, text, response, modality, mode) -> None:
 
 app.include_router(catalog_router)
 app.include_router(agent_router)
+app.include_router(game_router)

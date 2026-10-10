@@ -29,7 +29,8 @@ FIXTURES = Path(__file__).resolve().parents[3] / "prototipo-app" / "src" / "api"
 class Example:
     """Una petición a la API cuya respuesta es el ejemplo `<name>.json` que usa la app.
 
-    Con `status=204` no hay cuerpo que guardar: el ejemplo es solo el estado.
+    Con `status=204` no hay cuerpo que guardar: el ejemplo es solo el estado. Cada test parte de una base nueva: un
+    ejemplo que lee lo que otro guardó nombra a ese otro en `after`, y el test lo pide antes.
     """
 
     name: str
@@ -37,6 +38,7 @@ class Example:
     path: str  # con su query string, si la tiene
     body: dict | None = None
     status: int = 200
+    after: str | None = None  # el Example que se pide antes: cada test parte de una base nueva
 
 
 # Las etapas siguientes agregan aquí los endpoints que la app consume.
@@ -106,6 +108,28 @@ CONTRACT: tuple[Example, ...] = (
         "/agent/offer",
         {"moment": "vertical_por_probar", "context": {"stamped": ["supermercado"]}},
     ),
+    Example("game-cards", "GET", "/game/cards?vertical=supermercado"),
+    Example(
+        "game-state-put",
+        "PUT",
+        "/game/state/u-contrato",
+        {
+            "state": {
+                "version": 1,
+                "xp": 10,
+                "discovered": {"supermercado": ["supermercado-01"]},
+                "correct": {},
+                "answered": {},
+                "cards": ["supermercado-01"],
+                "opened": [],
+                "daily": {"date": "2026-10-10", "discovered": 1, "correct": 0, "opened": 0, "done": False},
+                "streak": {"count": 0, "lastDate": None},
+                "seenIntro": True,
+                "visited": ["supermercado"],
+            }
+        },
+    ),
+    Example("game-state", "GET", "/game/state/u-contrato", after="game-state-put"),
 )
 
 
@@ -176,6 +200,9 @@ def response(status: int, body: dict | None = None) -> SimpleNamespace:
 
 @pytest.mark.parametrize("example", CONTRACT, ids=lambda example: example.name)
 def test_contract_examples_are_up_to_date(client, example):
+    if example.after:
+        before = next(e for e in CONTRACT if e.name == example.after)
+        assert client.request(before.method, before.path, json=before.body).status_code == before.status
     reply = client.request(example.method, example.path, json=example.body)
     check_example(example, reply, FIXTURES, write=os.environ.get("RAPPI_CONTRACT_WRITE") == "1")
 
