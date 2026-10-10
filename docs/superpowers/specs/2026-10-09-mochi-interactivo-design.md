@@ -39,8 +39,8 @@ más (no encontrar algo, esperar el pedido, pagar), sin volverse molesto. Todo s
 
 ### Etapa 3 · Momentos clave
 
-- **Sin resultados:** si la búsqueda de una vertical no encuentra nada y otra vertical sí (datos del prototipo; con la
-  API, la regla «disponible en otra vertical» que ya usa el agente), en lugar de solo «No results» aparece Mochi tímido:
+- **Sin resultados:** el buscador busca en los datos del prototipo. Si no encuentra nada pero la consulta es de un tema
+  conocido («chela» → cerveza), en lugar de solo «No results» aparece Mochi tímido:
   «Aquí no hay {consulta}, pero en {vertical} sí» con «Ver en {vertical}». Si ninguna lo tiene, Mochi lo dice y ofrece
   «Probar otra búsqueda». Nunca ofrece Farmacia por iniciativa propia (regla de no empujar la salud).
 - **Pedido en camino:** en el mapa, la pose sigue la etapa: preparando → tímido (pensando), en camino → frontal,
