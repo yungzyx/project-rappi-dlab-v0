@@ -1,41 +1,40 @@
 import { makeChallenge } from './challenges.js'
-import { conceptsOf } from './data.js'
+import { DATA } from './data.js'
+import { asChallenge, datosOf, preguntasOf } from './knowledge.js'
 
 export const ROUND_SIZE = 5
-const MAX_DISCOVERIES = 2
-const MAX_TRIES = 30
 
 /**
- * Una ronda de juego en una vertical: hasta 2 conceptos nuevos (los de más productos primero) intercalados con
- * desafíos. Los desafíos siguen la semilla de cuántos lleva la vertical, sin repetir una pregunta en la ronda.
+ * Las n tarjetas que tocan: primero las que no se han visto (en el orden del archivo) y, si faltan, las ya vistas, que
+ * van rotando según cuántas preguntas lleva respondidas la vertical (así una ronda repetida no es siempre igual).
+ */
+function pick(cards, seen, n, turn) {
+  const fresh = cards.filter((card) => !seen.has(card.id))
+  const old = cards.filter((card) => seen.has(card.id))
+  const start = old.length ? turn % old.length : 0
+  return [...fresh, ...old.slice(start), ...old.slice(0, start)].slice(0, n)
+}
+
+/**
+ * Una ronda en una vertical: 2 datos «¿Sabías que…?», 2 preguntas de conocimiento y 1 desafío del catálogo (la
+ * pregunta del día de challenges.js), intercalados. Viajes no tiene catálogo: cambia el desafío por otra pregunta.
  */
 export function makeRound(state, vertical) {
   const seen = new Set(state.discovered[vertical] ?? [])
-  const fresh = conceptsOf(vertical)
-    .filter((c) => !seen.has(c.id))
-    .slice(0, MAX_DISCOVERIES)
-
-  const base = state.answered[vertical] ?? 0
-  const questions = new Set()
-  const challenges = []
-  for (let seed = base; challenges.length < ROUND_SIZE - fresh.length && seed < base + MAX_TRIES; seed++) {
-    const challenge = makeChallenge(vertical, String(seed))
-    const key = challenge.question + challenge.answer
-    if (questions.has(key)) continue
-    questions.add(key)
-    challenges.push(challenge)
-  }
-
-  // Descubrir, desafío, descubrir, desafío...: así la ronda empieza fácil y alterna.
-  if (!challenges.length) challenges.push(makeChallenge(vertical, String(base)))
-
-  const steps = []
-  const pending = [...fresh]
-  for (const challenge of challenges) {
-    if (pending.length) steps.push({ type: 'descubrir', concept: pending.shift() })
-    steps.push({ type: 'desafio', challenge })
-  }
-  return [...steps, ...pending.map((concept) => ({ type: 'descubrir', concept }))]
+  const turn = state.answered[vertical] ?? 0
+  const hasCatalog = DATA.order.includes(vertical)
+  const [d1, d2] = pick(datosOf(vertical), seen, 2, turn)
+  const [p1, p2, p3] = pick(preguntasOf(vertical), seen, hasCatalog ? 2 : 3, turn)
+  const middle = hasCatalog
+    ? { type: 'desafio', challenge: makeChallenge(vertical, String(turn)) }
+    : { type: 'pregunta', challenge: asChallenge(p3) }
+  return [
+    { type: 'dato', card: d1 },
+    { type: 'pregunta', challenge: asChallenge(p1) },
+    { type: 'dato', card: d2 },
+    middle,
+    { type: 'pregunta', challenge: asChallenge(p2) },
+  ]
 }
 
 /** 3 estrellas sin errores, 2 con 60 % o más de aciertos, 1 con al menos un acierto. */

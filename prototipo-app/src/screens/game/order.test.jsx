@@ -70,7 +70,7 @@ describe('ronda mientras llega el pedido', () => {
     const round = makeRound({ ...initialState(), visited: [] }, 'turbo')
     const back = renderRound()
     for (const step of round) {
-      if (step.type === 'descubrir') fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
+      if (step.type === 'dato') fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
       else {
         const label = step.challenge.options.find((o) => o.id === step.challenge.answer).label
         fireEvent.click(within(screen.getByRole('group', { name: 'Opciones' })).getByRole('button', { name: label }))

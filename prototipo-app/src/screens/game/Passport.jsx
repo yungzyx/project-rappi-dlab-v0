@@ -1,8 +1,8 @@
 import { Crown } from '@phosphor-icons/react'
 import MapView from './MapView.jsx'
 import Stamp, { LEVEL_NAMES } from './Stamp.jsx'
-import { DATA } from '../../game/data.js'
 import { conoceRappi, verticalLevel } from '../../game/progress.js'
+import { LABELS, PASSPORT_ORDER } from '../../game/verticals.js'
 import { useGame } from '../../state/GameContext'
 import './passport.css'
 
@@ -32,26 +32,26 @@ export default function Passport({ go }) {
         <div>
           <p className="passport-special-title">Conoce Rappi</p>
           <p className="muted">
-            {earned ? 'Llegaste a Conocedor en las 8 verticales.' : 'Llega a Conocedor en las 8 verticales.'}
+            {earned ? 'Llegaste a Conocedor en las 9 verticales.' : 'Llega a Conocedor en las 9 verticales.'}
           </p>
         </div>
       </section>
 
       <section aria-label="Sellos">
         <ul className="passport-grid">
-          {DATA.order.map((v) => {
+          {PASSPORT_ORDER.map((v) => {
             const level = verticalLevel(state, v)
             return (
               <li key={v}>
                 <button
                   type="button"
                   className="passport-entry"
-                  aria-label={`${DATA.labels[v]}: ${LEVEL_NAMES[level]}`}
+                  aria-label={`${LABELS[v]}: ${LEVEL_NAMES[level]}`}
                   onClick={() => go('coleccion', { vertical: v })}
                 >
                   <Stamp vertical={v} level={level} size={68} />
                   <span className="passport-name">
-                    {DATA.labels[v]}
+                    {LABELS[v]}
                     {v === 'licores' && <span className="passport-age">+18</span>}
                   </span>
                   <span className="passport-level muted">{LEVEL_NAMES[level]}</span>

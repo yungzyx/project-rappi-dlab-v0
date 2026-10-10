@@ -77,7 +77,8 @@ export function GameProvider({ children }) {
       events,
       generation,
       discover: (vertical, conceptId) => run((s, d) => progress.discover(s, vertical, conceptId, d)),
-      answer: (vertical, isCorrect) => run((s, d) => progress.answer(s, vertical, isCorrect, d)),
+      // `cardId`: la pregunta de conocimiento respondida (si se acierta, entra al álbum); sin él, un desafío del catálogo.
+      answer: (vertical, isCorrect, cardId) => run((s, d) => progress.answer(s, vertical, isCorrect, d, cardId)),
       openCard: (cardId) => run((s, d) => progress.openCard(s, cardId, d)),
       seeIntro: () => commit(progress.markIntroSeen(latest.current)),
       // Abrir una vertical en la app (id de pantalla del prototipo) la sella. Devuelve si el sello es nuevo.

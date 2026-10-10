@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { GameApp as App } from './GameApp.testkit.jsx'
-import { DATA, conceptsOf } from '../../game/data.js'
+import { cardsOf, datosOf } from '../../game/knowledge.js'
+import { LABELS, PASSPORT_ORDER } from '../../game/verticals.js'
 import { KEY } from '../../game/storage.js'
 import { seed } from '../../game/testSeed.js'
 
@@ -15,20 +16,20 @@ const preload = seed
 const path = () => screen.getByRole('region', { name: 'Camino de verticales' })
 
 describe('camino', () => {
-  test('muestra la barra de juego, la misión del día y las 8 paradas', () => {
+  test('muestra la barra de juego, la misión del día y las 9 paradas', () => {
     render(<App />)
     expect(screen.getByText('Nivel 1')).toBeTruthy()
     const mission = screen.getByRole('button', { name: 'Misión del día: 0 de 3' })
     const steps = mission.querySelectorAll('[data-done]')
     expect(steps).toHaveLength(3)
     for (const s of steps) expect(s.getAttribute('data-done')).toBe('false')
-    for (const v of DATA.order) {
-      expect(within(path()).getByRole('button', { name: new RegExp(`^${DATA.labels[v]}: Sin sello`) })).toBeTruthy()
+    for (const v of PASSPORT_ORDER) {
+      expect(within(path()).getByRole('button', { name: new RegExp(`^${LABELS[v]}: Sin sello`) })).toBeTruthy()
     }
   })
 
   test('Mochi marca la parada con menos avance', () => {
-    const others = Object.fromEntries(DATA.order.filter((v) => v !== 'farmacia').map((v) => [v, [conceptsOf(v)[0].id]]))
+    const others = Object.fromEntries(PASSPORT_ORDER.filter((v) => v !== 'farmacia').map((v) => [v, [cardsOf(v)[0].id]]))
     preload({ discovered: others })
     render(<App />)
     const here = path().querySelector('[data-here="true"]')
@@ -55,16 +56,16 @@ describe('camino', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  test('«Ver conceptos» muestra la colección: los descubiertos abren su ficha y los demás esperan', () => {
-    const first = conceptsOf('turbo')[0]
-    preload({ discovered: { turbo: [first.id] } })
+  test('«Ver datos» muestra las 12 tarjetas de la vertical: las descubiertas con su texto y las demás como «?»', () => {
+    const first = datosOf('turbo')[0]
+    preload({ discovered: { turbo: [first.id] }, cards: [first.id], opened: [first.id] })
     render(<App />)
     fireEvent.click(within(path()).getByRole('button', { name: /^Turbo: Explorador/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Ver conceptos' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ver datos' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Turbo' })).toBeTruthy()
-    expect(screen.getAllByText('?').length).toBe(conceptsOf('turbo').length - 1)
-    fireEvent.click(screen.getByRole('button', { name: `${first.emoji} ${first.name}` }))
-    expect(screen.getByRole('heading', { level: 1, name: first.name })).toBeTruthy()
+    expect(screen.getByText('1 de 12 datos descubiertos')).toBeTruthy()
+    expect(screen.getByText(first.text)).toBeTruthy()
+    expect(document.querySelectorAll('.fact-card.is-locked')).toHaveLength(11)
   })
 
   test('«Reiniciar progreso» deja todo en cero después de confirmar', () => {

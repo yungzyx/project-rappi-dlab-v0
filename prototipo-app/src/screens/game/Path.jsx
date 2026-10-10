@@ -4,21 +4,22 @@ import Hud from './Hud.jsx'
 import Mascot from '../../components/assistant/Mascot'
 import Sheet from './GameSheet.jsx'
 import Stamp, { ICONS, LEVEL_NAMES } from './Stamp.jsx'
-import { DATA, conceptsOf } from '../../game/data.js'
+import { cardsOf } from '../../game/knowledge.js'
 import { currentStreak, dailyProgress, nextVertical, verticalLevel } from '../../game/progress.js'
+import { LABELS, PASSPORT_ORDER } from '../../game/verticals.js'
 import { useGame } from '../../state/GameContext'
 import { GameShellContext } from './gameShell'
 import './path.css'
 
 const STARS = { ninguno: 0, explorador: 1, conocedor: 2, experto: 3 }
 // Zigzag del camino, en px desde el centro: una serpiente suave como en los juegos de niveles.
-const OFFSETS = [0, 70, 92, 46, -24, -78, -60, 6]
+const OFFSETS = [0, 70, 92, 46, -24, -78, -60, 6, 64]
 const STEP = 150
 
 /** Qué falta para el próximo sello, en una frase corta. */
 function nextGoal(level, total, found, correct) {
-  const parts = (concepts, hits) =>
-    [concepts > 0 && `${concepts} conceptos`, hits > 0 && `${hits} aciertos`].filter(Boolean).join(' y ')
+  const parts = (cards, hits) =>
+    [cards > 0 && `${cards} datos`, hits > 0 && `${hits} aciertos`].filter(Boolean).join(' y ')
   if (level === 'experto') return 'Sello completo. Ya eres experto aquí.'
   if (level === 'conocedor') return `Para Experto: ${parts(total - found, 8 - correct)} más.`
   if (level === 'explorador') return `Para Conocedor: ${parts(Math.ceil(total / 2) - found, 3 - correct)} más.`
@@ -26,7 +27,7 @@ function nextGoal(level, total, found, correct) {
 }
 
 const missionSteps = (daily) => [
-  { label: '2 conceptos', long: 'Descubre 2 conceptos nuevos', value: Math.min(daily.discovered, 2), goal: 2 },
+  { label: '2 datos', long: 'Descubre 2 datos nuevos', value: Math.min(daily.discovered, 2), goal: 2 },
   { label: '1 acierto', long: 'Acierta 1 desafío', value: Math.min(daily.correct, 1), goal: 1 },
   { label: '1 carta', long: 'Abre 1 carta del álbum', value: Math.min(daily.opened, 1), goal: 1 },
 ]
@@ -106,12 +107,12 @@ function MissionSheet({ daily, streak, onPlay }) {
   )
 }
 
-/** Inicio: el camino de las 8 verticales. Tocar una abre su hoja con «Jugar». */
+/** Inicio: el camino de las 9 verticales. Tocar una abre su hoja con «Jugar». */
 export default function Path({ go, open: openAtStart = null }) {
   const { state, date } = useGame()
   const [open, setOpen] = useState(openAtStart)
   const here = nextVertical(state)
-  const height = STEP * DATA.order.length
+  const height = STEP * PASSPORT_ORDER.length
   const daily = dailyProgress(state, date)
   const streak = currentStreak(state, date)
 
@@ -125,11 +126,11 @@ export default function Path({ go, open: openAtStart = null }) {
           <svg className="path-line" viewBox={`-181 0 362 ${height}`} preserveAspectRatio="none" aria-hidden="true">
             <polyline points={OFFSETS.map((x, i) => `${x},${i * STEP + 54}`).join(' ')} />
           </svg>
-          {DATA.order.map((v, i) => {
+          {PASSPORT_ORDER.map((v, i) => {
             const level = verticalLevel(state, v)
             const Icon = ICONS[v]
             const isHere = v === here
-            const progress = (state.discovered[v]?.length ?? 0) / conceptsOf(v).length
+            const progress = (state.discovered[v]?.length ?? 0) / cardsOf(v).length
             return (
               <div
                 key={v}
@@ -146,7 +147,7 @@ export default function Path({ go, open: openAtStart = null }) {
                   </div>
                 )}
                 <span className="path-node-wrap">
-                  {/* Anillo de avance: conceptos descubiertos sobre el total de la vertical. */}
+                  {/* Anillo de avance: tarjetas descubiertas sobre el total de la vertical. */}
                   <svg className="path-ring" viewBox="0 0 108 108" aria-hidden="true">
                     <circle className="path-ring-track" cx="54" cy="54" r="50" />
                     <circle
@@ -161,7 +162,7 @@ export default function Path({ go, open: openAtStart = null }) {
                   <button
                     type="button"
                     className={`path-node ${isHere ? 'is-here' : ''}`}
-                    aria-label={`${DATA.labels[v]}: ${LEVEL_NAMES[level]}`}
+                    aria-label={`${LABELS[v]}: ${LEVEL_NAMES[level]}`}
                     onClick={() => setOpen(v)}
                   >
                     <Icon size={34} weight="fill" aria-hidden="true" />
@@ -172,7 +173,7 @@ export default function Path({ go, open: openAtStart = null }) {
                     <Star key={k} size={15} weight={k < STARS[level] ? 'fill' : 'regular'} />
                   ))}
                 </span>
-                <span className="path-label">{DATA.labels[v]}</span>
+                <span className="path-label">{LABELS[v]}</span>
               </div>
             )
           })}
@@ -185,7 +186,7 @@ export default function Path({ go, open: openAtStart = null }) {
         </Sheet>
       )}
       {open && open !== 'mision' && (
-        <Sheet label={DATA.labels[open]} onClose={() => setOpen(null)}>
+        <Sheet label={LABELS[open]} onClose={() => setOpen(null)}>
           <VerticalSheet vertical={open} go={go} />
         </Sheet>
       )}
@@ -197,7 +198,7 @@ function VerticalSheet({ vertical, go }) {
   const { state } = useGame()
   const shell = useContext(GameShellContext)
   const level = verticalLevel(state, vertical)
-  const total = conceptsOf(vertical).length
+  const total = cardsOf(vertical).length
   const found = state.discovered[vertical]?.length ?? 0
   const correct = state.correct[vertical] ?? 0
 
@@ -205,23 +206,23 @@ function VerticalSheet({ vertical, go }) {
     <div className="vsheet" style={{ '--v': `var(--v-${vertical})` }}>
       <Stamp vertical={vertical} level={level} size={84} />
       <h2 className="vsheet-title">
-        {DATA.labels[vertical]}
+        {LABELS[vertical]}
         {vertical === 'licores' && <span className="age-badge">+18</span>}
       </h2>
       <p className={`vsheet-level ${level === 'ninguno' ? 'is-none' : ''}`}>{LEVEL_NAMES[level]}</p>
       <p className="vsheet-stats">
-        {found} de {total} conceptos · {correct} {correct === 1 ? 'acierto' : 'aciertos'}
+        {found} de {total} datos · {correct} {correct === 1 ? 'acierto' : 'aciertos'}
       </p>
       <p className="vsheet-goal muted">{nextGoal(level, total, found, correct)}</p>
       <button type="button" className="btn-game" onClick={() => go('ronda', { vertical })}>
         Jugar
       </button>
       <button type="button" className="btn-ghost" onClick={() => go('coleccion', { vertical })}>
-        Ver conceptos
+        Ver datos
       </button>
       {shell?.openInApp && (
         <button type="button" className="btn-ghost" onClick={() => shell.openInApp(vertical)}>
-          Abrir {DATA.labels[vertical]}
+          Abrir {LABELS[vertical]}
         </button>
       )}
     </div>

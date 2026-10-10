@@ -1,6 +1,6 @@
-import { DATA } from './data.js'
 import { initialState } from './progress.js'
-import { SCREEN_TO_GAME } from './verticals.js'
+import { cardById } from './knowledge.js'
+import { PASSPORT_ORDER, SCREEN_TO_GAME } from './verticals.js'
 
 export const KEY = 'rappi-proto-juego-v1'
 /** El pasaporte de antes del juego (ids de pantalla del prototipo): se traspasa una vez como verticales visitadas. */
@@ -32,7 +32,15 @@ const valid = (s) =>
   optional(s.seenIntro, (b) => typeof b === 'boolean') &&
   optional(s.visited, (v) => Array.isArray(v) && v.every((id) => typeof id === 'string'))
 
-const known = (ids) => ids.filter((id) => DATA.order.includes(id))
+const known = (ids) => ids.filter((id) => PASSPORT_ORDER.includes(id))
+
+// Lo guardado antes eran conceptos y cartas del catálogo: solo quedan las tarjetas de conocimiento que existen.
+const isCard = (id) => Boolean(cardById(id))
+const withKnownCards = (state) => ({
+  discovered: Object.fromEntries(Object.entries(state.discovered).map(([v, ids]) => [v, ids.filter(isCard)])),
+  cards: state.cards.filter(isCard),
+  opened: state.opened.filter(isCard),
+})
 
 /** Traspaso único: el pasaporte viejo queda guardado con la clave nueva y recién entonces se borra. */
 function fromLegacy(storage) {
@@ -51,7 +59,7 @@ export function load(storage = browserStorage()) {
     const parsed = JSON.parse(raw)
     if (!valid(parsed)) return initialState()
     const state = { ...initialState(), ...parsed }
-    return { ...state, visited: known(state.visited) }
+    return { ...state, ...withKnownCards(state), visited: known(state.visited) }
   } catch {
     return initialState()
   }

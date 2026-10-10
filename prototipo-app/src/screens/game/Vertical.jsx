@@ -1,12 +1,14 @@
 import { CaretLeft } from '@phosphor-icons/react'
-import { DATA, conceptsOf } from '../../game/data.js'
+import FactCard from './FactCard.jsx'
+import { cardsOf } from '../../game/knowledge.js'
+import { LABELS } from '../../game/verticals.js'
 import { useGame } from '../../state/GameContext'
 import './vertical.css'
 
-/** Colección de conceptos de una vertical: los descubiertos abren su ficha; los demás se ganan jugando. */
-export default function Vertical({ vertical, back, go }) {
+/** Las 12 tarjetas de una vertical: las descubiertas con su texto y su fuente; las demás se ganan jugando. */
+export default function Vertical({ vertical, back }) {
   const { state } = useGame()
-  const concepts = conceptsOf(vertical)
+  const cards = cardsOf(vertical)
   const seen = new Set(state.discovered[vertical] ?? [])
 
   return (
@@ -15,46 +17,21 @@ export default function Vertical({ vertical, back, go }) {
         <button type="button" className="icon-button" aria-label="Volver" onClick={back}>
           <CaretLeft size={22} aria-hidden="true" />
         </button>
-        <h1>{DATA.labels[vertical]}</h1>
+        <h1>{LABELS[vertical]}</h1>
         {vertical === 'licores' && <span className="age-badge">+18</span>}
       </header>
 
       <p className="vertical-count">
-        <strong>
-          {seen.size} de {concepts.length}
-        </strong>{' '}
-        conceptos descubiertos
+        {[...seen].filter((id) => cards.some((c) => c.id === id)).length} de {cards.length} datos descubiertos
       </p>
 
-      <ul className="concept-grid">
-        {concepts.map((c) => (
+      <ul className="vertical-cards">
+        {cards.map((c) => (
           <li key={c.id}>
-            {seen.has(c.id) ? (
-              <button
-                type="button"
-                className="concept-tile is-found"
-                aria-label={`${c.emoji} ${c.name}`}
-                onClick={() => go('concepto', { vertical, id: c.id })}
-              >
-                <span className="concept-emoji" aria-hidden="true">
-                  {c.emoji}
-                </span>
-                <span className="concept-name" aria-hidden="true">
-                  {c.name}
-                </span>
-              </button>
-            ) : (
-              <span className="concept-tile">?</span>
-            )}
+            <FactCard fact={c} locked={!seen.has(c.id)} />
           </li>
         ))}
       </ul>
-
-      <div className="vertical-play">
-        <button type="button" className="btn-game" onClick={() => go('ronda', { vertical })}>
-          Jugar
-        </button>
-      </div>
     </div>
   )
 }

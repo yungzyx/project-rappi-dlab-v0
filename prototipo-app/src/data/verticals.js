@@ -11,6 +11,7 @@ export const VERTICAL_NAMES = {
   pet: 'Mascotas',
   chocolates: 'Chocolatería',
   restaurants: 'Restaurantes',
+  travel: 'Viajes',
 }
 
 // Códigos de vertical de la API → pantalla del prototipo. La API agrupa Turbo con Express (`prototype_vertical`),
@@ -25,7 +26,7 @@ const BACKEND_SCREENS = {
   chocolateria: 'chocolates',
   restaurantes: 'restaurants',
 }
-const OWN_SCREENS = new Set(['turbo', 'restaurants'])
+const OWN_SCREENS = new Set(['turbo', 'restaurants', 'travel'])
 
 export const screenForBackend = (vertical) => BACKEND_SCREENS[vertical] ?? null
 

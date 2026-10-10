@@ -1,4 +1,5 @@
 import {
+  AirplaneTilt,
   Basket,
   Cookie,
   FirstAidKit,
@@ -20,6 +21,7 @@ export const ICONS = {
   restaurantes: ForkKnife,
   farmacia: FirstAidKit,
   mall: ShoppingBag,
+  viajes: AirplaneTilt,
 }
 
 export const LEVEL_NAMES = {

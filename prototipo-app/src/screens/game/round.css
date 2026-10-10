@@ -101,11 +101,6 @@
   }
 }
 
-.game .flip-emoji {
-  font-size: 84px;
-  line-height: 1.1;
-}
-
 .game .flip-card h2 {
   font-size: 28px;
   font-weight: 900;
@@ -115,7 +110,23 @@
 .game .flip-fact {
   font-size: 15px;
   line-height: 1.45;
-  max-width: 30ch;
+  max-width: 32ch;
+}
+
+/* La fuente del dato y de la explicación, bajo el texto */
+.game .flip-card .fact-card-source,
+.game .feedback .fact-card-source {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.game .flip-card .fact-card-source a,
+.game .feedback .fact-card-source a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .game .xp-pop {

@@ -5,9 +5,8 @@ import { formatPrice, parsePrice } from '../../../state/CartContext'
 import { storeFor } from '../../../data/catalog'
 import { VERTICAL_NAMES } from '../../../data/verticals'
 import { EtaIcon } from '../../../components/StoreMeta'
-import { DATA } from '../../../game/data.js'
 import { stampedVerticals, verticalLevel } from '../../../game/progress.js'
-import { GAME_TO_SCREEN, PASSPORT_GOAL } from '../../../game/verticals.js'
+import { GAME_TO_SCREEN, PASSPORT_GOAL, PASSPORT_ORDER } from '../../../game/verticals.js'
 import { PLANS } from './script'
 
 /** Abre la tienda de un producto o una tienda (un plato real abre su sucursal por id). */
@@ -113,6 +112,7 @@ export const STAMP_EMOJI = {
   restaurantes: '🍔',
   farmacia: '💊',
   mall: '🛍️',
+  viajes: '✈️',
 }
 const LEVEL_NAMES = { explorador: 'Explorador', conocedor: 'Conocedor', experto: 'Experto' }
 
@@ -153,7 +153,7 @@ export function Passport({ state, fresh, onOpenGame, onOpenStamp }) {
         </div>
       </div>
       <HScroll className="live-stamps">
-        {DATA.order.map((vertical) => {
+        {PASSPORT_ORDER.map((vertical) => {
           const level = verticalLevel(state, vertical)
           const has = level !== 'ninguno'
           const name = VERTICAL_NAMES[GAME_TO_SCREEN[vertical]]
