@@ -4,6 +4,8 @@
 //   con --shop: Home → vertical Grocery → primera tienda → agregar un producto → carrito → pagar, y la API recibe el
 //     pedido (que después verifica scripts/mvp-check.sh en la base de prueba);
 //   con --expect-offline: la API está detenida y la app muestra «Sin conexión con Mochi».
+// Con la API en marcha (sin --expect-offline) también falla ante un error de la página o de la consola, o una respuesta
+// 4xx/5xx, desde la primera carga; solo se ignoran las imágenes del catálogo de prueba, que no existen.
 // Sale con 0 si la revisión pasa y con 1 si no. Usa el Chrome instalado (playwright-core, sin descargar navegadores).
 import { parseArgs } from 'node:util'
 import { chromium } from 'playwright-core'
@@ -31,16 +33,29 @@ async function checkOnline(page) {
   return `la Home abre con la barra «${HOME_HINT}»`
 }
 
-/** Recorre una compra real contra el catálogo de prueba. Los textos son los de la app (Grocery, View cart, Place order). */
-async function checkShop(page) {
+/**
+ * Lo que la revisión vigila, enganchado antes de abrir la página (lo que falla al cargar no se puede recuperar después):
+ * errores de la página, errores de la consola y respuestas 4xx/5xx. Las imágenes del catálogo de prueba no existen (la app
+ * muestra la de reemplazo), así que solo las cargas de imágenes se ignoran. Devuelve la lista, que se va llenando.
+ */
+function watchProblems(page) {
   const problems = []
   page.on('pageerror', (error) => problems.push(error.message))
-  // Las imágenes del catálogo de prueba no existen (la app muestra la de reemplazo): solo esos fallos se ignoran.
+  // Una carga fallida sale por su respuesta (abajo), con su URL: la consola solo la repite sin decir cuál fue.
   page.on('console', (message) => {
     if (message.type() === 'error' && !message.text().startsWith('Failed to load resource'))
       problems.push(message.text())
   })
+  page.on('response', (response) => {
+    const request = response.request()
+    if (response.status() >= 400 && request.resourceType() !== 'image')
+      problems.push(`${request.method()} ${response.url()} → ${response.status()}`)
+  })
+  return problems
+}
 
+/** Recorre una compra real contra el catálogo de prueba. Los textos son los de la app (Grocery, View cart, Place order). */
+async function checkShop(page) {
   await checkOnline(page)
   await step(page, 'abrir Grocery desde la Home', () =>
     page.getByRole('button', { name: 'Grocery', exact: true }).click(),
@@ -75,7 +90,6 @@ async function checkShop(page) {
     throw new Error('la app no mandó el pedido a la API (POST /orders)')
   })
   if (!response.ok()) throw new Error(`la API rechazó el pedido (POST /orders → ${response.status()})`)
-  if (problems.length > 0) throw new Error(`errores en la consola: ${problems[0]}`)
   return `compró en «${store}» y la API aceptó el pedido`
 }
 
@@ -116,9 +130,12 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: { width: 560, height: 960 } })
     page.setDefaultTimeout(TIMEOUT_MS)
+    const problems = watchProblems(page)
     await page.goto(values.app, { timeout: TIMEOUT_MS })
     const check = offline ? checkOffline : values.shop ? checkShop : checkOnline
     const done = await check(page)
+    // Sin API es lo esperado que fallen sus llamadas: ahí no se miran.
+    if (!offline && problems.length > 0) throw new Error(`fallos en la página o en la API: ${problems[0]}`)
     console.log(`  ✓ ${label}: ${done}`)
   } finally {
     await browser.close()
