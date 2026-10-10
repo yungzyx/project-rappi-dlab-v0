@@ -40,6 +40,7 @@ async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS }
       signal: controller.signal,
     })
     if (!response.ok) throw new ApiError('http', { status: response.status })
+    if (response.status === 204) return null
     return await response.json()
   } catch (error) {
     if (error instanceof ApiError) throw error
@@ -58,6 +59,8 @@ async function request(path, { method = 'GET', body, timeout = CHAT_TIMEOUT_MS }
 export async function checkConnection({ timeout = CONNECTION_TIMEOUT_MS } = {}) {
   try {
     const response = await request('/health', { timeout })
+    // Lo que contesta JSON en /health pero no dice ok: true no es la API (otro servidor en el mismo puerto).
+    if (response?.ok !== true) return { ok: false, kind: 'offline' }
     healthCache = { at: Date.now(), value: response.capacidades ?? null }
     return { ok: true, capabilities: response.capacidades, documents: response.documentos }
   } catch (error) {
