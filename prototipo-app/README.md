@@ -61,7 +61,7 @@ Si la API se cae con la app ya abierta, las respuestas de Mochi todavía caen a 
 | `npm run screenshots` | Regenera las capturas de este README; necesita el MVP corriendo (`make mvp`) y usa el Chrome instalado |
 | `./scripts/make-icons.sh` | Regenera los íconos de pantalla de inicio desde `scripts/icon.svg` |
 
-Tests: 575 (Vitest, 10-10-2026). CI en GitHub Actions: lint, tests y build.
+Tests: 581 (Vitest, 10-10-2026). CI en GitHub Actions: lint, tests y build.
 
 **Accesibilidad:** el buscador con Mochi y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), cada respuesta de Mochi se anuncia completa al lector de pantalla y las áreas táctiles miden al menos 40 px.
 
