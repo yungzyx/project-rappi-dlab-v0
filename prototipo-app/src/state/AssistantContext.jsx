@@ -8,7 +8,7 @@ const AssistantContext = createContext(null)
  *  - query: pregunta que se envía al abrir
  *  - product: un producto del que se pide el complemento («¿Con qué acompaño…?»); en vez de enviar `query`, se pide la
  *    oferta `carrito` de ese producto
- *  - offer: `{ moment, context }`, una oferta de Mochi que se muestra al abrir (por ejemplo «¿Qué puedo probar?», el
+ *  - offer: `{ moment, context }`, una oferta del agente que se muestra al abrir (por ejemplo «¿Qué puedo probar?», el
  *    momento `vertical_por_probar`); `query` es lo que la persona «dijo»
  *  - search: texto con el que arranca el buscador (al volver a una búsqueda que se dejó)
  */
@@ -16,7 +16,7 @@ export function AssistantProvider({ children }) {
   const [session, setSession] = useState(null)
 
   // Volver (o avanzar) a la entrada del historial del asistente lo reabre con la búsqueda que tenía: así, abrir una
-  // tienda desde Mochi y volver no deja la Home con el panel cerrado y la búsqueda perdida.
+  // tienda desde el agente y volver no deja la Home con el panel cerrado y la búsqueda perdida.
   useEffect(() => {
     const onPopState = (event) => {
       if (!event.state?.assistant) return

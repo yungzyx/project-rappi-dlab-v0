@@ -7,7 +7,7 @@ import { screenForBackend } from '../data/verticals'
 import { parsePrice } from '../state/CartContext'
 import { request, toPrototypeProduct } from './client'
 
-const CATALOG_TIMEOUT_MS = 10_000 // más que el chat: una tienda grande suma precios vigentes en SQL
+const CATALOG_TIMEOUT_MS = 10_000 // más que una pregunta al agente: una tienda grande suma precios vigentes en SQL
 
 /** `path` con su query; lo que no viene (`undefined`, `null` o vacío) no se manda. */
 function withQuery(path, params = {}) {

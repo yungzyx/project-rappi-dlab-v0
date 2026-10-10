@@ -104,7 +104,7 @@ describe('SearchScreen', () => {
     const { input } = setup()
     await type(input, 'xyzzy')
     expect(screen.getByText('No results for “xyzzy”.')).toBeTruthy()
-    expect(document.querySelector('.mochi')).toBeNull()
+    expect(document.querySelector('.mascot')).toBeNull()
   })
 
   test('sin buscar, las tiendas populares salen de la Home de la API', async () => {

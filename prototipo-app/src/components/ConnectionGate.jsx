@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AGENT_NAME } from '../agent/name'
 import { API_URL, checkConnection } from '../api/client'
 import Mascot from './assistant/Mascot'
 import './connection-gate.css'
@@ -6,7 +7,7 @@ import './connection-gate.css'
 const RETRY_MS = 2000 // sin conexión, se vuelve a preguntar solo: el MVP puede estar arrancando (carga modelos)
 
 /**
- * Sin la API no hay Mochi, y la app no arranca con reglas locales: antes de montar `children` revisa la API.
+ * Sin la API no hay agente, y la app no arranca con reglas locales: antes de montar `children` revisa la API.
  * Mientras revisa o sin conexión no se monta la app, así que ningún contexto llama a la API. Sin conexión
  * vuelve a preguntar cada 2 s, en silencio (la pantalla no cambia), y «Reintentar» pregunta ya. Una vez dentro,
  * la app sigue sola: sus propios errores de red los maneja ella.
@@ -44,10 +45,10 @@ export default function ConnectionGate({ children }) {
         {/* El aviso existe siempre y solo cambia lo de adentro: los lectores de pantalla anuncian el cambio. */}
         <div className="connection-message" role="status">
           {status === 'checking' ? (
-            <p className="connection-checking">Conectando con Mochi…</p>
+            <p className="connection-checking">Conectando con {AGENT_NAME}…</p>
           ) : (
             <>
-              <h1>Sin conexión con Mochi</h1>
+              <h1>Sin conexión con {AGENT_NAME}</h1>
               <p>No pude conectar con la API del MVP ({API_URL}).</p>
               <p className="connection-help">
                 Levanta el MVP con <code>make mvp</code> en la carpeta del proyecto y vuelve a intentar.

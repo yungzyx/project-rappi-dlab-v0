@@ -9,7 +9,7 @@ import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
 
 const api = vi.hoisted(() => ({
-  chat: vi.fn(async () => ({ text: 'Para el carrete', products: [] })),
+  ask: vi.fn(async () => ({ text: 'Para el carrete', products: [] })),
   forget: vi.fn(),
   profile: vi.fn(async () => ({ interests: [] })),
 }))
@@ -32,7 +32,7 @@ function OpenButton() {
   )
 }
 
-const answersShown = () => document.querySelectorAll('.bigotes-card .chat-row').length
+const answersShown = () => document.querySelectorAll('.agent-card .agent-msg-row').length
 
 let consoleError
 beforeEach(() => {

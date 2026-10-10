@@ -4,7 +4,7 @@ import {
   API_URL,
   ApiError,
   beaconEvents,
-  chat,
+  ask,
   checkConnection,
   forget,
   health,
@@ -68,9 +68,9 @@ describe('de la API al prototipo', () => {
     const dict = fixture('catalog-product')
     const fromScreen = toPrototypeProduct(dict)
     const fromOtherScreen = toPrototypeProduct(structuredClone(dict))
-    const fromChat = toMessage({ text: 'Mira', products: [dict] }).products[0]
+    const fromAsk = toMessage({ text: 'Mira', products: [dict] }).products[0]
     expect(lineKey(fromOtherScreen)).toBe(lineKey(fromScreen))
-    expect(lineKey(fromChat)).toBe(lineKey(fromScreen))
+    expect(lineKey(fromAsk)).toBe(lineKey(fromScreen))
     expect(lineKey(fromScreen)).toBe('cat-91001|9101') // la oferta es producto + tienda: la vertical depende de la pantalla
   })
 
@@ -146,7 +146,7 @@ describe('health', () => {
     expect(await health({ force: true })).toEqual({ voz: true, fotos: false })
   })
 
-  test('si el chat falla, la siguiente pregunta vuelve a revisar la API en vez de fiarse del caché', async () => {
+  test('si una pregunta al agente falla, la siguiente pregunta vuelve a revisar la API en vez de fiarse del caché', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ capacidades: { voz: true } }) })
@@ -154,23 +154,35 @@ describe('health', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ capacidades: { voz: true } }) })
     vi.stubGlobal('fetch', fetchMock)
     await health()
-    await expect(chat({ message: 'cerveza' })).rejects.toThrow()
+    await expect(ask({ message: 'cerveza' })).rejects.toThrow()
 
     await health()
 
-    expect(fetchMock).toHaveBeenCalledTimes(3) // health, chat y health de nuevo (sin esperar los 30 s del caché)
+    expect(fetchMock).toHaveBeenCalledTimes(3) // health, ask y health de nuevo (sin esperar los 30 s del caché)
   })
 })
 
-describe('chat', () => {
-  test('se rinde a los 8 s con un error de tiempo agotado, para que el chat muestre «Sin conexión» con «Reintentar»', async () => {
+describe('ask', () => {
+  test('ask llama a /agent/ask', async () => {
+    const seen = []
+    stubApi({
+      'POST /agent/ask': (req) => {
+        seen.push({ path: req.path, body: req.body })
+        return { text: 'Mira' }
+      },
+    })
+    expect(await ask({ message: 'cerveza' })).toEqual({ text: 'Mira' })
+    expect(seen).toEqual([{ path: '/agent/ask', body: { message: 'cerveza' } }])
+  })
+
+  test('se rinde a los 8 s con un error de tiempo agotado, para que el agente muestre «Sin conexión» con «Reintentar»', async () => {
     vi.useFakeTimers()
     try {
       vi.stubGlobal(
         'fetch',
         vi.fn((_url, { signal }) => new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('abortado'))))),
       )
-      const pending = chat({ message: 'cerveza' })
+      const pending = ask({ message: 'cerveza' })
       const outcome = expect(pending).rejects.toMatchObject({ kind: 'timeout' })
       await vi.advanceTimersByTimeAsync(7999)
       await vi.advanceTimersByTimeAsync(1)
@@ -186,14 +198,14 @@ const failure = (promise) => promise.then(() => null, (error) => error)
 describe('errores de la API', () => {
   test('una respuesta 500 es ApiError http con su estado', async () => {
     stubApi({ 'POST /agent/ask': 500 })
-    const error = await failure(chat({ message: 'cerveza' }))
+    const error = await failure(ask({ message: 'cerveza' }))
     expect(error).toBeInstanceOf(ApiError)
     expect(error).toMatchObject({ kind: 'http', status: 500 })
   })
 
   test('sin red es ApiError offline', async () => {
     stubApi({ 'POST /agent/ask': 'offline' })
-    const error = await failure(chat({ message: 'cerveza' }))
+    const error = await failure(ask({ message: 'cerveza' }))
     expect(error).toBeInstanceOf(ApiError)
     expect(error.kind).toBe('offline')
   })
@@ -202,7 +214,7 @@ describe('errores de la API', () => {
     vi.useFakeTimers()
     try {
       stubApi({ 'POST /agent/ask': 'slow:60000' })
-      const outcome = failure(chat({ message: 'cerveza' }))
+      const outcome = failure(ask({ message: 'cerveza' }))
       await vi.advanceTimersByTimeAsync(8000)
       const error = await outcome
       expect(error).toBeInstanceOf(ApiError)
@@ -229,7 +241,7 @@ describe('checkConnection', () => {
   })
 
   test('checkConnection exige ok: true en /health', async () => {
-    // Otro servidor que contesta JSON en /health no es la API de Mochi.
+    // Otro servidor que contesta JSON en /health no es la API del agente.
     stubApi({ '/health': { capacidades: { voz: true }, documentos: 3 } })
     expect(await checkConnection()).toEqual({ ok: false, kind: 'offline' })
     stubApi({ '/health': { ok: false, capacidades: { voz: true }, documentos: 3 } })
@@ -275,7 +287,7 @@ describe('checkConnection', () => {
 describe('stubApi', () => {
   test('lo que no está en las rutas responde 404, y una ruta sin método es GET', async () => {
     const fetchMock = stubApi({ '/health': fixture('health') })
-    expect(await failure(chat({ message: 'cerveza' }))).toMatchObject({ kind: 'http', status: 404 })
+    expect(await failure(ask({ message: 'cerveza' }))).toMatchObject({ kind: 'http', status: 404 })
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect((await checkConnection()).ok).toBe(true)
   })
@@ -318,8 +330,8 @@ describe('stubApi', () => {
     })
 
     expect(await recommendations('proto 1', 'licores')).toEqual({ user: 'proto 1', vertical: 'licores', rows: [] })
-    expect(await chat({ message: 'cerveza', vertical: null })).toEqual({ text: 'Mira' })
-    expect(await failure(chat({ message: 'pizza' }))).toMatchObject({ kind: 'http', status: 500 })
+    expect(await ask({ message: 'cerveza', vertical: null })).toEqual({ text: 'Mira' })
+    expect(await failure(ask({ message: 'pizza' }))).toMatchObject({ kind: 'http', status: 500 })
 
     expect(seen[0]).toMatchObject({ method: 'GET', path: '/recommendations', body: undefined })
     expect(seen[0].query).toBeInstanceOf(URLSearchParams)

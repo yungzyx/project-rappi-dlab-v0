@@ -1,4 +1,4 @@
-// Id seudónimo de este navegador, compartido por quienes hablan con la API (eventos, chat, pedidos, «Para ti»).
+// Id seudónimo de este navegador, compartido por quienes hablan con la API (eventos, preguntas, pedidos, «Para ti»).
 // Los ayudantes de almacenamiento también los usa la sesión de EventsContext.
 
 const USER_KEY = 'rappi-proto-user'

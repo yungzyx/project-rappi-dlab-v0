@@ -1,10 +1,10 @@
 /* Mochi flotante (prototipo final, fuera de la Home): a un costado, sobre la barra inferior o la del carrito. */
-.mochi-presence {
-  --mochi-bottom: 28px;
+.agent-presence {
+  --agent-bottom: 28px;
   position: absolute;
   right: 12px;
-  bottom: calc(var(--mochi-bottom) + env(safe-area-inset-bottom, 0px));
-  z-index: var(--z-mochi);
+  bottom: calc(var(--agent-bottom) + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-agent);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -13,45 +13,45 @@
 }
 
 /* Sobre la barra del carrito (52 px desde 28 px), la barra inferior o ambas */
-.mochi-presence.has-cart {
-  --mochi-bottom: 92px;
+.agent-presence.has-cart {
+  --agent-bottom: 92px;
 }
 
-.mochi-presence.is-raised {
-  --mochi-bottom: 100px;
+.agent-presence.is-raised {
+  --agent-bottom: 100px;
 }
 
-.mochi-presence.has-cart.is-raised {
-  --mochi-bottom: 164px;
+.agent-presence.has-cart.is-raised {
+  --agent-bottom: 164px;
 }
 
-.mochi-presence.is-left {
+.agent-presence.is-left {
   right: auto;
   left: 12px;
   align-items: flex-start;
 }
 
-.mochi-presence-body {
+.agent-presence-body {
   pointer-events: auto;
   touch-action: none; /* el arrastre es de Mochi, no un scroll */
   border-radius: 50%;
 }
 
-.mochi-presence-body:focus-visible {
-  outline: 2.5px solid var(--bigotes-orange);
+.agent-presence-body:focus-visible {
+  outline: 2.5px solid var(--agent-orange);
   outline-offset: 2px;
 }
 
-.mochi-presence.is-small .mochi-presence-body {
+.agent-presence.is-small .agent-presence-body {
   transform: scale(0.8);
   transform-origin: bottom right;
 }
 
-.mochi-presence.is-left.is-small .mochi-presence-body {
+.agent-presence.is-left.is-small .agent-presence-body {
   transform-origin: bottom left;
 }
 
-.mochi-popover {
+.agent-popover {
   pointer-events: auto;
   width: max-content;
   max-width: 250px;
@@ -64,28 +64,28 @@
   line-height: 19px;
 }
 
-.mochi-presence.is-left .mochi-popover {
+.agent-presence.is-left .agent-popover {
   border-radius: 18px 18px 18px 6px;
 }
 
-.mochi-popover p {
+.agent-popover p {
   margin: 0 0 8px;
   font-weight: 600;
 }
 
-.mochi-popover small {
+.agent-popover small {
   display: block;
   margin-top: 8px;
   color: var(--ink-2);
   font-size: 12px;
 }
 
-.mochi-actions {
+.agent-actions {
   display: grid;
   gap: 6px;
 }
 
-.mochi-action {
+.agent-action {
   padding: 8px 12px;
   border-radius: 12px;
   background: var(--chip);
@@ -96,21 +96,21 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .mochi-presence-body {
+  .agent-presence-body {
     transition: transform 200ms var(--ease-out);
   }
 
-  .mochi-popover {
-    animation: mochi-popover-in 260ms var(--ease-out);
+  .agent-popover {
+    animation: agent-popover-in 260ms var(--ease-out);
     transform-origin: bottom right;
   }
 
-  .mochi-presence.is-left .mochi-popover {
+  .agent-presence.is-left .agent-popover {
     transform-origin: bottom left;
   }
 }
 
-@keyframes mochi-popover-in {
+@keyframes agent-popover-in {
   from {
     opacity: 0;
     transform: translateY(6px) scale(0.92);
@@ -118,34 +118,34 @@
 }
 
 /* Silenciado por hoy: asoma media cara desde el borde */
-.mochi-quiet-tab {
+.agent-quiet-tab {
   pointer-events: auto;
   margin-right: -32px;
   opacity: 0.85;
 }
 
-.mochi-presence.is-left .mochi-quiet-tab {
+.agent-presence.is-left .agent-quiet-tab {
   margin-right: 0;
   margin-left: -32px;
 }
 
 /* Confirmación al agregar al carro: deja pasar los toques (se sigue comprando debajo) salvo en sus dos botones */
-.mochi-bubble {
+.agent-bubble {
   position: relative;
   max-width: 220px;
   padding-right: 34px;
   pointer-events: none;
 }
 
-.mochi-bubble button {
+.agent-bubble button {
   pointer-events: auto;
 }
 
-.mochi-bubble .mochi-action {
+.agent-bubble .agent-action {
   justify-self: start;
 }
 
-.mochi-bubble-close {
+.agent-bubble-close {
   position: absolute;
   top: 4px;
   right: 6px;

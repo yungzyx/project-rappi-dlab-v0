@@ -35,7 +35,7 @@ describe('SearchResults sin resultados', () => {
     render(<SearchResults query="chela" data={EMPTY} />)
     await flush()
     expect(screen.getByText('No results for “chela”.')).toBeTruthy()
-    expect(document.querySelector('.mochi')).toBeNull()
+    expect(document.querySelector('.mascot')).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -48,7 +48,7 @@ describe('SearchResults sin resultados', () => {
     })
     await flush()
     const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
-    const fields = { concept_id: 'pizza', vertical: 'restaurantes', payload: { origen: 'mochi-sin_resultado' } }
+    const fields = { concept_id: 'pizza', vertical: 'restaurantes', payload: { origen: 'agent-sin_resultado' } }
 
     expect(tracked('suggestion_shown')).toEqual([fields])
     expect(tracked('suggestion_accepted')).toEqual([])
@@ -67,7 +67,7 @@ describe('SearchResults sin resultados', () => {
     await flush()
 
     expect(screen.getByText('No encontré «pizza hawaiana», pero pizza sí hay en restaurantes.')).toBeTruthy()
-    expect(document.querySelector('.search-mochi .mochi')).toBeTruthy()
+    expect(document.querySelector('.search-agent .mascot')).toBeTruthy()
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       moment: 'sin_resultado',
       context: { query: 'pizza hawaiana' },

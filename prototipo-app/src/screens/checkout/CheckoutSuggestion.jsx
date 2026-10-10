@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { offer } from '../../api/mochi'
+import { AGENT_NAME } from '../../agent/name'
+import { offer } from '../../api/agent'
 import { noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
 import Mascot from '../../components/assistant/Mascot'
@@ -12,7 +13,7 @@ import { useProfile } from '../../state/ProfileContext'
 
 /**
  * «¿Me falta algo?» en el checkout (prototipo final): solo si la persona lo pide, se consulta la oferta `checkout` de
- * Mochi con lo que lleva el carro. Si hay oferta, sugiere UNA cosa (con su razón, «Agregar» y «Deshacer»); si no (204),
+ * El agente con lo que lleva el carro. Si hay oferta, sugiere UNA cosa (con su razón, «Agregar» y «Deshacer»); si no (204),
  * dice que el carro está completo; si la API no contesta, no dice nada. Nada aparece por su cuenta.
  */
 export default function CheckoutSuggestion() {
@@ -47,13 +48,13 @@ export default function CheckoutSuggestion() {
         if (!made?.products.length) return setComplete(true)
         const [product] = made.products
         noteShown(events.track, [product], {
-          origin: `mochi-${made.moment}`,
+          origin: `agent-${made.moment}`,
           concept: made.reason?.concept,
           generation: profile.resets,
         })
         setPicked({ text: made.text, product })
       } catch {
-        // Sin respuesta, Mochi no dice nada: el botón sigue ahí para volver a pedir.
+        // Sin respuesta, el agente no dice nada: el botón sigue ahí para volver a pedir.
       } finally {
         setAsking(false)
       }
@@ -61,14 +62,14 @@ export default function CheckoutSuggestion() {
     return (
       <button type="button" className="checkout-ask tap" disabled={asking} onClick={ask}>
         <Mascot size={28} badge />
-        ¿Me falta algo? Pregúntale a Mochi
+        ¿Me falta algo? Pregúntale a {AGENT_NAME}
       </button>
     )
   }
 
   const { text, product } = picked
   return (
-    <section className="checkout-suggestion" aria-label="Sugerencia de Mochi">
+    <section className="checkout-suggestion" aria-label={`Sugerencia de ${AGENT_NAME}`}>
       <Mascot size={40} badge mood="wave" />
       <div className="checkout-suggestion-body">
         <p className="checkout-suggestion-reason">{text}</p>

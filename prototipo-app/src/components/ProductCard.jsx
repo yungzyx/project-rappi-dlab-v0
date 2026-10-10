@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { AGENT_NAME } from '../agent/name'
 import { EtaIcon } from './StoreMeta'
-import { MOCHI_DRAG_TYPE, askAbout } from '../assistant/mochiAsk'
+import { AGENT_DRAG_TYPE, askAbout } from '../assistant/agentAsk'
 import { useLongPress } from '../hooks/useLongPress'
 import { useAssistant } from '../state/AssistantContext'
 import { useDemo } from '../state/DemoContext'
@@ -11,7 +12,7 @@ import './product-card.css'
 
 const ASK_VISIBLE_MS = 3000
 
-// En escritorio (mouse) la tarjeta también se puede arrastrar hasta Mochi; en el celular, arrastrar es scroll.
+// En escritorio (mouse) la tarjeta también se puede arrastrar hasta el agente; en el celular, arrastrar es scroll.
 const canDrag = () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches === true
 
 /** Producto de supermercado/farmacia/botillería (Meat & Seafood, beers, Baby care…). Tocarlo abre su hoja; el "+" va aparte. */
@@ -22,7 +23,7 @@ export function ProductCard({ product, onOpenStore }) {
   const [asking, setAsking] = useState(false)
   const press = useLongPress(() => setAsking(true))
 
-  // «Preguntarle a Mochi» se va solo, o al tocar fuera.
+  // «Preguntarle al agente» se va solo, o al tocar fuera.
   useEffect(() => {
     if (!asking) return undefined
     const timer = setTimeout(() => setAsking(false), ASK_VISIBLE_MS)
@@ -36,12 +37,12 @@ export function ProductCard({ product, onOpenStore }) {
     }
   }, [asking])
 
-  // En el prototipo final, mantener presionado (o arrastrar hasta Mochi, en escritorio) es preguntarle por él.
-  const mochi = final
+  // En el prototipo final, mantener presionado (o arrastrar hasta el agente, en escritorio) es preguntarle por él.
+  const askProps = final
     ? {
         ...press.handlers,
         draggable: canDrag(),
-        onDragStart: (event) => event.dataTransfer.setData(MOCHI_DRAG_TYPE, JSON.stringify(product)),
+        onDragStart: (event) => event.dataTransfer.setData(AGENT_DRAG_TYPE, JSON.stringify(product)),
       }
     : {}
   const openSheet = () => {
@@ -60,14 +61,14 @@ export function ProductCard({ product, onOpenStore }) {
             assistant?.open({ query: askAbout(product), product })
           }}
         >
-          Preguntarle a Mochi
+          Preguntarle a {AGENT_NAME}
         </button>
       )}
       <button
         type="button"
         className={final ? 'product-card-main tap is-askable' : 'product-card-main tap'}
         onClick={openSheet}
-        {...mochi}
+        {...askProps}
       >
       <span className={product.partial ? 'product-media is-partial' : 'product-media'}>
         <Img src={product.img} draggable="false" />

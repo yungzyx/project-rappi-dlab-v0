@@ -78,7 +78,7 @@
 }
 
 .loyalty-row svg {
-  color: var(--bigotes-orange);
+  color: var(--agent-orange);
 }
 
 .loyalty-active {
@@ -124,7 +124,7 @@
 .loyalty-change {
   font-size: 14px;
   font-weight: 600;
-  color: var(--bigotes-orange);
+  color: var(--agent-orange);
 }
 
 .loyalty-banner {
@@ -169,7 +169,7 @@
   width: 100%;
   height: 52px;
   border-radius: 99px;
-  background: var(--bigotes-orange);
+  background: var(--agent-orange);
   color: var(--surface);
   font-size: 17px;
   font-weight: 700;

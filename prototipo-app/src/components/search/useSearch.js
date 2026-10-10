@@ -4,7 +4,7 @@ import { useEvents } from '../../state/EventsContext'
 
 /**
  * Búsqueda en vivo en el catálogo de la API (todas las verticales, agrupada). La comparten el buscador de «Rappi hoy»
- * y el de Mochi (prototipo final). `vertical`: la de la pantalla desde la que se abrió (la API la suma a las que busca
+ * y el del agente (prototipo final). `vertical`: la de la pantalla desde la que se abrió (la API la suma a las que busca
  * y el embudo del panel se mide por vertical).
  * Devuelve `{ query, setQuery, data, loading, error, retry, hasQuery, logSearch, pick }`; `data`, `loading` y `error` son
  * los de `useSearchApi`.

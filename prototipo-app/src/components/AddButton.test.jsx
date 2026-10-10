@@ -65,7 +65,7 @@ describe('AddButton', () => {
       store: 'Unimarc',
       concept: 'snacks-salados',
       fromSuggestion: true,
-      suggestionOrigin: 'chat',
+      suggestionOrigin: 'agent-ask',
     }
     render(
       <>

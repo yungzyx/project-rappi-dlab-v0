@@ -299,12 +299,12 @@
 .live-layer {
   position: absolute;
   inset: 0;
-  z-index: var(--z-live-bigotes);
+  z-index: var(--z-live-agent);
   pointer-events: none;
   overflow: hidden;
 }
 
-.live-bigotes {
+.live-agent {
   position: absolute;
   top: 0;
   left: 0;
@@ -315,15 +315,15 @@
   will-change: transform;
 }
 
-.live-bigotes.is-away {
+.live-agent.is-away {
   opacity: 0;
 }
 
-.live-bigotes-body[hidden] {
+.live-agent-body[hidden] {
   display: none;
 }
 
-.live-bigotes-body {
+.live-agent-body {
   display: block;
   pointer-events: auto;
   filter: drop-shadow(0 8px 10px rgba(40, 20, 10, 0.25));
@@ -331,20 +331,20 @@
 }
 
 /* En reposo se asoma desde el borde derecho: medio cuerpo, inclinado hacia la pantalla */
-.live-bigotes.is-resting .live-bigotes-body {
+.live-agent.is-resting .live-agent-body {
   transform: translateX(44px) rotate(-10deg);
 }
 
 /* Mientras se hace scroll, casi se esconde */
-.live-bigotes.is-resting.is-tucked .live-bigotes-body {
+.live-agent.is-resting.is-tucked .live-agent-body {
   transform: translateX(72px) rotate(-4deg);
 }
 
-.live-bigotes-body:active {
+.live-agent-body:active {
   transform: scale(0.92) rotate(-5deg);
 }
 
-.live-bigotes.is-entering .live-bigotes-body {
+.live-agent.is-entering .live-agent-body {
   animation: live-enter 900ms var(--live-spring) backwards;
 }
 
@@ -392,11 +392,11 @@
 }
 
 /* Los gestos con brazos (saludar, señalar, bailar, estirarse) ponen la pose feliz de Mochi; mirar, la tímida */
-.live-bigotes .live-gesture--greet .mochi .mochi-sprite {
+.live-agent .live-gesture--greet .mascot .mascot-sprite {
   animation: live-pose-happy 1.5s step-end 0.75s;
 }
 
-.live-bigotes .live-gesture--wave .mochi .mochi-sprite {
+.live-agent .live-gesture--wave .mascot .mascot-sprite {
   animation: live-pose-happy 1.5s step-end;
 }
 
@@ -412,7 +412,7 @@
   animation: live-lean 1.8s var(--live-glide);
 }
 
-.live-bigotes .live-gesture--point .mochi .mochi-sprite {
+.live-agent .live-gesture--point .mascot .mascot-sprite {
   animation: live-pose-happy 1.8s step-end;
 }
 
@@ -420,7 +420,7 @@
   animation: live-spin 900ms var(--live-glide);
 }
 
-.live-bigotes .live-gesture--look .mochi .mochi-sprite {
+.live-agent .live-gesture--look .mascot .mascot-sprite {
   animation: live-pose-shy 2.2s step-end;
 }
 
@@ -432,11 +432,11 @@
   animation: live-dance 1.8s ease-in-out;
 }
 
-.live-bigotes .live-gesture--dance .mochi .mochi-sprite {
+.live-agent .live-gesture--dance .mascot .mascot-sprite {
   animation: live-pose-happy 1.8s step-end;
 }
 
-.live-bigotes .live-gesture--stretch .mochi .mochi-sprite {
+.live-agent .live-gesture--stretch .mascot .mascot-sprite {
   animation: live-pose-happy 1.3s step-end;
 }
 
@@ -464,7 +464,7 @@
 }
 
 /* Al tocarlo o al celebrar, el salto gana sobre la pose del gesto */
-.live-bigotes .live-gesture .mochi.mascot--jump .mochi-sprite {
+.live-agent .live-gesture .mascot.mascot--jump .mascot-sprite {
   animation: none;
 }
 
@@ -590,7 +590,7 @@
 }
 
 /* Abajo en la pantalla, el globo crece hacia arriba desde la cabeza de Mochi */
-.live-bigotes.is-low .live-bubble {
+.live-agent.is-low .live-bubble {
   top: auto;
   bottom: 46px;
   border-radius: 18px 18px 6px 18px;
@@ -630,15 +630,15 @@
 @media (prefers-reduced-motion: reduce) {
   .home--live,
   .live-passport-bar span,
-  .live-bigotes,
+  .live-agent,
   .live-card {
     transition: none;
   }
 
-  .live-bigotes.is-entering .live-bigotes-body,
+  .live-agent.is-entering .live-agent-body,
   .live-hop,
   .live-gesture,
-  .live-gesture .mochi-sprite,
+  .live-gesture .mascot-sprite,
   .live-bubble,
   .live-bubble-actions,
   .live-kit,

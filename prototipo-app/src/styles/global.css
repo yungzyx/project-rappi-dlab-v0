@@ -150,7 +150,7 @@ img {
 /* Respuesta táctil común para todo lo clickeable */
 /* Foco visible solo al navegar con teclado (no al tocar) */
 :focus-visible {
-  outline: 2.5px solid var(--bigotes-orange);
+  outline: 2.5px solid var(--agent-orange);
   outline-offset: 2px;
 }
 

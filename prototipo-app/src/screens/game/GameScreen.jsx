@@ -54,7 +54,7 @@ function GameView({ back, push, params = {} }) {
     () => ({
       openInApp: (vertical) => {
         const id = GAME_TO_SCREEN[vertical]
-        // Como al abrirla desde la Home: si el sello es nuevo, Mochi lo celebra al volver a la Home.
+        // Como al abrirla desde la Home: si el sello es nuevo, el agente lo celebra al volver a la Home.
         if (game.visit(id)) session.newStamp = id
         push(...routeForScreen(id))
       },

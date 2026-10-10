@@ -1,14 +1,14 @@
 import { useId } from 'react'
-import mochiPoses from '../../assets/mochi-poses.webp'
+import mascotPoses from '../../assets/mochi-poses.webp'
 import { ROUTE, pointOnRoute } from './progress'
 
 const ROUTE_PATH = ROUTE.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x} ${y}`).join(' ')
 const MARKER = 40
-const POSE_OVERFLOW = MARKER * 0.07 // como el avatar de Mochi: la pose asoma un poco del círculo
-const ALMOST_AT = 0.8 // tramo final de la ruta: Mochi avisa que ya casi llega
+const POSE_OVERFLOW = MARKER * 0.07 // como el avatar del agente: la pose asoma un poco del círculo
+const ALMOST_AT = 0.8 // tramo final de la ruta: el agente avisa que ya casi llega
 
 /**
- * La pose de Mochi según cómo va el pedido, como posición en la imagen de 2 × 2 poses: preparándose está tímido
+ * La pose del agente según cómo va el pedido, como posición en la imagen de 2 × 2 poses: preparándose está tímido
  * (abajo a la izquierda), en camino de frente y, en el tramo final o al llegar, feliz (arriba a la derecha).
  */
 export function poseFor({ step, progress, delivered }) {
@@ -19,12 +19,12 @@ export function poseFor({ step, progress, delivered }) {
   return { x: 0, y: 0, almost: false }
 }
 
-/** Mapa ilustrado (no es un mapa real): cuadras, parque, río, la ruta y Mochi avanzando por ella. */
+/** Mapa ilustrado (no es un mapa real): cuadras, parque, río, la ruta y el agente avanzando por ella. */
 export default function TrackingMap({ progress, delivered, step }) {
   const [x, y] = pointOnRoute(progress)
   const [homeX, homeY] = ROUTE[ROUTE.length - 1]
   const [storeX, storeY] = ROUTE[0]
-  const badgeFill = `mochi-badge-${useId().replace(/:/g, '')}`
+  const badgeFill = `mascot-badge-${useId().replace(/:/g, '')}`
   const pose = poseFor({ step, progress, delivered })
 
   return (
@@ -57,7 +57,7 @@ export default function TrackingMap({ progress, delivered, step }) {
         className="tracking-route"
         d={ROUTE_PATH}
         fill="none"
-        stroke="var(--bigotes-orange)"
+        stroke="var(--agent-orange)"
         strokeWidth="4"
         strokeDasharray="2 9"
         strokeLinecap="round"
@@ -65,11 +65,11 @@ export default function TrackingMap({ progress, delivered, step }) {
       />
 
       <g transform={`translate(${storeX} ${storeY})`}>
-        <circle r="13" fill="#fff" stroke="var(--bigotes-orange)" strokeWidth="3" />
+        <circle r="13" fill="#fff" stroke="var(--agent-orange)" strokeWidth="3" />
         <path
           d="M-4 -6v5a3 3 0 0 0 6 0v-5M-1 -6v12M5 -6c-2 0-3 2-3 5v1h3v6"
           fill="none"
-          stroke="var(--bigotes-orange)"
+          stroke="var(--agent-orange)"
           strokeWidth="1.8"
           strokeLinecap="round"
         />
@@ -82,7 +82,7 @@ export default function TrackingMap({ progress, delivered, step }) {
         <path d="M-7 1 0 -6 7 1V8H-7Z" fill="#fff" />
       </g>
 
-      {/* Mochi como repartidor: la transición CSS suaviza el salto entre ticks. Va en SVG puro (no el componente,
+      {/* El agente como repartidor: la transición CSS suaviza el salto entre ticks. Va en SVG puro (no el componente,
           que es HTML): Safari dibuja mal el HTML animado dentro de un foreignObject. Su pose sigue el pedido. */}
       <g className="tracking-rider" style={{ transform: `translate(${x - MARKER / 2}px, ${y - MARKER / 2 - 8}px)` }}>
         <ellipse cx={MARKER / 2} cy={MARKER + 4} rx="12" ry="3" fill="#000" opacity="0.15" />
@@ -100,7 +100,7 @@ export default function TrackingMap({ progress, delivered, step }) {
           overflow="hidden"
         >
           {/* La imagen tiene 2 × 2 poses: se corre para que quede a la vista la de arriba a la izquierda o a la derecha */}
-          <image href={mochiPoses} x={pose.x} y={pose.y} width="2" height="2" preserveAspectRatio="none" />
+          <image href={mascotPoses} x={pose.x} y={pose.y} width="2" height="2" preserveAspectRatio="none" />
         </svg>
         {pose.almost && (
           <g className="tracking-almost" transform={`translate(${MARKER / 2} -14)`}>

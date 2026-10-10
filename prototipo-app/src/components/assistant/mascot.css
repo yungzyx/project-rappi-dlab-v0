@@ -1,31 +1,31 @@
 /* Mochi: una imagen con 4 poses en 2 × 2 (frontal, feliz / tímido, saltando); el estado elige cuál se ve.
    El movimiento solo usa transform/opacity, que corren en la GPU; los cambios de pose mueven el fondo. */
-.mascot.mochi {
+.mascot {
   display: block;
   position: relative;
   flex: none;
   isolation: isolate;
-  --mochi-look: 0deg;
+  --mascot-look: 0deg;
 }
 
 /* La pose es cuadrada y se apoya abajo: de cuerpo entero la caja mide 1,2 × el ancho */
-.mochi-body {
+.mascot-body {
   position: absolute;
   inset: auto 0 0;
   aspect-ratio: 1;
   transform-origin: 50% 85%;
 }
 
-.mochi-sprite {
+.mascot-sprite {
   position: absolute;
   inset: 0;
   background: url('../../assets/mochi-poses.webp') 0 0 / 200% 200% no-repeat;
-  transform: rotate(var(--mochi-look));
+  transform: rotate(var(--mascot-look));
   transition: transform 0.22s ease-out;
   filter: drop-shadow(0 2px 2px rgb(155 57 11 / 9%));
 }
 
-.mochi-shadow {
+.mascot-shadow {
   position: absolute;
   bottom: 3%;
   left: 22%;
@@ -37,105 +37,105 @@
 }
 
 /* Como avatar: en un círculo, un poco más grande para que asome */
-.mochi--badge {
+.mascot--badge {
   border-radius: 50%;
   background: radial-gradient(circle at 45% 35%, #fff7ee, #ffe2ce);
   box-shadow: inset 0 0 0 2px #fff4eb;
 }
 
-.mochi--badge .mochi-body {
+.mascot--badge .mascot-body {
   inset: -7%;
 }
 
-.mochi--badge .mochi-shadow {
+.mascot--badge .mascot-shadow {
   display: none;
 }
 
 /* ----- Poses ----- */
-.mochi.mascot--wave .mochi-sprite {
+.mascot.mascot--wave .mascot-sprite {
   background-position: 100% 0;
 }
 
-.mochi.mascot--think .mochi-sprite,
-.mochi.mascot--listen .mochi-sprite {
+.mascot.mascot--think .mascot-sprite,
+.mascot.mascot--listen .mascot-sprite {
   background-position: 0 100%;
 }
 
-.mochi.mascot--jump .mochi-sprite {
+.mascot.mascot--jump .mascot-sprite {
   background-position: 100% 100%;
 }
 
 @media (hover: hover) {
-  .mochi:hover .mochi-sprite {
+  .mascot:hover .mascot-sprite {
     background-position: 100% 0;
   }
 }
 
 /* ----- Movimiento ----- */
 @media (prefers-reduced-motion: no-preference) {
-  .mochi-body {
-    animation: mochi-breathe 4.2s ease-in-out infinite;
+  .mascot-body {
+    animation: mascot-breathe 4.2s ease-in-out infinite;
   }
 
-  .mochi-shadow {
-    animation: mochi-shadow 4.2s ease-in-out infinite;
+  .mascot-shadow {
+    animation: mascot-shadow 4.2s ease-in-out infinite;
   }
 
   /* Quieto, cada tanto sonríe un instante */
-  .mochi.mascot--idle .mochi-sprite {
-    animation: mochi-expression 9s step-end infinite;
+  .mascot.mascot--idle .mascot-sprite {
+    animation: mascot-expression 9s step-end infinite;
   }
 
-  .mochi.mascot--wave .mochi-body {
-    animation: mochi-wave 3.8s ease-in-out infinite;
+  .mascot.mascot--wave .mascot-body {
+    animation: mascot-wave 3.8s ease-in-out infinite;
   }
 
-  .mochi.mascot--think .mochi-body {
-    animation: mochi-think 2.6s ease-in-out infinite;
+  .mascot.mascot--think .mascot-body {
+    animation: mascot-think 2.6s ease-in-out infinite;
   }
 
-  .mochi.mascot--listen .mochi-body {
-    animation: mochi-listen 3.6s ease-in-out infinite;
+  .mascot.mascot--listen .mascot-body {
+    animation: mascot-listen 3.6s ease-in-out infinite;
   }
 
-  .mochi.mascot--talk .mochi-body {
-    animation: mochi-talk 0.7s ease-in-out infinite;
+  .mascot.mascot--talk .mascot-body {
+    animation: mascot-talk 0.7s ease-in-out infinite;
   }
 
-  .mochi.mascot--jump .mochi-body {
-    animation: mochi-boop 0.8s cubic-bezier(0.2, 0.8, 0.3, 1) 1;
+  .mascot.mascot--jump .mascot-body {
+    animation: mascot-boop 0.8s cubic-bezier(0.2, 0.8, 0.3, 1) 1;
   }
 
   @media (hover: hover) {
-    .mochi:hover .mochi-body {
-      animation: mochi-greet 0.7s ease-in-out 1;
+    .mascot:hover .mascot-body {
+      animation: mascot-greet 0.7s ease-in-out 1;
     }
 
-    .mochi:hover .mochi-sprite {
+    .mascot:hover .mascot-sprite {
       animation: none;
     }
   }
 
   /* Al tocarlo salta (sin movimiento no hay salto, para no quedar pegado en esa pose) */
-  .mochi.mochi--boop .mochi-sprite {
+  .mascot.mascot--boop .mascot-sprite {
     background-position: 100% 100%;
     animation: none;
   }
 
-  .mochi.mochi--boop .mochi-body {
-    animation: mochi-boop 0.8s cubic-bezier(0.2, 0.8, 0.3, 1) 1;
+  .mascot.mascot--boop .mascot-body {
+    animation: mascot-boop 0.8s cubic-bezier(0.2, 0.8, 0.3, 1) 1;
   }
 }
 
 /* Sin movimiento tampoco se inclina hacia el mouse */
 @media (prefers-reduced-motion: reduce) {
-  .mochi-sprite {
+  .mascot-sprite {
     transform: none;
     transition: none;
   }
 }
 
-@keyframes mochi-breathe {
+@keyframes mascot-breathe {
   0%,
   100% {
     transform: translateY(0) scale(1);
@@ -145,7 +145,7 @@
   }
 }
 
-@keyframes mochi-shadow {
+@keyframes mascot-shadow {
   0%,
   100% {
     transform: scale(1);
@@ -157,7 +157,7 @@
   }
 }
 
-@keyframes mochi-expression {
+@keyframes mascot-expression {
   0%,
   93%,
   100% {
@@ -168,7 +168,7 @@
   }
 }
 
-@keyframes mochi-wave {
+@keyframes mascot-wave {
   0%,
   35%,
   100% {
@@ -186,7 +186,7 @@
   }
 }
 
-@keyframes mochi-think {
+@keyframes mascot-think {
   0%,
   100% {
     transform: rotate(-4deg) translateY(0);
@@ -196,7 +196,7 @@
   }
 }
 
-@keyframes mochi-listen {
+@keyframes mascot-listen {
   0%,
   60%,
   100% {
@@ -207,7 +207,7 @@
   }
 }
 
-@keyframes mochi-talk {
+@keyframes mascot-talk {
   0%,
   100% {
     transform: scale(1) translateY(0);
@@ -217,7 +217,7 @@
   }
 }
 
-@keyframes mochi-greet {
+@keyframes mascot-greet {
   0%,
   100% {
     transform: rotate(0);
@@ -230,7 +230,7 @@
   }
 }
 
-@keyframes mochi-boop {
+@keyframes mascot-boop {
   0%,
   100% {
     transform: translateY(0) scale(1);

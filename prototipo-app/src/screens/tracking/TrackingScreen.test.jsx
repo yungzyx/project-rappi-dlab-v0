@@ -7,7 +7,7 @@ import { today } from '../../game/progress.js'
 import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { GameProvider } from '../../state/GameContext'
-import { QUIET_KEY, noteDismissed, resetQuiet } from '../../state/mochiQuiet'
+import { QUIET_KEY, noteDismissed, resetQuiet } from '../../state/agentQuiet'
 import { OrdersProvider, useOrders } from '../../state/OrdersContext'
 import { ProfileProvider } from '../../state/ProfileContext'
 import TrackingScreen from './TrackingScreen'
@@ -102,7 +102,7 @@ describe('TrackingScreen', () => {
     expect(events.track).toHaveBeenCalledWith('suggestion_shown', {
       concept_id: 'gaseosas',
       vertical: 'express',
-      payload: { origen: 'mochi-proximo_pedido' },
+      payload: { origen: 'agent-proximo_pedido' },
     })
 
     // Tocarla abre el buscador con esa misma oferta, para agregar lo que arma.

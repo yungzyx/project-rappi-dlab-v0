@@ -1,4 +1,5 @@
 import { Cards, GameController, SealCheck } from '@phosphor-icons/react'
+import { AGENT_NAME } from '../../agent/name.js'
 import Mascot from '../../components/assistant/Mascot'
 import Sheet from './GameSheet.jsx'
 import './intro.css'
@@ -15,7 +16,7 @@ export default function Intro({ onStart, onClose }) {
     <Sheet label="Bienvenida" onClose={onClose}>
       <div className="intro">
         <Mascot size={96} mood="wave" />
-        <h2>¡Hola! Soy Mochi</h2>
+        <h2>¡Hola! Soy {AGENT_NAME}</h2>
         <p className="intro-lede">Te muestro todo lo que hay en Rappi, más allá de lo que ya conoces.</p>
         <ul className="intro-points">
           {POINTS.map(({ Icon, text }) => (

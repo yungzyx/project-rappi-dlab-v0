@@ -6,7 +6,7 @@ import { VERTICAL_NAMES } from '../../../data/verticals'
 import { stampedVerticals, verticalLevel } from '../../../game/progress.js'
 import { GAME_TO_SCREEN, PASSPORT_GOAL, PASSPORT_ORDER } from '../../../game/verticals.js'
 
-/** Abre la tienda de un producto o plato que Mochi ofreció (por su id; sin él, con el nombre y el logo que trae). */
+/** Abre la tienda de un producto o plato que el agente ofreció (por su id; sin él, con el nombre y el logo que trae). */
 export function openItem(product, push) {
   return push('store', {
     store:
@@ -17,7 +17,7 @@ export function openItem(product, push) {
   })
 }
 
-/** «¿Qué plan tienes hoy?»: las ocasiones salen de la API y Mochi arma, también con la API, un kit de varias verticales. */
+/** «¿Qué plan tienes hoy?»: las ocasiones salen de la API y el agente arma, también con la API, un kit de varias verticales. */
 export function PlanBlock({ plans, plan, kit, added, onPick, onOpen, onAddKit, onCheckout }) {
   const total = (kit ?? []).reduce((sum, product) => sum + parsePrice(product.price), 0)
   const verticals = [...new Set((kit ?? []).map((product) => VERTICAL_NAMES[product.vertical] ?? product.vertical))]

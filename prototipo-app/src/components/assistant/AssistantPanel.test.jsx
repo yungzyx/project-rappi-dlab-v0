@@ -9,11 +9,11 @@ import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
 import { routeForScreen } from '../../data/verticals'
 import { fixture, stubApi } from '../../api/testing'
-import { askAbout } from '../../assistant/mochiAsk'
+import { askAbout } from '../../assistant/agentAsk'
 
 const api = vi.hoisted(() => ({
   health: vi.fn(),
-  chat: vi.fn(),
+  ask: vi.fn(),
   forget: vi.fn(),
   profile: vi.fn(),
 }))
@@ -64,9 +64,9 @@ const BEER = {
   concept: 'cerveza',
 }
 const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
-const bubbles = () => [...document.querySelectorAll('.chat-bubble')].map((el) => el.textContent)
+const bubbles = () => [...document.querySelectorAll('.agent-msg-bubble')].map((el) => el.textContent)
 
-/** Sin chat escrito, a Mochi se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
+/** Sin escribir una pregunta, a Mochi se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
 function say(text) {
   const ask = screen.getByText('preguntar')
   ask.dataset.query = text
@@ -150,23 +150,23 @@ afterEach(() => {
   sessionStorage.clear() // cada test es una pestaña nueva (otra sesión)
 })
 
-describe('chat en orden', () => {
+describe('las preguntas al agente van en orden', () => {
   test('las respuestas salen en el orden de las preguntas y la siguiente sabe qué tema ya se sugirió', async () => {
     const first = deferred()
-    api.chat.mockReturnValueOnce(first.promise).mockResolvedValueOnce(apiAnswer('Respuesta B'))
+    api.ask.mockReturnValueOnce(first.promise).mockResolvedValueOnce(apiAnswer('Respuesta B'))
     await renderPanel()
     say('pregunta A')
     await advance(10) // cada apertura lleva su hora: con el reloj simulado, dos en el mismo instante serían una
     say('pregunta B')
     await advance(1000)
-    expect(api.chat).toHaveBeenCalledTimes(1) // B sale cuando A ya está en pantalla
+    expect(api.ask).toHaveBeenCalledTimes(1) // B sale cuando A ya está en pantalla
 
     first.resolve(apiAnswer('Respuesta A', 'snacks-salados'))
     await runUntilIdle()
-    expect(api.chat).toHaveBeenCalledTimes(2)
-    expect(api.chat.mock.calls[0][0].message).toBe('pregunta A')
-    expect(api.chat.mock.calls[1][0].shown_topics).toEqual(['snacks-salados'])
-    // Mochi muestra su última respuesta (no un historial de chat)
+    expect(api.ask).toHaveBeenCalledTimes(2)
+    expect(api.ask.mock.calls[0][0].message).toBe('pregunta A')
+    expect(api.ask.mock.calls[1][0].shown_topics).toEqual(['snacks-salados'])
+    // Mochi muestra su última respuesta (no un historial)
     expect(bubbles()).toContain('Respuesta B')
     expect(bubbles()).not.toContain('Respuesta A')
   })
@@ -175,7 +175,7 @@ describe('chat en orden', () => {
 describe('sugerencia cruzada', () => {
   test('dice de qué vertical viene y su botón abre esa vertical', async () => {
     const push = vi.fn()
-    api.chat.mockResolvedValueOnce({
+    api.ask.mockResolvedValueOnce({
       text: 'Mira estas hamburguesas',
       products: [],
       suggestion: {
@@ -210,7 +210,7 @@ describe('sugerencia cruzada', () => {
 
   test('tocar un producto abre su tienda con ese producto: la página registra que lo vio', async () => {
     const push = vi.fn()
-    api.chat.mockResolvedValueOnce({
+    api.ask.mockResolvedValueOnce({
       ...apiAnswer('Mira estas hamburguesas', 'gaseosas'),
       suggestion: {
         ...apiAnswer('', 'gaseosas').suggestion,
@@ -243,7 +243,7 @@ describe('sugerencia cruzada', () => {
 
   test('el «Ver tienda» de un plato abre el menú de su restaurante por id', async () => {
     const push = vi.fn()
-    api.chat.mockResolvedValueOnce({
+    api.ask.mockResolvedValueOnce({
       ...apiAnswer('Mira estas hamburguesas', 'hamburguesa'),
       suggestion: {
         ...apiAnswer('', 'hamburguesa').suggestion,
@@ -276,7 +276,7 @@ describe('sugerencia cruzada', () => {
 describe('también en otras verticales', () => {
   test('muestra las verticales con sus tiendas (logo o inicial) y cada una abre su vertical', async () => {
     const push = vi.fn()
-    api.chat.mockResolvedValueOnce({
+    api.ask.mockResolvedValueOnce({
       text: 'Mira estas cervezas',
       products: [],
       also_in: {
@@ -333,7 +333,7 @@ describe('teclado y lector de pantalla', () => {
   })
 
   test('cada respuesta completa se anuncia una vez al lector de pantalla', async () => {
-    api.chat.mockResolvedValueOnce(apiAnswer('Mira estas cervezas'))
+    api.ask.mockResolvedValueOnce(apiAnswer('Mira estas cervezas'))
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
@@ -342,9 +342,9 @@ describe('teclado y lector de pantalla', () => {
   })
 })
 
-describe('si el chat falla', () => {
-  test('si chat falla se ve Sin conexión y Reintentar reenvía la pregunta', async () => {
-    api.chat.mockRejectedValueOnce(new Error('API caída')).mockResolvedValueOnce(apiAnswer('Desde la API'))
+describe('si la pregunta al agente falla', () => {
+  test('si ask falla se ve Sin conexión y Reintentar reenvía la pregunta', async () => {
+    api.ask.mockRejectedValueOnce(new Error('API caída')).mockResolvedValueOnce(apiAnswer('Desde la API'))
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
@@ -356,15 +356,15 @@ describe('si el chat falla', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     await runUntilIdle()
 
-    expect(api.chat).toHaveBeenCalledTimes(2)
-    expect(api.chat.mock.calls[1][0]).toEqual(api.chat.mock.calls[0][0]) // la misma pregunta, el mismo pedido
+    expect(api.ask).toHaveBeenCalledTimes(2)
+    expect(api.ask.mock.calls[1][0]).toEqual(api.ask.mock.calls[0][0]) // la misma pregunta, el mismo pedido
     expect(bubbles()).toContain('Desde la API')
     expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
     expect(screen.getAllByText(/Elegiste/)).toHaveLength(1) // reintentar no es otra pregunta
   })
 
   test('dos toques en Reintentar piden la respuesta una sola vez', async () => {
-    api.chat.mockRejectedValueOnce(new Error('API caída')).mockResolvedValue(apiAnswer('Desde la API'))
+    api.ask.mockRejectedValueOnce(new Error('API caída')).mockResolvedValue(apiAnswer('Desde la API'))
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
@@ -374,19 +374,19 @@ describe('si el chat falla', () => {
     fireEvent.click(retry)
     await runUntilIdle()
 
-    expect(api.chat).toHaveBeenCalledTimes(2) // la pregunta y un solo reintento
+    expect(api.ask).toHaveBeenCalledTimes(2) // la pregunta y un solo reintento
     expect(bubbles().filter((text) => text.includes('Desde la API'))).toHaveLength(1)
   })
 
   test('Reintentar sigue fallando: vuelve a decir Sin conexión', async () => {
-    api.chat.mockRejectedValue(new Error('API caída'))
+    api.ask.mockRejectedValue(new Error('API caída'))
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     await runUntilIdle()
 
-    expect(api.chat).toHaveBeenCalledTimes(2)
+    expect(api.ask).toHaveBeenCalledTimes(2)
     expect(bubbles()).toContain('Sin conexión')
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy()
   })
@@ -394,7 +394,7 @@ describe('si el chat falla', () => {
 
 describe('temas ya sugeridos', () => {
   test('recargar la página no olvida lo ya sugerido en la sesión', async () => {
-    api.chat.mockResolvedValueOnce(apiAnswer('Mira estos jugos', 'jugos')).mockResolvedValueOnce(apiAnswer('Ok'))
+    api.ask.mockResolvedValueOnce(apiAnswer('Mira estos jugos', 'jugos')).mockResolvedValueOnce(apiAnswer('Ok'))
     await renderPanel()
     say('algo para el desayuno')
     await runUntilIdle()
@@ -403,7 +403,7 @@ describe('temas ya sugeridos', () => {
     say('y algo más')
     await runUntilIdle()
 
-    expect(api.chat.mock.calls[1][0].shown_topics).toEqual(['jugos'])
+    expect(api.ask.mock.calls[1][0].shown_topics).toEqual(['jugos'])
   })
 })
 
@@ -448,9 +448,9 @@ describe('lo aprendido y Olvidar', () => {
 
   test('Olvidar espera la pregunta en curso y el lote de eventos antes del DELETE, y mientras no se envía nada', async () => {
     api.profile.mockResolvedValue({ interests: [VINO] })
-    const pendingChat = deferred()
+    const pendingAsk = deferred()
     const pendingFlush = deferred()
-    api.chat.mockReturnValueOnce(pendingChat.promise)
+    api.ask.mockReturnValueOnce(pendingAsk.promise)
     events.settled.mockReturnValueOnce(pendingFlush.promise)
     await renderPanel()
     say('pregunta A')
@@ -459,10 +459,10 @@ describe('lo aprendido y Olvidar', () => {
     await advance(100)
     say('pregunta mientras se olvida')
     await advance(500)
-    expect(api.chat).toHaveBeenCalledTimes(1)
+    expect(api.ask).toHaveBeenCalledTimes(1)
     expect(api.forget).not.toHaveBeenCalled()
 
-    pendingChat.resolve(apiAnswer('Respuesta A'))
+    pendingAsk.resolve(apiAnswer('Respuesta A'))
     await runUntilIdle()
     expect(events.clear).toHaveBeenCalled() // lo que dejó en cola la respuesta no se envía
     expect(api.forget).not.toHaveBeenCalled() // falta que termine el lote en camino
@@ -490,15 +490,15 @@ describe('lo aprendido y Olvidar', () => {
   })
 })
 
-describe('sin chat escrito', () => {
+describe('sin escribir una pregunta', () => {
   test('no hay dónde escribirle a Mochi: se le pide con un toque y se ve lo elegido', async () => {
-    api.chat.mockResolvedValueOnce(apiAnswer('Para el carrete'))
+    api.ask.mockResolvedValueOnce(apiAnswer('Para el carrete'))
     await renderPanel()
     expect(screen.queryByPlaceholderText(/Escríbele/)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: '🍻 Arma un carrete' }))
     await runUntilIdle()
-    expect(api.chat.mock.calls[0][0].message).toBe('Arma un carrete')
+    expect(api.ask.mock.calls[0][0].message).toBe('Arma un carrete')
     expect(screen.getByText('Elegiste «Arma un carrete»')).toBeTruthy()
     expect(bubbles()).toContain('Para el carrete')
   })
@@ -511,7 +511,7 @@ describe('sin chat escrito', () => {
     await runUntilIdle()
     fireEvent.keyDown(field, { key: 'Enter' })
 
-    expect(api.chat).not.toHaveBeenCalled()
+    expect(api.ask).not.toHaveBeenCalled()
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Licores', 'Express', 'Súper'])
     expect(screen.queryByText('Descubre con Mochi')).toBeNull()
     expect(events.track).toHaveBeenCalledWith(
@@ -557,7 +557,7 @@ describe('sin resultados', () => {
     await renderPanel({ push })
     await type('pizza hawaiana')
     expect(screen.getByText('No encontré «pizza hawaiana», pero pizza sí hay en restaurantes.')).toBeTruthy()
-    expect(document.querySelector('.search-mochi .mochi')).toBeTruthy()
+    expect(document.querySelector('.search-agent .mascot')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Ver en Restaurantes' }))
     expect(push.mock.calls[0][0]).toBe(routeForScreen('restaurants')[0])
   })
@@ -589,7 +589,7 @@ describe('Para ti y Descubre con Mochi', () => {
 
     expect(bubbles()[0]).toBe('¡Hola! Soy Mochi, tu asistente Rappi 🧡 ¿Qué se te antoja hoy?')
     expect(screen.getByText('Gaseosa cola 500 cc (prueba)')).toBeTruthy()
-    expect(document.querySelector('.chat-reason').textContent).toBe('Porque te interesa 🍕 pizza')
+    expect(document.querySelector('.agent-msg-reason').textContent).toBe('Porque te interesa 🍕 pizza')
     // Una sola petición sirve a «Para ti» y a «Descubre con Mochi».
     expect(fetchMock.mock.calls.filter(([url]) => url.includes('/recommendations'))).toHaveLength(1)
     const shown = tracked('suggestion_shown').filter((fields) => fields.payload.origen === 'para-ti')
@@ -616,14 +616,14 @@ describe('Para ti y Descubre con Mochi', () => {
     stubCatalog({ '/recommendations': { user_id: 'u', interests: [], rows: [] } })
     await renderPanel()
     expect(bubbles()[0]).toBe('¡Hola! Soy Mochi, tu asistente Rappi 🧡 ¿Qué se te antoja hoy?')
-    expect(document.querySelector('.chat-products')).toBeNull()
+    expect(document.querySelector('.agent-msg-products')).toBeNull()
     expect(screen.queryByText('Descubre con Mochi')).toBeNull()
 
     cleanup()
     stubCatalog({ '/recommendations': 'offline' })
     await renderPanel()
     expect(bubbles().at(-1)).toMatch(/Soy Mochi/)
-    expect(document.querySelector('.chat-products')).toBeNull()
+    expect(document.querySelector('.agent-msg-products')).toBeNull()
     expect(screen.queryByText('Descubre con Mochi')).toBeNull()
     expect(tracked('suggestion_shown')).toEqual([])
   })
@@ -663,7 +663,7 @@ describe('¿Con qué acompaño…?', () => {
     await renderPanel()
     await dropBeer()
 
-    expect(api.chat).not.toHaveBeenCalled()
+    expect(api.ask).not.toHaveBeenCalled()
     const call = fetchMock.mock.calls.find(([url]) => url.includes('/agent/offer'))
     expect(JSON.parse(call[1].body)).toMatchObject({
       moment: 'carrito',
@@ -673,7 +673,7 @@ describe('¿Con qué acompaño…?', () => {
     expect(bubbles()).toContain('Para completar tu pedido: snacks salados, en Express.')
     fireEvent.click(screen.getByLabelText('Agregar Papas fritas clásicas 180 g (prueba)'))
     expect(tracked('suggestion_accepted')).toContainEqual(
-      expect.objectContaining({ concept_id: 'snacks-salados', payload: { origen: 'mochi-carrito' } }),
+      expect.objectContaining({ concept_id: 'snacks-salados', payload: { origen: 'agent-carrito' } }),
     )
   })
 
@@ -704,13 +704,13 @@ describe('«¿Qué puedo probar?» (una oferta pedida desde fuera)', () => {
     await runUntilIdle()
   }
 
-  test('muestra la vertical por probar de la API, sin pasar por el chat', async () => {
+  test('muestra la vertical por probar de la API, sin pasar por una pregunta al agente', async () => {
     const push = vi.fn()
     const fetchMock = stubCatalog({ 'POST /agent/offer': fixture('agent-offer-vertical-por-probar') })
     await renderPanel({ push })
     await askToTry()
 
-    expect(api.chat).not.toHaveBeenCalled()
+    expect(api.ask).not.toHaveBeenCalled()
     const call = fetchMock.mock.calls.find(([url]) => url.includes('/agent/offer'))
     expect(JSON.parse(call[1].body)).toMatchObject({
       moment: 'vertical_por_probar',
@@ -741,7 +741,7 @@ describe('«¿Qué puedo probar?» (una oferta pedida desde fuera)', () => {
 describe('servicios sin catálogo', () => {
   test('RappiTravel queda registrado como ofrecido y abierto, y su gancho con su origen', async () => {
     const push = vi.fn()
-    api.chat.mockResolvedValueOnce({
+    api.ask.mockResolvedValueOnce({
       text: 'Para eso está ✈️ RappiTravel',
       products: [],
       service: 'rappitravel',
@@ -774,7 +774,7 @@ describe('servicios sin catálogo', () => {
 
 describe('sugerencias mostradas', () => {
   test('la misma sugerencia mostrada dos veces en la pestaña cuenta una sola vez para el panel', async () => {
-    api.chat.mockResolvedValue(apiAnswer('Aquí tienes cervezas', 'helados'))
+    api.ask.mockResolvedValue(apiAnswer('Aquí tienes cervezas', 'helados'))
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
@@ -786,8 +786,8 @@ describe('sugerencias mostradas', () => {
 })
 
 describe('aceptar una sugerencia de la API', () => {
-  test('el chat y el «+» cuentan la mostrada una sola vez, aunque la vertical llegue como código del backend y como id del prototipo', async () => {
-    api.chat.mockResolvedValueOnce({
+  test('la pregunta y el «+» cuentan la mostrada una sola vez, aunque la vertical llegue como código del backend y como id del prototipo', async () => {
+    api.ask.mockResolvedValueOnce({
       text: 'Mira estas hamburguesas',
       products: [],
       suggestion: {
@@ -818,27 +818,27 @@ describe('aceptar una sugerencia de la API', () => {
     fireEvent.click(screen.getByLabelText('Agregar Jugo de naranja 1 L'))
     expect(tracked('suggestion_shown')).toHaveLength(1)
     expect(tracked('suggestion_accepted')).toHaveLength(1)
-    expect(tracked('suggestion_accepted')[0]).toMatchObject({ concept_id: 'jugos', payload: { origen: 'chat' } })
+    expect(tracked('suggestion_accepted')[0]).toMatchObject({ concept_id: 'jugos', payload: { origen: 'agent-ask' } })
   })
 })
 
 describe('conversación', () => {
   test('el mensaje siguiente lleva el pedido anterior: «más barata» se lee sobre «cerveza»', async () => {
-    api.chat.mockResolvedValueOnce({
+    api.ask.mockResolvedValueOnce({
       text: 'Mira estas cervezas',
       vertical: 'licores',
       intent: { query: 'cerveza', concepts: ['cerveza'] },
       products: [{ id: 'cat-1', entity_type: 'catalog_item', entity_id: '1', name: 'Escudo', price: '$1.290' }],
     })
-    api.chat.mockResolvedValueOnce({ text: 'Las más baratas', products: [] })
+    api.ask.mockResolvedValueOnce({ text: 'Las más baratas', products: [] })
     await renderPanel()
     say('cerveza')
     await runUntilIdle()
     say('más barata')
     await runUntilIdle()
 
-    expect(api.chat.mock.calls[0][0].previous).toBeUndefined()
-    expect(api.chat.mock.calls[1][0].previous).toEqual({
+    expect(api.ask.mock.calls[0][0].previous).toBeUndefined()
+    expect(api.ask.mock.calls[1][0].previous).toEqual({
       query: 'cerveza',
       concepts: ['cerveza'],
       vertical: 'licores',

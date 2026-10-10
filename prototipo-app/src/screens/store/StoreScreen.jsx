@@ -18,7 +18,7 @@ import './store.css'
 const MODES = ['Delivery', 'Pickup']
 const SKELETON_ROWS = 5
 
-/** Las tiendas del catálogo se abren por su id numérico; las que Mochi abre solo por nombre no están en la base. */
+/** Las tiendas del catálogo se abren por su id numérico; las que el agente abre solo por nombre no están en la base. */
 const catalogId = (id) => (/^\d+$/.test(String(id ?? '')) ? Number(id) : null)
 
 /** El menú de un restaurante, con su tarjeta como `store`. */
@@ -31,7 +31,7 @@ async function readMenu(id) {
  * Página de tienda (funcionalidad agregada: no está en los videos). Todo sale de la API (`/catalog`):
  * un restaurante (`params.store.vertical === 'restaurants'`) con su menú, y una tienda con sus pasillos, de a una página.
  * Muestra la foto, los datos de la tarjeta y ♥ para favoritos.
- * `params.item`: el producto que se tocó para llegar aquí (en el chat, «Para ti» o una vertical), si lo hubo.
+ * `params.item`: el producto que se tocó para llegar aquí (en el buscador con el agente, «Para ti» o una vertical), si lo hubo.
  */
 export default function StoreScreen({ back, params }) {
   const given = params.store

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-// "actual" = Rappi como es hoy; "final" = el prototipo final: Mochi de cuerpo entero vive en la Home (con el
-// pasaporte de verticales) y el buscador es el de Mochi. Reúne lo que antes eran «Propuesta» y «Bigotes vivo».
+// "actual" = Rappi como es hoy; "final" = el prototipo final: el agente de cuerpo entero vive en la Home (con el
+// pasaporte de verticales) y el buscador es el del agente. Reúne lo que antes eran dos modos con el agente.
 const STORAGE_KEY = 'rappi-proto-demo-mode'
 const MODES = ['final', 'actual']
 export const MODE_LABELS = { final: 'Prototipo final ✨', actual: 'Rappi hoy' }

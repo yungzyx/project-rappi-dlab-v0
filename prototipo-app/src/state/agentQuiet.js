@@ -1,4 +1,4 @@
-// Cuándo Mochi no habla por iniciativa propia: si la persona lo silenció por hoy (se guarda en el navegador) o si
+// Cuándo el agente no habla por iniciativa propia: si la persona lo silenció por hoy (se guarda en el navegador) o si
 // cerró dos globos seguidos (dura lo que la pestaña). Una mascota que insiste molesta.
 
 export const QUIET_KEY = 'rappi-proto-mochi-silencio'
@@ -6,7 +6,7 @@ const HUSH_AFTER_DISMISSALS = 2
 
 let dismissedInARow = 0
 
-/** Silenciado hoy (`today` en AAAA-MM-DD): Mochi queda como una pestañita en el borde. */
+/** Silenciado hoy (`today` en AAAA-MM-DD): el agente queda como una pestañita en el borde. */
 export function isQuiet(today) {
   try {
     return localStorage.getItem(QUIET_KEY) === today
@@ -19,7 +19,7 @@ export function quietToday(today) {
   try {
     localStorage.setItem(QUIET_KEY, today)
   } catch {
-    // Sin almacenamiento: el silencio no se guarda, Mochi vuelve al recargar.
+    // Sin almacenamiento: el silencio no se guarda, el agente vuelve al recargar.
   }
 }
 
@@ -37,7 +37,7 @@ export function noteDismissed() {
   dismissedInARow += 1
 }
 
-/** Usó algo de Mochi (un botón del globo o del menú): la racha de cierres vuelve a cero. */
+/** Usó algo del agente (un botón del globo o del menú): la racha de cierres vuelve a cero. */
 export function noteEngaged() {
   dismissedInARow = 0
 }

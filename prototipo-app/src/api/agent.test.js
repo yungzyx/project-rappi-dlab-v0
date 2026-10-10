@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { offer, plans } from './mochi'
+import { offer, plans } from './agent'
 import { fixture, stubApi } from './testing'
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('Mochi', () => {
-  test('offer devuelve null en un 204 y marca los productos como sugerencia de Mochi', async () => {
+describe('agent', () => {
+  test('offer devuelve null en un 204 y marca los productos como sugerencia del agente', async () => {
     stubApi({ 'POST /agent/offer': (req) => (req.body.moment === 'carrito' ? fixture('agent-offer-carrito') : 204) })
     const made = await offer('carrito', { product: { entity_type: 'catalog_item', entity_id: '94001' } })
     expect(made).toMatchObject({
@@ -21,10 +21,18 @@ describe('Mochi', () => {
       vertical: 'express',
       concept: 'snacks-salados',
       fromSuggestion: true,
-      suggestionOrigin: 'mochi-carrito',
+      suggestionOrigin: 'agent-carrito',
     })
 
     expect(await offer('checkout', { cart: [] })).toBeNull()
+  })
+
+  test('las ofertas usan /agent/offer y el origen agent-<momento>', async () => {
+    const calls = stubApi({ 'POST /agent/offer': fixture('agent-offer-plan') })
+    const made = await offer('plan', { occasion: 'carrete' })
+    expect(String(calls.mock.calls[0][0])).toMatch(/\/agent\/offer$/)
+    expect(made.products.length).toBeGreaterThan(0)
+    expect(made.products.every((p) => p.suggestionOrigin === 'agent-plan')).toBe(true)
   })
 
   test('offer manda el momento, el contexto y el usuario', async () => {

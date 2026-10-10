@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import { AGENT_NAME } from '../../../agent/name'
 import Mascot from '../../../components/assistant/Mascot'
 import { rectInPhone } from '../../../state/AssistantContext'
 
@@ -8,13 +9,13 @@ const EDGE = 14 // margen derecho
 const TOP_LIMIT = 118 // bajo la dirección: nunca tapa la barra de estado
 const BOTTOM_RESERVE = 104 // sobre la barra inferior (y la del carrito)
 const TYPE_MS = 16 // ms por letra al «hablar»
-// Mientras nadie le habla, Mochi no se queda quieto: cada tanto mira, baila, saluda o se estira (en este orden).
+// Mientras nadie le habla, el agente no se queda quieto: cada tanto mira, baila, saluda o se estira (en este orden).
 const FIDGETS = ['look', 'dance', 'wave', 'stretch', 'hop']
 const FIDGET_MS = 6000
 const TUCK_MS = 700 // tras el último scroll, vuelve a asomarse
 const JUMP_MS = 900 // al tocarlo salta; vive aquí porque cada frase nueva vuelve a montar la mascota
 
-/** Texto que aparece letra por letra mientras Mochi habla (sin animación si se pidió reducir movimiento). */
+/** Texto que aparece letra por letra mientras el agente habla (sin animación si se pidió reducir movimiento). */
 function useTypewriter(text, reduceMotion) {
   // El avance se guarda junto a su texto: un texto nuevo parte de cero sin reiniciar nada a mano.
   const [progress, setProgress] = useState({ text: null, count: 0 })
@@ -36,10 +37,10 @@ function useTypewriter(text, reduceMotion) {
 }
 
 /**
- * Mochi de cuerpo entero viviendo en la Home: se para sobre el bloque del que habla (`target`, que `getBlock`
- * convierte en su elemento) o descansa sobre la barra inferior. Habla con un globo y, a veces, ofrece botones; no es un chat. Tocarlo dispara `onPoke`.
+ * El agente de cuerpo entero viviendo en la Home: se para sobre el bloque del que habla (`target`, que `getBlock`
+ * convierte en su elemento) o descansa sobre la barra inferior. Habla con un globo y, a veces, ofrece botones. Tocarlo dispara `onPoke`.
  */
-const LiveBigotes = forwardRef(function LiveBigotes(
+const LiveAgent = forwardRef(function LiveAgent(
   { say, target, getBlock, entering, away, reduceMotion, onPoke },
   ref,
 ) {
@@ -140,7 +141,7 @@ const LiveBigotes = forwardRef(function LiveBigotes(
   const gestureKey = say ? `say-${say.text}` : `fidget-${fidget?.key ?? 'none'}`
   // Sin nada que decir, se asoma desde el borde derecho en vez de tapar tarjetas y botones.
   const resting = !say && !entering && !away
-  const classes = ['live-bigotes']
+  const classes = ['live-agent']
   if (entering) classes.push('is-entering')
   if (away) classes.push('is-away')
   if (spot?.low) classes.push('is-low')
@@ -174,9 +175,9 @@ const LiveBigotes = forwardRef(function LiveBigotes(
         )}
         <button
           type="button"
-          className="live-bigotes-body"
-          aria-label="Mochi: muéstrame algo nuevo para probar"
-          title="Mochi"
+          className="live-agent-body"
+          aria-label={`${AGENT_NAME}: muéstrame algo nuevo para probar`}
+          title={AGENT_NAME}
           hidden={away}
           onPointerDown={() => {
             setJumping(true)
@@ -196,4 +197,4 @@ const LiveBigotes = forwardRef(function LiveBigotes(
   )
 })
 
-export default LiveBigotes
+export default LiveAgent

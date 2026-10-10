@@ -50,7 +50,7 @@ const ask = async () => {
   await act(async () => {}) // la respuesta de la API
 }
 const tracked = (type) =>
-  events.track.mock.calls.filter(([name, fields]) => name === type && fields.payload?.origen === 'mochi-checkout')
+  events.track.mock.calls.filter(([name, fields]) => name === type && fields.payload?.origen === 'agent-checkout')
 
 let api
 beforeEach(() => {
@@ -68,7 +68,7 @@ const offerRequests = () =>
 
 describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
   // Primero: lo mostrado se recuerda lo que dura la pestaña (este archivo).
-  test('pedirla registra suggestion_shown con origen mochi-checkout, una sola vez', async () => {
+  test('pedirla registra suggestion_shown con origen agent-checkout, una sola vez', async () => {
     renderCheckout()
     await ask()
     expect(tracked('suggestion_shown')).toHaveLength(1)
@@ -111,7 +111,7 @@ describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
     const card = document.querySelector('.checkout-suggestion')
     expect(card.querySelector('.checkout-suggestion-reason').textContent).toBe(fixture('agent-offer-checkout').text)
     expect(card.querySelector('.checkout-suggestion-product').textContent).toMatch(/^Hielo en cubos 2 kg \(prueba\) · \$1\.490 · Turbo/)
-    expect(card.querySelector('.mochi')).toBeTruthy()
+    expect(card.querySelector('.mascot')).toBeTruthy()
     expect(screen.queryByLabelText('Solo mayores de 18')).toBeNull()
   })
 
@@ -121,7 +121,7 @@ describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Agregar' }))
     expect(probe.cart.count).toBe(2)
     const added = probe.cart.items.find(({ product }) => product.entityId === '93002')
-    expect(added.product).toMatchObject({ fromSuggestion: true, suggestionOrigin: 'mochi-checkout' })
+    expect(added.product).toMatchObject({ fromSuggestion: true, suggestionOrigin: 'agent-checkout' })
     expect(tracked('suggestion_accepted')).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: 'Deshacer' }))
     expect(probe.cart.count).toBe(1)
