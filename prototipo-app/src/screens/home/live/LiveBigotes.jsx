@@ -152,7 +152,7 @@ const LiveBigotes = forwardRef(function LiveBigotes(
       <p className="sr-only" role="status">
         {away ? '' : (say?.text ?? '')}
       </p>
-      <div className={classes.join(' ')} style={style}>
+      <div className={classes.join(' ')} style={style} data-at={target ?? undefined}>
         {say && !away && (
           <div className="live-bubble">
             <p aria-hidden="true">{shown}</p>
