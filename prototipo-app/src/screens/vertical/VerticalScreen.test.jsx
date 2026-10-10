@@ -7,11 +7,12 @@ import { AssistantProvider } from '../../state/AssistantContext'
 import { CartProvider } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { FavoritesProvider } from '../../state/FavoritesContext'
-import { NudgeProvider } from '../../state/NudgeContext'
 import { ProductSheetProvider } from '../../state/ProductSheetContext'
 import ProductSheet from '../../components/ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
+import SearchScreen from '../search/SearchScreen'
 import StoreScreen from '../store/StoreScreen'
+import { VERTICALS } from './data'
 import VerticalScreen from './VerticalScreen'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
@@ -29,12 +30,10 @@ function Providers({ children }) {
             <FavoritesProvider>
               <AddressProvider>
                 <ToastProvider>
-                  <NudgeProvider>
-                    <ProductSheetProvider>
-                      {children}
-                      <ProductSheet />
-                    </ProductSheetProvider>
-                  </NudgeProvider>
+                  <ProductSheetProvider>
+                    {children}
+                    <ProductSheet />
+                  </ProductSheetProvider>
                 </ToastProvider>
               </AddressProvider>
             </FavoritesProvider>
@@ -109,11 +108,37 @@ describe('catálogo real en la vertical', () => {
     expect(screen.queryByText('Bajaron de precio')).toBeNull()
   })
 
-  test('tocar una categoría abre el buscador con su nombre', async () => {
+  test('la categoría Beers and ciders busca «cerveza» en Licores (en «Rappi hoy», el buscador plano)', async () => {
+    stubVertical('liquor')
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
+    const push = renderVertical('liquor')
+    fireEvent.click(screen.getByText('Beers and ciders'))
+    expect(push).toHaveBeenCalledWith('search', { query: 'cerveza', vertical: 'liquor' })
+  })
+
+  test('la búsqueda de una categoría muestra primero el grupo de esa vertical', async () => {
+    // La API pone primero la vertical de la pantalla (`current`): aquí, Express.
+    const grouped = fixture('search-grouped')
+    grouped.groups = [grouped.groups[1], grouped.groups[0], grouped.groups[2]]
+    const fetchMock = stubApi({ '/search': grouped, '/catalog/home': fixture('catalog-home') })
+    render(<SearchScreen back={() => {}} push={() => {}} params={{ query: 'cerveza', vertical: 'express' }} />, { wrapper: Providers })
+    expect(await screen.findByRole('heading', { name: 'Express' })).toBeTruthy()
+    expect(new URL(fetchMock.mock.calls.find(([u]) => u.includes('/search'))[0]).searchParams.get('current')).toBe('express')
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Express', 'Licores', 'Súper'])
+  })
+
+  test('en la Propuesta, la categoría abre el buscador con Mochi ya con «cerveza»', async () => {
     stubVertical('liquor')
     const push = renderVertical('liquor')
     fireEvent.click(screen.getByText('Beers and ciders'))
-    expect(push).toHaveBeenCalledWith('search', { query: 'Beers and ciders' })
+    expect(push).not.toHaveBeenCalled()
+    expect(window.history.state).toMatchObject({ assistant: true })
+  })
+
+  test('toda categoría de toda vertical trae una consulta en español', () => {
+    for (const [id, vertical] of Object.entries(VERTICALS))
+      for (const row of vertical.categoryRows.flat())
+        expect(row.query, `${id}: ${row.label}`).toMatch(/^[a-záéíóúñ ]+$/)
   })
 
   test('Ver más abre la lista con todas las tiendas y la tienda tocada lleva su id y su vertical', async () => {

@@ -50,6 +50,62 @@ CONTRACT: tuple[Example, ...] = (
     Example("catalog-menu", "GET", "/catalog/restaurants/9801/menu"),
     Example("catalog-deals", "GET", "/catalog/deals"),
     Example("catalog-home", "GET", "/catalog/home"),
+    Example("search-grouped", "GET", "/search?q=cerveza"),
+    Example("search-grouped-unmet", "GET", "/search?q=xyzzy"),
+    Example(
+        "chat",
+        "POST",
+        "/chat",
+        {"message": "pizza", "vertical": "restaurants", "user_id": "u-contrato", "session_id": "s-contrato"},
+    ),
+    Example("recommendations", "GET", "/recommendations?user_id=u-contrato&vertical=restaurants"),
+    Example("mochi-plans", "GET", "/mochi/plans"),
+    Example("mochi-plan", "POST", "/mochi/offer", {"moment": "plan", "context": {"occasion": "carrete"}}),
+    Example(
+        "mochi-carrito",
+        "POST",
+        "/mochi/offer",
+        {"moment": "carrito", "context": {"product": {"entity_type": "catalog_item", "entity_id": "94001"}}},
+    ),
+    Example(
+        "mochi-carrito-nada",
+        "POST",
+        "/mochi/offer",
+        {"moment": "carrito", "context": {"product": {"entity_type": "catalog_item", "entity_id": "91007"}}},
+        status=204,
+    ),
+    Example(
+        "mochi-checkout",
+        "POST",
+        "/mochi/offer",
+        {
+            "moment": "checkout",
+            "context": {
+                "cart": [
+                    {"entity_type": "catalog_item", "entity_id": "94005"},
+                    {"entity_type": "catalog_item", "entity_id": "91003"},
+                ]
+            },
+        },
+    ),
+    Example(
+        "mochi-sin-resultado",
+        "POST",
+        "/mochi/offer",
+        {"moment": "sin_resultado", "context": {"query": "pizza hawaiana"}},
+    ),
+    Example(
+        "mochi-proximo-pedido",
+        "POST",
+        "/mochi/offer",
+        {"moment": "proximo_pedido", "context": {"items": [{"entity_type": "menu_item", "entity_id": "98001"}]}},
+    ),
+    Example(
+        "mochi-vertical-por-probar",
+        "POST",
+        "/mochi/offer",
+        {"moment": "vertical_por_probar", "context": {"stamped": ["supermercado"]}},
+    ),
 )
 
 
@@ -67,7 +123,17 @@ def client(db):
 
     api.app.dependency_overrides[api.get_conn] = conn_override
     api.app.dependency_overrides[api.get_services] = lambda: Services(Bigotes(embedder, TemplateComposer()), embedder)
-    yield TestClient(api.app)
+    test_client = TestClient(api.app)
+    # Un perfil con un interés (pizza) para que /recommendations tenga filas que mostrar.
+    interest = {
+        "type": "search",
+        "session_id": "s-contrato",
+        "vertical": "restaurants",
+        "concept_id": "pizza",
+        "query": "pizza",
+    }
+    assert test_client.post("/events", json={"user_id": "u-contrato", "events": [interest]}).status_code == 200
+    yield test_client
     api.app.dependency_overrides.clear()
 
 

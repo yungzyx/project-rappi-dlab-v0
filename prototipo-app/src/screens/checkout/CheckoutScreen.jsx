@@ -60,7 +60,10 @@ export default function CheckoutScreen({ back, push }) {
         name: product.name,
         img: product.img,
         price: product.price,
-        qty })),
+        qty,
+        // Con ellos Mochi arma el próximo pedido al entregar (oferta `proximo_pedido`).
+        entityType: product.entityType,
+        entityId: product.entityId })),
       total: price.total,
       pickup,
       address: address.selected.line })

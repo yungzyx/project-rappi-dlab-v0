@@ -1,15 +1,31 @@
-import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, expect, test } from 'vitest'
-import { EXPLORABLE } from '../../assistant/explored'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, expect, test, vi } from 'vitest'
+import { toPrototypeProduct } from '../../api/client'
+import { fixture } from '../../api/testing'
 import DiscoverSection from './DiscoverSection'
 
 afterEach(cleanup)
 
-test('cuenta las verticales que se pueden explorar, sin Mascotas', () => {
-  render(<DiscoverSection cards={[]} explored={['grocery', 'liquor']} onOpen={() => {}} />)
-  expect(EXPLORABLE).toHaveLength(8)
-  expect(document.querySelector('.discover-count').textContent).toBe('Exploraste 2 de 8')
-  expect(document.querySelectorAll('.discover-stamp')).toHaveLength(8)
-  expect(screen.queryByRole('button', { name: /Mascotas/ })).toBeNull()
-  expect(screen.getByRole('progressbar').getAttribute('aria-valuemax')).toBe('8')
+const rows = () =>
+  fixture('recommendations').rows.map((row) => ({ ...row, products: row.products.map(toPrototypeProduct) }))
+
+test('muestra una tarjeta por fila de recomendaciones y abre su vertical', () => {
+  const onOpen = vi.fn()
+  render(<DiscoverSection rows={rows()} onOpen={onOpen} />)
+
+  expect(screen.getByRole('heading', { name: 'Descubre con Mochi' })).toBeTruthy()
+  const [card] = document.querySelectorAll('.discover-card')
+  expect(card.textContent).toContain('Porque te interesa 🍕 pizza')
+  expect(card.textContent).toContain('Gaseosas en Express')
+  fireEvent.click(card)
+  expect(onOpen).toHaveBeenCalledWith('express')
+})
+
+test('no muestra nada sin filas, ni filas de una vertical que la app no conoce', () => {
+  const unknown = rows().map((row) => ({ ...row, prototype_vertical: null }))
+  render(<DiscoverSection rows={unknown} onOpen={() => {}} />)
+  expect(screen.queryByText('Descubre con Mochi')).toBeNull()
+  cleanup()
+  render(<DiscoverSection rows={[]} onOpen={() => {}} />)
+  expect(screen.queryByText('Descubre con Mochi')).toBeNull()
 })

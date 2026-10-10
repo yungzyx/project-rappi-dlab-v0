@@ -114,8 +114,8 @@ def test_events_orders_profile_recommendations_and_forget(client, db):
     assert profile["interests"][0]["concept"] == "cerveza"
 
     recs = client.get("/recommendations", params={"user_id": "u1", "vertical": "liquor"}).json()
-    assert recs["rows"][0]["concept"] == "snacks-salados" and recs["rows"][0]["vertical"] == "supermercado"
-    assert recs["rows"][0]["reason"] == "Porque te interesa 🍺 cerveza"
+    # Mochi no nombra por su cuenta un interés de alcohol: la cerveza no es fuente de una fila (el perfil la guarda).
+    assert recs["interests"][0] == "cerveza" and recs["rows"] == []
 
     forgotten = client.delete("/profile/u1", params={"concept": "cerveza"}).json()
     assert forgotten["eventos_borrados"] >= 2
@@ -352,7 +352,7 @@ def test_beacon_rejects_huge_or_broken_bodies(client):
 
 
 def test_database_down_is_a_clear_503_not_a_500(monkeypatch):
-    """Con Postgres caído la API responde enseguida y claro; el prototipo cae a su cerebro local."""
+    """Con Postgres caído la API responde enseguida y claro; la app muestra «Sin conexión»."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://127.0.0.1:1/rappi")  # nadie escucha en el puerto 1
     api.app.dependency_overrides.clear()
     response = TestClient(api.app, raise_server_exceptions=False).get("/profile/u1")

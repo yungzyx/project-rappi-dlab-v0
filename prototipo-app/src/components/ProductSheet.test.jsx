@@ -5,7 +5,6 @@ import { fixture } from '../api/testing'
 import { AssistantProvider } from '../state/AssistantContext'
 import { CartProvider, useCart } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
-import { NudgeProvider } from '../state/NudgeContext'
 import { ProductSheetProvider } from '../state/ProductSheetContext'
 import { ProfileProvider } from '../state/ProfileContext'
 import { ProductCard } from './ProductCard'
@@ -43,13 +42,11 @@ function renderWith(children) {
       <ProfileProvider>
         <AssistantProvider>
           <CartProvider>
-            <NudgeProvider>
-              <ProductSheetProvider>
-                {children}
-                <ProductSheet />
-                <CartProbe />
-              </ProductSheetProvider>
-            </NudgeProvider>
+            <ProductSheetProvider>
+              {children}
+              <ProductSheet />
+              <CartProbe />
+            </ProductSheetProvider>
           </CartProvider>
         </AssistantProvider>
       </ProfileProvider>

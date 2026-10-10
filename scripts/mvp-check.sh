@@ -3,8 +3,11 @@
 # `rappi-ia seed-demo` solo siembra DATABASE_URL_TEST (rappi_ia_test), y la API de prueba corre en :8010, la app en :5184.
 #   1. en línea: la app abre en la Home conectada;
 #   2. compra: Home → Grocery → primera tienda → agregar un producto → carrito → pagar, y en rappi_ia_test (solo lectura)
-#      queda un pedido `prototype` cuyas líneas son productos sembrados;
-#   3. sin API: se detiene la API y la app muestra «Sin conexión con Mochi».
+#      queda un pedido `prototype` cuyas líneas son productos (o platos) sembrados;
+#   3. kit de Mochi: «cerveza» en el buscador con Mochi (grupos por vertical) → plan «Carrete» en la Home → agregar el
+#      kit → pagar, y en rappi_ia_test (solo lectura) el pedido tiene líneas sembradas y la persona dejó al menos una
+#      `suggestion_accepted` con origen `mochi-plan`;
+#   4. sin API: se detiene la API y la app muestra «Sin conexión con Mochi».
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # shellcheck source=scripts/mvp-lib.sh
@@ -40,8 +43,11 @@ elif [ "$status" != 0 ]; then
   fail "No pude leer DATABASE_URL_TEST con $IA_PY (código $status): mira el error de arriba."
 fi
 
-# El pedido de la compra: uno `prototype` (lo que registra la app; los `synthetic` son del generador) cuyas líneas son todas
-# productos sembrados. Solo lee. Reintenta 5 s por si el pedido tarda en quedar confirmado.
+# El pedido de la compra: el último de la app (`prototype`; los `synthetic` son del generador) y los demás de la misma
+# persona (un kit de varias verticales son varios pedidos), con todas sus líneas productos o platos sembrados (un kit
+# puede traer un plato de restaurante). Con el argumento `kit`, además esa persona dejó al menos una
+# `suggestion_accepted` con origen `mochi-plan` (app_events). Solo lee.
+# Reintenta 5 s por si el pedido o los eventos tardan en quedar confirmados.
 read -r -d '' CHECK_ORDER <<'PY' || true
 import sys
 import time
@@ -50,29 +56,42 @@ import psycopg
 from rappi_ia.db import database_url
 
 QUERY = """
-SELECT o.order_id, o.vertical, count(*),
+SELECT o.order_id, o.vertical, o.user_id, count(*),
        count(*) FILTER (WHERE l.entity_type = 'catalog_item' AND EXISTS (
-           SELECT 1 FROM catalog_items ci WHERE ci.master_product_id::text = l.entity_id))
+                                  SELECT 1 FROM catalog_items ci WHERE ci.master_product_id::text = l.entity_id)
+                           OR l.entity_type = 'menu_item' AND EXISTS (
+                                  SELECT 1 FROM menu_items mi WHERE mi.item_id::text = l.entity_id))
 FROM app_orders o JOIN app_order_lines l USING (order_id)
 WHERE o.source = 'prototype'
-GROUP BY o.order_id, o.vertical, o.ts
+GROUP BY o.order_id, o.vertical, o.user_id, o.ts
 ORDER BY o.ts DESC
 """
+ACCEPTED = """
+SELECT count(*) FROM app_events
+WHERE user_id = %s AND type = 'suggestion_accepted' AND payload->>'origen' = 'mochi-plan'
+"""
+kit = sys.argv[1:] == ["kit"]
 
 with psycopg.connect(database_url("DATABASE_URL_TEST"), autocommit=True) as conn:
     conn.read_only = True
     for _ in range(10):
         rows = conn.execute(QUERY).fetchall()
-        if rows:
+        accepted = conn.execute(ACCEPTED, (rows[0][2],)).fetchone()[0] if rows else 0
+        if rows and (accepted or not kit):
             break
         time.sleep(0.5)
 
 if not rows:
     sys.exit("  ✗ pedido: la base de prueba no tiene ningún pedido de la app (source = prototype)")
-order_id, vertical, lines, seeded = rows[0]
-if seeded != lines:
-    sys.exit(f"  ✗ pedido: {order_id} tiene {lines} línea(s) y solo {seeded} son productos sembrados")
-print(f"  ✓ pedido: {order_id} ({vertical}, {lines} línea(s), todas productos sembrados)")
+user = rows[0][2]
+for order_id, vertical, _, lines, seeded in (row for row in rows if row[2] == user):
+    if seeded != lines:
+        sys.exit(f"  ✗ pedido: {order_id} tiene {lines} línea(s) y solo {seeded} son productos o platos sembrados")
+    print(f"  ✓ pedido: {order_id} ({vertical}, {lines} línea(s), todas sembradas)")
+if kit:
+    if not accepted:
+        sys.exit("  ✗ eventos: la persona del pedido no dejó ninguna suggestion_accepted con origen mochi-plan")
+    print(f"  ✓ eventos: {accepted} suggestion_accepted con origen mochi-plan")
 PY
 
 echo "Sembrando el catálogo de prueba…"
@@ -85,9 +104,10 @@ wait_for_url "La API de prueba" http://localhost:8010/health 60 api
 wait_for_url "La app" "$APP" 30 app
 
 passed=0
-total=3
+total=4
 if node "$CHECK" --app "$APP"; then passed=$((passed + 1)); fi
 if node "$CHECK" --app "$APP" --shop && "$IA_PY" -c "$CHECK_ORDER"; then passed=$((passed + 1)); fi
+if node "$CHECK" --app "$APP" --kit && "$IA_PY" -c "$CHECK_ORDER" kit; then passed=$((passed + 1)); fi
 stop_one api
 if node "$CHECK" --app "$APP" --expect-offline; then passed=$((passed + 1)); fi
 

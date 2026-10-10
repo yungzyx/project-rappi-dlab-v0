@@ -7,7 +7,7 @@ import { PLACEHOLDER_IMG } from '../components/Img'
 const DEFAULT_PORT = 8000
 const HEALTH_TTL_MS = 30_000
 const HEALTH_TIMEOUT_MS = 1500
-const CHAT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: contesta el cerebro local
+const CHAT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: el chat muestra «Sin conexión»
 const CONNECTION_TIMEOUT_MS = 5_000
 
 export const API_URL =
@@ -97,10 +97,17 @@ export async function chat(payload) {
 
 export const profile = (userId) => request(`/profile/${encodeURIComponent(userId)}`, { timeout: 4000 })
 export const forget = (userId) => request(`/profile/${encodeURIComponent(userId)}`, { method: 'DELETE', timeout: 4000 })
-export const recommendations = (userId, vertical) =>
-  request(`/recommendations?user_id=${encodeURIComponent(userId)}${vertical ? `&vertical=${vertical}` : ''}`, {
-    timeout: 8000,
-  })
+/** "Para ti" de rappi-ia: `{ user_id, interests, rows }`, con los productos de cada fila ya en el formato del prototipo. */
+export async function recommendations(userId, vertical) {
+  const response = await request(
+    `/recommendations?user_id=${encodeURIComponent(userId)}${vertical ? `&vertical=${vertical}` : ''}`,
+    { timeout: 8000 },
+  )
+  return {
+    ...response,
+    rows: (response.rows ?? []).map((row) => ({ ...row, products: row.products.map(toPrototypeProduct) })),
+  }
+}
 export const sendEvents = (userId, events) =>
   request('/events', { method: 'POST', body: { user_id: userId, events }, timeout: 5000 })
 export const sendOrder = (order) => request('/orders', { method: 'POST', body: order, timeout: 5000 })
@@ -119,7 +126,7 @@ export function beaconEvents(userId, events) {
 // ── De la API al formato del prototipo ──────────────────────────────────────
 
 
-/** Producto de la API → tarjeta del prototipo (mismo formato que src/data/catalog.js). */
+/** Producto de la API → tarjeta del prototipo (el formato con que lo muestran las pantallas). */
 export function toPrototypeProduct(p) {
   return {
     id: p.id,

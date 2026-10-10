@@ -10,6 +10,7 @@ from rappi_scraper.storage.search import MIN_PRICE
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
+from ..offers.guards import is_offerable, offerable_vertical, unofferable_subverticals
 from ..retrieval.hybrid import Filters, RetrievalResult, _concepts_of, _hydrate, retrieve
 from ..text import FILLER_WORDS, LEAFLET_WARNINGS, normalize, tokens
 from .verticals import ranked_verticals
@@ -100,9 +101,14 @@ def search_products(
     k: int = 6,
     mode: str = "hibrido",
     symptom: bool = False,
+    offer: bool = False,
+    adult_ok: bool = False,
 ) -> SearchOutcome:
     """Con `concepts=None`, los conceptos los detecta la búsqueda en la consulta (endpoint /search). Con `symptom` (o
-    en farmacia) no se muestra lo que no tiene concepto: podría ser un medicamento sin categoría mapeada."""
+    en farmacia) no se muestra lo que no tiene concepto: podría ser un medicamento sin categoría mapeada. Con `offer`,
+    la búsqueda es de una oferta de Mochi y solo trae lo que puede proponer por su cuenta: nada +18 ni de tiendas
+    Farmacia, Sex shop o Smoking shop (offers/guards.py); el concepto y la vertical los elige quien llama. `adult_ok`
+    deja pasar lo +18 en una oferta: solo para el kit de una ocasión que la persona eligió (alcohol con su marca)."""
     result = retrieve(
         conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), mode=mode, concepts=concepts
     )
@@ -110,13 +116,13 @@ def search_products(
     capped = price_max is not None
     strict = symptom or vertical == "farmacia"
     hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts, strict)], concepts, result.unmet, capped)
-    products = _dedupe(_within_budget(_with_prices(conn, vertical, hits), price_max))[:k]
+    products = _dedupe(_within_budget(_with_prices(conn, vertical, hits, offer, adult_ok), price_max))[:k]
     cheapest = None
     if not products and capped:
         unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, mode=mode, concepts=concepts)
         allowed = [h for h in unfiltered.hits if _allowed(h.concept_id, concepts, strict)]
         # «El más barato» es de lo pedido: el mismo foco que con tope.
-        candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet, capped))
+        candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet, capped), offer, adult_ok)
         priced = [p for p in candidates if p.price_value is not None]
         cheapest = min(priced, key=lambda p: p.price_value) if priced else None
     return SearchOutcome(result, products, cheapest)
@@ -178,7 +184,8 @@ def suggest_complement(
     embedder: TextEmbedder | None,
     exclude: set[str] = frozenset(),
 ) -> Suggestion | None:
-    """Mejor complemento no sensible, preferentemente de OTRO vertical, con productos reales."""
+    """Mejor complemento que Mochi pueda proponer (offers/guards.py: ni alcohol, farmacia, bebé, salud ni sensibles),
+    preferentemente de OTRO vertical, con productos reales."""
     taxonomy = load_taxonomy()
     sources = [c for c in source_concepts if c in taxonomy.concepts and not taxonomy.concepts[c].sensitive]
     if not sources:
@@ -193,10 +200,12 @@ def suggest_complement(
     ).fetchall()
     for source, target, _ in edges:
         concept = taxonomy.concepts.get(target)
-        if concept is None or concept.sensitive or target in exclude or target in sources:
+        if concept is None or not is_offerable(concept) or target in exclude or target in sources:
             continue
         for vertical in _verticals_for(conn, target, current_vertical):
-            outcome = search_products(conn, vertical, concept.name, [target], embedder, k=4)
+            if not offerable_vertical(vertical):
+                continue
+            outcome = search_products(conn, vertical, concept.name, [target], embedder, k=4, offer=True)
             products = _dedupe([p for p in outcome.products if p.concept == target])
             if products:
                 origin = taxonomy.concepts[source]
@@ -259,10 +268,18 @@ def _verticals_for(conn: Connection, concept_id: str, current_vertical: str | No
     return [v for v in verticals if v != current_vertical] + [v for v in verticals if v == current_vertical]
 
 
-def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
+# Una oferta de Mochi no sale de una tienda que Rappi rotula Farmacia, Sex shop o Smoking shop, esté en la vertical que
+# esté: entre las tiendas que quedan, vale la más barata.
+_OFFER_STORES = """
+                     AND NOT EXISTS (SELECT 1 FROM store_verticals own
+                                     WHERE own.store_id = l.store_id AND own.subvertical = ANY(%(blocked)s))"""
+
+
+def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adult_ok: bool = False) -> list[Product]:
     catalog_ids = [h.entity_id for h in hits if h.entity_type == "catalog_item"]
     menu_ids = [h.entity_id for h in hits if h.entity_type == "menu_item"]
     prices: dict[tuple[str, str], tuple] = {}
+    store_filter = _OFFER_STORES if offer else ""
     if catalog_ids:
         # Solo ofertas vigentes, con la misma regla que la búsqueda (v_store_format_runs): una sucursal que la última
         # corrida de su formato ya no bajó no pone el precio, así el tope y el precio mostrado coinciden.
@@ -271,7 +288,7 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
         # importada de un CSV antiguo, no tiene página: sin ninguna que se abra vale la oferta más barata de todas y
         # el id es nulo.
         for pid, name, price, real, store, age, store_id, presentation in conn.execute(
-            """WITH latest AS (
+            f"""WITH latest AS (
                    SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock,
                           ps.run_id, sp.aisle_id
                    FROM price_snapshots ps
@@ -292,13 +309,13 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
                    LEFT JOIN brands b ON b.brand_id = s.brand_id
                    JOIN catalog_items ci ON ci.master_product_id = sp.master_product_id
                    JOIN v_store_verticals v ON v.store_id = s.store_id AND v.vertical = %(vertical)s
-                   WHERE l.in_stock IS NOT FALSE
+                   WHERE l.in_stock IS NOT FALSE{store_filter}
                )
                SELECT DISTINCT ON (master_product_id) master_product_id::text, name, price, real_price, store, adult,
                       CASE WHEN openable THEN store_id END, presentation
                FROM offers
                ORDER BY master_product_id, openable DESC, price, store_id""",  # con igual precio, siempre la misma
-            {"ids": catalog_ids, "vertical": vertical},
+            {"ids": catalog_ids, "vertical": vertical, "blocked": unofferable_subverticals() if offer else []},
         ):
             prices[("catalog_item", pid)] = (name, price, real, store, age, store_id, presentation)
     if menu_ids:
@@ -319,6 +336,8 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
         if found is None:  # sin precio vigente en el vertical (agotado o sin stock): no se ofrece
             continue
         name, price, real, store, age, store_id, presentation = found
+        if offer and age and not adult_ok:  # +18 aunque su concepto sea corriente: el catálogo lo marca
+            continue
         concept = taxonomy.concepts.get(hit.concept_id) if hit.concept_id else None
         prefix = "cat" if hit.entity_type == "catalog_item" else "menu"
         products.append(

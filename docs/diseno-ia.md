@@ -164,7 +164,7 @@ Mochi es el nombre que ve el usuario (antes, Bigotes). En el código el agente c
 5. **Aclara, no adivina.** Si la intención es ambigua entre verticales, hace una sola pregunta con opciones.
 6. **Categorías sensibles y restringidas.**
    - a. **Sensibles:** los conceptos marcados `sensitive` (medicamentos, salud sexual, bienestar sexual, tabaco y vapeo). **Restringidos por edad:** alcohol, tabaco, vapeo y adultos. Un producto es restringido si `is_alcoholic` o `age_restricted` es verdadero, o si su concepto es `age_restricted`.
-   - b. **Nunca por iniciativa propia.** Mochi no sugiere un producto sensible, ni como sugerencia cruzada, recompra, reactivación o alerta. Las aristas hacia esos conceptos se ignoran. El alcohol se puede sugerir como complemento (cerveza con pizza), siempre con +18.
+   - b. **Nunca por iniciativa propia.** Mochi no sugiere un producto sensible, ni como sugerencia cruzada, recompra, reactivación o alerta. Las aristas hacia esos conceptos se ignoran. ~~El alcohol se puede sugerir como complemento (cerveza con pizza), siempre con +18.~~ **Reemplazada el 10-10-2026** (etapa 3 del MVP, ver [decisiones.md](decisiones.md)): Mochi tampoco propone por su cuenta alcohol (ni la vertical Licores), farmacia, bebé ni salud, aunque el carrito tenga cerveza o pañales. Solo el kit de una ocasión que la persona eligió puede traer alcohol, siempre con +18.
    - c. **Fuera del perfil.** Los conceptos sensibles no entran al perfil, no se muestran en "Aprendiendo de ti" y no sirven de origen ni de razón de una sugerencia.
    - d. **Síntomas.** Quien habla de un síntoma («tengo fiebre», «me siento mal») va a Farmacia con remedios **sin receta** cuyo texto nombra el síntoma (búsqueda por palabras), o con analgésicos si nada lo nombra; nunca un medicamento con receta (`requires_medical_prescription` de Rappi). Sin venta cruzada ni «También en». Si la farmacia no tiene nada, se muestra lo de cuidarse (sopas, jugos, té). No hay aviso aparte: cortaba la compra.
    - e. **Productos +18.** Siempre llevan el recordatorio. El tabaco y el vapeo solo se muestran si se piden por nombre, porque en Chile su publicidad está prohibida (Ley 20.105).
@@ -173,9 +173,9 @@ Mochi es el nombre que ve el usuario (antes, Bigotes). En el código el agente c
    - Sin clave de API, Mochi responde con plantillas y las mismas reglas. Con `ANTHROPIC_API_KEY`, Claude redacta el texto en JSON estricto sobre lo recuperado.
    - Entender la consulta: hoy son reglas + embeddings. Jev (el modelo "System One" de TypeSafe: juicios tipados con probabilidad y baja latencia) es una opción futura para esta etapa; no está implementado.
 
-**Contrato de respuesta.** Amplía el de `prototipo-app/src/assistant/brain.js` (`text`, `products`, `stores`, `reason`, `actions` y `tags`) sin romperlo:
+**Contrato de respuesta** (`text`, `products`, `stores`, `reason`, `actions` y `tags`; el cerebro local `brain.js` que lo originó ya no existe: la app solo lee la API):
 - `reason` sigue en el primer nivel;
-- `products` tiene la forma de `prototipo-app/src/data/catalog.js` (`id`, `name`, `price`, `img`, `store`…);
+- `products` tiene la forma que el cliente muestra (`id`, `name`, `price`, `img`, `store`…; el catálogo transcrito `data/catalog.js` ya no existe);
 - `suggestion` agrega la sugerencia cruzada, que el cliente muestra como "De Licores" (su vertical) con un botón "Ver más en Licores";
 - `also_in` (opcional) lista hasta 3 verticales más donde hay lo pedido, con dos tiendas cada una (nombre y logo); el cliente la muestra como "También en". No es una sugerencia: no cuenta para el máximo de una por respuesta;
 - `vertical` usa los códigos del backend. El cliente los traduce a los ids del prototipo: supermercado → grocery, licores → liquor, farmacia → pharmacy, mall → retail, conveniencia/turbo → express, chocolateria → chocolates.
@@ -283,7 +283,7 @@ Notas del modelo:
 | 3. Agente | Mochi en el backend (texto, foto, voz; el prototipo actual solo usa el texto) | Tests de reglas de conducta y escenarios | Hecha |
 | 4. API | FastAPI | Tests de endpoints | Hecha |
 | 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados | Hecha |
-| 6. Prototipo conectado | Cliente API con respaldo local, eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |
+| 6. Prototipo conectado | Cliente API con respaldo local (salió en la etapa 3 del MVP: hoy la app exige la API), eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |
 | 7. Panel empresa | `dashboard-empresa/` (para más adelante) | Vitest y chequeo visual | Hecha |
 | 8. Cierre | CI (4 jobs), docs y corrida completa post-refresh | CI en verde | Hecha (30-09-2026) |
 

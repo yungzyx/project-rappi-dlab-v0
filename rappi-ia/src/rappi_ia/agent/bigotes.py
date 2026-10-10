@@ -6,7 +6,8 @@ Reglas de conducta (docs/diseno-ia.md §4) que se aplican aquí, en código:
 3. Máximo 1 sugerencia cruzada por respuesta y 1 por tema por sesión. → `shown_topics`
 4. Si no encuentra, lo dice y lo marca como demanda no satisfecha.    → `unmet`
 5. Si es ambiguo entre verticales, pregunta.                          → intent "aclarar"
-6. Sensibles: nunca por iniciativa propia; +18 y farmacia con aviso.  → tools + avisos
+6. Sensibles, alcohol, farmacia, bebé y salud: nunca por iniciativa propia ni como complemento
+   (offers/guards.py); si se piden, +18 y farmacia con aviso.         → tools + avisos
 7. En modo "Rappi hoy" no hay sugerencias cruzadas ni aprendizaje.
 """
 
@@ -17,6 +18,7 @@ from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
+from ..offers.guards import is_offerable, offerable_vertical, unofferable_subverticals
 from ..text import normalize, tokens
 from .compose import AGE_NOTICE, Draft, TemplateComposer, notices
 from .tools import (
@@ -93,7 +95,9 @@ class Bigotes:
             c.id: {normalize(kw) for kw in (*c.keywords, *c.query_keywords)} for c in self.taxonomy.concepts.values()
         }
 
-    def reply(self, conn: Connection, message: str, ctx: Context | None = None) -> dict:
+    def reply(self, conn: Connection, message: str, ctx: Context | None = None, offer: bool = False) -> dict:
+        """Con `offer`, la respuesta es algo que Mochi propone sin que se lo pidan (el «Como te gusta…» de «qué me
+        recomiendas»): sus productos pasan por las guardias de offers/guards.py (`search_products(..., offer=True)`)."""
         ctx = ctx or Context()
         intent = self.understander.understand(conn, message, ctx.vertical, previous=ctx.previous)
         if intent.kind == "recomendar":  # «qué me recomiendas»: lo que le gusta; sin perfil, ejemplos
@@ -101,7 +105,7 @@ class Bigotes:
             if interest is None:
                 return self._small_talk(replace(intent, kind="ayuda"), ctx)
             concept = self.taxonomy.concepts[interest]
-            response = self.reply(conn, concept.name, ctx)
+            response = self.reply(conn, concept.name, ctx, offer=True)
             response["text"] = f"Como te gusta {concept.label.lower()} 😉 " + response["text"]
             return response
         if intent.kind in (
@@ -157,6 +161,7 @@ class Bigotes:
                 intent.price_max,
                 k=CHEAP_POOL if intent.cheapest or intent.priciest or intent.exclude_previous or avoided else 6,
                 symptom=intent.symptom,
+                offer=offer,
             )
         products = outcome.products
         # «algo más sano» se entiende como ensaladas, pero esas palabras no están en los productos: si nada de lo
@@ -168,7 +173,9 @@ class Bigotes:
         if intent.explicit_concepts and not intent.symptom and (few or not on_topic):
             concept = self.taxonomy.concepts.get(intent.concepts[0])
             retry = (
-                search_products(conn, vertical, concept.name, intent.concepts, self.embedder, intent.price_max, k=6)
+                search_products(
+                    conn, vertical, concept.name, intent.concepts, self.embedder, intent.price_max, k=6, offer=offer
+                )
                 if concept
                 else None
             )
@@ -185,7 +192,7 @@ class Bigotes:
         detail = self._detail(intent) if intent.explicit_concepts and not intent.symptom and products else None
         if detail:
             says = [p for p in products if _names(p.name, detail[0], detail[2])]
-            found = self._with_detail(conn, intent, vertical, detail) if len(says[:6]) < MIN_SHOWN else None
+            found = self._with_detail(conn, intent, vertical, detail, offer) if len(says[:6]) < MIN_SHOWN else None
             if found and found[0] != vertical and not says:
                 missing = missing or (vertical, detail[1], 0)
                 vertical, outcome, says = found
@@ -222,7 +229,7 @@ class Bigotes:
         # se muestra para cuidarse no es lo que se pidió.
         unmet = not intent.symptom and not products and outcome.result.unmet and outcome.cheapest_without_filter is None
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
-        also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical)
+        also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical, offer)
         text = self.composer.compose(draft)
         if missing and products:
             text = _moved(missing[0], vertical, missing[1], missing[2]) + text
@@ -262,10 +269,10 @@ class Bigotes:
         # Primero los ganchos del contexto que se nombró («playa», «nieve»); los demás solo si no tienen contexto.
         in_context = [h for h in service.hooks if any(f" {normalize(w)} " in said for w in h.when)]
         for hook in in_context + [h for h in service.hooks if not h.when]:
-            if hook.concept in ctx.shown_topics:
+            if hook.concept in ctx.shown_topics or not is_offerable(self.taxonomy.concepts[hook.concept]):
                 continue
-            for vertical in ranked_verticals(conn, [hook.concept])[:2]:
-                outcome = search_products(conn, vertical, hook.query, [hook.concept], self.embedder, k=4)
+            for vertical in [v for v in ranked_verticals(conn, [hook.concept]) if offerable_vertical(v)][:2]:
+                outcome = search_products(conn, vertical, hook.query, [hook.concept], self.embedder, k=4, offer=True)
                 products = [p for p in outcome.products if p.concept == hook.concept][:3]
                 if products:
                     suggestion = Suggestion(hook.concept, service.id, vertical, service.reason, products)
@@ -409,18 +416,22 @@ class Bigotes:
             "products": [p.to_dict() for p in suggestion.products],
         }
 
-    def _also_in(self, conn, ctx: Context, intent: Intent, products, vertical) -> dict | None:
+    def _also_in(self, conn, ctx: Context, intent: Intent, products, vertical, offer: bool = False) -> dict | None:
         """Multiverticalidad visible: en qué otras verticales también hay lo que pidió (no es una sugerencia:
         no se registra ni cuenta para la regla 3). Nunca para conceptos sensibles, en "Rappi hoy" ni cuando habla de
         síntomas (quien dice que está enfermo no necesita ver dónde más venden jugo). Si aquí no hay nada, el concepto
-        es el pedido: justo entonces importa decir dónde sí está ("vodka" en farmacia)."""
+        es el pedido: justo entonces importa decir dónde sí está ("vodka" en farmacia). Si la respuesta es una oferta de
+        Mochi (`offer`), tampoco nombra las verticales ni las tiendas que no propone (offers/guards.py)."""
         concept_id = next((p.concept for p in products if p.concept), None)
         if not products and intent.concepts:
             concept_id = intent.concepts[0]
         concept = self.taxonomy.concepts.get(concept_id) if concept_id else None
         if ctx.mode != "propuesta" or concept is None or concept.sensitive:
             return None
-        verticals = available_elsewhere(conn, concept.id, {vertical})
+        if offer:  # se piden todas y se cortan después: las que no se proponen no le quitan el lugar a las que sí
+            verticals = _offerable_elsewhere(conn, available_elsewhere(conn, concept.id, {vertical}, limit=99))[:3]
+        else:
+            verticals = available_elsewhere(conn, concept.id, {vertical})
         if not verticals:
             return None
         for v in verticals:
@@ -473,7 +484,9 @@ class Bigotes:
                 return stem, f"sin {label}" if free_from else label, free_from
         return None
 
-    def _with_detail(self, conn: Connection, intent: Intent, vertical: str, detail: tuple[str, str, bool]):
+    def _with_detail(
+        self, conn: Connection, intent: Intent, vertical: str, detail: tuple[str, str, bool], offer: bool = False
+    ):
         """(vertical, resultado, productos) del concepto que dicen el detalle en el nombre: entre más candidatos de
         esta vertical y, si no se nombró una, en las que más productos del concepto lo dicen. None si no hay."""
         stem, _, free_from = detail
@@ -500,6 +513,7 @@ class Bigotes:
                 self.embedder,
                 intent.price_max,
                 CHEAP_POOL,
+                offer=offer,
             )
             products = [p for p in outcome.products if p.concept in intent.concepts and _names(p.name, stem, free_from)]
             products = products[:6]
@@ -509,8 +523,28 @@ class Bigotes:
 
     def _top_interest(self, profile: dict[str, float]) -> str | None:
         concepts = self.taxonomy.concepts
-        allowed = {c: s for c, s in profile.items() if c in concepts and not concepts[c].sensitive}
+        # Lo recomienda Mochi sola («Como te gusta…», «Veo que te gusta…»): solo intereses que puede proponer.
+        allowed = {c: s for c, s in profile.items() if c in concepts and is_offerable(concepts[c])}
         return max(allowed, key=allowed.get) if allowed else None
+
+
+def _offerable_elsewhere(conn: Connection, verticals: list[dict]) -> list[dict]:
+    """«También en» sin las verticales que Mochi no propone y sin las tiendas que Rappi rotula Farmacia, Sex shop o
+    Smoking shop (el listado solo tiene sus nombres); una vertical que se queda sin tiendas se va."""
+    blocked = {
+        name
+        for (name,) in conn.execute(
+            """SELECT DISTINCT trim(s.name) FROM stores s JOIN store_verticals sv USING (store_id)
+               WHERE sv.subvertical = ANY(%s)""",
+            (unofferable_subverticals(),),
+        )
+    }
+    kept = []
+    for v in verticals:
+        stores = [s for s in v["stores"] if s["name"] not in blocked]
+        if offerable_vertical(v["vertical"]) and stores:
+            kept.append({**v, "stores": stores})
+    return kept
 
 
 def _base(intent: Intent, text: str) -> dict:

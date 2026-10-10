@@ -6,6 +6,10 @@ const AssistantContext = createContext(null)
  * Abre y cierra el asistente. `open({ origin, query, search })`:
  *  - origin: rectángulo (relativo al teléfono) desde donde crece la animación
  *  - query: pregunta que se envía al abrir
+ *  - product: un producto del que se pide el complemento («¿Con qué acompaño…?»); en vez de enviar `query`, se pide la
+ *    oferta `carrito` de ese producto
+ *  - offer: `{ moment, context }`, una oferta de Mochi que se muestra al abrir (por ejemplo «¿Qué puedo probar?», el
+ *    momento `vertical_por_probar`); `query` es lo que la persona «dijo»
  *  - search: texto con el que arranca el buscador (al volver a una búsqueda que se dejó)
  */
 export function AssistantProvider({ children }) {

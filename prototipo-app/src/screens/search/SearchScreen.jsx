@@ -1,15 +1,19 @@
+import { storeOfProduct } from '../../api/catalog'
 import { SearchIcon } from '../../components/Icons'
 import BackButton from '../../components/BackButton'
 import { PopularStores, RecentSearches, SearchResults } from '../../components/search/SearchSections'
 import { useSearch } from '../../components/search/useSearch'
 import '../../components/search/search.css'
 
-/** Buscador (funcionalidad agregada): filtra en vivo tiendas y productos del prototipo. */
+/** Buscador (funcionalidad agregada): busca en vivo en el catálogo de todas las verticales, agrupado por vertical. */
 export default function SearchScreen({ back, push, params }) {
-  const { query, setQuery, results, hasQuery, isEmpty, logSearch, pick } = useSearch({
+  const { query, setQuery, data, loading, error, retry, hasQuery, logSearch, pick } = useSearch({
     initial: params.query ?? '',
-    vertical: params.vertical })
+    vertical: params.vertical,
+  })
   const openStore = (store) => push('store', { store })
+  // El producto tocado va con la tienda: la página registra que se vio.
+  const openProduct = (product) => push('store', { store: storeOfProduct(product), item: product })
 
   return (
     <div className="screen search">
@@ -42,7 +46,14 @@ export default function SearchScreen({ back, push, params }) {
         </>
       )}
 
-      <SearchResults query={query} results={results} isEmpty={isEmpty} onOpenStore={openStore} />
+      <SearchResults
+        query={query}
+        data={data}
+        loading={loading}
+        error={error}
+        onRetry={retry}
+        onOpenProduct={openProduct}
+      />
     </div>
   )
 }

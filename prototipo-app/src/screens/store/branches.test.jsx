@@ -8,7 +8,6 @@ import { AssistantProvider } from '../../state/AssistantContext'
 import { CartProvider } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { FavoritesProvider } from '../../state/FavoritesContext'
-import { NudgeProvider } from '../../state/NudgeContext'
 import { ProfileProvider } from '../../state/ProfileContext'
 import StoreScreen from './StoreScreen'
 
@@ -27,7 +26,7 @@ function Providers({ children }) {
             <CartProvider>
               <FavoritesProvider>
                 <ToastProvider>
-                  <NudgeProvider>{children}</NudgeProvider>
+                  {children}
                 </ToastProvider>
               </FavoritesProvider>
             </CartProvider>

@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { ALL_PRODUCTS } from '../data/catalog'
-import { AssistantProvider, useAssistant } from '../state/AssistantContext'
+import { toPrototypeProduct } from '../api/client'
+import { fixture } from '../api/testing'
+import { AssistantProvider } from '../state/AssistantContext'
 import { CartProvider } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
-import { NudgeProvider, useNudge } from '../state/NudgeContext'
-import { ProfileProvider, useProfile } from '../state/ProfileContext'
+import { ProfileProvider } from '../state/ProfileContext'
 import { MOCHI_CART_EVENT, session } from '../state/liveMemory'
 import AddButton from './AddButton'
 
@@ -18,7 +18,7 @@ function Providers({ children }) {
       <ProfileProvider>
         <AssistantProvider>
           <CartProvider>
-            <NudgeProvider>{children}</NudgeProvider>
+            {children}
           </CartProvider>
         </AssistantProvider>
       </ProfileProvider>
@@ -26,22 +26,7 @@ function Providers({ children }) {
   )
 }
 
-function Probe() {
-  const profile = useProfile()
-  const { nudge } = useNudge()
-  const assistant = useAssistant()
-  return (
-    <>
-      <output aria-label="perfil">{profile.top.join(',')}</output>
-      <output aria-label="aviso">{nudge ? nudge.tag : 'ninguno'}</output>
-      <button type="button" onClick={() => assistant.open()}>
-        abrir chat
-      </button>
-    </>
-  )
-}
-
-const heineken = ALL_PRODUCTS.find((product) => product.id === 'p-heineken')
+const heineken = toPrototypeProduct(fixture('search-grouped').groups[0].products[0])
 const add = () => fireEvent.click(screen.getByLabelText(`Agregar ${heineken.name}`))
 
 afterEach(() => {
@@ -52,30 +37,21 @@ afterEach(() => {
 })
 
 describe('AddButton (extra)', () => {
-  test('agregar suma interés al perfil y quitar manda cart_remove', () => {
-    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
+  test('quitar manda cart_remove con el concepto', () => {
+    render(<AddButton product={heineken} />, { wrapper: Providers })
     add()
-    expect(screen.getByLabelText('perfil').textContent).toContain('cerveza')
     fireEvent.click(screen.getByLabelText(/^Quitar uno de /))
     expect(events.track).toHaveBeenCalledWith('cart_remove', expect.objectContaining({ concept_id: 'cerveza' }))
   })
 
   test('en el prototipo final no hay aviso al agregar: Mochi lo comenta al volver a la Home', () => {
-    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
+    render(<AddButton product={heineken} />, { wrapper: Providers })
     add()
-    expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
     expect(session.lastAdded).toMatchObject({ id: heineken.id })
   })
 
-  test('con el buscador con Mochi abierto tampoco hay aviso', () => {
-    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
-    fireEvent.click(screen.getByText('abrir chat'))
-    add()
-    expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
-  })
-
   test('si se quita lo último agregado (p. ej. «Deshacer»), Mochi no lo comenta al volver a la Home', () => {
-    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
+    render(<AddButton product={heineken} />, { wrapper: Providers })
     add()
     expect(session.lastAdded).toMatchObject({ id: heineken.id })
     fireEvent.click(screen.getByLabelText(/^Quitar uno de /))
@@ -85,7 +61,7 @@ describe('AddButton (extra)', () => {
   test('en el prototipo final, agregar avisa a Mochi', () => {
     const heard = vi.fn()
     window.addEventListener(MOCHI_CART_EVENT, heard)
-    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
+    render(<AddButton product={heineken} />, { wrapper: Providers })
     add()
     window.removeEventListener(MOCHI_CART_EVENT, heard)
     expect(heard).toHaveBeenCalledTimes(1)
@@ -96,17 +72,16 @@ describe('AddButton (extra)', () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
     const heard = vi.fn()
     window.addEventListener(MOCHI_CART_EVENT, heard)
-    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
+    render(<AddButton product={heineken} />, { wrapper: Providers })
     add()
     window.removeEventListener(MOCHI_CART_EVENT, heard)
     expect(heard).not.toHaveBeenCalled()
   })
 
-  test('en «Rappi hoy» no hay aviso ni memoria de Mochi', () => {
+  test('en «Rappi hoy» no hay memoria de Mochi', () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
-    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
+    render(<AddButton product={heineken} />, { wrapper: Providers })
     add()
-    expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
     expect(session.lastAdded).toBeNull()
   })
 })

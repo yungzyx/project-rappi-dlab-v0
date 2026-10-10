@@ -43,3 +43,23 @@ class HashEmbedder:
 def to_pgvector(vector: np.ndarray) -> str:
     """Literal de pgvector ('[0.1,0.2,…]'); evita depender de un adaptador extra."""
     return "[" + ",".join(f"{x:.6f}" for x in vector.tolist()) + "]"
+
+
+class MemoizedQueryEmbedder:
+    """Recuerda los vectores de las consultas: el mismo texto se embebe una sola vez aunque se busque en varias
+    verticales (cada `retrieve` embebe la consulta por su cuenta). Vale para la vida de una petición."""
+
+    def __init__(self, inner: TextEmbedder):
+        self.inner = inner
+        self.model_name = inner.model_name
+        self.dim = inner.dim
+        self._queries: dict[str, np.ndarray] = {}
+
+    def embed_documents(self, texts: list[str]) -> np.ndarray:
+        return self.inner.embed_documents(texts)
+
+    def embed_queries(self, texts: list[str]) -> np.ndarray:
+        missing = [t for t in dict.fromkeys(texts) if t not in self._queries]
+        if missing:
+            self._queries.update(zip(missing, self.inner.embed_queries(missing), strict=True))
+        return np.stack([self._queries[t] for t in texts])

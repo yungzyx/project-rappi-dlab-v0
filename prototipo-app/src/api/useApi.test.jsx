@@ -99,6 +99,45 @@ describe('useApi', () => {
     expect(result.current).toMatchObject({ loading: false, data: 'segunda' })
   })
 
+  test('useApi sin keepPrevious no cambia', async () => {
+    const second = deferred()
+    const { result, rerender } = renderHook(
+      ({ id }) => useApi(() => (id === 1 ? Promise.resolve('primera') : second.promise), [id]),
+      { initialProps: { id: 1 } },
+    )
+    await waitFor(() => expect(result.current.data).toBe('primera'))
+    rerender({ id: 2 })
+    expect(result.current).toMatchObject({ loading: true, data: null, error: null })
+    await act(async () => second.resolve('segunda'))
+    expect(result.current).toMatchObject({ loading: false, data: 'segunda' })
+  })
+
+  test('con keepPrevious los datos anteriores siguen a la vista mientras carga la nueva', async () => {
+    const second = deferred()
+    const { result, rerender } = renderHook(
+      ({ id }) => useApi(() => (id === 1 ? Promise.resolve('primera') : second.promise), [id], { keepPrevious: true }),
+      { initialProps: { id: 1 } },
+    )
+    expect(result.current).toMatchObject({ loading: true, data: null })
+    await waitFor(() => expect(result.current.data).toBe('primera'))
+
+    rerender({ id: 2 })
+    expect(result.current).toMatchObject({ loading: true, data: 'primera', error: null })
+    await act(async () => second.resolve('segunda'))
+    expect(result.current).toMatchObject({ loading: false, data: 'segunda' })
+  })
+
+  test('con keepPrevious una respuesta vieja tampoco pisa a la nueva', async () => {
+    const calls = { 1: deferred(), 2: deferred() }
+    const { result, rerender } = renderHook(({ id }) => useApi(() => calls[id].promise, [id], { keepPrevious: true }), {
+      initialProps: { id: 1 },
+    })
+    rerender({ id: 2 })
+    await act(async () => calls[2].resolve('segunda'))
+    await act(async () => calls[1].resolve('primera'))
+    expect(result.current).toMatchObject({ loading: false, data: 'segunda' })
+  })
+
   test('mientras las dependencias no cambian no vuelve a cargar', async () => {
     const load = vi.fn().mockResolvedValue('datos')
     const { result, rerender } = renderHook(({ id }) => useApi(load, [id]), { initialProps: { id: 1 } })

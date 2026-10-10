@@ -1,8 +1,11 @@
 // Revisa en un Chrome real que la app del MVP responda como debe (lo corre scripts/mvp-check.sh con `make mvp-check`).
-// Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--shop | --expect-offline]
+// Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--shop | --kit | --expect-offline]
 //   sin banderas: la app abre en la Home conectada, con la barra «Busca o pídele ideas a Mochi»;
 //   con --shop: Home → vertical Grocery → primera tienda → agregar un producto → carrito → pagar, y la API recibe el
 //     pedido (que después verifica scripts/mvp-check.sh en la base de prueba);
+//   con --kit: busca «cerveza» en el buscador con Mochi (ve la búsqueda agrupada por vertical), vuelve a la Home, elige
+//     la ocasión «Carrete», agrega el kit que arma Mochi (`plan`) y paga; scripts/mvp-check.sh verifica después en la base
+//     de prueba que el pedido tiene líneas sembradas y al menos una aceptación `mochi-plan`;
 //   con --expect-offline: la API está detenida y la app muestra «Sin conexión con Mochi».
 // Con la API en marcha (sin --expect-offline) también falla ante un error de la página o de la consola, o una respuesta
 // 4xx/5xx, desde la primera carga; solo se ignoran las imágenes del catálogo de prueba, que no existen.
@@ -93,6 +96,57 @@ async function checkShop(page) {
   return `compró en «${store}» y la API aceptó el pedido`
 }
 
+/**
+ * Busca «cerveza» con Mochi (grupos por vertical), pide el kit de «Carrete» en la Home, lo agrega y paga. Los textos son
+ * los de la app (Buscador con Mochi, Plan de hoy, Agregar el kit, Ir a pagar, Place order).
+ */
+async function checkKit(page) {
+  await checkOnline(page)
+  await step(page, 'abrir el buscador con Mochi', () => page.locator('.smart-bar').first().click())
+  const panel = page.getByRole('dialog', { name: 'Buscador con Mochi' })
+  await step(page, 'escribir «cerveza»', () =>
+    panel.getByRole('searchbox', { name: 'Buscar en Rappi' }).fill('cerveza'),
+  )
+  const groups = panel.locator('section[aria-labelledby] > h2')
+  await step(page, 'ver la búsqueda agrupada por vertical', () => groups.first().waitFor())
+  // El catálogo de prueba vende cerveza en tres verticales (licores, conveniencia y supermercado).
+  const found = await step(page, 'contar los grupos de la búsqueda', async () => {
+    await panel
+      .getByText(/^Cerveza rubia/)
+      .first()
+      .waitFor()
+    return groups.count()
+  })
+  if (found < 2) throw new Error(`«cerveza» salió en ${found} grupo(s) y se esperaban al menos 2`)
+  await step(page, 'cerrar el buscador', () => panel.locator('.search-back').click())
+  await step(page, 'ver que el buscador se cerró', () => panel.waitFor({ state: 'detached' }))
+  await step(page, 'elegir la ocasión «Carrete»', () => page.getByRole('radio', { name: /Carrete/ }).click())
+  await step(page, 'ver el kit de Mochi', () => page.locator('.live-kit-meta').waitFor())
+  // Agregar el kit registra una aceptación por producto; la app las manda en lotes cada 5 s.
+  const accepted = page.waitForResponse(
+    (r) =>
+      r.request().method() === 'POST' &&
+      new URL(r.url()).pathname === '/events' &&
+      (r.request().postData() ?? '').includes('suggestion_accepted'),
+    { timeout: TIMEOUT_MS },
+  )
+  accepted.catch(() => {}) // si no llega, falla abajo con su propio mensaje
+  await step(page, 'agregar el kit', () => page.getByRole('button', { name: /^Agregar el kit/ }).click())
+  await step(page, 'ir a pagar', () => page.getByRole('button', { name: /Ir a pagar/ }).click())
+  const place = page.getByRole('button', { name: /^Place order/ })
+  await step(page, 'ver el botón de pagar', () => place.waitFor())
+  const posted = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/orders')
+  await place.click()
+  const response = await posted.catch(() => {
+    throw new Error('la app no mandó el pedido a la API (POST /orders)')
+  })
+  if (!response.ok()) throw new Error(`la API rechazó el pedido (POST /orders → ${response.status()})`)
+  await accepted.catch(() => {
+    throw new Error('la app no registró la aceptación del kit (POST /events con suggestion_accepted)')
+  })
+  return `buscó «cerveza» (${found} grupos), pidió el kit «Carrete», lo agregó y la API aceptó el pedido`
+}
+
 /** Un paso del recorrido: si falla, dice cuál era y qué mostraba la página. */
 async function step(page, what, action) {
   try {
@@ -116,11 +170,12 @@ const { values } = parseArgs({
   options: {
     app: { type: 'string' },
     shop: { type: 'boolean', default: false },
+    kit: { type: 'boolean', default: false },
     'expect-offline': { type: 'boolean', default: false },
   },
 })
 const offline = values['expect-offline']
-const label = offline ? 'sin API' : values.shop ? 'compra' : 'en línea'
+const label = offline ? 'sin API' : values.kit ? 'kit de Mochi' : values.shop ? 'compra' : 'en línea'
 
 async function main() {
   if (!values.app) throw new Error('falta --app <url> (por ejemplo --app http://localhost:5184)')
@@ -132,7 +187,7 @@ async function main() {
     page.setDefaultTimeout(TIMEOUT_MS)
     const problems = watchProblems(page)
     await page.goto(values.app, { timeout: TIMEOUT_MS })
-    const check = offline ? checkOffline : values.shop ? checkShop : checkOnline
+    const check = offline ? checkOffline : values.kit ? checkKit : values.shop ? checkShop : checkOnline
     const done = await check(page)
     // Sin API es lo esperado que fallen sus llamadas: ahí no se miran.
     if (!offline && problems.length > 0) throw new Error(`fallos en la página o en la API: ${problems[0]}`)

@@ -133,7 +133,7 @@ describe('de la API al prototipo', () => {
 })
 
 describe('health', () => {
-  test('sin API responde null (el prototipo usa su cerebro local) y lo cachea', async () => {
+  test('sin API responde null (la app muestra «Sin conexión») y lo cachea', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
     vi.stubGlobal('fetch', fetchMock)
     expect(await health()).toBeNull()
@@ -163,7 +163,7 @@ describe('health', () => {
 })
 
 describe('chat', () => {
-  test('se rinde a los 8 s: el cerebro local contesta antes de que el público note la espera', async () => {
+  test('se rinde a los 8 s con un error de tiempo agotado, para que el chat muestre «Sin conexión» con «Reintentar»', async () => {
     vi.useFakeTimers()
     try {
       vi.stubGlobal(
@@ -295,12 +295,21 @@ describe('stubApi', () => {
     expect((await fetch(`${API_URL}/orders`, { method: 'POST' })).status).toBe(404)
   })
 
+  test('recommendations entrega los productos de cada fila en el formato del prototipo', async () => {
+    stubApi({ '/recommendations': fixture('recommendations') })
+    const response = await recommendations('u-contrato')
+    expect(response.interests).toEqual(['pizza'])
+    expect(response.rows[0]).toMatchObject({ concept: 'gaseosas', vertical: 'conveniencia', prototype_vertical: 'express' })
+    expect(response.rows[0].products[0]).toMatchObject({ vertical: 'express', backendVertical: 'conveniencia' })
+    expect(response.rows[0].products[0].entityId).toBeTruthy()
+  })
+
   test('stubApi entrega query y cuerpo a una función', async () => {
     const seen = []
     stubApi({
       '/recommendations': (req) => {
         seen.push(req)
-        return { user: req.query.get('user_id'), vertical: req.query.get('vertical') }
+        return { user: req.query.get('user_id'), vertical: req.query.get('vertical'), rows: [] }
       },
       'POST /chat': (req) => {
         seen.push(req)
@@ -308,7 +317,7 @@ describe('stubApi', () => {
       },
     })
 
-    expect(await recommendations('proto 1', 'licores')).toEqual({ user: 'proto 1', vertical: 'licores' })
+    expect(await recommendations('proto 1', 'licores')).toEqual({ user: 'proto 1', vertical: 'licores', rows: [] })
     expect(await chat({ message: 'cerveza', vertical: null })).toEqual({ text: 'Mira' })
     expect(await failure(chat({ message: 'pizza' }))).toMatchObject({ kind: 'http', status: 500 })
 

@@ -26,9 +26,9 @@ Sin ese mapa de contenido no se puede:
 
 ### Cómo lo aborda este prototipo
 
-**Buscar dentro del vertical; entender al usuario a través de los verticales.**
+**Buscar en las verticales de la consulta; entender al usuario a través de los verticales.**
 
-- La búsqueda sigue aislada por vertical: quien está en Licores quiere resultados de Licores.
+- La búsqueda va a las verticales que corresponden a la consulta (las de su concepto o su ocasión; sin ninguno, a todas, y quedan solo las que calzan las palabras o se parecen mucho) y muestra un grupo por vertical, con la de la pantalla primero.
 - Los intereses del usuario se guardan como **conceptos** comunes a todos los verticales (cerveza, snacks, pañales).
 - La recomendación cruzada va de concepto → complemento → búsqueda en el índice del otro vertical. Por ejemplo, quien lleva cerveza en Licores ve snacks de Express, marcados "De Express" y con su razón visible.
 
@@ -36,7 +36,7 @@ Detalle en [diseno-ia.md](diseno-ia.md#0-la-regla-que-ordena-todo).
 
 <img src="../prototipo-app/docs/screenshots/20-asistente.jpg" alt="Prototipo: el buscador con Mochi tras tocar «Arma un carrete» muestra cervezas y botillerías" width="280">
 
-*Prototipo en modo local (datos del prototipo, sin API): Mochi recomienda cuando se le pide. En el buscador con Mochi, «Arma un carrete» junta productos y tiendas para la ocasión; con la API, suma en un bloque aparte un complemento de otra tienda, marcado y con su razón.*
+*Prototipo con el MVP corriendo: Mochi recomienda cuando se le pide. En el buscador con Mochi, «Arma un carrete» junta productos y tiendas para la ocasión; además suma en un bloque aparte un complemento de otra tienda, marcado y con su razón.*
 
 ## 3. Preguntas que la base debe poder responder
 

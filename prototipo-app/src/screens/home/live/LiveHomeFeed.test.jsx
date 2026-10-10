@@ -18,7 +18,9 @@ let HomeScreen
 let Providers
 let memory
 let useAssistant
+let api // el fetch simulado de cada test (las llamadas a la API)
 beforeEach(async () => {
+  events.track.mockClear()
   vi.resetModules()
   localStorage.setItem('rappi-proto-demo-mode', 'final')
   localStorage.setItem('rappi-proto-guia-vista', '1') // como quien ya vio la guía (sus tests la quitan)
@@ -29,7 +31,6 @@ beforeEach(async () => {
   const cart = await import('../../../state/CartContext')
   const address = await import('../../../state/AddressContext')
   const toast = await import('../../../components/Toast')
-  const nudge = await import('../../../state/NudgeContext')
   const orders = await import('../../../state/OrdersContext')
   const game = await import('../../../state/GameContext')
   memory = await import('../../../state/liveMemory')
@@ -43,11 +44,9 @@ beforeEach(async () => {
             <cart.CartProvider>
               <address.AddressProvider>
                 <toast.ToastProvider>
-                  <nudge.NudgeProvider>
-                    <orders.OrdersProvider>
-                      <game.GameProvider>{children}</game.GameProvider>
-                    </orders.OrdersProvider>
-                  </nudge.NudgeProvider>
+                  <orders.OrdersProvider>
+                    <game.GameProvider>{children}</game.GameProvider>
+                  </orders.OrdersProvider>
                 </toast.ToastProvider>
               </address.AddressProvider>
             </cart.CartProvider>
@@ -58,8 +57,22 @@ beforeEach(async () => {
     return strict ? <StrictMode>{tree}</StrictMode> : tree
   }
   vi.useFakeTimers()
-  stubApi({}) // la Home pide su catálogo a la API: sin respuestas, esas secciones no se ven
+  // La Home pide su catálogo a la API (sin respuestas, esas secciones no se ven) y a Mochi sus ocasiones y ofertas.
+  api = stubMochi()
 })
+
+// Una oferta por momento, con los ejemplos del contrato; los momentos sin ejemplo responden 204.
+const OFFER_FIXTURES = { plan: 'mochi-plan', carrito: 'mochi-carrito', vertical_por_probar: 'mochi-vertical-por-probar' }
+const stubMochi = (routes = {}) =>
+  stubApi({
+    '/mochi/plans': fixture('mochi-plans'),
+    'POST /mochi/offer': (req) => (OFFER_FIXTURES[req.body.moment] ? fixture(OFFER_FIXTURES[req.body.moment]) : 204),
+    ...routes,
+  })
+const offerRequests = (mock = api) =>
+  mock.mock.calls.filter(([url]) => url.endsWith('/mochi/offer')).map(([, init]) => JSON.parse(init.body))
+const tracked = (type, origin) =>
+  events.track.mock.calls.filter(([name, fields]) => name === type && fields.payload?.origen === origin)
 
 beforeAll(() => {
   Element.prototype.scrollTo = () => {} // jsdom no implementa scroll ni animaciones
@@ -166,10 +179,148 @@ describe('Home del prototipo final', () => {
     expect(second.textContent).toMatch(/^Tu pasaporte Rappi/)
   })
 
-  test('elegir un plan arma un kit de varias verticales', async () => {
-    renderHome()
-    fireEvent.click(screen.getByRole('radio', { name: /Carrete/ }))
-    expect(screen.getByText(/^Tu kit en \d+ verticales:/)).toBeTruthy()
+  describe('los momentos de Mochi salen de /mochi/offer', () => {
+    const status = (container) => container.querySelector('.live-layer [role="status"]').textContent
+    const LOOSE_CART = { id: 'cat-94001', name: 'Cerveza rubia lata 470 cc (prueba)', vertical: 'liquor', entityType: 'catalog_item', entityId: '94001' }
+
+    test('el kit sale de la API y agregarlo registra una aceptación por producto', async () => {
+      const kit = fixture('mochi-plan')
+      renderHome()
+      await advance(100)
+      // Las ocasiones son las del servidor, con su nombre.
+      expect(screen.getByRole('radio', { name: 'Panorama en casa' })).toBeTruthy()
+      expect(screen.queryByRole('radio', { name: 'Película' })).toBeNull()
+
+      fireEvent.click(screen.getByRole('radio', { name: 'Carrete' }))
+      await advance(100)
+      expect(offerRequests()).toEqual([
+        { moment: 'plan', user_id: expect.any(String), context: { occasion: 'carrete' } },
+      ])
+      expect(screen.getByText(/^Tu kit en \d+ verticales:/)).toBeTruthy()
+      for (const product of kit.products) expect(screen.getByText(product.name)).toBeTruthy()
+      expect(tracked('suggestion_shown', 'mochi-plan')).toHaveLength(kit.products.length)
+
+      fireEvent.click(screen.getByRole('button', { name: /^Agregar el kit/ }))
+      const accepted = tracked('suggestion_accepted', 'mochi-plan')
+      expect(accepted).toHaveLength(kit.products.length) // una por producto, no por clic
+      expect(accepted.map(([, fields]) => fields.concept_id).sort()).toEqual(kit.products.map((p) => p.concept).sort())
+      expect(tracked('suggestion_shown', 'mochi-plan')).toHaveLength(kit.products.length)
+      expect(screen.getByRole('button', { name: /En tu carro · Ir a pagar/ })).toBeTruthy()
+    })
+
+    test('la Home muestra solo los 5 primeros planes, en el orden del servidor', async () => {
+      renderHome()
+      await advance(100)
+      const names = fixture('mochi-plans').map((option) => option.name)
+      expect(names.length).toBeGreaterThan(5)
+      expect(screen.getAllByRole('radio').map((chip) => chip.lastChild.textContent)).toEqual(names.slice(0, 5))
+    })
+
+    test('si el servidor no arma el kit (204) o no contesta, el chip no se queda marcado y Mochi no dice nada', async () => {
+      stubMochi({ 'POST /mochi/offer': 204 })
+      const { container } = renderHome()
+      await advance(900 + 3400 + 6000)
+      fireEvent.click(screen.getByRole('radio', { name: 'Carrete' }))
+      await advance(3000)
+      expect(screen.getByRole('radio', { name: 'Carrete' }).getAttribute('aria-checked')).toBe('false')
+      expect(screen.queryByText(/^Tu kit en/)).toBeNull()
+      expect(status(container)).toBe('')
+
+      stubMochi({ 'POST /mochi/offer': 'offline' })
+      fireEvent.click(screen.getByRole('radio', { name: 'Asado' }))
+      await advance(3000)
+      expect(screen.getByRole('radio', { name: 'Asado' }).getAttribute('aria-checked')).toBe('false')
+      expect(status(container)).toBe('')
+    })
+
+    test('si no llegan las ocasiones, el bloque del plan no ofrece chips (no hay kits locales)', async () => {
+      stubMochi({ '/mochi/plans': 'offline' })
+      renderHome()
+      await advance(300)
+      expect(screen.queryByRole('radio')).toBeNull()
+    })
+
+    test('el comentario del carrito usa la oferta de la API y calla en un 204', async () => {
+      const push = vi.fn()
+      const carrito = fixture('mochi-carrito')
+      memory.session.played = true
+      memory.session.lastAdded = LOOSE_CART
+      const { container } = renderHome({ push })
+      await advance(4000)
+      expect(status(container)).toBe(carrito.text)
+      expect(offerRequests()).toEqual([
+        {
+          moment: 'carrito',
+          user_id: expect.any(String),
+          context: { product: { entity_type: 'catalog_item', entity_id: '94001' } },
+        },
+      ])
+      expect(memory.session.lastAdded).toBeNull()
+      expect(tracked('suggestion_shown', 'mochi-carrito')).toHaveLength(1)
+      fireEvent.click(screen.getByRole('button', { name: 'Ver snacks salados' }))
+      expect(push).toHaveBeenLastCalledWith('vertical', { id: 'express' })
+
+      cleanup()
+      stubMochi({ 'POST /mochi/offer': 204 })
+      memory.session.newStamp = null // abrir Express sí selló la vertical; esto es solo el comentario
+      memory.session.lastAdded = LOOSE_CART
+      const empty = renderHome()
+      await advance(4000)
+      expect(status(empty.container)).toBe('')
+      expect(memory.session.lastAdded).toBeNull()
+    })
+
+    test('tocar a Mochi propone la vertical sin sello que dice la API', async () => {
+      const push = vi.fn()
+      const { container } = renderHome({ push })
+      await advance(900 + 3400)
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(3000)
+      const [request] = offerRequests()
+      expect(request).toMatchObject({ moment: 'vertical_por_probar' })
+      expect(request.context.stamped.sort()).toEqual(['restaurantes', 'supermercado']) // los sellos del juego
+      expect(container.querySelector('.live-bubble p').textContent).toMatch(/^¿Y si pruebas Express /)
+      expect(tracked('suggestion_shown', 'mochi-vertical_por_probar').length).toBeLessThanOrEqual(1)
+      fireEvent.click(screen.getByRole('button', { name: 'Abrir Express' }))
+      expect(push).toHaveBeenLastCalledWith('vertical', { id: 'express' })
+    })
+
+    test('tocar a Mochi sin nada que ofrecer (204) calla; con todo sellado celebra', async () => {
+      stubMochi({ 'POST /mochi/offer': 204 })
+      const { container } = renderHome()
+      await advance(900 + 3400 + 6000)
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(3000)
+      expect(status(container)).toBe('') // faltan sellos, pero la API no propone nada
+      cleanup()
+      seed({ visited: DATA.order.filter((v) => v !== 'farmacia').concat('viajes') })
+      memory.session.played = true
+      const done = renderHome()
+      await advance(500)
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(3000)
+      expect(status(done.container)).toMatch(/^¡Ya probaste de todo!/)
+    })
+
+    test('Mochi en silencio no pide ofertas', async () => {
+      localStorage.setItem('rappi-proto-mochi-silencio', today())
+      memory.session.played = true
+      memory.session.lastAdded = LOOSE_CART
+      renderHome()
+      await advance(4000)
+      expect(offerRequests()).toEqual([])
+
+      // Tampoco si lo ignoraron dos veces seguidas.
+      cleanup()
+      localStorage.removeItem('rappi-proto-mochi-silencio')
+      const quiet = await import('../../../state/mochiQuiet')
+      quiet.noteDismissed()
+      quiet.noteDismissed()
+      memory.session.lastAdded = LOOSE_CART
+      renderHome()
+      await advance(4000)
+      expect(offerRequests()).toEqual([])
+    })
   })
 
   test('al volver con un sello nuevo lo celebra, también con StrictMode (como en npm run dev)', async () => {
@@ -220,10 +371,11 @@ describe('Home del prototipo final', () => {
     test('al volver no comenta lo agregado', async () => {
       quietToday()
       memory.session.played = true
-      memory.session.lastAdded = { id: 'x', name: 'Cerveza Escudo Lata 470 cc', vertical: 'liquor', store: 'Botillería' }
+      memory.session.lastAdded = { id: 'x', name: 'Cerveza Escudo Lata 470 cc', vertical: 'liquor', entityType: 'catalog_item', entityId: '94001' }
       const { container } = renderHome()
       await advance(3000)
       expect(status(container)).toBe('')
+      expect(offerRequests()).toEqual([]) // en silencio no pide la oferta
     })
 
     test('al volver no celebra el sello con un globo', async () => {
@@ -423,7 +575,9 @@ describe('Home del prototipo final', () => {
     expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe(
       '2',
     )
-    fireEvent.click(screen.getByRole('radio', { name: /Carrete/ }))
+    await advance(100)
+    fireEvent.click(screen.getByRole('radio', { name: 'Carrete' }))
+    await advance(100)
     fireEvent.click(screen.getByRole('button', { name: /^Agregar el kit/ }))
     expect(screen.getByRole('button', { name: /En tu carro · Ir a pagar/ })).toBeTruthy()
   })
@@ -468,6 +622,7 @@ describe('Home del prototipo final', () => {
     })
 
     test('Mochi nunca propone Farmacia, aunque sea la única sin sello', async () => {
+      stubMochi({ 'POST /mochi/offer': 204 }) // el servidor tampoco la ofrece
       seed({ visited: [...DATA.order, 'viajes'].filter((v) => v !== 'farmacia') })
       const { container } = renderHome()
       await advance(900 + 3400)

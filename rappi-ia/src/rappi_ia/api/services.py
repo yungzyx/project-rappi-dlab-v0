@@ -1,5 +1,5 @@
 """Servicios compartidos por la API, cargados una vez. Cada capacidad es opcional: si falta un modelo o un extra,
-la API sigue funcionando y /health lo informa (el prototipo usa su cerebro local para lo que falte)."""
+la API sigue funcionando y /health lo informa (lo que falte no tiene respaldo local en la app)."""
 
 import logging
 import os

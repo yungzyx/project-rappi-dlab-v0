@@ -4,9 +4,10 @@ import { useAddToCart } from '../../hooks/useAddToCart'
 import { useAssistant } from '../../state/AssistantContext'
 import { formatPrice, useCart } from '../../state/CartContext'
 import { useDemo } from '../../state/DemoContext'
+import { useGame } from '../../state/GameContext'
 import { MOCHI_CART_EVENT, REPLAY_EVENT } from '../../state/liveMemory'
 import { isHushed, isQuiet, noteDismissed, noteEngaged, quietToday, wake } from '../../state/mochiQuiet'
-import { today } from '../../game/progress.js'
+import { stampedVerticals, today } from '../../game/progress.js'
 import Mascot from './Mascot'
 import './mochi-presence.css'
 
@@ -36,6 +37,7 @@ export default function MochiPresence({ screen, homeTab, raised }) {
   const demo = useDemo()
   const assistant = useAssistant()
   const cart = useCart()
+  const game = useGame()
   const { remove } = useAddToCart()
   const [added, setAdded] = useState(null) // lo último agregado, mientras dura su globo
   const [menu, setMenu] = useState(false)
@@ -154,7 +156,12 @@ export default function MochiPresence({ screen, homeTab, raised }) {
     setMenu(false)
     noteEngaged()
     if (id === 'search') assistant.open()
-    if (id === 'try') assistant.open({ query: 'Muéstrame algo nuevo para probar' })
+    // La vertical por probar la elige el servidor; la app le dice cuáles ya tienen sello.
+    if (id === 'try')
+      assistant.open({
+        query: 'Muéstrame algo nuevo para probar',
+        offer: { moment: 'vertical_por_probar', context: { stamped: stampedVerticals(game.state) } },
+      })
     if (id === 'cart') host.current?.closest('.phone')?.querySelector('.cart-bar')?.click()
     if (id === 'move') moveTo(side === 'right' ? 'left' : 'right')
     if (id === 'quiet') {
@@ -289,7 +296,8 @@ export default function MochiPresence({ screen, homeTab, raised }) {
           event.preventDefault()
           setDragging(false)
           noteEngaged()
-          assistant.open({ query: askAbout(JSON.parse(data)) })
+          const product = JSON.parse(data)
+          assistant.open({ query: askAbout(product), product })
         }}
       >
         <Mascot size={SIZE} mood={jumping ? 'jump' : menu ? 'listen' : 'idle'} />

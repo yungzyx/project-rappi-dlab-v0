@@ -18,17 +18,20 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from psycopg import Connection, DataError, OperationalError
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator
 
 from .. import config
 from ..agent.bigotes import PROTOTYPE_VERTICALS, Context
+from ..agent.grouped_search import search_grouped
 from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
 from ..concepts.taxonomy import load_taxonomy
 from ..events import store as events
+from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
 from .catalog import router as catalog_router
-from .deps import backend_vertical, get_conn
+from .deps import Clean, backend_vertical, get_conn, get_services
+from .mochi import router as mochi_router
 from .services import Services, services
 
 log = logging.getLogger(__name__)
@@ -37,7 +40,7 @@ log = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Carga los modelos antes de «startup complete»: si no, los paga la primera petición (el /health del prototipo,
-    que se rinde a los 1,5 s y deja a Bigotes con su cerebro local)."""
+    que se rinde a los 1,5 s y la app muestra «Sin conexión»)."""
     start = time.perf_counter()
     await run_in_threadpool(services)
     # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
@@ -74,7 +77,7 @@ app.add_middleware(
 
 @app.exception_handler(OperationalError)
 async def database_unavailable(request: Request, exc: OperationalError) -> JSONResponse:
-    """Postgres caído o sin respuesta: un 503 claro y rápido (el prototipo cae a su cerebro local), no un 500."""
+    """Postgres caído o sin respuesta: un 503 claro y rápido (la app muestra «Sin conexión»), no un 500."""
     log.error("Base de datos no disponible: %s", exc)
     return JSONResponse(status_code=503, content={"detail": "Base de datos no disponible"})
 
@@ -101,32 +104,6 @@ MAX_IMAGE_PIXELS = 40_000_000  # evita "bombas" de descompresión (un PNG de 17 
 IMAGE_FORMATS = ["JPEG", "PNG", "WEBP"]  # nunca EPS/PS (Pillow llamaría a Ghostscript)
 AUDIO_TYPES = ("audio/", "video/webm", "video/mp4")
 MODES_LITERAL = ("propuesta", "actual")
-
-
-def get_services() -> Services:
-    return services()
-
-
-def _no_nul(value):
-    """Postgres no acepta \x00 en texto ni en JSON, ni UTF-8 inválido (un surrogate suelto): se limpia en vez de
-    devolver un 500."""
-    if isinstance(value, str):
-        return value.replace("\x00", "").encode("utf-8", "replace").decode("utf-8")
-    if isinstance(value, dict):
-        return {_no_nul(k): _no_nul(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_no_nul(v) for v in value]
-    return value
-
-
-class Clean(BaseModel):
-    @model_validator(mode="before")
-    @classmethod
-    def strip_nul(cls, data):
-        try:
-            return _no_nul(data)
-        except RecursionError as exc:  # JSON anidado miles de niveles
-            raise ValueError("JSON demasiado anidado") from exc
 
 
 # ── Modelos ──────────────────────────────────────────────────────────────────
@@ -282,21 +259,35 @@ def chat_photo(
     return response
 
 
+GROUPED_SEARCH_LIMIT = 6  # por grupo
+VERTICAL_SEARCH_LIMIT = 10
+
+
 @app.get("/search")
 def search(
     q: str = Query(min_length=1, max_length=200),
-    vertical: str = Query(...),
+    vertical: str | None = None,
+    current: str | None = None,
     price_max: float | None = None,
-    limit: int = Query(10, ge=1, le=50),
+    limit: int | None = Query(None, ge=1, le=50),
     mode: str = Query("hibrido"),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
 ) -> dict:
+    """Con `vertical`, busca solo ahí. Sin `vertical`, en las verticales que corresponden a la consulta (más la de la
+    pantalla, `current`) y agrupa: `limit` es por grupo."""
     if mode not in MODES:
         raise HTTPException(400, f"mode debe ser uno de {MODES}")
+    if vertical is None:
+        grouped = search_grouped(
+            conn, q, svc.embedder, backend_vertical(current), limit or GROUPED_SEARCH_LIMIT, price_max, mode
+        )
+        return grouped.to_dict()
     code = backend_vertical(vertical)
     try:
-        outcome = search_products(conn, code, q, None, svc.embedder, price_max, k=limit, mode=mode)
+        outcome = search_products(
+            conn, code, q, None, svc.embedder, price_max, k=limit or VERTICAL_SEARCH_LIMIT, mode=mode
+        )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return {
@@ -318,9 +309,12 @@ def recommendations(
     """ "Para ti, de otras tiendas": intereses del usuario → complementos → productos de otro vertical."""
     interests = list(events.profile(conn, user_id))
     taxonomy = load_taxonomy()
+    # La razón nombra el interés («Porque te interesa…»): Mochi no nombra por su cuenta alcohol, salud ni lo sensible,
+    # así que esos intereses no son fuente de una fila (como en `Bigotes._top_interest`). El perfil los conserva.
+    sources = [c for c in interests if c in taxonomy.concepts and is_offerable(taxonomy.concepts[c])]
     shown: set[str] = set()
     rows = []
-    for concept in interests[:4]:
+    for concept in sources[:4]:
         suggestion = suggest_complement(conn, [concept], backend_vertical(vertical), svc.embedder, shown)
         if suggestion:
             shown.add(suggestion.concept)
@@ -567,3 +561,4 @@ def _check_audio_length(data: bytes) -> None:
 
 
 app.include_router(catalog_router)
+app.include_router(mochi_router)

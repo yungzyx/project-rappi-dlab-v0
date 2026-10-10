@@ -308,11 +308,14 @@ def test_unmet_demand_is_flagged_and_said(bigotes):
     assert "No encontré" in r["text"] and "Lo anoté" in r["text"]
 
 
-def test_greeting_mentions_only_non_sensitive_interests(bigotes):
+def test_greeting_mentions_only_offerable_interests(bigotes):
+    """Mochi no saluda con «Veo que te gusta…» de algo sensible, alcohol, salud ni bebé: pasa al siguiente interés."""
     agent, db = bigotes
-    hello = agent.reply(db, "hola", Context(profile={"cerveza": 3.0, "cigarrillos": 9.0}))
-    assert "cerveza" in hello["text"] and "cigarrillo" not in hello["text"].lower()
-    assert "Veo que" not in agent.reply(db, "hola", Context(profile={"cigarrillos": 9.0}))["text"]
+    blocked = {"cigarrillos": 9.0, "cerveza": 3.0, "panales": 2.5, "vitaminas": 2.0, "medicamentos": 1.5}
+    for profile in (blocked, {"cerveza": 1.0}, {"panales": 1.0}, {"vitaminas": 1.0}):
+        assert "Veo que" not in agent.reply(db, "hola", Context(profile=profile))["text"], profile
+    hello = agent.reply(db, "hola", Context(profile={**blocked, "snacks-salados": 0.5}))
+    assert "snacks salados" in hello["text"].lower() and "cerveza" not in hello["text"].lower()
 
 
 def test_explicit_request_wins_over_occasion(bigotes):
@@ -426,11 +429,12 @@ def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none
     assert "suggestion" not in sick and sick["reason"] is None
 
 
-def test_age_notice_covers_the_cross_suggestion(bigotes):
+def test_the_pizza_answer_has_no_cross_suggestion_of_alcohol_and_so_no_age_notice(bigotes):
+    """Antes la pizza sugería cerveza y la nota +18 cubría esa sugerencia. El alcohol ya no es un complemento
+    (offers/guards.py, que manda sobre docs/diseno-ia.md regla 6b): la pizza no trae cerveza ni nota +18."""
     agent, db = bigotes
     r = agent.reply(db, "pizza", Context(vertical="restaurantes"))
-    assert r["suggestion"]["concept"] == "cerveza"
-    assert r["age_notice"] and "mayores de 18" in r["text"]
+    assert r["products"] and "suggestion" not in r and not r["age_notice"]
 
 
 def test_unmet_is_recorded_even_with_a_price_cap(bigotes):
@@ -533,28 +537,33 @@ def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
     """RappiTravel no tiene catálogo: Bigotes lleva a su pantalla y suma un gancho del catálogo para el viaje."""
     agent, db = bigotes
     add_store(db, 11, "farmacia", "Farmacia")
+    add_store(db, 12, "mall", "Tienda")
     add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
     add_price(db, 11, 900, 15990)
+    add_product(db, 901, "Bikini triángulo dos piezas", 12, "Bikinis")
+    add_price(db, 12, 901, 12990)
     db.commit()
     build_search_documents(db)
     build_concepts(db)
     embed_search_documents(db, agent.embedder)
 
+    # El protector solar es de farmacia y del grupo salud: Mochi no lo propone, aunque «playa» lo enganche primero.
     r = agent.reply(db, "me voy de vacaciones a la playa", Context())
     assert r["intent"]["kind"] == "servicio" and r["service"] == "rappitravel"
     assert r["actions"] == [{"label": "Abrir RappiTravel", "route": ["travel"], "service": "rappitravel"}]
     assert "RappiTravel" in r["text"] and not r["products"]
-    assert r["suggestion"]["concept"] == "dermocosmetica" and r["suggestion"]["reason"] == "Para tu viaje ✈️"
-    assert [p["entity_id"] for p in r["suggestion"]["products"]] == ["900"]
+    assert r["suggestion"]["concept"] == "ropa" and r["suggestion"]["reason"] == "Para tu viaje ✈️"
+    assert [p["entity_id"] for p in r["suggestion"]["products"]] == ["901"]
     # Una sola sugerencia por tema en la sesión: si ya se mostró, se pasa al siguiente gancho (o a ninguno).
-    again = agent.reply(db, "me voy de vacaciones", Context(shown_topics=["dermocosmetica"]))
-    assert again.get("suggestion", {}).get("concept") != "dermocosmetica"
+    again = agent.reply(db, "me voy de vacaciones a la playa", Context(shown_topics=["ropa"]))
+    assert again.get("suggestion", {}).get("concept") != "ropa"
     # En «Rappi hoy» no hay ganchos.
     assert "suggestion" not in agent.reply(db, "me voy de vacaciones", Context(mode="actual"))
 
 
 def test_the_trip_hook_depends_on_where_you_go(bigotes):
-    """«playa» engancha protector solar; «nieve», una chaqueta; un viaje sin contexto, una mochila de viaje."""
+    """«playa» engancha un traje de baño (no el protector solar: es de farmacia y salud); «nieve», una chaqueta; un
+    viaje sin contexto, una mochila de viaje."""
     agent, db = bigotes
     add_store(db, 11, "farmacia", "Farmacia")
     add_store(db, 12, "mall", "Tienda")
@@ -562,6 +571,7 @@ def test_the_trip_hook_depends_on_where_you_go(bigotes):
         (900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales"),
         (901, "Chaqueta acolchada impermeable hombre", 12, "Abrigos, Chamarras, Chalecos"),
         (902, "Mochila de viaje 40 litros", 12, "Maletas de viaje"),
+        (903, "Bikini triángulo dos piezas", 12, "Bikinis"),
     ]:
         add_product(db, pid, name, store, category)
         add_price(db, store, pid, 19990)
@@ -569,10 +579,17 @@ def test_the_trip_hook_depends_on_where_you_go(bigotes):
     build_search_documents(db)
     build_concepts(db)
     embed_search_documents(db, agent.embedder)
-    hook = lambda text: [p["entity_id"] for p in agent.reply(db, text, Context())["suggestion"]["products"]]  # noqa: E731
-    assert hook("me voy de vacaciones a la playa") == ["900"]
-    assert hook("me voy de viaje a la nieve") == ["901"]
-    assert hook("busco un hotel en puerto varas") == ["902"]
+
+    def hook(text):
+        suggestion = agent.reply(db, text, Context())["suggestion"]
+        return suggestion["question"], [p["entity_id"] for p in suggestion["products"]]
+
+    # Traje de baño y chaqueta son ropa: la búsqueda del gancho trae las dos; la pregunta dice cuál gancho fue.
+    question, ids = hook("me voy de vacaciones a la playa")
+    assert question == "¿Te falta traje de baño? 👙" and "903" in ids and "900" not in ids
+    question, ids = hook("me voy de viaje a la nieve")
+    assert question == "¿Te falta una chaqueta para el frío? 🧥" and "901" in ids
+    assert hook("busco un hotel en puerto varas") == ("¿Te falta una mochila de viaje? 🎒", ["902"])
 
 
 def test_a_gift_can_be_sent_with_rappifavor(bigotes):
@@ -997,8 +1014,11 @@ def test_packaged_sweets_are_not_offered_from_restaurants(bigotes):
 def trip(bigotes):
     agent, db = bigotes
     add_store(db, 11, "farmacia", "Farmacia")
+    add_store(db, 12, "mall", "Tienda")
     add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
     add_price(db, 11, 900, 15990)
+    add_product(db, 901, "Bikini triángulo dos piezas", 12, "Bikinis")
+    add_price(db, 12, 901, 12990)
     db.commit()
     build_search_documents(db)
     build_concepts(db)
@@ -1007,15 +1027,16 @@ def trip(bigotes):
 
 
 def test_the_beach_hook_respects_rappi_hoy_and_topics_already_shown(trip):
-    """Con «playa» el gancho de protector solar SÍ aplica: así «Rappi hoy» y shown_topics se prueban de verdad."""
+    """Con «playa» el gancho del traje de baño SÍ aplica (el del protector solar no: es de farmacia y salud): así
+    «Rappi hoy» y shown_topics se prueban de verdad."""
     agent, db = trip
     beach = "me voy de vacaciones a la playa"
     r = agent.reply(db, beach, Context())
-    assert r["suggestion"]["question"] == "¿Llevas protector solar? 🧴"
+    assert r["suggestion"]["question"] == "¿Te falta traje de baño? 👙"
     assert r["reason"] == r["suggestion"]["reason"] == "Para tu viaje ✈️"
     assert "suggestion" not in agent.reply(db, beach, Context(mode="actual"))
-    again = agent.reply(db, beach, Context(shown_topics=["dermocosmetica"]))
-    assert again.get("suggestion", {}).get("concept") != "dermocosmetica"
+    again = agent.reply(db, beach, Context(shown_topics=["ropa"]))
+    assert again.get("suggestion", {}).get("concept") != "ropa"
 
 
 @pytest.fixture
@@ -1093,10 +1114,77 @@ def test_cheap_shows_the_cheapest_first(bigotes):
 
 def test_a_recommendation_uses_what_the_user_likes(bigotes):
     agent, db = bigotes
-    liked = agent.reply(db, "qué me recomiendas", Context(profile={"cerveza": 3.0}))
-    assert liked["text"].startswith("Como te gusta 🍺 cerveza 😉 Mira") and liked["products"]
+    liked = agent.reply(db, "qué me recomiendas", Context(profile={"snacks-salados": 3.0}))
+    assert liked["text"].startswith("Como te gusta 🥨 snacks salados 😉") and liked["products"]
     unknown = agent.reply(db, "qué me recomiendas", Context())
     assert unknown["intent"]["kind"] == "ayuda" and unknown["actions"]
+
+
+def test_a_recommendation_never_pushes_alcohol_baby_or_health_interests(bigotes):
+    """«Qué me recomiendas» responde con el interés más alto: si es de los que Mochi no propone solo, pasa al
+    siguiente ofrecible y, si no hay, a los ejemplos de siempre."""
+    agent, db = bigotes
+    for profile in ({"cerveza": 3.0}, {"panales": 3.0}, {"vitaminas": 3.0}, {"cerveza": 3.0, "cigarrillos": 9.0}):
+        r = agent.reply(db, "qué me recomiendas", Context(profile=profile))
+        assert r["intent"]["kind"] == "ayuda" and r["actions"] and not r["products"], profile
+        assert "Como te gusta" not in r["text"]
+    r = agent.reply(db, "qué me recomiendas", Context(profile={"cerveza": 3.0, "panales": 2.0, "snacks-salados": 0.5}))
+    assert r["text"].startswith("Como te gusta 🥨 snacks salados") and "cerveza" not in r["text"].lower()
+
+
+def test_a_recommendation_is_an_offer_so_it_skips_blocked_stores_and_adult_products(bigotes):
+    """«Como te gusta…» lo propone Mochi sin que se lo pidan: no trae un producto que solo vende una tienda que Rappi
+    rotula Smoking shop, ni uno +18 bajo un concepto corriente (a quien lo pide por su nombre sí se le muestra)."""
+    agent, db = bigotes
+    add_store(db, 4, "mall", "Smoking shop del mall")
+    db.execute("UPDATE store_verticals SET subvertical = 'Smoking shop' WHERE store_id = 4")
+    add_store(db, 5, "supermercado", "Súper nocturno")
+    add_product(db, 110, "Papas fritas Pringles Original 124 g", 4, "Snacks salados")
+    add_price(db, 4, 110, 990)
+    add_product(db, 111, "Papas fritas Doritos Queso 150 g", 5, "Snacks salados")
+    add_price(db, 5, 111, 1190)
+    db.execute("UPDATE catalog_items SET age_restricted = true WHERE master_product_id = 111")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    asked = {p["entity_id"] for p in agent.reply(db, "snacks salados", Context())["products"]}
+    liked = agent.reply(db, "qué me recomiendas", Context(profile={"snacks-salados": 3.0}))
+
+    assert {"110", "111"} & asked  # pedidos por su nombre, se encuentran
+    assert liked["text"].startswith("Como te gusta 🥨 snacks salados") and liked["products"]
+    assert not {"110", "111"} & {p["entity_id"] for p in liked["products"]}
+
+
+def test_an_unasked_recommendation_does_not_list_licores_pharmacy_or_their_stores_in_also_in(bigotes, monkeypatch):
+    """El «También en» de «Como te gusta…» (Mochi lo dice sola) no nombra Licores ni Farmacia ni una tienda que Rappi
+    rotula Farmacia; en una respuesta pedida sí aparecen, como siempre."""
+    agent, db = bigotes
+    monkeypatch.setattr(verticals, "MIN_ITEMS_ELSEWHERE", 1)  # el catálogo de prueba es chico
+    add_store(db, 7, "conveniencia", "Farmacia Express")
+    db.execute("UPDATE store_verticals SET subvertical = 'Farmacia' WHERE store_id = 7")
+    add_store(db, 8, "chocolateria", "Chocolatería")
+    add_product(db, 120, "Papas fritas Licorera 100 g", 2, "Snacks salados")
+    add_price(db, 2, 120, 1100)
+    add_product(db, 121, "Papas fritas Botica 100 g", 7, "Snacks salados")
+    add_price(db, 7, 121, 1200)
+    add_product(db, 122, "Papas fritas Bombonera 100 g", 8, "Snacks salados")
+    add_price(db, 8, 122, 1300)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    asked = agent.reply(db, "snacks salados", Context(vertical="supermercado"))
+    liked = agent.reply(db, "qué me recomiendas", Context(profile={"snacks-salados": 3.0}))
+
+    assert {v["vertical"] for v in asked["also_in"]["verticals"]} >= {"licores", "conveniencia", "chocolateria"}
+    assert liked["text"].startswith("Como te gusta 🥨 snacks salados")
+    elsewhere = {v["vertical"] for v in liked["also_in"]["verticals"]}
+    assert elsewhere and not elsewhere & {"licores", "farmacia", "conveniencia"}  # esta última: solo una «Farmacia»
+    stores = {s["name"] for v in liked["also_in"]["verticals"] for s in v["stores"]}
+    assert stores and not stores & {"Botillería", "Farmacia Express"}
 
 
 def test_a_conversation_follows_the_previous_request(bigotes):

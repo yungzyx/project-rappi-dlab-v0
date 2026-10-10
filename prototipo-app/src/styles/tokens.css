@@ -48,8 +48,7 @@
   --z-header-tabs: 22;
   --z-live-bigotes: 25; /* sobre la Home, bajo la barra inferior y el carrito */
   --z-nav: 30;
-  --z-nudge: 36;
-  --z-mochi: 37; /* Mochi flotante: sobre el aviso, bajo el buscador */
+  --z-mochi: 37; /* Mochi flotante: sobre el carrito, bajo el buscador */
   --z-panel: 38; /* buscador con Mochi */
   --z-cart: 39; /* sobre el panel: el carrito se ve y se abre desde ahí */
   --z-status: 40;

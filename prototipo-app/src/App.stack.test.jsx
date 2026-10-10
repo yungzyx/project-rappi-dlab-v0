@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
-import { stubApi } from './api/testing'
+import { fixture, stubApi } from './api/testing'
 import App from './App'
 
 vi.mock('./api/client', async (importOriginal) => ({
@@ -15,7 +15,8 @@ afterAll(() => {
   delete Element.prototype.scrollTo
 })
 beforeEach(() => {
-  stubApi({}) // la Home pide su catálogo a la API
+  // La Home pide su catálogo a la API, y el buscador, sus resultados.
+  stubApi({ '/search': fixture('search-grouped'), '/catalog/home': fixture('catalog-home') })
   localStorage.setItem('rappi-proto-demo-mode', 'actual')
   window.history.replaceState(null, '', '/')
 })
@@ -39,8 +40,9 @@ describe('pila de pantallas montada', () => {
 
     // Las pantallas (salvo la Home) se bajan al abrirse: se espera a que el buscador aparezca.
     const input = await screen.findByPlaceholderText('What do you want today?')
-    fireEvent.change(input, { target: { value: 'unimarc' } })
-    fireEvent.click(document.querySelector('.search-store'))
+    fireEvent.change(input, { target: { value: 'cerveza' } })
+    fireEvent.click(await screen.findByText('Cerveza negra botella 330 cc (prueba)')) // la hoja del producto
+    fireEvent.click(document.querySelector('.product-sheet-store')) // «Ver tienda»
     expect(wraps()).toHaveLength(3)
     expect(wraps()[1].hasAttribute('inert')).toBe(true)
     await screen.findByRole('heading', { level: 1 }) // la tienda ya cargó
@@ -57,7 +59,7 @@ describe('pila de pantallas montada', () => {
     }
     act(() => window.dispatchEvent(new PopStateEvent('popstate', { state: searchEntry })))
     expect(wraps()).toHaveLength(2)
-    expect(screen.getByPlaceholderText('What do you want today?').value).toBe('unimarc')
+    expect(screen.getByPlaceholderText('What do you want today?').value).toBe('cerveza')
     expect(wraps()[1].hasAttribute('inert')).toBe(false)
     expect(wraps()[0]).toBe(home)
   })

@@ -3,19 +3,34 @@
 const v = import.meta.glob('../../assets/v/*.webp', { eager: true, import: 'default' })
 const a = (name) => v[`../../assets/v/${name}.webp`]
 
-function catRow(prefix, labels, partialLast = false) {
-  return labels.map((label, i) => ({
+// Cada categoría es `[etiqueta de la captura (en inglés), consulta en español]`: tocarla busca esa consulta en el
+// catálogo, con la vertical de la pantalla.
+function catRow(prefix, items, partialLast = false) {
+  return items.map(([label, query], i) => ({
     id: `${prefix}-${i}`,
     label,
+    query,
     img: a(`${prefix}-cat${i}`),
-    partial: partialLast && i === labels.length - 1,
+    partial: partialLast && i === items.length - 1,
   }))
 }
 
 export const VERTICALS = {
   grocery: {
     title: 'Grocery',
-    categoryRows: [catRow('gro', ['Groceries', 'Express', 'Produce', 'Meat & Seafood', 'Drugstore'], true)],
+    categoryRows: [
+      catRow(
+        'gro',
+        [
+          ['Groceries', 'despensa'],
+          ['Express', 'snacks'],
+          ['Produce', 'frutas y verduras'],
+          ['Meat & Seafood', 'carnes y pescados'],
+          ['Drugstore', 'medicamentos'],
+        ],
+        true,
+      ),
+    ],
     banners: [
       { id: 'bancoestado', label: 'Promoción BancoEstado', img: a('banner-bancoestado'), toast: 'Promoción válida con Tarjeta Visa BancoEstado' },
       { id: 'bancobice', label: 'Cupón Banco BICE', img: a('banner-bancobice'), toast: 'Cupón BSRAPPISEP26 copiado' },
@@ -25,8 +40,28 @@ export const VERTICALS = {
   pharmacy: {
     title: 'Pharmacy',
     categoryRows: [
-      catRow('pha', ['Beauty', 'Sexual health', 'Pain relief', 'Vitamins and supplements', 'First-aid medical'], true),
-      catRow('pha2', ['Personal care', 'Flu and allergies', 'Digestive health', 'Baby care', 'Visual health'], true),
+      catRow(
+        'pha',
+        [
+          ['Beauty', 'belleza'],
+          ['Sexual health', 'salud sexual'],
+          ['Pain relief', 'analgésicos'],
+          ['Vitamins and supplements', 'vitaminas'],
+          ['First-aid medical', 'primeros auxilios'],
+        ],
+        true,
+      ),
+      catRow(
+        'pha2',
+        [
+          ['Personal care', 'cuidado personal'],
+          ['Flu and allergies', 'resfrío y alergias'],
+          ['Digestive health', 'salud digestiva'],
+          ['Baby care', 'cuidado del bebé'],
+          ['Visual health', 'salud visual'],
+        ],
+        true,
+      ),
     ],
   },
 
@@ -34,20 +69,52 @@ export const VERTICALS = {
     title: 'Retail',
     scrollCategories: true,
     categoryRows: [
-      catRow('ret', ['Beauty and health', 'Stationery and office', 'Fashion', 'Tools and garden', 'Sex shop']),
-      catRow('ret2', ['Technology', 'Decoration and home', 'Flowers and plants', 'Baby and kids accessories', 'Parties']),
+      catRow('ret', [
+        ['Beauty and health', 'belleza'],
+        ['Stationery and office', 'útiles de oficina'],
+        ['Fashion', 'ropa'],
+        ['Tools and garden', 'herramientas y jardín'],
+        ['Sex shop', 'sex shop'],
+      ]),
+      catRow('ret2', [
+        ['Technology', 'tecnología'],
+        ['Decoration and home', 'decoración del hogar'],
+        ['Flowers and plants', 'flores y plantas'],
+        ['Baby and kids accessories', 'accesorios para bebé'],
+        ['Parties', 'fiesta'],
+      ]),
     ],
   },
 
   liquor: {
     title: 'Liquor',
     scrollCategories: true,
-    categoryRows: [catRow('liq', ['Beers and ciders', 'Wines', 'Liquors', 'Mixers and drinks', 'Ready to drink'])],
+    categoryRows: [
+      catRow('liq', [
+        ['Beers and ciders', 'cerveza'],
+        ['Wines', 'vino'],
+        ['Liquors', 'licores'],
+        ['Mixers and drinks', 'bebidas'],
+        ['Ready to drink', 'cócteles'],
+      ]),
+    ],
   },
 
   express: {
     title: 'Express',
-    categoryRows: [catRow('exp', ['Specialized', 'Market', 'Kiosk', 'Pets', 'Meat'], true)],
+    categoryRows: [
+      catRow(
+        'exp',
+        [
+          ['Specialized', 'productos especiales'],
+          ['Market', 'mercado'],
+          ['Kiosk', 'kiosco'],
+          ['Pets', 'mascotas'],
+          ['Meat', 'carne'],
+        ],
+        true,
+      ),
+    ],
   },
 
   chocolates: {
