@@ -52,8 +52,8 @@ El efecto real (frecuencia, venta cruzada, verticales nuevas por persona) solo s
 1. **Descarga (semanal).** `rappi refresh` lee las páginas públicas de rappi.cl y guarda catálogo, menús y precios con historial.
 2. **Postgres + pgvector.** El catálogo (capa 1) y `search_documents`, una partición por vertical.
 3. **IA offline.** Cada producto y plato recibe un concepto (capa 2), y los conceptos se enlazan con sus complementos. Una capa de datos suma atributos, medidas, marcas, un grafo de conocimiento y segmentos, y los expone en el esquema `capa` ([docs/capa-de-datos.md](docs/capa-de-datos.md)). Cada documento recibe un embedding de un modelo local multilingüe (e5), con un índice vectorial por vertical.
-4. **Consulta.** Búsqueda híbrida dentro de la vertical: por palabras y por significado, combinadas por posición (RRF) y reforzadas por el concepto pedido. Mochi arma la respuesta y la sugerencia cruzada.
-5. **Prototipo.** La API (FastAPI, puerto 8000) atiende al prototipo (5174). El prototipo no abre sin la API: muestra «Sin conexión con Mochi» (se levantan juntos con `make mvp`). Las verticales, las tiendas con sus pasillos, los restaurantes con su menú, Turbo, Ofertas, Favoritos y la Home leen el catálogo real de la API (`/catalog`); el buscador y el cerebro local de Mochi siguen con datos locales hasta la etapa 3 del MVP.
+4. **Consulta.** Búsqueda híbrida por vertical (la app consulta todas y muestra un grupo por vertical): por palabras y por significado, combinadas por posición (RRF) y reforzadas por el concepto pedido. Mochi arma la respuesta y la sugerencia cruzada.
+5. **Prototipo.** La API (FastAPI, puerto 8000) atiende al prototipo (5174). El prototipo no abre sin la API: muestra «Sin conexión con Mochi» (se levantan juntos con `make mvp`). Las verticales, las tiendas con sus pasillos, los restaurantes con su menú, Turbo, Ofertas, Favoritos y la Home leen el catálogo real de la API (`/catalog`); el buscador y Mochi (chat, kits, comentarios, «Para ti» y lo aprendido) también salen de la API, sin datos ni respuestas locales.
 
 **Mochi** en la API conversa por texto, voz (Whisper) o foto (CLIP); el prototipo usa solo el texto, como buscador. Reconoce servicios sin catálogo (un viaje lleva a **RappiTravel**, un envío o trámite a **RappiFavor**). Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó. Diseño completo: [docs/diseno-ia.md](docs/diseno-ia.md).
 
@@ -82,7 +82,7 @@ Cada cifra dice qué tipo de dato es: real, evaluación automática, estimación
 | Capa de datos | Atributos, marcas y grafo | 83 atributos sobre 79.617 ítems · 6.359 marcas · 23.534 productos canónicos · 32.105 aristas en 12 relaciones | Real, con reglas propias; atributos 92 % y marcas 97 a 99 % de precisión estimada | `make layers`, 06-10-2026 |
 | Búsqueda | nDCG@10 | híbrido 0,917 · sin refuerzo por concepto 0,860 · vectorial 0,849 · léxico 0,776 | Evaluación automática | [reporte del 06-10](docs/resultados/busqueda-2026-10-06.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [reporte del 30-09](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests | scraper 144 · rappi-ia 1012 · prototipo 581 · panel 90 | Verificación local y CI | `make test` · `npm test` |
+| Calidad | Tests | scraper 144 · rappi-ia 1075 · prototipo 582 · panel 90 | Verificación local y CI | `make test` · `npm test` |
 
 ### Catálogo por vertical
 
@@ -127,7 +127,7 @@ Requisitos (el detalle, en [docs/instalacion.md](docs/instalacion.md)):
 ```bash
 make mvp          # desde la raíz del repositorio; Ctrl-C detiene los tres
 make mvp LAN=1    # abre la API y la app a la red local, para el iPhone (solo en una red de confianza)
-make mvp-check    # recorre la app con Chrome (la Home, una compra en el Súper de prueba y la caída de la API) contra un catálogo inventado, sin tocar la base real
+make mvp-check    # recorre la app con Chrome (la Home, una compra en el Súper de prueba, el kit de Mochi y la caída de la API) contra un catálogo inventado, sin tocar la base real
 ```
 
 `make mvp` revisa las dependencias, los puertos y la base (`rappi-ia doctor`, solo lectura), aplica las migraciones pendientes (no las de una rama sin fusionar: `MIGRATE=1` lo fuerza, ver [docs/instalacion.md](docs/instalacion.md#5-el-mvp)), arranca los tres con sus registros prefijados y avisa cuando responden. La API tarda en estar lista porque carga los modelos. No descarga nada de rappi.cl.
@@ -147,7 +147,7 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 ## Límites
 
 - **Cobertura parcial en tiendas:** hasta 24 productos por sub-pasillo y una sucursal por marca o formato. No se listan las tiendas sin ofertas vigentes en un pasillo de primer nivel, ni Mascotas (la base no tiene esa vertical).
-- **Buscador local hasta la etapa 3:** el buscador del prototipo y los bloques de Mochi en la Home (kit, «Descubre») aún usan datos locales; lo que abren y no está en la base muestra «Esta tienda no está en el catálogo».
+- **Mochi no ofrece por su cuenta alcohol, farmacia, bebé ni salud:** solo el kit de una ocasión que la persona elige puede traer alcohol, con +18. Consecuencia aceptada: hay menos complementos (por ejemplo, «playa» ya no sugiere protector solar). Ver [docs/decisiones.md](docs/decisiones.md).
 - **Turbo sin actualizar:** sus tiendas ya no aparecen como Turbo en los listados públicos que recorre el scraper; sus precios son del 27-09.
 - **Evaluación automática:** no hay juicio humano, y el refuerzo por concepto favorece al híbrido.
 - **«Sin resultado»:** detecta 29 de 41 negativas; el reporte explica las demás.

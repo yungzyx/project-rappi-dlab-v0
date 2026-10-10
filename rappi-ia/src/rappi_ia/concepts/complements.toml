@@ -1,7 +1,7 @@
 # Complementos curados entre conceptos (concepto → concepto que suele acompañarlo).
 # Son la semilla de las recomendaciones entre verticales; con eventos se suman aristas aprendidas
 # por co-ocurrencia (method = 'coocurrencia'). `weight` en [0, 1]: qué tan fuerte es la relación.
-# Base: el mapa COMPLEMENTS del prototipo (prototipo-app/src/assistant/tags.js), ampliado.
+# Base: el mapa COMPLEMENTS que tuvo el prototipo (su archivo local, `assistant/tags.js`, se borró en la etapa 3 del MVP), ampliado.
 # Nunca se sugieren conceptos sensibles, +18 (alcohol), de salud ni de bebé (offers/guards.py), aunque aparezcan
 # como destino aquí: esas aristas son datos (analítica, datos simulados), no ofertas.
 

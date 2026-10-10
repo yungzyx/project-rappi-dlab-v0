@@ -1,6 +1,6 @@
 # Prototipo de la app
 
-Maqueta navegable de la app de Rappi Chile, hecha a partir de capturas y videos del iPhone, para **mostrar la propuesta del proyecto**. Desde fuera, lo que un usuario hace en un vertical no parece influir en lo que se le recomienda en los demás. Aquí el asistente **Mochi** aprende de lo que haces y recomienda **entre verticales** (cerveza → snacks, pizza → postre, pañales → farmacia).
+Maqueta navegable de la app de Rappi Chile, hecha a partir de capturas y videos del iPhone, para **mostrar la propuesta del proyecto**. Desde fuera, lo que un usuario hace en un vertical no parece influir en lo que se le recomienda en los demás. Aquí el asistente **Mochi** aprende de lo que haces y recomienda **entre verticales** (cerveza → snacks, pizza → gaseosas, pan → fiambres).
 
 > Imágenes, logos y marcas pertenecen a Rappi y a sus dueños; se usan solo como maqueta de demostración. Proyecto independiente, no afiliado ni respaldado por Rappi.
 
@@ -8,7 +8,7 @@ Hecho con Vite + React 19. **Necesita la API de [`rappi-ia`](../rappi-ia/)**: si
 
 ![Modo demo: la misma app en el prototipo final y en «Rappi hoy»](docs/screenshots/00-modo-demo.jpg)
 
-*Las capturas de Restaurants, Turbo, Deals, Favorites, Grocery, Liquor y de la compra (checkout, seguimiento y entregado) se tomaron el 10-10-2026 con el MVP corriendo y el catálogo real; las demás son anteriores al MVP conectado (modo local, sin API). `npm run screenshots` necesita el MVP corriendo y, como paga una compra, deja un pedido y sus eventos (`source = 'prototype'`) en la base.*
+*Las capturas de las pantallas se tomaron o se revisaron el 10-10-2026 con el MVP corriendo y el catálogo real (`npm run screenshots`); solo la ficha de Mochi, la de voz y la de «Con la API» con Bigotes son anteriores. `npm run screenshots` necesita el MVP corriendo y, como paga una compra, deja un pedido y sus eventos (`source = 'prototype'`) en la base.*
 
 ## Cómo correrlo
 
@@ -17,7 +17,7 @@ Requiere Node 22.22+ o 24.15+ (ver `.nvmrc` en la raíz). Como la app no abre si
 ```bash
 make mvp              # API :8000, app http://localhost:5174 y panel :5175; Ctrl-C detiene los tres
 make mvp LAN=1        # abre la API y la app a la red local, para el iPhone (misma red wifi o su hotspot)
-make mvp-check        # recorre la app con Chrome (Home, una compra en el Súper de prueba, API caída) contra un catálogo inventado, sin tocar la base real
+make mvp-check        # recorre la app con Chrome (Home, una compra en el Súper de prueba, el kit de Mochi, API caída) contra un catálogo inventado, sin tocar la base real
 ```
 
 Requisitos y qué hacer si falla algo: [docs/instalacion.md](../docs/instalacion.md#5-el-mvp). Para correr solo la app, con la API ya levantada por su cuenta (`cd rappi-ia && make serve`):
@@ -36,12 +36,12 @@ En el iPhone, desde Safari: **Compartir → Agregar a pantalla de inicio**. Se a
 La API (puerto 8000) carga los modelos antes de aceptar peticiones: `make mvp` espera a que responda y, si la app se abrió antes, «Reintentar» vuelve a probar. Con ella, Mochi:
 
 - da las **pantallas de catálogo** (ver «De dónde salen las pantallas»);
-- busca en el **catálogo real** con búsqueda híbrida por vertical, con precios vigentes;
+- busca en el **catálogo real** con búsqueda híbrida en todas las verticales (un grupo por vertical, la de la pantalla primero), con precios vigentes;
 - sugiere un complemento **de otra tienda** en un bloque aparte;
 - arma la fila **"Para ti"** del inicio con lo que aprendió de ti (productos reales de otro vertical, con aviso +18 si corresponde);
 - registra eventos seudónimos y pedidos (uno por vertical) en la API, para medir las sugerencias (mostradas, aceptadas y convertidas).
 
-Si la API se cae con la app ya abierta, las respuestas de Mochi todavía caen a las reglas locales y lo marcan con «Respuesta local» (se van en la etapa 3 del MVP). La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el prototipo actual no los usa: el prototipo final tiene un buscador, sin micrófono ni cámara.
+Si la API se cae con la app ya abierta, el chat de Mochi dice «Sin conexión» con «Reintentar» (reenvía la misma pregunta) y las ofertas que Mochi hace solo callan: ya no hay respuestas locales. La API también ofrece `/chat/voice` (Whisper) y `/chat/photo` (CLIP), pero el prototipo actual no los usa: el prototipo final tiene un buscador, sin micrófono ni cámara.
 
 <img src="docs/screenshots/40-bigotes-api.jpg" width="300" alt="Con la API: cervezas reales bajo $3.000 y snacks de otra tienda (captura anterior, con Bigotes y el chat escrito)">
 
@@ -61,7 +61,7 @@ Si la API se cae con la app ya abierta, las respuestas de Mochi todavía caen a 
 | `npm run screenshots` | Regenera las capturas de este README; necesita el MVP corriendo (`make mvp`) y usa el Chrome instalado |
 | `./scripts/make-icons.sh` | Regenera los íconos de pantalla de inicio desde `scripts/icon.svg` |
 
-Tests: 581 (Vitest, 10-10-2026). CI en GitHub Actions: lint, tests y build.
+Tests: 582 (Vitest, 10-10-2026). CI en GitHub Actions: lint, tests y build.
 
 **Accesibilidad:** el buscador con Mochi y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), cada respuesta de Mochi se anuncia completa al lector de pantalla y las áreas táctiles miden al menos 40 px.
 
@@ -99,13 +99,13 @@ En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de vert
 En el prototipo final no hay chat escrito, voz ni foto: la barra de la Home («¿Qué se te antoja hoy?») abre el buscador con Mochi, que reúne el buscador de siempre y lo que Mochi sabe de ti:
 
 - **Aprendiendo de ti:** arriba muestra lo que va aprendiendo («🍺 Cerveza · 🥃 Copete») y un botón **Olvidar** que lo borra, también en la API.
-- **Toca y te armo algo:** botones con ideas («¿Qué almuerzo hoy?», «Arma un carrete», «Algo dulce») que cambian según lo aprendido. Al tocar uno, Mochi responde con productos y tiendas; si abres una tienda desde ahí y vuelves, la búsqueda sigue donde estaba.
-- **El campo de búsqueda** encuentra tiendas y productos; debajo siguen «Recent searches» y «Popular stores», como en la app.
-- **Descubre con Mochi:** las verticales que todavía no exploraste («Exploraste 3 de 9»), cada una con una entrada para probarla.
+- **Toca y te armo algo:** botones con ideas fijas («¿Qué almuerzo hoy?», «Arma un carrete», «Algo dulce»). Al tocar uno, Mochi responde con productos y tiendas; si abres una tienda desde ahí y vuelves, la búsqueda sigue donde estaba.
+- **El campo de búsqueda** consulta la API y muestra los productos en un grupo por vertical, con la de la pantalla primero y «Ver más» en cada uno; sin resultados, Mochi dice dónde sí hay lo buscado. Debajo siguen «Recent searches» y «Popular stores», como en la app.
+- **Descubre con Mochi:** complementos de lo que le gusta a la persona, de `/recommendations`, cada uno con su vertical para abrirla.
 
 <img src="docs/screenshots/20-asistente.jpg" width="300" alt="Buscador con Mochi tras tocar «Arma un carrete»">
 
-*Buscador con Mochi tras tocar «Arma un carrete» (modo local).*
+*Buscador con Mochi tras tocar «Arma un carrete» (con el MVP corriendo).*
 
 La captura `docs/screenshots/21-voz.jpg` es de una versión anterior del prototipo (voz), que ya no existe.
 
@@ -153,7 +153,7 @@ También:
 
 <img src="docs/screenshots/28-loyalty-vinculado.jpg" width="240" alt="Loyalty con un programa vinculado">
 
-*Loyalty con un programa vinculado (modo local).*
+*Loyalty con un programa vinculado (con el MVP corriendo).*
 
 ## Pantallas replicadas de Rappi
 
@@ -185,7 +185,7 @@ Las pantallas de catálogo leen la API (`/catalog`, `src/api/catalog.js`) y la a
 - **Un producto muestra el precio y la tienda de su oferta vigente más barata entre las tiendas que se pueden abrir**, para que el precio y la tienda nunca se contradigan. Si ninguna tienda abrible lo vende, no ofrece «Ver tienda».
 - **Sin «Envío más barato»:** el costo de envío es $0 en el 91 % de la base, casi seguro «sin dato», así que la Home y Deals muestran «Mejor evaluados» y un envío de $0 no se presenta como gratis.
 - **Si la API falla** en una pantalla, esa pantalla muestra «Sin conexión» con «Reintentar» y el resto de la app sigue usable; una tienda que no está en la base muestra «Esta tienda no está en el catálogo».
-- **Sigue local hasta la etapa 3:** el buscador y el cerebro local de Mochi (`src/data/catalog.js`, con los datos transcritos de las capturas). Lo que abren y no está en la base muestra «Esta tienda no está en el catálogo».
+- **Nada local:** el buscador (`/search`), el chat (`/chat`), los kits y comentarios de Mochi (`/mochi/plans`, `/mochi/offer`), «Para ti» y «Descubre» (`/recommendations`) y lo aprendido (`/profile`) salen de la API; el cerebro local, los temas y el catálogo transcrito se borraron. Mochi no propone por su cuenta alcohol, farmacia, bebé ni salud: solo el kit de una ocasión elegida puede traer alcohol, con +18.
 
 ## Qué es real y qué es simulado
 
@@ -201,16 +201,16 @@ Las pantallas de catálogo leen la API (`/catalog`, `src/api/catalog.js`) y la a
 ```text
 src/
 ├── api/            Cliente de la API de rappi-ia (catálogo, chat, "Para ti", pedidos, eventos), con tiempo límite y errores tipados; fixtures/ guarda las respuestas de ejemplo que escribe el backend (`make contract` en rappi-ia)
-├── assistant/      Mochi local: temas, respuestas y recomendaciones (lógica pura, con tests)
+├── assistant/      El texto con que se le pregunta a Mochi por un producto (`¿Con qué acompaño…?`)
 ├── assets/         Recortes de las capturas
 ├── game/           Lógica del juego de verticales: tarjetas de conocimiento, desafíos, XP, niveles, pasaporte (lógica pura, con tests)
 ├── components/     Piezas compartidas; assistant/ tiene la mascota, la barra de la Home, el buscador con Mochi y Descubre
-├── data/           Catálogo transcrito de las capturas, solo para el buscador local y el cerebro local de Mochi (se va en la etapa 3); verticales.json del juego
+├── data/           Accesos y verticales de la Home; verticales.json del juego
 ├── hooks/          Navegación con historial, scroll
 ├── screens/        Una carpeta por pantalla (home, deals, vertical, checkout, tracking, game…)
 ├── state/          Carrito, perfil, pedidos, hoja de producto, modo demo, dirección… (varios persisten en localStorage)
 └── styles/         Tokens de diseño y estilos globales
 docs/screenshots/   Capturas de este README
 public/             Íconos y manifiesto para "Agregar a pantalla de inicio"
-scripts/            Íconos, capturas y el recorrido de `make mvp-check` (Home, compra y API caída)
+scripts/            Íconos, capturas y el recorrido de `make mvp-check` (Home, compra, kit de Mochi y API caída)
 ```
