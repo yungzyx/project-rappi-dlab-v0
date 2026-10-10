@@ -131,7 +131,7 @@ def test_a_format_downloaded_in_two_branches_has_one_card_the_one_with_more_offe
     assert store_page(seeded, 9105)["store"]["products"] == 1  # la otra sucursal sigue abierta por su id
 
 
-def test_store_page_lists_aisles_in_rappi_order_with_current_counts(seeded):
+def test_store_page_lists_aisles_with_current_counts_biggest_first(seeded):
     page = store_page(seeded, CENTRO)
 
     # Los subpasillos no son pasillos: sus productos cuentan en el pasillo. «Mermeladas» solo tiene una oferta
@@ -144,10 +144,28 @@ def test_store_page_lists_aisles_in_rappi_order_with_current_counts(seeded):
         ("Cervezas", 1),
     ]
     assert all(set(a) == {"id", "name", "products"} for a in page["aisles"])
-    assert page["aisles"] == sorted(page["aisles"], key=lambda a: a["id"])
+    assert page["aisles"] == sorted(page["aisles"], key=lambda a: (-a["products"], a["id"]))
     assert page["aisle"] == page["aisles"][0]
     assert set(page["store"]) == CARD_KEYS and page["store"]["id"] == CENTRO
     assert sum(a["products"] for a in page["aisles"]) == page["store"]["products"] == 36
+
+
+def test_store_page_opens_on_the_aisle_with_most_offers_not_the_lowest_id(seeded):
+    """Rappi no guarda la posición de los pasillos y su id no es un orden que sirva: en la base real Turbo abría en
+    «Autopartes» y Lider en «Cuidado del Bebé». Turbo Centro tiene «Snacks y Dulces» (id 200) con una oferta y
+    «Bebidas» (id 300) con cuatro."""
+    page = store_page(seeded, 9301)
+
+    # Más ofertas primero; con las mismas, el id.
+    assert [(a["name"], a["products"]) for a in page["aisles"]] == [
+        ("Bebidas", 4),
+        ("Snacks y Dulces", 1),
+        ("Helados", 1),
+        ("Hielo", 1),
+        ("Cervezas", 1),
+    ]
+    assert page["aisle"]["name"] == "Bebidas" and len(page["products"]) == 4
+    assert [a["id"] for a in page["aisles"]] == [300, 200, 600, 700, 800]
 
 
 def test_store_page_prices_are_the_stores_own_and_current(seeded):

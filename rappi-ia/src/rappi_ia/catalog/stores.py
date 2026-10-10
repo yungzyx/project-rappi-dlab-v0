@@ -70,10 +70,11 @@ LEFT JOIN brands b ON b.brand_id = s.brand_id
 WHERE s.store_id = %(store_id)s"""
 
 # Los pasillos con ofertas vigentes. Un producto de un subpasillo trae también el id de su pasillo, así que los
-# subpasillos no aparecen aparte. Rappi no guarda la posición de los pasillos: el id es lo más cercano a su orden.
+# subpasillos no aparecen aparte. Rappi no guarda la posición de los pasillos y su id no es un orden (en la base real
+# Turbo abría en «Autopartes», con un puñado de productos): primero el de más ofertas vigentes, y con las mismas, el id.
 _STORE_AISLES = f"""
 WITH {_STORE_OFFERS}
-SELECT aisle_id, btrim(aisle), count(*) FROM offers GROUP BY aisle_id, aisle ORDER BY aisle_id"""
+SELECT aisle_id, btrim(aisle), count(*) FROM offers GROUP BY aisle_id, aisle ORDER BY count(*) DESC, aisle_id"""
 
 # Una página de productos de un pasillo, por nombre (y por id, que desempata nombres repetidos: sin eso, una página
 # podría repetir o saltarse productos).
