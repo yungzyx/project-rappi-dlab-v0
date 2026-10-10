@@ -11,6 +11,7 @@ import { NudgeProvider } from '../../state/NudgeContext'
 import { ProductSheetProvider } from '../../state/ProductSheetContext'
 import ProductSheet from '../../components/ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
+import SearchScreen from '../search/SearchScreen'
 import StoreScreen from '../store/StoreScreen'
 import { VERTICALS } from './data'
 import VerticalScreen from './VerticalScreen'
@@ -116,6 +117,17 @@ describe('catálogo real en la vertical', () => {
     const push = renderVertical('liquor')
     fireEvent.click(screen.getByText('Beers and ciders'))
     expect(push).toHaveBeenCalledWith('search', { query: 'cerveza', vertical: 'liquor' })
+  })
+
+  test('la búsqueda de una categoría muestra primero el grupo de esa vertical', async () => {
+    // La API pone primero la vertical de la pantalla (`current`): aquí, Express.
+    const grouped = fixture('search-grouped')
+    grouped.groups = [grouped.groups[1], grouped.groups[0], grouped.groups[2]]
+    const fetchMock = stubApi({ '/search': grouped, '/catalog/home': fixture('catalog-home') })
+    render(<SearchScreen back={() => {}} push={() => {}} params={{ query: 'cerveza', vertical: 'express' }} />, { wrapper: Providers })
+    expect(await screen.findByRole('heading', { name: 'Express' })).toBeTruthy()
+    expect(new URL(fetchMock.mock.calls.find(([u]) => u.includes('/search'))[0]).searchParams.get('current')).toBe('express')
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Express', 'Licores', 'Súper'])
   })
 
   test('en la Propuesta, la categoría abre el buscador con Mochi ya con «cerveza»', async () => {

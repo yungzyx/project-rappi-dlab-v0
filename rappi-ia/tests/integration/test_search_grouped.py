@@ -96,6 +96,44 @@ def test_grouped_search_looks_where_the_concept_is_typical_plus_the_current_vert
     assert sorted(searched) == sorted(VERTICALS)
 
 
+def test_grouped_search_puts_the_current_vertical_first_when_it_has_products(demo):
+    db, embedder = demo
+    base = [g.vertical for g in search_grouped(db, "cerveza", embedder, current=None, limit=6).groups]
+    assert base[0] == "licores" and len(base) >= 3
+    current = base[-1]  # una vertical con cerveza que no es la más típica
+
+    led = [g.vertical for g in search_grouped(db, "cerveza", embedder, current=current, limit=6).groups]
+
+    assert led[0] == current
+    assert led[1:] == [v for v in base if v != current]  # el resto conserva su orden
+
+
+def test_grouped_search_current_vertical_leads_also_without_a_concept(demo):
+    db, embedder = demo
+    base = [g.vertical for g in search_grouped(db, "lata", embedder, current=None, limit=6).groups]
+    assert len(base) >= 2
+    current = base[-1]
+
+    led = [g.vertical for g in search_grouped(db, "lata", embedder, current=current, limit=6).groups]
+
+    assert led[0] == current
+    assert sorted(led) == sorted(base)
+
+
+def test_grouped_search_current_vertical_without_products_does_not_appear(demo):
+    db, embedder = demo
+    base = [g.vertical for g in search_grouped(db, "cerveza", embedder, current=None, limit=6).groups]
+    without = 0
+    for current in (v for v in VERTICALS if v not in base):
+        led = [g.vertical for g in search_grouped(db, "cerveza", embedder, current=current, limit=6).groups]
+        if current not in led:  # sin cerveza: no aparece y nada se mueve
+            without += 1
+            assert led == base
+        else:  # con cerveza (Turbo, que no es típica): encabeza
+            assert led[0] == current
+    assert without >= 1
+
+
 def test_grouped_search_limit_is_per_group(demo):
     db, embedder = demo
 

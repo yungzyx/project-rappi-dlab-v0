@@ -110,6 +110,16 @@ describe('SearchResults con resultados', () => {
     expect(screen.queryByRole('button', { name: /Ver más/ })).toBeNull()
   })
 
+  test('«Ver más» vuelve a cerrarse con una consulta nueva', () => {
+    const { rerender } = render(<SearchResults query="cerveza" data={data()} />, { wrapper: Providers })
+    fireEvent.click(screen.getByRole('button', { name: 'Ver más (2)' }))
+    expect(screen.getByText('Cerveza 4')).toBeTruthy()
+
+    rerender(<SearchResults query="cerveza fria" data={{ ...data(), query: 'cerveza fria' }} />)
+    expect(screen.queryByText('Cerveza 4')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Ver más (2)' })).toBeTruthy()
+  })
+
   test('el mismo producto en varios grupos no repite llaves', () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     render(<SearchResults query="cerveza" data={data()} />, { wrapper: Providers })

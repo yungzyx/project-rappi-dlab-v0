@@ -70,8 +70,9 @@ def search_grouped(
     mode: str = "hibrido",
 ) -> GroupedResult:
     """Productos por vertical, con `limit` por grupo y solo los grupos que traen algo. Con un concepto detectado el
-    orden es el de sus verticales típicas (la pantalla actual al final); si no, primero las que calzan palabras de la
-    consulta y luego por la cercanía vectorial. `unmet` solo si ningún grupo trae productos."""
+    orden es el de sus verticales típicas; si no, primero las que calzan palabras de la consulta y luego por la
+    cercanía vectorial. La pantalla actual (`current`), si trae productos, va siempre primero (el resto conserva su
+    orden); sin productos, no aparece. `unmet` solo si ningún grupo trae productos."""
     concepts = detect_concepts(q)
     memo = MemoizedQueryEmbedder(embedder) if embedder is not None else None
     outcomes = [
@@ -86,6 +87,7 @@ def search_grouped(
         if outcome.products
     ]
     if groups:
+        groups.sort(key=lambda group: group.vertical != current)  # estable: solo sube la de la pantalla actual
         return GroupedResult(q, groups)
     reason = next((o.result.unmet_reason for _, o in outcomes if o.result.unmet_reason), None)
     return GroupedResult(q, [], unmet=True, unmet_reason=reason)

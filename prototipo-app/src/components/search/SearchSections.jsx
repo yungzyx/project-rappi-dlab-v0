@@ -64,7 +64,7 @@ export function SearchResults({ query, data, loading = false, error = null, onRe
   return (
     <>
       {data.groups.map((group) => (
-        <ResultGroup key={group.vertical} group={group} onOpenProduct={onOpenProduct} />
+        <ResultGroup key={`${data.query}|${group.vertical}`} group={group} onOpenProduct={onOpenProduct} />
       ))}
     </>
   )
