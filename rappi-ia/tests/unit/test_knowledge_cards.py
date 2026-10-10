@@ -86,6 +86,22 @@ def test_read_cards_rejects_a_repeated_id(cards, tmp_path):
         read_cards(path)
 
 
+def test_read_cards_rejects_an_empty_file(tmp_path):
+    path = tmp_path / "cards.json"
+    path.write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="sin tarjetas"):
+        read_cards(path)
+
+
+def test_read_links_rejects_unknown_keys(tmp_path):
+    path = tmp_path / "links.toml"
+    path.write_text('[cards.supermercado-01]\nconcepts = ["verduras"]\nrejcted = []\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="supermercado-01.*rejcted"):
+        read_links(path)
+
+
 def test_every_card_has_a_reviewed_links_entry(cards):
     links = read_links()
     assert {c["id"] for c in cards} == set(links)

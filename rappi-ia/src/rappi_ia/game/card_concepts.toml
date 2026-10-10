@@ -6,8 +6,9 @@ concepts = ["verduras"]
 rejected = []
 
 [cards.supermercado-02]
-concepts = ["golosinas"]
-rejected = []
+# rechazada «golosinas»: el chicle es un detalle de la anécdota; el tema es el primer código de barras escaneado
+concepts = []
+rejected = ["golosinas"]
 
 [cards.supermercado-03]
 concepts = []
@@ -119,8 +120,7 @@ concepts = []
 rejected = ["tv-video"]
 
 [cards.turbo-02]
-# a mano «lacteos»: los «milk floats» son los carritos que reparten leche
-concepts = ["lacteos"]
+concepts = []
 rejected = []
 
 [cards.turbo-03]
@@ -345,10 +345,11 @@ concepts = ["sandwiches"]
 rejected = ["frutas", "verduras", "salsas"]
 
 [cards.restaurantes-12]
-# rechazada «huevos»: el huevo duro es un extra de la explicación; el pino es carne y cebolla
-# rechazada «frutos-secos»: «pasas» es un extra de la explicación; el pino es carne y cebolla
-concepts = ["empanadas", "carnes", "verduras"]
-rejected = ["huevos", "frutos-secos"]
+# rechazada «verduras»: la cebolla es un detalle del relleno; la tarjeta habla del pino de la empanada
+# rechazada «huevos»: el huevo duro es un extra de la explicación; el pino es el relleno de carne
+# rechazada «frutos-secos»: «pasas» es un extra de la explicación; el pino es el relleno de carne
+concepts = ["empanadas", "carnes"]
+rejected = ["verduras", "huevos", "frutos-secos"]
 
 [cards.farmacia-01]
 concepts = []

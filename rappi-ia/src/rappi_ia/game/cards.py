@@ -42,6 +42,8 @@ def read_cards(path: Path = CARDS_FILE) -> list[dict]:
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, list):
         raise ValueError(f"{path.name}: debe ser una lista de tarjetas")
+    if not raw:
+        raise ValueError(f"{path.name}: sin tarjetas (¿archivo vacío o cortado?)")
     seen: set[str] = set()
     for card in raw:
         _validate(card)
@@ -102,6 +104,9 @@ def rule_links(card: dict, matcher) -> set[str]:
 
 def read_links(path: Path = LINKS_FILE) -> dict[str, CardLinks]:
     raw = tomllib.loads(path.read_text(encoding="utf-8"))
+    for card_id, entry in raw.get("cards", {}).items():
+        for key in entry.keys() - {"concepts", "rejected"}:
+            raise ValueError(f"{path.name}, tarjeta {card_id}: clave desconocida «{key}» (solo concepts y rejected)")
     return {
         card_id: CardLinks(tuple(entry.get("concepts", ())), tuple(entry.get("rejected", ())))
         for card_id, entry in raw.get("cards", {}).items()
