@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Mascot from '../../components/assistant/Mascot'
 import { useOrders } from '../../state/OrdersContext'
 import { STEPS, minutesLeft, stepAt } from '../tracking/progress'
 
@@ -25,6 +26,7 @@ export default function OrderBanner({ orderId, onOpenOrder }) {
     <div className={delivered ? 'game-order is-delivered' : 'game-order'} role="status">
       {delivered ? (
         <>
+          <Mascot size={28} badge mood="jump" />
           <span>¡Tu pedido llegó! 🎉</span>
           <button type="button" onClick={onOpenOrder}>
             Ver pedido

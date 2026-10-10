@@ -51,7 +51,7 @@ export default function TrackingScreen({ back, reset, push, params }) {
   return (
     <div className="screen tracking">
       <div className="tracking-map-wrap">
-        <TrackingMap progress={rideProgress(seconds)} delivered={delivered} />
+        <TrackingMap progress={rideProgress(seconds)} delivered={delivered} step={step} />
         <BackButton className="tracking-back" onClick={back} />
       </div>
 

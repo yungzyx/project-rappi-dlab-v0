@@ -5,13 +5,26 @@ import { ROUTE, pointOnRoute } from './progress'
 const ROUTE_PATH = ROUTE.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x} ${y}`).join(' ')
 const MARKER = 40
 const POSE_OVERFLOW = MARKER * 0.07 // como el avatar de Mochi: la pose asoma un poco del círculo
+const ALMOST_AT = 0.8 // tramo final de la ruta: Mochi avisa que ya casi llega
+
+/**
+ * La pose de Mochi según cómo va el pedido, como posición en la imagen de 2 × 2 poses: preparándose está tímido
+ * (abajo a la izquierda), en camino de frente y, en el tramo final o al llegar, feliz (arriba a la derecha).
+ */
+export function poseFor({ step, progress, delivered }) {
+  if (delivered) return { x: -1, y: 0, almost: false }
+  if (step <= 1) return { x: 0, y: -1, almost: false }
+  if (progress >= ALMOST_AT) return { x: -1, y: 0, almost: true }
+  return { x: 0, y: 0, almost: false }
+}
 
 /** Mapa ilustrado (no es un mapa real): cuadras, parque, río, la ruta y Mochi avanzando por ella. */
-export default function TrackingMap({ progress, delivered }) {
+export default function TrackingMap({ progress, delivered, step }) {
   const [x, y] = pointOnRoute(progress)
   const [homeX, homeY] = ROUTE[ROUTE.length - 1]
   const [storeX, storeY] = ROUTE[0]
   const badgeFill = `mochi-badge-${useId().replace(/:/g, '')}`
+  const pose = poseFor({ step, progress, delivered })
 
   return (
     <svg
@@ -69,7 +82,7 @@ export default function TrackingMap({ progress, delivered }) {
       </g>
 
       {/* Mochi como repartidor: la transición CSS suaviza el salto entre ticks. Va en SVG puro (no el componente,
-          que es HTML): Safari dibuja mal el HTML animado dentro de un foreignObject. Frontal en camino, feliz al llegar. */}
+          que es HTML): Safari dibuja mal el HTML animado dentro de un foreignObject. Su pose sigue el pedido. */}
       <g className="tracking-rider" style={{ transform: `translate(${x - MARKER / 2}px, ${y - MARKER / 2 - 8}px)` }}>
         <ellipse cx={MARKER / 2} cy={MARKER + 4} rx="12" ry="3" fill="#000" opacity="0.15" />
         <radialGradient id={badgeFill} cx="0.45" cy="0.35" r="0.7">
@@ -86,8 +99,16 @@ export default function TrackingMap({ progress, delivered }) {
           overflow="hidden"
         >
           {/* La imagen tiene 2 × 2 poses: se corre para que quede a la vista la de arriba a la izquierda o a la derecha */}
-          <image href={mochiPoses} x={delivered ? -1 : 0} y="0" width="2" height="2" preserveAspectRatio="none" />
+          <image href={mochiPoses} x={pose.x} y={pose.y} width="2" height="2" preserveAspectRatio="none" />
         </svg>
+        {pose.almost && (
+          <g className="tracking-almost" transform={`translate(${MARKER / 2} -14)`}>
+            <rect x="-30" y="-12" width="60" height="20" rx="10" fill="#fff" stroke="#ffcdb8" />
+            <text y="2" textAnchor="middle" fontSize="10" fontWeight="700" fill="#1f1f1f">
+              ¡Ya casi!
+            </text>
+          </g>
+        )}
       </g>
     </svg>
   )
