@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { DATA } from './data.js'
 import { initialState, stampedVerticals, verticalLevel, visit, waitingRoundVertical } from './progress.js'
 import { clear, load } from './storage.js'
+import { PASSPORT_ORDER, SCREEN_TO_GAME } from './verticals.js'
 
 /** Almacenamiento de mentira con lo que ya había guardado. */
 const memoryStorage = (items = {}) => ({
@@ -24,12 +25,12 @@ describe('un solo pasaporte', () => {
 
   test('la ronda de la espera nunca es Farmacia; con todo sellado, la de menor nivel', () => {
     expect(waitingRoundVertical(initialState())).toEqual({ vertical: 'conveniencia', isNew: true })
-    const all = DATA.order.reduce((s, v) => visit(s, v).state, initialState())
+    const all = PASSPORT_ORDER.reduce((s, v) => visit(s, v).state, initialState())
     expect(waitingRoundVertical(all)).toEqual({ vertical: 'supermercado', isNew: false })
   })
 
   test('con todo sellado salvo Farmacia, no la ofrece', () => {
-    const allButPharmacy = DATA.order.filter((v) => v !== 'farmacia').reduce((s, v) => visit(s, v).state, initialState())
+    const allButPharmacy = PASSPORT_ORDER.filter((v) => v !== 'farmacia').reduce((s, v) => visit(s, v).state, initialState())
     expect(waitingRoundVertical(allButPharmacy).vertical).not.toBe('farmacia')
   })
 
@@ -55,5 +56,23 @@ describe('un solo pasaporte', () => {
     expect(storage.getItem('rappi-proto-pasaporte')).toBeNull()
     clear(storage)
     expect(load(storage)).toEqual(initialState())
+  })
+})
+
+describe('Viajes en el pasaporte', () => {
+  test('el pasaporte tiene 9 sellos: las 8 del catálogo y, al final, Viajes', () => {
+    expect(PASSPORT_ORDER).toEqual([...DATA.order, 'viajes'])
+  })
+
+  test('abrir RappiTravel en la app sella Viajes', () => {
+    expect(SCREEN_TO_GAME.travel).toBe('viajes')
+    const { state, isNew } = visit(initialState(), 'viajes')
+    expect(isNew).toBe(true)
+    expect(stampedVerticals(state)).toContain('viajes')
+  })
+
+  test('Viajes puede ser la ronda mientras llega el pedido', () => {
+    const allButTravel = { ...initialState(), visited: [...DATA.order] }
+    expect(waitingRoundVertical(allButTravel)).toEqual({ vertical: 'viajes', isNew: true })
   })
 })

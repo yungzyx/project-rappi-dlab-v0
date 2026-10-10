@@ -1,6 +1,6 @@
 import { DATA, conceptsOf } from './data.js'
 import { factsOf } from './facts.js'
-import { NEVER_PUSHED, STARTER } from './verticals.js'
+import { NEVER_PUSHED, PASSPORT_ORDER, STARTER } from './verticals.js'
 
 export const XP = { discover: 10, correct: 20, wrong: 5, daily: 50 }
 const DAILY_GOAL = { discovered: 2, correct: 1, opened: 1 }
@@ -128,7 +128,7 @@ export function verticalLevel(state, vertical) {
 }
 
 export function conoceRappi(state) {
-  return DATA.order.every((v) => LEVELS.indexOf(verticalLevel(state, v)) >= LEVELS.indexOf('conocedor'))
+  return PASSPORT_ORDER.every((v) => LEVELS.indexOf(verticalLevel(state, v)) >= LEVELS.indexOf('conocedor'))
 }
 
 /** Racha vigente: se mantiene si la última misión completa fue hoy o ayer. */
@@ -152,7 +152,7 @@ export function visit(state, vertical) {
 
 /** Verticales con sello (Explorador o más), en el orden del pasaporte. */
 export function stampedVerticals(state) {
-  return DATA.order.filter((v) => verticalLevel(state, v) !== 'ninguno')
+  return PASSPORT_ORDER.filter((v) => verticalLevel(state, v) !== 'ninguno')
 }
 
 /**
@@ -160,7 +160,7 @@ export function stampedVerticals(state) {
  * (en empate, la primera). Nunca una de NEVER_PUSHED; `null` si todas están en Experto.
  */
 export function waitingRoundVertical(state) {
-  const candidates = DATA.order.filter((v) => !NEVER_PUSHED.has(v))
+  const candidates = PASSPORT_ORDER.filter((v) => !NEVER_PUSHED.has(v))
   const rank = (v) => LEVELS.indexOf(verticalLevel(state, v))
   const best = candidates.reduce((min, v) => (rank(v) < rank(min) ? v : min))
   if (verticalLevel(state, best) === 'experto') return null

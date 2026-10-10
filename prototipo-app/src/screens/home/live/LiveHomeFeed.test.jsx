@@ -357,6 +357,13 @@ describe('Home del prototipo final', () => {
     })
   })
 
+  test('el pasaporte de la Home tiene 9 sellos y el último es Viajes', () => {
+    const { container } = renderHome()
+    const stamps = container.querySelectorAll('.live-stamp')
+    expect(stamps).toHaveLength(9)
+    expect(stamps[8].getAttribute('aria-label')).toMatch(/^Viajes/)
+  })
+
   test('tocar a Mochi después del saludo propone una vertical que falta en el pasaporte', async () => {
     const { container } = renderHome()
     await advance(900 + 3400)
@@ -407,9 +414,9 @@ describe('Home del prototipo final', () => {
     const stampsShown = () => [...document.querySelectorAll('.live-stamps .live-stamp')]
     const passport = () => within(document.querySelector('.live-passport'))
 
-    test('muestra las 8 verticales del juego y arranca con Restaurantes y Súper', () => {
+    test('muestra las 9 verticales del pasaporte y arranca con Restaurantes y Súper', () => {
       renderHome()
-      expect(stampsShown()).toHaveLength(8)
+      expect(stampsShown()).toHaveLength(9)
       expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('2')
       expect(passport().getByRole('button', { name: /^Farmacia/ })).toBeTruthy()
       expect(passport().queryByRole('button', { name: /^Mascotas/ })).toBeNull()
@@ -434,7 +441,7 @@ describe('Home del prototipo final', () => {
     })
 
     test('Mochi nunca propone Farmacia, aunque sea la única sin sello', async () => {
-      seed({ visited: DATA.order.filter((v) => v !== 'farmacia') })
+      seed({ visited: [...DATA.order, 'viajes'].filter((v) => v !== 'farmacia') })
       const { container } = renderHome()
       await advance(900 + 3400)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { GameApp as App } from './GameApp.testkit.jsx'
+import { PASSPORT_ORDER } from '../../game/verticals.js'
 import { DATA, conceptsOf } from '../../game/data.js'
 import { FACTS } from '../../game/facts.js'
 import { today } from '../../game/progress.js'
@@ -41,30 +42,30 @@ describe('mapa con niebla (en el pasaporte)', () => {
 })
 
 describe('pasaporte', () => {
-  test('muestra los 8 sellos y Conoce Rappi bloqueado', () => {
+  test('muestra los 9 sellos y Conoce Rappi bloqueado', () => {
     render(<App />)
     tab('Pasaporte')
     const stamps = within(screen.getByRole('region', { name: 'Sellos' })).getAllByRole('button', { name: /Sin sello/ })
-    expect(stamps).toHaveLength(8)
+    expect(stamps).toHaveLength(9)
     expect(screen.getByRole('region', { name: 'Conoce Rappi' }).getAttribute('data-earned')).toBe('false')
   })
 
-  test('Conoce Rappi se gana con las 8 en Conocedor', () => {
+  test('Conoce Rappi se gana con las 9 en Conocedor', () => {
     const discovered = Object.fromEntries(
-      DATA.order.map((v) => [
+      PASSPORT_ORDER.map((v) => [
         v,
         conceptsOf(v)
           .slice(0, Math.ceil(conceptsOf(v).length / 2))
           .map((c) => c.id),
       ]),
     )
-    const correct = Object.fromEntries(DATA.order.map((v) => [v, 3]))
+    const correct = Object.fromEntries(PASSPORT_ORDER.map((v) => [v, 3]))
     preload({ discovered, correct })
     render(<App />)
     tab('Pasaporte')
     expect(
       within(screen.getByRole('region', { name: 'Sellos' })).getAllByRole('button', { name: /Conocedor/ }),
-    ).toHaveLength(8)
+    ).toHaveLength(9)
     expect(screen.getByRole('region', { name: 'Conoce Rappi' }).getAttribute('data-earned')).toBe('true')
   })
 })

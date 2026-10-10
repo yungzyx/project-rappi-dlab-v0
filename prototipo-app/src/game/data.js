@@ -20,8 +20,9 @@ const conceptsByVertical = Object.fromEntries(
   ]),
 )
 
+/** Conceptos del catálogo de una vertical (Viajes no tiene catálogo: ninguno). */
 export function conceptsOf(vertical) {
-  return conceptsByVertical[vertical]
+  return conceptsByVertical[vertical] ?? []
 }
 
 const relations = new Map(

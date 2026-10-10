@@ -1,6 +1,6 @@
 import { DATA } from './data.js'
 import { initialState } from './progress.js'
-import { SCREEN_TO_GAME } from './verticals.js'
+import { PASSPORT_ORDER, SCREEN_TO_GAME } from './verticals.js'
 
 export const KEY = 'rappi-proto-juego-v1'
 /** El pasaporte de antes del juego (ids de pantalla del prototipo): se traspasa una vez como verticales visitadas. */
@@ -32,7 +32,7 @@ const valid = (s) =>
   optional(s.seenIntro, (b) => typeof b === 'boolean') &&
   optional(s.visited, (v) => Array.isArray(v) && v.every((id) => typeof id === 'string'))
 
-const known = (ids) => ids.filter((id) => DATA.order.includes(id))
+const known = (ids) => ids.filter((id) => PASSPORT_ORDER.includes(id))
 
 /** Traspaso único: el pasaporte viejo queda guardado con la clave nueva y recién entonces se borra. */
 function fromLegacy(storage) {

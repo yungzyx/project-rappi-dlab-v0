@@ -11,6 +11,7 @@ export const VERTICAL_NAMES = {
   pet: 'Mascotas',
   chocolates: 'Chocolatería',
   restaurants: 'Restaurantes',
+  travel: 'Viajes',
 }
 
 // Códigos de vertical de la API → pantalla del prototipo. La API agrupa Turbo con Express (`prototype_vertical`),

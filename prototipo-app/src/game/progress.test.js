@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { DATA, conceptsOf } from './data.js'
 import { FACTS, factsOf } from './facts.js'
+import { PASSPORT_ORDER } from './verticals.js'
 import {
   answer,
   conoceRappi,
@@ -111,9 +112,9 @@ describe('niveles de vertical', () => {
     expect(verticalLevel(play(s0, 'chocolateria', { discovered: 9, correct: 8 }), 'chocolateria')).toBe('experto')
   })
 
-  test('Conoce Rappi exige las 8 en Conocedor o más', () => {
+  test('Conoce Rappi exige las 9 del pasaporte en Conocedor o más', () => {
     let s = initialState()
-    const [last, ...rest] = [...DATA.order].reverse()
+    const [last, ...rest] = [...PASSPORT_ORDER].reverse()
     for (const v of rest) s = play(s, v, { discovered: Math.ceil(conceptsOf(v).length / 2), correct: 3 })
     expect(conoceRappi(s)).toBe(false)
     s = play(s, last, { discovered: Math.ceil(conceptsOf(last).length / 2), correct: 3 })

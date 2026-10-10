@@ -6,13 +6,14 @@ import Sheet from './GameSheet.jsx'
 import Stamp, { ICONS, LEVEL_NAMES } from './Stamp.jsx'
 import { DATA, conceptsOf } from '../../game/data.js'
 import { currentStreak, dailyProgress, nextVertical, verticalLevel } from '../../game/progress.js'
+import { LABELS, PASSPORT_ORDER } from '../../game/verticals.js'
 import { useGame } from '../../state/GameContext'
 import { GameShellContext } from './gameShell'
 import './path.css'
 
 const STARS = { ninguno: 0, explorador: 1, conocedor: 2, experto: 3 }
 // Zigzag del camino, en px desde el centro: una serpiente suave como en los juegos de niveles.
-const OFFSETS = [0, 70, 92, 46, -24, -78, -60, 6]
+const OFFSETS = [0, 70, 92, 46, -24, -78, -60, 6, 64]
 const STEP = 150
 
 /** Qué falta para el próximo sello, en una frase corta. */
@@ -111,7 +112,7 @@ export default function Path({ go, open: openAtStart = null }) {
   const { state, date } = useGame()
   const [open, setOpen] = useState(openAtStart)
   const here = nextVertical(state)
-  const height = STEP * DATA.order.length
+  const height = STEP * PASSPORT_ORDER.length
   const daily = dailyProgress(state, date)
   const streak = currentStreak(state, date)
 
@@ -125,11 +126,12 @@ export default function Path({ go, open: openAtStart = null }) {
           <svg className="path-line" viewBox={`-181 0 362 ${height}`} preserveAspectRatio="none" aria-hidden="true">
             <polyline points={OFFSETS.map((x, i) => `${x},${i * STEP + 54}`).join(' ')} />
           </svg>
-          {DATA.order.map((v, i) => {
+          {PASSPORT_ORDER.map((v, i) => {
             const level = verticalLevel(state, v)
             const Icon = ICONS[v]
             const isHere = v === here
-            const progress = (state.discovered[v]?.length ?? 0) / conceptsOf(v).length
+            const total = conceptsOf(v).length
+            const progress = total ? (state.discovered[v]?.length ?? 0) / total : 0
             return (
               <div
                 key={v}
@@ -161,7 +163,7 @@ export default function Path({ go, open: openAtStart = null }) {
                   <button
                     type="button"
                     className={`path-node ${isHere ? 'is-here' : ''}`}
-                    aria-label={`${DATA.labels[v]}: ${LEVEL_NAMES[level]}`}
+                    aria-label={`${LABELS[v]}: ${LEVEL_NAMES[level]}`}
                     onClick={() => setOpen(v)}
                   >
                     <Icon size={34} weight="fill" aria-hidden="true" />
@@ -172,7 +174,7 @@ export default function Path({ go, open: openAtStart = null }) {
                     <Star key={k} size={15} weight={k < STARS[level] ? 'fill' : 'regular'} />
                   ))}
                 </span>
-                <span className="path-label">{DATA.labels[v]}</span>
+                <span className="path-label">{LABELS[v]}</span>
               </div>
             )
           })}
@@ -185,7 +187,7 @@ export default function Path({ go, open: openAtStart = null }) {
         </Sheet>
       )}
       {open && open !== 'mision' && (
-        <Sheet label={DATA.labels[open]} onClose={() => setOpen(null)}>
+        <Sheet label={LABELS[open]} onClose={() => setOpen(null)}>
           <VerticalSheet vertical={open} go={go} />
         </Sheet>
       )}
@@ -205,7 +207,7 @@ function VerticalSheet({ vertical, go }) {
     <div className="vsheet" style={{ '--v': `var(--v-${vertical})` }}>
       <Stamp vertical={vertical} level={level} size={84} />
       <h2 className="vsheet-title">
-        {DATA.labels[vertical]}
+        {LABELS[vertical]}
         {vertical === 'licores' && <span className="age-badge">+18</span>}
       </h2>
       <p className={`vsheet-level ${level === 'ninguno' ? 'is-none' : ''}`}>{LEVEL_NAMES[level]}</p>
@@ -221,7 +223,7 @@ function VerticalSheet({ vertical, go }) {
       </button>
       {shell?.openInApp && (
         <button type="button" className="btn-ghost" onClick={() => shell.openInApp(vertical)}>
-          Abrir {DATA.labels[vertical]}
+          Abrir {LABELS[vertical]}
         </button>
       )}
     </div>

@@ -18,7 +18,7 @@ import { REPLAY_EVENT, markTourSeen, session, tourSeen } from '../../../state/li
 import { isHushed, isQuiet, noteDismissed } from '../../../state/mochiQuiet'
 import { DATA } from '../../../game/data.js'
 import { stampedVerticals, today } from '../../../game/progress.js'
-import { GAME_TO_SCREEN, NEVER_PUSHED, PASSPORT_GOAL } from '../../../game/verticals.js'
+import { GAME_TO_SCREEN, NEVER_PUSHED, PASSPORT_GOAL, PASSPORT_ORDER } from '../../../game/verticals.js'
 import { useGame } from '../../../state/GameContext'
 import { PLANS, discoveryFor, planKit } from './script'
 import './live.css'
@@ -331,7 +331,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     // Mientras saluda, tocarlo no cambia de tema.
     if (!session.played) return
     // La primera vertical sin sello del pasaporte; Farmacia nunca (la salud no se empuja).
-    const missing = DATA.order.find((v) => !stamps.includes(v) && !NEVER_PUSHED.has(v))
+    const missing = PASSPORT_ORDER.find((v) => !stamps.includes(v) && !NEVER_PUSHED.has(v))
     if (!missing) {
       speak(
         { text: '¡Ya probaste de todo! Eres oficialmente multivertical 🏆', mood: 'wave', gesture: 'spin' },
