@@ -10,6 +10,7 @@ import re
 
 import pytest
 from fastapi.testclient import TestClient
+from rappi_scraper.storage.search import build_search_documents
 
 from rappi_ia.agent.tools import search_products
 from rappi_ia.agent.verticals import LOGO_BASE_URL
@@ -86,7 +87,9 @@ def test_card_uses_the_brand_name_and_leaves_unknown_logo_and_eta_empty(seeded):
     assert vertical_stores(seeded, "supermercado")[0]["eta"] is None
 
 
-def add_branch(conn, store_id: int, store_type: str, with_aisle: bool) -> None:
+def add_branch(
+    conn, store_id: int, store_type: str, with_aisle: bool, product_id: int = 91001, price: int = 1990
+) -> None:
     """Una sucursal más del súper de prueba con una oferta en la corrida actual (como las de una descarga)."""
     conn.execute(
         'INSERT INTO stores (store_id, name, store_type, raw) VALUES (%s, %s, %s, \'{"image": "x.png"}\')',
@@ -95,14 +98,15 @@ def add_branch(conn, store_id: int, store_type: str, with_aisle: bool) -> None:
     conn.execute("INSERT INTO store_verticals (store_id, vertical) VALUES (%s, 'supermercado')", (store_id,))
     if with_aisle:
         conn.execute("INSERT INTO aisles (store_id, aisle_id, name) VALUES (%s, 100, 'Despensa')", (store_id,))
+    sku = f"sku-{product_id}"
     conn.execute(
-        "INSERT INTO store_products (store_id, sku, master_product_id, aisle_id) VALUES (%s, 'sku-91001', 91001, %s)",
-        (store_id, 100 if with_aisle else None),
+        "INSERT INTO store_products (store_id, sku, master_product_id, aisle_id) VALUES (%s, %s, %s, %s)",
+        (store_id, sku, product_id, 100 if with_aisle else None),
     )
     run_id = conn.execute("SELECT max(run_id) FROM scrape_runs WHERE kind = 'stores'").fetchone()[0]
     conn.execute(
-        "INSERT INTO price_snapshots (run_id, store_id, sku, price, in_stock) VALUES (%s, %s, 'sku-91001', 1990, true)",
-        (run_id, store_id),
+        "INSERT INTO price_snapshots (run_id, store_id, sku, price, in_stock) VALUES (%s, %s, %s, %s, true)",
+        (run_id, store_id, sku, price),
     )
 
 
@@ -316,6 +320,52 @@ def test_store_endpoint_returns_the_page(client):
 
     assert (len(first["products"]), first["has_more"]) == (24, True)
     assert (len(second["products"]), second["has_more"], second["page"]) == (6, False, 2)
+
+
+def search_found(conn, query: str):
+    """El producto que encuentra la búsqueda (la ruta de precios de /chat y /search) con el documento recién hecho."""
+    build_search_documents(conn)
+    return search_products(conn, "supermercado", query, None, None).products
+
+
+def test_a_product_only_sold_in_a_store_that_cannot_be_opened_has_no_store_id(seeded):
+    """Su oferta es de una tienda sin pasillos (de un CSV antiguo): «Ver tienda» no tendría adónde ir."""
+    seeded.execute("INSERT INTO catalog_items (master_product_id, name) VALUES (91301, 'Yerba antigua (prueba)')")
+    add_branch(seeded, 9105, "prueba_9105", with_aisle=False, product_id=91301, price=1500)
+
+    detail = product_detail(seeded, "catalog_item", "91301")
+    found = next(p for p in search_found(seeded, "yerba antigua") if p.entity_id == "91301").to_dict()
+
+    for product in (detail, found):
+        # El precio es el de la oferta vigente más barata, como siempre; el nombre de la tienda también.
+        assert (product["store_id"], product["store"], product["price_value"]) == (
+            None,
+            "Sucursal de prueba 9105",
+            1500,
+        )
+    assert detail["vertical"] == "supermercado"
+
+
+def test_a_product_sold_cheaper_in_a_store_that_cannot_be_opened_points_to_one_that_can(seeded, client):
+    add_branch(seeded, 9105, "prueba_9105", with_aisle=False, product_id=91001, price=990)  # más barata que 1.990
+
+    detail = product_detail(seeded, "catalog_item", "91001")
+    found = next(p for p in search_found(seeded, "papas fritas") if p.entity_id == "91001").to_dict()
+
+    for product in (detail, found):
+        # El precio sigue siendo el más barato (990); la tienda es la más barata de las que se abren.
+        assert product["price_value"] == 990
+        assert (product["store_id"], product["store"]) == (CENTRO, "Supermercado de prueba Centro")
+        assert client.get(f"/catalog/stores/{product['store_id']}").status_code == 200
+    assert client.get("/catalog/products/catalog_item/91001").json()["store_id"] == CENTRO
+
+
+def test_the_store_id_of_a_product_is_the_cheapest_store_when_it_can_be_opened(seeded):
+    detail = product_detail(seeded, "catalog_item", "91001")
+    found = next(p for p in search_found(seeded, "papas fritas") if p.entity_id == "91001").to_dict()
+
+    assert (detail["store_id"], detail["price_value"]) == (CENTRO, 1990)
+    assert (found["store_id"], found["price_value"]) == (CENTRO, 1990)
 
 
 def test_search_products_carry_the_store_and_presentation(seeded):

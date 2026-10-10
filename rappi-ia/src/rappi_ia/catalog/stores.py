@@ -117,29 +117,35 @@ JOIN stores s ON s.store_id = t.store_id
 LEFT JOIN brands b ON b.brand_id = s.brand_id
 ORDER BY t.products DESC, s.store_id"""
 
-# El producto del catálogo con su oferta vigente más barata de todas las tiendas.
+# El producto del catálogo con su oferta vigente más barata de todas las tiendas. El precio es el de esa oferta; la
+# tienda (id y nombre) es la más barata de las que se abren con este producto en un pasillo, y sin ninguna, el id es
+# nulo y el nombre es el de la tienda de la oferta más barata.
 _CATALOG_DETAIL = f"""
 WITH latest AS (
-    SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.price, ps.real_price, ps.in_stock, ps.run_id
+    SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.price, ps.real_price, ps.in_stock, ps.run_id,
+           sp.aisle_id
     FROM price_snapshots ps
     JOIN store_products sp ON sp.store_id = ps.store_id AND sp.sku = ps.sku
     WHERE sp.master_product_id = %(id)s
     ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC, ps.run_id DESC  -- el desempate de v_store_format_runs
 ),
-cheapest AS (
-    SELECT l.store_id, l.price, l.real_price
+offers AS (
+    SELECT l.store_id, l.price, l.real_price,
+           EXISTS (SELECT 1 FROM aisles a
+                   WHERE a.store_id = l.store_id AND a.aisle_id = l.aisle_id AND a.parent_aisle_id IS NULL) AS openable
     FROM latest l
     JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
     WHERE l.in_stock IS NOT FALSE AND l.price >= %(min_price)s
-    ORDER BY l.price, l.store_id
-    LIMIT 1
-)
-SELECT ci.master_product_id::text, ci.name, c.price, c.real_price, btrim(coalesce(b.name, s.name)), s.store_id,
+),
+cheapest AS (SELECT store_id, price, real_price FROM offers ORDER BY price, store_id LIMIT 1),
+openable AS (SELECT store_id FROM offers WHERE openable ORDER BY price, store_id LIMIT 1)
+SELECT ci.master_product_id::text, ci.name, c.price, c.real_price, btrim(coalesce(b.name, s.name)), o.store_id,
        NULLIF(ci.image_url, ''), ci.presentation, ci.is_alcoholic OR ci.age_restricted, ic.concept_id,
        {_OWN_VERTICAL}
 FROM cheapest c
+LEFT JOIN openable o ON true
 JOIN catalog_items ci ON ci.master_product_id = %(id)s
-JOIN stores s ON s.store_id = c.store_id
+JOIN stores s ON s.store_id = coalesce(o.store_id, c.store_id)
 LEFT JOIN brands b ON b.brand_id = s.brand_id
 LEFT JOIN item_concepts ic ON ic.entity_type = 'catalog_item' AND ic.entity_id = ci.master_product_id::text"""
 
@@ -200,8 +206,9 @@ def store_page(
 
 def product_detail(conn: Connection, entity_type: str, entity_id: str) -> dict | None:
     """Un producto del catálogo con su oferta vigente más barata, o un plato con su último precio. `None` si no existe
-    o no tiene precio. La oferta puede ser de una tienda sin pasillos (una importada de un CSV antiguo): como la que
-    muestra Bigotes, aunque esa tienda no se abra en `store_page`."""
+    o no tiene precio. El precio es el de la oferta vigente más barata, aunque sea de una tienda sin pasillos (una
+    importada de un CSV antiguo) que `store_page` no abre; `store_id` solo apunta a una tienda que se abre y tiene el
+    producto (`None` si no hay ninguna) y `store` es el nombre de esa tienda."""
     item_id = int(entity_id) if entity_id.isascii() and entity_id.isdigit() else None
     if item_id is None or item_id > BIGINT_MAX:
         return None
@@ -252,7 +259,7 @@ def _eta_text(value: str | None) -> str | None:
     return f"{minutes} min" if minutes > 0 else None
 
 
-def _product(row, vertical: str | None, store: str, store_id: int, taxonomy, entity_type: str = "catalog_item"):
+def _product(row, vertical: str | None, store: str, store_id: int | None, taxonomy, entity_type: str = "catalog_item"):
     """El `Product` de una fila (id, nombre, precio, precio antes, imagen, presentación, +18 por producto, concepto).
     Un precio de relleno ($0, $1) cuenta como desconocido, igual que en `_with_prices`."""
     entity_id, name, price, real, image, presentation, adult, concept_id = row

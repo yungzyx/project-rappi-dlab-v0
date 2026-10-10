@@ -266,26 +266,44 @@ def _with_prices(conn: Connection, vertical: str, hits) -> list[Product]:
     if catalog_ids:
         # Solo ofertas vigentes, con la misma regla que la búsqueda (v_store_format_runs): una sucursal que la última
         # corrida de su formato ya no bajó no pone el precio, así el tope y el precio mostrado coinciden.
+        # El precio es el de la oferta más barata. La tienda (id y nombre) es la más barata de las que la app abre con
+        # este producto en un pasillo (como /catalog/stores): una tienda sin pasillos, importada de un CSV antiguo, no
+        # tiene página, así que sin ninguna que se abra el id es nulo y el nombre es el de la oferta más barata.
         for pid, name, price, real, store, age, store_id, presentation in conn.execute(
             """WITH latest AS (
                    SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock,
-                          ps.run_id
+                          ps.run_id, sp.aisle_id
                    FROM price_snapshots ps
                    JOIN store_products sp USING (store_id, sku)
                    WHERE sp.master_product_id = ANY(%(ids)s::bigint[])
                    ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC, ps.run_id DESC  -- el desempate de la vista
+               ),
+               offers AS (
+                   SELECT sp.master_product_id, ci.name, l.price, l.real_price, l.store_id,
+                          coalesce(b.name, s.name) AS store, ci.is_alcoholic OR ci.age_restricted AS adult,
+                          ci.presentation,
+                          EXISTS (SELECT 1 FROM aisles a WHERE a.store_id = l.store_id AND a.aisle_id = l.aisle_id
+                                                           AND a.parent_aisle_id IS NULL) AS openable
+                   FROM latest l
+                   JOIN store_products sp USING (store_id, sku)
+                   JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
+                   JOIN stores s ON s.store_id = sp.store_id
+                   LEFT JOIN brands b ON b.brand_id = s.brand_id
+                   JOIN catalog_items ci ON ci.master_product_id = sp.master_product_id
+                   JOIN v_store_verticals v ON v.store_id = s.store_id AND v.vertical = %(vertical)s
+                   WHERE l.in_stock IS NOT FALSE
+               ),
+               cheapest AS (
+                   SELECT DISTINCT ON (master_product_id) * FROM offers ORDER BY master_product_id, price, store_id
+               ),
+               best_openable AS (
+                   SELECT DISTINCT ON (master_product_id) master_product_id, store_id, store
+                   FROM offers WHERE openable ORDER BY master_product_id, price, store_id
                )
-               SELECT DISTINCT ON (sp.master_product_id) sp.master_product_id::text, ci.name, l.price, l.real_price,
-                      coalesce(b.name, s.name), ci.is_alcoholic OR ci.age_restricted, l.store_id, ci.presentation
-               FROM latest l
-               JOIN store_products sp USING (store_id, sku)
-               JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
-               JOIN stores s ON s.store_id = sp.store_id
-               LEFT JOIN brands b ON b.brand_id = s.brand_id
-               JOIN catalog_items ci ON ci.master_product_id = sp.master_product_id
-               JOIN v_store_verticals v ON v.store_id = s.store_id AND v.vertical = %(vertical)s
-               WHERE l.in_stock IS NOT FALSE
-               ORDER BY sp.master_product_id, l.price, l.store_id""",  # store_id: con igual precio, siempre la misma
+               SELECT c.master_product_id::text, c.name, c.price, c.real_price, coalesce(o.store, c.store), c.adult,
+                      o.store_id, c.presentation
+               FROM cheapest c
+               LEFT JOIN best_openable o USING (master_product_id)""",
             {"ids": catalog_ids, "vertical": vertical},
         ):
             prices[("catalog_item", pid)] = (name, price, real, store, age, store_id, presentation)
