@@ -1,14 +1,13 @@
 import { cartEventFields } from '../api/orders'
 import { noteAccepted } from '../api/suggestions'
-import { productTags } from '../assistant/tags'
 import { MOCHI_CART_EVENT, rememberAdded, session } from '../state/liveMemory'
 import { lineKey, useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
-import { WEIGHTS, useProfile } from '../state/ProfileContext'
+import { useProfile } from '../state/ProfileContext'
 import { useDemo } from '../state/DemoContext'
 
 /**
- * Agregar y quitar una unidad del carrito con todo lo que eso implica (perfil, eventos, memoria de Mochi).
+ * Agregar y quitar una unidad del carrito con todo lo que eso implica (eventos, memoria de Mochi).
  * Lo usan el botón "+" de los productos y la hoja de producto.
  */
 export function useAddToCart() {
@@ -20,7 +19,6 @@ export function useAddToCart() {
 
   const add = (item) => {
     cart.add(item)
-    profile.trackTags(productTags(item), WEIGHTS.cart)
     cartEvent('cart_add', item)
     // Aceptar una sugerencia es agregarla por primera vez: los "+" siguientes son solo cantidad, y quitarla y volver a
     // agregarla tampoco es otra aceptación (salvo que entre medio se haya tocado «Olvidar»).

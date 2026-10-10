@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { ALL_PRODUCTS } from '../data/catalog'
+import { toPrototypeProduct } from '../api/client'
+import { fixture } from '../api/testing'
 import { AssistantProvider } from '../state/AssistantContext'
 import { CartProvider, useCart } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
-import { NudgeProvider } from '../state/NudgeContext'
 import { ProfileProvider, useProfile } from '../state/ProfileContext'
 import AddButton from './AddButton'
 
@@ -17,7 +17,7 @@ function Providers({ children }) {
       <ProfileProvider>
         <AssistantProvider>
           <CartProvider>
-            <NudgeProvider>{children}</NudgeProvider>
+            {children}
           </CartProvider>
         </AssistantProvider>
       </ProfileProvider>
@@ -32,13 +32,13 @@ afterEach(() => {
 })
 
 describe('AddButton', () => {
-  test('los eventos del carrito llevan el concepto también en productos de las capturas', () => {
-    const heineken = ALL_PRODUCTS.find((product) => product.id === 'p-heineken')
-    render(<AddButton product={heineken} />, { wrapper: Providers })
-    fireEvent.click(screen.getByLabelText(`Agregar ${heineken.name}`))
+  test('los eventos del carrito llevan el concepto, la vertical y el id real del producto de la API', () => {
+    const beer = toPrototypeProduct(fixture('search-grouped').groups[0].products[0])
+    render(<AddButton product={beer} />, { wrapper: Providers })
+    fireEvent.click(screen.getByLabelText(`Agregar ${beer.name}`))
     expect(events.track).toHaveBeenCalledWith(
       'cart_add',
-      expect.objectContaining({ concept_id: 'cerveza', vertical: 'liquor' }),
+      expect.objectContaining({ concept_id: 'cerveza', vertical: 'liquor', entity_type: 'catalog_item', entity_id: '94001' }),
     )
   })
 

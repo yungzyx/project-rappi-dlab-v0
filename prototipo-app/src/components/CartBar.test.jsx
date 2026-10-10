@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useEffect } from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
-import { ALL_PRODUCTS } from '../data/catalog'
+import { toPrototypeProduct } from '../api/client'
+import { fixture } from '../api/testing'
 import { AssistantProvider } from '../state/AssistantContext'
 import { CartProvider, useCart } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
-import { NudgeProvider } from '../state/NudgeContext'
 import { ProfileProvider } from '../state/ProfileContext'
 import CartBar from './CartBar'
 
@@ -25,16 +25,14 @@ afterEach(() => {
 })
 
 test('vaciar el carro lo registra (una salida por línea con sus unidades): si no, el panel lo cuenta como abandono', () => {
-  const [beer, other] = [ALL_PRODUCTS.find((p) => p.id === 'p-heineken'), ALL_PRODUCTS.find((p) => p.id !== 'p-heineken')]
+  const [beer, other] = fixture('catalog-store').products.slice(0, 2).map(toPrototypeProduct)
   render(
     <DemoProvider>
       <ProfileProvider>
         <AssistantProvider>
           <CartProvider>
-            <NudgeProvider>
-              <Seed products={[beer, beer, other]} />
-              <CartBar push={() => {}} />
-            </NudgeProvider>
+            <Seed products={[beer, beer, other]} />
+            <CartBar push={() => {}} />
           </CartProvider>
         </AssistantProvider>
       </ProfileProvider>

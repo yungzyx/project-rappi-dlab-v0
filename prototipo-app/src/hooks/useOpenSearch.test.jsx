@@ -25,26 +25,26 @@ describe('useOpenSearch', () => {
     return { push, result }
   }
 
-  test('en el prototipo final abre el buscador con Mochi con la vertical', () => {
+  test('en el prototipo final abre el buscador con Mochi, no el plano', () => {
     const { push, result } = setup('final')
     act(() => result.current.open('liquor'))
     expect(push).not.toHaveBeenCalled()
-    expect(result.current.assistant.session).toMatchObject({ vertical: 'liquor' })
+    expect(result.current.assistant.isOpen).toBe(true)
+    expect(result.current.assistant.session.search).toBeUndefined()
   })
 
-  test('en el prototipo final, desde la Home, lo abre sin vertical', () => {
+  test('en el prototipo final, desde la Home, también lo abre', () => {
     const { push, result } = setup('final')
     act(() => result.current.open())
     expect(push).not.toHaveBeenCalled()
     expect(result.current.assistant.isOpen).toBe(true)
-    expect(result.current.assistant.session.vertical).toBeUndefined()
   })
 
   test('con una consulta (una categoría), el buscador de Mochi arranca con ella', () => {
     const { push, result } = setup('final')
     act(() => result.current.open('liquor', 'cerveza'))
     expect(push).not.toHaveBeenCalled()
-    expect(result.current.assistant.session).toMatchObject({ vertical: 'liquor', search: 'cerveza' })
+    expect(result.current.assistant.session).toMatchObject({ search: 'cerveza' })
   })
 
   test('con una consulta, en «Rappi hoy» el buscador plano la recibe con su vertical', () => {

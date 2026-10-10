@@ -10,7 +10,6 @@ import { PopularStores, RecentSearches, SearchResults } from '../search/SearchSe
 import { useSearch } from '../search/useSearch'
 import { useDemo } from '../../state/DemoContext'
 import { clearShownTopics, noteShownTopic, sessionId, shownTopics, useEvents } from '../../state/EventsContext'
-import { storeFor } from '../../data/catalog'
 import { useAssistant } from '../../state/AssistantContext'
 import { useCart } from '../../state/CartContext'
 import { useDialog } from '../../hooks/useDialog'
@@ -355,15 +354,12 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const asked = messages.findLast((m) => m.from === 'user')
   const showAsked = asked && current && messages.indexOf(asked) < messages.indexOf(current)
   const openStore = (store) => go('store', { store })
-  const openProduct = (product) =>
-    go('store', {
-      // Un producto o plato de la API abre su tienda por id (otras pueden tener el mismo nombre); el catálogo local, por nombre.
-      store:
-        product.storeId != null
-          ? storeOfProduct(product)
-          : (storeFor({ name: product.store }) ?? { name: product.store, img: product.img, eta: product.eta }),
-      item: product,
-    })
+  // Un producto o plato de la API abre su tienda por id (otras pueden tener el mismo nombre); sin `storeId` no hay
+  // tienda que abrir.
+  const openProduct = (product) => {
+    if (product.storeId == null) return
+    go('store', { store: storeOfProduct(product), item: product })
+  }
 
   return (
     <div

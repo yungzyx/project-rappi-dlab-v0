@@ -3,7 +3,6 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { fixture, stubApi } from '../../api/testing'
 import { CartProvider } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
-import { NudgeProvider } from '../../state/NudgeContext'
 import { ProfileProvider } from '../../state/ProfileContext'
 import { SearchResults } from './SearchSections'
 
@@ -12,7 +11,7 @@ function Providers({ children }) {
     <DemoProvider>
       <ProfileProvider>
         <CartProvider>
-          <NudgeProvider>{children}</NudgeProvider>
+          {children}
         </CartProvider>
       </ProfileProvider>
     </DemoProvider>

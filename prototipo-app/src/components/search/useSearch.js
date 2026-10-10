@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchApi } from '../../api/useSearchApi'
 import { useEvents } from '../../state/EventsContext'
-import { WEIGHTS, useProfile } from '../../state/ProfileContext'
-
-const SEARCH_SETTLE_MS = 900
 
 /**
  * Búsqueda en vivo en el catálogo de la API (todas las verticales, agrupada). La comparten el buscador de «Rappi hoy»
@@ -17,17 +14,9 @@ export function useSearch({ initial = '', vertical } = {}) {
   const text = query.trim()
   const hasQuery = text.length > 0
   const { data, loading, error, retry } = useSearchApi(query, { current: vertical })
-  const { track } = useProfile()
   const events = useEvents()
   const logged = useRef(null)
   const wanted = useRef(null) // lo que la persona terminó de buscar y aún espera su respuesta
-
-  // Cuenta la búsqueda cuando el usuario deja de escribir, no con cada letra.
-  useEffect(() => {
-    if (text.length < 3) return undefined
-    const timer = setTimeout(() => track(text, WEIGHTS.query), SEARCH_SETTLE_MS)
-    return () => clearTimeout(timer)
-  }, [text, track])
 
   // Para el panel, solo búsquedas terminadas (Enter, salir del campo o una sugerencia), no palabras a medio
   // escribir, y con lo que la API respondió: cuántos productos y si no hubo nada (`unmet`).

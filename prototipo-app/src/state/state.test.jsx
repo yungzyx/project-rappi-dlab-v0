@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 import { CartProvider, formatPrice, lineKey, parsePrice, useCart } from './CartContext'
-import { ProfileProvider, WEIGHTS, useProfile } from './ProfileContext'
+import { ProfileProvider, useProfile } from './ProfileContext'
 
 const BEER = { id: 'beer', name: 'Cerveza Heineken', price: '$6.690' }
 const CHIPS = { id: 'chips', name: 'Papas fritas', price: '$2.690' }
@@ -145,44 +145,11 @@ describe('CartContext', () => {
 })
 
 describe('ProfileContext', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-    localStorage.clear()
-  })
-
-  const setup = () => renderHook(() => useProfile(), { wrapper: ProfileProvider })
-
-  test('ordena los temas por puntaje y los guarda', () => {
-    const { result } = setup()
-    act(() => result.current.track('Papas fritas', WEIGHTS.query))
-    act(() => result.current.track('Cerveza Heineken', WEIGHTS.cart))
-    expect(result.current.top).toEqual(['cerveza', 'snack'])
-    expect(JSON.parse(localStorage.getItem('rappi-proto-profile'))).toEqual({ snack: 1, cerveza: 3 })
-  })
-
-  test('trackTags suma temas directos; texto sin temas no cambia nada', () => {
-    const { result } = setup()
-    act(() => result.current.trackTags(['carne', 'fresco'], 2))
-    act(() => result.current.track('zzz', 5))
-    expect(result.current.scores).toEqual({ carne: 2, fresco: 2 })
-  })
-
-  test('reset borra lo aprendido', () => {
-    const { result } = setup()
-    act(() => result.current.track('Cerveza', 1))
+  test('la generación empieza en 0 y sube con cada «Olvidar»', () => {
+    const { result } = renderHook(() => useProfile(), { wrapper: ProfileProvider })
+    expect(result.current.resets).toBe(0)
     act(() => result.current.reset())
-    expect(result.current.top).toEqual([])
-  })
-
-  test('sigue funcionando si el navegador bloquea localStorage', () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('bloqueado')
-    })
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('bloqueado')
-    })
-    const { result } = setup()
-    act(() => result.current.track('Cerveza', 1))
-    expect(result.current.top).toEqual(['cerveza'])
+    act(() => result.current.reset())
+    expect(result.current.resets).toBe(2)
   })
 })

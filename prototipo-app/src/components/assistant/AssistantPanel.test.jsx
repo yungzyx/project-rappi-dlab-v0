@@ -3,7 +3,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { CartProvider } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
-import { NudgeProvider } from '../../state/NudgeContext'
 import { ProductSheetProvider } from '../../state/ProductSheetContext'
 import ProductSheet from '../ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
@@ -81,7 +80,7 @@ function OpenButton() {
       <button type="button" onClick={() => assistant.open()}>
         abrir
       </button>
-      <button type="button" onClick={() => assistant.open({ vertical: 'liquor', search: 'cerveza' })}>
+      <button type="button" onClick={() => assistant.open({ search: 'cerveza' })}>
         abrir con búsqueda
       </button>
       <button type="button" onClick={(e) => assistant.open({ query: e.currentTarget.dataset.query })}>
@@ -111,13 +110,11 @@ async function renderPanel({ push = () => {}, vertical, open = null } = {}) {
       <ProfileProvider>
         <AssistantProvider>
           <CartProvider>
-            <NudgeProvider>
-              <ProductSheetProvider>
-                <OpenButton />
-                <AssistantPanel push={push} vertical={vertical} />
-                <ProductSheet />
-              </ProductSheetProvider>
-            </NudgeProvider>
+            <ProductSheetProvider>
+              <OpenButton />
+              <AssistantPanel push={push} vertical={vertical} />
+              <ProductSheet />
+            </ProductSheetProvider>
           </CartProvider>
         </AssistantProvider>
       </ProfileProvider>

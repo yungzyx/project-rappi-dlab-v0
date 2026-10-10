@@ -7,7 +7,7 @@ import { PLACEHOLDER_IMG } from '../components/Img'
 const DEFAULT_PORT = 8000
 const HEALTH_TTL_MS = 30_000
 const HEALTH_TIMEOUT_MS = 1500
-const CHAT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: contesta el cerebro local
+const CHAT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: el chat muestra «Sin conexión»
 const CONNECTION_TIMEOUT_MS = 5_000
 
 export const API_URL =
@@ -126,7 +126,7 @@ export function beaconEvents(userId, events) {
 // ── De la API al formato del prototipo ──────────────────────────────────────
 
 
-/** Producto de la API → tarjeta del prototipo (mismo formato que src/data/catalog.js). */
+/** Producto de la API → tarjeta del prototipo (el formato con que lo muestran las pantallas). */
 export function toPrototypeProduct(p) {
   return {
     id: p.id,

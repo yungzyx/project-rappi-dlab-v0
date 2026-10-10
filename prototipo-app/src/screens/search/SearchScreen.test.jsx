@@ -5,7 +5,6 @@ import ProductSheet from '../../components/ProductSheet'
 import { AssistantProvider } from '../../state/AssistantContext'
 import { CartProvider } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
-import { NudgeProvider } from '../../state/NudgeContext'
 import { ProductSheetProvider } from '../../state/ProductSheetContext'
 import { ProfileProvider } from '../../state/ProfileContext'
 import SearchScreen from './SearchScreen'
@@ -22,12 +21,10 @@ function Providers({ children }) {
       <ProfileProvider>
         <AssistantProvider>
           <CartProvider>
-            <NudgeProvider>
-              <ProductSheetProvider>
-                {children}
-                <ProductSheet />
-              </ProductSheetProvider>
-            </NudgeProvider>
+            <ProductSheetProvider>
+              {children}
+              <ProductSheet />
+            </ProductSheetProvider>
           </CartProvider>
         </AssistantProvider>
       </ProfileProvider>

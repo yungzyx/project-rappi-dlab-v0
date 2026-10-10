@@ -1,5 +1,4 @@
-import { describe, expect, test } from 'vitest'
-import { ALL_PRODUCTS } from '../data/catalog'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { toPrototypeProduct } from './client'
 import { buildOrders, conceptOf } from './orders'
 import { fixture } from './testing'
@@ -16,14 +15,10 @@ const ACCEPTED = [
   'chocolateria',
   'restaurantes',
 ]
-// Un producto del catálogo local (el de Mochi y el buscador), con el formato de las capturas.
-const HEINEKEN = {
-  id: 'p-heineken',
-  name: 'Heineken Cerveza Lager Original en Botella',
-  price: '$6.690',
-  store: 'Líquidos',
-  vertical: 'liquor',
-}
+// Una cerveza de la API (licores), tal como la devuelve /search.
+const beer = () => toPrototypeProduct(fixture('search-grouped').groups[0].products[0])
+
+afterEach(() => vi.restoreAllMocks())
 
 describe('pedidos para el panel', () => {
   test('un pedido por vertical; los productos de la API conservan sus ids', () => {
@@ -91,51 +86,61 @@ describe('pedidos para el panel', () => {
     expect(turbo.vertical).toBe('turbo')
   })
 
-  test('los productos de las capturas usan su id local y el concepto de sus temas', () => {
-    const [order] = buildOrders([{ product: HEINEKEN, qty: 1 }], ctx)
-    expect(order.vertical).toBe('licores')
-    expect(order.lines[0]).toMatchObject({ entity_id: 'proto:p-heineken', concept_id: 'cerveza' })
-    expect(conceptOf({ name: 'Producto sin temas' })).toBeUndefined()
+  test('el concepto de un producto es el que trae de la API; sin él, no se inventa uno', () => {
+    expect(conceptOf(beer())).toBe('cerveza')
+    expect(conceptOf({ name: 'Cerveza sin concepto' })).toBeUndefined()
+    const [order] = buildOrders([{ product: beer(), qty: 1 }], ctx)
+    expect(order.lines[0]).toMatchObject({ entity_id: '94001', concept_id: 'cerveza' })
   })
 
-  test('el concepto explícito de un producto manda sobre el de su tema', () => {
-    // El tema "carne" incluye tuto, trutro y nuggets de pollo; "belleza", los perfumes.
-    const tuto = { name: 'Super Pollo Tuto Corto de Pollo Congelado' }
-    expect(conceptOf(tuto)).toBe('carnes')
-    expect(conceptOf({ ...tuto, concept: 'pollo' })).toBe('pollo')
-    const perfume = { name: 'Ck In2u Men 50 Edt Ml' }
-    expect(conceptOf(perfume)).toBe('maquillaje')
-    expect(conceptOf({ ...perfume, concept: 'fragancias' })).toBe('fragancias')
-    // El pollo frito de restaurante no es el del súper.
-    expect(conceptOf({ name: 'Wow Bucket de KFC' })).toBe('pollo-preparado')
-  })
-
-  test('todo producto del catálogo local llega con una vertical que la API acepta', () => {
+  test('una línea sin entityId no viaja: nunca se inventa un id local', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const loose = { id: 'p-heineken', name: 'Heineken', price: '$6.690', store: 'Líquidos', vertical: 'liquor' }
     const orders = buildOrders(
-      ALL_PRODUCTS.map((product) => ({ product, qty: 1 })),
+      [
+        { product: loose, qty: 1 },
+        { product: beer(), qty: 1 },
+      ],
       ctx,
     )
-    expect(orders.flatMap((order) => order.lines)).toHaveLength(ALL_PRODUCTS.length)
+    expect(orders).toHaveLength(1)
+    expect(orders[0].lines.map((line) => line.entity_id)).toEqual(['94001'])
+    orders[0].lines.forEach((line) => expect(line.entity_id).toMatch(/^\d+$/)) // ids reales de la API
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(buildOrders([{ product: loose, qty: 1 }], ctx)).toEqual([])
+  })
+
+  test('todo producto de las respuestas de ejemplo llega con una vertical que la API acepta', () => {
+    const products = [
+      ...fixture('search-grouped').groups.flatMap((group) => group.products),
+      ...fixture('catalog-store').products,
+      ...fixture('mochi-plan').products,
+    ].map(toPrototypeProduct)
+    const orders = buildOrders(
+      products.map((product) => ({ product, qty: 1 })),
+      ctx,
+    )
+    expect(orders.flatMap((order) => order.lines)).toHaveLength(products.length)
     orders.forEach((order) => expect(ACCEPTED).toContain(order.vertical))
   })
 
   test('sin vertical del catálogo la línea no se envía; el resto sí, y la misma vertical es un solo pedido', () => {
     const orders = buildOrders(
       [
-        { product: { id: 'pet-1', name: 'Snack para perro', vertical: 'pet', price: '$2.000' }, qty: 1 },
-        { product: { id: 'sin-tienda', name: 'Algo', price: '$1.000' }, qty: 1 },
-        { product: HEINEKEN, qty: 1 },
+        { product: { id: 'pet-1', name: 'Snack para perro', vertical: 'pet', price: '$2.000', entityId: '1' }, qty: 1 },
+        { product: { id: 'sin-tienda', name: 'Algo', price: '$1.000', entityId: '2' }, qty: 1 },
+        { product: beer(), qty: 1 },
         { product: { id: 'cat-200', entityId: '200', vertical: 'licores', price: '$1.290' }, qty: 1 },
       ],
       ctx,
     )
     expect(orders).toHaveLength(1)
     expect(orders[0].vertical).toBe('licores')
-    expect(orders[0].lines.map((line) => line.entity_id)).toEqual(['proto:p-heineken', '200'])
+    expect(orders[0].lines.map((line) => line.entity_id)).toEqual(['94001', '200'])
   })
 
   test('from_suggestion sale de la línea del carrito', () => {
-    const [order] = buildOrders([{ product: HEINEKEN, qty: 1, fromSuggestion: true }], ctx)
+    const [order] = buildOrders([{ product: beer(), qty: 1, fromSuggestion: true }], ctx)
     expect(order.lines[0].from_suggestion).toBe(true)
   })
 })

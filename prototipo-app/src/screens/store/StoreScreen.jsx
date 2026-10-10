@@ -11,7 +11,6 @@ import { useToast } from '../../components/Toast'
 import { HeartIcon } from '../../components/Icons'
 import { useEvents } from '../../state/EventsContext'
 import { useFavorites } from '../../state/FavoritesContext'
-import { WEIGHTS, useProfile } from '../../state/ProfileContext'
 import { StoreMeta } from '../../components/StoreMeta'
 import RealMenu from './RealMenu'
 import './store.css'
@@ -42,7 +41,6 @@ export default function StoreScreen({ back, params }) {
   const toast = useToast()
   const favorites = useFavorites()
   const events = useEvents()
-  const { track } = useProfile()
   const [mode, setMode] = useState(MODES[0])
   const scrollRef = useRef(null)
   // Un restaurante trae su menú; una tienda, sus pasillos de a una página (cada uno pide solo lo suyo).
@@ -62,7 +60,6 @@ export default function StoreScreen({ back, params }) {
   useEffect(() => {
     if (!loaded || tracked.current === loaded.id) return
     tracked.current = loaded.id
-    track(loaded.name, WEIGHTS.store)
     events.track('view_store', {
       vertical: loaded.vertical,
       entity_type: 'store',
@@ -70,7 +67,7 @@ export default function StoreScreen({ back, params }) {
       payload: { name: loaded.name } })
     // Llegar tocando un producto es verlo (el prototipo no tiene página de producto): mismos campos que el carro.
     if (item) events.track('view_item', { ...cartEventFields(item), vertical: item.vertical ?? loaded.vertical })
-  }, [loaded, item, track, events])
+  }, [loaded, item, events])
 
   const toggleFavorite = () => {
     favorites.toggle(store)

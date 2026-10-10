@@ -1,4 +1,4 @@
-// Nombre visible y pantalla de cada vertical. Un solo lugar para el chat con la API y el cerebro local.
+// Nombre visible y pantalla de cada vertical. Un solo lugar para el chat con la API y las pantallas.
 
 /** Por id de pantalla del prototipo (screens/vertical/data.js; Turbo y restaurantes tienen pantalla propia). */
 export const VERTICAL_NAMES = {

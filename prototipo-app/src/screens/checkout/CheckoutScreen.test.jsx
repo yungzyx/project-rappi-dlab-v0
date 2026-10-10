@@ -1,13 +1,13 @@
 import { StrictMode, useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { toPrototypeProduct } from '../../api/client'
+import { fixture } from '../../api/testing'
 import { ToastProvider } from '../../components/Toast'
-import { ALL_PRODUCTS } from '../../data/catalog'
 import { AddressProvider } from '../../state/AddressContext'
 import { AssistantProvider } from '../../state/AssistantContext'
 import { CartProvider, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
-import { NudgeProvider } from '../../state/NudgeContext'
 import { OrdersProvider } from '../../state/OrdersContext'
 import { ProfileProvider } from '../../state/ProfileContext'
 import CheckoutScreen from './CheckoutScreen'
@@ -26,9 +26,9 @@ vi.mock('../../state/EventsContext', async (importOriginal) => ({
 }))
 
 // Un producto de Licores y uno del Súper: el carro va en dos pedidos.
-// La cerveza llega como las de la API: con su tipo e id reales.
-const BEER = { ...ALL_PRODUCTS.find((product) => product.id === 'p-heineken'), entityType: 'catalog_item', entityId: '94001' }
-const AVOCADO = ALL_PRODUCTS.find((product) => product.id === 'p-palta')
+// Ambos salen de las respuestas de ejemplo de la API, con su tipo e id reales.
+const BEER = toPrototypeProduct(fixture('search-grouped').groups[0].products[0])
+const AVOCADO = toPrototypeProduct(fixture('catalog-store').products[0])
 
 /** Llena el carro y abre el checkout, como al tocar la barra del carrito. */
 function Harness() {
@@ -59,9 +59,7 @@ function renderCheckout() {
               <OrdersProvider>
                 <AddressProvider>
                   <ToastProvider>
-                    <NudgeProvider>
-                      <Harness />
-                    </NudgeProvider>
+                    <Harness />
                   </ToastProvider>
                 </AddressProvider>
               </OrdersProvider>
@@ -154,9 +152,7 @@ describe('carrito vacío', () => {
               <OrdersProvider>
                 <AddressProvider>
                   <ToastProvider>
-                    <NudgeProvider>
-                      <CheckoutScreen back={back} push={() => {}} />
-                    </NudgeProvider>
+                    <CheckoutScreen back={back} push={() => {}} />
                   </ToastProvider>
                 </AddressProvider>
               </OrdersProvider>

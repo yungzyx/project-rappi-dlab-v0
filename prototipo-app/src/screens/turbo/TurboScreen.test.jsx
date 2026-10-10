@@ -7,7 +7,6 @@ import { AssistantProvider } from '../../state/AssistantContext'
 import { CartProvider, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { FavoritesProvider } from '../../state/FavoritesContext'
-import { NudgeProvider } from '../../state/NudgeContext'
 import { ProductSheetProvider } from '../../state/ProductSheetContext'
 import { ProfileProvider } from '../../state/ProfileContext'
 import TurboScreen from './TurboScreen'
@@ -44,12 +43,10 @@ function Providers({ children }) {
           <CartProvider>
             <FavoritesProvider>
               <ToastProvider>
-                <NudgeProvider>
-                  <ProductSheetProvider>
-                    {children}
-                    <ProductSheet />
-                  </ProductSheetProvider>
-                </NudgeProvider>
+                <ProductSheetProvider>
+                  {children}
+                  <ProductSheet />
+                </ProductSheetProvider>
               </ToastProvider>
             </FavoritesProvider>
           </CartProvider>

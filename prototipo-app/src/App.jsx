@@ -5,13 +5,11 @@ import CartBar from './components/CartBar'
 import DemoToggle from './components/DemoToggle'
 import ErrorBoundary from './components/ErrorBoundary'
 import MochiPresence from './components/assistant/MochiPresence'
-import Nudge from './components/assistant/Nudge'
 import ProductSheet from './components/ProductSheet'
 import StatusBar from './components/StatusBar'
 import { ToastProvider } from './components/Toast'
 import HomeScreen from './screens/home/HomeScreen'
 import { useNavigation } from './hooks/useNavigation'
-import { markExplored } from './assistant/explored'
 import { AddressProvider } from './state/AddressContext'
 import { AssistantProvider } from './state/AssistantContext'
 import { CartProvider } from './state/CartContext'
@@ -20,7 +18,6 @@ import { EventsProvider } from './state/EventsContext'
 import { FavoritesProvider } from './state/FavoritesContext'
 import { GameProvider } from './state/GameContext'
 import { LoyaltyProvider } from './state/LoyaltyContext'
-import { NudgeProvider } from './state/NudgeContext'
 import { OrdersProvider } from './state/OrdersContext'
 import { ProductSheetProvider } from './state/ProductSheetContext'
 import { ProfileProvider } from './state/ProfileContext'
@@ -46,7 +43,7 @@ const SCREENS = {
 // Mientras una pantalla se baja: el fondo del teléfono, sin spinner (dura un instante).
 const LOADING = <div className="screen screen-loading" aria-hidden="true" />
 
-// En el checkout, el seguimiento y el juego no se muestran la barra del carrito ni el aviso de Mochi.
+// En el checkout, el seguimiento y el juego no se muestra la barra del carrito.
 const SCREENS_WITHOUT_CART = new Set(['checkout', 'tracking', 'game'])
 
 // Pantallas con barra inferior: ahí la barra del carrito flota más arriba.
@@ -81,11 +78,6 @@ export default function App() {
   const current = stack[stack.length - 1]
   const vertical = screenVertical(current)
 
-  // Mochi invita a descubrir las verticales que la persona todavía no abre.
-  useEffect(() => {
-    if (vertical) markExplored(vertical)
-  }, [vertical])
-
   return (
     <DemoProvider>
       <EventsProvider>
@@ -101,55 +93,50 @@ export default function App() {
                       <AddressProvider>
                         <LoyaltyProvider>
                           <ToastProvider>
-                            <NudgeProvider>
-                              <ProductSheetProvider>
-                                {/* Toda la pila queda montada: al volver, cada pantalla conserva su búsqueda y su scroll.
-                                    Las de abajo quedan invisibles e inertes (no display:none, que pierde el scroll). */}
-                                {stack.map((entry, i) => {
-                                  const isTop = i === stack.length - 1
-                                  // Un enlace viejo o un nombre desconocido no rompe la app: vuelve a la Home.
-                                  const Screen = SCREENS[entry.name] ?? HomeScreen
-                                  return (
-                                    <div
-                                      key={`${i}-${entry.name}`}
-                                      className={isTop ? `screen-wrap enter-${direction}` : 'screen-wrap is-under'}
-                                      inert={!isTop}
-                                    >
-                                      {/* Si una pantalla falla, el aviso queda dentro del teléfono y se vuelve al inicio. */}
-                                      <ErrorBoundary onReset={reset}>
-                                        <Suspense fallback={LOADING}>
-                                          <Screen
-                                            push={push}
-                                            back={back}
-                                            reset={reset}
-                                            params={entry.params}
-                                            tab={homeTab}
-                                            setTab={setHomeTab}
-                                            active={isTop}
-                                          />
-                                        </Suspense>
-                                      </ErrorBoundary>
-                                    </div>
-                                  )
-                                })}
-                                {!SCREENS_WITHOUT_CART.has(current.name) && (
-                                  <>
-                                    <CartBar raised={SCREENS_WITH_NAV.has(current.name)} push={push} />
-                                    <Nudge raised={SCREENS_WITH_NAV.has(current.name)} />
-                                  </>
-                                )}
-                                <MochiPresence
-                                  screen={current.name}
-                                  homeTab={homeTab}
-                                  push={push}
-                                  raised={SCREENS_WITH_NAV.has(current.name)}
-                                />
-                                <AssistantPanel push={push} vertical={vertical} depth={stack.length} />
-                                <ProductSheet />
-                                <AddressSheet />
-                                <StatusBar />
-                              </ProductSheetProvider>
-                            </NudgeProvider>
+                            <ProductSheetProvider>
+                              {/* Toda la pila queda montada: al volver, cada pantalla conserva su búsqueda y su scroll.
+                                  Las de abajo quedan invisibles e inertes (no display:none, que pierde el scroll). */}
+                              {stack.map((entry, i) => {
+                                const isTop = i === stack.length - 1
+                                // Un enlace viejo o un nombre desconocido no rompe la app: vuelve a la Home.
+                                const Screen = SCREENS[entry.name] ?? HomeScreen
+                                return (
+                                  <div
+                                    key={`${i}-${entry.name}`}
+                                    className={isTop ? `screen-wrap enter-${direction}` : 'screen-wrap is-under'}
+                                    inert={!isTop}
+                                  >
+                                    {/* Si una pantalla falla, el aviso queda dentro del teléfono y se vuelve al inicio. */}
+                                    <ErrorBoundary onReset={reset}>
+                                      <Suspense fallback={LOADING}>
+                                        <Screen
+                                          push={push}
+                                          back={back}
+                                          reset={reset}
+                                          params={entry.params}
+                                          tab={homeTab}
+                                          setTab={setHomeTab}
+                                          active={isTop}
+                                        />
+                                      </Suspense>
+                                    </ErrorBoundary>
+                                  </div>
+                                )
+                              })}
+                              {!SCREENS_WITHOUT_CART.has(current.name) && (
+                                <CartBar raised={SCREENS_WITH_NAV.has(current.name)} push={push} />
+                              )}
+                              <MochiPresence
+                                screen={current.name}
+                                homeTab={homeTab}
+                                push={push}
+                                raised={SCREENS_WITH_NAV.has(current.name)}
+                              />
+                              <AssistantPanel push={push} vertical={vertical} depth={stack.length} />
+                              <ProductSheet />
+                              <AddressSheet />
+                              <StatusBar />
+                            </ProductSheetProvider>
                           </ToastProvider>
                         </LoyaltyProvider>
                       </AddressProvider>

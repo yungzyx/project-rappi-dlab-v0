@@ -31,7 +31,6 @@ beforeEach(async () => {
   const cart = await import('../../../state/CartContext')
   const address = await import('../../../state/AddressContext')
   const toast = await import('../../../components/Toast')
-  const nudge = await import('../../../state/NudgeContext')
   const orders = await import('../../../state/OrdersContext')
   const game = await import('../../../state/GameContext')
   memory = await import('../../../state/liveMemory')
@@ -45,11 +44,9 @@ beforeEach(async () => {
             <cart.CartProvider>
               <address.AddressProvider>
                 <toast.ToastProvider>
-                  <nudge.NudgeProvider>
-                    <orders.OrdersProvider>
-                      <game.GameProvider>{children}</game.GameProvider>
-                    </orders.OrdersProvider>
-                  </nudge.NudgeProvider>
+                  <orders.OrdersProvider>
+                    <game.GameProvider>{children}</game.GameProvider>
+                  </orders.OrdersProvider>
                 </toast.ToastProvider>
               </address.AddressProvider>
             </cart.CartProvider>
