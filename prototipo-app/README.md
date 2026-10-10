@@ -8,7 +8,7 @@ Hecho con Vite + React 19. **Necesita la API de [`rappi-ia`](../rappi-ia/)**: si
 
 ![Modo demo: la misma app en el prototipo final y en «Rappi hoy»](docs/screenshots/00-modo-demo.jpg)
 
-*Salvo que se indique lo contrario, las capturas de este README son anteriores al MVP conectado: se tomaron en modo local (sin API) y sin los menús reales del scraper. `npm run screenshots` ahora necesita el MVP corriendo.*
+*Las capturas de Restaurants, Turbo, Deals, Favorites, Grocery, Liquor y de la compra (checkout, seguimiento y entregado) se tomaron el 10-10-2026 con el MVP corriendo y el catálogo real; las demás son anteriores al MVP conectado (modo local, sin API). `npm run screenshots` necesita el MVP corriendo y, como paga una compra, deja un pedido y sus eventos (`source = 'prototype'`) en la base.*
 
 ## Cómo correrlo
 
@@ -17,7 +17,7 @@ Requiere Node 22.22+ o 24.15+ (ver `.nvmrc` en la raíz). Como la app no abre si
 ```bash
 make mvp              # API :8000, app http://localhost:5174 y panel :5175; Ctrl-C detiene los tres
 make mvp LAN=1        # abre la API y la app a la red local, para el iPhone (misma red wifi o su hotspot)
-make mvp-check        # recorre la app con Chrome contra un catálogo de prueba inventado, sin tocar la base real
+make mvp-check        # recorre la app con Chrome (Home, una compra en el Súper de prueba, API caída) contra un catálogo inventado, sin tocar la base real
 ```
 
 Requisitos y qué hacer si falla algo: [docs/instalacion.md](../docs/instalacion.md#5-el-mvp). Para correr solo la app, con la API ya levantada por su cuenta (`cd rappi-ia && make serve`):
@@ -35,6 +35,7 @@ En el iPhone, desde Safari: **Compartir → Agregar a pantalla de inicio**. Se a
 
 La API (puerto 8000) carga los modelos antes de aceptar peticiones: `make mvp` espera a que responda y, si la app se abrió antes, «Reintentar» vuelve a probar. Con ella, Mochi:
 
+- da las **pantallas de catálogo** (ver «De dónde salen las pantallas»);
 - busca en el **catálogo real** con búsqueda híbrida por vertical, con precios vigentes;
 - sugiere un complemento **de otra tienda** en un bloque aparte;
 - arma la fila **"Para ti"** del inicio con lo que aprendió de ti (productos reales de otro vertical, con aviso +18 si corresponde);
@@ -60,7 +61,7 @@ Si la API se cae con la app ya abierta, las respuestas de Mochi todavía caen a 
 | `npm run screenshots` | Regenera las capturas de este README; necesita el MVP corriendo (`make mvp`) y usa el Chrome instalado |
 | `./scripts/make-icons.sh` | Regenera los íconos de pantalla de inicio desde `scripts/icon.svg` |
 
-Tests: 452 (Vitest, 10-10-2026). CI en GitHub Actions: lint, tests y build.
+Tests: 575 (Vitest, 10-10-2026). CI en GitHub Actions: lint, tests y build.
 
 **Accesibilidad:** el buscador con Mochi y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), cada respuesta de Mochi se anuncia completa al lector de pantalla y las áreas táctiles miden al menos 40 px.
 
@@ -145,8 +146,8 @@ También:
 
 - **Hoja de producto:** al tocar un producto se abre una hoja con la cantidad, notas para la tienda y el total, y desde ahí se puede ir a la tienda.
 - **Mis pedidos** (en Account): cada pedido hecho en el prototipo abre su seguimiento, en curso o entregado; el carro, los favoritos, la dirección y Loyalty se guardan en el navegador y sobreviven a una recarga.
-- **Turbo** con productos y categorías (Frescos, Despensa, Picoteo) que se agregan al carro, además de las pestañas Favorites, Offers y Categories.
-- **Menús reales** de los restaurantes, con pestañas por sección: salen de la API (`/catalog`), el catálogo que descarga el scraper.
+- **Turbo** con los pasillos de su tienda con más productos vigentes (pestañas arriba y en Categories), con sus productos y «Ver más», que se agregan al carro, además de las pestañas Favorites y Offers.
+- **Menús reales** de los restaurantes, con pestañas por sección: salen de la API (`/catalog`), el catálogo que descarga el scraper. La portada es la foto de un plato popular: la base no guarda los logos de los restaurantes.
 - **Loyalty**, con un programa de fidelización vinculable.
 - **Si algo falla:** una pantalla con error muestra «Algo salió mal» y «Volver al inicio» sin cerrar la app, y una imagen que no carga muestra un respaldo neutro.
 
@@ -156,7 +157,7 @@ También:
 
 ## Pantallas replicadas de Rappi
 
-Calcadas de las capturas del iPhone, en modo "Rappi hoy" (sin agregados de la propuesta).
+Calcadas de las capturas del iPhone, en modo "Rappi hoy" (sin agregados de la propuesta). El diseño es de las capturas; las tiendas, los productos y los precios son del catálogo real (ver «De dónde salen las pantallas»).
 
 | Restaurants | Turbo | Deals | Favorites |
 |:---:|:---:|:---:|:---:|
@@ -166,21 +167,40 @@ Calcadas de las capturas del iPhone, en modo "Rappi hoy" (sin agregados de la pr
 |:---:|:---:|:---:|:---:|
 | <img src="docs/screenshots/14-account.jpg" width="190" alt="Account"> | <img src="docs/screenshots/15-grocery.jpg" width="190" alt="Grocery"> | <img src="docs/screenshots/16-liquor.jpg" width="190" alt="Liquor"> | <img src="docs/screenshots/17-rappitravel.jpg" width="190" alt="RappiTravel"> |
 
-Además: Pharmacy, Retail, Express, Pet, Chocolates, Loyalty, buscador, página de tienda y carrito.
+Además: Pharmacy, Retail, Express, Chocolates, Loyalty, buscador, página de tienda y carrito. Pet (Mascotas) salió: la base no tiene esa vertical.
+
+## De dónde salen las pantallas
+
+Las pantallas de catálogo leen la API (`/catalog`, `src/api/catalog.js`) y la app solo pone el diseño:
+
+| Pantalla | Qué viene de la API |
+|---|---|
+| Verticales (Grocery, Pharmacy, Retail, Liquor, Express, Chocolates) | Las tiendas (una tarjeta por formato) y «Bajaron de precio» |
+| Tienda | Sus pasillos, de a una página de productos (24, con «Ver más») y el precio vigente de cada uno |
+| Restaurante | Su menú con precios; la portada es la foto de un plato popular |
+| Turbo | Los pasillos de la tienda Turbo con más productos vigentes y sus productos |
+| Deals (Offers) | «Bajaron de precio» por vertical (se excluyen las bajas de más de 60 %: en la base real eran graneles, precio por kilo contra precio por unidad) y «Mejor evaluados» |
+| Favorites y Home | «Los mejores» y las listas de la Home (restaurantes rápidos, «Cerca de ti», «Mejor evaluados») |
+
+- **Un producto muestra el precio y la tienda de su oferta vigente más barata entre las tiendas que se pueden abrir**, para que el precio y la tienda nunca se contradigan. Si ninguna tienda abrible lo vende, no ofrece «Ver tienda».
+- **Sin «Envío más barato»:** el costo de envío es $0 en el 91 % de la base, casi seguro «sin dato», así que la Home y Deals muestran «Mejor evaluados» y un envío de $0 no se presenta como gratis.
+- **Si la API falla** en una pantalla, esa pantalla muestra «Sin conexión» con «Reintentar» y el resto de la app sigue usable; una tienda que no está en la base muestra «Esta tienda no está en el catálogo».
+- **Sigue local hasta la etapa 3:** el buscador y el cerebro local de Mochi (`src/data/catalog.js`, con los datos transcritos de las capturas). Lo que abren y no está en la base muestra «Esta tienda no está en el catálogo».
 
 ## Qué es real y qué es simulado
 
-- **Real:** las pantallas (recortes de las capturas), los precios y productos que se ven en ellas, los menús del scraper (si se exportan), el carrito, los pedidos y el historial del navegador.
+- **Real:** las tiendas, productos, precios, menús y ofertas que muestran las pantallas (vienen de la API, que lee la base que descarga el scraper), el carrito, los pedidos y el historial del navegador.
   - **De la API** vienen también la búsqueda y los productos y precios que muestra Mochi.
+- **De las capturas:** el diseño (títulos, filas de categorías, banners, íconos). No son catálogo: no apuntan a ninguna tienda ni producto.
 - **Simulado:** el pago y el seguimiento (el pedido «llega» a los 20 s), y el progreso del juego (solo en el navegador).
 - **Privacidad:** el id de usuario es seudónimo (`proto-…`, guardado en este navegador). El carro, los favoritos, la dirección, Loyalty y los pedidos también se guardan solo en este navegador. "Olvidar" borra lo aprendido también en la API. En modo "Rappi hoy" no se aprende.
-- **Supuestos:** textos cortados en el borde de las capturas, algunos ratings y tiempos de entrega; están marcados como "supuesto" en los archivos `data.js`.
+- **Supuestos:** textos cortados en el borde de las capturas, marcados como "supuesto" en los archivos `data.js`. Lo que la API no sabe (tiempo de entrega de un producto, nota, costo de envío: un $0 es un dato que falta, no «envío gratis») no se muestra.
 
 ## Estructura
 
 ```text
 src/
-├── api/            Cliente de la API de rappi-ia (chat, "Para ti", pedidos, eventos), con tiempo límite y errores tipados; fixtures/ guarda las respuestas de ejemplo que escribe el backend (`make contract` en rappi-ia)
+├── api/            Cliente de la API de rappi-ia (catálogo, chat, "Para ti", pedidos, eventos), con tiempo límite y errores tipados; fixtures/ guarda las respuestas de ejemplo que escribe el backend (`make contract` en rappi-ia)
 ├── assistant/      Mochi local: temas, respuestas y recomendaciones (lógica pura, con tests)
 ├── assets/         Recortes de las capturas
 ├── game/           Lógica del juego de verticales: tarjetas de conocimiento, desafíos, XP, niveles, pasaporte (lógica pura, con tests)
@@ -192,5 +212,5 @@ src/
 └── styles/         Tokens de diseño y estilos globales
 docs/screenshots/   Capturas de este README
 public/             Íconos y manifiesto para "Agregar a pantalla de inicio"
-scripts/            Íconos, capturas y el recorrido de `make mvp-check`
+scripts/            Íconos, capturas y el recorrido de `make mvp-check` (Home, compra y API caída)
 ```

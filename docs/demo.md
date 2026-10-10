@@ -11,7 +11,7 @@ make mvp             # esperar «MVP listo: app http://localhost:5174 · panel �
 make mvp LAN=1       # si se muestra desde un iPhone en la misma red (solo en una red de confianza)
 ```
 
-Si la app muestra **«Sin conexión con Mochi»**, la API todavía no terminó de cargar o no está corriendo: espera a «MVP listo» (la pantalla vuelve a probar sola cada 2 s; **Reintentar** prueba al instante) (qué más revisar, en [instalación](instalacion.md#5-el-mvp)). Antes de una presentación, `make mvp-check` comprueba que la app y la API se hablan, contra un catálogo de prueba inventado y sin tocar la base real; no lo corras junto con los tests de rappi-ia.
+Si la app muestra **«Sin conexión con Mochi»**, la API todavía no terminó de cargar o no está corriendo: espera a «MVP listo» (la pantalla vuelve a probar sola cada 2 s; **Reintentar** prueba al instante) (qué más revisar, en [instalación](instalacion.md#5-el-mvp)). Antes de una presentación, `make mvp-check` comprueba que la app y la API se hablan (la Home, una compra en el Súper de prueba hasta el pago y la caída de la API), contra un catálogo de prueba inventado y sin tocar la base real; no lo corras junto con los tests de rappi-ia.
 
 1. Abre el prototipo (http://localhost:5174) y deja el modo **Prototipo final** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy», la app como es hoy).
 2. Justo antes de presentar, con la API arriba: `cd rappi-ia && make warm`. Pasa por los botones del guion sin registrarlos: en frío la primera respuesta tarda de 2 a 5 s; después, menos de medio segundo. Repetirlo si la API pasó un rato sin uso.
@@ -31,11 +31,12 @@ En el prototipo final no se escribe en un chat: la barra de la Home abre el busc
 | 5 | Abre el carro, revisa y recarga la página. | El carro sigue ahí (se guarda en el navegador). **Checkout** → delivery o retiro, propina y desglose → pagar. | El pedido se confirma; el pago es un texto de ejemplo. |
 | 5b | **Account → Orders** (o «See all» en Recent orders) | **Mis pedidos**: el pedido recién hecho con su seguimiento en curso; al tocarlo, el mapa con Mochi recorriendo la ruta. | El seguimiento avanza solo, para la demo. |
 | 6 | De vuelta en el buscador con Mochi, baja hasta **Descubre con Mochi** y toca **Explorar** en una tarjeta. | «Exploraste N de 9» con las verticales sin probar; la tarjeta dice por qué (p. ej. «Te gusta 🍺 cerveza → 🍿 Snacks en Express») y abre esa vertical. | Lo aprendido también sirve para llevar a la persona a verticales donde nunca pidió. |
-| 6b | En la Home, el acceso **Turbo**. | Productos por categoría (Frescos, Despensa, Picoteo) que se agregan al carro. | Opcional: muestra que la compra rápida también vive en el prototipo. |
+| 6b | En la Home, el acceso **Turbo**. | Los pasillos de la tienda Turbo (pestañas arriba) con sus productos reales y «Ver más», que se agregan al carro. | Opcional: muestra que la compra rápida también vive en el prototipo. |
+| 6c | En la Home, un acceso de vertical (**Grocery**, **Liquor**…) → una tienda → **Ver más**. | Las tiendas reales de la vertical, la tienda con sus pasillos y precios vigentes, y la página siguiente de productos; en Licores, la marca **+18**. | Opcional: las pantallas de siempre, pero con el catálogo real. |
 | 7 | En el buscador con Mochi, escribe **chela**. | No hay resultados con esa palabra, pero Mochi dice «… pero en Licores sí» y **Ver en Licores** lleva ahí. | Un «sin resultados» no termina en un callejón sin salida: Mochi entiende el tema. |
 | 8 | En el checkout, toca **¿Me falta algo? Pregúntale a Mochi**. | Una sola sugerencia de otra vertical con su razón («Llevas 🍺 Cerveza → …»), **Agregar** y **Deshacer**. | Mochi sugiere cuando se le pide, en el momento en que más sirve. |
 
-Con la API, los productos y precios de los pasos 1 a 3 salen del catálogo real y la sugerencia de otra vertical la decide Mochi en el servidor (con «Respuesta local» si la API no contestó). Los botones **🍫 Algo dulce**, **🎁 Un regalo** y **🔥 Ofertas de hoy**, y el campo de búsqueda (tiendas y productos, con «Recent searches» y «Popular stores» como en la app) quedan para preguntas del público.
+Con la API, los productos y precios de los pasos 1 a 3 salen del catálogo real y la sugerencia de otra vertical la decide Mochi en el servidor (con «Respuesta local» si la API no contestó). Las pantallas de catálogo (verticales, tiendas, restaurantes con su menú, Turbo, Ofertas, Favoritos y la Home) también leen el catálogo real. El buscador y los bloques de Mochi en la Home (kit, «Descubre») siguen con datos locales hasta la etapa 3: si una tarjeta de ahí abre «Esta tienda no está en el catálogo», es eso, no un error. Los botones **🍫 Algo dulce**, **🎁 Un regalo** y **🔥 Ofertas de hoy**, y el campo de búsqueda (tiendas y productos, con «Recent searches» y «Popular stores» como en la app) quedan para preguntas del público.
 
 ### La Home con Mochi de cuerpo entero (2 minutos, opcional)
 
@@ -56,7 +57,9 @@ El pasaporte y su envío gratis son una idea para probar con usuarios, no una pr
 
 ## Qué aclarar si preguntan
 
-- **De dónde salen los productos:** del catálogo público de rappi.cl (muestra de hasta 24 productos por sub-pasillo), con precios vigentes.
+- **De dónde salen los productos:** del catálogo público de rappi.cl (muestra de hasta 24 productos por sub-pasillo), con precios vigentes. Un producto muestra el precio y la tienda de su oferta vigente más barata entre las tiendas que se pueden abrir, así que no siempre es el mínimo absoluto.
+- **Ofertas:** son productos con una rebaja que marca la tienda o una baja de precio respecto de la descarga anterior, sin las de más de 60 % (en la base real eran graneles: precio por kilo contra precio por unidad). No hay «Envío más barato»: el costo de envío es $0 en el 91 % de la base, casi seguro «sin dato», así que la Home y Ofertas muestran «Mejor evaluados».
+- **Por qué no está Mascotas:** la base no tiene esa vertical, así que salió de los accesos y de las pantallas.
 - **Por qué no siempre sale Restaurantes:** la vertical se elige donde el concepto es típico, no donde hay más ítems; restaurantes solo compite en lo que se pide hecho (comida, postres, café). Una vertical chica tampoco gana con un puñado de productos: necesita oferta suficiente. Ver [decisiones.md](decisiones.md#agente-bigotes).
 - **Cómo se mediría el efecto:** la API ya registra cada sugerencia mostrada, aceptada y convertida en pedido (eventos seudónimos). Con datos de Rappi y un experimento A/B con grupo de control se mide si sube la frecuencia y cuántas verticales usa cada persona.
 - **Qué va con qué:** los complementos (hamburguesa → gaseosas, vino → quesos) son una lista escrita a mano. Con datos de pedidos de Rappi se reemplazan por relaciones medidas, sin cambiar el mecanismo.

@@ -1,6 +1,8 @@
 // Revisa en un Chrome real que la app del MVP responda como debe (lo corre scripts/mvp-check.sh con `make mvp-check`).
-// Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--expect-offline]
-//   sin --expect-offline: la app abre en la Home conectada, con la barra «Busca o pídele ideas a Mochi»;
+// Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--shop | --expect-offline]
+//   sin banderas: la app abre en la Home conectada, con la barra «Busca o pídele ideas a Mochi»;
+//   con --shop: Home → vertical Grocery → primera tienda → agregar un producto → carrito → pagar, y la API recibe el
+//     pedido (que después verifica scripts/mvp-check.sh en la base de prueba);
 //   con --expect-offline: la API está detenida y la app muestra «Sin conexión con Mochi».
 // Sale con 0 si la revisión pasa y con 1 si no. Usa el Chrome instalado (playwright-core, sin descargar navegadores).
 import { parseArgs } from 'node:util'
@@ -29,6 +31,63 @@ async function checkOnline(page) {
   return `la Home abre con la barra «${HOME_HINT}»`
 }
 
+/** Recorre una compra real contra el catálogo de prueba. Los textos son los de la app (Grocery, View cart, Place order). */
+async function checkShop(page) {
+  const problems = []
+  page.on('pageerror', (error) => problems.push(error.message))
+  // Las imágenes del catálogo de prueba no existen (la app muestra la de reemplazo): solo esos fallos se ignoran.
+  page.on('console', (message) => {
+    if (message.type() === 'error' && !message.text().startsWith('Failed to load resource'))
+      problems.push(message.text())
+  })
+
+  await checkOnline(page)
+  await step(page, 'abrir Grocery desde la Home', () =>
+    page.getByRole('button', { name: 'Grocery', exact: true }).click(),
+  )
+  const stores = page.getByRole('region', { name: 'Tiendas' })
+  await step(page, 'ver las tiendas de Grocery', () => stores.waitFor())
+  await step(page, 'abrir la primera tienda', () =>
+    stores
+      .getByRole('button', { name: /de prueba/ })
+      .first()
+      .click(),
+  )
+  const store = await step(page, 'ver el nombre de la tienda', async () => {
+    const heading = page.getByRole('heading', { level: 1 })
+    await heading.waitFor()
+    return heading.innerText()
+  })
+  // Solo los productos: el corazón de favoritos también empieza con «Agregar».
+  const product = page
+    .getByRole('listitem')
+    .getByRole('button', { name: /^Agregar / })
+    .first()
+  await step(page, 'ver productos en la tienda', () => product.waitFor())
+  await step(page, 'agregar un producto', () => product.click())
+  await step(page, 'abrir el carrito', () => page.getByRole('button', { name: /View cart/ }).click())
+  await step(page, 'ir al checkout', () => page.getByRole('button', { name: 'Go to checkout' }).click())
+  const place = page.getByRole('button', { name: /^Place order/ })
+  await step(page, 'ver el botón de pagar', () => place.waitFor())
+  const posted = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/orders')
+  await place.click()
+  const response = await posted.catch(() => {
+    throw new Error('la app no mandó el pedido a la API (POST /orders)')
+  })
+  if (!response.ok()) throw new Error(`la API rechazó el pedido (POST /orders → ${response.status()})`)
+  if (problems.length > 0) throw new Error(`errores en la consola: ${problems[0]}`)
+  return `compró en «${store}» y la API aceptó el pedido`
+}
+
+/** Un paso del recorrido: si falla, dice cuál era y qué mostraba la página. */
+async function step(page, what, action) {
+  try {
+    return await action()
+  } catch (error) {
+    throw new Error(`no pude ${what}: ${error.message.split('\n')[0]}; ${await pageSays(page)}`, { cause: error })
+  }
+}
+
 async function checkOffline(page) {
   try {
     await page.getByRole('heading', { name: OFFLINE_TITLE }).waitFor({ timeout: TIMEOUT_MS })
@@ -40,10 +99,14 @@ async function checkOffline(page) {
 }
 
 const { values } = parseArgs({
-  options: { app: { type: 'string' }, 'expect-offline': { type: 'boolean', default: false } },
+  options: {
+    app: { type: 'string' },
+    shop: { type: 'boolean', default: false },
+    'expect-offline': { type: 'boolean', default: false },
+  },
 })
 const offline = values['expect-offline']
-const label = offline ? 'sin API' : 'en línea'
+const label = offline ? 'sin API' : values.shop ? 'compra' : 'en línea'
 
 async function main() {
   if (!values.app) throw new Error('falta --app <url> (por ejemplo --app http://localhost:5184)')
@@ -52,8 +115,10 @@ async function main() {
   })
   try {
     const page = await browser.newPage({ viewport: { width: 560, height: 960 } })
+    page.setDefaultTimeout(TIMEOUT_MS)
     await page.goto(values.app, { timeout: TIMEOUT_MS })
-    const done = offline ? await checkOffline(page) : await checkOnline(page)
+    const check = offline ? checkOffline : values.shop ? checkShop : checkOnline
+    const done = await check(page)
     console.log(`  ✓ ${label}: ${done}`)
   } finally {
     await browser.close()

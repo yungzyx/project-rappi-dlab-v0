@@ -42,6 +42,11 @@ async function run(page) {
   const tap = (selector, text) => page.locator(selector, text ? { hasText: text } : {}).first().click()
   const back = () => tap('[aria-label="Volver"]')
   const tab = (label) => tap('.bottom-nav-item', label)
+  // Lo que viene del catálogo llega después de abrir la pantalla: se espera a que esté (y a que carguen sus fotos).
+  const loaded = async (selectors = []) => {
+    for (const selector of selectors) await page.locator(selector).first().waitFor()
+    if (selectors.length > 0) await settle(1500)
+  }
   const shortcut = async (label) => {
     await page.locator('.home-shortcut', { hasText: label }).first().scrollIntoViewIfNeeded()
     await tap('.home-shortcut', label)
@@ -68,24 +73,30 @@ async function run(page) {
   await shot('02-home-rappi-hoy')
 
   // --- Pantallas replicadas de Rappi (modo "Rappi hoy": sin agregados del prototipo final) ---
-  for (const [name, open] of [
-    ['10-restaurants', () => tap('.home-tile--restaurants')],
-    ['11-turbo', () => tap('.home-tile--turbo')],
-    ['15-grocery', () => shortcut('Grocery')],
-    ['16-liquor', () => shortcut('Liquor')],
+  for (const [name, open, ready] of [
+    ['10-restaurants', () => tap('.home-tile--restaurants'), ['.rest-list .featured-card']],
+    ['11-turbo', () => tap('.home-tile--turbo'), ['.turbo-grid .product-card']],
+    ['15-grocery', () => shortcut('Grocery'), ['.vertical-store', '.vertical-product-row .product-card']],
+    ['16-liquor', () => shortcut('Liquor'), ['.vertical-store', '.vertical-product-row .product-card']],
     ['17-rappitravel', () => shortcut('RappiTravel')],
   ]) {
     await open()
+    await loaded(ready)
     await shot(name)
     await back()
     await settle(400)
   }
-  for (const [name, label] of [
-    ['12-deals', 'Offers'],
-    ['13-favorites', 'Favorites'],
+  for (const [name, label, ready] of [
+    ['12-deals', 'Offers', ['.deals .product-card', '.deals .featured-card']],
+    [
+      '13-favorites',
+      'Favorites',
+      ['.favorites-row:not(.favorites-row--restaurants) .featured-card', '.favorites-row--restaurants .featured-card'],
+    ],
     ['14-account', 'Account'],
   ]) {
     await tab(label)
+    await loaded(ready)
     await shot(name)
   }
   await tab('Home')
@@ -113,7 +124,11 @@ async function run(page) {
   await settle(400)
 
   await tab('Offers')
-  await page.locator('.product-card', { hasText: 'Royal Guard' }).first().locator('.add-button').click()
+  // Un producto de las bajas de precio reales: el primero con la marca +18 (como la cerveza de antes) o, si no hay, el primero.
+  await page.locator('.product-card').first().waitFor() // las bajas de precio llegan juntas, de una sola llamada
+  const restricted = page.locator('.product-card').filter({ has: page.getByLabel('Solo mayores de 18') })
+  const deal = (await restricted.count()) > 0 ? restricted : page.locator('.product-card')
+  await deal.first().locator('.add-button').click()
   await wait(700)
 
   await tap('.cart-bar')
