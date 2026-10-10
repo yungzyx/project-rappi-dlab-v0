@@ -28,7 +28,7 @@ export default function VerticalScreen({ back, push, params }) {
   const stores = useApi(() => (vertical ? verticalStores(params.id) : null), [params.id])
   const deals = useApi(() => (vertical ? loadDeals(params.id) : null), [params.id])
 
-  const openCategory = (category) => push('search', { query: category.label })
+  const openCategory = (category) => openSearch(params.id, category.query)
   const openStore = (store) => push('store', { store })
   // Con el producto tocado: la tienda registra que se vio.
   const openProductStore = (item) =>

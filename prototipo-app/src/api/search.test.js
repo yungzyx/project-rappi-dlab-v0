@@ -11,6 +11,7 @@ describe('searchAll', () => {
     const result = await searchAll('cerveza', { current: 'grocery', limit: 4 })
 
     expect(result.unmet).toBe(false)
+    expect(result.query).toBe('cerveza')
     expect(result.groups.map((g) => [g.vertical, g.backendVertical])).toEqual([
       ['liquor', 'licores'],
       ['express', 'conveniencia'],

@@ -4,12 +4,15 @@ import Img from './Img'
 import './product-card.css' // la marca +18 (.product-age) es la de ProductCard
 import './product-row.css'
 
-/** Producto en formato lista (página de tienda y resultados del buscador). Tocarlo abre su hoja; el "+" va aparte. */
-export default function ProductRow({ product, showStore = false, showDescription = false }) {
+/**
+ * Producto en formato lista (página de tienda y resultados del buscador). Tocarlo abre su hoja; el "+" va aparte.
+ * Con `onOpenStore`, la hoja ofrece «Ver tienda».
+ */
+export default function ProductRow({ product, showStore = false, showDescription = false, onOpenStore }) {
   const sheet = useProductSheet()
   return (
     <li className="product-row">
-      <button type="button" className="product-row-main" onClick={() => sheet.open(product)}>
+      <button type="button" className="product-row-main" onClick={() => sheet.open(product, { onOpenStore })}>
         <span className="product-row-text">
           <strong>{product.name}</strong>
           {showStore && <span className="product-row-store">{product.store}</span>}

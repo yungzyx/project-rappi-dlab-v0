@@ -9,6 +9,7 @@ import ProductSheet from '../ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
 import { routeForScreen } from '../../data/verticals'
+import { fixture, stubApi } from '../../api/testing'
 
 const api = vi.hoisted(() => ({
   health: vi.fn(),
@@ -43,6 +44,15 @@ async function runUntilIdle() {
   await advance(0) // promesas ya resueltas (sin temporizadores pendientes todavía)
   for (let i = 0; i < 100 && vi.getTimerCount() > 0; i++) await advance(250)
 }
+/** El catálogo de la API: la Home (tiendas populares) y la búsqueda agrupada («xyzzy» y «pizza hawaiana» no traen nada). */
+function stubCatalog(routes = {}) {
+  return stubApi({
+    '/catalog/home': fixture('catalog-home'),
+    '/search': (req) =>
+      ['xyzzy', 'pizza hawaiana'].includes(req.query.get('q')) ? fixture('search-grouped-unmet') : fixture('search-grouped'),
+    ...routes,
+  })
+}
 const bubbles = () => [...document.querySelectorAll('.chat-bubble')].map((el) => el.textContent)
 
 /** Sin chat escrito, a Mochi se le pregunta abriéndolo con una consulta (como el aviso del carrito o el seguimiento). */
@@ -59,6 +69,9 @@ function OpenButton() {
       <button type="button" onClick={() => assistant.open()}>
         abrir
       </button>
+      <button type="button" onClick={() => assistant.open({ vertical: 'liquor', search: 'cerveza' })}>
+        abrir con búsqueda
+      </button>
       <button type="button" onClick={(e) => assistant.open({ query: e.currentTarget.dataset.query })}>
         preguntar
       </button>
@@ -66,7 +79,7 @@ function OpenButton() {
   )
 }
 
-async function renderPanel({ push = () => {} } = {}) {
+async function renderPanel({ push = () => {}, vertical, open = null } = {}) {
   render(
     <DemoProvider>
       <ProfileProvider>
@@ -75,7 +88,7 @@ async function renderPanel({ push = () => {} } = {}) {
             <NudgeProvider>
               <ProductSheetProvider>
                 <OpenButton />
-                <AssistantPanel push={push} />
+                <AssistantPanel push={push} vertical={vertical} />
                 <ProductSheet />
               </ProductSheetProvider>
             </NudgeProvider>
@@ -85,7 +98,7 @@ async function renderPanel({ push = () => {} } = {}) {
     </DemoProvider>,
   )
   screen.getByText('abrir').focus() // como al tocarlo: el foco queda en quien abrió el asistente
-  fireEvent.click(screen.getByText('abrir'))
+  fireEvent.click(screen.getByText(open ? 'abrir con búsqueda' : 'abrir'))
   await runUntilIdle()
 }
 
@@ -97,6 +110,7 @@ afterAll(() => {
 })
 beforeEach(() => {
   vi.useFakeTimers()
+  stubCatalog()
   window.history.replaceState(null, '', '/') // cada test parte sin una entrada del asistente debajo
   api.health.mockResolvedValue({ voz: true, fotos: false })
   api.profile.mockResolvedValue({ interests: [] })
@@ -403,37 +417,69 @@ describe('sin chat escrito', () => {
     expect(bubbles()).toContain('Para el carrete')
   })
 
-  test('lo escrito en el buscador busca en el catálogo (como en «Rappi hoy»), no le pregunta a Mochi', async () => {
+  test('lo escrito en el buscador busca en el catálogo de la API (como en «Rappi hoy»), no le pregunta a Mochi', async () => {
     await renderPanel()
     const field = screen.getByLabelText('Buscar en Rappi')
     expect(field.maxLength).toBe(500)
     fireEvent.change(field, { target: { value: 'cerveza' } })
-    fireEvent.keyDown(field, { key: 'Enter' })
     await runUntilIdle()
+    fireEvent.keyDown(field, { key: 'Enter' })
 
     expect(api.chat).not.toHaveBeenCalled()
-    expect(screen.getByText('Products')).toBeTruthy()
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Licores', 'Express', 'Súper'])
     expect(screen.queryByText('Descubre con Mochi')).toBeNull()
-    expect(events.track).toHaveBeenCalledWith('search', expect.objectContaining({ query: 'cerveza', modality: 'texto' }))
+    expect(events.track).toHaveBeenCalledWith(
+      'search',
+      expect.objectContaining({ query: 'cerveza', modality: 'texto', results: 4, unmet: false }),
+    )
+  })
+
+  test('abierto desde una categoría, busca de una vez con la vertical de la pantalla', async () => {
+    const fetchMock = stubCatalog()
+    await renderPanel({ vertical: 'liquor', open: true })
+    expect(screen.getByLabelText('Buscar en Rappi').value).toBe('cerveza')
+    const url = new URL(fetchMock.mock.calls.map(([u]) => u).find((u) => u.includes('/search')))
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({ q: 'cerveza', current: 'liquor' })
+    expect(screen.getByRole('heading', { name: 'Licores' })).toBeTruthy()
+  })
+
+  test('sin API el buscador de Mochi muestra Sin conexión y Reintentar', async () => {
+    let online = false
+    stubCatalog({ '/search': () => (online ? fixture('search-grouped') : 'offline') })
+    await renderPanel()
+    fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: 'cerveza' } })
+    await runUntilIdle()
+    expect(screen.getByText('Sin conexión')).toBeTruthy()
+
+    online = true
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await runUntilIdle()
+    expect(screen.queryByText('Sin conexión')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Licores' })).toBeTruthy()
   })
 })
 
 describe('sin resultados', () => {
-  const type = (text) => fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: text } })
+  const type = async (text) => {
+    fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: text } })
+    await runUntilIdle()
+  }
 
   test('sin resultados, Mochi ofrece la vertical que sí lo tiene', async () => {
+    stubCatalog({ 'POST /mochi/offer': fixture('mochi-sin-resultado') })
     const push = vi.fn()
     await renderPanel({ push })
-    type('chela heladita')
-    expect(screen.getByText('Aquí no hay «chela heladita», pero en Licores sí.')).toBeTruthy()
+    await type('pizza hawaiana')
+    expect(screen.getByText('No encontré «pizza hawaiana», pero pizza sí hay en restaurantes.')).toBeTruthy()
     expect(document.querySelector('.search-mochi .mochi')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Ver en Licores' }))
-    expect(push).toHaveBeenCalledWith(...routeForScreen('liquor'))
+    fireEvent.click(screen.getByRole('button', { name: 'Ver en Restaurantes' }))
+    expect(push.mock.calls[0][0]).toBe(routeForScreen('restaurants')[0])
   })
 
-  test('sin tema, Mochi lo dice y ofrece otra búsqueda', async () => {
+  test('sin una oferta (204), Mochi lo dice y ofrece otra búsqueda', async () => {
+    stubCatalog({ 'POST /mochi/offer': 204 })
     await renderPanel()
-    type('xyzzy')
+    await type('xyzzy')
     expect(screen.getByText('No encontré «xyzzy». ¿Lo buscamos con otras palabras?')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Probar otra búsqueda' }))
     const field = screen.getByLabelText('Buscar en Rappi')
@@ -579,11 +625,16 @@ describe('volver a Mochi desde una tienda', () => {
     expect(assistantEntry.assistant).toBe(true)
 
     const input = screen.getByLabelText('Buscar en Rappi')
-    fireEvent.change(input, { target: { value: 'unimarc' } })
-    fireEvent.click(document.querySelector('.search-store'))
-    expect(push).toHaveBeenCalledWith('store', expect.objectContaining({ store: expect.anything() }))
+    fireEvent.change(input, { target: { value: 'cerveza' } })
+    await runUntilIdle()
+    fireEvent.click(screen.getByText('Cerveza negra botella 330 cc (prueba)')) // la hoja del producto
+    fireEvent.click(document.querySelector('.product-sheet-store')) // «Ver tienda»
+    expect(push).toHaveBeenCalledWith(
+      'store',
+      expect.objectContaining({ store: expect.objectContaining({ id: 9401 }), item: expect.anything() }),
+    )
     // La entrada del asistente sigue en el historial, con su búsqueda; la tienda se apila encima (sin replace).
-    expect(window.history.state).toMatchObject({ assistant: true, assistantSearch: 'unimarc' })
+    expect(window.history.state).toMatchObject({ assistant: true, assistantSearch: 'cerveza' })
     await runUntilIdle()
     expect(screen.queryByRole('dialog')).toBeNull()
 
@@ -591,7 +642,7 @@ describe('volver a Mochi desde una tienda', () => {
     act(() => window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state })))
     await runUntilIdle()
     expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(screen.getByLabelText('Buscar en Rappi').value).toBe('unimarc')
+    expect(screen.getByLabelText('Buscar en Rappi').value).toBe('cerveza')
   })
 })
 
@@ -599,7 +650,8 @@ describe('barra del carrito dentro del panel', () => {
   test('con productos en el carro el panel deja espacio abajo para la barra', async () => {
     await renderPanel()
     expect(document.querySelector('.assistant.has-cart')).toBeNull()
-    fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: 'palta' } })
+    fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: 'cerveza' } })
+    await runUntilIdle()
     fireEvent.click(screen.getAllByLabelText(/^Agregar /)[0])
     expect(document.querySelector('.assistant.has-cart')).toBeTruthy()
   })

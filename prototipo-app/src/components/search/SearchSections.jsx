@@ -1,12 +1,19 @@
-import { emptySearch } from '../../assistant/emptySearch'
+import { useId, useState } from 'react'
+import { home } from '../../api/catalog'
+import { offer } from '../../api/mochi'
+import { userId } from '../../api/user'
+import { useApi } from '../../api/useApi'
+import { VERTICAL_NAMES } from '../../data/verticals'
 import Mascot from '../assistant/Mascot'
+import OfflineNotice from '../OfflineNotice'
 import ProductRow from '../ProductRow'
 import StoreList from '../StoreList'
-import { ALL_STORES } from '../../data/catalog'
 
-// Sugerencias sacadas de los textos que rota el buscador de la Home.
-const RECENT = ['Banana', 'Water', 'Chocolate', 'Burger', 'Beer', 'Pizza']
+// Sugerencias sacadas de los textos que rota el buscador de la Home, en español: la búsqueda es del catálogo chileno.
+const RECENT = ['Plátano', 'Agua', 'Chocolate', 'Hamburguesa', 'Cerveza', 'Pizza']
 const POPULAR_COUNT = 6
+// Productos que se ven de cada vertical; «Ver más» muestra el resto de lo que trajo la API.
+const GROUP_PREVIEW = 3
 
 export function RecentSearches({ onPick }) {
   return (
@@ -23,68 +30,91 @@ export function RecentSearches({ onPick }) {
   )
 }
 
+/** Las tiendas populares son las cercanas de la Home de la API; si no llega, la sección no aparece. */
 export function PopularStores({ onOpen }) {
+  const { data } = useApi(home, [])
+  if (!data?.nearbyStores.length) return null
   return (
     <>
       <h2 className="search-heading">Popular stores</h2>
-      <StoreList stores={ALL_STORES.slice(0, POPULAR_COUNT)} onOpen={onOpen} />
+      <StoreList stores={data.nearbyStores.slice(0, POPULAR_COUNT)} onOpen={onOpen} />
     </>
   )
 }
 
 /**
- * Resultados de una búsqueda escrita: tiendas y productos, o el aviso de que no hay. Con `onOpenVertical` y
- * `onRetry` (solo el buscador con Mochi), Mochi no deja un callejón sin salida: lleva a la vertical que tiene el tema
- * buscado o invita a buscar con otras palabras.
+ * Resultados de una búsqueda escrita (`data` de `useSearch`): un grupo por vertical con su nombre, o el aviso de que no
+ * hay, o «Sin conexión». Un producto se abre en su tienda (`onOpenProduct`). Mientras carga se ven los resultados
+ * anteriores. Con `onOpenVertical` (solo el buscador con Mochi), sin resultados Mochi no deja un callejón sin salida:
+ * ofrece la vertical que tiene lo buscado o invita a buscar con otras palabras (`onTryAnother`).
  */
-export function SearchResults({ query, results, isEmpty, onOpenStore, onOpenVertical, onRetry }) {
+export function SearchResults({ query, data, loading = false, error = null, onRetry, onOpenProduct, onOpenVertical, onTryAnother }) {
+  if (error) return <OfflineNotice onRetry={onRetry} />
+  if (!data) return loading ? <p className="search-loading" role="status">Buscando…</p> : null
+
+  const text = query.trim()
+  // Sin nada que mostrar, el aviso espera a que llegue la respuesta de lo escrito (no se mezcla con lo de antes).
+  if (data.groups.length === 0)
+    return loading ? null : onOpenVertical ? (
+      <MochiEmpty key={text} query={text} onOpenVertical={onOpenVertical} onTryAnother={onTryAnother} />
+    ) : (
+      <p className="search-empty">No results for “{text}”.</p>
+    )
+
   return (
     <>
-      {isEmpty &&
-        (onOpenVertical ? (
-          <MochiEmpty query={query.trim()} onOpenVertical={onOpenVertical} onRetry={onRetry} />
-        ) : (
-          <p className="search-empty">No results for “{query.trim()}”.</p>
-        ))}
-
-      {results.stores.length > 0 && (
-        <>
-          <h2 className="search-heading">Stores</h2>
-          <StoreList stores={results.stores} onOpen={onOpenStore} />
-        </>
-      )}
-
-      {results.products.length > 0 && (
-        <>
-          <h2 className="search-heading">Products</h2>
-          <ul className="search-products">
-            {results.products.map((product) => (
-              <ProductRow key={product.id} product={product} showStore />
-            ))}
-          </ul>
-        </>
-      )}
+      {data.groups.map((group) => (
+        <ResultGroup key={group.vertical} group={group} onOpenProduct={onOpenProduct} />
+      ))}
     </>
   )
 }
 
-function MochiEmpty({ query, onOpenVertical, onRetry }) {
-  const hint = emptySearch(query)
+function ResultGroup({ group, onOpenProduct }) {
+  const titleId = useId()
+  const [expanded, setExpanded] = useState(false)
+  const hidden = group.products.length - GROUP_PREVIEW
+  const shown = expanded ? group.products : group.products.slice(0, GROUP_PREVIEW)
+  return (
+    <section aria-labelledby={titleId}>
+      <h2 id={titleId} className="search-heading">
+        {VERTICAL_NAMES[group.vertical] ?? group.vertical}
+      </h2>
+      <ul className="search-products">
+        {shown.map((product) => (
+          <ProductRow
+            key={product.id}
+            product={product}
+            showStore
+            onOpenStore={onOpenProduct && product.storeId != null ? () => onOpenProduct(product) : undefined}
+          />
+        ))}
+      </ul>
+      {!expanded && hidden > 0 && (
+        <button type="button" className="search-more tap" onClick={() => setExpanded(true)}>
+          Ver más ({hidden})
+        </button>
+      )}
+    </section>
+  )
+}
+
+/** La oferta `sin_resultado` de Mochi. Si no tiene nada (204) o falla, solo invita a buscar con otras palabras. */
+function MochiEmpty({ query, onOpenVertical, onTryAnother }) {
+  const { data: found, loading } = useApi(() => offer('sin_resultado', { query }, { userId: userId() }).catch(() => null), [query])
+  if (loading) return null
+  const verticalName = found?.vertical ? VERTICAL_NAMES[found.vertical] : null
   return (
     <div className="search-mochi" role="status">
       <Mascot size={56} mood="listen" />
       <div>
-        <p>
-          {hint
-            ? `Aquí no hay «${query}», pero en ${hint.verticalName} sí.`
-            : `No encontré «${query}». ¿Lo buscamos con otras palabras?`}
-        </p>
+        <p>{verticalName ? found.text : `No encontré «${query}». ¿Lo buscamos con otras palabras?`}</p>
         <button
           type="button"
           className="search-mochi-action tap"
-          onClick={() => (hint ? onOpenVertical(hint.vertical) : onRetry())}
+          onClick={() => (verticalName ? onOpenVertical(found.vertical) : onTryAnother())}
         >
-          {hint ? `Ver en ${hint.verticalName}` : 'Probar otra búsqueda'}
+          {verticalName ? `Ver en ${verticalName}` : 'Probar otra búsqueda'}
         </button>
       </div>
     </div>

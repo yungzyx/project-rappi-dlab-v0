@@ -383,11 +383,13 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
           <div className="bigotes-block">
             <SearchResults
               query={search.query}
-              results={search.results}
-              isEmpty={search.isEmpty}
-              onOpenStore={openStore}
+              data={search.data}
+              loading={search.loading}
+              error={search.error}
+              onRetry={search.retry}
+              onOpenProduct={openProduct}
               onOpenVertical={(vertical) => go(...routeForScreen(vertical))}
-              onRetry={() => {
+              onTryAnother={() => {
                 search.setQuery('')
                 inputRef.current?.focus()
               }}

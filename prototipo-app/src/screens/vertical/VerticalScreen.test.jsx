@@ -12,6 +12,7 @@ import { ProductSheetProvider } from '../../state/ProductSheetContext'
 import ProductSheet from '../../components/ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import StoreScreen from '../store/StoreScreen'
+import { VERTICALS } from './data'
 import VerticalScreen from './VerticalScreen'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
@@ -109,11 +110,26 @@ describe('catálogo real en la vertical', () => {
     expect(screen.queryByText('Bajaron de precio')).toBeNull()
   })
 
-  test('tocar una categoría abre el buscador con su nombre', async () => {
+  test('la categoría Beers and ciders busca «cerveza» en Licores (en «Rappi hoy», el buscador plano)', async () => {
+    stubVertical('liquor')
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
+    const push = renderVertical('liquor')
+    fireEvent.click(screen.getByText('Beers and ciders'))
+    expect(push).toHaveBeenCalledWith('search', { query: 'cerveza', vertical: 'liquor' })
+  })
+
+  test('en la Propuesta, la categoría abre el buscador con Mochi ya con «cerveza»', async () => {
     stubVertical('liquor')
     const push = renderVertical('liquor')
     fireEvent.click(screen.getByText('Beers and ciders'))
-    expect(push).toHaveBeenCalledWith('search', { query: 'Beers and ciders' })
+    expect(push).not.toHaveBeenCalled()
+    expect(window.history.state).toMatchObject({ assistant: true })
+  })
+
+  test('toda categoría de toda vertical trae una consulta en español', () => {
+    for (const [id, vertical] of Object.entries(VERTICALS))
+      for (const row of vertical.categoryRows.flat())
+        expect(row.query, `${id}: ${row.label}`).toMatch(/^[a-záéíóúñ ]+$/)
   })
 
   test('Ver más abre la lista con todas las tiendas y la tienda tocada lleva su id y su vertical', async () => {

@@ -12,7 +12,8 @@ const groupOf = (backendVertical, prototypeVertical, products) => ({
 })
 
 /**
- * Busca `q` en el catálogo: `{ groups: [{ vertical, backendVertical, products }], unmet, unmetReason }`.
+ * Busca `q` en el catálogo: `{ query, groups: [{ vertical, backendVertical, products }], unmet, unmetReason }`
+ * (`query`: lo que se buscó, para saber a qué texto pertenece una respuesta).
  * - Sin `vertical`, busca en las verticales que corresponden a la consulta (más `current`, la de la pantalla) y
  *   devuelve un grupo por vertical, en el orden de la API. `limit` es por grupo.
  * - Con `vertical` (id del prototipo o código del backend), busca solo ahí y devuelve un único grupo.
@@ -27,5 +28,5 @@ export async function searchAll(q, { vertical, current, limit } = {}) {
   const groups = response.groups
     ? response.groups.map((g) => groupOf(g.vertical, g.prototype_vertical, g.products))
     : [groupOf(response.vertical, null, response.products ?? [])]
-  return { groups, unmet: Boolean(response.unmet), unmetReason: response.unmet_reason ?? null }
+  return { query: q, groups, unmet: Boolean(response.unmet), unmetReason: response.unmet_reason ?? null }
 }

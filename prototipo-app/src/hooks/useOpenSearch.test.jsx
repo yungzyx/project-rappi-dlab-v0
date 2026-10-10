@@ -40,6 +40,19 @@ describe('useOpenSearch', () => {
     expect(result.current.assistant.session.vertical).toBeUndefined()
   })
 
+  test('con una consulta (una categoría), el buscador de Mochi arranca con ella', () => {
+    const { push, result } = setup('final')
+    act(() => result.current.open('liquor', 'cerveza'))
+    expect(push).not.toHaveBeenCalled()
+    expect(result.current.assistant.session).toMatchObject({ vertical: 'liquor', search: 'cerveza' })
+  })
+
+  test('con una consulta, en «Rappi hoy» el buscador plano la recibe con su vertical', () => {
+    const { push, result } = setup('actual')
+    act(() => result.current.open('liquor', 'cerveza'))
+    expect(push).toHaveBeenCalledWith('search', { vertical: 'liquor', query: 'cerveza' })
+  })
+
   test('en «Rappi hoy» abre el buscador plano', () => {
     const { push, result } = setup('actual')
     act(() => result.current.open('turbo'))
