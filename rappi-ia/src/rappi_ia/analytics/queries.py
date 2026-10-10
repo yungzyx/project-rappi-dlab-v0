@@ -381,7 +381,7 @@ def suggestions(conn: Connection, source: str = "synthetic") -> list[dict]:
     """Rendimiento de las sugerencias cruzadas del agente por concepto sugerido (al preguntarle y en "Para ti").
 
     Aceptada = el producto sugerido se agregó al carro; convertida = llegó a un pedido. El aviso sobre el carro no
-    entra: ahí "aceptar" es abrir el chat, otra cosa. El % de aceptación necesita 10 mostradas; con la fuente
+    entra: ahí "aceptar" es abrir al agente, otra cosa. El % de aceptación necesita 10 mostradas; con la fuente
     prototipo las filas aparecen desde la primera (una demo en vivo debe verse) y el % queda vacío hasta entonces.
     """
     _check(source)

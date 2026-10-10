@@ -82,7 +82,7 @@ Cada cifra dice qué tipo de dato es: real, evaluación automática, estimación
 | Capa de datos | Atributos, marcas y grafo | 83 atributos sobre 79.617 ítems · 6.359 marcas · 23.534 productos canónicos · 32.105 aristas en 12 relaciones | Real, con reglas propias; atributos 92 % y marcas 97 a 99 % de precisión estimada | `make layers`, 06-10-2026 |
 | Búsqueda | nDCG@10 | híbrido 0,917 · sin refuerzo por concepto 0,860 · vectorial 0,849 · léxico 0,776 | Evaluación automática | [reporte del 06-10](docs/resultados/busqueda-2026-10-06.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [reporte del 30-09](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests | scraper 144 · rappi-ia 1075 · prototipo 582 · panel 90 | Verificación local y CI | `make test` · `npm test` |
+| Calidad | Tests | scraper 144 · rappi-ia 1077 · prototipo 589 · panel 90 | Verificación local y CI | `make test` · `npm test` |
 
 ### Catálogo por vertical
 
