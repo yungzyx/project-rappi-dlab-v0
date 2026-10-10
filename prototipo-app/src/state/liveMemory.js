@@ -1,5 +1,6 @@
 // Memoria de Mochi en la Home del prototipo final mientras dura la sesión: lo que ya mostró y lo último que la persona
 // agregó al carro (Mochi lo comenta al volver). El pasaporte es el del juego de verticales (GameContext).
+import { resetQuiet } from './mochiQuiet'
 
 export const session = { played: false, lastAdded: null, newStamp: null, plan: null, planPrompted: false }
 
@@ -7,6 +8,9 @@ export const session = { played: false, lastAdded: null, newStamp: null, plan: n
 export function rememberAdded(product) {
   session.lastAdded = product
 }
+
+/** Evento de ventana con que se avisa a Mochi flotante que algo se agregó al carro (detalle: `{ product }`). */
+export const MOCHI_CART_EVENT = 'mochi-carrito'
 
 /** Evento de ventana con que el botón «Repetir escena» (fuera del teléfono) avisa a la Home. */
 export const REPLAY_EVENT = 'bigotes-vivo-repetir'
@@ -20,5 +24,6 @@ export function resetLive() {
     plan: null,
     planPrompted: false,
   })
+  resetQuiet()
   window.dispatchEvent(new Event(REPLAY_EVENT))
 }

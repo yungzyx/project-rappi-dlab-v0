@@ -1,19 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import BackButton from '../../components/BackButton'
 import Carousel, { Dots } from '../../components/Carousel'
 import HScroll from '../../components/HScroll'
 import { ProductCard } from '../../components/ProductCard'
-import ForYouRow from '../../components/assistant/ForYouRow'
-import { forVertical } from '../../assistant/brain'
-import { conceptOf } from '../../api/orders'
-import { firstShowing } from '../../api/useRemoteForYou'
 import { useToast } from '../../components/Toast'
 import { BoltIcon, ChevronDown, ClockIcon, CrownIcon, SearchIcon } from '../../components/Icons'
 import { useOpenSearch } from '../../hooks/useOpenSearch'
 import { useAddress } from '../../state/AddressContext'
-import { useDemo } from '../../state/DemoContext'
-import { useEvents } from '../../state/EventsContext'
-import { useProfile } from '../../state/ProfileContext'
 import { VERTICALS, toStore } from './data'
 import './vertical.css'
 
@@ -25,27 +18,8 @@ export default function VerticalScreen({ back, push, params }) {
   const toast = useToast()
   const address = useAddress()
   const openSearch = useOpenSearch(push)
-  const demo = useDemo()
-  const profile = useProfile()
-  const events = useEvents()
 
   const allProducts = sections.filter((s) => s.type === 'products').flatMap((s) => s.products)
-  const forYouRow = demo.isFinal
-    ? forVertical(params.id, profile, new Set(allProducts.map((item) => item.id)))
-    : null
-  // La fila es una sugerencia de Mochi: cuenta como mostrada una vez por pestaña, por concepto y vertical.
-  const pairs = (forYouRow?.products ?? []).map((item) => `${conceptOf(item)}|${item.vertical}`)
-  const shownPairs = [...new Set(pairs)].join(',')
-  useEffect(() => {
-    for (const pair of shownPairs ? shownPairs.split(',') : []) {
-      const [concept, verticalId] = pair.split('|')
-      if (firstShowing({ concept, vertical: verticalId, origin: 'vertical-para-ti', generation: profile.resets }))
-        events.track('suggestion_shown', {
-          concept_id: concept,
-          vertical: verticalId,
-          payload: { origen: 'vertical-para-ti' } })
-    }
-  }, [shownPairs, profile.resets, events])
   // Con la vertical de la pantalla (no `map(toStore)`: map le pasaría el índice como vertical).
   const asStore = (store) => toStore(store, params.id)
   const allStores = sections.filter((s) => s.type === 'stores').flatMap((s) => s.stores.map(asStore))
@@ -90,7 +64,6 @@ export default function VerticalScreen({ back, push, params }) {
         <CategoryGrid rows={vertical.categoryRows} scrollable={vertical.scrollCategories} onOpen={openCategory} />
       )}
 
-      {forYouRow && <ForYouRow title="Para ti, de otras tiendas" {...forYouRow} push={push} />}
 
       {vertical.banners && <BannerCarousel banners={vertical.banners} onOpen={openBanner} />}
 

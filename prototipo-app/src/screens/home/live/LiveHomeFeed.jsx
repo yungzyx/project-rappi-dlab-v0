@@ -15,8 +15,9 @@ import '../home.css'
 import LiveBigotes from './LiveBigotes'
 import { Passport, PlanBlock, STAMP_EMOJI, openItem } from './LiveBlocks'
 import { REPLAY_EVENT, session } from '../../../state/liveMemory'
+import { isHushed, isQuiet, noteDismissed } from '../../../state/mochiQuiet'
 import { DATA } from '../../../game/data.js'
-import { stampedVerticals } from '../../../game/progress.js'
+import { stampedVerticals, today } from '../../../game/progress.js'
 import { GAME_TO_SCREEN, NEVER_PUSHED, PASSPORT_GOAL } from '../../../game/verticals.js'
 import { useGame } from '../../../state/GameContext'
 import { PLANS, discoveryFor, planKit } from './script'
@@ -25,6 +26,9 @@ import './live.css'
 // Las secciones de la Home de hoy, con el pasaporte justo bajo los accesos. Mochi no sugiere productos aquí.
 const ORDER = ['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'lower']
 const T = { enter: 900, greet: 3400, greetHold: 6000, notice: 500 }
+// Silenciado por hoy (desde Mochi flotante) o callado porque lo ignoraron: no habla por su cuenta; si lo tocan, sí.
+const silent = () => isQuiet(today()) || isHushed()
+
 const GREETING = '¡Hola! Ahora vivo en tu Home 👋 Prueba verticales nuevas y junta sellos en tu pasaporte.'
 
 const ACTIONS_HOLD = 12000 // un globo con botones se va solo después de esto (no queda tapando la Home)
@@ -128,7 +132,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     later(reduceMotion ? 0 : T.enter, () => {
       setPresent(true)
       setEntering(true)
-      speak({ text: GREETING, mood: 'wave', gesture: 'greet' }, null, T.greetHold)
+      if (!silent()) speak({ text: GREETING, mood: 'wave', gesture: 'greet' }, null, T.greetHold)
     })
     later((reduceMotion ? 0 : T.enter) + T.greet, () => {
       setEntering(false)
@@ -145,7 +149,12 @@ export default function LiveHomeFeed({ push, active = true }) {
     if (!active || !session.played) return
     // Lo pendiente se borra de la sesión recién cuando Mochi habla: en desarrollo, StrictMode monta dos veces y la
     // primera vez se cancelan los timers.
-    if (session.newStamp) {
+    if (silent()) {
+      // En silencio el sello igual se marca en el pasaporte, sin globo.
+      session.newStamp = null
+      session.lastAdded = null
+      later(1800, () => setFreshStamp(null))
+    } else if (session.newStamp) {
       const name = VERTICAL_NAMES[session.newStamp]
       const left = Math.max(PASSPORT_GOAL - stamps.length, 0)
       later(T.notice, () => {
@@ -177,7 +186,13 @@ export default function LiveHomeFeed({ push, active = true }) {
               mood: 'wave',
               actions: [
                 { label: `Ver ${pairing.verticalName}`, onClick: () => visit(pairing.vertical) },
-                { label: 'Ahora no', onClick: () => speak(null) },
+                {
+                  label: 'Ahora no',
+                  onClick: () => {
+                    noteDismissed()
+                    speak(null)
+                  },
+                },
               ],
             },
             null,
@@ -196,7 +211,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     if (!element || typeof IntersectionObserver === 'undefined') return undefined
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting || session.planPrompted || !session.played) return
+        if (!entry.isIntersecting || session.planPrompted || !session.played || silent()) return
         session.planPrompted = true
         speak(
           {
@@ -282,7 +297,13 @@ export default function LiveHomeFeed({ push, active = true }) {
         actions: [
           { label: `Jugar ${name}`, onClick: () => push('game', { round: missing }) },
           { label: `Abrir ${name}`, onClick: () => visit(GAME_TO_SCREEN[missing]) },
-          { label: 'Después', onClick: () => speak(null) },
+          {
+            label: 'Después',
+            onClick: () => {
+              noteDismissed()
+              speak(null)
+            },
+          },
         ],
       },
       null,

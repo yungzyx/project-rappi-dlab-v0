@@ -34,9 +34,9 @@ Sin ese mapa de contenido no se puede:
 
 Detalle en [diseno-ia.md](diseno-ia.md#0-la-regla-que-ordena-todo).
 
-<img src="../prototipo-app/docs/screenshots/22-para-ti-vertical.jpg" alt="Prototipo: en Licores, la sección Para ti, de otras tiendas muestra productos del supermercado porque al usuario le gusta la cerveza" width="280">
+<img src="../prototipo-app/docs/screenshots/20-asistente.jpg" alt="Prototipo: el buscador con Mochi tras tocar «Arma un carrete» muestra cervezas y botillerías" width="280">
 
-*Prototipo en modo local (datos del prototipo, sin API): en Licores, "Para ti, de otras tiendas" sugiere productos del supermercado "porque te gusta la cerveza". Con la API, la fila se llena con productos reales de otro vertical.*
+*Prototipo en modo local (datos del prototipo, sin API): Mochi recomienda cuando se le pide. En el buscador con Mochi, «Arma un carrete» junta productos y tiendas para la ocasión; con la API, suma en un bloque aparte un complemento de otra tienda, marcado y con su razón.*
 
 ## 3. Preguntas que la base debe poder responder
 

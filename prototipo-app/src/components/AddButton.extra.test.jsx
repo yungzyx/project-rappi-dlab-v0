@@ -6,7 +6,7 @@ import { CartProvider } from '../state/CartContext'
 import { DemoProvider } from '../state/DemoContext'
 import { NudgeProvider, useNudge } from '../state/NudgeContext'
 import { ProfileProvider, useProfile } from '../state/ProfileContext'
-import { session } from '../state/liveMemory'
+import { MOCHI_CART_EVENT, session } from '../state/liveMemory'
 import AddButton from './AddButton'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
@@ -72,6 +72,26 @@ describe('AddButton (extra)', () => {
     fireEvent.click(screen.getByText('abrir chat'))
     add()
     expect(screen.getByLabelText('aviso').textContent).toBe('ninguno')
+  })
+
+  test('en el prototipo final, agregar avisa a Mochi', () => {
+    const heard = vi.fn()
+    window.addEventListener(MOCHI_CART_EVENT, heard)
+    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
+    add()
+    window.removeEventListener(MOCHI_CART_EVENT, heard)
+    expect(heard).toHaveBeenCalledTimes(1)
+    expect(heard.mock.calls[0][0].detail.product).toMatchObject({ id: heineken.id })
+  })
+
+  test('en «Rappi hoy» agregar no avisa a Mochi', () => {
+    localStorage.setItem('rappi-proto-demo-mode', 'actual')
+    const heard = vi.fn()
+    window.addEventListener(MOCHI_CART_EVENT, heard)
+    render(<><AddButton product={heineken} /><Probe /></>, { wrapper: Providers })
+    add()
+    window.removeEventListener(MOCHI_CART_EVENT, heard)
+    expect(heard).not.toHaveBeenCalled()
   })
 
   test('en «Rappi hoy» no hay aviso ni memoria de Mochi', () => {

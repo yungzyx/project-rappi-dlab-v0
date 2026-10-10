@@ -1,7 +1,7 @@
 import { cartEventFields, conceptOf } from '../api/orders'
 import { firstShowing } from '../api/useRemoteForYou'
 import { productTags } from '../assistant/tags'
-import { rememberAdded } from '../state/liveMemory'
+import { MOCHI_CART_EVENT, rememberAdded } from '../state/liveMemory'
 import { useCart } from '../state/CartContext'
 import { useEvents } from '../state/EventsContext'
 import { WEIGHTS, useProfile } from '../state/ProfileContext'
@@ -41,8 +41,12 @@ export function useAddToCart() {
         events.track('suggestion_shown', fields)
       events.track('suggestion_accepted', fields)
     }
-    // En el prototipo final no hay aviso: Mochi lo comenta al volver a la Home.
-    if (demo.isFinal) rememberAdded(item)
+    // En el prototipo final no hay aviso del carro: Mochi flotante lo confirma (con «Deshacer») y, si combina con
+    // algo de otra vertical, lo comenta al volver a la Home.
+    if (demo.isFinal) {
+      rememberAdded(item)
+      window.dispatchEvent(new CustomEvent(MOCHI_CART_EVENT, { detail: { product: item } }))
+    }
   }
 
   const remove = (item) => {

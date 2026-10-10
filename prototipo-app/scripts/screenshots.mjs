@@ -98,12 +98,6 @@ async function run(page) {
   await tap('[role="dialog"] .search-back')
   await wait(600)
 
-  await shortcut('Liquor')
-  await settle()
-  await center('.for-you')
-  await shot('22-para-ti-vertical')
-  await back()
-  await settle(400)
 
   // Juego de verticales: se entra desde el pasaporte de la Home.
   await center('.live-passport')

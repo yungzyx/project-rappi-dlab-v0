@@ -2,7 +2,6 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ToastProvider } from '../../components/Toast'
 import AssistantPanel from '../../components/assistant/AssistantPanel'
-import ForYouRow from '../../components/assistant/ForYouRow'
 import { REAL_DISHES } from '../../data/realMenus'
 import { AddressProvider } from '../../state/AddressContext'
 import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
@@ -144,18 +143,6 @@ describe('sucursales con el mismo nombre (menús reales)', () => {
     await openStore({ store: { name: 'Délice - Las Condes' } })
     expect(screen.getByText('Torta de Las Condes')).toBeTruthy()
     expect(screen.queryByText('El menú completo de esta tienda todavía no está en el prototipo.')).toBeNull()
-  })
-
-  test('un plato de la segunda sucursal tocado en «Para ti» abre esa sucursal', async () => {
-    const push = vi.fn()
-    const dish = REAL_DISHES.find((item) => item.name === 'Torta de Las Condes')
-    render(<ForYouRow title="Para ti" reason={null} products={[dish]} push={push} />, { wrapper: Providers })
-    fireEvent.click(screen.getByText('Torta de Las Condes'))
-    fireEvent.click(screen.getByRole('button', { name: /Ver tienda/ })) // la tarjeta abre la hoja del producto
-    await openPushed(push)
-
-    expect(screen.queryByText('Torta de Providencia')).toBeNull()
-    expect(visits()).toEqual([expect.objectContaining({ entity_id: 'real-2' })])
   })
 
   test('un plato de la segunda sucursal tocado en el chat (cerebro local) abre esa sucursal', async () => {

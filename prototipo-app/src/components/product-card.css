@@ -228,3 +228,25 @@
   font-size: 13.5px;
   white-space: nowrap;
 }
+
+/* Tras mantener presionado (prototipo final): preguntarle a Mochi por este producto */
+.product-ask {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(20, 10, 5, 0.25);
+}
+
+/* Solo en el prototipo final: mantener presionado pregunta a Mochi, no abre el menú de la imagen en iOS */
+.product-card-main.is-askable {
+  -webkit-touch-callout: none;
+}

@@ -198,40 +198,6 @@ export function forYou(profile) {
   }
 }
 
-// Temas propios de cada vertical: lo que se recomienda es su complemento, de otra vertical.
-const VERTICAL_TOPICS = {
-  grocery: ['fresco', 'carne'],
-  pharmacy: ['farmacia', 'bebe'],
-  retail: ['belleza'],
-  liquor: ['cerveza', 'licor'],
-  express: ['snack'],
-  pet: ['mascota'],
-  chocolates: ['dulce'],
-}
-
-/**
- * "Para ti, de otras tiendas" dentro de una vertical: parte del interés del usuario (o del tema de la
- * vertical si aún no hay perfil) y recomienda sus complementos, sin repetir los temas de esa vertical.
- */
-export function forVertical(verticalId, profile, excludeIds = new Set()) {
-  const own = VERTICAL_TOPICS[verticalId] ?? []
-  const [favorite] = profile.top
-  const source = favorite ?? own[0]
-  if (!source) return { products: [], reason: null }
-  // Complementos del interés y, de relleno, los de la propia vertical (sin repetir sus temas).
-  const tags = [...new Set([source, ...own].flatMap((tag) => COMPLEMENTS[tag] ?? []))].filter(
-    (tag) => !own.includes(tag),
-  )
-  const products = asSuggestion(
-    productsForTags(tags, 12)
-      .filter((product) => !excludeIds.has(product.id))
-      .slice(0, 8),
-    'vertical-para-ti',
-  )
-  const topic = `${TAGS[source].emoji} ${TAGS[source].label.toLowerCase()}`
-  return { products, reason: favorite ? `Porque te gusta ${topic}` : `Combina con ${topic}` }
-}
-
 export function greeting(profile) {
   const [first] = profile.top
   if (!first) return `¡Hola! Soy ${ASSISTANT_NAME}, tu asistente Rappi 🧡 ¿Qué se te antoja hoy?`

@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 import { DATA } from '../../../game/data.js'
 import { KEY } from '../../../game/storage.js'
 import { seed } from '../../../game/testSeed.js'
+import { today } from '../../../game/progress.js'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
 vi.mock('../../../state/EventsContext', async (importOriginal) => ({
@@ -182,6 +183,53 @@ describe('Home del prototipo final', () => {
     const { container } = renderHome()
     await advance(4000) // termina de escribir la celebración
     expect(container.querySelector('.live-bigotes .mochi').classList).toContain('mascot--jump')
+  })
+
+  describe('silenciado por hoy (desde Mochi flotante)', () => {
+    const quietToday = () => localStorage.setItem('rappi-proto-mochi-silencio', today())
+    const status = (container) => container.querySelector('.live-layer [role="status"]').textContent
+
+    test('al volver no comenta lo agregado', async () => {
+      quietToday()
+      memory.session.played = true
+      memory.session.lastAdded = { id: 'x', name: 'Cerveza Escudo Lata 470 cc', vertical: 'liquor', store: 'Botillería' }
+      const { container } = renderHome()
+      await advance(3000)
+      expect(status(container)).toBe('')
+    })
+
+    test('al volver no celebra el sello con un globo', async () => {
+      quietToday()
+      memory.session.played = true
+      memory.session.newStamp = 'liquor'
+      seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
+      const { container } = renderHome()
+      await advance(3000)
+      expect(status(container)).toBe('')
+    })
+
+    test('entra sin saludar, pero si lo tocan responde', async () => {
+      quietToday()
+      const { container } = renderHome()
+      await advance(900 + 3400)
+      expect(status(container)).toBe('')
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(3000)
+      expect(status(container)).toMatch(/^¿Y si pruebas/)
+    })
+  })
+
+  test('«Después» cuenta como ignorarlo: a la segunda, Mochi se calla', async () => {
+    const quiet = await import('../../../state/mochiQuiet')
+    renderHome()
+    await advance(900 + 3400 + 6000)
+    for (let i = 0; i < 2; i++) {
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(3000)
+      fireEvent.click(screen.getByRole('button', { name: 'Después' }))
+      await advance(500)
+    }
+    expect(quiet.isHushed()).toBe(true)
   })
 
   test('tocar a Mochi después del saludo propone una vertical que falta en el pasaporte', async () => {
