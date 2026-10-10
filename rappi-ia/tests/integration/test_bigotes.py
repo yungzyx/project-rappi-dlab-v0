@@ -426,11 +426,12 @@ def test_the_suggestion_reason_names_what_the_answer_shows_and_symptoms_get_none
     assert "suggestion" not in sick and sick["reason"] is None
 
 
-def test_age_notice_covers_the_cross_suggestion(bigotes):
+def test_the_pizza_answer_has_no_cross_suggestion_of_alcohol_and_so_no_age_notice(bigotes):
+    """Antes la pizza sugería cerveza y la nota +18 cubría esa sugerencia. El alcohol ya no es un complemento
+    (offers/guards.py, que manda sobre docs/diseno-ia.md regla 6b): la pizza no trae cerveza ni nota +18."""
     agent, db = bigotes
     r = agent.reply(db, "pizza", Context(vertical="restaurantes"))
-    assert r["suggestion"]["concept"] == "cerveza"
-    assert r["age_notice"] and "mayores de 18" in r["text"]
+    assert r["products"] and "suggestion" not in r and not r["age_notice"]
 
 
 def test_unmet_is_recorded_even_with_a_price_cap(bigotes):
@@ -533,28 +534,33 @@ def test_a_trip_opens_rappitravel_and_suggests_something_for_it(bigotes):
     """RappiTravel no tiene catálogo: Bigotes lleva a su pantalla y suma un gancho del catálogo para el viaje."""
     agent, db = bigotes
     add_store(db, 11, "farmacia", "Farmacia")
+    add_store(db, 12, "mall", "Tienda")
     add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
     add_price(db, 11, 900, 15990)
+    add_product(db, 901, "Bikini triángulo dos piezas", 12, "Bikinis")
+    add_price(db, 12, 901, 12990)
     db.commit()
     build_search_documents(db)
     build_concepts(db)
     embed_search_documents(db, agent.embedder)
 
+    # El protector solar es de farmacia y del grupo salud: Mochi no lo propone, aunque «playa» lo enganche primero.
     r = agent.reply(db, "me voy de vacaciones a la playa", Context())
     assert r["intent"]["kind"] == "servicio" and r["service"] == "rappitravel"
     assert r["actions"] == [{"label": "Abrir RappiTravel", "route": ["travel"], "service": "rappitravel"}]
     assert "RappiTravel" in r["text"] and not r["products"]
-    assert r["suggestion"]["concept"] == "dermocosmetica" and r["suggestion"]["reason"] == "Para tu viaje ✈️"
-    assert [p["entity_id"] for p in r["suggestion"]["products"]] == ["900"]
+    assert r["suggestion"]["concept"] == "ropa" and r["suggestion"]["reason"] == "Para tu viaje ✈️"
+    assert [p["entity_id"] for p in r["suggestion"]["products"]] == ["901"]
     # Una sola sugerencia por tema en la sesión: si ya se mostró, se pasa al siguiente gancho (o a ninguno).
-    again = agent.reply(db, "me voy de vacaciones", Context(shown_topics=["dermocosmetica"]))
-    assert again.get("suggestion", {}).get("concept") != "dermocosmetica"
+    again = agent.reply(db, "me voy de vacaciones a la playa", Context(shown_topics=["ropa"]))
+    assert again.get("suggestion", {}).get("concept") != "ropa"
     # En «Rappi hoy» no hay ganchos.
     assert "suggestion" not in agent.reply(db, "me voy de vacaciones", Context(mode="actual"))
 
 
 def test_the_trip_hook_depends_on_where_you_go(bigotes):
-    """«playa» engancha protector solar; «nieve», una chaqueta; un viaje sin contexto, una mochila de viaje."""
+    """«playa» engancha un traje de baño (no el protector solar: es de farmacia y salud); «nieve», una chaqueta; un
+    viaje sin contexto, una mochila de viaje."""
     agent, db = bigotes
     add_store(db, 11, "farmacia", "Farmacia")
     add_store(db, 12, "mall", "Tienda")
@@ -562,6 +568,7 @@ def test_the_trip_hook_depends_on_where_you_go(bigotes):
         (900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales"),
         (901, "Chaqueta acolchada impermeable hombre", 12, "Abrigos, Chamarras, Chalecos"),
         (902, "Mochila de viaje 40 litros", 12, "Maletas de viaje"),
+        (903, "Bikini triángulo dos piezas", 12, "Bikinis"),
     ]:
         add_product(db, pid, name, store, category)
         add_price(db, store, pid, 19990)
@@ -569,10 +576,17 @@ def test_the_trip_hook_depends_on_where_you_go(bigotes):
     build_search_documents(db)
     build_concepts(db)
     embed_search_documents(db, agent.embedder)
-    hook = lambda text: [p["entity_id"] for p in agent.reply(db, text, Context())["suggestion"]["products"]]  # noqa: E731
-    assert hook("me voy de vacaciones a la playa") == ["900"]
-    assert hook("me voy de viaje a la nieve") == ["901"]
-    assert hook("busco un hotel en puerto varas") == ["902"]
+
+    def hook(text):
+        suggestion = agent.reply(db, text, Context())["suggestion"]
+        return suggestion["question"], [p["entity_id"] for p in suggestion["products"]]
+
+    # Traje de baño y chaqueta son ropa: la búsqueda del gancho trae las dos; la pregunta dice cuál gancho fue.
+    question, ids = hook("me voy de vacaciones a la playa")
+    assert question == "¿Te falta traje de baño? 👙" and "903" in ids and "900" not in ids
+    question, ids = hook("me voy de viaje a la nieve")
+    assert question == "¿Te falta una chaqueta para el frío? 🧥" and "901" in ids
+    assert hook("busco un hotel en puerto varas") == ("¿Te falta una mochila de viaje? 🎒", ["902"])
 
 
 def test_a_gift_can_be_sent_with_rappifavor(bigotes):
@@ -997,8 +1011,11 @@ def test_packaged_sweets_are_not_offered_from_restaurants(bigotes):
 def trip(bigotes):
     agent, db = bigotes
     add_store(db, 11, "farmacia", "Farmacia")
+    add_store(db, 12, "mall", "Tienda")
     add_product(db, 900, "Protector solar Eucerin FPS 50 50 ml", 11, "Protectores solares faciales")
     add_price(db, 11, 900, 15990)
+    add_product(db, 901, "Bikini triángulo dos piezas", 12, "Bikinis")
+    add_price(db, 12, 901, 12990)
     db.commit()
     build_search_documents(db)
     build_concepts(db)
@@ -1007,15 +1024,16 @@ def trip(bigotes):
 
 
 def test_the_beach_hook_respects_rappi_hoy_and_topics_already_shown(trip):
-    """Con «playa» el gancho de protector solar SÍ aplica: así «Rappi hoy» y shown_topics se prueban de verdad."""
+    """Con «playa» el gancho del traje de baño SÍ aplica (el del protector solar no: es de farmacia y salud): así
+    «Rappi hoy» y shown_topics se prueban de verdad."""
     agent, db = trip
     beach = "me voy de vacaciones a la playa"
     r = agent.reply(db, beach, Context())
-    assert r["suggestion"]["question"] == "¿Llevas protector solar? 🧴"
+    assert r["suggestion"]["question"] == "¿Te falta traje de baño? 👙"
     assert r["reason"] == r["suggestion"]["reason"] == "Para tu viaje ✈️"
     assert "suggestion" not in agent.reply(db, beach, Context(mode="actual"))
-    again = agent.reply(db, beach, Context(shown_topics=["dermocosmetica"]))
-    assert again.get("suggestion", {}).get("concept") != "dermocosmetica"
+    again = agent.reply(db, beach, Context(shown_topics=["ropa"]))
+    assert again.get("suggestion", {}).get("concept") != "ropa"
 
 
 @pytest.fixture

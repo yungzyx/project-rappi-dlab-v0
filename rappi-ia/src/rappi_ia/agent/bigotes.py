@@ -6,7 +6,8 @@ Reglas de conducta (docs/diseno-ia.md §4) que se aplican aquí, en código:
 3. Máximo 1 sugerencia cruzada por respuesta y 1 por tema por sesión. → `shown_topics`
 4. Si no encuentra, lo dice y lo marca como demanda no satisfecha.    → `unmet`
 5. Si es ambiguo entre verticales, pregunta.                          → intent "aclarar"
-6. Sensibles: nunca por iniciativa propia; +18 y farmacia con aviso.  → tools + avisos
+6. Sensibles, alcohol, farmacia, bebé y salud: nunca por iniciativa propia ni como complemento
+   (offers/guards.py); si se piden, +18 y farmacia con aviso.         → tools + avisos
 7. En modo "Rappi hoy" no hay sugerencias cruzadas ni aprendizaje.
 """
 
@@ -17,6 +18,7 @@ from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
+from ..offers.guards import is_offerable, offerable_vertical
 from ..text import normalize, tokens
 from .compose import AGE_NOTICE, Draft, TemplateComposer, notices
 from .tools import (
@@ -262,10 +264,10 @@ class Bigotes:
         # Primero los ganchos del contexto que se nombró («playa», «nieve»); los demás solo si no tienen contexto.
         in_context = [h for h in service.hooks if any(f" {normalize(w)} " in said for w in h.when)]
         for hook in in_context + [h for h in service.hooks if not h.when]:
-            if hook.concept in ctx.shown_topics:
+            if hook.concept in ctx.shown_topics or not is_offerable(self.taxonomy.concepts[hook.concept]):
                 continue
-            for vertical in ranked_verticals(conn, [hook.concept])[:2]:
-                outcome = search_products(conn, vertical, hook.query, [hook.concept], self.embedder, k=4)
+            for vertical in [v for v in ranked_verticals(conn, [hook.concept]) if offerable_vertical(v)][:2]:
+                outcome = search_products(conn, vertical, hook.query, [hook.concept], self.embedder, k=4, offer=True)
                 products = [p for p in outcome.products if p.concept == hook.concept][:3]
                 if products:
                     suggestion = Suggestion(hook.concept, service.id, vertical, service.reason, products)
