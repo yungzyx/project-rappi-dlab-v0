@@ -298,7 +298,8 @@ describe('visita a una tienda (embudo del panel)', () => {
     stubCatalog()
     const item = toPrototypeProduct(fixture('catalog-product'))
     openStore({ store: GROCERY, item })
-    await screen.findByRole('navigation', { name: 'Pasillos' })
+    // view_store y view_item salen del mismo efecto, que corre después de pintar.
+    await waitFor(() => expect(tracked('view_store')).toHaveLength(1))
     expect(tracked('view_item')).toEqual([
       expect.objectContaining({
         vertical: 'grocery',
@@ -313,7 +314,7 @@ describe('visita a una tienda (embudo del panel)', () => {
   test('abrirla sin tocar un producto no es ver un producto', async () => {
     stubCatalog()
     openStore({ store: GROCERY })
-    await screen.findByRole('navigation', { name: 'Pasillos' })
+    await waitFor(() => expect(tracked('view_store')).toHaveLength(1))
     expect(tracked('view_item')).toEqual([])
   })
 })
