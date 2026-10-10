@@ -1,0 +1,51 @@
+{
+  "actions": [
+    {
+      "label": "Abrir Express",
+      "route": [
+        "express"
+      ]
+    }
+  ],
+  "moment": "vertical_por_probar",
+  "products": [
+    {
+      "age_restricted": false,
+      "before": "$1.890",
+      "concept": "chocolates",
+      "discount": "-21%",
+      "entity_id": "92002",
+      "entity_type": "catalog_item",
+      "id": "cat-92002",
+      "img": "https://imagenes.prueba.invalid/productos/92002.png",
+      "name": "Chocolate con leche 100 g (prueba)",
+      "presentation": "100 g",
+      "price": "$1.490",
+      "price_value": 1490.0,
+      "store": "Tienda express de prueba Centro",
+      "store_id": 9201,
+      "vertical": "conveniencia"
+    },
+    {
+      "age_restricted": false,
+      "before": "$1.990",
+      "concept": "energizantes",
+      "discount": "-20%",
+      "entity_id": "92004",
+      "entity_type": "catalog_item",
+      "id": "cat-92004",
+      "img": "https://imagenes.prueba.invalid/productos/92004.png",
+      "name": "Bebida energética 250 cc (prueba)",
+      "presentation": "250 cc",
+      "price": "$1.590",
+      "price_value": 1590.0,
+      "store": "Tienda express de prueba Centro",
+      "store_id": 9201,
+      "vertical": "conveniencia"
+    }
+  ],
+  "prototype_vertical": "express",
+  "reason": {},
+  "text": "Aún no pruebas Express: mira estas ofertas.",
+  "vertical": "conveniencia"
+}

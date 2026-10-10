@@ -52,6 +52,53 @@ CONTRACT: tuple[Example, ...] = (
     Example("catalog-home", "GET", "/catalog/home"),
     Example("search-grouped", "GET", "/search?q=cerveza"),
     Example("search-grouped-unmet", "GET", "/search?q=xyzzy"),
+    Example("mochi-plans", "GET", "/mochi/plans"),
+    Example("mochi-plan", "POST", "/mochi/offer", {"moment": "plan", "context": {"occasion": "carrete"}}),
+    Example(
+        "mochi-carrito",
+        "POST",
+        "/mochi/offer",
+        {"moment": "carrito", "context": {"product": {"entity_type": "catalog_item", "entity_id": "94001"}}},
+    ),
+    Example(
+        "mochi-carrito-nada",
+        "POST",
+        "/mochi/offer",
+        {"moment": "carrito", "context": {"product": {"entity_type": "catalog_item", "entity_id": "91007"}}},
+        status=204,
+    ),
+    Example(
+        "mochi-checkout",
+        "POST",
+        "/mochi/offer",
+        {
+            "moment": "checkout",
+            "context": {
+                "cart": [
+                    {"entity_type": "catalog_item", "entity_id": "94005"},
+                    {"entity_type": "catalog_item", "entity_id": "91003"},
+                ]
+            },
+        },
+    ),
+    Example(
+        "mochi-sin-resultado",
+        "POST",
+        "/mochi/offer",
+        {"moment": "sin_resultado", "context": {"query": "pizza hawaiana"}},
+    ),
+    Example(
+        "mochi-proximo-pedido",
+        "POST",
+        "/mochi/offer",
+        {"moment": "proximo_pedido", "context": {"items": [{"entity_type": "menu_item", "entity_id": "98001"}]}},
+    ),
+    Example(
+        "mochi-vertical-por-probar",
+        "POST",
+        "/mochi/offer",
+        {"moment": "vertical_por_probar", "context": {"stamped": ["supermercado"]}},
+    ),
 )
 
 

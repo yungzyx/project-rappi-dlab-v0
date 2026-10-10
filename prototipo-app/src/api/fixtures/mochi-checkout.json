@@ -1,0 +1,38 @@
+{
+  "actions": [
+    {
+      "label": "Ver hielo",
+      "query": "hielo",
+      "route": [
+        "turbo"
+      ]
+    }
+  ],
+  "moment": "checkout",
+  "products": [
+    {
+      "age_restricted": false,
+      "before": null,
+      "concept": "hielo",
+      "discount": null,
+      "entity_id": "93002",
+      "entity_type": "catalog_item",
+      "id": "cat-93002",
+      "img": "https://imagenes.prueba.invalid/productos/93002.png",
+      "name": "Hielo en cubos 2 kg (prueba)",
+      "presentation": "2 kg",
+      "price": "$1.490",
+      "price_value": 1490.0,
+      "store": "Tienda turbo de prueba Centro",
+      "store_id": 9301,
+      "vertical": "turbo"
+    }
+  ],
+  "prototype_vertical": "turbo",
+  "reason": {
+    "concept": "hielo",
+    "from_concept": "pisco"
+  },
+  "text": "Antes de pagar: hielo, en Turbo. Combina con lo que llevas.",
+  "vertical": "turbo"
+}

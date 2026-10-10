@@ -95,7 +95,9 @@ class Bigotes:
             c.id: {normalize(kw) for kw in (*c.keywords, *c.query_keywords)} for c in self.taxonomy.concepts.values()
         }
 
-    def reply(self, conn: Connection, message: str, ctx: Context | None = None) -> dict:
+    def reply(self, conn: Connection, message: str, ctx: Context | None = None, offer: bool = False) -> dict:
+        """Con `offer`, la respuesta es algo que Mochi propone sin que se lo pidan (el «Como te gusta…» de «qué me
+        recomiendas»): sus productos pasan por las guardias de offers/guards.py (`search_products(..., offer=True)`)."""
         ctx = ctx or Context()
         intent = self.understander.understand(conn, message, ctx.vertical, previous=ctx.previous)
         if intent.kind == "recomendar":  # «qué me recomiendas»: lo que le gusta; sin perfil, ejemplos
@@ -103,7 +105,7 @@ class Bigotes:
             if interest is None:
                 return self._small_talk(replace(intent, kind="ayuda"), ctx)
             concept = self.taxonomy.concepts[interest]
-            response = self.reply(conn, concept.name, ctx)
+            response = self.reply(conn, concept.name, ctx, offer=True)
             response["text"] = f"Como te gusta {concept.label.lower()} 😉 " + response["text"]
             return response
         if intent.kind in (
@@ -159,6 +161,7 @@ class Bigotes:
                 intent.price_max,
                 k=CHEAP_POOL if intent.cheapest or intent.priciest or intent.exclude_previous or avoided else 6,
                 symptom=intent.symptom,
+                offer=offer,
             )
         products = outcome.products
         # «algo más sano» se entiende como ensaladas, pero esas palabras no están en los productos: si nada de lo
@@ -170,7 +173,9 @@ class Bigotes:
         if intent.explicit_concepts and not intent.symptom and (few or not on_topic):
             concept = self.taxonomy.concepts.get(intent.concepts[0])
             retry = (
-                search_products(conn, vertical, concept.name, intent.concepts, self.embedder, intent.price_max, k=6)
+                search_products(
+                    conn, vertical, concept.name, intent.concepts, self.embedder, intent.price_max, k=6, offer=offer
+                )
                 if concept
                 else None
             )
@@ -187,7 +192,7 @@ class Bigotes:
         detail = self._detail(intent) if intent.explicit_concepts and not intent.symptom and products else None
         if detail:
             says = [p for p in products if _names(p.name, detail[0], detail[2])]
-            found = self._with_detail(conn, intent, vertical, detail) if len(says[:6]) < MIN_SHOWN else None
+            found = self._with_detail(conn, intent, vertical, detail, offer) if len(says[:6]) < MIN_SHOWN else None
             if found and found[0] != vertical and not says:
                 missing = missing or (vertical, detail[1], 0)
                 vertical, outcome, says = found
@@ -475,7 +480,9 @@ class Bigotes:
                 return stem, f"sin {label}" if free_from else label, free_from
         return None
 
-    def _with_detail(self, conn: Connection, intent: Intent, vertical: str, detail: tuple[str, str, bool]):
+    def _with_detail(
+        self, conn: Connection, intent: Intent, vertical: str, detail: tuple[str, str, bool], offer: bool = False
+    ):
         """(vertical, resultado, productos) del concepto que dicen el detalle en el nombre: entre más candidatos de
         esta vertical y, si no se nombró una, en las que más productos del concepto lo dicen. None si no hay."""
         stem, _, free_from = detail
@@ -502,6 +509,7 @@ class Bigotes:
                 self.embedder,
                 intent.price_max,
                 CHEAP_POOL,
+                offer=offer,
             )
             products = [p for p in outcome.products if p.concept in intent.concepts and _names(p.name, stem, free_from)]
             products = products[:6]

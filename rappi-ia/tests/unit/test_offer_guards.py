@@ -4,9 +4,12 @@ from rappi_ia.catalog.stores import NOT_PUSHED_SUBVERTICALS
 from rappi_ia.concepts.taxonomy import load_taxonomy
 from rappi_ia.demo.seed import DEMO_VERTICALS
 from rappi_ia.offers.guards import (
+    NOT_PLANNABLE_OCCASIONS,
     OFFER_BLOCKED_VERTICALS,
     is_offerable,
+    is_plannable,
     offerable_vertical,
+    plannable_occasion,
     unofferable_subverticals,
 )
 
@@ -56,3 +59,18 @@ def test_stores_labelled_pharmacy_sex_shop_or_smoking_shop_are_the_ones_stage_2_
     # Se reutiliza la lista de catalog/stores.py: no hay otra copia que se pueda desalinear.
     assert unofferable_subverticals() == list(NOT_PUSHED_SUBVERTICALS)
     assert {"Farmacia", "Sex shop", "Smoking shop"} <= set(unofferable_subverticals())
+
+
+def test_a_chosen_occasions_kit_may_have_alcohol_but_never_sensitive_baby_or_health():
+    for concept_id in ("cerveza", "vino", "pisco", "pizza", "hielo"):
+        assert is_plannable(concept(concept_id)), concept_id
+    for concept_id in ("panales", "medicamentos", "vitaminas", "bienestar-sexual", "alimentacion-bebe"):
+        assert not is_plannable(concept(concept_id)), concept_id
+    taxonomy = load_taxonomy()
+    assert all(is_plannable(c) for c in taxonomy.concepts.values() if c.age_restricted and not c.sensitive)
+
+
+def test_baby_and_sick_occasions_are_not_planned():
+    taxonomy = load_taxonomy()
+    assert NOT_PLANNABLE_OCCASIONS == ("guagua", "enfermo")
+    assert {o.id for o in taxonomy.occasions.values() if not plannable_occasion(o)} == {"guagua", "enfermo"}

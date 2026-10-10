@@ -1132,6 +1132,31 @@ def test_a_recommendation_never_pushes_alcohol_baby_or_health_interests(bigotes)
     assert r["text"].startswith("Como te gusta 🥨 snacks salados") and "cerveza" not in r["text"].lower()
 
 
+def test_a_recommendation_is_an_offer_so_it_skips_blocked_stores_and_adult_products(bigotes):
+    """«Como te gusta…» lo propone Mochi sin que se lo pidan: no trae un producto que solo vende una tienda que Rappi
+    rotula Smoking shop, ni uno +18 bajo un concepto corriente (a quien lo pide por su nombre sí se le muestra)."""
+    agent, db = bigotes
+    add_store(db, 4, "mall", "Smoking shop del mall")
+    db.execute("UPDATE store_verticals SET subvertical = 'Smoking shop' WHERE store_id = 4")
+    add_store(db, 5, "supermercado", "Súper nocturno")
+    add_product(db, 110, "Papas fritas Pringles Original 124 g", 4, "Snacks salados")
+    add_price(db, 4, 110, 990)
+    add_product(db, 111, "Papas fritas Doritos Queso 150 g", 5, "Snacks salados")
+    add_price(db, 5, 111, 1190)
+    db.execute("UPDATE catalog_items SET age_restricted = true WHERE master_product_id = 111")
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    asked = {p["entity_id"] for p in agent.reply(db, "snacks salados", Context())["products"]}
+    liked = agent.reply(db, "qué me recomiendas", Context(profile={"snacks-salados": 3.0}))
+
+    assert {"110", "111"} & asked  # pedidos por su nombre, se encuentran
+    assert liked["text"].startswith("Como te gusta 🥨 snacks salados") and liked["products"]
+    assert not {"110", "111"} & {p["entity_id"] for p in liked["products"]}
+
+
 def test_a_conversation_follows_the_previous_request(bigotes):
     """Ronda 4: «más barata» o «de otra marca» después de «cerveza» olvidaban la cerveza y traían cualquier cosa."""
     agent, db = bigotes

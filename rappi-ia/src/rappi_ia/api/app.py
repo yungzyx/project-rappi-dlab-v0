@@ -18,7 +18,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from psycopg import Connection, DataError, OperationalError
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator
 
 from .. import config
 from ..agent.bigotes import PROTOTYPE_VERTICALS, Context
@@ -29,7 +29,8 @@ from ..concepts.taxonomy import load_taxonomy
 from ..events import store as events
 from ..retrieval.hybrid import MODES
 from .catalog import router as catalog_router
-from .deps import backend_vertical, get_conn
+from .deps import Clean, backend_vertical, get_conn, get_services
+from .mochi import router as mochi_router
 from .services import Services, services
 
 log = logging.getLogger(__name__)
@@ -102,32 +103,6 @@ MAX_IMAGE_PIXELS = 40_000_000  # evita "bombas" de descompresión (un PNG de 17 
 IMAGE_FORMATS = ["JPEG", "PNG", "WEBP"]  # nunca EPS/PS (Pillow llamaría a Ghostscript)
 AUDIO_TYPES = ("audio/", "video/webm", "video/mp4")
 MODES_LITERAL = ("propuesta", "actual")
-
-
-def get_services() -> Services:
-    return services()
-
-
-def _no_nul(value):
-    """Postgres no acepta \x00 en texto ni en JSON, ni UTF-8 inválido (un surrogate suelto): se limpia en vez de
-    devolver un 500."""
-    if isinstance(value, str):
-        return value.replace("\x00", "").encode("utf-8", "replace").decode("utf-8")
-    if isinstance(value, dict):
-        return {_no_nul(k): _no_nul(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_no_nul(v) for v in value]
-    return value
-
-
-class Clean(BaseModel):
-    @model_validator(mode="before")
-    @classmethod
-    def strip_nul(cls, data):
-        try:
-            return _no_nul(data)
-        except RecursionError as exc:  # JSON anidado miles de niveles
-            raise ValueError("JSON demasiado anidado") from exc
 
 
 # ── Modelos ──────────────────────────────────────────────────────────────────
@@ -582,3 +557,4 @@ def _check_audio_length(data: bytes) -> None:
 
 
 app.include_router(catalog_router)
+app.include_router(mochi_router)

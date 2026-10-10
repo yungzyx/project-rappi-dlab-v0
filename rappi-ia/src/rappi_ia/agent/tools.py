@@ -102,11 +102,13 @@ def search_products(
     mode: str = "hibrido",
     symptom: bool = False,
     offer: bool = False,
+    adult_ok: bool = False,
 ) -> SearchOutcome:
     """Con `concepts=None`, los conceptos los detecta la búsqueda en la consulta (endpoint /search). Con `symptom` (o
     en farmacia) no se muestra lo que no tiene concepto: podría ser un medicamento sin categoría mapeada. Con `offer`,
     la búsqueda es de una oferta de Mochi y solo trae lo que puede proponer por su cuenta: nada +18 ni de tiendas
-    Farmacia, Sex shop o Smoking shop (offers/guards.py); el concepto y la vertical los elige quien llama."""
+    Farmacia, Sex shop o Smoking shop (offers/guards.py); el concepto y la vertical los elige quien llama. `adult_ok`
+    deja pasar lo +18 en una oferta: solo para el kit de una ocasión que la persona eligió (alcohol con su marca)."""
     result = retrieve(
         conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), mode=mode, concepts=concepts
     )
@@ -114,13 +116,13 @@ def search_products(
     capped = price_max is not None
     strict = symptom or vertical == "farmacia"
     hits = _focus([h for h in result.hits if _allowed(h.concept_id, concepts, strict)], concepts, result.unmet, capped)
-    products = _dedupe(_within_budget(_with_prices(conn, vertical, hits, offer), price_max))[:k]
+    products = _dedupe(_within_budget(_with_prices(conn, vertical, hits, offer, adult_ok), price_max))[:k]
     cheapest = None
     if not products and capped:
         unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, mode=mode, concepts=concepts)
         allowed = [h for h in unfiltered.hits if _allowed(h.concept_id, concepts, strict)]
         # «El más barato» es de lo pedido: el mismo foco que con tope.
-        candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet, capped), offer)
+        candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet, capped), offer, adult_ok)
         priced = [p for p in candidates if p.price_value is not None]
         cheapest = min(priced, key=lambda p: p.price_value) if priced else None
     return SearchOutcome(result, products, cheapest)
@@ -273,7 +275,7 @@ _OFFER_STORES = """
                                      WHERE own.store_id = l.store_id AND own.subvertical = ANY(%(blocked)s))"""
 
 
-def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False) -> list[Product]:
+def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adult_ok: bool = False) -> list[Product]:
     catalog_ids = [h.entity_id for h in hits if h.entity_type == "catalog_item"]
     menu_ids = [h.entity_id for h in hits if h.entity_type == "menu_item"]
     prices: dict[tuple[str, str], tuple] = {}
@@ -334,7 +336,7 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False) -> 
         if found is None:  # sin precio vigente en el vertical (agotado o sin stock): no se ofrece
             continue
         name, price, real, store, age, store_id, presentation = found
-        if offer and age:  # +18 aunque su concepto sea corriente: el catálogo lo marca
+        if offer and age and not adult_ok:  # +18 aunque su concepto sea corriente: el catálogo lo marca
             continue
         concept = taxonomy.concepts.get(hit.concept_id) if hit.concept_id else None
         prefix = "cat" if hit.entity_type == "catalog_item" else "menu"

@@ -10,21 +10,38 @@ Una oferta es todo lo que Mochi muestra sin que se lo hayan pedido: la sugerenci
   shop (aunque esté en otra vertical).
 
 Quien lo pide por su nombre (una búsqueda, una pregunta al chat) sí lo recibe: las guardias son de lo que se ofrece, no
-de lo que se encuentra. Esto reemplaza a docs/diseno-ia.md regla 6b, que permitía el alcohol como complemento con +18.
+de lo que se encuentra. La única excepción es el kit de una ocasión que la persona eligió (`plan` de /mochi/offer):
+puede traer el alcohol de esa ocasión, con su marca +18 (`is_plannable`), pero nunca lo sensible, farmacia, bebé
+ni salud.
+Esto reemplaza a docs/diseno-ia.md regla 6b, que permitía el alcohol como complemento con +18.
 Las reglas viven solo aquí; las consultas de productos las aplican con `search_products(..., offer=True)`.
 """
 
-from ..concepts.taxonomy import Concept
+from ..concepts.taxonomy import Concept, Occasion, load_taxonomy
 
 OFFER_BLOCKED_GROUPS = ("bebe", "salud")  # grupos de taxonomy.toml; el alcohol y el tabaco se bloquean por sus marcas
 # Parecida a catalog.stores.NOT_PUSHED_VERTICALS (lo que la Home no empuja), pero con otro motivo y otra lista.
 OFFER_BLOCKED_VERTICALS = ("farmacia", "licores")
+NOT_PLANNABLE_OCCASIONS = ("guagua", "enfermo")  # bebé y salud: ni siquiera como kit que la persona pide
+
+
+def is_plannable(concept: Concept) -> bool:
+    """Si el concepto puede ir en el kit de una ocasión que la persona eligió: todo menos lo sensible, bebé y salud (el
+    alcohol sí, con su marca +18)."""
+    group = concept.parent or concept.id
+    return not (concept.sensitive or group in OFFER_BLOCKED_GROUPS)
 
 
 def is_offerable(concept: Concept) -> bool:
     """Si Mochi puede proponer este concepto por su cuenta."""
-    group = concept.parent or concept.id
-    return not (concept.sensitive or concept.age_restricted or group in OFFER_BLOCKED_GROUPS)
+    return is_plannable(concept) and not concept.age_restricted
+
+
+def plannable_occasion(occasion: Occasion) -> bool:
+    """Si Mochi arma el kit de esta ocasión (y la lista en la Home): no las de bebé ni salud, ni una sin concepto
+    que pueda ir en el kit."""
+    concepts = load_taxonomy().concepts
+    return occasion.id not in NOT_PLANNABLE_OCCASIONS and any(is_plannable(concepts[c]) for c in occasion.concepts)
 
 
 def offerable_vertical(vertical: str) -> bool:
