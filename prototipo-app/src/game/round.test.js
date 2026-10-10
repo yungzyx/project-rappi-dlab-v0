@@ -1,55 +1,45 @@
 import { describe, expect, test } from 'vitest'
-import { DATA, conceptsOf } from './data.js'
+import { cardsOf, datosOf, preguntasOf } from './knowledge.js'
 import { initialState } from './progress.js'
 import { ROUND_SIZE, makeRound, roundStars } from './round.js'
+import { PASSPORT_ORDER } from './verticals.js'
 
-const kinds = (round) => round.map((s) => s.type)
+const types = (round) => round.map((s) => s.type)
+const ids = (round) => round.map((s) => s.card?.id ?? s.challenge.id)
 
 describe('ronda', () => {
-  test('con conceptos por descubrir mezcla 2 descubrimientos y 3 desafíos', () => {
-    const round = makeRound(initialState(), 'supermercado')
+  test('trae 2 datos, 2 preguntas de conocimiento y 1 desafío del catálogo, sin repetir', () => {
+    const round = makeRound(initialState(), 'chocolateria')
     expect(round).toHaveLength(ROUND_SIZE)
-    expect(kinds(round)).toEqual(['descubrir', 'desafio', 'descubrir', 'desafio', 'desafio'])
-    const [first, second] = conceptsOf('supermercado')
-    expect(round[0].concept.id).toBe(first.id)
-    expect(round[2].concept.id).toBe(second.id)
+    expect(types(round)).toEqual(['dato', 'pregunta', 'dato', 'desafio', 'pregunta'])
+    expect(new Set(ids(round)).size).toBe(ROUND_SIZE)
+    expect(round[1].challenge.kind).toBe('conocimiento')
+    expect(round[3].challenge.kind).not.toBe('conocimiento')
   })
 
-  test('descubre los que faltan, en orden', () => {
-    const v = 'chocolateria'
-    const all = conceptsOf(v).map((c) => c.id)
-    const state = { ...initialState(), discovered: { [v]: all.slice(0, all.length - 1) } }
-    const round = makeRound(state, v)
-    expect(kinds(round)).toEqual(['descubrir', 'desafio', 'desafio', 'desafio', 'desafio'])
-    expect(round[0].concept.id).toBe(all.at(-1))
+  test('elige primero lo que todavía no se ha visto', () => {
+    const [d1, d2, d3, d4] = datosOf('licores').map((c) => c.id)
+    const [p1, , p3] = preguntasOf('licores').map((c) => c.id)
+    const state = { ...initialState(), discovered: { licores: [d1, d2, p1] } }
+    const round = makeRound(state, 'licores')
+    expect([round[0].card.id, round[2].card.id]).toEqual([d3, d4])
+    expect(round[1].challenge.id).not.toBe(p1)
+    expect([round[1].challenge.id, round[4].challenge.id]).toContain(p3)
   })
 
-  test('con todo descubierto son 5 desafíos', () => {
-    const v = 'chocolateria'
-    const state = { ...initialState(), discovered: { [v]: conceptsOf(v).map((c) => c.id) } }
-    expect(kinds(makeRound(state, v))).toEqual(Array(ROUND_SIZE).fill('desafio'))
+  test('Viajes no tiene catálogo: 2 datos y 3 preguntas', () => {
+    expect(types(makeRound(initialState(), 'viajes'))).toEqual(['dato', 'pregunta', 'dato', 'pregunta', 'pregunta'])
   })
 
-  test('no repite una pregunta dentro de la ronda y es determinista', () => {
-    for (const v of DATA.order) {
-      for (const answered of [0, 3, 7, 20]) {
-        const state = {
-          ...initialState(),
-          discovered: { [v]: conceptsOf(v).map((c) => c.id) },
-          answered: { [v]: answered },
-        }
+  test('con todo visto, la ronda igual tiene 5 pasos sin repetir y es determinista', () => {
+    for (const v of PASSPORT_ORDER) {
+      for (const answered of [0, 3, 20]) {
+        const state = { ...initialState(), discovered: { [v]: cardsOf(v).map((c) => c.id) }, answered: { [v]: answered } }
         const round = makeRound(state, v)
-        const questions = round.map((s) => s.challenge.question + s.challenge.answer)
-        expect(new Set(questions).size, `${v} ${answered}`).toBe(questions.length)
+        expect(round, `${v} ${answered}`).toHaveLength(ROUND_SIZE)
+        expect(new Set(ids(round)).size, `${v} ${answered}`).toBe(ROUND_SIZE)
         expect(makeRound(state, v)).toEqual(round)
       }
-    }
-  })
-
-  test('toda ronda tiene al menos un desafío', () => {
-    for (const v of DATA.order) {
-      const state = { ...initialState(), discovered: { [v]: conceptsOf(v).map((c) => c.id) }, answered: { [v]: 500 } }
-      expect(makeRound(state, v).filter((s) => s.type === 'desafio').length).toBeGreaterThanOrEqual(1)
     }
   })
 

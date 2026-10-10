@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { datosOf } from './knowledge.js'
 import { initialState } from './progress.js'
 import { KEY, clear, load, save } from './storage.js'
 
@@ -73,6 +74,24 @@ describe('guardado local', () => {
   test('sin localStorage disponible también sigue', () => {
     expect(load(null)).toEqual(initialState())
     expect(save(initialState(), null)).toBe(false)
+  })
+
+  test('un progreso guardado con conceptos y cartas viejas se carga sin ids huérfanos y conserva sellos, XP y racha', () => {
+    const card = datosOf('licores')[0].id
+    const old = {
+      ...initialState(),
+      xp: 340,
+      streak: { count: 3, lastDate: '2026-10-08' },
+      visited: ['supermercado', 'restaurantes', 'licores'],
+      discovered: { licores: ['vino', 'cerveza', card], turbo: ['frutas'] },
+      cards: ['licores-tamano', card],
+      opened: ['licores-tamano'],
+    }
+    const loaded = load(memoryStorage({ [KEY]: JSON.stringify(old) }))
+    expect(loaded.discovered).toEqual({ licores: [card], turbo: [] })
+    expect(loaded.cards).toEqual([card])
+    expect(loaded.opened).toEqual([])
+    expect(loaded).toMatchObject({ xp: 340, streak: { count: 3, lastDate: '2026-10-08' }, visited: old.visited })
   })
 
   test('clear borra lo guardado', () => {

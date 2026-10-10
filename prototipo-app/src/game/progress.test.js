@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { DATA, conceptsOf } from './data.js'
-import { FACTS, factsOf } from './facts.js'
+import { cardsOf, datosOf, preguntasOf } from './knowledge.js'
 import { PASSPORT_ORDER } from './verticals.js'
 import {
   answer,
@@ -28,10 +27,10 @@ function deepFreeze(o) {
   return o
 }
 
-/** Descubre los primeros n conceptos de una vertical y acierta/erra desafíos. */
+/** Descubre las primeras n tarjetas de una vertical y acierta desafíos del catálogo. */
 function play(state, v, { discovered = 0, correct = 0, date = D } = {}) {
   let s = state
-  for (const c of conceptsOf(v).slice(0, discovered)) s = discover(s, v, c.id, date).state
+  for (const c of cardsOf(v).slice(0, discovered)) s = discover(s, v, c.id, date).state
   for (let i = 0; i < correct; i++) s = answer(s, v, true, date).state
   return s
 }
@@ -40,17 +39,17 @@ function play(state, v, { discovered = 0, correct = 0, date = D } = {}) {
 function completeDay(state, date) {
   let s = state
   const v = 'supermercado'
-  const fresh = conceptsOf(v).filter((c) => !(s.discovered[v] ?? []).includes(c.id))
+  const fresh = cardsOf(v).filter((c) => !(s.discovered[v] ?? []).includes(c.id))
   s = discover(s, v, fresh[0].id, date).state
   s = discover(s, v, fresh[1].id, date).state
-  const res = answer(s, v, true, date)
-  s = openCard(res.state, res.card?.id ?? s.cards[0], date).state
+  s = answer(s, v, true, date).state
+  s = openCard(s, fresh[0].id, date).state
   return s
 }
 
 describe('experiencia', () => {
-  test('descubrir da 10 una sola vez por concepto y vertical', () => {
-    const id = conceptsOf('turbo')[0].id
+  test('descubrir una tarjeta da 10 una sola vez por vertical', () => {
+    const id = datosOf('turbo')[0].id
     const first = discover(initialState(), 'turbo', id, D)
     expect(first.xp).toBe(10)
     expect(first.state.xp).toBe(10)
@@ -100,24 +99,25 @@ describe('nivel de explorador', () => {
 })
 
 describe('niveles de vertical', () => {
-  test('Chocolatería (9 conceptos) sigue los umbrales', () => {
-    expect(conceptsOf('chocolateria')).toHaveLength(9)
+  test('cuentan tarjetas: Explorador con 1, Conocedor con 6 y 3 aciertos, Experto con 12 y 8', () => {
+    expect(cardsOf('chocolateria')).toHaveLength(12)
     const s0 = initialState()
     expect(verticalLevel(s0, 'chocolateria')).toBe('ninguno')
     expect(verticalLevel(play(s0, 'chocolateria', { discovered: 1 }), 'chocolateria')).toBe('explorador')
-    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 5, correct: 2 }), 'chocolateria')).toBe('explorador')
-    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 4, correct: 3 }), 'chocolateria')).toBe('explorador')
-    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 5, correct: 3 }), 'chocolateria')).toBe('conocedor')
-    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 9, correct: 7 }), 'chocolateria')).toBe('conocedor')
-    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 9, correct: 8 }), 'chocolateria')).toBe('experto')
+    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 6, correct: 2 }), 'chocolateria')).toBe('explorador')
+    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 5, correct: 3 }), 'chocolateria')).toBe('explorador')
+    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 6, correct: 3 }), 'chocolateria')).toBe('conocedor')
+    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 12, correct: 7 }), 'chocolateria')).toBe('conocedor')
+    expect(verticalLevel(play(s0, 'chocolateria', { discovered: 12, correct: 8 }), 'chocolateria')).toBe('experto')
+    expect(verticalLevel(play(s0, 'viajes', { discovered: 6, correct: 3 }), 'viajes')).toBe('conocedor')
   })
 
   test('Conoce Rappi exige las 9 del pasaporte en Conocedor o más', () => {
     let s = initialState()
     const [last, ...rest] = [...PASSPORT_ORDER].reverse()
-    for (const v of rest) s = play(s, v, { discovered: Math.ceil(conceptsOf(v).length / 2), correct: 3 })
+    for (const v of rest) s = play(s, v, { discovered: 6, correct: 3 })
     expect(conoceRappi(s)).toBe(false)
-    s = play(s, last, { discovered: Math.ceil(conceptsOf(last).length / 2), correct: 3 })
+    s = play(s, last, { discovered: 6, correct: 3 })
     expect(conoceRappi(s)).toBe(true)
   })
 })
@@ -153,31 +153,36 @@ describe('racha', () => {
   })
 
   test('la misión se reinicia al cambiar de día', () => {
-    const s = discover(initialState(), 'turbo', conceptsOf('turbo')[0].id, '2026-10-08').state
+    const s = discover(initialState(), 'turbo', datosOf('turbo')[0].id, '2026-10-08').state
     expect(dailyProgress(s, '2026-10-08').discovered).toBe(1)
     expect(dailyProgress(s, '2026-10-09').discovered).toBe(0)
   })
 })
 
-describe('cartas', () => {
-  test('cada respuesta desbloquea una carta distinta de la vertical y luego generales', () => {
-    let s = initialState()
-    const own = factsOf('turbo').map((f) => f.id)
-    const got = []
-    for (let i = 0; i < own.length + 3; i++) {
-      const res = answer(s, 'turbo', i % 2 === 0, D)
-      s = res.state
-      got.push(res.card?.id ?? null)
-    }
-    expect(got.slice(0, own.length)).toEqual(own)
-    expect(got.slice(own.length, own.length + 2)).toEqual(['general-una-vertical', 'general-catalogo'])
-    expect(got.at(-1)).toBeNull()
-    expect(new Set(s.cards).size).toBe(s.cards.length)
-    expect(FACTS.length).toBeGreaterThan(s.cards.length)
+describe('tarjetas y álbum', () => {
+  test('descubrir un dato lo suma al álbum', () => {
+    const id = datosOf('turbo')[0].id
+    expect(discover(initialState(), 'turbo', id, D).state.cards).toEqual([id])
   })
 
-  test('abrir una carta bloqueada no hace nada', () => {
-    const s = openCard(initialState(), FACTS[0].id, D)
+  test('acertar una pregunta de conocimiento la suma a lo descubierto y al álbum; fallar no', () => {
+    const id = preguntasOf('viajes')[0].id
+    const ok = answer(initialState(), 'viajes', true, D, id).state
+    expect(ok.discovered.viajes).toEqual([id])
+    expect(ok.cards).toEqual([id])
+    const wrong = answer(initialState(), 'viajes', false, D, id).state
+    expect(wrong.discovered.viajes ?? []).toEqual([])
+    expect(wrong.cards).toEqual([])
+  })
+
+  test('acertar un desafío del catálogo suma el acierto pero no una tarjeta', () => {
+    const s = answer(initialState(), 'turbo', true, D).state
+    expect(s.correct.turbo).toBe(1)
+    expect(s.cards).toEqual([])
+  })
+
+  test('abrir una carta que no está en el álbum no hace nada', () => {
+    const s = openCard(initialState(), datosOf('turbo')[0].id, D)
     expect(s.state.opened).toEqual([])
     expect(dailyProgress(s.state, D).opened).toBe(0)
   })
@@ -186,16 +191,16 @@ describe('cartas', () => {
 describe('ayudas', () => {
   test('seguir explorando lleva a la vertical con menos avance', () => {
     let s = initialState()
-    for (const v of DATA.order.filter((x) => x !== 'farmacia')) s = play(s, v, { discovered: 1 })
+    for (const v of PASSPORT_ORDER.filter((x) => x !== 'farmacia')) s = play(s, v, { discovered: 1 })
     expect(nextVertical(s)).toBe('farmacia')
   })
 
   test('las funciones no mutan el estado', () => {
     const s = deepFreeze(initialState())
-    const id = conceptsOf('turbo')[0].id
+    const id = datosOf('turbo')[0].id
     expect(() => discover(s, 'turbo', id, D)).not.toThrow()
-    expect(() => answer(s, 'turbo', true, D)).not.toThrow()
-    const withCard = deepFreeze(answer(s, 'turbo', true, D).state)
+    expect(() => answer(s, 'turbo', true, D, preguntasOf('turbo')[0].id)).not.toThrow()
+    const withCard = deepFreeze(discover(s, 'turbo', id, D).state)
     expect(() => openCard(withCard, withCard.cards[0], D)).not.toThrow()
     expect(s.xp).toBe(0)
   })

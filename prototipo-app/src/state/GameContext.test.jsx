@@ -1,7 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { conceptsOf } from '../game/data.js'
-import { FACTS } from '../game/facts.js'
+import { datosOf } from '../game/knowledge.js'
 import { initialState } from '../game/progress.js'
 import { KEY } from '../game/storage.js'
 import { GameProvider, useGame } from './GameContext.jsx'
@@ -38,7 +37,7 @@ const renderProbe = (onClick = () => {}) =>
 
 describe('estado del juego', () => {
   test('dos acciones en el mismo toque no se pisan', () => {
-    const [a, b] = conceptsOf('turbo')
+    const [a, b] = datosOf('turbo')
     renderProbe((game) => {
       game.discover('turbo', a.id)
       game.discover('turbo', b.id)
@@ -58,8 +57,8 @@ describe('estado del juego', () => {
   })
 
   test('avisa al completar la misión del día y al subir de nivel', () => {
-    const [a, b] = conceptsOf('supermercado')
-    const card = FACTS[0].id
+    const [a, b, c] = datosOf('supermercado')
+    const card = c.id // una tarjeta que ya estaba en el álbum
     localStorage.setItem(KEY, JSON.stringify({ ...initialState(), xp: 50, cards: [card] }))
     renderProbe((game) => {
       game.discover('supermercado', a.id)

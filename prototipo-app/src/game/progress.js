@@ -1,5 +1,4 @@
-import { DATA, conceptsOf } from './data.js'
-import { factsOf } from './facts.js'
+import { cardsOf } from './knowledge.js'
 import { NEVER_PUSHED, PASSPORT_ORDER, STARTER } from './verticals.js'
 
 export const XP = { discover: 10, correct: 20, wrong: 5, daily: 50 }
@@ -65,35 +64,37 @@ function step(state, date, field) {
   return { state: { ...state, daily, streak, xp }, bonus }
 }
 
-export function discover(state, vertical, conceptId, date) {
+/** Una tarjeta pasa a lo descubierto de su vertical y al álbum (una sola vez). */
+function learn(state, vertical, cardId) {
   const seen = state.discovered[vertical] ?? []
-  if (seen.includes(conceptId)) return { state, xp: 0, bonus: 0 }
-  const next = {
+  if (seen.includes(cardId)) return state
+  return {
     ...state,
-    xp: state.xp + XP.discover,
-    discovered: { ...state.discovered, [vertical]: [...seen, conceptId] },
+    discovered: { ...state.discovered, [vertical]: [...seen, cardId] },
+    cards: state.cards.includes(cardId) ? state.cards : [...state.cards, cardId],
   }
+}
+
+/** Ver un dato «¿Sabías que…?»: 10 XP la primera vez, y entra al álbum. */
+export function discover(state, vertical, cardId, date) {
+  if ((state.discovered[vertical] ?? []).includes(cardId)) return { state, xp: 0, bonus: 0 }
+  const next = { ...learn(state, vertical, cardId), xp: state.xp + XP.discover }
   const { state: out, bonus } = step(next, date, 'discovered')
   return { state: out, xp: XP.discover + bonus, bonus }
 }
 
-function nextCard(state, vertical) {
-  const locked = (f) => !state.cards.includes(f.id)
-  return factsOf(vertical).find(locked) ?? factsOf(null).find(locked) ?? null
-}
-
-export function answer(state, vertical, isCorrect, date) {
+/** Responder: 20 XP si acierta y 5 si no. Acertar una pregunta de conocimiento (`cardId`) la suma al álbum. */
+export function answer(state, vertical, isCorrect, date, cardId) {
   const gained = isCorrect ? XP.correct : XP.wrong
-  const card = nextCard(state, vertical)
+  const learned = isCorrect && cardId ? learn(state, vertical, cardId) : state
   const next = {
-    ...state,
+    ...learned,
     xp: state.xp + gained,
     answered: { ...state.answered, [vertical]: (state.answered[vertical] ?? 0) + 1 },
     correct: isCorrect ? { ...state.correct, [vertical]: (state.correct[vertical] ?? 0) + 1 } : state.correct,
-    cards: card ? [...state.cards, card.id] : state.cards,
   }
   const { state: out, bonus } = step(next, date, isCorrect ? 'correct' : null)
-  return { state: out, xp: gained + bonus, bonus, card }
+  return { state: out, xp: gained + bonus, bonus }
 }
 
 /** Abrir una carta ya desbloqueada cuenta para la misión del día; una bloqueada no hace nada. */
@@ -117,8 +118,9 @@ export function levelsGained(before, after) {
 
 export const LEVELS = ['ninguno', 'explorador', 'conocedor', 'experto']
 
+/** Nivel de una vertical por sus tarjetas descubiertas (datos vistos y preguntas acertadas) y sus aciertos. */
 export function verticalLevel(state, vertical) {
-  const total = conceptsOf(vertical).length
+  const total = cardsOf(vertical).length
   const found = state.discovered[vertical]?.length ?? 0
   const correct = state.correct[vertical] ?? 0
   if (found >= total && correct >= 8) return 'experto'
@@ -137,10 +139,10 @@ export function currentStreak(state, date) {
   return lastDate === date || lastDate === previousDay(date) ? count : 0
 }
 
-/** La vertical con menos avance (conceptos descubiertos sobre el total); empate, la primera del mapa. */
+/** La vertical con menos avance (tarjetas descubiertas sobre el total); empate, la primera del pasaporte. */
 export function nextVertical(state) {
-  const ratio = (v) => (state.discovered[v]?.length ?? 0) / conceptsOf(v).length
-  return DATA.order.reduce((best, v) => (ratio(v) < ratio(best) ? v : best))
+  const ratio = (v) => (state.discovered[v]?.length ?? 0) / cardsOf(v).length
+  return PASSPORT_ORDER.reduce((best, v) => (ratio(v) < ratio(best) ? v : best))
 }
 
 /** Abrir la vertical en la app la sella (Explorador). `isNew`: no tenía sello. */
