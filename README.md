@@ -34,14 +34,14 @@ La señal existe: cada búsqueda y cada pedido dice algo de quien lo hace. Pero 
 
 ### Cómo cruza las verticales
 
-La búsqueda sigue aislada por vertical (quien está en Licores ve Licores: así se cuida la precisión). Los intereses se guardan como **conceptos** comunes a todas (cerveza, snacks salados, pañales…), y una recomendación cruzada sigue tres pasos: concepto → complemento → búsqueda en la otra vertical.
+La app busca en todas las verticales y muestra un grupo por vertical, con la de la pantalla primero (quien está en Licores ve Licores arriba). Los intereses se guardan como **conceptos** comunes a todas (cerveza, snacks salados, pañales…), y una recomendación cruzada sigue tres pasos: concepto → complemento → búsqueda en la otra vertical.
 
 | Lo que hace la persona | Concepto | Complemento | Dónde se busca | Qué ve |
 |---|---|---|---|---|
 | Pide cerveza bajo $3.000 en Licores | cerveza | snacks salados | la vertical donde el concepto es más típico entre las que tienen oferta suficiente (Express) | «De Express · ¿Te tinca sumar snacks salados? Porque llevas cerveza», con «Ver más en Express» |
 | Compra pañales en el supermercado | pañales | alimentación de bebé | la vertical donde ese concepto es más típico (farmacia), no la de más ítems | «De Farmacia · ¿Te tinca sumar alimentación de bebé? Porque llevas pañales» |
 
-Las sugerencias siguen reglas para no perder la confianza del cliente: como máximo una sugerencia cruzada por respuesta y con su razón visible; nunca productos sensibles por iniciativa propia (medicamentos, salud sexual, tabaco y vapeo; Farmacia se puede jugar pero nunca se propone); el alcohol con el aviso +18; y lo aprendido se ve y se borra («Olvidar»).
+Las sugerencias siguen reglas para no perder la confianza del cliente: como máximo una sugerencia cruzada por respuesta y con su razón visible; nunca productos sensibles por iniciativa propia (medicamentos, salud sexual, tabaco y vapeo; Farmacia se puede jugar pero nunca se propone); Mochi nunca ofrece alcohol por su cuenta: solo aparece en el kit de una ocasión que la persona eligió, siempre con el aviso +18; y lo aprendido se ve y se borra («Olvidar»).
 
 El efecto real (frecuencia, venta cruzada, verticales nuevas por persona) solo se puede medir con datos de Rappi y un experimento A/B con grupo de control.
 

@@ -133,7 +133,7 @@ describe('de la API al prototipo', () => {
 })
 
 describe('health', () => {
-  test('sin API responde null (el prototipo usa su cerebro local) y lo cachea', async () => {
+  test('sin API responde null (la app muestra «Sin conexión») y lo cachea', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
     vi.stubGlobal('fetch', fetchMock)
     expect(await health()).toBeNull()
@@ -163,7 +163,7 @@ describe('health', () => {
 })
 
 describe('chat', () => {
-  test('se rinde a los 8 s: el cerebro local contesta antes de que el público note la espera', async () => {
+  test('se rinde a los 8 s con un error de tiempo agotado, para que el chat muestre «Sin conexión» con «Reintentar»', async () => {
     vi.useFakeTimers()
     try {
       vi.stubGlobal(

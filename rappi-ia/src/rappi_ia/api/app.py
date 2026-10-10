@@ -39,7 +39,7 @@ log = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Carga los modelos antes de «startup complete»: si no, los paga la primera petición (el /health del prototipo,
-    que se rinde a los 1,5 s y deja a Bigotes con su cerebro local)."""
+    que se rinde a los 1,5 s y la app muestra «Sin conexión»)."""
     start = time.perf_counter()
     await run_in_threadpool(services)
     # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
@@ -76,7 +76,7 @@ app.add_middleware(
 
 @app.exception_handler(OperationalError)
 async def database_unavailable(request: Request, exc: OperationalError) -> JSONResponse:
-    """Postgres caído o sin respuesta: un 503 claro y rápido (el prototipo cae a su cerebro local), no un 500."""
+    """Postgres caído o sin respuesta: un 503 claro y rápido (la app muestra «Sin conexión»), no un 500."""
     log.error("Base de datos no disponible: %s", exc)
     return JSONResponse(status_code=503, content={"detail": "Base de datos no disponible"})
 

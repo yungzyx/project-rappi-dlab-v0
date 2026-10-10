@@ -16,7 +16,7 @@ FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 
 
 def get_conn() -> Iterator[Connection]:
-    """Falla rápido si Postgres no responde o una consulta se atasca (el prototipo tiene su cerebro local)."""
+    """Falla rápido si Postgres no responde o una consulta se atasca (la app muestra «Sin conexión»)."""
     with connect(connect_timeout=3, options="-c statement_timeout=20s") as conn:
         yield conn
 

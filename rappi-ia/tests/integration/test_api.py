@@ -352,7 +352,7 @@ def test_beacon_rejects_huge_or_broken_bodies(client):
 
 
 def test_database_down_is_a_clear_503_not_a_500(monkeypatch):
-    """Con Postgres caído la API responde enseguida y claro; el prototipo cae a su cerebro local."""
+    """Con Postgres caído la API responde enseguida y claro; la app muestra «Sin conexión»."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://127.0.0.1:1/rappi")  # nadie escucha en el puerto 1
     api.app.dependency_overrides.clear()
     response = TestClient(api.app, raise_server_exceptions=False).get("/profile/u1")

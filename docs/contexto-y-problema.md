@@ -36,7 +36,7 @@ Detalle en [diseno-ia.md](diseno-ia.md#0-la-regla-que-ordena-todo).
 
 <img src="../prototipo-app/docs/screenshots/20-asistente.jpg" alt="Prototipo: el buscador con Mochi tras tocar «Arma un carrete» muestra cervezas y botillerías" width="280">
 
-*Prototipo en modo local (datos del prototipo, sin API): Mochi recomienda cuando se le pide. En el buscador con Mochi, «Arma un carrete» junta productos y tiendas para la ocasión; con la API, suma en un bloque aparte un complemento de otra tienda, marcado y con su razón.*
+*Prototipo con el MVP corriendo: Mochi recomienda cuando se le pide. En el buscador con Mochi, «Arma un carrete» junta productos y tiendas para la ocasión; además suma en un bloque aparte un complemento de otra tienda, marcado y con su razón.*
 
 ## 3. Preguntas que la base debe poder responder
 
