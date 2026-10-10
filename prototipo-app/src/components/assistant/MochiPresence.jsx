@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { MOCHI_DRAG_TYPE, askAbout } from '../../assistant/mochiAsk'
 import { useAddToCart } from '../../hooks/useAddToCart'
 import { useAssistant } from '../../state/AssistantContext'
 import { formatPrice, useCart } from '../../state/CartContext'
@@ -42,6 +43,7 @@ export default function MochiPresence({ screen, homeTab, raised }) {
   const [jumping, setJumping] = useState(false)
   const [small, setSmall] = useState(false)
   const [quiet, setQuiet] = useState(() => isQuiet(today()))
+  const [dragging, setDragging] = useState(false) // se arrastra un producto: Mochi lo espera
   const host = useRef(null)
   const body = useRef(null)
   const drag = useRef(null)
@@ -82,6 +84,21 @@ export default function MochiPresence({ screen, homeTab, raised }) {
     }
     window.addEventListener(MOCHI_CART_EVENT, onAdded)
     return () => window.removeEventListener(MOCHI_CART_EVENT, onAdded)
+  }, [hidden])
+
+  // Mientras se arrastra un producto (escritorio), Mochi avisa que se lo pueden soltar encima.
+  useEffect(() => {
+    if (hidden) return undefined
+    const onStart = (event) => {
+      if (event.dataTransfer?.types?.includes(MOCHI_DRAG_TYPE)) setDragging(true)
+    }
+    const onEnd = () => setDragging(false)
+    document.addEventListener('dragstart', onStart)
+    document.addEventListener('dragend', onEnd)
+    return () => {
+      document.removeEventListener('dragstart', onStart)
+      document.removeEventListener('dragend', onEnd)
+    }
   }, [hidden])
 
   // Escape o tocar fuera cierran el menú; con Escape el foco vuelve a Mochi.
@@ -189,7 +206,12 @@ export default function MochiPresence({ screen, homeTab, raised }) {
 
   return (
     <div ref={host} className={classes.join(' ')}>
-      {added && !menu && (
+      {dragging && (
+        <div className="mochi-popover" role="status">
+          <p>Acércamelo y lo vemos juntos.</p>
+        </div>
+      )}
+      {added && !menu && !dragging && (
         <div className="mochi-popover mochi-bubble" role="status">
           <button
             type="button"
@@ -245,6 +267,17 @@ export default function MochiPresence({ screen, homeTab, raised }) {
         onPointerUp={up}
         onPointerCancel={() => (drag.current = null)}
         onClick={toggle}
+        onDragOver={(event) => {
+          if (event.dataTransfer?.types?.includes(MOCHI_DRAG_TYPE)) event.preventDefault()
+        }}
+        onDrop={(event) => {
+          const data = event.dataTransfer?.getData(MOCHI_DRAG_TYPE)
+          if (!data) return
+          event.preventDefault()
+          setDragging(false)
+          noteEngaged()
+          assistant.open({ query: askAbout(JSON.parse(data)) })
+        }}
       >
         <Mascot size={SIZE} mood={jumping ? 'jump' : menu ? 'listen' : 'idle'} />
       </button>

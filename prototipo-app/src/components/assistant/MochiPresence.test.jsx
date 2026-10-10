@@ -5,6 +5,7 @@ import { today } from '../../game/progress.js'
 import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { CartProvider, formatPrice, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
+import { MOCHI_DRAG_TYPE } from '../../assistant/mochiAsk'
 import { MOCHI_CART_EVENT } from '../../state/liveMemory'
 import { QUIET_KEY, resetQuiet } from '../../state/mochiQuiet'
 import { ProfileProvider } from '../../state/ProfileContext'
@@ -171,6 +172,15 @@ describe('Mochi flotante', () => {
     fireEvent.click(tab)
     expect(container.querySelector('.mochi-presence').classList).not.toContain('is-quiet')
     expect(mochiButton()).toBeTruthy()
+  })
+
+  test('soltar una tarjeta sobre Mochi pregunta por ese producto', () => {
+    render(tree())
+    const data = { [MOCHI_DRAG_TYPE]: JSON.stringify(BEER) }
+    const dataTransfer = { types: [MOCHI_DRAG_TYPE], getData: (type) => data[type] ?? '' }
+    fireEvent.dragOver(mochiButton(), { dataTransfer })
+    fireEvent.drop(mochiButton(), { dataTransfer })
+    expect(probe.assistant.session.query).toBe(`¿Con qué acompaño ${BEER.name}?`)
   })
 
   test('«Buscar con Mochi» abre el buscador', () => {
