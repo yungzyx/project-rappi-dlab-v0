@@ -136,8 +136,21 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     chatQueue.current = chatQueue.current.then(() => botSays(run()))
   }
 
-  /** Cuando la API no contesta: «Sin conexión» y un botón que vuelve a pedir lo mismo. */
-  const offline = (run) => ({ text: OFFLINE, retry: () => ask(run) })
+  /**
+   * Cuando la API no contesta: «Sin conexión» y un botón que vuelve a pedir lo mismo, una sola vez (dos toques no
+   * encolan dos respuestas; si vuelve a fallar, el nuevo «Sin conexión» trae su propio botón).
+   */
+  const offline = (run) => {
+    let used = false
+    return {
+      text: OFFLINE,
+      retry: () => {
+        if (used) return
+        used = true
+        ask(run)
+      },
+    }
+  }
 
   /** Respuesta de la API; si no contesta, «Sin conexión» con «Reintentar» (no hay respuesta local). */
   const answer = async (text, askVertical) => {

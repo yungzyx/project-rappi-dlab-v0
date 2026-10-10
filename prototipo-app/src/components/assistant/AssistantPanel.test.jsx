@@ -363,6 +363,21 @@ describe('si el chat falla', () => {
     expect(screen.getAllByText(/Elegiste/)).toHaveLength(1) // reintentar no es otra pregunta
   })
 
+  test('dos toques en Reintentar piden la respuesta una sola vez', async () => {
+    api.chat.mockRejectedValueOnce(new Error('API caída')).mockResolvedValue(apiAnswer('Desde la API'))
+    await renderPanel()
+    say('cerveza')
+    await runUntilIdle()
+
+    const retry = screen.getByRole('button', { name: 'Reintentar' })
+    fireEvent.click(retry)
+    fireEvent.click(retry)
+    await runUntilIdle()
+
+    expect(api.chat).toHaveBeenCalledTimes(2) // la pregunta y un solo reintento
+    expect(bubbles().filter((text) => text.includes('Desde la API'))).toHaveLength(1)
+  })
+
   test('Reintentar sigue fallando: vuelve a decir Sin conexión', async () => {
     api.chat.mockRejectedValue(new Error('API caída'))
     await renderPanel()

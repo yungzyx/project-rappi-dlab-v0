@@ -6,6 +6,9 @@ import { DemoProvider } from '../../state/DemoContext'
 import { ProfileProvider } from '../../state/ProfileContext'
 import { SearchResults } from './SearchSections'
 
+const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
+vi.mock('../../state/EventsContext', async (importOriginal) => ({ ...(await importOriginal()), useEvents: () => events }))
+
 function Providers({ children }) {
   return (
     <DemoProvider>
@@ -34,6 +37,27 @@ describe('SearchResults sin resultados', () => {
     expect(screen.getByText('No results for “chela”.')).toBeTruthy()
     expect(document.querySelector('.mochi')).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  // Primero: lo mostrado se recuerda lo que dura la pestaña (este archivo), y la siguiente prueba muestra la misma oferta.
+  test('la oferta sin_resultado registra su mostrada y, al tocar «Ver en…», una aceptada (una sola vez)', async () => {
+    events.track.mockClear()
+    stubApi({ 'POST /mochi/offer': fixture('mochi-sin-resultado') })
+    render(<SearchResults query="pizza hawaiana" data={{ ...EMPTY, query: 'pizza hawaiana' }} onOpenVertical={() => {}} />, {
+      wrapper: Providers,
+    })
+    await flush()
+    const tracked = (type) => events.track.mock.calls.filter(([name]) => name === type).map(([, fields]) => fields)
+    const fields = { concept_id: 'pizza', vertical: 'restaurantes', payload: { origen: 'mochi-sin_resultado' } }
+
+    expect(tracked('suggestion_shown')).toEqual([fields])
+    expect(tracked('suggestion_accepted')).toEqual([])
+
+    const see = screen.getByRole('button', { name: 'Ver en Restaurantes' })
+    fireEvent.click(see)
+    fireEvent.click(see)
+    expect(tracked('suggestion_accepted')).toEqual([fields]) // una, no una por producto: no se agregó ninguno
+    expect(tracked('suggestion_shown')).toHaveLength(1)
   })
 
   test('sin resultados muestra Ver en la vertical que sí lo tiene', async () => {

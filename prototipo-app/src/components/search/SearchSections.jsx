@@ -1,9 +1,12 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { home } from '../../api/catalog'
 import { offer } from '../../api/mochi'
+import { noteAccepted, noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
 import { useApi } from '../../api/useApi'
 import { VERTICAL_NAMES } from '../../data/verticals'
+import { useEvents } from '../../state/EventsContext'
+import { useProfile } from '../../state/ProfileContext'
 import Mascot from '../assistant/Mascot'
 import OfflineNotice from '../OfflineNotice'
 import ProductRow from '../ProductRow'
@@ -14,6 +17,7 @@ const RECENT = ['Plátano', 'Agua', 'Chocolate', 'Hamburguesa', 'Cerveza', 'Pizz
 const POPULAR_COUNT = 6
 // Productos que se ven de cada vertical; «Ver más» muestra el resto de lo que trajo la API.
 const GROUP_PREVIEW = 3
+const NO_RESULT_ORIGIN = 'mochi-sin_resultado'
 
 export function RecentSearches({ onPick }) {
   return (
@@ -99,11 +103,27 @@ function ResultGroup({ group, onOpenProduct }) {
   )
 }
 
-/** La oferta `sin_resultado` de Mochi. Si no tiene nada (204) o falla, solo invita a buscar con otras palabras. */
+/**
+ * La oferta `sin_resultado` de Mochi. Si no tiene nada (204) o falla, solo invita a buscar con otras palabras. Como las
+ * demás ofertas, registra su mostrada; tocar «Ver en…» cuenta una aceptada (una, con el concepto de la oferta: no se
+ * agregó ningún producto), que noteAccepted cuenta una sola vez.
+ */
 function MochiEmpty({ query, onOpenVertical, onTryAnother }) {
   const { data: found, loading } = useApi(() => offer('sin_resultado', { query }, { userId: userId() }).catch(() => null), [query])
+  const events = useEvents()
+  const generation = useProfile()?.resets ?? 0
+  useEffect(() => {
+    if (!found?.vertical) return
+    const offered = { concept: found.reason?.concept, vertical: found.backendVertical }
+    noteShown(events.track, found.products, { origin: NO_RESULT_ORIGIN, ...offered, generation })
+  }, [found, events, generation])
   if (loading) return null
   const verticalName = found?.vertical ? VERTICAL_NAMES[found.vertical] : null
+  const see = () => {
+    const offered = { concept: found.reason?.concept, vertical: found.backendVertical }
+    noteAccepted(events.track, [offered], { origin: NO_RESULT_ORIGIN, generation })
+    onOpenVertical(found.vertical)
+  }
   return (
     <div className="search-mochi" role="status">
       <Mascot size={56} mood="listen" />
@@ -112,7 +132,7 @@ function MochiEmpty({ query, onOpenVertical, onTryAnother }) {
         <button
           type="button"
           className="search-mochi-action tap"
-          onClick={() => (verticalName ? onOpenVertical(found.vertical) : onTryAnother())}
+          onClick={verticalName ? see : () => onTryAnother()}
         >
           {verticalName ? `Ver en ${verticalName}` : 'Probar otra búsqueda'}
         </button>
