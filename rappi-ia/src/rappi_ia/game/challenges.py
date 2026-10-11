@@ -1,9 +1,11 @@
 """Desafíos de 4 alternativas del juego, armados en vivo con los conceptos y las relaciones de la base.
 
-Las reglas son las del prototipo (`prototipo-app/src/game/challenges.js`): un concepto «pertenece» a una vertical si
-tiene ahí al menos `min_items` productos, y es «típico» de la vertical donde más pesa (`typical_verticals`). Los
-conceptos sensibles no entran nunca, ni como pregunta ni como alternativa. La misma vertical y semilla dan el mismo
-desafío mientras la base no cambie.
+Las reglas vienen del prototipo (su versión en JavaScript se borró en la etapa 4): un concepto «pertenece» a una
+vertical si tiene ahí al menos `min_items` productos, y es «típico» de la vertical donde más pesa (`typical_verticals`).
+Un desafío no contradice al agente: fuera de Licores solo muestra conceptos que el agente ofrece por su cuenta
+(`offers.guards.is_offerable`: ni alcohol, ni bebé, ni salud, ni sensibles); en Licores, donde la persona eligió el
+alcohol, los que podrían ir en un kit elegido (`is_plannable`: el alcohol sí, bebé y salud nunca). Vale para el ancla,
+la respuesta y cada alternativa. La misma vertical y semilla dan el mismo desafío mientras la base no cambie.
 """
 
 import random
@@ -13,6 +15,8 @@ from psycopg import Connection
 
 from .. import config
 from ..agent.verticals import typical_verticals
+from ..concepts.taxonomy import Concept
+from ..offers.guards import ALCOHOL_VERTICALS, is_offerable, is_plannable
 
 KINDS = ("tipico", "combo", "sustituto", "imposible")
 
@@ -37,6 +41,12 @@ class ConceptInfo:
     emoji: str
     home: str | None  # la vertical donde es más típico
     items: dict[str, int]  # productos por vertical
+    parent: str | None = None  # su grupo de taxonomy.toml (bebé, salud…), lo que miran las guardias de ofertas
+    age_restricted: bool = False  # +18
+
+    def as_concept(self) -> Concept:
+        """El concepto como lo leen las guardias de ofertas (los sensibles ya no llegan hasta aquí)."""
+        return Concept(self.id, self.name, self.emoji, self.parent, age_restricted=self.age_restricted)
 
 
 @dataclass
@@ -50,7 +60,7 @@ class ChallengeData:
 
 
 _CONCEPTS = """
-    SELECT c.concept_id, c.name, coalesce(c.emoji, ''), a.vertical, a.items
+    SELECT c.concept_id, c.name, coalesce(c.emoji, ''), c.parent_id, c.age_restricted, a.vertical, a.items
     FROM concepts c JOIN concept_assortment a USING (concept_id)
     WHERE NOT c.sensitive AND c.parent_id IS NOT NULL AND a.items > 0
     ORDER BY c.concept_id, a.vertical"""
@@ -69,14 +79,20 @@ _CONFLICTS = """
 def read_challenge_data(conn: Connection) -> ChallengeData:
     """Conceptos no sensibles con producto en alguna vertical, y sus relaciones curadas entre ellos."""
     items: dict[str, dict[str, int]] = {}
-    names: dict[str, tuple[str, str]] = {}
-    for concept_id, name, emoji, vertical, count in conn.execute(_CONCEPTS):
-        names[concept_id] = (name, emoji)
+    names: dict[str, tuple[str, str, str, bool]] = {}
+    for concept_id, name, emoji, parent_id, age_restricted, vertical, count in conn.execute(_CONCEPTS):
+        names[concept_id] = (name, emoji, parent_id, age_restricted)
         items.setdefault(concept_id, {})[vertical] = count
     homes = typical_verticals(conn)
     concepts = {
         cid: ConceptInfo(
-            cid, names[cid][0], names[cid][1], homes.get(cid) or max(items[cid], key=items[cid].get), items[cid]
+            cid,
+            names[cid][0],
+            names[cid][1],
+            homes.get(cid) or max(items[cid], key=items[cid].get),
+            items[cid],
+            parent=names[cid][2],
+            age_restricted=names[cid][3],
         )
         for cid in sorted(items)
     }
@@ -141,13 +157,23 @@ def build_challenge(data: ChallengeData, vertical: str, seed: str, min_items: in
 
 
 class _View:
-    """Los datos vistos desde una vertical y un mínimo de productos."""
+    """Los datos vistos desde una vertical y un mínimo de productos, solo con los conceptos que las guardias de ofertas
+    dejan mostrar en esa vertical (y las relaciones entre ellos)."""
 
     def __init__(self, data: ChallengeData, vertical: str, min_items: int):
-        self.data, self.vertical, self.min_items = data, vertical, min_items
-        self.concepts = data.concepts
+        self.vertical, self.min_items = vertical, min_items
+        allowed = is_plannable if vertical in ALCOHOL_VERTICALS else is_offerable
+        self.concepts = {cid: c for cid, c in data.concepts.items() if allowed(c.as_concept())}
+
+        def shown(relations: dict[str, set[str]]) -> dict[str, set[str]]:
+            kept = {a: {b for b in related if b in self.concepts} for a, related in relations.items()}
+            return {a: related for a, related in kept.items() if a in self.concepts and related}
+
+        self.data = ChallengeData(
+            self.concepts, shown(data.complements), shown(data.substitutes), shown(data.conflicts)
+        )
         self.belonging = sorted(
-            (c for c in data.concepts.values() if self.belongs(c)),
+            (c for c in self.concepts.values() if self.belongs(c)),
             key=lambda c: (-c.items[vertical], c.id),
         )
 

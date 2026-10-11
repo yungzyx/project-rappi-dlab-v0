@@ -68,6 +68,29 @@ def test_challenge_never_uses_a_sensitive_concept(client, db):
     assert len(kinds) > 1
 
 
+def test_challenge_never_contradicts_the_offer_guards(client, db):
+    """Fuera de Licores, nada que el agente no ofrece (alcohol, bebé, salud); en Licores el alcohol sí, lo demás no."""
+    baby_or_health = {
+        cid for (cid,) in db.execute("SELECT concept_id FROM concepts WHERE parent_id IN ('bebe', 'salud')")
+    }
+    adults = {cid for (cid,) in db.execute("SELECT concept_id FROM concepts WHERE age_restricted")}
+    assert baby_or_health and adults
+    alcohol_in_licores = False
+
+    for vertical in SHOP_VERTICALS:
+        blocked = baby_or_health if vertical == "licores" else baby_or_health | adults
+        for seed in range(30):
+            reply = client.get("/game/challenge", params={"vertical": vertical, "seed": str(seed)})
+            if reply.status_code == 204:
+                continue
+            body = reply.json()
+            used = {body["anchor"], body["answer"], *(option["id"] for option in body["options"])}
+            assert not used & blocked, (vertical, seed, used & blocked)
+            alcohol_in_licores |= vertical == "licores" and bool(used & adults)
+
+    assert alcohol_in_licores
+
+
 def test_challenge_viajes_is_204(client):
     reply = client.get("/game/challenge", params={"vertical": "viajes", "seed": "0"})
 

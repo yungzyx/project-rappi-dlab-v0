@@ -55,7 +55,7 @@ function playRound(round, pick) {
 
 describe('ronda', () => {
   test('the round shows the challenge from the API', async () => {
-    const challenge = { ...fixture('game-challenge'), question: '¿Qué va con las galletas de la API?' }
+    const challenge = { ...fixture('game-challenge'), kind: 'combo', question: '¿Qué va con las galletas de la API?' }
     const fetchMock = stubApi({ 'GET /game/challenge': challenge })
     await startRound('supermercado')
     // dato, pregunta, dato; el desafío es el cuarto paso
@@ -67,7 +67,8 @@ describe('ronda', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
     expect(screen.getByText('Arma el combo')).toBeTruthy()
     expect(screen.getByText(challenge.question)).toBeTruthy()
-    expect(screen.getByRole('button', { name: '☕ Café' })).toBeTruthy()
+    const answer = challenge.options.find((o) => o.id === challenge.answer)
+    expect(screen.getByRole('button', { name: answer.label })).toBeTruthy()
     const asked = fetchMock.mock.calls.map(([url]) => url).filter((url) => url.includes('/game/challenge'))
     expect(asked).toHaveLength(1)
     expect(asked[0]).toContain('vertical=supermercado')

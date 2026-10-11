@@ -1,27 +1,27 @@
 {
-  "anchor": "galletas",
-  "answer": "cafe",
-  "explanation": "Mochi sugiere 🍪 Galletas y ☕ Café juntos.",
-  "id": "supermercado:combo:galletas:0",
-  "kind": "combo",
+  "anchor": "reposteria",
+  "answer": "reposteria",
+  "explanation": "Mochi asocia 🧁 Harinas y repostería con Súper, donde tiene 4 productos. Las otras opciones tienen menos de 1 ahí.",
+  "id": "supermercado:tipico:reposteria:0",
+  "kind": "tipico",
   "options": [
     {
-      "id": "joyeria",
-      "label": "💍 Joyería y relojes"
+      "id": "reposteria",
+      "label": "🧁 Harinas y repostería"
     },
     {
       "id": "juguetes-infantiles",
       "label": "🧸 Juguetes"
     },
     {
-      "id": "hamburguesa",
-      "label": "🍔 Hamburguesa"
+      "id": "desayuno",
+      "label": "🥞 Desayunos y brunch"
     },
     {
-      "id": "cafe",
-      "label": "☕ Café"
+      "id": "cuidado-cabello",
+      "label": "💇 Cuidado del cabello"
     }
   ],
-  "question": "¿Qué combina con 🍪 Galletas?",
+  "question": "¿Cuál de estos es típico de Súper?",
   "vertical": "supermercado"
 }

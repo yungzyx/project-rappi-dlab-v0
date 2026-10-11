@@ -41,7 +41,8 @@ export function gameCards() {
  */
 export function gameChallenge(vertical, seed) {
   if (vertical === 'viajes') return null
-  return { ...fixture('game-challenge'), vertical, id: `${vertical}:combo:galletas:${seed}` }
+  const challenge = fixture('game-challenge')
+  return { ...challenge, vertical, id: `${vertical}:${challenge.kind}:${challenge.anchor}:${seed}` }
 }
 
 /**
