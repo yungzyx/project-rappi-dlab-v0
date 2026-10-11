@@ -142,7 +142,9 @@ def _hit(entity_id, concept):
 
 
 def _product(entity_id, concept):
-    return SimpleNamespace(entity_type="catalog_item", entity_id=entity_id, name=f"Ítem {entity_id}", concept=concept)
+    return SimpleNamespace(
+        entity_type="catalog_item", entity_id=entity_id, name=f"Ítem {entity_id}", concept=concept, store=None
+    )
 
 
 def test_ablation_runs_hybrid_without_the_concept_bonus(monkeypatch):
@@ -187,7 +189,7 @@ def test_shown_row_judges_the_products_the_user_sees(monkeypatch):
     assert runs["hibrido"].relevance == [1] * 10
     assert runs[SHOWN].relevance == [1]
     assert runs[SHOWN].items == [
-        {"entity_type": "catalog_item", "entity_id": "9", "texto": "Ítem 9", "concepto": "golosinas"}
+        {"entity_type": "catalog_item", "entity_id": "9", "texto": "Ítem 9", "concepto": "golosinas", "tienda": None}
     ]
     summary = summarize(list(runs.values()))
     assert summary[SHOWN]["total"]["ndcg@10"] < summary["hibrido"]["total"]["ndcg@10"] == 1.0

@@ -5,10 +5,14 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia concepts                # capa 2: taxonomía, complementos, mapeos y conceptos por ítem
     rappi-ia concepts --solo-reporte # cobertura sin recalcular
     rappi-ia knowledge               # tarjetas del juego y sus ligas a conceptos (después de `concepts`)
+    rappi-ia knowledge --jev-propuestas  # Jev propone un concepto por tarjeta en un CSV para revisar (no liga nada)
     rappi-ia map-categories          # categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar
+    rappi-ia map-categories --jev    # Jev propone su concepto (solo con clave y adopción); --exportar para revisarlas
     rappi-ia embed-text              # embeddings e5 de search_documents (incremental) + HNSW por vertical
     rappi-ia search "algo para el carrete" --vertical licores
     rappi-ia eval-search             # léxico vs vectorial vs híbrido + calibración de τ ("sin resultado")
+    rappi-ia jev-planillas           # planillas CSV (data/eval/) para juzgar a mano; luego `eval-human` da el κ
+    rappi-ia jev-piloto              # con clave y planillas juzgadas: mide a Jev y propone adoptarlo (o no)
     rappi-ia synth                   # usuarios y eventos SIMULADOS para el panel (reemplaza los anteriores)
     rappi-ia analytics               # resumen de métricas del panel (frecuencia, abandono, oportunidades…)
     rappi-ia multivertical           # mapa multivertical (docs/mapas/)
@@ -21,10 +25,12 @@ import argparse
 import logging
 import os
 import sys
+from collections import Counter
 
 from . import config
 from .concepts.pipeline import build_concepts
-from .concepts.report import coverage_report, render_text, write_category_proposals
+from .concepts.report import coverage_report, jev_review_path, render_text, write_category_proposals
+from .concepts.taxonomy import load_taxonomy
 from .db import connect, database_url, migrate
 from .demo.doctor import check_database, check_pending_migrations
 from .demo.seed import ensure_test_database, reset_test_database, seed_demo
@@ -61,11 +67,34 @@ def cmd_concepts(conn, args) -> None:
 
 
 def cmd_knowledge(conn, args) -> None:
+    if getattr(args, "jev_propuestas", False):
+        _card_proposals_with_jev()
+        return
     try:
         counts = load_knowledge(conn)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     print(f"Tarjetas del juego: {counts['tarjetas']}, ligas a conceptos: {counts['ligas']}")
+
+
+def _card_proposals_with_jev() -> None:
+    from . import jev
+    from .game import cards
+
+    client = jev.client_or_none()
+    if client is None:
+        print("Sin TYPESAFE_API_KEY: Jev no propone conceptos para las tarjetas.")
+        return
+    rows = cards.propose_card_concepts(client, cards.read_cards(), cards.read_links(), load_taxonomy())
+    out = cards.write_card_proposals(rows)
+    differ = sum(
+        r["concepto_propuesto"] not in ("", "ninguno") and r["concepto_propuesto"] not in r["ligas_revisadas"].split()
+        for r in rows
+    )
+    print(f"{len(rows)} tarjetas en {out}; Jev propone {differ} conceptos que hoy no están ligados.")
+    print("Son propuestas: revisarlas y, si corresponde, agregarlas a mano en src/rappi_ia/game/card_concepts.toml.")
+    if client.stats.stopped_by_cap:
+        print(f"⚠ Se llegó al tope de {config.JEV_MAX_REQUESTS} llamadas (JEV_MAX_REQUESTS): faltaron tarjetas.")
 
 
 def cmd_attributes(conn, args) -> None:
@@ -134,11 +163,57 @@ def cmd_measures(conn, args) -> None:
 
 
 def cmd_map_categories(conn, args) -> None:
+    if args.jev:
+        _map_categories_with_jev(conn, args)
+        return
+    if args.solo_nuevas or args.exportar:
+        log.error("--solo-nuevas y --exportar van con --jev")
+        sys.exit(2)
     rows = coverage_report(conn)["categorias_sin_mapear"]
     out = config.DATA_DIR / "concepts" / "categorias-sin-mapear.csv"
     write_category_proposals(rows, out)
     print(f"{len(rows)} categorías sin mapeo revisado en {out}")
     print("Revisar cada fila, cambiar el método a «curado» y copiarla a src/rappi_ia/concepts/category_map.csv.")
+
+
+def _map_categories_with_jev(conn, args) -> None:
+    from . import jev
+    from .concepts import jev_map
+
+    if args.exportar:
+        out = jev_map.export_path()
+        n = jev_map.export_for_review(conn, out_path=out)
+        print(f"{n} categorías de Jev (aplicadas y pendientes) en {out}")
+        print("Revisar cada fila, cambiar el método a «curado» y copiarla a src/rappi_ia/concepts/category_map.csv.")
+        return
+    adoption = jev.load_adoption()
+    if not adoption.categorias:
+        print(
+            "Jev no está adoptado para etiquetar categorías (falta eval/jev-adopcion.json o dice que no):"
+            " no se hace nada."
+        )
+        return
+    client = jev.client_or_none()
+    if client is None:
+        print("Sin TYPESAFE_API_KEY: Jev no etiqueta categorías y no se escribe nada.")
+        return
+    if adoption.model_version and adoption.model_version != client.model:
+        print(
+            f"La adopción es para {adoption.model_version} y JEV_MODEL dice {client.model}: no se hace nada hasta"
+            " repetir el piloto con ese modelo."
+        )
+        return
+    summary = jev_map.map_categories(
+        conn, client, load_taxonomy(), adoption.t_auto, only_new=args.solo_nuevas, variant=adoption.variante
+    )
+    conn.commit()
+    print(
+        f"Jev: {summary['consultadas']} categorías consultadas; mapeó {summary['mapear']},"
+        f" {summary['revisar']} a revisión ({jev_review_path()}), {summary['nada']} sin concepto y"
+        f" {summary['sin_respuesta']} sin respuesta."
+    )
+    if client.stats.stopped_by_cap:
+        print(f"⚠ Se llegó al tope de {config.JEV_MAX_REQUESTS} llamadas (JEV_MAX_REQUESTS): faltaron categorías.")
 
 
 def cmd_embed_text(conn, args) -> None:
@@ -174,9 +249,17 @@ def cmd_search(conn, args) -> None:
 
 
 def cmd_eval_search(conn, args) -> None:
+    from . import jev
     from .eval import search_eval
     from .retrieval.hybrid import thresholds
 
+    jev_client = None
+    if args.juez_jev:
+        jev_client = jev.client_or_none()
+        if jev_client is None:
+            raise SystemExit("--juez-jev necesita TYPESAFE_API_KEY (en rappi-ia/.env): sin ella no hay juez Jev.")
+    elif getattr(args, "jev_auto", False):
+        jev_client = _adopted_jev_judge()
     embedder = None
     if not args.solo_lexico:
         from .embeddings.models import text_embedder
@@ -193,12 +276,49 @@ def cmd_eval_search(conn, args) -> None:
     unmet = search_eval.unmet_quality(runs, in_use, run_taus=current)
     model = embedder.model_name if embedder else None
     comparisons = search_eval.compare_modes(runs)
-    report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model, comparisons)
+    jev_part = _jev_judgment(conn, jev_client, runs) if jev_client else None
+    report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model, comparisons, jev_part)
     out = config.DATA_DIR / "eval" / "busqueda.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
     print(report)
     print(f"Reporte en {out}")
+
+
+def _adopted_jev_judge():
+    """El juez de Jev para la evaluación semanal: solo con clave y con la adopción del piloto. Si falta algo, dice
+    en una línea por qué la evaluación sigue sin Jev; nunca falla."""
+    from . import jev
+
+    adoption = jev.load_adoption()
+    if not adoption.juez:
+        print(
+            "Jev no está adoptado como juez (falta eval/jev-adopcion.json o dice que no): la evaluación sigue sin Jev."
+        )
+        return None
+    client = jev.client_or_none()
+    if client is None:
+        print("Sin TYPESAFE_API_KEY: la evaluación sigue sin Jev.")
+        return None
+    if adoption.model_version and adoption.model_version != client.model:
+        print(
+            f"La adopción es para {adoption.model_version} y JEV_MODEL dice {client.model}: la evaluación sigue sin"
+            " Jev hasta repetir el piloto con ese modelo."
+        )
+        return None
+    return client
+
+
+def _jev_judgment(conn, client, runs) -> dict:
+    """Jev juzga lo que devolvió cada modo (lo que ya juzgó, de la caché); las personas, si hay planilla juzgada."""
+    from .eval import judge, sheets
+
+    judgments = judge.judge_pairs(conn, client, judge.pairs_from_runs(runs))
+    conn.commit()
+    sheet = sheets.sheet_dir() / sheets.SEARCH_SHEET
+    human = sheets.read_search_sheet(sheet) if sheet.exists() else {}
+    print(f"Jev ({client.model}): {len(judgments)} pares juzgados, {client.stats.requests} llamadas")
+    return judge.jev_report(runs, judgments, human, client.model)
 
 
 def cmd_eval_sample(conn, args) -> None:
@@ -215,8 +335,34 @@ def cmd_eval_sample(conn, args) -> None:
 def cmd_eval_human(conn, args) -> None:
     import json
 
-    from .eval import judgments
+    from .eval import judgments, sheets
 
+    sheet = sheets.sheet_dir() / sheets.SEARCH_SHEET
+    if sheet.exists() and sheets.SEARCH_IDS_FILE.exists():
+        counts: Counter = Counter()
+        human = sheets.read_search_sheet(sheet, counts)
+        if human or counts["invalidas"]:
+            pairs = json.loads(sheets.SEARCH_IDS_FILE.read_text(encoding="utf-8"))["pares"]
+            report = judgments.sheet_report(pairs, human)
+            print(
+                f"Planilla de búsqueda: {report['juzgados']} de {len(pairs)} pares juzgados"
+                f" ({report['sin_juicio']} sin juicio, {counts['invalidas']} inválidas, {counts['vacias']} vacías,"
+                f" {report['desconocidos']} desconocidos, {report['a_medias']} «a medias»)"
+            )
+            if report["juzgados"]:
+                print(
+                    f"Personas vs juez por concepto: acuerdo {report['acuerdo']} · κ {report['kappa']}"
+                    f" («sirve» contra el resto) · κ ponderado {report['kappa_ponderado']} (tres valores)"
+                )
+            else:
+                print(
+                    "Ningún juicio coincide con un par de la muestra: revisa que `juicio` use solo los valores"
+                    " permitidos (sirve, a medias, no sirve) y que no hayas cambiado la columna `id`."
+                )
+            for stratum, row in report["por_estrato"].items():
+                print(f"  {stratum}: {row['n']} pares, acuerdo {row['acuerdo']}")
+            if not judgments.JUDGMENTS_FILE.exists():
+                return
     if not judgments.JUDGMENTS_FILE.exists():
         raise SystemExit(f"Todavía no hay juicios a mano ({judgments.JUDGMENTS_FILE} no existe).")
     sample = json.loads(judgments.SAMPLE_FILE.read_text(encoding="utf-8"))["pares"]
@@ -230,6 +376,68 @@ def cmd_eval_human(conn, args) -> None:
     )
     for side, label in (("solo_con_refuerzo", "solo con refuerzo"), ("solo_sin_refuerzo", "solo sin refuerzo")):
         print(f"Ítems que aparecen {label}: {bonus[side]['n']}, relevantes {bonus[side]['relevantes']}")
+
+
+def cmd_jev_planillas(conn, args) -> None:
+    from .embeddings.models import text_embedder
+    from .eval import search_eval, sheets
+
+    runs = search_eval.run_queries(conn, text_embedder(), search_eval.load_queries(), modes=(search_eval.SHOWN,))
+    try:
+        summary = sheets.build_sheets(conn, runs, force=args.forzar)
+    except sheets.SheetInUse as exc:
+        log.error("%s", exc)
+        sys.exit(1)
+    groups = ", ".join(f"{n} {group.replace('_', ' ')}" for group, n in summary["categorias"].items())
+    print(
+        f"{summary['pares']} pares de búsqueda ({summary['pares_discrepantes']} donde el juez por concepto y la"
+        f" posición discrepan) y {sum(summary['categorias'].values())} categorías ({groups}) en {sheets.sheet_dir()}"
+    )
+    if short := sheets.shortfalls(summary):
+        log.warning("Bajo la meta (el catálogo no alcanza): %s", "; ".join(short))
+    print(f"Cómo llenarlas: {sheets.sheet_dir() / sheets.README_FILE}")
+
+
+def cmd_jev_piloto(conn, args) -> None:
+    from . import jev
+    from .eval import jev_pilot
+
+    client = jev.client_or_none()
+    blocking, warnings = jev_pilot.requirements(client is not None)
+    if blocking:
+        print("Falta para correr el piloto de Jev (no se llamó a Jev):")
+        for item in blocking:
+            print(f"  - {item}")
+        return
+    for warning in warnings:
+        print(f"⚠ {warning}")
+    result = jev_pilot.run_pilot(conn, client, load_taxonomy())
+    conn.commit()  # los juicios nuevos quedan en caché para eval-search
+    categories, judge, usage, proposal = result["categorias"], result["juez"], result["uso"], result["propuesta"]
+    if categories["pasa"]:
+        print(
+            f"Categorías: cumple con la variante «{categories['variante']}» y"
+            f" T_auto {jev_pilot.fmt_num(categories['t_auto'])}"
+        )
+    else:
+        print("Categorías: no cumple")
+    print(
+        f"Juez: {'cumple' if judge['pasa'] else 'no cumple'} (κ Jev {jev_pilot.fmt_num(judge['kappa_jev'], 3)},"
+        f" κ juez por concepto {jev_pilot.fmt_num(judge['kappa_concepto'], 3)})"
+    )
+    for reason in result["no_confiable"]:
+        print(f"⚠ Las cifras no valen para adoptar: {reason}")
+    print(
+        f"{jev_pilot.fmt_int(usage['llamadas'])} llamadas, {jev_pilot.fmt_int(usage['tokens'])} tokens de entrada,"
+        f" ~US$ {jev_pilot.fmt_num(usage['costo'], 4)}"
+    )
+    print(f"Reporte en {result['reporte']}")
+    if proposal["categorias"] or proposal["juez"]:
+        print(
+            f"Propuesta en {result['archivo_propuesta']}: para adoptar, renómbrala a jev-adopcion.json y súbela a git."
+        )
+    else:
+        print(f"Propuesta en {result['archivo_propuesta']}: no se adopta, todo sigue igual sin Jev.")
 
 
 def cmd_purge(conn, args) -> None:
@@ -344,6 +552,8 @@ COMMANDS = {
     "eval-search": cmd_eval_search,
     "eval-sample": cmd_eval_sample,
     "eval-human": cmd_eval_human,
+    "jev-planillas": cmd_jev_planillas,
+    "jev-piloto": cmd_jev_piloto,
 }
 
 
@@ -357,7 +567,12 @@ def build_parser() -> argparse.ArgumentParser:
     concepts = sub.add_parser("concepts", help="capa 2: conceptos, complementos y mapeo de productos y platos")
     concepts.add_argument("--solo-reporte", action="store_true", help="solo muestra la cobertura actual")
     concepts.add_argument("--sin-knn", action="store_true", help="sin refinar con vecinos cercanos (embeddings)")
-    sub.add_parser("knowledge", help="tarjetas del juego en la base, con sus ligas revisadas a conceptos")
+    kn = sub.add_parser("knowledge", help="tarjetas del juego en la base, con sus ligas revisadas a conceptos")
+    kn.add_argument(
+        "--jev-propuestas",
+        action="store_true",
+        help="Jev propone un concepto por tarjeta en data/eval/tarjetas-jev.csv (no toca la base ni las ligas)",
+    )
     sub.add_parser("attributes", help="capa de perfiles: atributos de cada ítem (sin gluten, vegano, familiar…)")
     lr = sub.add_parser("layer-report", help="reporte de calidad de las capas de perfiles (data/eval/capas.md)")
     lr.add_argument("--muestra", type=int, default=20, help="ítems de muestra por atributo")
@@ -377,8 +592,19 @@ def build_parser() -> argparse.ArgumentParser:
     sg.add_argument("--source", choices=["synthetic", "prototype"], default="synthetic")
     sg.add_argument("--user", help="recalcula solo a esta persona")
     sub.add_parser("measures", help="capa de perfiles: tamaño, unidad y pack normalizados de cada ítem")
-    sub.add_parser(
+    mc = sub.add_parser(
         "map-categories", help="exporta las categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar"
+    )
+    mc.add_argument(
+        "--jev",
+        action="store_true",
+        help="Jev propone el concepto (solo con TYPESAFE_API_KEY y eval/jev-adopcion.json)",
+    )
+    mc.add_argument("--solo-nuevas", action="store_true", help="con --jev: solo las categorías sin ningún mapeo")
+    mc.add_argument(
+        "--exportar",
+        action="store_true",
+        help="con --jev: exporta los mapeos de Jev y su cola de revisión a un CSV para pasarlos a category_map.csv",
     )
     embed = sub.add_parser("embed-text", help="embeddings de texto de search_documents (incremental)")
     embed.add_argument("--limit", type=int, help="máximo de textos nuevos (para probar)")
@@ -391,8 +617,17 @@ def build_parser() -> argparse.ArgumentParser:
     ev = sub.add_parser("eval-search", help="evalúa la búsqueda con el set de src/rappi_ia/eval/queries.json")
     ev.add_argument("--solo-lexico", action="store_true", help="sin modelo de embeddings")
     ev.add_argument("--guardar-tau", action="store_true", help="guarda los τ calibrados en eval/thresholds.json")
+    ev.add_argument("--juez-jev", action="store_true", help="agrega a Jev como juez (necesita TYPESAFE_API_KEY)")
+    ev.add_argument(
+        "--jev-auto",
+        action="store_true",
+        help="agrega a Jev como juez solo si hay clave y eval/jev-adopcion.json lo adoptó; si no, sigue sin él",
+    )
     sub.add_parser("eval-sample", help="muestra de ~200 pares (consulta, producto) para juzgar a mano")
-    sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano")
+    sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano, y κ")
+    sheets_cmd = sub.add_parser("jev-planillas", help="planillas CSV para juzgar a mano la búsqueda y las categorías")
+    sheets_cmd.add_argument("--forzar", action="store_true", help="reemplaza planillas que ya tienen juicios")
+    sub.add_parser("jev-piloto", help="mide a Jev contra las planillas juzgadas y escribe la propuesta de adopción")
     synth = sub.add_parser("synth", help="genera usuarios y eventos SIMULADOS (source = synthetic)")
     synth.add_argument("--usuarios", type=int, default=1500)
     synth.add_argument("--semanas", type=int, default=26)

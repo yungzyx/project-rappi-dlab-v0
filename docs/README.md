@@ -20,6 +20,7 @@
 | Entender el diseño del RAG y del agente Mochi | [diseno-ia.md](diseno-ia.md) | 20 min |
 | Conocer el modelo de datos (capas 1 a 3) | [ecosistema-rappi.md §3](ecosistema-rappi.md#3-modelo-de-datos-del-ecosistema-propuesta) | 5 min |
 | Usar desde otra herramienta lo que la base le suma al catálogo (atributos, marcas, grafo, segmentos) | [capa-de-datos.md](capa-de-datos.md) | 8 min |
+| Activar a Jev (etiqueta categorías y juzga la búsqueda, opcional): clave, planillas, piloto y adopción | [jev.md](jev.md) | 5 min |
 | Conocer la capa de IA, su API y cómo se evalúa | [rappi-ia/README.md](../rappi-ia/README.md) | 10 min |
 | Usar o modificar el scraper | [rappi-scraper/README.md](../rappi-scraper/README.md) | 10 min |
 | Diseño del juego de verticales dentro del prototipo | [especificación](superpowers/specs/2026-10-09-juego-en-prototipo-design.md) | 5 min |
@@ -61,6 +62,7 @@ Las fuentes JSON de los diagramas están en [diagramas-fuente/](diagramas-fuente
 | Reporte | Dónde | Cómo se genera |
 |---|---|---|
 | Evaluación de la búsqueda | `rappi-ia/data/eval/busqueda.md` | `make eval` en `rappi-ia/` (también guarda τ; solo el reporte: `make eval EVAL_ARGS=`). La copia versionada está en [resultados/](resultados/) |
+| Piloto de Jev (si se corrió) | `rappi-ia/data/eval/jev-piloto.md` | `rappi-ia jev-piloto`, con la clave y las planillas juzgadas (ver [jev.md](jev.md)) |
 | Calidad de cada corrida del scraper | `rappi-scraper/data/reports/` | Al terminar cada corrida, o con `rappi report` |
 | Logs de las corridas | `rappi-scraper/data/logs/` y `rappi-ia/data/logs/` | Automático |
 

@@ -38,3 +38,11 @@ API_CORS_ORIGINS = [
 # Ciudad fija de la demo (Santiago): «Cerca de ti» mide la distancia a este punto de Providencia.
 MVP_HOME_LAT = float(os.environ.get("MVP_HOME_LAT", "-33.4263"))
 MVP_HOME_LNG = float(os.environ.get("MVP_HOME_LNG", "-70.6106"))
+
+# Jev (TypeSafe «System One»): juez opcional del proceso semanal. Sin TYPESAFE_API_KEY no se llama a Jev.
+TYPESAFE_API_KEY = os.environ.get("TYPESAFE_API_KEY") or None
+JEV_MODEL = os.environ.get("JEV_MODEL", "jev-1.13.0")
+JEV_MAX_REQUESTS = int(os.environ.get("JEV_MAX_REQUESTS", "3000"))  # tope de llamadas por corrida (incluye reintentos)
+JEV_PARALLEL = int(os.environ.get("JEV_PARALLEL", "16"))
+# Precio vigente de Jev en US$ por millón de tokens de entrada (la salida no se cobra): el piloto estima su costo.
+JEV_PRICE_PER_MTOK_INPUT = float(os.environ.get("JEV_PRICE_PER_MTOK_INPUT", "0.042"))

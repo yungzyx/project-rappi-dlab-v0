@@ -159,7 +159,8 @@ Mochi es el nombre que ve el usuario (antes, Bigotes). El código usa nombres ne
 7. **Memoria transparente.** Intereses por concepto con decaimiento (vida media de 14 días), visibles ("Aprendiendo de ti") y borrables ("Olvidar"). En modo "Rappi hoy" no aprende.
 8. **El código decide y el LLM solo redacta.**
    - Sin clave de API, Mochi responde con plantillas y las mismas reglas. Con `ANTHROPIC_API_KEY`, Claude redacta el texto en JSON estricto sobre lo recuperado.
-   - Entender la consulta: hoy son reglas + embeddings. Jev (el modelo "System One" de TypeSafe: juicios tipados con probabilidad y baja latencia) es una opción futura para esta etapa; no está implementado.
+   - Entender la consulta: hoy son reglas + embeddings, y así sigue en vivo.
+   - **Jev** (el modelo "System One" de TypeSafe: juicios tipados con probabilidad y baja latencia) es una ayuda **opcional y fuera de línea**, solo dentro de `make post-refresh` (etapa 7 del MVP; guía en [jev.md](jev.md)): etiqueta con concepto las categorías nuevas del catálogo (`make jev-categorias`; un concepto sensible o +18 nunca se asigna solo, va a revisión humana) y es un tercer juez de la búsqueda en `make eval`, junto al juez por concepto y las personas. Nunca corre en la API ni reordena resultados; solo ve datos públicos del catálogo y las consultas de evaluación. Está construido y apagado: se activa con `TYPESAFE_API_KEY` y un piloto aprobado contra planillas juzgadas a mano (`eval/jev-adopcion.json`); sin ellos el proceso es el de siempre.
 
 **Contrato de respuesta** (`text`, `products`, `stores`, `reason`, `actions` y `tags`; el cerebro local `brain.js` que lo originó ya no existe: la app solo lee la API):
 - `reason` sigue en el primer nivel;

@@ -13,7 +13,8 @@ CATEGORY_MAP_CSV = DATA_DIR / "category_map.csv"
 # Los mapeos `llm` salieron de dos agentes independientes + un juez (flujo del 27-09-2026).
 LLM_MAP_VERSION = "claude-opus-5-5/2-mapeadores+juez/2026-09-27"
 NO_CONCEPT = "ninguno"
-MANAGED_METHODS = ("curado", "llm", "regla", "embedding")  # `concepts` recalcula todo en cada corrida
+# `concepts` recalcula todo en cada corrida; los `jev` se heredan de los mapeos de category_map, que el CSV no borra.
+MANAGED_METHODS = ("curado", "llm", "regla", "embedding", "jev")
 
 
 def seed_taxonomy(conn: Connection, taxonomy: Taxonomy) -> int:
@@ -69,6 +70,7 @@ def seed_curated_edges(conn: Connection, edges: Iterable[tuple[str, str, float]]
 def read_category_map_csv(path: Path = CATEGORY_MAP_CSV) -> list[dict]:
     with path.open(encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
+    _check_reviewed(rows)
     _check_one_concept_per_key(rows)
     return [row for row in rows if row["concept_id"] != NO_CONCEPT]
 
@@ -84,6 +86,20 @@ def categories_reviewed_without_concept(path: Path = CATEGORY_MAP_CSV) -> list[s
         ]
 
 
+PROPOSAL_METHODS = ("jev", "sugerido")
+
+
+def _check_reviewed(rows: list[dict]) -> None:
+    """Una fila de jev o sugerido es una propuesta de la máquina, no una revisión: al promoverla, la persona cambia su
+    metodo a «curado». Si no, el CSV la daría por revisada y pisaría el mapeo de Jev sin que nadie lo haya mirado."""
+    for number, row in enumerate(rows, start=2):  # la fila 1 es el encabezado
+        if row["metodo"] in PROPOSAL_METHODS:
+            raise ValueError(
+                f"category_map.csv, fila {number}: «{row['nombre'].strip().lower()}» tiene metodo «{row['metodo']}»,"
+                " que es una propuesta sin revisar; cámbialo a «curado» cuando una persona la apruebe"
+            )
+
+
 def _check_one_concept_per_key(rows: list[dict]) -> None:
     """La clave de category_map es el nombre en minúsculas: dos filas con la misma clave y distinto concepto se
     pisarían en silencio (gana la última del archivo)."""
@@ -95,9 +111,15 @@ def _check_one_concept_per_key(rows: list[dict]) -> None:
             raise ValueError(f"category_map.csv: «{key}» ({kind}) tiene dos conceptos: {first} y {row['concept_id']}")
 
 
-def load_category_map(conn: Connection, rows: list[dict]) -> int:
-    """Reemplaza los mapeos curados/LLM por los del CSV versionado en el repo."""
+def load_category_map(conn: Connection, rows: list[dict], rejected: Iterable[str] = ()) -> int:
+    """Reemplaza los mapeos curados/LLM por los del CSV versionado en el repo. Los de Jev (propuestos por máquina,
+    sin revisión) se conservan, salvo los que el CSV también trae: ahí gana la revisión humana, también cuando dice
+    «ninguno» (`rejected`: claves de categorías revisadas sin concepto)."""
     conn.execute("DELETE FROM category_map WHERE method IN ('curado', 'llm')")
+    conn.execute(
+        "DELETE FROM category_map WHERE method = 'jev' AND source_kind = 'categoria' AND source_key = ANY(%s)",
+        (list(rejected),),
+    )
     with conn.cursor() as cur:
         cur.executemany(
             """INSERT INTO category_map (source_kind, source_key, source_name, concept_id, method, confidence,

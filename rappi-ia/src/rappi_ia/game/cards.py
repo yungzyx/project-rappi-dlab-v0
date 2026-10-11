@@ -5,6 +5,7 @@ revisan una por una: cada propuesta de la regla queda aceptada (`concepts`) o re
 se agrega el concepto evidente que la regla no vio. Solo esa revisión llega a la base.
 """
 
+import csv
 import json
 import re
 import tomllib
@@ -14,8 +15,11 @@ from pathlib import Path
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from .. import config
 from ..concepts.assign import concept_matcher
-from ..concepts.taxonomy import load_taxonomy
+from ..concepts.store import NO_CONCEPT
+from ..concepts.taxonomy import Taxonomy, load_taxonomy
+from ..jev import Choice
 from ..offers.guards import OFFER_BLOCKED_VERTICALS
 from . import GAME_VERTICALS
 
@@ -30,6 +34,9 @@ KINDS = {
     "pregunta": ("question", "options", "answer", "explanation"),
 }
 OPTIONS = 3
+# Lo que Jev lee de una tarjeta (los textos de la regla, con nombre en español); nunca las alternativas.
+JEV_FIELDS = {"title": "titulo", "text": "texto", "question": "pregunta", "explanation": "explicacion"}
+JEV_COLUMNS = ["tarjeta", "concepto_propuesto", "confianza", "ligas_revisadas"]
 
 
 @dataclass(frozen=True)
@@ -223,3 +230,64 @@ def did_you_know(conn: Connection, concept_ids: list[str], user_id: str | None) 
         "text": text,
         "source": {"title": source_title, "url": source_url},
     }
+
+
+# --- propuestas de Jev (para revisar a mano; nunca escriben ligas) ----------------------------------------------------
+
+
+def jev_proposals_path() -> Path:
+    return config.DATA_DIR / "eval" / "tarjetas-jev.csv"
+
+
+def jev_card_question(taxonomy: Taxonomy) -> dict:
+    """Un concepto por tarjeta entre las hojas no sensibles de la taxonomía, o «ninguno»."""
+    options = {
+        c.id: {"what": c.name, "examples": list(c.keywords[:5])} for c in taxonomy.concepts.values() if not c.sensitive
+    }
+    options[NO_CONCEPT] = "La tarjeta no trata de ningún producto de esta lista"
+    return {
+        "concepto": Choice(
+            "¿De qué concepto de producto trata esta tarjeta de un juego de datos curiosos? Lee `titulo` y `texto`"
+            " (o `pregunta` y `explicacion`). Si no trata de un producto de la lista, elige «ninguno».",
+            options,
+        )
+    }
+
+
+def propose_card_concepts(client, cards: list[dict], links: dict[str, CardLinks], taxonomy: Taxonomy) -> list[dict]:
+    """Una fila por tarjeta con el concepto que propone Jev, su confianza y las ligas revisadas de hoy. Una tarjeta
+    sin respuesta, o con una propuesta sensible, queda sin propuesta. No toca `card_concepts.toml` ni la base."""
+    question = jev_card_question(taxonomy)
+    states = [
+        {"vertical": card["vertical"], **{name: card[key] for key, name in JEV_FIELDS.items() if card.get(key)}}
+        for card in cards
+    ]
+    rows = []
+    for card, answer in zip(cards, client.ask_many([(state, question) for state in states]), strict=True):
+        chosen = answer["concepto"] if answer else None
+        concept = chosen.choice if chosen else None
+        if concept != NO_CONCEPT and (concept not in taxonomy.concepts or taxonomy.concepts[concept].sensitive):
+            concept = None
+        confidence = None
+        if concept:
+            confidence = chosen.confidence if chosen.confidence is not None else chosen.probabilities.get(concept)
+        reviewed = links.get(card["id"])
+        rows.append(
+            {
+                "tarjeta": card["id"],
+                "concepto_propuesto": concept or "",
+                "confianza": f"{confidence:.2f}" if confidence is not None else "",
+                "ligas_revisadas": " ".join(reviewed.concepts) if reviewed else "",
+            }
+        )
+    return rows
+
+
+def write_card_proposals(rows: list[dict], path: Path | None = None) -> Path:
+    path = path or jev_proposals_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=JEV_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    return path

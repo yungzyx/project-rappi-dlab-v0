@@ -11,6 +11,7 @@ Además del ranking (`retrieve`), mide lo que ve el usuario: los productos de `s
 import json
 import math
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -54,7 +55,7 @@ class QueryRun:
     max_cosine: float | None
     concept_in_vertical: bool
     names_concept: bool = False
-    items: list[dict] = field(default_factory=list)  # los resultados (tipo, id, texto, concepto): muestra de juicio
+    items: list[dict] = field(default_factory=list)  # los resultados (tipo, id, texto, concepto, tienda si se muestra)
     shown_unmet: bool | None = None  # solo en SHOWN: «sin resultado» como lo registra el agente (y nada a la vista)
     has_words: bool = True  # le queda alguna palabra sin las stopwords («té» no): sin ellas no hay «sin resultado»
 
@@ -63,11 +64,13 @@ def load_queries(path: Path = QUERIES_FILE) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))["queries"]
 
 
-def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[dict]) -> list[QueryRun]:
+def run_queries(
+    conn: Connection, embedder: TextEmbedder | None, queries: list[dict], modes: tuple[str, ...] = EVAL_MODES
+) -> list[QueryRun]:
     runs = []
     understander = Understander()
     for q in queries:
-        for mode in EVAL_MODES:
+        for mode in modes:
             if mode != "lexico" and embedder is None:
                 continue
             shown_unmet = None
@@ -77,7 +80,7 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                 # surtido.
                 outcome = search_products(conn, q["vertical"], q["query"], None, embedder, k=K)
                 result = outcome.result
-                items = [(p.entity_type, p.entity_id, p.name, p.concept) for p in outcome.products]
+                items = [(p.entity_type, p.entity_id, p.name, p.concept, p.store) for p in outcome.products]
                 symptom = understander.understand(conn, q["query"], q["vertical"]).symptom
                 shown_unmet = result.unmet and not outcome.products and not symptom
             else:
@@ -85,9 +88,9 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                     result = retrieve(conn, q["vertical"], q["query"], embedder, k=K, mode="hibrido", concepts=[])
                 else:
                     result = retrieve(conn, q["vertical"], q["query"], embedder, k=K, mode=mode)
-                items = [(h.entity_type, h.entity_id, h.content, h.concept_id) for h in result.hits]
+                items = [(h.entity_type, h.entity_id, h.content, h.concept_id, None) for h in result.hits]
             expected = set(q["concepts"])
-            relevance = [1 if concept in expected else 0 for *_, concept in items]
+            relevance = [1 if item[3] in expected else 0 for item in items]
             runs.append(
                 QueryRun(
                     q["vertical"],
@@ -100,8 +103,8 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                     result.concept_in_vertical,
                     bool(result.query_concepts),
                     [
-                        {"entity_type": etype, "entity_id": eid, "texto": text, "concepto": concept}
-                        for etype, eid, text, concept in items
+                        {"entity_type": etype, "entity_id": eid, "texto": text, "concepto": concept, "tienda": store}
+                        for etype, eid, text, concept, store in items
                     ],
                     shown_unmet,
                     result.has_words,
@@ -110,15 +113,15 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
     return runs
 
 
-def precision_at_k(relevance: list[int], k: int = K) -> float:
+def precision_at_k(relevance: Sequence[float], k: int = K) -> float:
     return sum(relevance[:k]) / k
 
 
-def reciprocal_rank(relevance: list[int]) -> float:
+def reciprocal_rank(relevance: Sequence[float]) -> float:
     return next((1 / (i + 1) for i, rel in enumerate(relevance) if rel), 0.0)
 
 
-def ndcg_at_k(relevance: list[int], k: int = K, available: int = K) -> float:
+def ndcg_at_k(relevance: Sequence[float], k: int = K, available: int = K) -> float:
     """`available`: relevantes que existen en el vertical (por defecto se asume que hay al menos k)."""
     dcg = sum(rel / math.log2(i + 2) for i, rel in enumerate(relevance[:k]))
     ideal = sum(1 / math.log2(i + 2) for i in range(min(k, available)))
@@ -267,8 +270,10 @@ def render_markdown(
     saved: bool,
     model: str | None,
     comparisons: list[dict] = (),
+    jev: dict | None = None,
 ) -> str:
-    """`current`: τ vigentes antes de esta evaluación; `unmet` se mide con los propuestos solo si se guardaron."""
+    """`current`: τ vigentes antes de esta evaluación; `unmet` se mide con los propuestos solo si se guardaron.
+    `jev`: lo que arma `judge.jev_report`, para mostrar a Jev junto al juez por concepto (y a las personas)."""
     lines = [
         f"# Evaluación de búsqueda ({model or 'solo léxico'})",
         "",
@@ -304,6 +309,8 @@ def render_markdown(
             counts = f"{c['gana']} | {c['empata']} | {c['pierde']}"
             lines.append(f"| {c['a']} vs {c['b']} | {counts} | {c['diferencia']} | {low} a {high} |")
         lines += ["", "Si el intervalo incluye el 0, la diferencia no es concluyente con este set de consultas."]
+    if jev:
+        lines += _jev_lines(jev)
     lines += [
         "",
         "## Por tipo de consulta (nDCG@10)",
@@ -393,6 +400,47 @@ def render_markdown(
             " catálogo quizás ya lo tiene y la consulta dejó de ser negativa.",
         ]
     return "\n".join(lines) + "\n"
+
+
+def _jev_lines(jev: dict) -> list[str]:
+    lines = [
+        "",
+        f"## Tres jueces: concepto, Jev ({jev['modelo']}) y personas",
+        "",
+        "Cada resultado se juzga con el concepto (0 o 1), con Jev (ganancia esperada entre 0 y 1: «no sirve» 0,"
+        " «a medias» 0,5, «sirve» 1, ponderada por la probabilidad de cada nivel) y, donde hay planilla juzgada, con"
+        " las personas. El juez por concepto es binario y Jev es graduado: P@10 y nDCG@10 de Jev usan la ganancia"
+        " esperada tal cual, así que sus columnas P@10 no son directamente comparables con las del concepto. El MRR de"
+        " Jev cuenta como relevante desde 0,5.",
+        "",
+        "| Modo | P@10 concepto | P@10 Jev | MRR concepto | MRR Jev | nDCG@10 concepto | nDCG@10 Jev"
+        " | Sin juicio de Jev (cuentan 0) |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for mode, judges in jev["modos"].items():
+        c, j = judges["concepto"], judges["jev"]
+        lines.append(
+            f"| {mode} | {c['p@10']} | {j['p@10']} | {c['mrr']} | {j['mrr']} | {c['ndcg@10']} | {j['ndcg@10']}"
+            f" | {j['sin_juicio']} |"
+        )
+    if jev["pares_sin_juicio"]:
+        lines += [
+            "",
+            f"{jev['pares_sin_juicio']} pares sin juicio de Jev (falló la llamada o se llegó al tope): cuentan 0 en sus"
+            " métricas y se vuelven a pedir en la próxima corrida.",
+        ]
+    if sample := jev["muestra"]:
+        lines += [
+            "",
+            f"Pares que juzgaron las personas ({sample['n']} pares de lo que ve el usuario, también juzgados por Jev):",
+            "",
+            "| Juez | Ganancia media |",
+            "|---|---|",
+            f"| Juez por concepto | {sample['concepto']} |",
+            f"| Jev | {sample['jev']} |",
+            f"| Personas | {sample['personas']} |",
+        ]
+    return lines
 
 
 def _detection_line(quality: dict) -> str:

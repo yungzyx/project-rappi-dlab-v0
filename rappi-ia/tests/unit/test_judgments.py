@@ -1,4 +1,6 @@
-from rappi_ia.eval.judgments import build_sample, human_report
+import pytest
+
+from rappi_ia.eval.judgments import build_sample, human_report, sheet_report
 from rappi_ia.eval.search_eval import ABLATION, SHOWN, QueryRun
 
 
@@ -91,3 +93,36 @@ def test_human_report_without_judgments_is_empty_not_an_error():
     report = human_report([_pair("a", True, ["hibrido"])], {})
     assert report["juzgados"] == 0
     assert report["juez_auto"] == {"precision": None, "recall": None, "acuerdo": None}
+
+
+def _sheet_pair(pair_id, estrato, auto):
+    return {"id": pair_id, "estrato": estrato, "relevante_auto": auto}
+
+
+def test_sheet_report_gives_kappa_of_people_against_the_concept_judge():
+    """Personas: sirve/sirve/no sirve/a medias. Juez por concepto: relevante/no/no/relevante. En binario («sirve»
+    contra el resto): personas 1,1,0,0 y juez 1,0,0,1 → acuerdo 0,5, azar 0,5, κ = 0. Ponderado: personas 2,2,0,1 y
+    juez 2,0,0,2."""
+    pairs = [
+        _sheet_pair("a", "top3", True),
+        _sheet_pair("b", "top3", False),
+        _sheet_pair("c", "4-10", False),
+        _sheet_pair("d", "4-10", True),
+    ]
+    human = {"a": 2, "b": 2, "c": 0, "d": 1, "no-esta": 2}
+
+    report = sheet_report(pairs, human)
+
+    assert report["juzgados"] == 4 and report["sin_juicio"] == 0 and report["desconocidos"] == 1
+    assert report["acuerdo"] == 0.5
+    assert report["kappa"] == 0.0
+    # Ponderado a mano: desacuerdo observado (0+2+0+1)/4/2 = 0,375; esperado con marginales personas (1,1,2) y juez
+    # (2,0,2): 16/16/2 = 0,5; κ = 1 - 0,375/0,5 = 0,25.
+    assert report["kappa_ponderado"] == pytest.approx(0.25)
+    assert report["por_estrato"] == {"top3": {"n": 2, "acuerdo": 0.5}, "4-10": {"n": 2, "acuerdo": 0.5}}
+
+
+def test_sheet_report_without_judgments_has_no_kappa():
+    report = sheet_report([_sheet_pair("a", "top3", True)], {})
+
+    assert report["juzgados"] == 0 and report["sin_juicio"] == 1 and report["kappa"] is None

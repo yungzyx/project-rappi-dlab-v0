@@ -18,7 +18,9 @@ def build_concepts(conn: Connection, embedder: TextEmbedder | None = None) -> di
     counts = {
         "conceptos": store.seed_taxonomy(conn, taxonomy),
         "complementos": store.seed_curated_edges(conn, load_complements()),
-        "mapeos": store.load_category_map(conn, store.read_category_map_csv()),
+        "mapeos": store.load_category_map(
+            conn, store.read_category_map_csv(), store.categories_reviewed_without_concept()
+        ),
     }
     maps = store.read_category_maps(conn)
     matcher = concept_matcher(taxonomy)
