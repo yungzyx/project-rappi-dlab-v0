@@ -74,20 +74,25 @@ def user_interests(conn: Connection, user_id: str | None) -> Interests:
         if signal.id in concepts and is_offerable(concepts[signal.id]):
             basis.setdefault(signal.id, []).append(signal)
     totals = {c: round(sum(s.score for s in group), 3) for c, group in basis.items()}
-    ordered = dict(sorted(totals.items(), key=lambda kv: -kv[1]))
-    return Interests(ordered, {c: basis[c] for c in ordered}, bought_brands(conn, user_id))
+    ordered = dict(sorted(totals.items(), key=lambda kv: (-kv[1], kv[0])))
+    return Interests(ordered, {c: basis[c] for c in ordered}, _brand_orders(conn, user_id))
 
 
-def bought_brands(conn: Connection, user_id: str) -> dict[str, int]:
-    """Marcas (no cadenas de restaurantes) que la persona compró en `MIN_BRAND_ORDERS` pedidos distintos o más:
-    brand_key → pedidos."""
+def bought_brands(conn: Connection, user_id: str | None) -> dict[str, int]:
+    """Marcas que la persona compró en `MIN_BRAND_ORDERS` pedidos distintos o más: brand_key → pedidos. Sin cadenas de
+    restaurantes ni marcas propias de una tienda (repetir ahí habla de la tienda o del precio, no de la marca). Vacío
+    si no es un usuario del prototipo."""
+    return _brand_orders(conn, user_id) if _is_prototype_user(conn, user_id) else {}
+
+
+def _brand_orders(conn: Connection, user_id: str) -> dict[str, int]:
     rows = conn.execute(
         """SELECT b.brand_key, count(DISTINCT o.order_id) AS orders
            FROM app_orders o
            JOIN app_order_lines l USING (order_id)
            JOIN item_brands b ON b.entity_type = l.entity_type AND b.entity_id = l.entity_id
            JOIN product_brands p USING (brand_key)
-           WHERE o.user_id = %s AND p.kind <> 'cadena'
+           WHERE o.user_id = %s AND p.kind <> 'cadena' AND NOT p.is_store_brand
            GROUP BY b.brand_key
            HAVING count(DISTINCT o.order_id) >= %s
            ORDER BY orders DESC, b.brand_key""",

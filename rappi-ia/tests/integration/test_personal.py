@@ -36,16 +36,17 @@ def _give_segment(db, user, segment_id, level, top):
     )
 
 
-def _brand(db, brand_key, kind="marca"):
+def _brand(db, brand_key, kind="marca", store_brand=False):
     db.execute(
-        "INSERT INTO product_brands (brand_key, name, kind) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
-        (brand_key, brand_key, kind),
+        "INSERT INTO product_brands (brand_key, name, kind, is_store_brand) VALUES (%s, %s, %s, %s)"
+        " ON CONFLICT DO NOTHING",
+        (brand_key, brand_key, kind, store_brand),
     )
 
 
-def _buy_brand(db, user, brand_key, product, kind="marca", source="prototype"):
+def _buy_brand(db, user, brand_key, product, kind="marca", source="prototype", store_brand=False):
     """Un pedido de un producto de esa marca."""
-    _brand(db, brand_key, kind)
+    _brand(db, brand_key, kind, store_brand)
     db.execute(
         """INSERT INTO item_brands (entity_type, entity_id, brand_key, source)
            VALUES ('catalog_item', %s, %s, 'regla') ON CONFLICT DO NOTHING""",
@@ -166,3 +167,30 @@ def test_chain_brands_do_not_count(db):
     _buy_brand(db, "u1", "mcdonalds", 2, kind="cadena")
 
     assert bought_brands(db, "u1") == {}
+
+
+def test_store_brands_do_not_count(db):
+    seed_taxonomy(db, load_taxonomy())
+    _buy_brand(db, "u1", "great-value", 1, store_brand=True)
+    _buy_brand(db, "u1", "great-value", 2, store_brand=True)
+    _buy_brand(db, "u1", "nestle", 3)
+    _buy_brand(db, "u1", "nestle", 4)
+
+    assert bought_brands(db, "u1") == {"nestle": 2}
+
+
+def test_bought_brands_is_empty_for_synthetic_and_unknown_users(db):
+    seed_taxonomy(db, load_taxonomy())
+    _buy_brand(db, "u-syn", "nestle", 1, source="synthetic")
+    _buy_brand(db, "u-syn", "nestle", 2, source="synthetic")
+
+    assert bought_brands(db, "u-syn") == {} and bought_brands(db, "nadie") == {} and bought_brands(db, None) == {}
+
+
+def test_equal_scores_are_ordered_by_concept_id(db):
+    seed_taxonomy(db, load_taxonomy())
+    db.execute("INSERT INTO app_users (user_id, source) VALUES ('u1', 'prototype')")
+    _segment(db, "seg")
+    _give_segment(db, "u1", "seg", "medio", [("concepto", "pizza"), ("concepto", "galletas"), ("concepto", "helados")])
+
+    assert list(user_interests(db, "u1").concepts) == ["galletas", "helados", "pizza"]
