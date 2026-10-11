@@ -8,12 +8,14 @@ Una pregunta que falla (red, clave mala, respuesta rara) da `None`; nunca corta 
 llamadas cuenta cada intento HTTP, reintentos incluidos, para que una corrida no pueda gastar más de lo previsto.
 """
 
+import json
 import logging
 import math
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import requests
 
@@ -28,6 +30,9 @@ _RETRIES = 2
 _BACKOFF = 0.5  # segundos; se duplica en cada reintento
 _MAX_WAIT = 30.0
 _sleep = time.sleep  # los tests lo reemplazan para no esperar
+# Jev queda apagado hasta que el piloto pasa y la persona sube este archivo (el piloto escribe una propuesta).
+ADOPTION_FILE = Path(__file__).resolve().parent / "eval" / "jev-adopcion.json"
+DEFAULT_T_AUTO = 0.85  # confianza mínima para mapear una categoría sin revisión, mientras el piloto no fije otra
 
 
 def Noul(instructions: str, criteria: dict | None = None) -> dict:  # noqa: N802 (constructor de pregunta)
@@ -172,6 +177,43 @@ def _parse_answer(question: dict, raw: dict) -> JevAnswer:
     if kind == "score":
         return JevAnswer(score=float(raw["score"]), probabilities=probabilities, confidence=confidence)
     raise ValueError(f"tipo de pregunta desconocido: {kind}")
+
+
+@dataclass(frozen=True)
+class Adoption:
+    """Qué roles de Jev se adoptaron tras el piloto, con qué umbral y para qué versión del modelo."""
+
+    categorias: bool = False
+    juez: bool = False
+    t_auto: float = DEFAULT_T_AUTO
+    model_version: str | None = None
+
+
+def load_adoption(path: Path | None = None) -> Adoption:
+    """Lee `eval/jev-adopcion.json`. Sin archivo, o con uno que no se entiende, no hay nada adoptado."""
+    path = path or ADOPTION_FILE
+    if not path.exists():
+        return Adoption()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        adoption = Adoption(
+            categorias=raw.get("categorias", False),
+            juez=raw.get("juez", False),
+            t_auto=float(raw.get("t_auto", DEFAULT_T_AUTO)),
+            model_version=raw.get("model_version"),
+        )
+        valid = (
+            isinstance(adoption.categorias, bool)
+            and isinstance(adoption.juez, bool)
+            and 0 < adoption.t_auto <= 1
+            and (adoption.model_version is None or isinstance(adoption.model_version, str))
+        )
+    except (ValueError, TypeError, AttributeError):
+        valid = False
+    if not valid:
+        log.warning("%s no se entiende: Jev queda sin adoptar", path.name)
+        return Adoption()
+    return adoption
 
 
 def client_or_none() -> JevClient | None:

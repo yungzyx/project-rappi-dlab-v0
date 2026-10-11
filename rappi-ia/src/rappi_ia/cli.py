@@ -6,6 +6,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia concepts --solo-reporte # cobertura sin recalcular
     rappi-ia knowledge               # tarjetas del juego y sus ligas a conceptos (después de `concepts`)
     rappi-ia map-categories          # categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar
+    rappi-ia map-categories --jev    # Jev propone su concepto (solo con clave y adopción); --exportar para revisarlas
     rappi-ia embed-text              # embeddings e5 de search_documents (incremental) + HNSW por vertical
     rappi-ia search "algo para el carrete" --vertical licores
     rappi-ia eval-search             # léxico vs vectorial vs híbrido + calibración de τ ("sin resultado")
@@ -26,7 +27,8 @@ from collections import Counter
 
 from . import config
 from .concepts.pipeline import build_concepts
-from .concepts.report import coverage_report, render_text, write_category_proposals
+from .concepts.report import coverage_report, jev_review_path, render_text, write_category_proposals
+from .concepts.taxonomy import load_taxonomy
 from .db import connect, database_url, migrate
 from .demo.doctor import check_database, check_pending_migrations
 from .demo.seed import ensure_test_database, reset_test_database, seed_demo
@@ -136,11 +138,55 @@ def cmd_measures(conn, args) -> None:
 
 
 def cmd_map_categories(conn, args) -> None:
+    if args.jev:
+        _map_categories_with_jev(conn, args)
+        return
+    if args.solo_nuevas or args.exportar:
+        log.error("--solo-nuevas y --exportar van con --jev")
+        sys.exit(2)
     rows = coverage_report(conn)["categorias_sin_mapear"]
     out = config.DATA_DIR / "concepts" / "categorias-sin-mapear.csv"
     write_category_proposals(rows, out)
     print(f"{len(rows)} categorías sin mapeo revisado en {out}")
     print("Revisar cada fila, cambiar el método a «curado» y copiarla a src/rappi_ia/concepts/category_map.csv.")
+
+
+def _map_categories_with_jev(conn, args) -> None:
+    from . import jev
+    from .concepts import jev_map
+
+    if args.exportar:
+        out = jev_map.export_path()
+        n = jev_map.export_for_review(conn, out_path=out)
+        print(f"{n} categorías de Jev (aplicadas y pendientes) en {out}")
+        print("Revisar cada fila, cambiar el método a «curado» y copiarla a src/rappi_ia/concepts/category_map.csv.")
+        return
+    adoption = jev.load_adoption()
+    if not adoption.categorias:
+        print(
+            "Jev no está adoptado para etiquetar categorías (falta eval/jev-adopcion.json o dice que no):"
+            " no se hace nada."
+        )
+        return
+    client = jev.client_or_none()
+    if client is None:
+        print("Sin TYPESAFE_API_KEY: Jev no etiqueta categorías y no se escribe nada.")
+        return
+    if adoption.model_version and adoption.model_version != client.model:
+        print(
+            f"La adopción es para {adoption.model_version} y JEV_MODEL dice {client.model}: no se hace nada hasta"
+            " repetir el piloto con ese modelo."
+        )
+        return
+    summary = jev_map.map_categories(conn, client, load_taxonomy(), adoption.t_auto, only_new=args.solo_nuevas)
+    conn.commit()
+    print(
+        f"Jev: {summary['consultadas']} categorías consultadas; mapeó {summary['mapear']},"
+        f" {summary['revisar']} a revisión ({jev_review_path()}), {summary['nada']} sin concepto y"
+        f" {summary['sin_respuesta']} sin respuesta."
+    )
+    if client.stats.stopped_by_cap:
+        print(f"⚠ Se llegó al tope de {config.JEV_MAX_REQUESTS} llamadas (JEV_MAX_REQUESTS): faltaron categorías.")
 
 
 def cmd_embed_text(conn, args) -> None:
@@ -426,8 +472,19 @@ def build_parser() -> argparse.ArgumentParser:
     sg.add_argument("--source", choices=["synthetic", "prototype"], default="synthetic")
     sg.add_argument("--user", help="recalcula solo a esta persona")
     sub.add_parser("measures", help="capa de perfiles: tamaño, unidad y pack normalizados de cada ítem")
-    sub.add_parser(
+    mc = sub.add_parser(
         "map-categories", help="exporta las categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar"
+    )
+    mc.add_argument(
+        "--jev",
+        action="store_true",
+        help="Jev propone el concepto (solo con TYPESAFE_API_KEY y eval/jev-adopcion.json)",
+    )
+    mc.add_argument("--solo-nuevas", action="store_true", help="con --jev: solo las categorías sin ningún mapeo")
+    mc.add_argument(
+        "--exportar",
+        action="store_true",
+        help="con --jev: exporta los mapeos de Jev y su cola de revisión a un CSV para pasarlos a category_map.csv",
     )
     embed = sub.add_parser("embed-text", help="embeddings de texto de search_documents (incremental)")
     embed.add_argument("--limit", type=int, help="máximo de textos nuevos (para probar)")

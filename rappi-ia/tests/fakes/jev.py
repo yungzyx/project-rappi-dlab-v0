@@ -10,7 +10,8 @@ class FakeJev:
     (puede devolver None para simular un fallo); `fail_when(state)`: fallar para esos estados.
     Sin configuración, responde lo más neutro: noul 0.5, la primera opción, el nivel 0."""
 
-    def __init__(self, answers=None, responder=None, fail_when=None):
+    def __init__(self, answers=None, responder=None, fail_when=None, model="jev-falso"):
+        self.model = model
         self.answers = answers or {}
         self.responder = responder
         self.fail_when = fail_when

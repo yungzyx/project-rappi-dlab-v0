@@ -1,3 +1,4 @@
+from rappi_ia.layers import quality
 from rappi_ia.layers.quality import precision_report, render_precision, wilson_low
 
 
@@ -87,3 +88,7 @@ def test_the_versioned_sample_keeps_no_catalog_text(tmp_path):
     kept = json.loads(versioned.read_text())["filas"][0]
     assert set(kept) == {"id", "kind", "clave", "fuente", "entity_type", "entity_id"}
     assert json.loads(local.read_text())["filas"][0]["nombre"] == "Ítem 1"
+
+
+def test_concept_sample_audits_jev_item_concepts():
+    assert quality.CONCEPT_SAMPLE[("catalog_item", "jev")] > 0

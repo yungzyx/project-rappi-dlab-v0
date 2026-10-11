@@ -50,6 +50,16 @@ def test_eval_judgments_only_accepts_the_jev_judge(db):
         _insert_judgment(db, ("q", "licores", "catalog_item", "1", "llm", "v1"))
 
 
+@pytest.mark.parametrize(
+    ("key", "score"),
+    [(("q", "licores", "store", "1", "jev", "v1"), 0.5), (JUDGMENT, 1.5), (JUDGMENT, -0.1)],
+    ids=["tipo-desconocido", "puntaje-sobre-1", "puntaje-negativo"],
+)
+def test_eval_judgments_checks_entity_type_and_score_range(db, key, score):
+    with pytest.raises(errors.CheckViolation):
+        _insert_judgment(db, key, score)
+
+
 def test_category_map_accepts_jev(db):
     build_concepts(db)  # siembra la taxonomía
     _insert_jev_mapping(db)
@@ -77,8 +87,7 @@ def test_load_category_map_keeps_jev_rows(db):
 
     rows = dict(db.execute("SELECT source_key, method || '|' || concept_id FROM category_map").fetchall())
     assert rows["novedades de temporada"] == "jev|cerveza"
-    assert rows["cervezas"].startswith("llm|") or rows["cervezas"].startswith("curado|")
-    assert rows["cervezas"] != "jev|snacks-salados"
+    assert rows["cervezas"] == "llm|cerveza"  # la fila de category_map.csv
     assert load_category_map(db, []) == 0  # sin filas en el CSV tampoco se borran los de Jev
     assert db.execute("SELECT count(*) FROM category_map WHERE method = 'jev'").fetchone()[0] == 1
 
@@ -109,4 +118,4 @@ def test_build_concepts_uses_jev_mapping_like_others(db):
     report = coverage_report(db)
     assert report["categorias_sin_mapear"] == []
     assert report["mapeos_jev"] == 1
-    assert "Mapeos de Jev sin revisar: 1" in render_text(report)
+    assert "Jev: 1 categorías mapeadas" in render_text(report)

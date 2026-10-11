@@ -96,10 +96,15 @@ def _check_one_concept_per_key(rows: list[dict]) -> None:
             raise ValueError(f"category_map.csv: «{key}» ({kind}) tiene dos conceptos: {first} y {row['concept_id']}")
 
 
-def load_category_map(conn: Connection, rows: list[dict]) -> int:
+def load_category_map(conn: Connection, rows: list[dict], rejected: Iterable[str] = ()) -> int:
     """Reemplaza los mapeos curados/LLM por los del CSV versionado en el repo. Los de Jev (propuestos por máquina,
-    sin revisión) se conservan, salvo los que el CSV también trae: ahí gana la revisión humana."""
+    sin revisión) se conservan, salvo los que el CSV también trae: ahí gana la revisión humana, también cuando dice
+    «ninguno» (`rejected`: claves de categorías revisadas sin concepto)."""
     conn.execute("DELETE FROM category_map WHERE method IN ('curado', 'llm')")
+    conn.execute(
+        "DELETE FROM category_map WHERE method = 'jev' AND source_kind = 'categoria' AND source_key = ANY(%s)",
+        (list(rejected),),
+    )
     with conn.cursor() as cur:
         cur.executemany(
             """INSERT INTO category_map (source_kind, source_key, source_name, concept_id, method, confidence,

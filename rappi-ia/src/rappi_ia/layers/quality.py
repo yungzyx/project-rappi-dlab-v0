@@ -46,6 +46,7 @@ CONCEPT_SAMPLE = {
     ("catalog_item", "llm"): 80,
     ("catalog_item", "regla"): 60,
     ("catalog_item", "embedding"): 40,
+    ("catalog_item", "jev"): 40,  # mapeos de categoría propuestos por Jev (solo hay de productos)
 }
 MIN_TO_REVIEW = 5  # juicios mínimos para mandar una regla a revisión
 REVIEW_BELOW = 0.8  # precisión bajo la cual una regla se revisa

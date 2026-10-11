@@ -8,11 +8,11 @@
 CREATE TABLE eval_judgments (
     query         text NOT NULL,
     vertical      text NOT NULL,
-    entity_type   text NOT NULL,
+    entity_type   text NOT NULL CHECK (entity_type IN ('catalog_item', 'menu_item')),
     entity_id     text NOT NULL,
     judge         text NOT NULL CHECK (judge IN ('jev')),
     model_version text NOT NULL,
-    score         real NOT NULL,
+    score         real NOT NULL CHECK (score BETWEEN 0 AND 1),
     probabilities jsonb,
     created_at    timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (query, vertical, entity_type, entity_id, judge, model_version)
