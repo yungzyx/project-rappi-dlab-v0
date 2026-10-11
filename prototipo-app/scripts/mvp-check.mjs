@@ -8,14 +8,15 @@
 //     de prueba que el pedido tiene líneas sembradas y al menos una aceptación `agent-plan`;
 //   con --game: abre el juego desde el pasaporte de la Home, empieza una ronda en el Súper, ve como primer paso el primer
 //     dato de `GET /game/cards?vertical=supermercado` (de --api), lo da vuelta y sigue; scripts/mvp-check.sh verifica
-//     después en la base de prueba que el progreso de esa persona quedó guardado con esa tarjeta en `discovered`; el id de la
+//     después en la base de prueba que el progreso de esa persona quedó guardado con esa tarjeta en `discovered`; sigue
+//     hasta terminar la ronda (responde lo que pregunten) y espera el POST /events con `game_round_finished`; el id de la
 //     persona (el `rappi-proto-user` del navegador) se deja en el archivo de `--user-file`;
 //   con --dato: en el buscador con Mochi toca «Algo dulce» y ve el bloque «¿Sabías que…?» con su fuente en la respuesta;
 //   con --expect-offline: la API está detenida y la app muestra «Sin conexión con <agente>»;
 //   con --panel <url del panel> (sin --app): corre después de las demás, con la API en marcha. Espera a que la API ya
-//     cuente lo que dejaron el kit (una oferta aceptada en «Plan») y el juego (una tarjeta), abre el panel en «Uso del MVP»
-//     con la fuente del prototipo y ve esas cifras ahí, con el rótulo «uso del MVP, pocas personas: no es evidencia» y
-//     sin el aviso de datos guardados (que taparía una API que no responde).
+//     cuente lo que dejaron el kit (una oferta aceptada en «Plan») y el juego (una tarjeta y una ronda), abre el panel
+//     en «Uso del MVP» con la fuente del prototipo y ve esas cifras ahí (también «Rondas» ≥ 1), con el rótulo
+//     «uso del MVP, pocas personas: no es evidencia» y sin el aviso de datos guardados (que taparía una API que no responde).
 // Con la API en marcha (sin --expect-offline) también falla ante un error de la página o de la consola, o una respuesta
 // 4xx/5xx, desde la primera carga; solo se ignoran las imágenes del catálogo de prueba, que no existen.
 // Sale con 0 si la revisión pasa y con 1 si no. Usa el Chrome instalado (playwright-core, sin descargar navegadores).
@@ -162,6 +163,22 @@ async function checkKit(page) {
   return `buscó «cerveza» (${found} grupos), pidió el kit «Carrete», lo agregó y la API aceptó el pedido`
 }
 
+/** Sigue la ronda hasta «¡Ronda completa!»: da vuelta los datos y responde lo que pregunten (sin importar si acierta). */
+async function finishRound(page) {
+  const end = page.getByRole('heading', { name: '¡Ronda completa!' })
+  const flip = page.getByRole('button', { name: 'Dar vuelta' })
+  const options = page.getByRole('group', { name: 'Opciones' }).getByRole('button')
+  for (let moves = 0; moves < 10; moves++) {
+    // El paso que sigue (dato o pregunta) o el final de la ronda: lo que aparezca primero.
+    await end.or(flip).or(options.first()).waitFor()
+    if (await end.isVisible()) return
+    if (await flip.isVisible()) await flip.click()
+    else await options.first().click()
+    await page.getByRole('button', { name: 'Continuar' }).click()
+  }
+  throw new Error('la ronda no terminó en 10 pasos')
+}
+
 /**
  * Abre el juego con «Jugar» del pasaporte de la Home, empieza una ronda en el Súper y comprueba que el primer paso es el
  * primer dato que sirve la API; al darlo vuelta y seguir, la app guarda el progreso (lo verifica scripts/mvp-check.sh).
@@ -208,6 +225,19 @@ async function checkGame(page, api, userFile) {
   await discovered.catch(() => {
     throw new Error('la app no registró la tarjeta descubierta (POST /events con game_card_discovered)')
   })
+  // Terminar la ronda registra `game_round_finished` (el panel cuenta las rondas con él); las respuestas dan igual.
+  const finishedRound = page.waitForResponse(
+    (r) =>
+      r.request().method() === 'POST' &&
+      new URL(r.url()).pathname === '/events' &&
+      (r.request().postData() ?? '').includes('game_round_finished'),
+    { timeout: TIMEOUT_MS },
+  )
+  finishedRound.catch(() => {}) // si no llega, falla abajo con su propio mensaje
+  await step(page, 'terminar la ronda', () => finishRound(page))
+  await finishedRound.catch(() => {
+    throw new Error('la app no registró el fin de la ronda (POST /events con game_round_finished)')
+  })
   if (userFile) {
     const user = await step(page, 'leer el id de la persona del navegador', () =>
       page.evaluate(() => localStorage.getItem('rappi-proto-user')),
@@ -215,7 +245,7 @@ async function checkGame(page, api, userFile) {
     if (!user) throw new Error('el navegador no tiene id de persona (rappi-proto-user)')
     writeFileSync(userFile, user)
   }
-  return `la ronda del Súper abre con «${title}» (el primer dato de la API) y avanza un paso`
+  return `la ronda del Súper abre con «${title}» (el primer dato de la API), se termina y la API recibe el fin de la ronda`
 }
 
 /**
@@ -272,7 +302,12 @@ async function checkPanel(page, panel, api) {
     (data) => data.momentos.some((row) => row.momento === 'plan' && row.aceptadas >= 1),
     'una oferta aceptada del kit en «Plan»',
   )
-  const game = await waitForMetric(api, 'game', (data) => data.tarjetas >= 1, 'una tarjeta descubierta en el juego')
+  const game = await waitForMetric(
+    api,
+    'game',
+    (data) => data.tarjetas >= 1 && data.rondas >= 1,
+    'una tarjeta descubierta y una ronda terminada en el juego',
+  )
   await page.goto(`${panel}/?vista=mvp&fuente=prototipo`, { timeout: TIMEOUT_MS })
   const offers = page.getByRole('table', { name: 'Ofertas del agente por momento' })
   await step(page, 'ver la tabla «Ofertas del agente por momento»', () => offers.waitFor())
@@ -284,17 +319,21 @@ async function checkPanel(page, panel, api) {
   if (!(accepted >= 1)) throw new Error(`«Plan» muestra ${accepted} aceptadas y se esperaba al menos 1`)
   const cards = page.getByRole('table', { name: 'Juego por vertical' })
   await step(page, 'ver la tabla «Juego por vertical»', () => cards.waitFor())
-  const shown = await step(page, 'leer las tarjetas del juego', async () =>
-    Number(
-      (
-        await page
-          .locator('dt', { hasText: /^Tarjetas$/ })
-          .locator('xpath=following-sibling::dd')
-          .innerText()
-      ).replace(/\D/g, ''),
-    ),
-  )
+  const gameFigure = (label) =>
+    step(page, `leer «${label}» del juego`, async () =>
+      Number(
+        (
+          await page
+            .locator('dt', { hasText: new RegExp(`^${label}$`) })
+            .locator('xpath=following-sibling::dd')
+            .innerText()
+        ).replace(/\D/g, ''),
+      ),
+    )
+  const shown = await gameFigure('Tarjetas')
   if (!(shown >= 1)) throw new Error(`«Juego» muestra ${shown} tarjetas y se esperaba al menos 1`)
+  const rounds = await gameFigure('Rondas')
+  if (!(rounds >= 1)) throw new Error(`«Juego» muestra ${rounds} rondas y se esperaba al menos 1`)
   const notes = await step(page, `ver el rótulo «${NOT_EVIDENCE}»`, async () => {
     await page.getByText(NOT_EVIDENCE).first().waitFor()
     return page.getByText(NOT_EVIDENCE).count()
@@ -302,7 +341,7 @@ async function checkPanel(page, panel, api) {
   // Los datos guardados tienen la misma forma: si la API no contestó, el panel los muestra y este recorrido no probaría nada.
   if ((await page.getByText('Modo sin conexión (datos guardados):').count()) > 0)
     throw new Error('el panel mostró datos guardados en vez de los de la API')
-  return `el panel muestra «Plan» con ${accepted} aceptada(s) (la API: ${plan.momentos.length} momento(s)), ${shown} tarjeta(s) del juego (la API: ${game.tarjetas}) y ${notes} rótulos «${NOT_EVIDENCE}»`
+  return `el panel muestra «Plan» con ${accepted} aceptada(s) (la API: ${plan.momentos.length} momento(s)), ${shown} tarjeta(s) y ${rounds} ronda(s) del juego (la API: ${game.tarjetas} y ${game.rondas}) y ${notes} rótulos «${NOT_EVIDENCE}»`
 }
 
 /** Un paso del recorrido: si falla, dice cuál era y qué mostraba la página. */
