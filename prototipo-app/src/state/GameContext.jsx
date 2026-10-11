@@ -1,6 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { cards, gameState, saveGameState } from '../api/game'
+import { userId } from '../api/user'
+import { ConnectionNotice } from '../components/ConnectionGate'
+import { setKnowledge } from '../game/knowledge.js'
 import * as progress from '../game/progress.js'
-import { clear, load, save } from '../game/storage.js'
+import { createSaver } from '../game/saver.js'
+import { clearLegacy, legacyProgress } from '../game/storage.js'
 import { SCREEN_TO_GAME } from '../game/verticals.js'
 import { REPLAY_EVENT } from './liveMemory'
 
@@ -8,17 +13,54 @@ const GameContext = createContext(null)
 const DATE_CHECK_MS = 30_000
 
 /**
- * Estado del juego: cada acción aplica la función pura de progress.js sobre el último estado (una referencia, para que
- * dos acciones en el mismo toque no se pisen), lo guarda en el navegador y deja avisos para celebrar: misión del día
- * completa y nivel de explorador nuevo.
+ * Las tarjetas y el progreso del servidor, en ese orden. El progreso que este navegador guardó antes (ya no se escribe)
+ * se traspasa una sola vez: si el servidor no tiene progreso, sube el del navegador (limpio) y recién ahí se borra;
+ * si el servidor tiene, gana el del servidor y el del navegador se borra. Si algo falla, no se borra nada.
+ * `local` se lee antes de esperar nada: con StrictMode la carga corre dos veces y la primera no debe borrárselo a la segunda.
+ */
+async function loadGame(local) {
+  setKnowledge(await cards())
+  const id = userId()
+  let state = await gameState(id)
+  if (!state && local) state = await saveGameState(id, local)
+  clearLegacy()
+  return { ...progress.initialState(), ...state }
+}
+
+/**
+ * Estado del juego: antes de pintar a sus hijos carga las tarjetas y el progreso del servidor (con «Sin conexión» y
+ * «Reintentar» si no puede). Cada acción aplica la función pura de progress.js sobre el último estado (una referencia,
+ * para que dos acciones en el mismo toque no se pisen), lo guarda en el servidor y deja avisos para celebrar: misión
+ * del día completa y nivel de explorador nuevo. El progreso nunca se escribe en el navegador.
  */
 export function GameProvider({ children }) {
-  const [state, setState] = useState(load)
+  const [state, setState] = useState(progress.initialState)
   const latest = useRef(state)
+  const [loaded, setLoaded] = useState('loading') // 'loading' | 'ready' | 'offline'
+  const [attempt, setAttempt] = useState(0)
+  const saver = useRef(null)
+  saver.current ??= createSaver((next) => saveGameState(userId(), next))
   const [date, setDate] = useState(progress.today)
   const [events, setEvents] = useState([])
   // Sube en cada reinicio: las pantallas del juego lo usan de `key` para no seguir con una ronda vieja.
   const [generation, setGeneration] = useState(0)
+
+  useEffect(() => {
+    let current = true
+    const local = legacyProgress()
+    loadGame(local).then(
+      (loadedState) => {
+        if (!current) return
+        latest.current = loadedState
+        setState(loadedState)
+        setLoaded('ready')
+      },
+      () => current && setLoaded('offline'),
+    )
+    return () => {
+      current = false
+    }
+  }, [attempt])
 
   // La fecha se revisa cada 30 s y al volver a la pestaña: con la app abierta pasada la medianoche, la misión del
   // día y la racha pasan al día nuevo sin esperar a la próxima acción.
@@ -33,9 +75,9 @@ export function GameProvider({ children }) {
   }, [])
 
   const reset = useCallback(() => {
-    clear()
     latest.current = progress.initialState()
     setState(latest.current)
+    saver.current.save(latest.current)
     setEvents([])
     setGeneration((n) => n + 1)
   }, [])
@@ -49,7 +91,7 @@ export function GameProvider({ children }) {
   const commit = useCallback((next) => {
     latest.current = next
     setState(next)
-    save(next)
+    saver.current.save(next)
   }, [])
 
   const run = useCallback(
@@ -93,6 +135,13 @@ export function GameProvider({ children }) {
     [state, date, events, generation, run, commit, dismissEvent, clearEvents, reset],
   )
 
+  if (loaded !== 'ready') {
+    const retry = () => {
+      setLoaded('loading')
+      setAttempt((n) => n + 1)
+    }
+    return <ConnectionNotice status={loaded === 'offline' ? 'offline' : 'checking'} onRetry={retry} />
+  }
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>
 }
 

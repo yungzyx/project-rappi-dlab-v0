@@ -1,24 +1,27 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { GameApp as App } from './GameApp.testkit.jsx'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { gameServer, stubApi } from '../../api/testing'
+import { GameApp as App, mount } from './GameApp.testkit.jsx'
 import { DATA } from '../../game/data.js'
 import { cardsOf } from '../../game/knowledge.js'
 import { initialState } from '../../game/progress.js'
 import { makeRound } from '../../game/round.js'
-import { KEY } from '../../game/storage.js'
-import { seed } from '../../game/testSeed.js'
+import { seed, stored } from '../../game/testSeed.js'
 
 beforeEach(() => {
   localStorage.clear()
+  stubApi({})
   seed()
 })
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
-const stored = () => JSON.parse(localStorage.getItem(KEY))
 const preload = seed
 
-function startRound(vertical, level = 'Sin sello') {
-  render(<App />)
+async function startRound(vertical, level = 'Sin sello') {
+  await mount(<App />)
   const path = screen.getByRole('region', { name: 'Camino de verticales' })
   fireEvent.click(within(path).getByRole('button', { name: new RegExp(`^${DATA.labels[vertical]}: ${level}`) }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
@@ -40,9 +43,9 @@ function playRound(round, pick) {
 }
 
 describe('ronda', () => {
-  test('un dato se da vuelta: «¿Sabías que…?» y, atrás, el dato con su fuente (en una pestaña nueva)', () => {
+  test('un dato se da vuelta: «¿Sabías que…?» y, atrás, el dato con su fuente (en una pestaña nueva)', async () => {
     const [dato] = makeRound(initialState(), 'chocolateria')
-    startRound('chocolateria')
+    await startRound('chocolateria')
     expect(screen.getByText('¿Sabías que…?')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
     expect(screen.getByRole('heading', { level: 2, name: dato.card.title })).toBeTruthy()
@@ -52,11 +55,11 @@ describe('ronda', () => {
     expect(source.getAttribute('target')).toBe('_blank')
     expect(source.getAttribute('rel')).toMatch(/noopener/)
     expect(screen.getByText('+10 XP')).toBeTruthy()
-    expect(stored().xp).toBe(10)
+    await waitFor(() => expect(stored().xp).toBe(10))
   })
 
-  test('la tecla 4 en una pregunta de 3 alternativas no hace nada (ni deja un error)', () => {
-    startRound('supermercado')
+  test('la tecla 4 en una pregunta de 3 alternativas no hace nada (ni deja un error)', async () => {
+    await startRound('supermercado')
     fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
     const errors = []
@@ -72,17 +75,17 @@ describe('ronda', () => {
     expect(screen.queryByText('Casi')).toBeNull()
   })
 
-  test('Enter sobre «Fuente: …» abre el enlace y no sigue la ronda', () => {
+  test('Enter sobre «Fuente: …» abre el enlace y no sigue la ronda', async () => {
     const [dato] = makeRound(initialState(), 'chocolateria')
-    startRound('chocolateria')
+    await startRound('chocolateria')
     fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
     fireEvent.keyDown(screen.getByRole('link', { name: dato.card.source.title }), { key: 'Enter' })
     expect(screen.getByRole('heading', { level: 2, name: dato.card.title })).toBeTruthy()
   })
 
-  test('una pregunta curiosa: ¡Correcto! con 20 XP, explicación y fuente; errar muestra la respuesta y 5 XP', () => {
+  test('una pregunta curiosa: ¡Correcto! con 20 XP, explicación y fuente; errar muestra la respuesta y 5 XP', async () => {
     const round = makeRound(initialState(), 'supermercado')
-    startRound('supermercado')
+    await startRound('supermercado')
     fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
     const ch = round[1].challenge
@@ -103,9 +106,9 @@ describe('ronda', () => {
     expect(screen.getByText(wrong.explanation)).toBeTruthy()
   })
 
-  test('una ronda perfecta da 3 estrellas, una carta y completa la misión del día', () => {
+  test('una ronda perfecta da 3 estrellas, una carta y completa la misión del día', async () => {
     const round = makeRound(initialState(), 'supermercado')
-    startRound('supermercado')
+    await startRound('supermercado')
     playRound(round, (ch) => ch.answer)
     expect(screen.getByRole('heading', { name: '¡Ronda completa!' })).toBeTruthy()
     expect(screen.getByLabelText('3 de 3 estrellas')).toBeTruthy()
@@ -113,12 +116,12 @@ describe('ronda', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Abrir carta' }))
     expect(screen.getByText(round[0].card.text)).toBeTruthy()
     expect(screen.getByText('Misión del día completa: +50 XP')).toBeTruthy()
-    expect(stored().daily.done).toBe(true)
+    await waitFor(() => expect(stored().daily.done).toBe(true))
     fireEvent.click(screen.getByRole('button', { name: 'Seguir' }))
     expect(screen.getByRole('region', { name: 'Camino de verticales' })).toBeTruthy()
   })
 
-  test('subir de nivel muestra el sello nuevo al terminar', () => {
+  test('subir de nivel muestra el sello nuevo al terminar', async () => {
     const v = 'chocolateria'
     preload({
       discovered: {
@@ -129,14 +132,14 @@ describe('ronda', () => {
       correct: { [v]: 3 },
       answered: { [v]: 3 },
     })
-    const round = makeRound(JSON.parse(localStorage.getItem(KEY)), v)
-    startRound(v, 'Explorador')
+    const round = makeRound(gameServer.state, v)
+    await startRound(v, 'Explorador')
     playRound(round, (ch) => ch.answer)
     expect(screen.getByText(`Nuevo sello: Conocedor de ${DATA.labels[v]}`)).toBeTruthy()
   })
 
-  test('salir a mitad de ronda guarda lo ganado', () => {
-    startRound('turbo')
+  test('salir a mitad de ronda guarda lo ganado', async () => {
+    await startRound('turbo')
     fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
     fireEvent.click(screen.getByRole('button', { name: 'Salir' }))
     const confirm = screen.getByRole('dialog', { name: '¿Salir de la ronda?' })
@@ -145,6 +148,6 @@ describe('ronda', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salir' }))
     fireEvent.click(screen.getByRole('button', { name: 'Salir de la ronda' }))
     expect(screen.getByRole('region', { name: 'Camino de verticales' })).toBeTruthy()
-    expect(stored().xp).toBe(10)
+    await waitFor(() => expect(stored().xp).toBe(10))
   })
 })

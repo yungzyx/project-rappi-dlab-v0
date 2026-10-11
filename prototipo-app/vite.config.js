@@ -16,6 +16,7 @@ export default defineConfig({
   // Hora de Chile en las pruebas: la misión del día y la racha del juego usan la fecha local (CI corre en UTC).
   test: {
     environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
     env: { TZ: 'America/Santiago' },
   },
 })

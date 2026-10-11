@@ -3,8 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { fixture, stubApi } from '../../../api/testing'
 import { DATA } from '../../../game/data.js'
-import { KEY } from '../../../game/storage.js'
-import { seed } from '../../../game/testSeed.js'
+import { gameReady, seed, stored } from '../../../game/testSeed.js'
 import { today } from '../../../game/progress.js'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
@@ -98,7 +97,11 @@ const homeTree = ({ strict = false, tab = 'home', push = vi.fn(), active = true 
     </div>
   </Providers>
 )
-const renderHome = (options) => render(homeTree(options))
+const renderHome = async (options) => {
+  const result = render(homeTree(options))
+  await gameReady() // el juego carga sus tarjetas y su progreso del servidor simulado antes de pintar la Home
+  return result
+}
 // De a 100 ms, como en un navegador: entre paso y paso React aplica sus efectos (la máquina de escribir, por ejemplo).
 const advance = async (ms) => {
   for (let elapsed = 0; elapsed < ms; elapsed += 100) await act(() => vi.advanceTimersByTimeAsync(100))
@@ -107,13 +110,13 @@ const blockOrder = (container) =>
   [...container.querySelectorAll('.live-block')].map((block) => block.className.match(/live-block--(\w+)/)[1])
 
 describe('Home del prototipo final', () => {
-  test('no tiene un ícono aparte: Mochi vive en la Home de cuerpo entero', () => {
-    renderHome()
+  test('no tiene un ícono aparte: Mochi vive en la Home de cuerpo entero', async () => {
+    await renderHome()
     expect(screen.queryByRole('button', { name: 'Hablar con Mochi' })).toBeNull()
     expect(screen.getByText('Tu pasaporte Rappi')).toBeTruthy()
   })
 
-  test('la barra de la Home es el buscador con Mochi (no el plano) y tocarla lo abre', () => {
+  test('la barra de la Home es el buscador con Mochi (no el plano) y tocarla lo abre', async () => {
     function Probe() {
       return <output data-testid="assistant">{useAssistant().isOpen ? 'abierto' : 'cerrado'}</output>
     }
@@ -127,6 +130,7 @@ describe('Home del prototipo final', () => {
         <Probe />
       </Providers>,
     )
+    await gameReady()
     expect(container.querySelector('.search-bar')).toBeNull()
     expect(screen.getByTestId('assistant').textContent).toBe('cerrado')
     fireEvent.click(screen.getByRole('button', { name: 'Abrir buscador con Mochi' }))
@@ -134,7 +138,7 @@ describe('Home del prototipo final', () => {
   })
 
   test('Mochi entra y saluda sin sugerir productos ni reordenar ni oscurecer la Home', async () => {
-    const { container } = renderHome()
+    const { container } = await renderHome()
     expect(blockOrder(container)).toEqual(['essentials', 'passport', 'promos', 'turbo', 'plan', 'nearby', 'lower'])
 
     await advance(900 + 1000) // entra y empieza a saludar
@@ -153,7 +157,7 @@ describe('Home del prototipo final', () => {
       '/catalog/home': fixture('catalog-home'),
       '/catalog/restaurants': fixture('catalog-restaurants').slice(0, 6),
     })
-    const { container } = renderHome()
+    const { container } = await renderHome()
     await advance(300)
     const block = (id) => container.querySelector(`.live-block--${id}`)
     expect(within(block('turbo')).getByText('Restaurantes rápidos')).toBeTruthy()
@@ -164,7 +168,7 @@ describe('Home del prototipo final', () => {
 
     cleanup()
     stubApi({ '/catalog/home': 'offline', '/catalog/restaurants': 'offline' })
-    const failed = renderHome()
+    const failed = await renderHome()
     await advance(300)
     expect(failed.container.querySelector('.live-block--nearby').textContent).toBe('')
     expect(failed.container.querySelector('.live-block--lower').textContent).toBe('')
@@ -172,8 +176,8 @@ describe('Home del prototipo final', () => {
     expect(screen.queryByText('Sin conexión')).toBeNull()
   })
 
-  test('el pasaporte va justo bajo los accesos de siempre', () => {
-    const { container } = renderHome()
+  test('el pasaporte va justo bajo los accesos de siempre', async () => {
+    const { container } = await renderHome()
     const [first, second] = container.querySelectorAll('.live-block')
     expect(first.querySelector('.home-shortcuts')).not.toBeNull()
     expect(second.textContent).toMatch(/^Tu pasaporte Rappi/)
@@ -185,7 +189,7 @@ describe('Home del prototipo final', () => {
 
     test('el kit sale de la API y agregarlo registra una aceptación por producto', async () => {
       const kit = fixture('agent-offer-plan')
-      renderHome()
+      await renderHome()
       await advance(100)
       // Las ocasiones son las del servidor, con su nombre.
       expect(screen.getByRole('radio', { name: 'Panorama en casa' })).toBeTruthy()
@@ -209,7 +213,7 @@ describe('Home del prototipo final', () => {
     })
 
     test('la Home muestra solo los 5 primeros planes, en el orden del servidor', async () => {
-      renderHome()
+      await renderHome()
       await advance(100)
       const names = fixture('agent-plans').map((option) => option.name)
       expect(names.length).toBeGreaterThan(5)
@@ -218,7 +222,7 @@ describe('Home del prototipo final', () => {
 
     test('si el servidor no arma el kit (204) o no contesta, el chip no se queda marcado y Mochi no dice nada', async () => {
       stubAgent({ 'POST /agent/offer': 204 })
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(900 + 3400 + 6000)
       fireEvent.click(screen.getByRole('radio', { name: 'Carrete' }))
       await advance(3000)
@@ -235,7 +239,7 @@ describe('Home del prototipo final', () => {
 
     test('si no llegan las ocasiones, el bloque del plan no ofrece chips (no hay kits locales)', async () => {
       stubAgent({ '/agent/plans': 'offline' })
-      renderHome()
+      await renderHome()
       await advance(300)
       expect(screen.queryByRole('radio')).toBeNull()
     })
@@ -245,7 +249,7 @@ describe('Home del prototipo final', () => {
       const carrito = fixture('agent-offer-carrito')
       memory.session.played = true
       memory.session.lastAdded = LOOSE_CART
-      const { container } = renderHome({ push })
+      const { container } = await renderHome({ push })
       await advance(4000)
       expect(status(container)).toBe(carrito.text)
       expect(offerRequests()).toEqual([
@@ -264,7 +268,7 @@ describe('Home del prototipo final', () => {
       stubAgent({ 'POST /agent/offer': 204 })
       memory.session.newStamp = null // abrir Express sí selló la vertical; esto es solo el comentario
       memory.session.lastAdded = LOOSE_CART
-      const empty = renderHome()
+      const empty = await renderHome()
       await advance(4000)
       expect(status(empty.container)).toBe('')
       expect(memory.session.lastAdded).toBeNull()
@@ -272,7 +276,7 @@ describe('Home del prototipo final', () => {
 
     test('tocar a Mochi propone la vertical sin sello que dice la API', async () => {
       const push = vi.fn()
-      const { container } = renderHome({ push })
+      const { container } = await renderHome({ push })
       await advance(900 + 3400)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
       await advance(3000)
@@ -287,7 +291,7 @@ describe('Home del prototipo final', () => {
 
     test('tocar a Mochi sin nada que ofrecer (204) calla; con todo sellado celebra', async () => {
       stubAgent({ 'POST /agent/offer': 204 })
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(900 + 3400 + 6000)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
       await advance(3000)
@@ -295,7 +299,7 @@ describe('Home del prototipo final', () => {
       cleanup()
       seed({ visited: DATA.order.filter((v) => v !== 'farmacia').concat('viajes') })
       memory.session.played = true
-      const done = renderHome()
+      const done = await renderHome()
       await advance(500)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
       await advance(3000)
@@ -306,7 +310,7 @@ describe('Home del prototipo final', () => {
       localStorage.setItem('rappi-proto-mochi-silencio', today())
       memory.session.played = true
       memory.session.lastAdded = LOOSE_CART
-      renderHome()
+      await renderHome()
       await advance(4000)
       expect(offerRequests()).toEqual([])
 
@@ -317,7 +321,7 @@ describe('Home del prototipo final', () => {
       quiet.noteDismissed()
       quiet.noteDismissed()
       memory.session.lastAdded = LOOSE_CART
-      renderHome()
+      await renderHome()
       await advance(4000)
       expect(offerRequests()).toEqual([])
     })
@@ -327,14 +331,14 @@ describe('Home del prototipo final', () => {
     memory.session.played = true
     memory.session.newStamp = 'liquor' // se abrió Licores desde la Home: sello nuevo
     seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
-    const { container } = renderHome({ strict: true })
+    const { container } = await renderHome({ strict: true })
     await advance(2000)
     expect(container.querySelector('.live-layer [role="status"]').textContent).toMatch(/^¡Sello nuevo de Licores!/)
   })
 
   test('la Home queda montada bajo la vertical abierta: al volver a estar arriba, celebra el sello nuevo', async () => {
     seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
-    const { container, rerender } = renderHome()
+    const { container, rerender } = await renderHome()
     await advance(900 + 3400 + 6000) // saluda y se calla
     rerender(homeTree({ active: false })) // se abrió Licores encima de la Home
     memory.session.newStamp = 'liquor'
@@ -344,7 +348,7 @@ describe('Home del prototipo final', () => {
   })
 
   test('al tocar a Mochi salta (aunque empiece a hablar) y después vuelve a su pose', async () => {
-    const { container } = renderHome()
+    const { container } = await renderHome()
     await advance(900 + 3400)
     const body = screen.getByRole('button', { name: /^Mochi:/ })
     fireEvent.pointerDown(body)
@@ -359,7 +363,7 @@ describe('Home del prototipo final', () => {
     memory.session.played = true
     memory.session.newStamp = 'liquor'
     seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
-    const { container } = renderHome()
+    const { container } = await renderHome()
     await advance(4000) // termina de escribir la celebración
     expect(container.querySelector('.live-agent .mascot').classList).toContain('mascot--jump')
   })
@@ -372,7 +376,7 @@ describe('Home del prototipo final', () => {
       quietToday()
       memory.session.played = true
       memory.session.lastAdded = { id: 'x', name: 'Cerveza Escudo Lata 470 cc', vertical: 'liquor', entityType: 'catalog_item', entityId: '94001' }
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(3000)
       expect(status(container)).toBe('')
       expect(offerRequests()).toEqual([]) // en silencio no pide la oferta
@@ -383,14 +387,14 @@ describe('Home del prototipo final', () => {
       memory.session.played = true
       memory.session.newStamp = 'liquor'
       seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(3000)
       expect(status(container)).toBe('')
     })
 
     test('entra sin saludar, pero si lo tocan responde', async () => {
       quietToday()
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(900 + 3400)
       expect(status(container)).toBe('')
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
@@ -401,7 +405,7 @@ describe('Home del prototipo final', () => {
 
   test('«Después» cuenta como ignorarlo: a la segunda, Mochi se calla', async () => {
     const quiet = await import('../../../state/agentQuiet')
-    renderHome()
+    await renderHome()
     await advance(900 + 3400 + 6000)
     for (let i = 0; i < 2; i++) {
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
@@ -423,7 +427,7 @@ describe('Home del prototipo final', () => {
     }
 
     test('la primera vez, después del saludo, Mochi muestra el buscador, el pasaporte y «Jugar»', async () => {
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(AFTER_GREETING)
       expect(status(container)).toMatch(/^Arriba está mi buscador/)
       await next('Siguiente')
@@ -438,27 +442,27 @@ describe('Home del prototipo final', () => {
     })
 
     test('«Saltar» la termina y no vuelve', async () => {
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(AFTER_GREETING)
       await next('Saltar')
       expect(status(container)).toBe('')
       cleanup()
       memory.session.played = false
-      const again = renderHome()
+      const again = await renderHome()
       await advance(AFTER_GREETING + 6000)
       expect(status(again.container)).not.toMatch(/buscador|pasaporte|Jugar/)
     })
 
     test('la segunda visita no la muestra', async () => {
       localStorage.setItem(memory.TOUR_KEY, '1')
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(AFTER_GREETING)
       expect(status(container)).not.toMatch(/^Arriba está mi buscador/)
     })
 
     test('«Repetir escena» la vuelve a mostrar', async () => {
       localStorage.setItem(memory.TOUR_KEY, '1')
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(AFTER_GREETING)
       act(() => memory.resetLive())
       await advance(AFTER_GREETING)
@@ -467,7 +471,7 @@ describe('Home del prototipo final', () => {
 
     test('si tocan a Mochi en medio, la guía termina (vista) y Mochi sigue celebrando al volver', async () => {
       seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
-      const { container, rerender } = renderHome()
+      const { container, rerender } = await renderHome()
       await advance(AFTER_GREETING)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
       await advance(3000)
@@ -481,7 +485,7 @@ describe('Home del prototipo final', () => {
     })
 
     test('no pisa lo que la persona pidió tocando a Mochi justo antes', async () => {
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(900 + 3400 + 700)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
       await advance(5000)
@@ -498,7 +502,7 @@ describe('Home del prototipo final', () => {
         disconnect() {}
       }
       try {
-        const { container } = renderHome()
+        const { container } = await renderHome()
         await advance(AFTER_GREETING)
         act(() => seePlan([{ isIntersecting: true }]))
         await advance(1000)
@@ -510,7 +514,7 @@ describe('Home del prototipo final', () => {
 
     test('al terminar la guía, Mochi muestra lo pendiente de «al volver»', async () => {
       seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
-      const { container, rerender } = renderHome()
+      const { container, rerender } = await renderHome()
       await advance(AFTER_GREETING)
       rerender(homeTree({ active: false })) // se abrió algo encima en medio de la guía
       memory.session.newStamp = 'liquor'
@@ -527,7 +531,7 @@ describe('Home del prototipo final', () => {
       const original = window.matchMedia
       window.matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} })
       try {
-        const { container } = renderHome()
+        const { container } = await renderHome()
         await advance(6000 + 3000)
         expect(status(container)).toMatch(/^Arriba está mi buscador/)
       } finally {
@@ -536,15 +540,15 @@ describe('Home del prototipo final', () => {
     })
   })
 
-  test('el pasaporte de la Home tiene 9 sellos y el último es Viajes', () => {
-    const { container } = renderHome()
+  test('el pasaporte de la Home tiene 9 sellos y el último es Viajes', async () => {
+    const { container } = await renderHome()
     const stamps = container.querySelectorAll('.live-stamp')
     expect(stamps).toHaveLength(9)
     expect(stamps[8].getAttribute('aria-label')).toMatch(/^Viajes/)
   })
 
   test('tocar a Mochi después del saludo propone una vertical que falta en el pasaporte', async () => {
-    const { container } = renderHome()
+    const { container } = await renderHome()
     await advance(900 + 3400)
     fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
     await advance(3000) // termina de escribir
@@ -552,7 +556,7 @@ describe('Home del prototipo final', () => {
   })
 
   test('«Repetir escena» vuelve a saludar', async () => {
-    const { container } = renderHome()
+    const { container } = await renderHome()
     await advance(900 + 3400 + 6000)
     act(() => memory.resetLive())
     await advance(900 + 1000)
@@ -560,7 +564,7 @@ describe('Home del prototipo final', () => {
   })
 
   test('en reposo se asoma desde el borde y, al hacer scroll, se esconde hasta que se para', async () => {
-    const { container } = renderHome()
+    const { container } = await renderHome()
     await advance(900 + 3400 + 6000) // terminó de saludar
     const live = container.querySelector('.live-agent')
     expect(live.classList.contains('is-resting')).toBe(true)
@@ -571,7 +575,7 @@ describe('Home del prototipo final', () => {
   })
 
   test('el kit agregado cambia el botón a «En tu carro» y el pasaporte muestra su avance', async () => {
-    renderHome()
+    await renderHome()
     expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe(
       '2',
     )
@@ -582,12 +586,12 @@ describe('Home del prototipo final', () => {
     expect(screen.getByRole('button', { name: /En tu carro · Ir a pagar/ })).toBeTruthy()
   })
 
-  test('en la cuenta, «Repetir escena de Mochi» aparece solo en el prototipo final', () => {
-    renderHome({ tab: 'account' })
+  test('en la cuenta, «Repetir escena de Mochi» aparece solo en el prototipo final', async () => {
+    await renderHome({ tab: 'account' })
     expect(screen.getByRole('button', { name: /Repetir escena de Mochi/ })).toBeTruthy()
     cleanup()
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
-    renderHome({ tab: 'account' })
+    await renderHome({ tab: 'account' })
     expect(screen.queryByRole('button', { name: /Repetir escena de Mochi/ })).toBeNull()
   })
 
@@ -595,24 +599,24 @@ describe('Home del prototipo final', () => {
     const stampsShown = () => [...document.querySelectorAll('.live-stamps .live-stamp')]
     const passport = () => within(document.querySelector('.live-passport'))
 
-    test('muestra las 9 verticales del pasaporte y arranca con Restaurantes y Súper', () => {
-      renderHome()
+    test('muestra las 9 verticales del pasaporte y arranca con Restaurantes y Súper', async () => {
+      await renderHome()
       expect(stampsShown()).toHaveLength(9)
       expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('2')
       expect(passport().getByRole('button', { name: /^Farmacia/ })).toBeTruthy()
       expect(passport().queryByRole('button', { name: /^Mascotas/ })).toBeNull()
     })
 
-    test('un sello ganado jugando aparece en la Home', () => {
+    test('un sello ganado jugando aparece en la Home', async () => {
       seed({ visited: ['restaurantes', 'supermercado'], discovered: { licores: ['licores-01'] } })
-      renderHome()
+      await renderHome()
       expect(passport().getByRole('button', { name: /^Licores \(con sello/ })).toBeTruthy()
       expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('3')
     })
 
-    test('«Jugar» y el título abren el juego; un sello abre su hoja', () => {
+    test('«Jugar» y el título abren el juego; un sello abre su hoja', async () => {
       const push = vi.fn()
-      renderHome({ push })
+      await renderHome({ push })
       fireEvent.click(passport().getByRole('button', { name: 'Jugar' }))
       expect(push).toHaveBeenLastCalledWith('game', { tab: 'jugar' })
       fireEvent.click(passport().getByRole('button', { name: /^Tu pasaporte Rappi/ }))
@@ -624,7 +628,7 @@ describe('Home del prototipo final', () => {
     test('Mochi nunca propone Farmacia, aunque sea la única sin sello', async () => {
       stubAgent({ 'POST /agent/offer': 204 }) // el servidor tampoco la ofrece
       seed({ visited: [...DATA.order, 'viajes'].filter((v) => v !== 'farmacia') })
-      const { container } = renderHome()
+      const { container } = await renderHome()
       await advance(900 + 3400)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
       await advance(3000)
@@ -633,7 +637,7 @@ describe('Home del prototipo final', () => {
 
     test('Mochi propone jugar la primera vertical sin sello', async () => {
       const push = vi.fn()
-      const { container } = renderHome({ push })
+      const { container } = await renderHome({ push })
       await advance(900 + 3400)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
       await advance(3000)
@@ -644,11 +648,10 @@ describe('Home del prototipo final', () => {
 
     test('«Repetir escena» deja el juego y el pasaporte como al empezar', async () => {
       seed({ visited: ['restaurantes', 'supermercado', 'turbo'], xp: 120 })
-      renderHome()
+      await renderHome()
       act(() => memory.resetLive())
       await advance(100)
-      const saved = JSON.parse(localStorage.getItem(KEY))
-      expect(saved?.xp ?? 0).toBe(0)
+      expect(stored()?.xp).toBe(0) // el reinicio llegó al servidor
       expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('2')
     })
   })

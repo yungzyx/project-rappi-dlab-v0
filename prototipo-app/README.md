@@ -79,9 +79,9 @@ En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de vert
 - **Desde la Home:** el título del pasaporte abre el pasaporte del juego; «Jugar», su camino de verticales; cada sello, su hoja con «Jugar» y «Abrir {vertical}». Mochi, al tocarlo, propone jugar la primera vertical sin sello.
 - **Mientras llega el pedido:** el seguimiento ofrece «Juega mientras llega tu pedido», una ronda de 5 pasos en una vertical sin sello. Arriba, una franja con el tiempo que falta; si el pedido llega a mitad de ronda, avisa con «Ver pedido».
 - **El juego:** cada vertical enseña su mundo (el cacao en Chocolatería, el vino y el pisco en Licores, aviones y destinos en Viajes; Súper, Express y Turbo traen temas variados). Una ronda tiene 5 pasos: 2 datos «¿Sabías que…?» que se dan vuelta, 2 preguntas curiosas y 1 desafío del catálogo (Viajes, sin catálogo: 3 preguntas). Los datos van al álbum con su fuente, que se abre en otra pestaña. Además, XP y nivel (Conocedor: 6 de las 12 tarjetas y 3 aciertos; Experto: las 12 y 8), misión del día y racha.
-- **Contenido:** 108 tarjetas (6 datos y 6 preguntas por vertical) en `src/game/knowledge.json`, escritas con palabras propias y verificadas una por una contra su fuente ([informe](../docs/resultados/juego-verificacion-2026-10-09.md)). Los desafíos del catálogo usan agregados del catálogo del 05-10-2026 (`src/data/verticales.json`, sin conceptos sensibles; `npm run datos -- "<04 Mapa multivertical.html>"` los regenera).
+- **Contenido:** 108 tarjetas (6 datos y 6 preguntas por vertical) que sirve la API (`GET /game/cards`, desde `rappi-ia/src/rappi_ia/game/knowledge.json`), escritas con palabras propias y verificadas una por una contra su fuente ([informe](../docs/resultados/juego-verificacion-2026-10-09.md)). Los desafíos del catálogo usan agregados del catálogo del 05-10-2026 (`src/data/verticales.json`, sin conceptos sensibles; `npm run datos -- "<04 Mapa multivertical.html>"` los regenera).
 - **Farmacia** se puede jugar desde el pasaporte, pero ni Mochi ni el seguimiento la proponen (la salud no se empuja). Licores lleva la marca «+18».
-- El progreso es de demo: se guarda solo en el navegador. «Repetir escena» lo deja como al empezar.
+- El progreso es de demo: se guarda en el servidor, bajo el id seudónimo de este navegador (`PUT /game/state/{user_id}`); el que este navegador guardó antes se sube una sola vez. «Repetir escena» lo deja como al empezar.
 
 | El juego | Mientras llega el pedido |
 |:---:|:---:|
@@ -186,7 +186,7 @@ Las pantallas de catálogo leen la API (`/catalog`, `src/api/catalog.js`) y la a
 - **Real:** las tiendas, productos, precios, menús y ofertas que muestran las pantallas (vienen de la API, que lee la base que descarga el scraper), el carrito, los pedidos y el historial del navegador.
   - **De la API** vienen también la búsqueda y los productos y precios que muestra Mochi.
 - **De las capturas:** el diseño (títulos, filas de categorías, banners, íconos). No son catálogo: no apuntan a ninguna tienda ni producto.
-- **Simulado:** el pago y el seguimiento (el pedido «llega» a los 20 s), y el progreso del juego (solo en el navegador).
+- **Simulado:** el pago y el seguimiento (el pedido «llega» a los 20 s), y el progreso del juego (de demo, sin cuenta: vive en el servidor bajo el id seudónimo).
 - **Privacidad:** el id de usuario es seudónimo (`proto-…`, guardado en este navegador). El carro, los favoritos, la dirección, Loyalty y los pedidos también se guardan solo en este navegador. "Olvidar" borra lo aprendido también en la API. En modo "Rappi hoy" no se aprende.
 - **Supuestos:** textos cortados en el borde de las capturas, marcados como "supuesto" en los archivos `data.js`. Lo que la API no sabe (tiempo de entrega de un producto, nota, costo de envío: un $0 es un dato que falta, no «envío gratis») no se muestra.
 

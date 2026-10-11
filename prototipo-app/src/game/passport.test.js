@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { DATA } from './data.js'
 import { initialState, stampedVerticals, verticalLevel, visit, waitingRoundVertical } from './progress.js'
-import { clear, load } from './storage.js'
+import { clearLegacy, legacyProgress } from './storage.js'
 import { PASSPORT_ORDER, SCREEN_TO_GAME } from './verticals.js'
 
 /** Almacenamiento de mentira con lo que ya había guardado. */
@@ -36,9 +36,9 @@ describe('un solo pasaporte', () => {
 
   test('traspasa el pasaporte viejo una vez y tolera basura', () => {
     const storage = memoryStorage({ 'rappi-proto-pasaporte': '["grocery","liquor","pet","x"]' })
-    expect(load(storage).visited.sort()).toEqual(['licores', 'supermercado'])
-    expect(load(memoryStorage({ 'rappi-proto-juego-v1': '{"version":1,"visited":"no"}' }))).toEqual(initialState())
-    expect(load(memoryStorage({ 'rappi-proto-pasaporte': '{"roto":true}' }))).toEqual(initialState())
+    expect(legacyProgress(storage).visited.sort()).toEqual(['licores', 'supermercado'])
+    expect(legacyProgress(memoryStorage({ 'rappi-proto-juego-v1': '{"version":1,"visited":"no"}' }))).toBeNull()
+    expect(legacyProgress(memoryStorage({ 'rappi-proto-pasaporte': '{"roto":true}' }))).toBeNull()
   })
 
   test('con progreso guardado, ignora el pasaporte viejo y descarta verticales desconocidas', () => {
@@ -47,15 +47,15 @@ describe('un solo pasaporte', () => {
       'rappi-proto-juego-v1': JSON.stringify(saved),
       'rappi-proto-pasaporte': '["liquor"]',
     })
-    expect(load(storage).visited).toEqual(['turbo'])
+    expect(legacyProgress(storage).visited).toEqual(['turbo'])
   })
 
-  test('el traspaso es de una sola vez: no vuelve después de reiniciar', () => {
+  test('el traspaso es de una sola vez: borrado el pasaporte viejo, no vuelve', () => {
     const storage = memoryStorage({ 'rappi-proto-pasaporte': '["grocery","liquor","turbo","express"]' })
-    expect(load(storage).visited).toHaveLength(4)
+    expect(legacyProgress(storage).visited).toHaveLength(4)
+    clearLegacy(storage)
     expect(storage.getItem('rappi-proto-pasaporte')).toBeNull()
-    clear(storage)
-    expect(load(storage)).toEqual(initialState())
+    expect(legacyProgress(storage)).toBeNull()
   })
 })
 

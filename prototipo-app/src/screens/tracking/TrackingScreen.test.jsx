@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { fixture, stubApi } from '../../api/testing'
 import { ToastProvider } from '../../components/Toast'
 import { today } from '../../game/progress.js'
+import { gameReady } from '../../game/testSeed.js'
 import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { GameProvider } from '../../state/GameContext'
@@ -57,7 +58,7 @@ function Probe() {
   return null
 }
 
-const renderTracking = (reset = vi.fn(), push = vi.fn()) =>
+const renderTracking = async (reset = vi.fn(), push = vi.fn()) => {
   render(
     <DemoProvider>
       <ProfileProvider>
@@ -74,6 +75,8 @@ const renderTracking = (reset = vi.fn(), push = vi.fn()) =>
       </ProfileProvider>
     </DemoProvider>,
   )
+  await gameReady() // el juego carga sus tarjetas y su progreso del servidor simulado antes de pintar
+}
 
 // Hace el pedido y deja pasar el reloj hasta la entrega, con la respuesta de la API ya recibida.
 const deliver = async () => {
@@ -87,7 +90,7 @@ const NEXT_CARD = /¿Y ahora/
 describe('TrackingScreen', () => {
   // Primero: lo mostrado se recuerda lo que dura la pestaña (este archivo).
   test('al entregar, la tarjeta ¿Y ahora…? sale de la API', async () => {
-    renderTracking()
+    await renderTracking()
     await deliver()
     expect(offerRequests()).toEqual([
       {
@@ -115,7 +118,7 @@ describe('TrackingScreen', () => {
 
   test('al entregar aparece «Volver al inicio», que reinicia la pila', async () => {
     const reset = vi.fn()
-    renderTracking(reset)
+    await renderTracking(reset)
     fireEvent.click(screen.getByText('pedir'))
     expect(screen.queryByText('Volver al inicio')).toBeNull()
     await act(() => vi.advanceTimersByTimeAsync(21_000))
@@ -124,7 +127,7 @@ describe('TrackingScreen', () => {
   })
 
   test('antes de la entrega no pide nada, y sin oferta (204) o sin respuesta la tarjeta no aparece', async () => {
-    renderTracking()
+    await renderTracking()
     fireEvent.click(screen.getByText('pedir'))
     await act(() => vi.advanceTimersByTimeAsync(5_000))
     expect(offerRequests()).toEqual([])
@@ -132,7 +135,7 @@ describe('TrackingScreen', () => {
     cleanup()
     localStorage.clear()
     api = stubApi({ 'POST /agent/offer': 204 })
-    renderTracking()
+    await renderTracking()
     await deliver()
     expect(offerRequests()).toHaveLength(1)
     expect(screen.queryByRole('button', { name: NEXT_CARD })).toBeNull()
@@ -140,7 +143,7 @@ describe('TrackingScreen', () => {
     cleanup()
     localStorage.clear()
     api = stubApi({ 'POST /agent/offer': 'offline' })
-    renderTracking()
+    await renderTracking()
     await deliver()
     expect(screen.queryByRole('button', { name: NEXT_CARD })).toBeNull()
     expect(screen.getByText('Volver al inicio')).toBeTruthy()
@@ -148,7 +151,7 @@ describe('TrackingScreen', () => {
 
   test('Mochi en silencio no pide el próximo pedido', async () => {
     localStorage.setItem(QUIET_KEY, today())
-    renderTracking()
+    await renderTracking()
     await deliver()
     expect(offerRequests()).toEqual([])
     expect(screen.queryByRole('button', { name: NEXT_CARD })).toBeNull()
@@ -157,22 +160,22 @@ describe('TrackingScreen', () => {
     localStorage.clear()
     noteDismissed()
     noteDismissed() // lo ignoraron dos veces seguidas
-    renderTracking()
+    await renderTracking()
     await deliver()
     expect(offerRequests()).toEqual([])
   })
 
   test('en «Rappi hoy», al entregar no hay oferta de Mochi (ni se pide)', async () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
-    renderTracking()
+    await renderTracking()
     await deliver()
     expect(offerRequests()).toEqual([])
     expect(screen.queryByRole('button', { name: NEXT_CARD })).toBeNull()
   })
 
-  test('en «Rappi hoy» el mapa queda como antes: Mochi de frente y sin «¡Ya casi!»', () => {
+  test('en «Rappi hoy» el mapa queda como antes: Mochi de frente y sin «¡Ya casi!»', async () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
-    renderTracking()
+    await renderTracking()
     fireEvent.click(screen.getByText('pedir'))
     const image = () => document.querySelector('.tracking-rider image')
     act(() => vi.advanceTimersByTime(1_000)) // preparando
@@ -182,17 +185,17 @@ describe('TrackingScreen', () => {
     expect(document.querySelector('.tracking-almost')).toBeNull()
   })
 
-  test('en el prototipo final, preparando, Mochi está tímido', () => {
-    renderTracking()
+  test('en el prototipo final, preparando, Mochi está tímido', async () => {
+    await renderTracking()
     fireEvent.click(screen.getByText('pedir'))
     act(() => vi.advanceTimersByTime(1_000))
     expect(document.querySelector('.tracking-rider image').getAttribute('y')).toBe('-1')
   })
 
   describe('jugar mientras llega el pedido', () => {
-    test('ofrece una ronda de la primera vertical sin sello (Express) y la abre con el pedido', () => {
+    test('ofrece una ronda de la primera vertical sin sello (Express) y la abre con el pedido', async () => {
       const push = vi.fn()
-      renderTracking(vi.fn(), push)
+      await renderTracking(vi.fn(), push)
       fireEvent.click(screen.getByText('pedir'))
       const card = screen.getByRole('button', { name: /Juega mientras llega tu pedido/ })
       expect(card.textContent).toMatch(/gana el sello de Express/)
@@ -201,14 +204,14 @@ describe('TrackingScreen', () => {
     })
 
     test('al entregar, la tarjeta ya no está', async () => {
-      renderTracking()
+      await renderTracking()
       await deliver()
       expect(screen.queryByRole('button', { name: /Juega mientras llega tu pedido/ })).toBeNull()
     })
 
-    test('en «Rappi hoy» no se ofrece', () => {
+    test('en «Rappi hoy» no se ofrece', async () => {
       localStorage.setItem('rappi-proto-demo-mode', 'actual')
-      renderTracking()
+      await renderTracking()
       fireEvent.click(screen.getByText('pedir'))
       expect(screen.queryByRole('button', { name: /Juega mientras llega tu pedido/ })).toBeNull()
     })
