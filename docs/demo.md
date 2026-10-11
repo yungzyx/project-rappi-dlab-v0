@@ -63,7 +63,7 @@ Con `make mvp` el panel ya está arriba. Después de la demo de la app, ábrelo 
 
 1. **Ofertas del agente por momento:** el kit de «Carrete» aparece en **Plan** y, si usaste el carro o el checkout, en **Carro** y **Antes de pagar**, con lo mostrado y lo aceptado. **Qué decir:** así se ve en qué momento la oferta de Mochi funciona; el porcentaje aparece recién con 10 mostradas, antes solo las cuentas.
 2. **Juego:** las rondas terminadas y las tarjetas descubiertas, por vertical del juego. Las estrellas promedio aparecen desde 5 rondas.
-3. **Búsquedas sin resultado:** una búsqueda sin resultado en la app (por ejemplo, algo que el catálogo no tiene) suma a su vertical y concepto; nunca se ve lo que se escribió.
+3. **Búsquedas sin resultado:** una búsqueda sin resultado en la app (por ejemplo, algo que el catálogo no tiene) suma a su vertical; el concepto solo se suma si la pregunta pasó por el agente (las búsquedas de la app no llevan concepto). Nunca se ve lo que se escribió.
 
 **Qué decir:** cada bloque lleva el rótulo «uso del MVP, pocas personas: no es evidencia». Son las pruebas de unas pocas personas, no una medición, y nunca se mezclan con los datos simulados del resto del panel. «Olvidar» en la app borra también los eventos de esa persona.
 
