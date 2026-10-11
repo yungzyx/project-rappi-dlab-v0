@@ -100,16 +100,22 @@ async def invalid_request(request: Request, exc: RequestValidationError) -> JSON
     return JSONResponse(status_code=422, content={"detail": errors})
 
 
+def _db_error(exc: Error) -> str:
+    """Un error de Postgres para el log: su clase y su sqlstate. El texto no, porque puede traer la fila que falló
+    («Failing row contains (…)») con lo que escribió la persona."""
+    return f"{type(exc).__name__} (sqlstate {exc.sqlstate})"
+
+
 @app.exception_handler(DataError)
 async def invalid_data(request: Request, exc: DataError) -> JSONResponse:
     """Un valor que Postgres no acepta (un \x00 en un parámetro de la URL): es un error de quien pide, no un 500."""
-    log.warning("Dato inválido en %s: %s", request.url.path, exc)
+    log.warning("Dato inválido en %s: %s", request.url.path, _db_error(exc))
     return JSONResponse(status_code=400, content={"detail": "Dato inválido"})
 
 
 EMPTY_VERTICAL_FALLBACK = {"turbo": "conveniencia"}  # mismo tipo de tienda (minimarket con entrega rápida)
 MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
-MAX_EVENT_VALUE = 1_000_000  # un evento con valor (cart_add) es una línea del carro: muy por encima de cualquiera
+MAX_EVENT_VALUE = 100_000_000  # un evento con valor (cart_add) es una línea del carro: el mismo tope que su precio
 
 # Textos cortos de la URL (ids, conceptos, verticales, cocinas): el SQL va con parámetros, pero sin tope se aceptaba
 # un texto de cualquier largo.
@@ -492,8 +498,8 @@ def _log_ask(conn, user_id, session_id, text, response, modality, mode) -> None:
             events.record(conn, [event], source="prototype")
     except ValueError:  # un id de usuario simulado: la respuesta sale igual, no se registra
         return
-    except Error:  # registrar es secundario: la respuesta ya está calculada y sale igual
-        log.warning("No se pudo registrar la consulta; la respuesta sale igual", exc_info=True)
+    except Error as exc:  # registrar es secundario: la respuesta ya está calculada y sale igual
+        log.warning("No se pudo registrar la consulta; la respuesta sale igual (%s)", _db_error(exc))
         return
     conn.commit()
 

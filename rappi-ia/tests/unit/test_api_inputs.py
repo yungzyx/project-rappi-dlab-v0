@@ -102,6 +102,14 @@ def test_event_value_cap_is_422(client):
     assert client.post("/events", json={"user_id": "u1", "events": [event]}).status_code == 422
 
 
+def test_event_value_accepts_a_big_cart_line():
+    """Un carro de Electro (un televisor de $12.488.700) pasa: el tope es el mismo que el precio de una línea."""
+    event = api.EventIn(type="cart_add", session_id="s1", value=12_488_700)
+    assert event.value == 12_488_700
+    price_cap = next(m.le for m in api.OrderLineIn.model_fields["unit_price"].metadata if hasattr(m, "le"))
+    assert price_cap == api.MAX_EVENT_VALUE
+
+
 def test_query_canceled_is_504(client, conn):
     """Una consulta que pasó el statement_timeout no es «base caída»: la app no debe decir «Sin conexión»."""
     conn.error = QueryCanceled("canceling statement due to statement timeout")
@@ -117,6 +125,35 @@ def test_log_ask_db_error_keeps_answer(client, conn, caplog):
         reply = client.post("/agent/ask", json={"message": "vino", "user_id": "u1", "session_id": "s1", "profile": {}})
     assert reply.status_code == 200 and reply.json()["text"] == ANSWER["text"]
     assert "No se pudo registrar" in caplog.text
+
+
+# Un error de Postgres puede traer la fila que falló, con texto de la persona: el log lleva solo la clase y el sqlstate.
+PRIVATE = "Failing row contains (u1, s1, quiero algo para mi ex)"
+
+
+def _db_error(cls):
+    error = cls(PRIVATE)
+    error.sqlstate = "22001"  # psycopg lo lee del diagnóstico; aquí se fija a mano
+    return error
+
+
+def test_log_ask_db_error_hides_row_text(client, conn, caplog):
+    conn.error = _db_error(DataError)
+    with caplog.at_level(logging.WARNING):
+        reply = client.post("/agent/ask", json={"message": "vino", "user_id": "u1", "session_id": "s1", "profile": {}})
+    assert reply.status_code == 200
+    assert "No se pudo registrar" in caplog.text
+    assert "DataError" in caplog.text and "22001" in caplog.text
+    assert "Failing row" not in caplog.text and "mi ex" not in caplog.text
+
+
+def test_invalid_data_log_hides_row_text(client, conn, caplog):
+    conn.error = _db_error(DataError)
+    with caplog.at_level(logging.WARNING):
+        reply = client.get("/profile/u1")
+    assert reply.status_code == 400
+    assert "DataError" in caplog.text and "22001" in caplog.text
+    assert "Failing row" not in caplog.text and "mi ex" not in caplog.text
 
 
 def test_startup_runtime_error_goes_to_faltantes(monkeypatch):
