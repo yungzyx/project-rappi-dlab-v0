@@ -62,7 +62,7 @@ describe('MvpUsageView', () => {
     const offers = await screen.findByRole('table', { name: 'Ofertas del agente por momento' })
     const [, plan] = within(offers).getAllByRole('row')
     expect(within(plan).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Plan', '1', '1', '—'])
-    const stars = screen.getByText('Estrellas promedio').closest('div')
+    const stars = screen.getByText('Estrellas promedio (de 0 a 3)').closest('div')
     expect(within(stars).getByText('—')).toBeTruthy()
   })
 
@@ -84,6 +84,21 @@ describe('MvpUsageView', () => {
     expect(within(offers).getByText('25,0%')).toBeTruthy()
     expect(await screen.findByText('2,5')).toBeTruthy()
     expect(within(await screen.findByRole('table', { name: 'Juego por vertical' })).getByText('Viajes')).toBeTruthy()
+  })
+
+  test('a search without vertical says so, the stars label gives the scale and the offers note names the tab', async () => {
+    serveWith({
+      unmet: {
+        source: 'prototype',
+        data: { personas: 1, busquedas: 2, sin_resultado: 2, por_vertical: [{ vertical: null, concepto: null, sin_resultado: 2 }] },
+      },
+    })
+    await renderWithData(<MvpUsageView source="prototype" />)
+
+    const unmet = await screen.findByRole('table', { name: 'Búsquedas sin resultado por vertical y concepto' })
+    expect(within(unmet).getByText('Sin vertical')).toBeTruthy()
+    expect(await screen.findByText('Estrellas promedio (de 0 a 3)')).toBeTruthy()
+    expect(screen.getByText(/en «Entre verticales»/)).toBeTruthy()
   })
 
   test('synthetic sections say they are simulated, with the empty states for what the simulator lacks', async () => {

@@ -5,7 +5,7 @@ import { plural, verticalLabel } from '../../lib/labels.js'
 import { Stats } from './Stats.jsx'
 
 const COLUMNS = [
-  { key: 'vertical', header: 'Vertical', primary: true, render: (row) => verticalLabel(row.vertical) },
+  { key: 'vertical', header: 'Vertical', primary: true, render: (row) => (row.vertical ? verticalLabel(row.vertical) : 'Sin vertical') },
   { key: 'concepto', header: 'Concepto', render: (row) => row.concepto ?? 'Sin concepto reconocido' },
   { key: 'sin_resultado', header: 'Sin resultado', numeric: true, render: (row) => formatNumber(row.sin_resultado) },
 ]

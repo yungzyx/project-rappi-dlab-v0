@@ -29,7 +29,7 @@ export function GameUsage({ data, source }) {
           { label: 'Personas', value: `${formatNumber(personas)} ${plural(personas, 'persona')}` },
           { label: 'Rondas', value: formatNumber(rondas) },
           { label: 'Tarjetas', value: formatNumber(tarjetas) },
-          { label: 'Estrellas promedio', value: formatNumber(stars, 1) },
+          { label: 'Estrellas promedio (de 0 a 3)', value: formatNumber(stars, 1) },
         ]}
       />
       {byVertical.length > 0 && (
