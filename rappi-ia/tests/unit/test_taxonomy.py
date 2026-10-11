@@ -63,6 +63,20 @@ def test_reading_a_category_map_with_conflicting_rows_fails(tmp_path):
         read_category_map_csv(path)
 
 
+@pytest.mark.parametrize("method", ["jev", "sugerido"])
+def test_reading_a_category_map_rejects_unpromoted_proposals(tmp_path, method):
+    """Una propuesta de la máquina (jev, sugerido) no es una revisión: al promoverla, la persona la pasa a «curado»."""
+    path = tmp_path / "category_map.csv"
+    path.write_text(
+        "tipo,nombre,concept_id,confianza,metodo,revision,nota,productos\n"
+        "categoria,Vinos,vino,0.95,llm,acuerdo,,10\n"
+        f"categoria,Novedades de temporada,cerveza,0.9,{method},pendiente,,3\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match=f"novedades de temporada.*{method}.*curado"):
+        read_category_map_csv(path)
+
+
 def test_hunger_occasion_is_always_restaurants():
     assert load_taxonomy().occasions["hambre"].vertical == "restaurantes"
     assert load_taxonomy().occasions["asado"].vertical is None  # las demás: el vertical con más surtido

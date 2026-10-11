@@ -70,6 +70,7 @@ def seed_curated_edges(conn: Connection, edges: Iterable[tuple[str, str, float]]
 def read_category_map_csv(path: Path = CATEGORY_MAP_CSV) -> list[dict]:
     with path.open(encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
+    _check_reviewed(rows)
     _check_one_concept_per_key(rows)
     return [row for row in rows if row["concept_id"] != NO_CONCEPT]
 
@@ -83,6 +84,20 @@ def categories_reviewed_without_concept(path: Path = CATEGORY_MAP_CSV) -> list[s
             for row in csv.DictReader(f)
             if row["tipo"] == "categoria" and row["concept_id"] == NO_CONCEPT
         ]
+
+
+PROPOSAL_METHODS = ("jev", "sugerido")
+
+
+def _check_reviewed(rows: list[dict]) -> None:
+    """Una fila de jev o sugerido es una propuesta de la máquina, no una revisión: al promoverla, la persona cambia su
+    metodo a «curado». Si no, el CSV la daría por revisada y pisaría el mapeo de Jev sin que nadie lo haya mirado."""
+    for number, row in enumerate(rows, start=2):  # la fila 1 es el encabezado
+        if row["metodo"] in PROPOSAL_METHODS:
+            raise ValueError(
+                f"category_map.csv, fila {number}: «{row['nombre'].strip().lower()}» tiene metodo «{row['metodo']}»,"
+                " que es una propuesta sin revisar; cámbialo a «curado» cuando una persona la apruebe"
+            )
 
 
 def _check_one_concept_per_key(rows: list[dict]) -> None:
