@@ -49,16 +49,6 @@ COMMENT ON COLUMN latest_menu_prices.is_available IS 'Si el plato estaba disponi
 COMMENT ON COLUMN latest_menu_prices.run_id IS 'Corrida del último snapshot.';
 COMMENT ON COLUMN latest_menu_prices.scraped_at IS 'Cuándo se bajó el último snapshot.';
 
-INSERT INTO latest_prices (store_id, sku, price, real_price, discount_pct, pum, in_stock, run_id, scraped_at)
-SELECT DISTINCT ON (store_id, sku) store_id, sku, price, real_price, discount_pct, pum, in_stock, run_id, scraped_at
-FROM price_snapshots
-ORDER BY store_id, sku, scraped_at DESC, run_id DESC;
-
-INSERT INTO latest_menu_prices (item_id, price, real_price, discount_pct, is_available, run_id, scraped_at)
-SELECT DISTINCT ON (item_id) item_id, price, real_price, discount_pct, is_available, run_id, scraped_at
-FROM menu_price_snapshots
-ORDER BY item_id, scraped_at DESC, run_id DESC;
-
 -- Un snapshot nuevo reemplaza al último si es igual o más nuevo (por scraped_at y, con el mismo, por corrida). Si un
 -- snapshot cambia o se borra (también en cascada, al borrar una corrida o un producto), el último de su SKU se vuelve
 -- a leer del historial por su índice.
@@ -145,6 +135,18 @@ CREATE TRIGGER menu_price_snapshots_latest AFTER INSERT OR UPDATE OR DELETE ON m
     FOR EACH ROW EXECUTE FUNCTION latest_menu_prices_track();
 CREATE TRIGGER menu_price_snapshots_latest_truncate AFTER TRUNCATE ON menu_price_snapshots
     FOR EACH STATEMENT EXECUTE FUNCTION latest_menu_prices_truncate();
+
+-- El llenado va después de crear los triggers: CREATE TRIGGER bloquea las escrituras al historial hasta el final de
+-- la migración, así que ningún snapshot que se guarde mientras tanto queda fuera de las tablas.
+INSERT INTO latest_prices (store_id, sku, price, real_price, discount_pct, pum, in_stock, run_id, scraped_at)
+SELECT DISTINCT ON (store_id, sku) store_id, sku, price, real_price, discount_pct, pum, in_stock, run_id, scraped_at
+FROM price_snapshots
+ORDER BY store_id, sku, scraped_at DESC, run_id DESC;
+
+INSERT INTO latest_menu_prices (item_id, price, real_price, discount_pct, is_available, run_id, scraped_at)
+SELECT DISTINCT ON (item_id) item_id, price, real_price, discount_pct, is_available, run_id, scraped_at
+FROM menu_price_snapshots
+ORDER BY item_id, scraped_at DESC, run_id DESC;
 
 -- La misma vista de siempre (mismas columnas), ahora leída de latest_prices: con el desempate por corrida.
 CREATE OR REPLACE VIEW v_latest_prices AS

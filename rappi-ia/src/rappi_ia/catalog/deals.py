@@ -36,6 +36,8 @@ MAX_DISCOUNT_PCT = 60
 # tienda, que es la definición de v_price_changes (`lag` por tienda y SKU); se busca por el índice (store_id, sku,
 # scraped_at) solo para las filas de la corrida, porque la ventana de la vista no se puede acotar a unas tiendas sin
 # recorrer casi todo el historial. Un test compara ambas.
+# Una oferta rescatada de un pasillo omitido (v_latest_offers) no es candidata a oferta, a propósito: su precio es de
+# la corrida anterior, no cambió en la corrida de su formato.
 _DEALS = f"""
 WITH {{downloaded}},
 changed AS MATERIALIZED (
