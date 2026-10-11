@@ -31,7 +31,7 @@ for dir in prototipo-app/dist dashboard-empresa/dist; do
   for pattern in "${patterns[@]}"; do
     if matches=$(grep -rIl -F -e "$pattern" "$dir"); then
       echo "check-dist: «$pattern» aparece en $dir:" >&2
-      echo "$matches" | sed 's/^/  /' >&2
+      while IFS= read -r file; do echo "  $file" >&2; done <<< "$matches"
       status=1
     fi
   done
