@@ -20,6 +20,7 @@ from functools import cache, lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import psycopg
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 from rappi_scraper.storage.search import VERTICALS
@@ -712,6 +713,14 @@ def recalculate_user_segments(connector: Callable[[], AbstractContextManager[Con
                 return
             build_segments(conn, "prototype", user_id, commit=False)
             conn.commit()  # suelta el candado; sin ANALYZE por pedido
+    except psycopg.Error as exc:
+        # El texto de Postgres puede traer la fila (`Key (user_id)=(…)`): solo la clase y el sqlstate, sin traza.
+        log.warning(
+            "No se pudieron recalcular los segmentos después de un pedido: %s (sqlstate %s)",
+            type(exc).__name__,
+            exc.sqlstate,
+        )
+        return
     except Exception:
         log.warning("No se pudieron recalcular los segmentos después de un pedido", exc_info=True)
         return

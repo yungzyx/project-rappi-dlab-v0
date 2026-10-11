@@ -387,3 +387,26 @@ def test_a_failed_recalculation_is_logged_without_the_user_id(caplog):
 
     assert "No se pudieron recalcular los segmentos" in caplog.text
     assert "persona-123" not in caplog.text
+
+
+def test_failed_recalculation_never_logs_the_persons_id(caplog):
+    """Un error de Postgres trae la fila en su texto (`Key (user_id)=(…)`): el aviso lleva su clase y su sqlstate,
+    sin el texto ni la traza."""
+    from contextlib import contextmanager
+
+    import psycopg
+
+    from rappi_ia.layers import segments
+
+    @contextmanager
+    def failing_connector():
+        raise psycopg.errors.ForeignKeyViolation("Key (user_id)=(proto-0123456789abcdef) is not present")
+        yield  # pragma: no cover
+
+    with caplog.at_level(logging.WARNING, logger=segments.__name__):
+        segments.recalculate_user_segments(failing_connector, "proto-0123456789abcdef")
+
+    [record] = [r for r in caplog.records if r.name == segments.__name__]
+    assert "proto-0123456789abcdef" not in record.getMessage()
+    assert record.exc_info is None
+    assert "ForeignKeyViolation" in record.getMessage()

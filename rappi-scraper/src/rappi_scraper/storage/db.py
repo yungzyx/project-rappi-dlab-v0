@@ -31,7 +31,8 @@ class PendingMigrations(RuntimeError):
 # En producción (API_ENV=production) la tarea semanal no migra: solo revisa. Las migraciones las aplica el despliegue.
 APPLIED_BY_DEPLOY = (
     "en producción las aplica el despliegue, que respalda la base antes: "
-    "`docker compose -f deploy/docker-compose.yml run --rm migrate`"
+    "`docker compose -f deploy/docker-compose.yml --env-file /etc/rappi/rappi.env run --rm migrate` "
+    "(docs/despliegue.md §4)"
 )
 
 

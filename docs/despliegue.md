@@ -424,7 +424,7 @@ Una clave nueva en el archivo va también en la lista `x-sin-claves-…` que cor
 | Eventos de uso, con el texto de búsquedas y preguntas (datos personales redactados antes de guardar: RUT, teléfonos, correos, direcciones, tarjetas) | `app_events` | el texto, 90 días; el evento, lo que dure la persona |
 | Pedidos (líneas, tienda, vertical; sin dirección), progreso del juego, segmentos | `app_orders`, `app_order_lines`, `game_state`, `user_segments` | lo que dure la persona (se borran en cascada) |
 | Registros de la API (sin ids, sin IP, sin query) | Docker | 5 × 10 MB por contenedor |
-| Respaldos (traen todo lo anterior) | volumen `backups`: 3 `nocturno_*`, 4 `pre-migracion_*` y 4 `rappi_*` (si la descarga corre en el servidor); restic | en restic, unas 5 semanas (7 diarios y 4 semanales); en el volumen, 3 días los nocturnos, unas 4 semanas los `rappi_*` y los `pre-migracion_*` hasta 4 despliegues con migración, sin plazo. Lo borrado sigue en ellos hasta que rotan |
+| Respaldos (traen todo lo anterior) | volumen `backups`: 3 `nocturno_*`, 4 `pre-migracion_*` y 4 `rappi_*` (si la descarga corre en el servidor); restic | en restic, hasta unas 3 semanas (7 diarios y 4 semanales, que se solapan); en el volumen, 3 días los nocturnos, unas 4 semanas los `rappi_*` y los `pre-migracion_*` hasta 4 despliegues con migración, sin plazo. Lo borrado sigue en ellos hasta que rotan |
 
 Ni IPs ni cuentas en la base: la cuenta de personas nuevas por IP vive solo en memoria. Claude, si hay clave, recibe hechos estructurados, nunca la consulta. Jev nunca recibe datos de personas.
 
