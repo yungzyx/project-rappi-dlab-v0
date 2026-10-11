@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { gameServer, stubApi } from '../../api/testing'
 import { GameApp as App, mount } from './GameApp.testkit.jsx'
@@ -78,7 +78,9 @@ describe('camino', () => {
     expect(screen.getByText('Nivel 3')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Ajustes' }))
     fireEvent.click(screen.getByRole('button', { name: 'Reiniciar progreso' }))
-    expect(gameServer.state.xp).toBe(250) // sin confirmar, el servidor sigue con el progreso
+    await act(async () => {})
+    expect(gameServer.puts).toEqual([]) // sin confirmar, no se guarda nada y el servidor sigue con su progreso
+    expect(gameServer.state.xp).toBe(250)
     fireEvent.click(screen.getByRole('button', { name: 'Sí, reiniciar' }))
     expect(screen.getByText('Nivel 1')).toBeTruthy()
   })

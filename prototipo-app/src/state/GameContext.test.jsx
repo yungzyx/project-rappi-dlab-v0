@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { fixture, gameCards, gameServer, stubApi } from '../api/testing'
@@ -91,7 +92,19 @@ describe('carga desde la API', () => {
 })
 
 describe('progreso que quedó en el navegador', () => {
-  const local = () => ({ ...initialState(), xp: 90, seenIntro: true, visited: ['turbo'] })
+  // Las tarjetas que el progreso viejo nombra (el servidor es quien sabe cuáles existen todavía).
+  const [d1, d2] = gameCards().filter((c) => c.vertical === 'turbo' && c.kind === 'dato')
+  const local = () => ({
+    ...initialState(),
+    xp: 90,
+    seenIntro: true,
+    visited: ['turbo'],
+    discovered: { turbo: [d1.id, d2.id] },
+    cards: [d1.id],
+    opened: [d1.id],
+  })
+  // Como en producción: al leer el progreso viejo el registro de tarjetas todavía está vacío (llegan de la API después).
+  beforeEach(() => setKnowledge([]))
 
   test('migrates local progress once when the server has none and clears it', async () => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(local()))
@@ -100,6 +113,7 @@ describe('progreso que quedó en el navegador', () => {
     renderProbe()
     await gameReady()
     expect(screen.getByTestId('xp').textContent).toBe('90')
+    // Sube el progreso entero: las tarjetas descubiertas, del álbum y abiertas llegan al servidor.
     expect(stored()).toEqual(local())
     expect(requests(api, 'PUT')).toEqual([`/game/state/${userId()}`])
     expect(localStorage.getItem(LOCAL_KEY)).toBeNull()
@@ -113,16 +127,43 @@ describe('progreso que quedó en el navegador', () => {
     expect(requests(api, 'PUT')).toHaveLength(1)
   })
 
-  test('limpia con la validación de siempre: tarjetas que ya no existen no suben', async () => {
-    const [card] = datosOf('turbo')
+  test('sube exactamente la forma del servidor: sin claves de más, con números enteros y lo que falta completado', async () => {
     localStorage.setItem(
       LOCAL_KEY,
-      JSON.stringify({ ...local(), cards: ['licores-tamano', card.id], discovered: { turbo: ['frutas', card.id] } }),
+      JSON.stringify({
+        ...local(),
+        extra: 'x',
+        xp: 90.7,
+        correct: { turbo: 2.9, licores: -1 },
+        answered: { turbo: 3 },
+        daily: { date: '2026-10-09', discovered: 2, correct: 1.5, opened: 0, done: true, viejo: 1 },
+        streak: { count: 3, lastDate: '2026-10-09', best: 9 },
+        discovered: { turbo: [d1.id, 'x'.repeat(65)] },
+      }),
     )
     stubApi({})
     renderProbe()
     await gameReady()
-    expect(stored()).toMatchObject({ cards: [card.id], discovered: { turbo: [card.id] }, xp: 90 })
+    expect(stored()).toEqual({
+      ...local(),
+      xp: 90,
+      correct: { turbo: 2, licores: 0 },
+      answered: { turbo: 3 },
+      daily: { date: '2026-10-09', discovered: 2, correct: 1, opened: 0, done: true },
+      streak: { count: 3, lastDate: '2026-10-09' },
+      discovered: { turbo: [d1.id] },
+    })
+  })
+
+  test('lo que falta en el progreso viejo se completa con el estado inicial', async () => {
+    localStorage.setItem(
+      LOCAL_KEY,
+      JSON.stringify({ version: 1, xp: 5, discovered: {}, correct: {}, answered: {}, cards: [], opened: [] }),
+    )
+    stubApi({})
+    renderProbe()
+    await gameReady()
+    expect(stored()).toEqual({ ...initialState(), xp: 5 })
   })
 
   test('el pasaporte viejo, solo, sube como verticales visitadas', async () => {
@@ -134,12 +175,44 @@ describe('progreso que quedó en el navegador', () => {
     expect(localStorage.getItem(LEGACY_KEY)).toBeNull()
   })
 
-  test('si el traspaso falla, el progreso del navegador se conserva para el próximo intento', async () => {
+  test.each(['offline', 500])('si el traspaso falla (%s), el progreso del navegador se conserva para el próximo intento', async (failure) => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(local()))
-    stubApi({ 'PUT /game/state/*': 'offline' })
+    stubApi({ 'PUT /game/state/*': failure })
     renderProbe()
     expect(await screen.findByRole('button', { name: 'Reintentar' })).toBeTruthy()
     expect(JSON.parse(localStorage.getItem(LOCAL_KEY)).xp).toBe(90)
+  })
+
+  test.each([422, 409])('un %s en el traspaso no bloquea la app: se salta, avisa y deja lo local intacto', async (status) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(local()))
+    localStorage.setItem(LEGACY_KEY, '["grocery"]')
+    stubApi({ 'PUT /game/state/*': status })
+    renderProbe()
+    await gameReady()
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+    expect(screen.getByTestId('xp').textContent).toBe('0') // parte en cero
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/traspas/i), expect.anything())
+    expect(JSON.parse(localStorage.getItem(LOCAL_KEY)).xp).toBe(90)
+    expect(localStorage.getItem(LEGACY_KEY)).not.toBeNull()
+    warn.mockRestore()
+  })
+
+  test('under StrictMode the load runs twice but uploads the progress once', async () => {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(local()))
+    const api = stubApi({})
+    render(
+      <StrictMode>
+        <GameProvider>
+          <Probe onClick={() => {}} />
+        </GameProvider>
+      </StrictMode>,
+    )
+    await gameReady()
+    expect(screen.getByTestId('xp').textContent).toBe('90')
+    expect(requests(api, 'PUT')).toHaveLength(1)
+    expect(requests(api, 'GET').filter((path) => path === '/game/cards')).toHaveLength(1)
+    expect(stored()).toEqual(local())
   })
 
   test('server progress wins over local progress and local is cleared', async () => {
@@ -189,6 +262,16 @@ describe('guardado en el servidor', () => {
     expect(screen.getByTestId('xp').textContent).toBe('0')
     await savedAs((s) => expect(s).toEqual(initialState()))
     expect(gameServer.state).toEqual(initialState())
+  })
+
+  test('«Repetir escena» mientras carga no hace nada', async () => {
+    seed({ xp: 130 })
+    const api = stubApi({ 'GET /game/state/*': { slow: 30, body: { state: { ...initialState(), xp: 130 } } } })
+    renderProbe()
+    act(() => window.dispatchEvent(new Event(REPLAY_EVENT)))
+    await gameReady()
+    expect(screen.getByTestId('xp').textContent).toBe('130')
+    expect(requests(api, 'PUT')).toEqual([])
   })
 
   test('a failed save keeps the progress on screen', async () => {

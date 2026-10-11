@@ -1,5 +1,4 @@
 import { initialState } from './progress.js'
-import { cardById } from './knowledge.js'
 import { PASSPORT_ORDER, SCREEN_TO_GAME } from './verticals.js'
 
 // El progreso del juego vive en el servidor. Esto es lo que queda para traspasar, una vez, lo que este navegador
@@ -36,13 +35,48 @@ const valid = (s) =>
 
 const known = (ids) => ids.filter((id) => PASSPORT_ORDER.includes(id))
 
-// Lo guardado antes eran conceptos y cartas del catálogo: solo quedan las tarjetas de conocimiento que existen.
-const isCard = (id) => Boolean(cardById(id))
-const withKnownCards = (state) => ({
-  discovered: Object.fromEntries(Object.entries(state.discovered).map(([v, ids]) => [v, ids.filter(isCard)])),
-  cards: state.cards.filter(isCard),
-  opened: state.opened.filter(isCard),
-})
+// Las tarjetas que el progreso viejo nombra NO se filtran aquí: al leerlo el registro de tarjetas aún no llegó de la API
+// (vacío, se perderían todas). Quien sabe cuáles existen es el servidor, que las quita al guardar.
+const MAX_ITEMS = 200 // los límites de la API (PUT /game/state)
+const MAX_KEYS = 20
+const MAX_ID = 64
+
+const count = (n) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0)
+const ids = (list) => (Array.isArray(list) ? list.filter((id) => typeof id === 'string' && id && id.length <= MAX_ID).slice(0, MAX_ITEMS) : [])
+const date = (d) => (typeof d === 'string' && d.length <= MAX_ID ? d : null)
+const byVertical = (values, each) =>
+  Object.fromEntries(
+    Object.entries(isRecord(values) ? values : {})
+      .filter(([vertical]) => vertical.length <= MAX_ID)
+      .slice(0, MAX_KEYS)
+      .map(([vertical, value]) => [vertical, each(value)]),
+  )
+
+/** El progreso viejo reducido a la forma exacta que acepta la API (la de `initialState()`): sin claves de más, con enteros >= 0. */
+function toServerShape(state) {
+  const empty = initialState()
+  const daily = isRecord(state.daily) ? state.daily : empty.daily
+  const streak = isRecord(state.streak) ? state.streak : empty.streak
+  return {
+    version: 1,
+    xp: count(state.xp),
+    discovered: byVertical(state.discovered, ids),
+    correct: byVertical(state.correct, count),
+    answered: byVertical(state.answered, count),
+    cards: ids(state.cards),
+    opened: ids(state.opened),
+    daily: {
+      date: date(daily.date),
+      discovered: count(daily.discovered),
+      correct: count(daily.correct),
+      opened: count(daily.opened),
+      done: daily.done === true,
+    },
+    streak: { count: count(streak.count), lastDate: date(streak.lastDate) },
+    seenIntro: state.seenIntro === true,
+    visited: ids(known(state.visited ?? empty.visited)),
+  }
+}
 
 /** El pasaporte viejo como progreso (sus ids de pantalla pasan a verticales visitadas); null si no hay o está roto. */
 function fromLegacy(storage) {
@@ -52,9 +86,10 @@ function fromLegacy(storage) {
 }
 
 /**
- * El progreso que este navegador guardó antes de que viviera en el servidor, ya limpio (sin tarjetas que no existen ni
- * verticales desconocidas), o null si no hay, está roto o no se puede leer. El pasaporte viejo solo cuenta si no hay
- * progreso del juego. No toca el almacenamiento: borrarlo es `clearLegacy`, cuando ya llegó al servidor.
+ * El progreso que este navegador guardó antes de que viviera en el servidor, con la forma que acepta la API (sin claves
+ * de más ni verticales desconocidas; las tarjetas que ya no existen las quita el servidor), o null si no hay, está roto
+ * o no se puede leer. El pasaporte viejo solo cuenta si no hay progreso del juego. No toca el almacenamiento: borrarlo
+ * es `clearLegacy`, cuando ya llegó al servidor.
  */
 export function legacyProgress(storage = browserStorage()) {
   try {
@@ -62,8 +97,7 @@ export function legacyProgress(storage = browserStorage()) {
     if (raw == null) return storage ? fromLegacy(storage) : null
     const parsed = JSON.parse(raw)
     if (!valid(parsed)) return null
-    const state = { ...initialState(), ...parsed }
-    return { ...state, ...withKnownCards(state), visited: known(state.visited) }
+    return toServerShape({ ...initialState(), ...parsed })
   } catch {
     return null
   }

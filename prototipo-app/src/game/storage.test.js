@@ -79,22 +79,29 @@ describe('progreso viejo del navegador', () => {
     expect(clearLegacy(null)).toBe(false)
   })
 
-  test('un progreso guardado con conceptos y cartas viejas se carga sin ids huérfanos y conserva sellos, XP y racha', () => {
+  test('las tarjetas no se filtran al leer (el registro aún está vacío): ids viejos incluidos, conserva sellos, XP y racha', () => {
     const card = datosOf('licores')[0].id
     const old = {
       ...initialState(),
       xp: 340,
       streak: { count: 3, lastDate: '2026-10-08' },
-      visited: ['supermercado', 'restaurantes', 'licores'],
+      visited: ['supermercado', 'restaurantes', 'licores', 'mascotas'],
       discovered: { licores: ['vino', 'cerveza', card], turbo: ['frutas'] },
       cards: ['licores-tamano', card],
       opened: ['licores-tamano'],
     }
     const loaded = legacyProgress(memoryStorage({ [KEY]: JSON.stringify(old) }))
-    expect(loaded.discovered).toEqual({ licores: [card], turbo: [] })
-    expect(loaded.cards).toEqual([card])
-    expect(loaded.opened).toEqual([])
-    expect(loaded).toMatchObject({ xp: 340, streak: { count: 3, lastDate: '2026-10-08' }, visited: old.visited })
+    expect(loaded.discovered).toEqual(old.discovered)
+    expect(loaded.cards).toEqual(old.cards)
+    expect(loaded.opened).toEqual(old.opened)
+    expect(loaded).toMatchObject({ xp: 340, streak: { count: 3, lastDate: '2026-10-08' } })
+    expect(loaded.visited).toEqual(['supermercado', 'restaurantes', 'licores']) // las verticales sí se conocen
+  })
+
+  test('la forma es la de initialState: claves de más fuera, enteros >= 0, huecos completados', () => {
+    const raw = { version: 1, xp: 5.9, discovered: { turbo: ['a', 'x'.repeat(65)] }, correct: { turbo: -2 }, answered: {}, cards: [], opened: [], extra: 1 }
+    const loaded = legacyProgress(memoryStorage({ [KEY]: JSON.stringify(raw) }))
+    expect(loaded).toEqual({ ...initialState(), xp: 5, discovered: { turbo: ['a'] }, correct: { turbo: 0 } })
   })
 
   test('clearLegacy borra el progreso y el pasaporte viejo', () => {

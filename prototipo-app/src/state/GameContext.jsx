@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { cards, gameState, saveGameState } from '../api/game'
+import { ApiError } from '../api/client'
 import { userId } from '../api/user'
 import { ConnectionNotice } from '../components/ConnectionGate'
 import { setKnowledge } from '../game/knowledge.js'
@@ -12,19 +13,46 @@ import { REPLAY_EVENT } from './liveMemory'
 const GameContext = createContext(null)
 const DATE_CHECK_MS = 30_000
 
+/** Un 4xx (422, 409…) es el servidor diciendo «esto no»: reintentar no lo arregla. Red caída y 5xx sí pueden mejorar. */
+const isRejection = (error) => error instanceof ApiError && error.kind === 'http' && error.status >= 400 && error.status < 500
+
 /**
  * Las tarjetas y el progreso del servidor, en ese orden. El progreso que este navegador guardó antes (ya no se escribe)
- * se traspasa una sola vez: si el servidor no tiene progreso, sube el del navegador (limpio) y recién ahí se borra;
- * si el servidor tiene, gana el del servidor y el del navegador se borra. Si algo falla, no se borra nada.
- * `local` se lee antes de esperar nada: con StrictMode la carga corre dos veces y la primera no debe borrárselo a la segunda.
+ * se traspasa una sola vez: si el servidor no tiene progreso, sube el del navegador y recién ahí se borra (la respuesta
+ * del PUT, ya limpia, es el estado); si el servidor tiene, gana el del servidor y el del navegador se borra. Si la red
+ * falla, no se borra nada y se muestra «Sin conexión». Si el servidor rechaza el traspaso (4xx), tampoco se borra nada,
+ * pero la app no se bloquea: avisa en la consola y parte en cero.
  */
 async function loadGame(local) {
   setKnowledge(await cards())
   const id = userId()
   let state = await gameState(id)
-  if (!state && local) state = await saveGameState(id, local)
+  if (!state && local) {
+    try {
+      state = await saveGameState(id, local)
+    } catch (error) {
+      if (!isRejection(error)) throw error
+      console.warn('El servidor rechazó el traspaso del progreso viejo; el juego parte en cero.', error)
+      return progress.initialState()
+    }
+  }
   clearLegacy()
   return { ...progress.initialState(), ...state }
+}
+
+// La carga en curso, por usuario: con StrictMode el efecto corre dos veces y las dos comparten la misma (un solo
+// GET y un solo PUT del traspaso). Se suelta al terminar, bien o mal, para que «Reintentar» empiece de cero.
+let inFlight = null
+function loadOnce(local) {
+  const id = userId()
+  if (inFlight?.id === id) return inFlight.promise
+  const promise = loadGame(local)
+  inFlight = { id, promise }
+  const release = () => {
+    if (inFlight?.promise === promise) inFlight = null
+  }
+  promise.then(release, release)
+  return promise
 }
 
 /**
@@ -48,7 +76,7 @@ export function GameProvider({ children }) {
   useEffect(() => {
     let current = true
     const local = legacyProgress()
-    loadGame(local).then(
+    loadOnce(local).then(
       (loadedState) => {
         if (!current) return
         latest.current = loadedState
@@ -82,11 +110,13 @@ export function GameProvider({ children }) {
     setGeneration((n) => n + 1)
   }, [])
 
-  // «Repetir escena» (junto al teléfono o en Account) deja también el juego como al empezar.
+  // «Repetir escena» (junto al teléfono o en Account) deja también el juego como al empezar. Mientras carga no hay nada
+  // que reiniciar, y reiniciar entonces pisaría el progreso del servidor.
   useEffect(() => {
+    if (loaded !== 'ready') return
     window.addEventListener(REPLAY_EVENT, reset)
     return () => window.removeEventListener(REPLAY_EVENT, reset)
-  }, [reset])
+  }, [reset, loaded])
 
   const commit = useCallback((next) => {
     latest.current = next
