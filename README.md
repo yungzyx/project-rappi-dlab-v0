@@ -181,7 +181,7 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 - **Prototipo**: lo que la gente hizo en la app del MVP, con la vista **Uso del MVP**: las ofertas del agente por momento (plan, carro, antes de pagar, próximo pedido, sin resultado, vertical por probar, pregunta y «Para ti»), el juego (rondas, tarjetas descubiertas y estrellas) y las búsquedas sin resultado por vertical y concepto. Es uso de pocas personas y el panel lo rotula «uso del MVP, pocas personas: no es evidencia». Sin nombres ni textos: personas contadas, nunca nombradas.
 
 ```bash
-make mvp   # panel en http://localhost:5175?vista=mvp&fuente=prototipo (sin la API usa respuestas guardadas)
+make mvp   # panel en http://localhost:5175/?vista=mvp&fuente=prototipo (sin la API usa respuestas guardadas)
 ```
 
 ## Historial del proyecto

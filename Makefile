@@ -9,5 +9,5 @@ help:  ## Muestra esta ayuda
 mvp:  ## Levanta el MVP: base real → API :8000 → app :5174 → panel :5175 (LAN=1 abre la API y la app a la red local)
 	@LAN="$(LAN)" scripts/mvp.sh
 
-mvp-check:  ## Recorre la app con Chrome contra un catálogo de prueba inventado (rappi_ia_test, :8010 y :5184)
+mvp-check:  ## Recorre la app con Chrome contra un catálogo de prueba inventado (rappi_ia_test, :8010, :5184 y el panel en :5185)
 	@scripts/mvp-check.sh
