@@ -8,6 +8,7 @@ import time
 import psycopg
 import pytest
 
+from rappi_scraper import cli
 from rappi_scraper.storage import db as db_module
 from rappi_scraper.storage.db import MIGRATIONS_DIR, check_migrations, connect, database_url, migrate
 
@@ -121,3 +122,18 @@ def test_backfill_and_each_migration_commit_on_their_own(db, extra_migration):
     with connect(database_url("DATABASE_URL_TEST")) as other:
         assert other.execute("SELECT to_regclass('prueba_ok')").fetchone()[0] is not None
         assert other.execute("SELECT count(*) FROM schema_migrations WHERE checksum IS NULL").fetchone()[0] == 0
+
+
+def test_check_only_lists_the_pending_ones_and_points_to_the_deploy(db, extra_migration, monkeypatch, capsys):
+    """`rappi migrate --solo-revisar` (la tarea semanal en producción) no aplica nada: si falta una migración se detiene
+    y dice que la aplica el despliegue, que respalda antes."""
+    monkeypatch.setenv("DATABASE_URL", database_url("DATABASE_URL_TEST"))
+    cli.main(["migrate", "--solo-revisar"])
+    assert "al día" in capsys.readouterr().out
+
+    name = extra_migration("CREATE TABLE prueba (id int);")
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(["migrate", "--solo-revisar"])
+
+    assert name in stopped.value.code and "run --rm migrate" in stopped.value.code
+    assert db.execute("SELECT to_regclass('prueba')").fetchone()[0] is None

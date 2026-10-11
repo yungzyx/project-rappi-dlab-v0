@@ -3,8 +3,8 @@
 if [ -n "${ZSH_VERSION:-}" ] && [ -z "${BASH_VERSION:-}" ]; then exec /bin/bash "$0" "$@"; fi
 # Tarea semanal (domingos 03:00): descarga y capa de IA, en orden. En macOS la programa launchd (`make schedule`); en
 # un servidor Linux, el timer de systemd deploy/systemd/rappi-refresh.timer, dentro del contenedor jobs.
-#   1. rappi migrate (migraciones pendientes, p. ej. tras un git pull) y rappi refresh: tiendas, restaurantes,
-#      búsqueda, reportes y respaldo.
+#   1. rappi migrate (migraciones pendientes, p. ej. tras un git pull; en producción solo las revisa) y rappi refresh:
+#      tiendas, restaurantes, búsqueda, reportes y respaldo.
 #   2. Si rappi-ia está instalado al lado: conceptos, embeddings, evaluación, datos simulados y purga.
 # La evaluación no guarda τ (eval/thresholds.json está en git: recalibrar es a mano, con `make eval`).
 # Las opciones pasan a `rappi refresh`: tras `retry-failed`, `refresh-semanal.sh --resume-only` retoma solo lo reencolado.
@@ -42,6 +42,8 @@ weekly_running() {
 }
 # Creado o cambiado hace menos de 1 o 2 minutos (find redondea los minutos distinto en macOS y en Linux).
 young() { [ -n "$(find "$1" -maxdepth 0 -mmin -2 2>/dev/null)" ]; }
+# Existe y es de hace más de 2 o 3 minutos. Si desapareció recién no es viejo: otra ejecución lo soltó.
+old() { [ -n "$(find "$1" -maxdepth 0 -mmin +2 2>/dev/null)" ]; }
 # El candado existe y es de una ejecución viva, o de una que acaba de crearlo y todavía no escribe su PID.
 lock_held() {
   local pid
@@ -72,27 +74,28 @@ if [ -f "$OLD_LOCK" ]; then
 fi
 # El candado es un directorio (mkdir es atómico) con el PID adentro. Si ese proceso ya no existe o es otro programa con
 # el mismo PID, quedó de una ejecución que murió: lo recupera una sola de las que partan a la vez, la que tome
-# RECOVERING (otro mkdir). Esa vuelve a revisar el candado antes de borrarlo, porque otra pudo recuperarlo recién. Un
-# RECOVERING de más de 2 minutos quedó de una ejecución que murió justo ahí y se borra.
+# RECOVERING (otro mkdir). Esa vuelve a revisar el candado antes de borrarlo, porque otra pudo recuperarlo recién. Solo
+# un RECOVERING que sigue ahí y tiene más de 2 minutos quedó de una ejecución que murió justo ahí y se borra; si
+# desaparece mientras se revisa, otra lo soltó (y otra pudo tomarlo ya): esta se omite. Soltarlo tolera que ya no esté.
 LOCK=$DATA/refresh-semanal.lock
 RECOVERING=$LOCK.recuperando
 if ! mkdir "$LOCK" 2>/dev/null; then
   if lock_held; then already_running; fi
   if ! mkdir "$RECOVERING" 2>/dev/null; then
-    if young "$RECOVERING"; then already_running; fi
+    if ! old "$RECOVERING"; then already_running; fi
     rm -rf "$RECOVERING"
     mkdir "$RECOVERING" 2>/dev/null || already_running
   fi
   if lock_held; then
-    rmdir "$RECOVERING"
+    rmdir "$RECOVERING" 2>/dev/null || true
     already_running
   fi
   if [ -d "$LOCK" ]; then
     interrupted
     rm -rf "$LOCK"
   fi
-  mkdir "$LOCK" 2>/dev/null || { rmdir "$RECOVERING"; already_running; }
-  rmdir "$RECOVERING"
+  mkdir "$LOCK" 2>/dev/null || { rmdir "$RECOVERING" 2>/dev/null || true; already_running; }
+  rmdir "$RECOVERING" 2>/dev/null || true
 fi
 echo $$ > "$LOCK/pid"
 # Una línea por ejecución en ultimo-estado.txt (la muestra `make schedule-status`): un fallo del domingo no queda
@@ -115,8 +118,9 @@ if command -v pgrep >/dev/null && pgrep -f "rappi(_scraper)? (refresh|discover|s
   exit 0
 fi
 # Antes de descargar: una migración pendiente haría fallar el refresh al final (tras un día de descarga), y el
-# `migrate` de post-refresh nunca llegaría a correr.
-"$RAPPI_BIN" migrate
+# `migrate` de post-refresh nunca llegaría a correr. En producción (API_ENV=production) no migra sin respaldo: solo
+# revisa, y si falta una se detiene (las aplica el despliegue: `docker compose run --rm migrate`, que respalda antes).
+if [ "${API_ENV:-}" = production ]; then "$RAPPI_BIN" migrate --solo-revisar; else "$RAPPI_BIN" migrate; fi
 # Código 3: todo terminó salvo el respaldo (quedan los anteriores). Código 5: los restaurantes no se actualizaron
 # (tiendas, búsqueda y respaldo sí). Código 6: las dos cosas. En los tres la capa de IA corre igual, pero queda
 # anotado. Código 4: posible bloqueo de rappi.cl; aquí se detiene.

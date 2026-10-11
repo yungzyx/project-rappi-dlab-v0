@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate check-migrations deploy-migrate test lint format jev-categorias concepts knowledge embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
+.PHONY: help install install-ml db-test migrate check-migrations verify-migrations deploy-migrate test lint format jev-categorias concepts knowledge embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -93,7 +93,7 @@ SERVE_PREP := $(if $(filter production,$(API_ENV)),,check-migrations migrate kno
 serve: $(SERVE_PREP)  ## API en http://localhost:8000, solo este Mac (docs en /docs)
 	$(HF_OFFLINE) $(PY) -m uvicorn rappi_ia.api.app:app --no-access-log --host 127.0.0.1 --port 8000
 
-serve-lan: $(SERVE_PREP)  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
+serve-lan: $(SERVE_PREP)  ## API en la red local (iPhone). Sin puerta de acceso (cada persona, su token firmado): solo red de confianza
 	$(HF_OFFLINE) API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --no-access-log --host 0.0.0.0 --port 8000
 
 # Las frases del guion (docs/demo.md) sin user_id: no se registran. Frío, «una hamburguesa» tarda 2 a 5 s; caliente, 0,3 s.
@@ -130,9 +130,13 @@ layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las 
 layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.md)
 	$(PY) -m rappi_ia layer-report
 
+# Sin «##»: lo usa post-refresh en producción, donde migrar sin respaldo no corresponde (lo hace deploy-migrate).
+verify-migrations:
+	$(PY) -m rappi_ia migrate --solo-revisar
+
 # purge va primero, para que la retención de 90 días se cumpla aunque falle un paso posterior, y otra vez al final
-# para los eventos simulados que synth acaba de generar.
-post-refresh: migrate purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
+# para los eventos simulados que synth acaba de generar. En producción (API_ENV=production) no migra: solo revisa.
+post-refresh: $(if $(filter production,$(API_ENV)),verify-migrations,migrate) purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
 	$(MAKE) jev-categorias concepts knowledge embed eval synth layers
 	$(MAKE) purge
 	@echo "Listo: conceptos, tarjetas del juego, embeddings, evaluación y datos simulados al día."

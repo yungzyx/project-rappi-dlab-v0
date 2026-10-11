@@ -42,7 +42,7 @@ from .reporting import render_markdown, write_run_report
 from .scraping.client import RappiClient
 from .storage import repository
 from .storage.backup import backup_database
-from .storage.db import PendingMigrations, check_migrations, connect, database_url, migrate
+from .storage.db import APPLIED_BY_DEPLOY, PendingMigrations, check_migrations, connect, database_url, migrate
 from .storage.search import VERTICALS, build_search_documents, search
 
 log = logging.getLogger("rappi_scraper")
@@ -234,7 +234,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Base de datos de contenido de Rappi Chile por vertical")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("migrate", help="Aplicar migraciones pendientes")
+    p = sub.add_parser("migrate", help="Aplicar migraciones pendientes")
+    p.add_argument(
+        "--solo-revisar",
+        action="store_true",
+        help="No aplica nada: falla si falta una (la tarea semanal en producción; las aplica el despliegue)",
+    )
 
     p = sub.add_parser("discover", help="Descubrir tiendas por vertical y restaurantes; crea la cola")
     p.add_argument(
@@ -360,6 +365,9 @@ def _run_simple(args) -> None:
     with connect() as conn:
         if args.command in COMMANDS:
             COMMANDS[args.command](conn, args)
+        elif args.command == "migrate" and args.solo_revisar:
+            check_migrations(conn, APPLIED_BY_DEPLOY)
+            print("Migraciones al día.")
         elif args.command == "migrate":
             print("Aplicadas:", migrate(conn) or "ninguna (al día)")
         elif args.command == "build-search":

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Prueba de humo del stack desplegado: deploy/smoke.sh https://el-dominio
 # Revisa la puerta de acceso, la API lista (con la búsqueda semántica), las cabeceras de seguridad, que lo servido no
-# apunte a :8000 ni cargue nada que la CSP bloquee, que rappi_api no pueda borrar tablas y que todo el stack esté sano.
+# apunte a :8000 ni cargue nada que la CSP bloquee, que la app lleve el aviso de demo no oficial, que rappi_api no pueda
+# borrar tablas, que ningún servicio (jobs incluido) tenga valores de ejemplo y que todo el stack esté sano.
 # Sale con 0 o dice qué falló.
 #
 # Necesita la clave de la puerta en claro en BASIC_AUTH_PASSWORD (no se guarda en el servidor; se pasa a curl por la
@@ -79,6 +80,12 @@ fi
 served="$index"
 for asset in $assets; do served+=$'\n'$(authed "$url$asset"); done
 if grep -qF ':8000' <<<"$served"; then fail "lo servido menciona :8000"; else pass "ningún :8000 en lo servido"; fi
+# El aviso fijo de la Home (DemoDisclaimer), con o sin VITE_DEMO: viaja en el JavaScript de la app.
+if grep -qF 'Demo no oficial · prototipo independiente, no afiliado a Rappi' <<<"$served"; then
+  pass "el aviso «Demo no oficial» está en la app"
+else
+  fail "falta el aviso «Demo no oficial» en la app servida"
+fi
 # Lo que la CSP bloquearía en index.html: scripts en línea y scripts u hojas de estilo de otro origen.
 if grep -oE '<script[^>]*>' <<<"$index" | grep -qv 'src='; then
   fail "index.html trae un script en línea (la CSP lo bloquea)"
@@ -119,12 +126,24 @@ else
 fi
 
 echo "Entorno"
-# Ningún contenedor quedó con un valor de ejemplo (deploy/.env.example). Se muestran los nombres, nunca los valores.
+# Ningún servicio quedó con un valor de ejemplo (deploy/.env.example). Se muestran los nombres, nunca los valores. Los
+# que corren se leen por dentro (exec); jobs, que no corre, en un contenedor desechable sin dependencias. Si el entorno
+# no se puede leer, es un fallo (no un «sin cambiar-esto»).
+check_env() {  # check_env <servicio> <comando de compose que corre un comando en ese servicio...>
+  local service=$1 left
+  shift
+  if ! left=$("$@" sh -c 'env | grep -F cambiar-esto | cut -d= -f1' </dev/null 2>/dev/null); then
+    fail "no se pudo leer el entorno de $service"
+  elif [ -n "$left" ]; then
+    fail "$service tiene «cambiar-esto» en: $(tr '\n' ' ' <<<"$left")"
+  else
+    pass "$service sin «cambiar-esto»"
+  fi
+}
 while read -r service; do
-  # shellcheck disable=SC2016 # se expande adentro del contenedor
-  left=$("${compose[@]}" exec -T "$service" sh -c 'env | grep -F cambiar-esto | cut -d= -f1' </dev/null 2>/dev/null | tr '\n' ' ')
-  if [ -n "$left" ]; then fail "$service tiene «cambiar-esto» en: $left"; else pass "$service sin «cambiar-esto»"; fi
+  check_env "$service" "${compose[@]}" exec -T "$service"
 done < <("${compose[@]}" ps --format '{{.Service}}')
+check_env jobs "${compose[@]}" run --rm --no-deps -T jobs
 
 echo "Stack"
 ps=$("${compose[@]}" ps --format '{{.Service}} {{.Status}}')

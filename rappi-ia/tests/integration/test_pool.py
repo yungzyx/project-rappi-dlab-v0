@@ -191,7 +191,8 @@ def test_an_order_releases_its_connection_before_recalculating_segments(db, test
         reply = live_client.post("/orders", json=order)
 
     assert reply.status_code == 200, reply.text
-    assert "Segmentos recalculados de p-pedido" in caplog.text
+    assert "Segmentos recalculados" in caplog.text
+    assert "p-pedido" not in caplog.text  # el registro no lleva el id de la persona
     assert "No se pudieron recalcular" not in caplog.text
     assert deps.connections_in_use() == 0
 

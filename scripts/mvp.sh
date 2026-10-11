@@ -2,7 +2,8 @@
 # make mvp: levanta la API de rappi-ia (:8000), la app (:5174) y el panel (:5175) sobre la base real, en un solo
 # comando, y avisa cuando responden. Ctrl-C detiene los tres.
 # No descarga nada de rappi.cl: usa la base `rappi` que ya está en este Mac (ver docs/instalacion.md).
-# Con LAN=1 la API y la app quedan en la red local (para el iPhone; sin autenticación: solo en una red de confianza).
+# Con LAN=1 la API y la app quedan en la red local (para el iPhone; sin puerta de acceso, aunque los datos de cada
+# persona piden su token firmado: solo en una red de confianza).
 # La app y el panel buscan la API en el host desde el que se abrió la página (puerto 8000).
 set -euo pipefail
 cd "$(dirname "$0")/.."

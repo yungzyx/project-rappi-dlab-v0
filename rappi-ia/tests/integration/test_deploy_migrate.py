@@ -184,6 +184,38 @@ def test_busy_table_stops_with_a_clear_message(ready, add_pending, test_url, mon
     assert not _applied(ready, PROBE)
 
 
+def test_plain_migrate_on_a_busy_table_stops_with_the_same_message(ready, add_pending, test_url, monkeypatch):
+    """`rappi-ia migrate` (el de `make mvp`) con una tabla ocupada: el mismo mensaje que deploy-migrate, sin traza."""
+    add_pending("ALTER TABLE menu_items ADD COLUMN prueba int;")
+    monkeypatch.setattr(scraper_db.config, "MIGRATE_LOCK_TIMEOUT", "300ms")
+    with connect(test_url) as other:
+        other.execute("LOCK TABLE menu_items IN ROW EXCLUSIVE MODE")
+        with pytest.raises(SystemExit) as stopped:
+            cli.cmd_migrate(ready, cli.build_parser().parse_args(["migrate"]))
+        other.rollback()
+
+    assert stopped.value.code == (
+        "Una tabla está ocupada; la migración no se aplicó. Intenta de nuevo en unos minutos."
+    )
+    assert not _applied(ready, PROBE)
+
+
+def test_check_only_migrate_stops_on_pending_and_points_to_the_deploy(ready, pending, capsys):
+    """`rappi-ia migrate --solo-revisar` (post-refresh en producción) no migra sin respaldo: se detiene y remite al
+    despliegue."""
+    with pytest.raises(SystemExit) as stopped:
+        cli.cmd_migrate(ready, cli.build_parser().parse_args(["migrate", "--solo-revisar"]))
+
+    assert PROBE in stopped.value.code and "run --rm migrate" in stopped.value.code
+    assert not _applied(ready, PROBE)
+
+
+def test_check_only_migrate_passes_when_up_to_date(ready, capsys):
+    cli.cmd_migrate(ready, cli.build_parser().parse_args(["migrate", "--solo-revisar"]))
+
+    assert "al día" in capsys.readouterr().out
+
+
 def test_failed_migration_stops_naming_the_file(ready, add_pending):
     add_pending("SELECT 1/0;")
 
@@ -215,6 +247,16 @@ def test_production_start_does_not_migrate(target, tmp_path):
 
     local = _dry_run(target, API_ENV="local", DOTENV=str(tmp_path / "sin-env"))  # en local siguen migrando
     assert local.index("rappi_ia check-migrations") < local.index("rappi_ia migrate") < local.index("uvicorn")
+
+
+def test_post_refresh_in_production_only_checks_migrations(tmp_path):
+    """La tarea semanal en el servidor no migra sin respaldo: post-refresh solo revisa (lo aplica deploy-migrate)."""
+    production = _dry_run("post-refresh", API_ENV="production")
+    assert "rappi_ia migrate --solo-revisar" in production
+    assert "rappi_ia migrate\n" not in production
+
+    local = _dry_run("post-refresh", API_ENV="local", DOTENV=str(tmp_path / "sin-env"))
+    assert "rappi_ia migrate\n" in local and "--solo-revisar" not in local
 
 
 def test_grants_file_lets_the_api_role_write_only_its_tables(ready):

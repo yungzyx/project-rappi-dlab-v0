@@ -713,9 +713,9 @@ def recalculate_user_segments(connector: Callable[[], AbstractContextManager[Con
             build_segments(conn, "prototype", user_id, commit=False)
             conn.commit()  # suelta el candado; sin ANALYZE por pedido
     except Exception:
-        log.warning("No se pudieron recalcular los segmentos de %s después del pedido", user_id, exc_info=True)
+        log.warning("No se pudieron recalcular los segmentos después de un pedido", exc_info=True)
         return
-    log.info("Segmentos recalculados de %s en %.0f ms", user_id, (time.perf_counter() - start) * 1000)
+    log.info("Segmentos recalculados en %.0f ms", (time.perf_counter() - start) * 1000)  # sin el id de la persona
 
 
 def _definitions_current(conn: Connection, version: str, rules: list[SegmentRule]) -> bool:

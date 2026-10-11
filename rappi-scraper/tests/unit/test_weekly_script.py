@@ -68,7 +68,7 @@ def _project(tmp_path: Path, rappi_body: str, other_download_running: bool = Fal
 
 
 def _env(project: Path, path: str | None = None, **extra: str) -> dict[str, str]:
-    env = {k: v for k, v in os.environ.items() if k not in {"RAPPI_DATA_DIR", "RAPPI_BIN", "RAPPI_IA_PY"}}
+    env = {k: v for k, v in os.environ.items() if k not in {"RAPPI_DATA_DIR", "RAPPI_BIN", "RAPPI_IA_PY", "API_ENV"}}
     return {**env, "PATH": f"{project / 'bin'}:{path or os.environ['PATH']}", **extra}
 
 
@@ -202,36 +202,93 @@ def test_fresh_lock_without_pid_counts_as_running(tmp_path, shell, pid):
     assert lock.exists()
 
 
-def test_simultaneous_starts_over_a_stale_lock_let_one_through(tmp_path, shell):
-    """Varias ejecuciones a la vez frente a un candado abandonado: una sola lo recupera y corre; las demás se omiten."""
+@pytest.mark.parametrize("slow_find", [False, True], ids=["find-normal", "find-lento"])
+def test_simultaneous_starts_over_a_stale_lock_let_one_through(tmp_path, shell, slow_find):
+    """Varias ejecuciones a la vez frente a un candado abandonado: una sola lo recupera y corre; las demás se omiten.
+    Con un `find` que tarda al azar (hasta 60 ms), el directorio de recuperación puede desaparecer entre el mkdir que
+    falla y la revisión de su edad: eso no debe borrar el de otra ejecución ni hacer fallar a ninguna. Varias rondas,
+    porque cada una cruza las ejecuciones de otra manera."""
     project = _project(tmp_path, BLOCKING_REFRESH)
+    if slow_find:
+        real_find = shutil.which("find")
+        _write_fake(project / "bin" / "find", f'sleep "0.$(printf %03d $((RANDOM % 60)))"; exec {real_find} "$@"')
     lock = project / "data" / "refresh-semanal.lock"
+    for _ in range(10 if slow_find else 1):
+        for leftover in ("release", "calls.txt", "data/logs/ultimo-estado.txt"):
+            (project / leftover).unlink(missing_ok=True)
+        lock.mkdir(parents=True)
+        (lock / "pid").write_text("999999\n")
+        _age(lock, 600)
+        runs = [
+            subprocess.Popen(
+                [shell, project / "scripts" / SCRIPT.name],
+                env=_env(project),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            for _ in range(12)
+        ]
+        try:
+            deadline = time.monotonic() + 30
+            while sum(run.poll() is not None for run in runs) < len(runs) - 1 and time.monotonic() < deadline:
+                time.sleep(0.05)
+        finally:
+            (project / "release").touch()
+            for run in runs:
+                run.wait(timeout=30)
+
+        assert [run.returncode for run in runs] == [0] * len(runs), [run.stderr.read() for run in runs]
+        assert _calls(project) == ["migrate"]  # solo una llegó a descargar
+        lines = _status_lines(project)
+        assert sum("interrumpida" in line for line in lines) == 1
+        assert sum("exit=" in line for line in lines) == 1
+        assert not lock.exists()
+        assert not (project / "data" / "refresh-semanal.lock.recuperando").exists()
+
+
+def test_recovery_dir_that_vanishes_while_checked_is_not_taken_from_another_start(tmp_path, shell):
+    """El directorio de recuperación de otra ejecución desaparece justo mientras se revisa su edad (esa terminó) y otra
+    lo vuelve a tomar enseguida: esta ejecución se omite y no lo borra."""
+    project = _project(tmp_path, 'echo "$*" >> calls.txt')
+    lock = project / "data" / "refresh-semanal.lock"
+    recovering = project / "data" / "refresh-semanal.lock.recuperando"
     lock.mkdir(parents=True)
     (lock / "pid").write_text("999999\n")
     _age(lock, 600)
-    runs = [
-        subprocess.Popen(
-            [shell, project / "scripts" / SCRIPT.name],
-            env=_env(project),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        for _ in range(12)
-    ]
-    try:
-        deadline = time.monotonic() + 30
-        while sum(run.poll() is not None for run in runs) < len(runs) - 1 and time.monotonic() < deadline:
-            time.sleep(0.05)
-    finally:
-        (project / "release").touch()
-        for run in runs:
-            run.wait(timeout=30)
+    recovering.mkdir()
+    real_find = shutil.which("find")
+    _write_fake(
+        project / "bin" / "find",
+        f'case "$1" in *.recuperando) rmdir "$1"; {real_find} "$@"; rc=$?; mkdir "$1"; exit $rc;; esac\n'
+        f'exec {real_find} "$@"',
+    )
 
-    assert [run.returncode for run in runs] == [0] * len(runs)
-    assert _calls(project) == ["migrate"]  # solo una llegó a descargar
-    lines = _status_lines(project)
-    assert sum("interrumpida" in line for line in lines) == 1
-    assert sum("exit=" in line for line in lines) == 1
+    result = _run(project, shell)
+
+    assert result.returncode == 0, result.stderr
+    assert "ya hay una actualización semanal en curso; se omite" in result.stdout
+    assert not (project / "calls.txt").exists()
+    assert recovering.is_dir()  # el de la otra ejecución sigue ahí
+    assert lock.exists()
+
+
+def test_abandoned_recovery_dir_is_cleared(tmp_path, shell):
+    """Un directorio de recuperación de hace 10 minutos quedó de una ejecución que murió justo ahí: se borra y la
+    ejecución sigue."""
+    project = _project(tmp_path, 'echo "$*" >> calls.txt')
+    lock = project / "data" / "refresh-semanal.lock"
+    recovering = project / "data" / "refresh-semanal.lock.recuperando"
+    lock.mkdir(parents=True)
+    (lock / "pid").write_text("999999\n")
+    recovering.mkdir()
+    _age(lock, 600)
+    _age(recovering, 600)
+
+    result = _run(project, shell)
+
+    assert result.returncode == 0, result.stderr
+    assert _calls(project) == ["migrate", "refresh"]
+    assert not recovering.exists()
     assert not lock.exists()
 
 
@@ -336,6 +393,17 @@ def test_migrations_are_applied_before_downloading(tmp_path, shell):
 
     assert result.returncode == 0
     assert _calls(project) == ["migrate", "refresh"]
+
+
+def test_in_production_migrations_are_only_checked(tmp_path, shell):
+    """En el servidor (API_ENV=production) la tarea semanal no migra sin respaldo: solo revisa que no falte ninguna. Las
+    aplica el despliegue (`docker compose run --rm migrate`), que respalda antes."""
+    project = _project(tmp_path, 'echo "$*" >> calls.txt')
+
+    result = _run(project, shell, API_ENV="production")
+
+    assert result.returncode == 0, result.stderr
+    assert _calls(project) == ["migrate --solo-revisar", "refresh"]
 
 
 def test_the_script_passes_its_options_to_refresh(tmp_path, shell):

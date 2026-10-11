@@ -118,6 +118,7 @@ def test_two_orders_in_a_row_do_not_collide(client, db, test_url, caplog):
 
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
     assert len([r for r in caplog.records if "Segmentos recalculados" in r.getMessage()]) == 2
+    assert not [r for r in caplog.records if "u1" in r.getMessage()]  # sin el id de la persona en el registro
     db.rollback()  # una foto nueva: lo que guardaron las otras conexiones
     assert _segments(db, "u1")["snacks-salados"] == 5
 
@@ -175,7 +176,7 @@ def test_recalculation_error_does_not_break_the_order(client, db, caplog):
 
     assert db.execute("SELECT count(*) FROM app_orders WHERE order_id = %s", (order_id,)).fetchone()[0] == 1
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-    assert len(warnings) == 1 and "u1" in warnings[0].getMessage()
+    assert len(warnings) == 1 and "u1" not in warnings[0].getMessage()  # sin el id de la persona
 
 
 def test_segment_rules_are_cached(tmp_path):

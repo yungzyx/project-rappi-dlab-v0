@@ -28,6 +28,13 @@ class PendingMigrations(RuntimeError):
     """La base no tiene todas las migraciones del repositorio (p. ej. tras un `git pull`)."""
 
 
+# En producción (API_ENV=production) la tarea semanal no migra: solo revisa. Las migraciones las aplica el despliegue.
+APPLIED_BY_DEPLOY = (
+    "en producción las aplica el despliegue, que respalda la base antes: "
+    "`docker compose -f deploy/docker-compose.yml run --rm migrate`"
+)
+
+
 def database_url(env_var: str = "DATABASE_URL") -> str:
     url = os.environ.get(env_var)
     if not url:
@@ -107,15 +114,15 @@ def migrate(conn: psycopg.Connection) -> list[str]:
             conn.commit()
 
 
-def check_migrations(conn: psycopg.Connection) -> None:
+def check_migrations(conn: psycopg.Connection, advice: str = "corre `rappi migrate` antes") -> None:
     """Falla si la base no tiene todas las migraciones del repositorio: el código puede depender de ellas (la vista de
-    vigencia de la 019) y `refresh` descargaba todo antes de caerse al armar la búsqueda."""
+    vigencia de la 019) y `refresh` descargaba todo antes de caerse al armar la búsqueda. `advice` dice qué hacer."""
     applied = _applied(conn)
     for name in changed_migrations(conn, applied):
         log.warning("La migración %s cambió después de aplicarse", name)
     pending = [path.name for path in sorted(MIGRATIONS_DIR.glob("*.sql")) if path.name not in applied]
     if pending:
-        raise PendingMigrations(f"Hay migraciones pendientes ({', '.join(pending)}): corre `rappi migrate` antes.")
+        raise PendingMigrations(f"Hay migraciones pendientes ({', '.join(pending)}): {advice}.")
 
 
 def changed_migrations(conn: psycopg.Connection, applied: dict[str, str | None] | None = None) -> list[str]:

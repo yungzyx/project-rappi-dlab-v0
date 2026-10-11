@@ -162,6 +162,8 @@ services:
     environment:
       <<: *sin-claves-de-base
       DATABASE_URL: ${DATABASE_URL_OWNER:?Falta DATABASE_URL_OWNER en el archivo de entorno}
+      # La tarea semanal no migra (sin respaldo): solo revisa; las migraciones las aplica el servicio migrate.
+      API_ENV: production
       # Los registros, ultimo-estado.txt y los nombres de los respaldos en la hora de Chile, la de los timers de systemd.
       TZ: America/Santiago
     # Un init (tini) como PID 1: reenvía las señales (systemctl stop, docker stop) y recoge procesos, así bash corre sus

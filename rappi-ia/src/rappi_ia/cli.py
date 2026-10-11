@@ -34,7 +34,7 @@ from pathlib import Path
 import psycopg
 from psycopg import sql
 from rappi_scraper.storage.backup import backup_database
-from rappi_scraper.storage.db import MIGRATE_LOCK
+from rappi_scraper.storage.db import APPLIED_BY_DEPLOY, MIGRATE_LOCK, PendingMigrations, check_migrations
 
 from . import config
 from .concepts.pipeline import build_concepts
@@ -56,8 +56,22 @@ from .retrieval.hybrid import MODES, Filters, retrieve
 log = logging.getLogger("rappi_ia")
 
 
+# Una tabla tomada más allá de MIGRATE_LOCK_TIMEOUT: lo dicen igual `migrate` y `deploy-migrate`, sin traceback.
+BUSY_TABLE = "Una tabla está ocupada; la migración no se aplicó. Intenta de nuevo en unos minutos."
+
+
 def cmd_migrate(conn, args) -> None:
-    applied = migrate(conn)
+    if args.solo_revisar:  # post-refresh en producción: las aplica el despliegue, que respalda antes
+        try:
+            check_migrations(conn, APPLIED_BY_DEPLOY)
+        except PendingMigrations as exc:
+            raise SystemExit(str(exc)) from exc
+        print("Migraciones al día.")
+        return
+    try:
+        applied = migrate(conn)
+    except psycopg.errors.LockNotAvailable as exc:
+        raise SystemExit(BUSY_TABLE) from exc
     print("Migraciones aplicadas: " + (", ".join(applied) if applied else "ninguna (al día)"))
 
 
@@ -582,9 +596,7 @@ def _deploy_migrate_locked(conn, backup: Callable[[], Path] | None, role: str | 
     try:
         applied = migrate(conn)
     except psycopg.errors.LockNotAvailable as exc:
-        raise SystemExit(
-            "Una tabla está ocupada; la migración no se aplicó. Intenta de nuevo en unos minutos."
-        ) from exc
+        raise SystemExit(BUSY_TABLE) from exc
     except psycopg.Error as exc:
         log.error("Error al migrar: %s", exc)
         remaining = [] if conn.closed else pending_migrations(conn)  # las anteriores ya quedaron confirmadas
@@ -664,7 +676,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="log detallado")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("migrate", help="aplica migraciones pendientes (las de rappi-scraper)")
+    mg = sub.add_parser("migrate", help="aplica migraciones pendientes (las de rappi-scraper)")
+    mg.add_argument(
+        "--solo-revisar",
+        action="store_true",
+        help="no aplica nada: falla si falta una (post-refresh en producción; las aplica el despliegue)",
+    )
     concepts = sub.add_parser("concepts", help="capa 2: conceptos, complementos y mapeo de productos y platos")
     concepts.add_argument("--solo-reporte", action="store_true", help="solo muestra la cobertura actual")
     concepts.add_argument("--sin-knn", action="store_true", help="sin refinar con vecinos cercanos (embeddings)")
