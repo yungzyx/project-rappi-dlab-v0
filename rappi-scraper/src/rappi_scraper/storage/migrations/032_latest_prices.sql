@@ -165,8 +165,10 @@ CREATE INDEX scrape_jobs_skipped_aisles_idx ON scrape_jobs (run_id)
 -- formato de tienda; una oferta es vigente si su último precio es de la última corrida que bajó su formato
 -- (v_store_format_runs, migración 019). Excepción: si esa corrida no pudo leer un pasillo o sub-pasillo de la tienda
 -- (`pasillos_omitidos` del job que la bajó), una oferta de ese pasillo sigue vigente si su último precio es de la
--- corrida anterior de esa misma tienda: una página caída no la esconde, pero tampoco revive lo que esa corrida
--- anterior ya no encontró. Las tiendas sin precios no salen (no tienen formato descargado).
+-- bajada anterior de su formato (el job store_group terminado anterior del mismo formato) y esa bajada fue de esta
+-- misma tienda: una página caída no la esconde, pero tampoco revive lo que esa bajada ya no encontró, ni los precios
+-- de hace semanas de una sucursal que se volvió a bajar después de otra (B → A → B). Las tiendas sin precios no salen
+-- (no tienen formato descargado).
 CREATE VIEW v_latest_offers AS
 SELECT lp.store_id, lp.sku, lp.price, lp.real_price, lp.discount_pct, lp.in_stock, lp.run_id, lp.scraped_at,
        f.format_run_id,
@@ -176,9 +178,12 @@ SELECT lp.store_id, lp.sku, lp.price, lp.real_price, lp.discount_pct, lp.in_stoc
             WHEN NOT EXISTS (SELECT 1 FROM store_products sp
                              WHERE sp.store_id = lp.store_id AND sp.sku = lp.sku
                                AND (sp.aisle_id = ANY(r.aisles) OR sp.sub_aisle_id = ANY(r.aisles))) THEN false
-            -- …y su último precio es de la corrida anterior de la tienda: ninguna otra le dejó precios entre medio.
-            ELSE NOT EXISTS (SELECT 1 FROM price_snapshots ps
-                             WHERE ps.store_id = lp.store_id AND ps.run_id > lp.run_id AND ps.run_id < r.run_id)
+            -- …y su último precio es de la bajada anterior del formato (que, si fue de otra sucursal, no lo trae). Sin
+            -- bajada anterior (un CSV importado no deja jobs) no hay rescate: false, nunca NULL.
+            ELSE COALESCE(lp.run_id = (SELECT max(j.run_id) FROM scrape_jobs j
+                                       JOIN stores js ON js.store_id = (j.result->>'store_id')::bigint
+                                       WHERE j.job_type = 'store_group' AND j.status = 'done' AND j.run_id < r.run_id
+                                         AND COALESCE(js.store_type, 'id:' || js.store_id) = f.format), false)
        END AS current
 FROM latest_prices lp
 JOIN v_store_format_runs f ON f.store_id = lp.store_id
@@ -203,4 +208,4 @@ COMMENT ON COLUMN v_latest_offers.in_stock IS 'Si la tienda lo tenía disponible
 COMMENT ON COLUMN v_latest_offers.run_id IS 'Corrida del último precio.';
 COMMENT ON COLUMN v_latest_offers.scraped_at IS 'Cuándo se bajó el último precio.';
 COMMENT ON COLUMN v_latest_offers.format_run_id IS 'Última corrida que bajó el formato de la tienda (v_store_format_runs).';
-COMMENT ON COLUMN v_latest_offers.current IS 'Si la oferta está vigente: su último precio es de format_run_id o, en un pasillo que esa corrida no pudo leer, de la corrida anterior de la tienda.';
+COMMENT ON COLUMN v_latest_offers.current IS 'Si la oferta está vigente: su último precio es de format_run_id o, en un pasillo que esa corrida no pudo leer, de la bajada anterior de su formato.';

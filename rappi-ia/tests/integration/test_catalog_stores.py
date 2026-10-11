@@ -465,9 +465,9 @@ def _aisle_id(conn, store_id: int, name: str) -> int:
 
 def test_offer_of_a_skipped_aisle_is_current_everywhere(seeded):
     """Una corrida nueva baja el Centro sin poder leer el subpasillo de las papas ni el pasillo del atún: las papas
-    siguen vigentes con su precio de la corrida anterior de la tienda en la búsqueda, el detalle, el precio del pedido,
-    el agente, la página y la tarjeta de la tienda (una sola definición, v_latest_offers). El atún, cuyo último precio
-    es de antes de esa corrida anterior, no revive en ninguna."""
+    siguen vigentes con su precio de la bajada anterior del formato (la del Centro) en la búsqueda, el detalle, el
+    precio del pedido, el agente, la página y la tarjeta de la tienda (una sola definición, v_latest_offers). El atún,
+    cuyo último precio es de antes de esa bajada anterior, no revive en ninguna."""
     papas_aisle, papas_sub, papas_price = seeded.execute(
         """SELECT sp.aisle_id, sp.sub_aisle_id, ps.price
            FROM store_products sp JOIN latest_prices ps USING (store_id, sku)
@@ -479,6 +479,13 @@ def test_offer_of_a_skipped_aisle_is_current_everywhere(seeded):
     ).fetchone()[0]
     skipped = [papas_sub, tuna_aisle]
     before = vertical_stores(seeded, "supermercado")[0]
+    # La bajada anterior del formato fue la del Centro: el scraper deja su job terminado (la siembra no deja jobs).
+    previous = seeded.execute("SELECT max(run_id) FROM price_snapshots WHERE store_id = %s", (CENTRO,)).fetchone()[0]
+    seeded.execute(
+        """INSERT INTO scrape_jobs (run_id, job_key, job_type, payload, status, result)
+           VALUES (%s, 'type:prueba_9101', 'store_group', '{}', 'done', %s)""",
+        (previous, Jsonb({"store_id": CENTRO, "products": 1, "pasillos_omitidos": []})),
+    )
     run = seeded.execute(
         "INSERT INTO scrape_runs (kind, status) VALUES ('stores', 'done') RETURNING run_id"
     ).fetchone()[0]

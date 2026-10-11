@@ -187,8 +187,15 @@ def _seed_previous_run(db) -> tuple[int, list[str]]:
         for aisle in (14406, 14411)
     ]  # fmt: skip
     repository.save_products(db, run, 900025946, products)
+    _finish_store_job(db, run)
     repository.finish_run(db, run)
     return run, ["1440600", "1441100"]
+
+
+def _finish_store_job(db, run: int) -> None:
+    """El job terminado que deja el scraper al bajar Lider: la bajada anterior del formato para un pasillo omitido."""
+    repository.add_jobs(db, run, [_store_job("type:lider", LIDER)])
+    repository.mark_job(db, run, "type:lider", "done", {"store_id": 900025946, "store_type": "lider"}, None)
 
 
 def test_skipped_aisle_keeps_its_offers_current(db):
@@ -219,6 +226,7 @@ def _seed_run(db, products: dict[str, int]) -> None:
         for sku, aisle in products.items()
     ]  # fmt: skip
     repository.save_products(db, run, 900025946, rows)
+    _finish_store_job(db, run)
     repository.finish_run(db, run)
 
 

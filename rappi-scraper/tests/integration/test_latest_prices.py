@@ -231,8 +231,13 @@ def _three_run_catalog(db) -> tuple[int, int, int]:
             (run, f"type:{store_id}", Jsonb({"store_id": store_id, "products": 1, "pasillos_omitidos": skipped})),
         )
 
+    # Cada corrida que bajó una tienda deja su job (la 1 y la 4 en las tres o en la 1, la 3 en la 1 y la 2).
+    job(r1, 1, [])
+    job(r2, 1, [])
     job(r3, 1, [11, 120])
+    job(r1, 3, [])
     job(r2, 3, [99])
+    job(r1, 4, [])
     return r1, r2, r3
 
 
@@ -255,6 +260,48 @@ def test_offer_prices_match_old_query(db):
         (3, "b"): True,
         (4, "z"): True,
     }
+
+
+def test_skipped_aisle_rescue_needs_the_formats_previous_download(db):
+    """Cada corrida baja una sucursal por formato, no siempre la misma: con B → A → B, si la segunda bajada de B no lee
+    un pasillo, el rescate no puede revivir los precios de B de hace dos corridas (la anterior del formato fue A).
+    Con B → B, sí. Sin una bajada anterior del formato (un CSV importado no deja jobs), no rescata: vigente es false,
+    no NULL (la búsqueda toma NULL como vigente)."""
+    runs = _runs(db, 4)
+    _store(db, 1, "lider")  # sucursal B
+    _store(db, 2, "lider")  # sucursal A, mismo formato
+    _product(db, 1, "x", 11)
+    _product(db, 1, "y", 10)
+    _product(db, 2, "x", 11)
+    _store(db, 3, "jumbo")
+    _product(db, 3, "v", 10)
+    _product(db, 3, "w", 11)
+
+    def download(run, store_id, skus, day, skipped=()):
+        for sku in skus:
+            _snap(db, run, store_id, sku, 1000 + day, day)
+        db.execute(
+            "INSERT INTO scrape_jobs (run_id, job_key, job_type, payload, status, result)"
+            " VALUES (%s, %s, 'store_group', '{}', 'done', %s)",
+            (run, f"type:{store_id}", Jsonb({"store_id": store_id, "products": 1, "pasillos_omitidos": list(skipped)})),
+        )
+
+    def current():
+        return dict(
+            ((store_id, sku), is_current)
+            for store_id, sku, is_current in db.execute("SELECT store_id, sku, current FROM v_latest_offers").fetchall()
+        )
+
+    _snap(db, runs[0], 3, "w", 500, 0)  # jumbo importado de un CSV: sin job
+    download(runs[0], 1, "xy", 0)  # B
+    download(runs[1], 2, "x", 7)  # A
+    download(runs[1], 3, "v", 7, skipped=[11])
+    download(runs[2], 1, "y", 14, skipped=[11])  # B otra vez, sin leer el pasillo 11
+    jumbo = {(3, "v"): True, (3, "w"): False}
+    assert current() == {(1, "x"): False, (1, "y"): True, (2, "x"): False, **jumbo}
+
+    download(runs[3], 1, "x", 21, skipped=[10])  # B → B: el pasillo 10 vale el precio de la corrida anterior
+    assert current() == {(1, "x"): True, (1, "y"): True, (2, "x"): False, **jumbo}
 
 
 def test_dish_prices_match_old_query(db):

@@ -3,7 +3,7 @@
 Oferta vigente: la de la vista `v_latest_offers` (migración 032), la misma que usan el precio que muestra el agente
 (`_with_prices`, agent/tools.py) y la búsqueda (`_OFFER_PRICES`, rappi_scraper/storage/search.py): el último precio de
 la tienda para ese SKU es de la corrida `format_run_id` de su formato (`v_store_format_runs`, migración 019) o, en un
-pasillo que esa corrida no pudo leer, de la corrida anterior de la tienda; y `in_stock` no es `false`. Además, el
+pasillo que esa corrida no pudo leer, de la bajada anterior de su formato; y `in_stock` no es `false`. Además, el
 precio tiene que ser real (desde `MIN_PRICE`): uno de relleno cuenta como desconocido y el producto no se ofrece.
 
 Una tienda se lista y se abre por sus ofertas vigentes que están en un pasillo (la página muestra los productos por
