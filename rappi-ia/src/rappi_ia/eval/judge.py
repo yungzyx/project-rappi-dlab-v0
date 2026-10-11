@@ -133,13 +133,16 @@ def _state(pair: dict, names: dict, categories: dict) -> dict:
 
 
 def _judgment(answer) -> JevJudgment | None:
+    """Con probabilidades, la ganancia esperada. Sin ellas (o sin masa en los tres niveles), el nivel que dio Jev, para
+    que el par igual quede en la caché."""
     gain = expected_gain(answer.probabilities)
-    if gain is None:
+    if gain is not None:
+        # 6 decimales: la columna es `real` y lo guardado debe leerse igual a lo calculado.
+        probabilities = {str(level): answer.probabilities.get(str(level), 0.0) for level in range(len(GAINS))}
+        return JevJudgment(round(gain, 6), probabilities)
+    if answer.score is None:
         return None
-    # 6 decimales: la columna es `real` y lo guardado debe leerse igual a lo calculado.
-    return JevJudgment(
-        round(gain, 6), {str(level): answer.probabilities.get(str(level), 0.0) for level in range(len(GAINS))}
-    )
+    return JevJudgment(min(1.0, max(0.0, answer.score / (len(GAINS) - 1))), {})
 
 
 def _read_cache(conn: Connection, model: str, keyed: dict[str, dict]) -> dict[str, JevJudgment]:

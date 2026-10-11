@@ -11,6 +11,7 @@ Además del ranking (`retrieve`), mide lo que ve el usuario: los productos de `s
 import json
 import math
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -112,15 +113,15 @@ def run_queries(
     return runs
 
 
-def precision_at_k(relevance: list[int], k: int = K) -> float:
+def precision_at_k(relevance: Sequence[float], k: int = K) -> float:
     return sum(relevance[:k]) / k
 
 
-def reciprocal_rank(relevance: list[int]) -> float:
+def reciprocal_rank(relevance: Sequence[float]) -> float:
     return next((1 / (i + 1) for i, rel in enumerate(relevance) if rel), 0.0)
 
 
-def ndcg_at_k(relevance: list[int], k: int = K, available: int = K) -> float:
+def ndcg_at_k(relevance: Sequence[float], k: int = K, available: int = K) -> float:
     """`available`: relevantes que existen en el vertical (por defecto se asume que hay al menos k)."""
     dcg = sum(rel / math.log2(i + 2) for i, rel in enumerate(relevance[:k]))
     ideal = sum(1 / math.log2(i + 2) for i in range(min(k, available)))
@@ -408,15 +409,19 @@ def _jev_lines(jev: dict) -> list[str]:
         "",
         "Cada resultado se juzga con el concepto (0 o 1), con Jev (ganancia esperada entre 0 y 1: «no sirve» 0,"
         " «a medias» 0,5, «sirve» 1, ponderada por la probabilidad de cada nivel) y, donde hay planilla juzgada, con"
-        " las personas. P@10 y nDCG@10 usan la ganancia tal cual; el MRR cuenta como relevante desde 0,5.",
+        " las personas. El juez por concepto es binario y Jev es graduado: P@10 y nDCG@10 de Jev usan la ganancia"
+        " esperada tal cual, así que sus columnas P@10 no son directamente comparables con las del concepto. El MRR de"
+        " Jev cuenta como relevante desde 0,5.",
         "",
-        "| Modo | P@10 concepto | P@10 Jev | MRR concepto | MRR Jev | nDCG@10 concepto | nDCG@10 Jev |",
-        "|---|---|---|---|---|---|---|",
+        "| Modo | P@10 concepto | P@10 Jev | MRR concepto | MRR Jev | nDCG@10 concepto | nDCG@10 Jev"
+        " | Sin juicio de Jev (cuentan 0) |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for mode, judges in jev["modos"].items():
         c, j = judges["concepto"], judges["jev"]
         lines.append(
-            f"| {mode} | {c['p@10']} | {j['p@10']} | {c['mrr']} | {j['mrr']} | {c['ndcg@10']} | {j['ndcg@10']} |"
+            f"| {mode} | {c['p@10']} | {j['p@10']} | {c['mrr']} | {j['mrr']} | {c['ndcg@10']} | {j['ndcg@10']}"
+            f" | {j['sin_juicio']} |"
         )
     if jev["pares_sin_juicio"]:
         lines += [

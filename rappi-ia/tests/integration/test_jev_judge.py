@@ -1,6 +1,7 @@
 """Rol B: Jev como juez de la búsqueda, con los juicios en caché (siempre con `FakeJev`, sin red)."""
 
 import math
+import re
 
 import pytest
 
@@ -60,6 +61,34 @@ def test_expected_gain_from_probabilities():
     assert expected_gain({"0": 2, "1": 0, "2": 2}) == pytest.approx(0.5)  # sin normalizar: se reparte sobre el total
     assert expected_gain({"0": 0.0, "1": 0.0, "2": 0.0}) is None  # sin masa no hay juicio
     assert expected_gain({}) is None
+
+
+@pytest.mark.parametrize(
+    ("answer", "gain"),
+    [
+        (JevAnswer(score=2.0), 1.0),  # sin probabilidades: el nivel que dio Jev
+        (JevAnswer(score=1.0, probabilities={"alto": 0.9, "bajo": 0.1}), 0.5),  # claves que no son los niveles
+        (JevAnswer(score=1.0, probabilities={"0": 0.0, "1": 0.0, "2": 0.0}), 0.5),  # sin masa
+        (JevAnswer(score=7.0), 1.0),  # fuera de rango: se acota
+        (JevAnswer(score=-1.0), 0.0),
+    ],
+)
+def test_falls_back_to_the_score_when_probabilities_are_unusable(db, catalog, answer, gain):
+    client = FakeJev(answers={"relevancia": answer})
+
+    judgments = judge_pairs(db, client, [pair()])
+    again = judge_pairs(db, client, [pair()])
+
+    assert judgments[pid(pair())] == JevJudgment(gain, {})
+    assert db.execute("SELECT score, probabilities FROM eval_judgments").fetchall() == [(gain, {})]
+    assert again == judgments and len(client.calls) == 1  # se guardó: no se vuelve a pagar
+
+
+def test_an_answer_with_neither_probabilities_nor_score_is_not_a_judgment(db, catalog):
+    client = FakeJev(answers={"relevancia": JevAnswer()})
+
+    assert judge_pairs(db, client, [pair()]) == {}
+    assert db.execute("SELECT count(*) FROM eval_judgments").fetchone()[0] == 0
 
 
 def test_stores_expected_gain_and_raw_distribution_not_the_level(db, catalog):
@@ -268,6 +297,19 @@ def _unmet():
         "no_detectadas_detalle": [],
         "falsas_alarmas_detalle": [],
     }
+
+
+def test_report_explains_graded_versus_binary_and_shows_unjudged_next_to_the_metrics():
+    runs = [run("cerveza", "hibrido", [(1, None), (2, None)])]
+    judgments = {pair_id("licores", "cerveza", "catalog_item", "1"): JevJudgment(1.0, {})}
+    jev_part = judge.jev_report(runs, judgments, {}, model="jev-x")
+
+    report = render_markdown(summarize(runs), {"negativas_detalle": []} | _unmet(), {}, {}, False, "e5", jev=jev_part)
+
+    assert "| Sin juicio de Jev (cuentan 0) |" in report
+    assert re.search(r"^\| hibrido \| 0\.2 \| 0\.1 .* \| 1 \|$", report, re.MULTILINE)  # 1 resultado sin juicio
+    assert "cuentan 0" in report
+    assert "no son directamente comparables" in report and "desde 0,5" in report
 
 
 def test_report_without_jev_has_no_jev_section():
