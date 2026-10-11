@@ -160,27 +160,69 @@ def run(db, dirs, fake, **kwargs):
 
 
 def test_requirements_list_everything_that_is_missing(dirs):
-    missing = jev_pilot.requirements(False, sheet_dir=dirs.sheets, ids_dir=dirs.ids)
+    blocking, warnings = jev_pilot.requirements(False, sheet_dir=dirs.sheets, ids_dir=dirs.ids)
 
-    text = "\n".join(missing)
+    text = "\n".join(blocking)
     assert "TYPESAFE_API_KEY" in text
     assert sheets.CATEGORY_SHEET in text and sheets.SEARCH_SHEET in text
     assert "jev-planillas" in text
+    assert warnings == []
 
 
 def test_requirements_count_what_is_left_to_judge(dirs):
-    write_sheets(dirs.sheets, dirs.ids, blank_categories=2, blank_pairs=1)
+    write_sheets(dirs.sheets, dirs.ids, blank_categories=2, blank_pairs=1)  # 6 de 8 y 5 de 6: bajo el 90 %
 
-    missing = jev_pilot.requirements(True, sheet_dir=dirs.sheets, ids_dir=dirs.ids)
+    blocking, _ = jev_pilot.requirements(True, sheet_dir=dirs.sheets, ids_dir=dirs.ids)
 
-    assert len(missing) == 2
-    assert "2 de 8" in missing[0] and sheets.CATEGORY_SHEET in missing[0]
-    assert "1 de 6" in missing[1] and sheets.SEARCH_SHEET in missing[1]
+    assert len(blocking) == 2
+    assert "2 de 8" in blocking[0] and sheets.CATEGORY_SHEET in blocking[0] and "8 de 8" in blocking[0]
+    assert "1 de 6" in blocking[1] and sheets.SEARCH_SHEET in blocking[1] and "6 de 6" in blocking[1]
 
 
 def test_requirements_pass_with_key_and_judged_sheets(dirs):
     write_sheets(dirs.sheets, dirs.ids)
-    assert jev_pilot.requirements(True, sheet_dir=dirs.sheets, ids_dir=dirs.ids) == []
+    assert jev_pilot.requirements(True, sheet_dir=dirs.sheets, ids_dir=dirs.ids) == ([], [])
+
+
+def full_size_sheets(dirs, blank_categories=0, blank_pairs=0):
+    """Del tamaño real: 100 categorías y 200 pares."""
+    categories = [(f"Categoría {i}", "sin_mapear", "", "frutas") for i in range(100)]
+    pairs = [(f"consulta {i}", str(i), 2, True, {"2": 1.0}) for i in range(200)]
+    write_sheets(dirs.sheets, dirs.ids, categories, pairs, blank_categories, blank_pairs)
+
+
+def test_ninety_percent_judged_runs_with_a_warning(dirs):
+    full_size_sheets(dirs, blank_categories=10, blank_pairs=20)
+
+    blocking, warnings = jev_pilot.requirements(True, sheet_dir=dirs.sheets, ids_dir=dirs.ids)
+
+    assert blocking == []
+    assert len(warnings) == 2
+    assert "faltaron 10 de 100 por juzgar; las cifras usan las juzgadas" in warnings[0]
+    assert "faltaron 20 de 200 por juzgar; las cifras usan las juzgadas" in warnings[1]
+
+
+@pytest.mark.parametrize(("blank_categories", "blank_pairs"), [(11, 0), (0, 21)])
+def test_less_than_ninety_percent_judged_blocks(dirs, blank_categories, blank_pairs):
+    full_size_sheets(dirs, blank_categories, blank_pairs)
+
+    blocking, warnings = jev_pilot.requirements(True, sheet_dir=dirs.sheets, ids_dir=dirs.ids)
+
+    assert len(blocking) == 1 and warnings == []
+    assert ("90 de 100" if blank_categories else "180 de 200") in blocking[0]
+
+
+def test_an_old_ids_file_without_entities_asks_to_regenerate(dirs):
+    write_sheets(dirs.sheets, dirs.ids)
+    path = dirs.ids / sheets.SEARCH_IDS_FILE.name
+    document = json.loads(path.read_text(encoding="utf-8"))
+    for entry in document["pares"]:
+        del entry["entity_type"], entry["entity_id"]
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    blocking, _ = jev_pilot.requirements(True, sheet_dir=dirs.sheets, ids_dir=dirs.ids)
+
+    assert len(blocking) == 1 and "rappi-ia jev-planillas" in blocking[0]
 
 
 def test_cli_without_key_lists_what_is_missing_and_does_not_call_jev(db, dirs, monkeypatch, capsys):
@@ -392,6 +434,78 @@ def test_a_failing_pilot_proposes_nothing(db, dirs):
     assert "No se propone" in report
 
 
+def test_report_starts_with_a_plain_result_and_a_glossary(db, dirs):
+    write_sheets(dirs.sheets, dirs.ids)
+    run(db, dirs, pilot_responder())
+
+    report = (dirs.sheets / jev_pilot.REPORT_NAME).read_text(encoding="utf-8")
+
+    result = report[: report.index("## Rol A")]
+    assert "## Resultado" in result and "## Glosario" in result
+    assert "Categorías: sí" in result and "Juez: sí" in result
+    assert "renombra eval/jev-adopcion.propuesta.json a eval/jev-adopcion.json y súbelo" in result
+    for term in ("κ", "T_auto", "ganancia esperada", "guardias"):
+        assert term.lower() in result.lower()
+
+
+def test_a_report_without_adoption_says_nothing_changes(db, dirs):
+    write_sheets(dirs.sheets, dirs.ids)
+    flat = [(q, i, h, a, {"1": 1.0}) for q, i, h, a, _ in PAIRS]
+    run(db, dirs, pilot_responder(es=ENGLISH, en=ENGLISH, pairs=flat))
+
+    report = (dirs.sheets / jev_pilot.REPORT_NAME).read_text(encoding="utf-8")
+
+    result = report[: report.index("## Rol A")]
+    assert "Categorías: no" in result and "Juez: no" in result
+    assert "no se adopta: todo sigue igual sin Jev" in result
+
+
+def test_partial_sheets_run_and_the_report_says_what_was_missing(db, dirs):
+    extra = [("ron", str(i), 0, False, {"0": 1.0}) for i in range(7, 11)]  # 10 pares: uno sin juzgar es el 90 %
+    write_sheets(dirs.sheets, dirs.ids, pairs=PAIRS + extra, blank_pairs=1)
+    fake = pilot_responder(pairs=PAIRS + extra)
+
+    result = run(db, dirs, fake)
+
+    assert fake.stats.requests == 16 + 9  # el par sin juicio de la persona no se le pide a Jev
+    assert result["juez"]["n"] == 9
+    report = (dirs.sheets / jev_pilot.REPORT_NAME).read_text(encoding="utf-8")
+    assert "faltaron 1 de 10 por juzgar; las cifras usan las juzgadas" in report
+
+
+def test_hitting_the_call_cap_proposes_nothing(db, dirs):
+    write_sheets(dirs.sheets, dirs.ids)
+    fake = pilot_responder()
+    fake.stats.stopped_by_cap = True
+
+    result = run(db, dirs, fake)
+
+    proposal = json.loads(dirs.proposal.read_text(encoding="utf-8"))
+    assert proposal["categorias"] is False and proposal["juez"] is False
+    assert result["categorias"]["pasa"] and result["juez"]["pasa"]  # las cifras pasaban, pero no son confiables
+    assert "JEV_MAX_REQUESTS" in (dirs.sheets / jev_pilot.REPORT_NAME).read_text(encoding="utf-8")
+
+
+def test_too_many_unanswered_questions_propose_nothing(db, dirs):
+    write_sheets(dirs.sheets, dirs.ids)
+    fake = pilot_responder()
+    answer = fake.responder
+
+    def flaky(state, questions):  # 1 de 8 categorías sin respuesta en español: 87,5 % < 90 %
+        if "categoria" in state and state["categoria"] == "Hortalizas" and variant_of(questions) == "es":
+            return None
+        return answer(state, questions)
+
+    fake.responder = flaky
+
+    run(db, dirs, fake)
+
+    proposal = json.loads(dirs.proposal.read_text(encoding="utf-8"))
+    assert proposal["categorias"] is False and proposal["juez"] is False
+    report = (dirs.sheets / jev_pilot.REPORT_NAME).read_text(encoding="utf-8")
+    assert "Jev respondió 7 de 8" in report
+
+
 def test_judge_answers_are_cached_for_the_next_run(db, dirs):
     write_sheets(dirs.sheets, dirs.ids)
     run(db, dirs, pilot_responder())
@@ -419,6 +533,7 @@ def test_cli_runs_the_pilot_with_key_and_sheets(db, dirs, monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert jev_pilot.REPORT_NAME in out and dirs.proposal.name in out and "jev-adopcion.json" in out
+    assert "T_auto 0,75" in out and "κ Jev 1,000" in out and "22.000 tokens" in out and "US$ 0,0009" in out
     assert dirs.proposal.exists()
     db.rollback()  # el comando confirmó los juicios en caché
     assert db.execute("SELECT count(*) FROM eval_judgments WHERE judge = 'jev'").fetchone()[0] == 6

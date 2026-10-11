@@ -19,6 +19,7 @@ renombra a `jev-adopcion.json` y la sube a git.
 """
 
 import json
+import math
 from collections import Counter
 from datetime import date
 from pathlib import Path
@@ -38,6 +39,8 @@ MIN_PRECISION = 0.9
 MIN_COVERAGE = 0.5
 MIN_CONTROL = 0.9
 MIN_KAPPA = 0.6
+MIN_JUDGED = 0.9  # de cada planilla, lo mínimo juzgado por la persona para correr el piloto
+MIN_ANSWERED = 0.9  # de lo que se le pidió, lo mínimo que Jev debe responder para que las cifras valgan
 REPORT_NAME = "jev-piloto.md"
 PROPOSAL_FILE = ADOPTION_FILE.with_name("jev-adopcion.propuesta.json")
 VARIANT_NAMES = {"es": "español", "en": "inglés"}
@@ -46,26 +49,43 @@ VARIANT_NAMES = {"es": "español", "en": "inglés"}
 # --- requisitos y lectura --------------------------------------------------------------------------------------------
 
 
-def requirements(has_key: bool, sheet_dir: Path | None = None, ids_dir: Path | None = None) -> list[str]:
-    """Lo que falta para correr el piloto, en palabras de la persona; vacío si está todo."""
+def requirements(
+    has_key: bool, sheet_dir: Path | None = None, ids_dir: Path | None = None
+) -> tuple[list[str], list[str]]:
+    """(lo que impide correr el piloto, avisos), en palabras de la persona. Basta con `MIN_JUDGED` de cada planilla
+    juzgada: lo que falte se avisa y las cifras usan lo juzgado."""
     sheet_dir, ids_dir = sheet_dir or sheets.sheet_dir(), ids_dir or sheets.EVAL_DIR
-    missing = [] if has_key else ["la clave de Jev: TYPESAFE_API_KEY en rappi-ia/.env"]
+    blocking = [] if has_key else ["la clave de Jev: TYPESAFE_API_KEY en rappi-ia/.env"]
+    warnings = []
     for sheet, ids_file, read in (
         (sheets.CATEGORY_SHEET, sheets.CATEGORY_IDS_FILE.name, _category_judgments),
         (sheets.SEARCH_SHEET, sheets.SEARCH_IDS_FILE.name, _search_judgments),
     ):
         if not (ids_dir / ids_file).exists() or not (sheet_dir / sheet).exists():
-            missing.append(f"{sheet} juzgada: genera las planillas con `rappi-ia jev-planillas` y llénalas")
+            blocking.append(f"{sheet} juzgada: genera las planillas con `rappi-ia jev-planillas` y llénalas")
+            continue
+        if ids_file == sheets.SEARCH_IDS_FILE.name and not _has_entities(ids_dir / ids_file):
+            blocking.append(
+                f"{ids_file} es de una versión anterior (sin entity_type ni entity_id): regenera las planillas con"
+                " `rappi-ia jev-planillas`"
+            )
             continue
         counts: Counter = Counter()
         keys, judged = read(sheet_dir, ids_dir, counts)
-        left = [key for key in keys if key not in judged]
-        if left:
-            missing.append(
-                f"{sheet}: faltan {len(left)} de {len(keys)} por juzgar"
-                f" ({counts['vacias']} vacías, {counts['invalidas']} inválidas)"
+        left = sum(key not in judged for key in keys)
+        need = math.ceil(MIN_JUDGED * len(keys))
+        if len(keys) - left < need:
+            blocking.append(
+                f"{sheet}: faltan {left} de {len(keys)} por juzgar ({counts['vacias']} vacías,"
+                f" {counts['invalidas']} inválidas); el piloto necesita al menos {need} de {len(keys)} juzgadas"
             )
-    return missing
+        elif left:
+            warnings.append(f"{sheet}: faltaron {left} de {len(keys)} por juzgar; las cifras usan las juzgadas")
+    return blocking, warnings
+
+
+def _has_entities(path: Path) -> bool:
+    return all("entity_type" in pair and "entity_id" in pair for pair in _ids(path, "pares"))
 
 
 def _category_judgments(sheet_dir: Path, ids_dir: Path, counts: Counter) -> tuple[list[str], dict[str, str]]:
@@ -87,7 +107,7 @@ def load_category_rows(sheet_dir: Path, ids_dir: Path) -> list[dict]:
     que ve Jev, armado con lo mismo que vio la persona (vertical, nombre y ejemplos de la planilla)."""
     path = sheet_dir / sheets.CATEGORY_SHEET
     human = sheets.read_category_sheet(path)
-    texts = {row.get("categoria", "").strip().lower(): row for row in sheets._read_table(path)}
+    texts = {row.get("categoria", "").strip().lower(): row for row in sheets.read_table(path)}
     rows = []
     for entry in _ids(ids_dir / sheets.CATEGORY_IDS_FILE.name, "categorias"):
         text = texts.get(entry["clave"])
@@ -111,7 +131,7 @@ def load_search_pairs(sheet_dir: Path, ids_dir: Path) -> tuple[list[dict], dict[
     y el nivel que les dio la persona."""
     path = sheet_dir / sheets.SEARCH_SHEET
     human = sheets.read_search_sheet(path)
-    texts = {row.get("id", "").strip(): row for row in sheets._read_table(path)}
+    texts = {row.get("id", "").strip(): row for row in sheets.read_table(path)}
     pairs = [
         {
             **entry,
@@ -252,11 +272,14 @@ def run_pilot(
     proposal_path: Path | None = None,
     today: date | None = None,
 ) -> dict:
-    """Corre los dos roles, escribe el reporte y la propuesta y devuelve las cifras. Supone `requirements` vacío.
-    Guarda los juicios nuevos en `eval_judgments`; no hace commit."""
+    """Corre los dos roles, escribe el reporte y la propuesta y devuelve las cifras. Supone que `requirements` no
+    bloquea; sus avisos van al reporte. Si se llegó al tope de llamadas o Jev respondió menos de `MIN_ANSWERED` de lo
+    pedido, las cifras no valen y la propuesta no adopta nada. Guarda los juicios nuevos en `eval_judgments`; no hace
+    commit."""
     sheet_dir, ids_dir = sheet_dir or sheets.sheet_dir(), ids_dir or sheets.EVAL_DIR
     proposal_path = proposal_path or PROPOSAL_FILE
     today = today or date.today()
+    _, warnings = requirements(True, sheet_dir, ids_dir)
 
     rows = load_category_rows(sheet_dir, ids_dir)
     variants = {}
@@ -275,7 +298,9 @@ def run_pilot(
     }
 
     pairs, human = load_search_pairs(sheet_dir, ids_dir)
-    kappas = judge_kappas(pairs, human, judge_pairs(conn, client, pairs))
+    asked = [p for p in pairs if p["id"] in human]  # lo que la persona no juzgó no sirve para el κ: no se paga
+    judgments = judge_pairs(conn, client, asked)
+    kappas = judge_kappas(asked, human, judgments)
     judge = kappas | {"criterios": judge_criteria(kappas)}
     judge["pasa"] = all(judge["criterios"].values())
 
@@ -288,9 +313,10 @@ def run_pilot(
         "precio": config.JEV_PRICE_PER_MTOK_INPUT,
         "costo": estimated_cost(stats.input_tokens, config.JEV_PRICE_PER_MTOK_INPUT),
     }
+    unreliable = _unreliable(usage, categories, len(asked) - kappas["sin_juicio_jev"], len(asked))
     proposal = {
-        "categorias": categories["pasa"],
-        "juez": judge["pasa"],
+        "categorias": categories["pasa"] and not unreliable,
+        "juez": judge["pasa"] and not unreliable,
         "t_auto": categories["t_auto"] or DEFAULT_T_AUTO,
         "variante": chosen or VARIANTS[0],
         "model_version": client.model,
@@ -298,17 +324,40 @@ def run_pilot(
     }
     sheets.write_json(proposal_path, proposal)
     report_path = sheet_dir / REPORT_NAME
-    report_path.write_text(
-        render_report(categories, judge, usage, client.model, today, proposal_path.name), encoding="utf-8"
-    )
+    context = {
+        "modelo": client.model,
+        "fecha": today,
+        "archivo_propuesta": proposal_path.name,
+        "propuesta": proposal,
+        "avisos": warnings,
+        "no_confiable": unreliable,
+    }
+    report_path.write_text(render_report(categories, judge, usage, context), encoding="utf-8")
     return {
         "categorias": categories,
         "juez": judge,
         "uso": usage,
         "propuesta": proposal,
+        "avisos": warnings,
+        "no_confiable": unreliable,
         "reporte": report_path,
         "archivo_propuesta": proposal_path,
     }
+
+
+def _unreliable(usage: dict, categories: dict, judged: int, asked: int) -> list[str]:
+    """Por qué las cifras no valen para adoptar (vacío si valen)."""
+    reasons = []
+    if usage["tope"]:
+        reasons.append("se llegó al tope de llamadas (`JEV_MAX_REQUESTS`) y faltaron respuestas")
+    total = categories["filas"]
+    for variant, result in categories["variantes"].items():
+        answered = total - result["sin_respuesta"]
+        if total and answered < MIN_ANSWERED * total:
+            reasons.append(f"en la variante «{variant}», Jev respondió {answered} de {total} categorías")
+    if asked and judged < MIN_ANSWERED * asked:
+        reasons.append(f"Jev respondió {judged} de {asked} pares de búsqueda")
+    return reasons
 
 
 # --- reporte ---------------------------------------------------------------------------------------------------------
@@ -318,11 +367,11 @@ def _pct(value: float | None) -> str:
     return "—" if value is None else f"{value * 100:.0f} %"
 
 
-def _num(value: float | None, decimals: int = 2) -> str:
+def fmt_num(value: float | None, decimals: int = 2) -> str:
     return "—" if value is None else f"{value:.{decimals}f}".replace(".", ",")
 
 
-def _int(value: int) -> str:
+def fmt_int(value: int) -> str:
     return f"{value:,}".replace(",", ".")
 
 
@@ -330,21 +379,53 @@ def _ok(passed: bool) -> str:
     return "cumple" if passed else "no cumple"
 
 
-def render_report(categories: dict, judge: dict, usage: dict, model: str, today: date, proposal_name: str) -> str:
+def render_report(categories: dict, judge: dict, usage: dict, context: dict) -> str:
     groups = categories["grupos"]
+    proposal = context["propuesta"]
+    adopt = proposal["categorias"] or proposal["juez"]
     lines = [
-        f"# Piloto de Jev ({today.isoformat()})",
+        f"# Piloto de Jev ({context['fecha'].isoformat()})",
         "",
-        f"Modelo `{model}`. {_int(usage['llamadas'])} llamadas, {_int(usage['tokens'])} tokens de entrada; costo"
-        f" estimado US$ {_num(usage['costo'], 4)} (a US$ {_num(usage['precio'], 3)} por millón de tokens de entrada,"
-        " `JEV_PRICE_PER_MTOK_INPUT`; la salida no se cobra). Los pares ya juzgados salen de la caché y no se cobran"
-        " de nuevo.",
+        "## Resultado",
+        "",
+        f"- Categorías: {'sí' if proposal['categorias'] else 'no'}"
+        + (
+            f" (instrucciones en {VARIANT_NAMES[proposal['variante']]}, T_auto = {fmt_num(proposal['t_auto'])})"
+            if proposal["categorias"]
+            else ""
+        ),
+        f"- Juez: {'sí' if proposal['juez'] else 'no'}",
+        "",
+        "Siguiente paso: "
+        + (
+            f"para adoptar, renombra eval/{context['archivo_propuesta']} a eval/jev-adopcion.json y súbelo a git"
+            " (en `rappi-ia/src/rappi_ia/`)."
+            if adopt
+            else "no se adopta: todo sigue igual sin Jev."
+        ),
     ]
-    if usage["tope"]:
-        lines += [
-            "",
-            "**Se llegó al tope de llamadas (`JEV_MAX_REQUESTS`): faltaron respuestas; las cifras no valen.**",
-        ]
+    if context["no_confiable"]:
+        lines += ["", "**Las cifras no valen para adoptar, aunque pasen los criterios:**"]
+        lines += [f"- {reason}" for reason in context["no_confiable"]]
+    if context["avisos"]:
+        lines += ["", "Avisos:"] + [f"- {warning}" for warning in context["avisos"]]
+    lines += [
+        "",
+        f"Modelo `{context['modelo']}`. {fmt_int(usage['llamadas'])} llamadas, {fmt_int(usage['tokens'])} tokens de"
+        f" entrada; costo estimado US$ {fmt_num(usage['costo'], 4)} (a US$ {fmt_num(usage['precio'], 3)} por millón de"
+        " tokens de entrada, `JEV_PRICE_PER_MTOK_INPUT`; la salida no se cobra). Los pares ya juzgados salen de la"
+        " caché y no se cobran de nuevo.",
+        "",
+        "## Glosario",
+        "",
+        "- **κ (kappa de Cohen)**: cuánto coinciden dos jueces más allá de lo que coincidirían por azar. 0 = lo del"
+        " azar, 0,6 = bueno, 1 = acuerdo total.",
+        "- **T_auto**: la confianza mínima con que Jev etiqueta una categoría sola, sin que una persona la revise.",
+        "- **Ganancia esperada**: el puntaje de Jev para un resultado de búsqueda, de 0 (no sirve) a 1 (sirve),"
+        " promediando sus probabilidades de «no sirve» (0), «a medias» (½) y «sirve» (1).",
+        "- **Guardias**: dos preguntas aparte (¿es de salud sensible?, ¿es solo para mayores de 18?) que mandan a"
+        " revisión humana una categoría cuando contradicen el concepto que eligió Jev.",
+    ]
     lines += [
         "",
         "## Rol A: etiquetar categorías",
@@ -367,22 +448,24 @@ def render_report(categories: dict, judge: dict, usage: dict, model: str, today:
         for m in result["umbrales"]:
             control = f"{_pct(m['control'])} (n={m['control_n']})"
             lines.append(
-                f"| {_num(m['t'])} | {m['mapeadas']} | {_pct(m['precision'])} | {_pct(m['cobertura'])} | {control}"
+                f"| {fmt_num(m['t'])} | {m['mapeadas']} | {_pct(m['precision'])} | {_pct(m['cobertura'])} | {control}"
                 f" | {m['sensibles']} | {'sí' if all(category_criteria(m).values()) else 'no'} |"
             )
         lines.append("")
         if result["sin_respuesta"]:
             lines.append(f"Jev no respondió {result['sin_respuesta']} categorías (cuentan como no mapeadas).")
         lines.append(
-            f"T_auto = {_num(result['t_auto'])}" if result["t_auto"] else "Ningún umbral cumple los cuatro criterios."
+            f"T_auto = {fmt_num(result['t_auto'])}"
+            if result["t_auto"]
+            else "Ningún umbral cumple los cuatro criterios."
         )
     lines += ["", "### Criterios de adopción del rol A", ""]
     lines += _category_criteria_table(categories)
     lines.append("")
     if categories["pasa"]:
         lines.append(
-            f"Pasa con la variante «{categories['variante']}» y T_auto = {_num(categories['t_auto'])}: se propone"
-            " adoptar."
+            f"Cumple los criterios con la variante «{categories['variante']}» y T_auto ="
+            f" {fmt_num(categories['t_auto'])}."
         )
     else:
         lines.append("No se propone adoptar el rol A: ninguna variante cumple los cuatro criterios en un mismo umbral.")
@@ -398,21 +481,23 @@ def render_report(categories: dict, judge: dict, usage: dict, model: str, today:
         "",
         "| Juez | κ binario | κ ponderado (3 niveles) |",
         "|---|---|---|",
-        f"| Jev | {_num(judge['kappa_jev'], 3)} | {_num(judge['kappa_ponderado_jev'], 3)} |",
-        f"| Juez por concepto | {_num(judge['kappa_concepto'], 3)} | {_num(judge['kappa_ponderado_concepto'], 3)} |",
+        f"| Jev | {fmt_num(judge['kappa_jev'], 3)} | {fmt_num(judge['kappa_ponderado_jev'], 3)} |",
+        f"| Juez por concepto | {fmt_num(judge['kappa_concepto'], 3)}"
+        f" | {fmt_num(judge['kappa_ponderado_concepto'], 3)} |",
         "",
         "| Criterio | Meta | Resultado |",
         "|---|---|---|",
-        f"| κ Jev | ≥ {_num(MIN_KAPPA, 1)} | {_ok(criteria['kappa_minimo'])} |",
+        f"| κ Jev | ≥ {fmt_num(MIN_KAPPA, 1)} | {_ok(criteria['kappa_minimo'])} |",
         f"| κ Jev > κ juez por concepto | mayor | {_ok(criteria['mejor_que_concepto'])} |",
         "",
-        "Pasa: se propone adoptar a Jev como juez."
+        "Cumple los criterios: Jev coincide con las personas mejor que el juez por concepto."
         if judge["pasa"]
         else "No se propone adoptar a Jev como juez: el juez por concepto sigue solo.",
         "",
         "## Propuesta",
         "",
-        f"Queda en `rappi-ia/src/rappi_ia/eval/{proposal_name}`. No adopta nada por sí sola: para adoptar, renómbrala a"
+        f"Queda en `rappi-ia/src/rappi_ia/eval/{context['archivo_propuesta']}`. No adopta nada por sí sola: para"
+        " adoptar, renómbrala a"
         " `jev-adopcion.json` y súbela a git. Mientras no exista ese archivo, Jev queda apagado.",
         "",
     ]
@@ -428,7 +513,7 @@ def _category_criteria_table(categories: dict) -> list[str]:
             metrics, key=lambda m: (sum(category_criteria(m).values()), -m["t"])
         )
         shown[variant] = (best, category_criteria(best))
-    header = "| Criterio | Meta | " + " | ".join(f"«{v}» (T = {_num(m['t'])})" for v, (m, _) in shown.items()) + " |"
+    header = "| Criterio | Meta | " + " | ".join(f"«{v}» (T = {fmt_num(m['t'])})" for v, (m, _) in shown.items()) + " |"
     rows = [header, "|---|---|" + "---|" * len(shown)]
     for name, label, goal, value in (
         ("precision", "Precisión", f"≥ {_pct(MIN_PRECISION)}", lambda m: _pct(m["precision"])),

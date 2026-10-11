@@ -377,24 +377,41 @@ def cmd_jev_piloto(conn, args) -> None:
     from .eval import jev_pilot
 
     client = jev.client_or_none()
-    missing = jev_pilot.requirements(client is not None)
-    if missing:
+    blocking, warnings = jev_pilot.requirements(client is not None)
+    if blocking:
         print("Falta para correr el piloto de Jev (no se llamó a Jev):")
-        for item in missing:
+        for item in blocking:
             print(f"  - {item}")
         return
+    for warning in warnings:
+        print(f"⚠ {warning}")
     result = jev_pilot.run_pilot(conn, client, load_taxonomy())
     conn.commit()  # los juicios nuevos quedan en caché para eval-search
-    categories, judge, usage = result["categorias"], result["juez"], result["uso"]
+    categories, judge, usage, proposal = result["categorias"], result["juez"], result["uso"], result["propuesta"]
     if categories["pasa"]:
-        print(f"Categorías: pasa con la variante «{categories['variante']}» y T_auto {categories['t_auto']}")
+        print(
+            f"Categorías: cumple con la variante «{categories['variante']}» y"
+            f" T_auto {jev_pilot.fmt_num(categories['t_auto'])}"
+        )
     else:
-        print("Categorías: no pasa")
-    verdict = "pasa" if judge["pasa"] else "no pasa"
-    print(f"Juez: {verdict} (κ Jev {judge['kappa_jev']}, κ juez por concepto {judge['kappa_concepto']})")
-    print(f"{usage['llamadas']} llamadas, {usage['tokens']} tokens de entrada, ~US$ {usage['costo']:.4f}")
+        print("Categorías: no cumple")
+    print(
+        f"Juez: {'cumple' if judge['pasa'] else 'no cumple'} (κ Jev {jev_pilot.fmt_num(judge['kappa_jev'], 3)},"
+        f" κ juez por concepto {jev_pilot.fmt_num(judge['kappa_concepto'], 3)})"
+    )
+    for reason in result["no_confiable"]:
+        print(f"⚠ Las cifras no valen para adoptar: {reason}")
+    print(
+        f"{jev_pilot.fmt_int(usage['llamadas'])} llamadas, {jev_pilot.fmt_int(usage['tokens'])} tokens de entrada,"
+        f" ~US$ {jev_pilot.fmt_num(usage['costo'], 4)}"
+    )
     print(f"Reporte en {result['reporte']}")
-    print(f"Propuesta en {result['archivo_propuesta']}: para adoptar, renómbrala a jev-adopcion.json y súbela a git.")
+    if proposal["categorias"] or proposal["juez"]:
+        print(
+            f"Propuesta en {result['archivo_propuesta']}: para adoptar, renómbrala a jev-adopcion.json y súbela a git."
+        )
+    else:
+        print(f"Propuesta en {result['archivo_propuesta']}: no se adopta, todo sigue igual sin Jev.")
 
 
 def cmd_purge(conn, args) -> None:

@@ -138,7 +138,7 @@ def _read_sheet(
 ) -> dict:
     counts = counts if counts is not None else Counter()
     answers: dict[str, list] = {}
-    for row in _read_table(path):
+    for row in read_table(path):
         row_key, raw = key(row.get(key_column, "")), row.get(answer_column, "").strip()
         if not raw:
             counts["vacias"] += 1
@@ -172,7 +172,7 @@ def _decode(raw: bytes) -> str:
     return raw.decode("latin-1")
 
 
-def _read_table(path: Path) -> list[dict[str, str]]:
+def read_table(path: Path) -> list[dict[str, str]]:
     """Filas de un CSV como lo guardan Numbers (coma) o Excel en español (punto y coma), con o sin BOM."""
     text = unicodedata.normalize("NFC", _decode(path.read_bytes()))  # Numbers puede guardar las tildes descompuestas
     header = text.splitlines()[0] if text.strip() else ""
@@ -434,7 +434,7 @@ def category_ids_document(sample: list[dict], seed: int = DEFAULT_SEED) -> dict:
 def count_filled(path: Path, column: str) -> int:
     if not path.exists():
         return 0
-    return sum(bool(row.get(column, "").strip()) for row in _read_table(path))
+    return sum(bool(row.get(column, "").strip()) for row in read_table(path))
 
 
 def write_csv(path: Path, columns: list[str], rows: list[dict]) -> None:
