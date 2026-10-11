@@ -17,10 +17,10 @@ Requiere Node 22.22+ o 24.15+ (ver `.nvmrc` en la raíz). Como la app no abre si
 ```bash
 make mvp              # API :8000, app http://localhost:5174 y panel :5175; Ctrl-C detiene los tres
 make mvp LAN=1        # abre la API y la app a la red local, para el iPhone (misma red wifi o su hotspot)
-make mvp-check        # recorre la app con Chrome (Home, una compra en el Súper de prueba, el kit de Mochi, una ronda del juego completa, el «¿Sabías que…?» del agente, el panel con lo que dejó todo eso, API caída: 7 revisiones) contra un catálogo inventado, sin tocar la base real
+make mvp-check        # recorre el MVP con Chrome contra un catálogo inventado, sin tocar la base real (7 revisiones)
 ```
 
-Requisitos y qué hacer si falla algo: [docs/instalacion.md](../docs/instalacion.md#5-el-mvp). Para correr solo la app, con la API ya levantada por su cuenta (`cd rappi-ia && make serve`):
+Requisitos, qué revisa `make mvp-check` y qué hacer si falla algo: [docs/instalacion.md](../docs/instalacion.md#5-el-mvp). Para correr solo la app, con la API ya levantada por su cuenta (`cd rappi-ia && make serve`):
 
 ```bash
 cd prototipo-app
@@ -38,7 +38,7 @@ La API (puerto 8000) carga los modelos antes de aceptar peticiones: `make mvp` e
 - da las **pantallas de catálogo** (ver «De dónde salen las pantallas»);
 - busca en el **catálogo real** con búsqueda híbrida en todas las verticales (un grupo por vertical, la de la pantalla primero), con precios vigentes;
 - sugiere un complemento **de otra tienda** en un bloque aparte;
-- arma la fila **"Para ti"** del inicio con lo que aprendió de ti (productos reales de otro vertical, con aviso +18 si corresponde);
+- suma **«Para ti»** al saludo del buscador con Mochi con lo que aprendió de ti (productos reales de otra vertical, con aviso +18 si corresponde);
 - registra eventos seudónimos y pedidos (uno por vertical) en la API, para medir las sugerencias (mostradas, aceptadas y convertidas).
 
 Si la API se cae con la app ya abierta, el buscador con Mochi dice «Sin conexión» con «Reintentar» (repite la misma búsqueda) y las ofertas que Mochi hace solo callan: ya no hay respuestas locales.
@@ -57,7 +57,7 @@ Si la API se cae con la app ya abierta, el buscador con Mochi dice «Sin conexi�
 | `npm run screenshots` | Regenera las capturas de este README; necesita el MVP corriendo (`make mvp`) y usa el Chrome instalado |
 | `./scripts/make-icons.sh` | Regenera los íconos de pantalla de inicio desde `scripts/icon.svg` |
 
-Tests: 589 (Vitest, 10-10-2026). CI en GitHub Actions: lint, tests y build.
+Tests: las cifras vigentes están en [README.md#resultados](../README.md#resultados) (fila «Calidad»). CI en GitHub Actions: lint, tests y build.
 
 **Accesibilidad:** el buscador con Mochi y las hojas inferiores se usan con teclado y VoiceOver (el foco entra al abrir, Escape cierra, Tab no se sale y el foco vuelve al cerrar), cada respuesta de Mochi se anuncia completa al lector de pantalla y las áreas táctiles miden al menos 40 px.
 
@@ -82,7 +82,7 @@ En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de vert
 - **Contenido:** 108 tarjetas (6 datos y 6 preguntas por vertical) que sirve la API (`GET /game/cards`, desde `rappi-ia/src/rappi_ia/game/knowledge.json`), escritas con palabras propias y verificadas una por una contra su fuente ([informe](../docs/resultados/juego-verificacion-2026-10-09.md)). Las tarjetas y su revisión viven en `rappi-ia` y se cargan en la base con `rappi-ia knowledge` (corre en `make post-refresh`, y en `make mvp`, `make serve` y `make serve-lan`, después de migrar). La ronda pide su desafío a la API al abrirse (`GET /game/challenge`, armado con los conceptos y relaciones de la base; fuera de Licores solo con conceptos que el agente ofrece, sin alcohol, bebé, salud ni sensibles, y en Licores con alcohol pero nunca bebé ni salud; la misma semilla da el mismo desafío): la app no lleva datos del catálogo. En la base de prueba chica del `make mvp-check` la API se levanta con `GAME_MIN_ITEMS=1` (en la real, un concepto debe tener al menos 20 productos en la vertical para entrar en un desafío).
 - **Farmacia y Licores** se pueden jugar desde el pasaporte, pero ni Mochi ni el seguimiento las proponen (la salud y el alcohol no se empujan). Licores lleva la marca «+18».
 - **El dato del agente:** cuando lo que buscas está ligado a una tarjeta que aún no tienes, la respuesta del agente (`POST /agent/ask`) trae un bloque «¿Sabías que…?» con su fuente y lo suma al álbum. Nunca sale de Farmacia ni de Licores ni de una tarjeta ligada a un concepto sensible o +18.
-- El progreso es de demo: se guarda en el servidor, bajo el id seudónimo de este navegador (`PUT /game/state/{user_id}`; si la API no entrega tarjetas y progreso, el juego muestra «Sin conexión» con «Reintentar» y la Home, la búsqueda y el checkout siguen funcionando: el pasaporte de la Home espera al juego y, hasta que carga, abrir una vertical no la sella ni suma a la misión; un guardado que falla se reintenta solo a los 2, 5 y 15 s, al volver la red y al cerrar la pestaña). Lo que este navegador guardó antes se sube una sola vez, si el servidor aún no tiene progreso. «Repetir escena» lo deja como al empezar.
+- El progreso es de demo: se guarda en el servidor, bajo el id seudónimo de este navegador (`PUT /game/state/{user_id}`). Si la API no entrega tarjetas y progreso, el juego muestra «Sin conexión» con «Reintentar» y la Home, la búsqueda y el checkout siguen funcionando (el pasaporte de la Home espera al juego y, hasta que carga, abrir una vertical no la sella ni suma a la misión; un guardado que falla se reintenta solo a los 2, 5 y 15 s, al volver la red y al cerrar la pestaña). Lo que este navegador guardó antes se sube una sola vez, si el servidor aún no tiene progreso. «Repetir escena» lo deja como al empezar.
 
 | El juego | Mientras llega el pedido |
 |:---:|:---:|

@@ -36,7 +36,8 @@
           "agente",
           "conceptos",
           "busqueda",
-          "eventos"
+          "eventos",
+          "tarjetas"
         ],
         "note": "El puente es el concepto: interés del usuario → complemento → búsqueda en el índice de otro vertical."
       },
@@ -47,7 +48,8 @@
           "api",
           "eventos",
           "segmentos",
-          "conceptos"
+          "conceptos",
+          "panel"
         ],
         "note": "Eventos simulados y del prototipo alimentan los segmentos y las métricas de negocio: muestran la mecánica, no evidencia."
       }
@@ -204,6 +206,24 @@
       "label": "Segmentos y métricas",
       "sublabel": "capa · /analytics",
       "width": 170
+    },
+    {
+      "id": "panel",
+      "lane": "negocio_lane",
+      "col": 3,
+      "type": "frontend",
+      "label": "Panel :5175",
+      "sublabel": "Uso del MVP · /analytics",
+      "width": 170
+    },
+    {
+      "id": "tarjetas",
+      "lane": "cruce_lane",
+      "col": 3,
+      "type": "database",
+      "label": "Tarjetas del juego",
+      "sublabel": "knowledge_cards · game_state",
+      "width": 170
     }
   ],
   "edges": [
@@ -294,6 +314,21 @@
       "to": "segmentos",
       "label": "SQL",
       "role": "branch"
+    },
+    {
+      "id": "segmentos-panel",
+      "from": "segmentos",
+      "to": "panel",
+      "label": "métricas",
+      "role": "branch"
+    },
+    {
+      "id": "conceptos-tarjetas",
+      "from": "conceptos",
+      "to": "tarjetas",
+      "label": "knowledge",
+      "variant": "dashed",
+      "role": "async"
     }
   ]
 }

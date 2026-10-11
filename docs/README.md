@@ -23,7 +23,8 @@
 | Activar a Jev (etiqueta categorías y juzga la búsqueda, opcional): clave, planillas, piloto y adopción | [jev.md](jev.md) | 5 min |
 | Conocer la capa de IA, su API y cómo se evalúa | [rappi-ia/README.md](../rappi-ia/README.md) | 10 min |
 | Usar o modificar el scraper | [rappi-scraper/README.md](../rappi-scraper/README.md) | 10 min |
-| Diseño del juego de verticales dentro del prototipo | [especificación](superpowers/specs/2026-10-09-juego-en-prototipo-design.md) | 5 min |
+| Qué es el MVP integrado y cómo se armó (7 etapas) | [especificación del MVP](superpowers/specs/2026-10-10-mvp-integrado-design.md) | 10 min |
+| Diseño original del juego de verticales (09-10, antes de pasar a la API) | [especificación](superpowers/specs/2026-10-09-juego-en-prototipo-design.md) | 5 min |
 
 ### Diagramas y mapas
 
@@ -31,7 +32,7 @@ GitHub muestra las imágenes; las versiones interactivas (HTML) hay que descarga
 
 | Qué | Qué muestra | Imagen | Interactivo |
 |---|---|---|---|
-| Flujo de datos | Las etapas de punta a punta: descarga → Postgres → IA offline → consulta → prototipo | [rag-datos.png](diagramas/rag-datos.png) | [rag-datos.html](diagramas/rag-datos.html) |
+| Flujo de datos | Las etapas de punta a punta: descarga → Postgres → IA offline → consulta → prototipo y panel | [rag-datos.png](diagramas/rag-datos.png) | [rag-datos.html](diagramas/rag-datos.html) |
 | Arquitectura de la IA | Catálogo y agente Mochi por carriles: datos offline, consulta online y entre verticales | [arquitectura-ia.png](diagramas/arquitectura-ia.png) | [arquitectura-ia.html](diagramas/arquitectura-ia.html) |
 | Scraper | Cómo `rappi refresh` descubre, descarga y guarda el catálogo | [scraper-flujo.png](diagramas/scraper-flujo.png) | [scraper-flujo.html](diagramas/scraper-flujo.html) |
 | Mapa multivertical | Qué productos y conceptos comparten las verticales, con complementos, sustitutos y «nunca junto»; se regenera con `rappi-ia multivertical` | [mapa-conceptos.jpg](mapas/mapa-conceptos.jpg) | [mapa-multivertical.html](mapas/mapa-multivertical.html) |
@@ -52,6 +53,7 @@ Las fuentes JSON de los diagramas están en [diagramas-fuente/](diagramas-fuente
 | Si quieres… | Lee | Tiempo |
 |---|---|---|
 | Instalar el proyecto y dejarlo actualizándose cada semana | [instalacion.md](instalacion.md) | 10 min de lectura |
+| Levantar el MVP (`make mvp`), probarlo (`make mvp-check`) y qué hacer con «Sin conexión con Mochi» | [instalacion.md §5](instalacion.md#5-el-mvp) | 5 min |
 | Consultar la base con SQL | [sql/README.md](sql/README.md) y [consultas.sql](sql/consultas.sql) | 5 min |
 | Probar a Mochi (API) como usuario y dejar cada fallo como test | [pruebas-de-usuario.md](pruebas-de-usuario.md) | 3 min |
 | Trabajar en el código con un asistente de IA | [CLAUDE.md](../CLAUDE.md) | 2 min |

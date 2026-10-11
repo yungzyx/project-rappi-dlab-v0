@@ -96,7 +96,7 @@ erDiagram
 
 `verticals`, `brands`, `stores`, `store_verticals`, `aisles`, `categories`, `catalog_items`, `store_products`, `price_snapshots`, restaurantes y menús (`restaurant_details`, `cuisines`, `menu_sections`, `menu_items`, `menu_price_snapshots`), `search_documents` particionado por vertical.
 
-Con el catálogo del 30-09-2026 (primera descarga semanal automática): 93.823 productos únicos, 172.278 platos y 4.506 tiendas, en 270.607 documentos de búsqueda. Detalle por vertical en [README → Resultados](../README.md#resultados).
+Con el catálogo del 04-10-2026: 253.945 documentos de búsqueda (84.024 productos, 165.623 platos y 4.298 tiendas); cifras vigentes y detalle por vertical en [README → Resultados](../README.md#resultados).
 
 ### Capa 2: conceptos y trazabilidad (construida, `rappi-ia`)
 
@@ -109,6 +109,7 @@ Se llena solo con datos públicos.
 | **`item_concepts`** | Un concepto principal por producto o plato | Un plato y un producto del súper se conectan al compartir concepto (pizza ↔ pizza congelada). Reemplaza a la idea inicial de una tabla de platos estándar |
 | **`concept_edges`** | Complementos entre conceptos: 103 curados, más los aprendidos por co-ocurrencia | La recomendación cruzada: cerveza → snacks |
 | **Trazabilidad** en todo dato inferido | `method` (`curado`, `llm`, `regla`, `embedding`; en complementos, `curado` o `coocurrencia`; ver [diseno-ia.md](diseno-ia.md#6-modelo-de-datos-nuevo)), `model_version`, `confidence` y fecha | Poder auditar y rehacer lo que generen modelos o reglas |
+| **`knowledge_cards`** y `knowledge_card_concepts` | Las 108 tarjetas del juego de verticales (dato o pregunta, con su fuente) y sus ligas a conceptos; las carga `rappi-ia knowledge` | El juego y el «¿Sabías que…?» del agente enseñan algo verificado y ligado a lo que la persona busca |
 | **Geografía H3** | `h3_cell` (y comuna) en `stores` | **Pendiente:** análisis por zona y, más adelante, cobertura de despacho |
 
 Las etiquetas se generan offline, siempre con trazabilidad: primero por categoría (mapa de categorías generado con LLM y versionado en el repositorio), luego por reglas sobre el nombre y por vecinos cercanos con embeddings (kNN). Es el "enriquecimiento del catálogo" del flujo del RAG. Cobertura por vertical y precisión estimada en [README → Resultados](../README.md#resultados).
@@ -136,6 +137,7 @@ Con datos internos, estas entidades permitirían **medir directamente** el probl
 
 - Los datos vienen del generador `events/synth.py` (1.500 usuarios × 26 semanas, semilla 7; `source = 'synthetic'`) o del prototipo (`source = 'prototype'`).
 - Las líneas de pedido apuntan a un producto (`catalog_item`) o a un plato (`menu_item`).
+- El progreso del juego de cada persona del prototipo (`game_state`, migración 028) vive en la misma base; las tarjetas están en la capa 2.
 - Alimentan los segmentos y las métricas de negocio (las muestra el panel de negocio, parte del MVP: [diseno-ia.md §5](diseno-ia.md#5-panel-para-la-empresa-vale-la-pena)): muestran la mecánica, no son evidencia.
 
 ---
@@ -148,8 +150,8 @@ Este proyecto trabaja solo con el contenido público de Rappi Chile. Otras apps 
 
 ## 5. Próximos pasos
 
-1. **Mejorar la capa 2:** etiquetar con un LLM (o con Jev, el modelo de juicios tipados de TypeSafe) los ítems de baja confianza, revisar a mano los de mayor tráfico y repetir la medición de precisión sobre el catálogo completo, con una muestra guardada en el repositorio.
-2. **Evaluación de búsqueda:** juzgar a mano la muestra de 200 pares, para saber si el refuerzo por concepto mejora de verdad.
+1. **Mejorar la capa 2:** etiquetar con un LLM (o con Jev, el modelo de juicios tipados de TypeSafe) los ítems de baja confianza, revisar a mano los de mayor tráfico (la precisión ya se midió sobre el catálogo completo con una muestra versionada el 06-10-2026: [resultados](resultados/capas-precision-2026-10-06-nueva-muestra.md)).
+2. **Evaluación de búsqueda:** juzgar a mano la planilla de 200 pares (`rappi-ia jev-planillas`, ver [jev.md](jev.md)) y medirlo con `rappi-ia eval-human`, para saber si el refuerzo por concepto mejora de verdad.
 3. **Geografía H3** en `stores`, cuando una vista la necesite.
 4. **Con datos internos de Rappi:** medir el silo y validar las palancas del panel con un grupo de control.
 

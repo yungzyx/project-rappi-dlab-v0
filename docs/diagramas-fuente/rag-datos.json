@@ -49,7 +49,8 @@
           "agente",
           "api",
           "apps",
-          "eventos"
+          "eventos",
+          "panel"
         ],
         "note": "La API expone el agente, sus ofertas y la analítica; el prototipo y el panel la consumen y registran eventos."
       },
@@ -207,7 +208,7 @@
       "id": "api",
       "type": "cloud",
       "label": "API :8000",
-      "sublabel": "agent · analytics",
+      "sublabel": "agent · game · analytics",
       "stage": 4,
       "row": 0,
       "tag": "make serve"
@@ -219,6 +220,15 @@
       "sublabel": ":5174",
       "stage": 4,
       "row": 1,
+      "tag": "Vite"
+    },
+    {
+      "id": "panel",
+      "type": "frontend",
+      "label": "Panel :5175",
+      "sublabel": "Uso del MVP · /analytics",
+      "stage": 4,
+      "row": 3,
       "tag": "Vite"
     }
   ],
@@ -389,6 +399,19 @@
         960,
         328
       ]
+    },
+    {
+      "id": "metricas",
+      "from": "eventos",
+      "to": "panel",
+      "label": "/analytics",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        960,
+        428
+      ]
     }
   ],
   "cards": [
@@ -397,7 +420,7 @@
       "title": "Offline, cada domingo",
       "items": [
         "refresh-semanal.sh: rappi refresh y make post-refresh",
-        "Jev (opcional), conceptos, embeddings, evaluación, capas y purga",
+        "Jev (opcional), conceptos, tarjetas, embeddings, evaluación, capas y purga",
         "Candado propio: nunca corren dos descargas a la vez"
       ]
     },
@@ -407,7 +430,7 @@
       "items": [
         "Siempre dentro de un vertical: léxico por IDF y vectorial e5",
         "RRF, refuerzo por concepto y sin resultado bajo τ",
-        "El agente responde con plantillas o con Claude"
+        "Respuesta con plantillas o con Claude; /game y /analytics en la API"
       ]
     },
     {

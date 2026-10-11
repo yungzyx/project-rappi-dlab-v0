@@ -107,8 +107,6 @@ probar-agente:  ## Prueba al agente con las frases de usuarios (con la API corri
 purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/diseno-ia.md §2)
 	$(PY) -m rappi_ia purge
 
-# purge va primero, para que la retención de 90 días se cumpla aunque falle un paso posterior, y otra vez al final
-# para los eventos simulados que synth acaba de generar.
 layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las etapas del plan)
 	$(PY) -m rappi_ia measures
 	$(PY) -m rappi_ia brands
@@ -121,6 +119,8 @@ layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las 
 layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.md)
 	$(PY) -m rappi_ia layer-report
 
+# purge va primero, para que la retención de 90 días se cumpla aunque falle un paso posterior, y otra vez al final
+# para los eventos simulados que synth acaba de generar.
 post-refresh: migrate purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
 	$(MAKE) jev-categorias concepts knowledge embed eval synth layers
 	$(MAKE) purge

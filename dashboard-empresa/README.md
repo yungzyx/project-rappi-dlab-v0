@@ -59,7 +59,7 @@ La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://
 | `npm run fixtures` | Vuelve a guardar las respuestas de la API en `src/fixtures/` (correr tras `make synth` o una actualización del catálogo). Las de «Uso del MVP» (ofertas, juego y búsquedas sin resultado) no pasan por aquí: las escribe `make contract` en `rappi-ia/` y el CI falla si quedan desactualizadas |
 | `npm run screenshots` | Regenera `docs/screenshots/` con el Chrome instalado y un Vite propio en el 5198 |
 
-Tests: 101 (Vitest, 11-10-2026). CI en GitHub Actions: lint, tests y build.
+Tests: las cifras vigentes están en [README.md#resultados](../README.md#resultados) (fila «Calidad»). CI en GitHub Actions: lint, tests y build.
 
 ## Vistas
 
@@ -143,7 +143,7 @@ Lo que la gente hizo en la app del MVP, en tres secciones. Con la fuente **Proto
 - **Juego.** Rondas terminadas, tarjetas descubiertas y estrellas promedio (de 0 a 3), en total y por vertical del juego. El promedio aparece desde 5 rondas.
 - **Búsquedas sin resultado.** Por vertical y concepto reconocido: es demanda que el catálogo no cubre. No muestra lo que escribió cada persona ni conceptos sensibles; una búsqueda sin vertical se rotula «Sin vertical».
 
-Las definiciones están en [docs/diseno-ia.md §5](../docs/diseno-ia.md#5-panel-para-la-empresa-vale-la-pena). `make mvp-check` abre esta vista con la fuente del prototipo (puerto 5185) y comprueba que muestra el kit y la tarjeta del juego que dejaron las revisiones anteriores.
+Las definiciones están en [docs/diseno-ia.md §5](../docs/diseno-ia.md#5-panel-para-la-empresa-vale-la-pena). `make mvp-check` abre esta vista con la fuente del prototipo (puerto 5185) y comprueba que muestra el kit y la tarjeta del juego que dejaron las revisiones anteriores (qué revisa, en [docs/instalacion.md](../docs/instalacion.md#5-el-mvp)).
 
 Todas las vistas tienen versión móvil (sin scroll horizontal; las tablas pasan a tarjetas) y tema claro y oscuro: sigue al sistema y se puede fijar con el botón.
 

@@ -85,7 +85,7 @@ Una tienda se recorre así: portada → pasillos → sub-pasillos. Cuando algo f
 - **Respaldo:** se escribe a un `.part`, se valida con `pg_restore --list` y recién entonces rota. Si falla, se conservan los anteriores y la actualización sigue, pero `rappi refresh` termina con código 3 (la tarea semanal lo anota como «respaldo fallido» y corre igual la capa de IA). La clave de la base va a `pg_dump` por `PGPASSWORD`, nunca en sus argumentos.
 - **Códigos de salida:** 4 = posible bloqueo (la corrida queda abierta y la tarea semanal anota «detenida: posible bloqueo»); 5 = falló el descubrimiento de restaurantes: tiendas, búsqueda y respaldo sí se hicieron, la corrida de restaurantes queda cerrada como fallida con el error en su reporte, y la tarea semanal anota «restaurantes sin actualizar» y corre igual la capa de IA; 6 = eso y además el respaldo fallido (se anotan los dos).
 - **Migraciones:** la tarea semanal aplica las pendientes (`rappi migrate`) antes de descargar, para que una migración que trajo un `git pull` no haga fallar la descarga al final.
-- **Capa de IA:** la tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si la descarga terminó bien (aunque haya fallado el respaldo) y `../rappi-ia` está instalado, sigue con `make -C ../rappi-ia post-refresh` (purga, conceptos, embeddings, evaluación, datos simulados y otra purga).
+- **Capa de IA:** la tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si la descarga terminó bien (aunque hayan fallado el respaldo o los restaurantes: códigos 3, 5 y 6) y `../rappi-ia` está instalado, sigue con `make -C ../rappi-ia post-refresh` (los pasos, en [rappi-ia/README.md](../rappi-ia/README.md#correr)).
 
 ```bash
 make schedule          # instala la tarea en launchd (~/Library/LaunchAgents/cl.rappi.refresh.plist)
@@ -159,7 +159,7 @@ rappi-scraper/
 │   │   ├── repository.py           escrituras idempotentes y consultas de estado
 │   │   ├── search.py               documentos y búsqueda por vertical
 │   │   ├── backup.py               respaldo con pg_dump, validación y rotación
-│   │   └── migrations/             esquema SQL versionado (001–008 y 014–015 del scraper; 009–013 de rappi-ia)
+│   │   └── migrations/             esquema SQL versionado, un solo historial para toda la base (001–032; las de rappi-ia: 009–013, 016, 020, 022–031)
 │   └── legacy/                   scraper original a CSV (ver Legado)
 │       ├── csv_scraper.py          comando `rappi-csv`
 │       ├── csv_format.py           columnas y escritura de CSV
@@ -211,7 +211,7 @@ make lint         # ruff: errores comunes + formato
 make format       # aplica el formato
 ```
 
-- **Tests:** 104 (pytest, 30-09-2026). Los de integración usan la base `rappi_test`, nunca `rappi`.
+- **Tests:** las cifras vigentes están en [README.md#resultados](../README.md#resultados) (fila «Calidad»). Los de integración usan la base `rappi_test`, nunca `rappi`.
 - **CI:** GitHub Actions (`.github/workflows/ci.yml`) corre lint y tests contra Postgres + pgvector.
 - **Convención:** el código (funciones, variables, módulos) va en inglés; lo que ve el usuario (logs, CLI, columnas de CSV, valores de verticales) en español.
 
@@ -230,7 +230,7 @@ make format       # aplica el formato
 - Fines de investigación y demostración. Un uso comercial requeriría autorización de Rappi. Los datos descargados no se suben al repositorio.
 - Proyecto independiente: no está afiliado a Rappi ni cuenta con su respaldo. Las marcas y el contenido pertenecen a Rappi y a los comercios.
 
-Detalle en [README.md#uso-responsable-de-los-datos](../README.md#uso-responsable-de-los-datos).
+Detalle en [README.md#qué-es-real-y-qué-es-simulado](../README.md#qué-es-real-y-qué-es-simulado).
 
 ## Legado: scraper original a CSV (`rappi-csv`)
 

@@ -25,7 +25,7 @@ La señal existe: cada búsqueda y cada pedido dice algo de quien lo hace. Pero 
 |---|---|
 | **Mochi en la Home** | Mochi de cuerpo entero vive en la Home, sin canal aparte para escribirle. Saluda, acompaña el pasaporte y el plan del día («¿Qué plan tienes hoy?», un kit de varias verticales) y, al tocarlo, propone una vertical por probar. |
 | **Buscador con Mochi** | La barra de la Home abre el buscador de siempre con lo que Mochi sabe de ti: lo aprendido (con «Olvidar»), ideas para tocar («Arma un carrete»), búsqueda de tiendas y productos y «Descubre con Mochi». Se toca; no se escribe. |
-| **Pasaporte Rappi y juego de verticales** | Un sello por vertical (8). Se gana abriendo la vertical o jugando: rondas cortas de 5 pasos con datos «¿Sabías que…?» verificados (con su fuente) y un desafío armado por la API con el catálogo real, niveles, misión del día y álbum. Mochi también suma al álbum el dato ligado a lo que buscas. Con 4 sellos, envío gratis (idea para probar, no una promoción). |
+| **Pasaporte Rappi y juego de verticales** | Un sello por vertical: las 8 del catálogo y Viajes (9). Se gana abriendo la vertical o jugando: rondas cortas de 5 pasos con datos «¿Sabías que…?» verificados (con su fuente) y un desafío armado por la API con el catálogo real, niveles, misión del día y álbum. Mochi también suma al álbum el dato ligado a lo que buscas. Con 4 sellos, envío gratis (idea para probar, no una promoción). |
 | **Mientras llega el pedido** | El seguimiento ofrece «Juega mientras llega tu pedido»: una ronda de una vertical sin sello, con el tiempo que falta arriba. La espera se aprovecha para descubrir otra vertical. |
 
 | La Home | El buscador con Mochi | El juego | Mientras llega el pedido |
@@ -47,7 +47,7 @@ El efecto real (frecuencia, venta cruzada, verticales nuevas por persona) solo s
 
 ## Cómo funciona
 
-![Flujo de datos por etapas: descarga, Postgres, IA offline, consulta y prototipo](docs/diagramas/rag-datos.png)
+![Flujo de datos por etapas: descarga, Postgres, IA offline, consulta, prototipo y panel](docs/diagramas/rag-datos.png)
 
 1. **Descarga (semanal).** `rappi refresh` lee las páginas públicas de rappi.cl y guarda catálogo, menús y precios con historial.
 2. **Postgres + pgvector.** El catálogo (capa 1) y `search_documents`, una partición por vertical.
@@ -75,14 +75,14 @@ Cada cifra dice qué tipo de dato es: real, evaluación automática, estimación
 
 | Ámbito | Métrica | Valor | Tipo de dato | Fuente |
 |---|---|---|---|---|
-| Catálogo | Documentos de búsqueda | 253.945: 84.024 productos, 165.623 platos y 4.298 tiendas | Real (catálogo público) | Base `rappi`, 05-10-2026 |
+| Catálogo | Documentos de búsqueda | 253.945: 84.024 productos, 165.623 platos y 4.298 tiendas | Real (catálogo público) | Base `rappi`, descarga del 04-10-2026 (contada el 05-10) |
 | Catálogo | Documentos con embedding | 100 % (`intfloat/multilingual-e5-base`, 768 dim, HNSW por vertical) | Real | Base `rappi`, 04-10-2026 |
-| Capa 2 | Taxonomía | 133 conceptos · 103 complementos curados · 818 categorías con mapeo revisado | Curado a mano; mapa de categorías generado con LLM y versionado | `make concepts`, 30-09-2026 |
+| Capa 2 | Taxonomía | 133 conceptos · 103 complementos curados · 818 categorías con mapeo revisado | Curado a mano; mapa de categorías generado con LLM y versionado | `make concepts`, 06-10-2026 |
 | Capa 2 | Precisión de la asignación | 86 % por regla de nombre, 88 % por mapeo y 88 % por vecinos, en una muestra nueva tras corregir las reglas (antes: 81, 82 y 57 %) | **Estimación** con jueces LLM | [antes](docs/resultados/capas-precision-2026-10-06.md) · [después](docs/resultados/capas-precision-2026-10-06-nueva-muestra.md) |
 | Capa de datos | Atributos, marcas y grafo | 83 atributos sobre 79.617 ítems · 6.359 marcas · 23.534 productos canónicos · 32.105 aristas en 12 relaciones | Real, con reglas propias; atributos 92 % y marcas 97 a 99 % de precisión estimada | `make layers`, 06-10-2026 |
 | Búsqueda | nDCG@10 | híbrido 0,917 · sin refuerzo por concepto 0,860 · vectorial 0,849 · léxico 0,776 | Evaluación automática | [reporte del 06-10](docs/resultados/busqueda-2026-10-06.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [reporte del 30-09](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests | scraper 144 · rappi-ia 1233 · prototipo 646 · panel 101 | Verificación local y CI | `make test` · `npm test` |
+| Calidad | Tests (11-10-2026) | scraper 188 · rappi-ia 1526 · prototipo 701 · panel 111 | Verificación local y CI | `make test` · `npm test` (conteo con `pytest --collect-only -q` y `npm test`) |
 
 ### Catálogo por vertical
 
@@ -109,7 +109,7 @@ Documentos al 04-10-2026 (segunda descarga semanal automática); «Con concepto�
 > - **Usuarios y eventos simulados.** Los segmentos y las métricas de negocio usan personas simuladas (`source = 'synthetic'`): muestran la mecánica, no un resultado.
 > - **La ventaja del híbrido.** La relevancia se juzga por concepto y el híbrido recibe un refuerzo por ese mismo concepto; sin él, no se distingue del vectorial (0,860 frente a 0,849). Falta un juicio humano.
 > - **Las precisiones de la capa 2 y de la capa de datos** son estimaciones con jueces LLM.
-> - **El progreso del juego y el pasaporte** son de demo: se guardan en el servidor bajo un id seudónimo del navegador, sin cuenta.
+> - **El progreso del juego y el pasaporte** son de demo: se guardan en el servidor bajo un id seudónimo del navegador, sin cuenta; la persona los borra con «Borrar mis datos» (Cuenta).
 > - **«No está en el catálogo»** no significa «Rappi no lo vende»: en tiendas el catálogo es una muestra.
 
 ## Probarlo
@@ -127,10 +127,10 @@ Requisitos (el detalle, en [docs/instalacion.md](docs/instalacion.md)):
 ```bash
 make mvp          # desde la raíz del repositorio; Ctrl-C detiene los tres
 make mvp LAN=1    # abre la API y la app a la red local, para el iPhone (solo en una red de confianza)
-make mvp-check    # recorre la app con Chrome (la Home, una compra en el Súper de prueba, el kit de Mochi, una ronda del juego, el «¿Sabías que…?» del agente, «Uso del MVP» en el panel y la caída de la API) contra un catálogo inventado, sin tocar la base real
+make mvp-check    # recorre el MVP con Chrome contra un catálogo inventado, sin tocar la base real (7 revisiones)
 ```
 
-`make mvp` revisa las dependencias, los puertos y la base (`rappi-ia doctor`, solo lectura), aplica las migraciones pendientes (no las de una rama sin fusionar: `MIGRATE=1` lo fuerza, ver [docs/instalacion.md](docs/instalacion.md#5-el-mvp)), arranca los tres con sus registros prefijados y avisa cuando responden. La API tarda en estar lista porque carga los modelos. No descarga nada de rappi.cl.
+`make mvp` revisa las dependencias, los puertos y la base (`rappi-ia doctor`, solo lectura), aplica las migraciones pendientes (no las de una rama sin fusionar: `MIGRATE=1` lo fuerza, ver [docs/instalacion.md](docs/instalacion.md#5-el-mvp)), arranca los tres con sus registros prefijados y avisa cuando responden. La API tarda en estar lista porque carga los modelos. No descarga nada de rappi.cl. Qué revisa `make mvp-check`, en [docs/instalacion.md](docs/instalacion.md#5-el-mvp).
 
 La tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Prototipo final» y «Rappi hoy». Guion de demo: [docs/demo.md](docs/demo.md).
 
@@ -167,7 +167,7 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 │   ├── mapas/              mapa multivertical y mapa de conceptos
 │   └── resultados/         reportes de evaluación versionados (fuente de las cifras)
 ├── Makefile, scripts/      `make mvp` y `make mvp-check`: levantan y recorren el MVP
-├── .github/workflows/      CI (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build)
+├── .github/workflows/      CI (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build; `make mvp-check` y los scripts)
 └── CLAUDE.md               convenciones para asistentes de código
 ```
 
@@ -181,7 +181,7 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 - **Prototipo**: lo que la gente hizo en la app del MVP, con la vista **Uso del MVP**: las ofertas del agente por momento (plan, carro, antes de pagar, próximo pedido, sin resultado, vertical por probar, pregunta y «Para ti»), el juego (rondas, tarjetas descubiertas y estrellas) y las búsquedas sin resultado por vertical y concepto. Es uso de pocas personas y el panel lo rotula «uso del MVP, pocas personas: no es evidencia». Sin nombres ni textos: personas contadas, nunca nombradas.
 
 ```bash
-make mvp   # panel en http://localhost:5175/?vista=mvp&fuente=prototipo (sin la API usa respuestas guardadas)
+make mvp   # panel en http://localhost:5175/?vista=mvp&fuente=prototipo (sin la API, «Uso del MVP» no muestra cifras: dice que falta la conexión)
 ```
 
 ## Historial del proyecto
