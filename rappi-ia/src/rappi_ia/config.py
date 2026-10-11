@@ -27,11 +27,33 @@ GAME_MIN_ITEMS = int(os.environ.get("GAME_MIN_ITEMS", "20"))
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or None
 AGENT_LLM_MODEL = os.environ.get("AGENT_LLM_MODEL", "claude-sonnet-5")
 
-# Red local (iPhone): solo con API_ALLOW_LAN=1 (`make serve-lan`). La API no tiene autenticación.
-API_ALLOW_LAN = os.environ.get("API_ALLOW_LAN") == "1"
+# Entorno de la API: `local` (la demo en este Mac, por defecto) o `production` (un servidor detrás de un proxy).
+API_ENV = os.environ.get("API_ENV", "local")
+if API_ENV not in ("local", "production"):
+    raise RuntimeError(f"API_ENV debe ser 'local' o 'production' (vale {API_ENV!r})")
+API_PRODUCTION = API_ENV == "production"
+
+
+def _flag(name: str, default: bool) -> bool:
+    """Un interruptor «1»/«0» de la API; sin la variable vale `default`."""
+    value = os.environ.get(name)
+    return default if value is None or value == "" else value == "1"
+
+
+# El panel (`/analytics/*`) y la documentación (`/docs`, `/openapi.json`) están encendidos en local y apagados en
+# producción: ahí el panel y el esquema no son parte del producto. Cada uno se enciende o apaga con su variable.
+API_ENABLE_ANALYTICS = _flag("API_ENABLE_ANALYTICS", not API_PRODUCTION)
+API_DOCS = _flag("API_DOCS", not API_PRODUCTION)
+
+# Red local (iPhone): solo con API_ALLOW_LAN=1 (`make serve-lan`). La API no tiene autenticación. En producción
+# se ignora, igual que el patrón de `localhost:51xx`: los orígenes son exactamente los de API_CORS_ORIGINS (el sitio
+# público; el beacon de eventos también compara con esa lista, aunque el sitio sirva la API en el mismo origen).
+API_ALLOW_LAN = os.environ.get("API_ALLOW_LAN") == "1" and not API_PRODUCTION
 API_CORS_ORIGINS = [
     o.strip()
-    for o in os.environ.get("API_CORS_ORIGINS", "http://localhost:5174,http://localhost:5175").split(",")
+    for o in os.environ.get(
+        "API_CORS_ORIGINS", "" if API_PRODUCTION else "http://localhost:5174,http://localhost:5175"
+    ).split(",")
     if o.strip()
 ]
 

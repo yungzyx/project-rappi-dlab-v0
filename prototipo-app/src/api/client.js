@@ -10,9 +10,24 @@ const HEALTH_TIMEOUT_MS = 1500
 const DEFAULT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: la pregunta al agente muestra «Sin conexión»
 const CONNECTION_TIMEOUT_MS = 5_000
 
-export const API_URL =
-  import.meta.env.VITE_API_URL ??
-  (typeof window !== 'undefined' ? `http://${window.location.hostname || 'localhost'}:${DEFAULT_PORT}` : '')
+/**
+ * Dónde está la API. `VITE_API_URL` manda (sin la barra final). Sin ella: en el build de producción, el mismo origen
+ * bajo `/api` (un proxy inverso la sirve); en desarrollo, el host desde donde se abrió la página en el puerto 8000
+ * (así el iPhone con `LAN=1` llega a la API del Mac).
+ */
+export function apiUrl(env, location) {
+  const configured = env.VITE_API_URL?.trim().replace(/\/+$/, '')
+  if (configured) return configured
+  if (env.PROD || !devApiUrl) return '/api'
+  return devApiUrl(location)
+}
+
+// Solo existe en desarrollo: el build de producción la descarta, y `dist/` no lleva rastros de «localhost» ni del puerto.
+const devApiUrl = import.meta.env.DEV
+  ? (location) => `http://${location?.hostname || 'localhost'}:${DEFAULT_PORT}`
+  : undefined
+
+export const API_URL = apiUrl(import.meta.env, typeof window !== 'undefined' ? window.location : undefined)
 
 let healthCache = { at: 0, value: null }
 

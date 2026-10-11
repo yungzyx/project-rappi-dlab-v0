@@ -42,10 +42,13 @@ export function DemoProvider({ children }) {
     })
   }, [])
 
-  // Tecla D para cambiar de modo en vivo durante una presentación (salvo mientras se escribe).
+  // Tecla D para cambiar de modo en vivo durante una presentación (salvo mientras se escribe). Solo en desarrollo o en
+  // un build con VITE_DEMO=1: en el sitio desplegado, apretar «d» sobre un botón no debe cambiar la app de modo.
   useEffect(() => {
+    if (!(import.meta.env.DEV || import.meta.env.VITE_DEMO === '1')) return undefined
     const onKey = (event) => {
-      if (event.key.toLowerCase() !== 'd' || event.metaKey || event.ctrlKey || event.altKey) return
+      // Chrome dispara keydown sin `key` al autocompletar un campo.
+      if (event.key?.toLowerCase() !== 'd' || event.metaKey || event.ctrlKey || event.altKey) return
       if (event.target.closest?.('input, textarea, [contenteditable="true"]')) return
       toggle()
     }

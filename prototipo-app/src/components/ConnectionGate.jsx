@@ -60,13 +60,20 @@ export function ConnectionNotice({ status, onRetry, onLeave, nested = false }) {
           ) : (
             <>
               <h1>Sin conexión con {AGENT_NAME}</h1>
-              <p>No pude conectar con la API del MVP ({API_URL}).</p>
-              <p className="connection-help">
-                Levanta el MVP con <code>make mvp</code> en la carpeta del proyecto y vuelve a intentar.
-              </p>
-              <p>
-                Si acabas de correr <code>make mvp</code>, espera «MVP listo».
-              </p>
+              {/* Las instrucciones de desarrollador y la dirección de la API no llegan al sitio desplegado. */}
+              {import.meta.env.DEV || import.meta.env.VITE_DEMO === '1' ? (
+                <>
+                  <p>No pude conectar con la API del MVP ({API_URL}).</p>
+                  <p className="connection-help">
+                    Levanta el MVP con <code>make mvp</code> en la carpeta del proyecto y vuelve a intentar.
+                  </p>
+                  <p>
+                    Si acabas de correr <code>make mvp</code>, espera «MVP listo».
+                  </p>
+                </>
+              ) : (
+                <p>Sin conexión. Intenta de nuevo en un momento.</p>
+              )}
             </>
           )}
         </div>

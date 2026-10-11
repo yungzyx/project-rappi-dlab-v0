@@ -100,7 +100,7 @@ make mvp                  # desde la raíz del repositorio
 
 Ctrl-C detiene los tres; si uno se cae solo, detiene el resto. No descarga nada de rappi.cl.
 
-**Desde un iPhone:** `make mvp LAN=1` abre la API y la app a la red local (`make serve-lan` y `--host`). El panel pide sus datos a `localhost:8000` (fijo), así que desde otro dispositivo no trae nada: solo sirve en este equipo. Solo en una red de confianza: la API no tiene autenticación.
+**Desde un iPhone:** `make mvp LAN=1` abre la API, la app y el panel a la red local (`make serve-lan` y `--host`); cada uno busca la API en el host desde el que se abrió la página. Solo en una red de confianza: la API no tiene autenticación.
 
 - La app busca la API en el mismo host desde el que se abrió (puerto 8000), así que no hace falta configurarla.
 - Sirve en la wifi de casa (192.168.x, 10.x), con el hotspot del iPhone (el Mac queda en 172.20.10.x) y con el nombre Bonjour del Mac (`http://nombre-del-mac.local:5174`).

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { getFallbacks, loadAnalytics, refreshSource, retryConnection, subscribeConnection } from './api.js'
+import { apiUrl, getFallbacks, loadAnalytics, refreshSource, retryConnection, subscribeConnection } from './api.js'
 import savedKpis from '../fixtures/kpis.synthetic.json'
 import savedWeekly from '../fixtures/weekly.synthetic.json'
 import savedCatalog from '../fixtures/catalog.json'
@@ -164,5 +164,18 @@ describe('loadAnalytics', () => {
 
   test('rechaza fuentes desconocidas', () => {
     expect(() => loadAnalytics('kpis', 'real')).toThrow('Fuente desconocida')
+  })
+})
+
+describe('apiUrl', () => {
+  test('el panel en desarrollo usa el host de la página', () => {
+    expect(apiUrl({ PROD: false }, { hostname: '10.0.0.5' })).toBe('http://10.0.0.5:8000')
+    expect(apiUrl({}, undefined)).toBe('http://localhost:8000')
+  })
+
+  test('en producción sin variable devuelve /api y con variable le quita la barra final', () => {
+    expect(apiUrl({ PROD: true }, { hostname: 'demo.example.cl' })).toBe('/api')
+    expect(apiUrl({ VITE_API_URL: 'https://api.example.cl/', PROD: true }, {})).toBe('https://api.example.cl')
+    expect(apiUrl({ VITE_API_URL: '', PROD: true }, {})).toBe('/api')
   })
 })

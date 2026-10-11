@@ -72,8 +72,9 @@ export default function App() {
         <div className="container">
           <p>
             Definiciones de cada métrica: <span className="mono">docs/diseno-ia.md §5</span>. Datos de la API de rappi-ia
-            en <span className="mono">{API_URL}</span>. <a href="/presentacion.html">Presentación de la propuesta</a>.
+            en <span className="mono">{API_URL}</span>. <a href={`${import.meta.env.BASE_URL}presentacion.html`}>Presentación de la propuesta</a>.
           </p>
+          <p>Demo no oficial · prototipo independiente, no afiliado a Rappi.</p>
           <p>
             Usuarios con id seudónimo; las listas por usuario nunca muestran conceptos sensibles. Ninguna palanca se
             escala sin un grupo de control (A/B con holdout).

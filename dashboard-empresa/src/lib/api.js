@@ -2,7 +2,23 @@
 // demasiado, usa la respuesta guardada en src/fixtures (npm run fixtures, make contract) y la anota, con el origen y la
 // fecha que trae el archivo, para avisar que el panel está en modo sin conexión. El uso del MVP (fuente prototipo) no
 // tiene respaldo: sin la base viva no hay nada honesto que mostrar.
-export const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+/**
+ * Dónde está la API (la misma regla que la app): `VITE_API_URL` manda, sin la barra final. Sin ella: en el build de
+ * producción, el mismo origen bajo `/api`; en desarrollo, el host desde donde se abrió la página en el puerto 8000.
+ */
+export function apiUrl(env, location) {
+  const configured = env.VITE_API_URL?.trim().replace(/\/+$/, '')
+  if (configured) return configured
+  if (env.PROD || !devApiUrl) return '/api'
+  return devApiUrl(location)
+}
+
+// Solo existe en desarrollo: el build de producción la descarta, y `dist/` no lleva rastros de «localhost» ni del puerto.
+const devApiUrl = import.meta.env.DEV
+  ? (location) => `http://${location?.hostname || 'localhost'}:8000`
+  : undefined
+
+export const API_URL = apiUrl(import.meta.env, typeof window !== 'undefined' ? window.location : undefined)
 // /analytics/weekly tardó entre 7 y 28 s en las pruebas (según la carga de la máquina); el resto, menos de 1 s.
 export const TIMEOUT_MS = 30_000
 

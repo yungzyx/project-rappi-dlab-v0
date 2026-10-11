@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import BackToTop from '../../components/BackToTop'
+import DemoDisclaimer from '../../components/DemoDisclaimer'
 import PlainSearchBar from '../../components/PlainSearchBar'
 import { ChevronDown } from '../../components/Icons'
 import { useScrollState } from '../../hooks/useScrollState'
@@ -60,6 +61,7 @@ export default function HomeFeed({ push }) {
           <PlainSearchBar onClick={openSearch} />
           <CreditsBanner credits={CREDITS} onClick={() => push('vertical', { id: 'pharmacy' })} />
         </section>
+        <DemoDisclaimer />
 
         <MainTiles push={push} />
         <Shortcuts push={push} />

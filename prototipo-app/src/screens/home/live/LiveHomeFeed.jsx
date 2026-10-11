@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { offer, plans as fetchPlans } from '../../../api/agent'
 import { noteShown } from '../../../api/suggestions'
 import { userId } from '../../../api/user'
+import DemoDisclaimer from '../../../components/DemoDisclaimer'
 import SmartBar from '../../../components/assistant/SmartBar'
 import { useToast } from '../../../components/Toast'
 import { ChevronDown } from '../../../components/Icons'
@@ -531,6 +532,7 @@ export default function LiveHomeFeed({ push, active = true }) {
           <SmartBar />
           <CreditsBanner credits={CREDITS} onClick={() => push('vertical', { id: 'pharmacy' })} />
         </section>
+        <DemoDisclaimer />
 
         <div className="live-blocks">
           {ORDER.map((id) => (

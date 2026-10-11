@@ -24,6 +24,8 @@ export default function AccountScreen({ onBack, push }) {
   const demo = useDemo()
   const { orders } = useOrders()
   const [sheet, setSheet] = useState(null)
+  // «Modo demo» cambia toda la app de modo: como el interruptor de la presentación, solo en desarrollo o con VITE_DEMO=1.
+  const showDemoRow = import.meta.env.DEV || import.meta.env.VITE_DEMO === '1'
 
   const runRow = (row) => {
     if (row.action === 'addresses') address.openSheet()
@@ -130,7 +132,7 @@ export default function AccountScreen({ onBack, push }) {
               <h2>{section.title}</h2>
               <ul>
                 {section.rows
-                  .filter((row) => !row.finalOnly || demo.isFinal)
+                  .filter((row) => (!row.finalOnly || demo.isFinal) && (showDemoRow || row.action !== 'demo'))
                   .map((row) => (
                     <li key={row.id}>
                       <button type="button" className="account-row" onClick={() => runRow(row)}>

@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Annotated, Literal
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Path, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,8 +51,15 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Con API_DOCS apagado (producción) no hay /docs, /redoc ni /openapi.json: el esquema no se publica.
 app = FastAPI(
-    title="rappi-ia", version="0.1.0", description="El agente, búsqueda por vertical y panel empresa", lifespan=lifespan
+    title="rappi-ia",
+    version="0.1.0",
+    description="El agente, búsqueda por vertical y panel empresa",
+    lifespan=lifespan,
+    docs_url="/docs" if config.API_DOCS else None,
+    redoc_url="/redoc" if config.API_DOCS else None,
+    openapi_url="/openapi.json" if config.API_DOCS else None,
 )
 
 
@@ -69,10 +76,20 @@ def cors_origin_regex(allow_lan: bool) -> str:
     return rf"http://({hosts}):51\d\d"
 
 
+# En producción no hay patrón: los orígenes son exactamente los de API_CORS_ORIGINS (ni localhost:51xx ni la red local).
+CORS_ORIGIN_REGEX = None if config.API_PRODUCTION else cors_origin_regex(config.API_ALLOW_LAN)
+
+
+def origin_allowed(origin: str) -> bool:
+    return origin in config.API_CORS_ORIGINS or (
+        CORS_ORIGIN_REGEX is not None and re.fullmatch(CORS_ORIGIN_REGEX, origin) is not None
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.API_CORS_ORIGINS,
-    allow_origin_regex=cors_origin_regex(config.API_ALLOW_LAN),
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["content-type"],
 )
@@ -345,11 +362,8 @@ async def post_events_beacon(request: Request, conn: Connection = Depends(get_co
     """Lo que queda en cola al cerrar la pestaña (navigator.sendBeacon). Llega como text/plain, que no necesita
     preflight de CORS; el contenido es el mismo JSON de /events."""
     origin = request.headers.get("origin")
-    if (
-        origin
-        and origin not in config.API_CORS_ORIGINS
-        and not re.fullmatch(cors_origin_regex(config.API_ALLOW_LAN), origin)
-    ):  # text/plain no tiene preflight: sin esto, cualquier página abierta podía escribir eventos
+    # text/plain no tiene preflight: sin esta revisión, cualquier página abierta podía escribir eventos
+    if origin and not origin_allowed(origin):
         raise HTTPException(403, "Origen no permitido")
     raw = await request.body()
     if len(raw) > MAX_BEACON_BYTES:
@@ -441,12 +455,16 @@ ANALYTICS = {
 }
 
 
-@app.get("/analytics/catalog")
+# El panel: solo si API_ENABLE_ANALYTICS (apagado en producción, donde estas rutas responden 404). Se incluye al final.
+analytics_router = APIRouter(prefix="/analytics")
+
+
+@analytics_router.get("/catalog")
 def analytics_catalog(conn: Connection = Depends(get_analytics_conn)) -> dict:
     return {"source": "catalogo_real", "data": queries.catalog_health(conn)}
 
 
-@app.get("/analytics/{name}")
+@analytics_router.get("/{name}")
 def analytics(
     name: str, source: Literal["synthetic", "prototype"] = "synthetic", conn: Connection = Depends(get_analytics_conn)
 ) -> dict:
@@ -504,6 +522,8 @@ def _log_ask(conn, user_id, session_id, text, response, modality, mode) -> None:
     conn.commit()
 
 
+if config.API_ENABLE_ANALYTICS:
+    app.include_router(analytics_router)
 app.include_router(catalog_router)
 app.include_router(agent_router)
 app.include_router(game_router)

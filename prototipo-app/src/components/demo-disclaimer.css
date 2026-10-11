@@ -1,0 +1,8 @@
+/* Una línea discreta bajo el buscador de la Home: se lee sin competir con el contenido */
+.demo-disclaimer {
+  margin: 10px var(--gutter) 0;
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+}

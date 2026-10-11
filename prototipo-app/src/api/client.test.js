@@ -3,6 +3,7 @@ import { PLACEHOLDER_IMG } from '../components/Img'
 import {
   API_URL,
   ApiError,
+  apiUrl,
   beaconEvents,
   ask,
   checkConnection,
@@ -412,4 +413,25 @@ describe('envíos', () => {
     }
   })
 
+})
+
+describe('apiUrl', () => {
+  test('en producción sin variable devuelve /api (el mismo origen)', () => {
+    expect(apiUrl({ PROD: true }, { hostname: 'demo.example.cl' })).toBe('/api')
+  })
+
+  test('quita la barra final de VITE_API_URL', () => {
+    expect(apiUrl({ VITE_API_URL: 'https://api.example.cl/', PROD: true }, {})).toBe('https://api.example.cl')
+    expect(apiUrl({ VITE_API_URL: 'https://api.example.cl//' }, {})).toBe('https://api.example.cl')
+  })
+
+  test('una variable vacía (el .env.example) cuenta como ausente', () => {
+    expect(apiUrl({ VITE_API_URL: '', PROD: true }, {})).toBe('/api')
+  })
+
+  test('en desarrollo usa el host de la página en el puerto 8000', () => {
+    expect(apiUrl({ PROD: false }, { hostname: '10.0.0.5' })).toBe('http://10.0.0.5:8000')
+    expect(apiUrl({ PROD: false }, { hostname: '' })).toBe('http://localhost:8000')
+    expect(apiUrl({ PROD: false }, undefined)).toBe('http://localhost:8000')
+  })
 })

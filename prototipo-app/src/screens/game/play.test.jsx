@@ -131,6 +131,17 @@ describe('ronda', () => {
     errors.mockRestore()
   })
 
+  test('without VITE_DEMO the missing-cards notice has no developer instructions', async () => {
+    vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_DEMO', '')
+    stubApi({ 'GET /game/cards': { cards: gameCards().filter((c) => c.vertical !== 'licores') } })
+    await openRound('licores')
+    await screen.findByRole('heading', { name: 'Aún no hay tarjetas de Licores' })
+    expect(document.body.textContent).not.toContain('make knowledge')
+    expect(screen.getByText('Intenta de nuevo en un momento.')).toBeTruthy()
+    vi.unstubAllEnvs()
+  })
+
   test('the round shows Sin conexión with Reintentar when the challenge fails, and retries', async () => {
     let calls = 0
     stubApi({ 'GET /game/challenge': (req) => (++calls === 1 ? 'offline' : gameChallenge('licores', req.query.get('seed'))) })

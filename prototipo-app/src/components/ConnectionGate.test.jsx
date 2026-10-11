@@ -8,6 +8,7 @@ afterEach(() => {
   cleanup()
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 const renderGate = () =>
@@ -38,6 +39,18 @@ describe('ConnectionGate', () => {
     expect(wait.parentElement.textContent).toBe('Si acabas de correr make mvp, espera «MVP listo».')
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy()
     expect(screen.queryByText('La app')).toBeNull()
+  })
+
+  test('sin VITE_DEMO no hay texto make mvp ni la URL de la API', async () => {
+    vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_DEMO', '')
+    stubApi({ '/health': 'offline' })
+    const { container } = renderGate()
+    expect(await screen.findByRole('heading', { name: 'Sin conexión con Mochi' })).toBeTruthy()
+    expect(screen.getByText('Sin conexión. Intenta de nuevo en un momento.')).toBeTruthy()
+    expect(container.textContent).not.toContain('make mvp')
+    expect(container.textContent).not.toContain(API_URL)
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy()
   })
 
   test('the app-wide gate has no Salir button', async () => {

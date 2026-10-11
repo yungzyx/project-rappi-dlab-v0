@@ -34,6 +34,16 @@ describe('App', () => {
     expect(screen.getByText('Usuarios y eventos SIMULADOS:')).toBeTruthy()
   })
 
+  test('el pie avisa que es una demo no oficial y enlaza la presentación bajo la base del sitio', async () => {
+    serveFixtures()
+    await renderWithData(<App />)
+
+    expect(screen.getByText('Demo no oficial · prototipo independiente, no afiliado a Rappi.')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Presentación de la propuesta' }).getAttribute('href')).toBe(
+      `${import.meta.env.BASE_URL}presentacion.html`,
+    )
+  })
+
   test('solo la pestaña activa tiene aria-controls (los demás paneles no existen en el DOM)', async () => {
     serveFixtures()
     await renderWithData(<App />)
