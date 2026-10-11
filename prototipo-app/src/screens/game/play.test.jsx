@@ -10,7 +10,8 @@ import { seed, stored } from '../../game/testSeed.js'
 import { LABELS } from '../../game/verticals.js'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
-vi.mock('../../state/EventsContext', async (importOriginal) => ({ ...(await importOriginal()), useEvents: () => events }))
+vi.mock('../../state/EventsContext', async (importOriginal) => ({ ...(await importOriginal()), useEvents: () => ({ ...events, track: (...args) => events.track(...args) }), // `track` nuevo en cada pintada
+}))
 
 beforeEach(() => {
   events.track.mockClear()
@@ -70,6 +71,14 @@ describe('ronda', () => {
     expect(roundEvents()).toEqual([
       ['game_round_finished', { payload: { vertical_juego: 'licores', estrellas: 3, aciertos: asks, preguntas: asks } }],
     ])
+  })
+
+  test('the finished round is recorded once even when the screen repaints afterwards', async () => {
+    await startRound('licores')
+    playRound(roundOf(initialState(), 'licores'), (challenge) => challenge.answer)
+    fireEvent.click(await screen.findByRole('button', { name: 'Abrir carta' })) // cambia el estado del juego: repinta
+    expect(screen.queryByRole('button', { name: 'Abrir carta' })).toBeNull()
+    expect(roundEvents()).toHaveLength(1)
   })
 
   test('leaving a round before the end sends no round event', async () => {

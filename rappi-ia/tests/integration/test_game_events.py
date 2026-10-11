@@ -28,6 +28,7 @@ def test_game_round_finished_is_recorded(db):
 def test_game_card_discovered_is_recorded(db):
     payload = {"vertical_juego": "licores", "tarjeta": "licores-dato-01"}
     events.record(db, [events.Event("u-game", "s1", "game_card_discovered", ts=NOW, payload=payload)])
+    assert db.execute("SELECT vertical FROM app_events WHERE type = 'game_card_discovered'").fetchall() == [(None,)]
     assert _payloads(db, "game_card_discovered") == [payload]
 
 
