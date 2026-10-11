@@ -9,6 +9,7 @@ import { useUrlState } from './lib/useUrlState.js'
 import { CatalogView } from './views/catalog/CatalogView.jsx'
 import { CrossVerticalView } from './views/cross/CrossVerticalView.jsx'
 import { FrequencyView } from './views/frequency/FrequencyView.jsx'
+import { MvpUsageView } from './views/mvp/MvpUsageView.jsx'
 import { OpportunitiesView } from './views/opportunities/OpportunitiesView.jsx'
 import { SummaryView } from './views/summary/SummaryView.jsx'
 
@@ -18,6 +19,7 @@ export const VIEWS = [
   { id: 'frecuencia', label: 'Frecuencia y abandono', View: FrequencyView },
   { id: 'verticales', label: 'Entre verticales', View: CrossVerticalView },
   { id: 'catalogo', label: 'Catálogo (real)', View: CatalogView },
+  { id: 'mvp', label: 'Uso del MVP', View: MvpUsageView },
 ]
 const VIEW_IDS = VIEWS.map((view) => view.id)
 

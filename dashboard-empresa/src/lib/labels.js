@@ -8,6 +8,7 @@ const VERTICALS = {
   farmacia: 'Farmacia',
   chocolateria: 'Chocolatería',
   restaurantes: 'Restaurantes',
+  viajes: 'Viajes', // vertical del juego, sin catálogo
 }
 
 export const verticalLabel = (code) => VERTICALS[code] ?? code
@@ -35,6 +36,10 @@ const ENDPOINTS = {
   affinity: 'afinidad',
   assortment: 'surtido vs demanda',
   catalog: 'catálogo',
+  services: 'servicios sin catálogo',
+  offers: 'ofertas por momento',
+  game: 'juego',
+  unmet: 'búsquedas sin resultado',
 }
 
 const MAX_LISTED = 3
