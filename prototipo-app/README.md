@@ -17,7 +17,7 @@ Requiere Node 22.22+ o 24.15+ (ver `.nvmrc` en la raíz). Como la app no abre si
 ```bash
 make mvp              # API :8000, app http://localhost:5174 y panel :5175; Ctrl-C detiene los tres
 make mvp LAN=1        # abre la API y la app a la red local, para el iPhone (misma red wifi o su hotspot)
-make mvp-check        # recorre la app con Chrome (Home, una compra en el Súper de prueba, el kit de Mochi, una ronda del juego, el «¿Sabías que…?» del agente, API caída) contra un catálogo inventado, sin tocar la base real
+make mvp-check        # recorre la app con Chrome (Home, una compra en el Súper de prueba, el kit de Mochi, una ronda del juego completa, el «¿Sabías que…?» del agente, el panel con lo que dejó todo eso, API caída: 7 revisiones) contra un catálogo inventado, sin tocar la base real
 ```
 
 Requisitos y qué hacer si falla algo: [docs/instalacion.md](../docs/instalacion.md#5-el-mvp). Para correr solo la app, con la API ya levantada por su cuenta (`cd rappi-ia && make serve`):
@@ -208,5 +208,5 @@ src/
 └── styles/         Tokens de diseño y estilos globales
 docs/screenshots/   Capturas de este README
 public/             Íconos y manifiesto para "Agregar a pantalla de inicio"
-scripts/            Íconos, capturas y el recorrido de `make mvp-check` (Home, compra, kit de Mochi, juego, dato del agente y API caída)
+scripts/            Íconos, capturas y el recorrido de `make mvp-check` (Home, compra, kit de Mochi, juego, dato del agente, panel y API caída)
 ```

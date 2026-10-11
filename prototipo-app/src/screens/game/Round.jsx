@@ -1,5 +1,5 @@
 import { Star, X } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import FactCard, { Source } from './FactCard.jsx'
 import Mascot from '../../components/assistant/Mascot'
 import Sheet from './GameSheet.jsx'
@@ -11,6 +11,7 @@ import { cardById } from '../../game/knowledge.js'
 import { LABELS } from '../../game/verticals.js'
 import { LEVELS, explorerLevel, verticalLevel } from '../../game/progress.js'
 import { makeRound, roundStars } from '../../game/round.js'
+import { useEvents } from '../../state/EventsContext'
 import { useGame } from '../../state/GameContext'
 import './round.css'
 
@@ -231,6 +232,7 @@ export default function Round({ vertical, back, orderId }) {
 function PlayRound({ vertical, back, orderId, challenge, turn }) {
   const game = useGame()
   const { clearEvents } = game
+  const { track } = useEvents()
   const [steps] = useState(() => makeRound(game.state, vertical, challenge, turn))
   const [levelBefore] = useState(() => verticalLevel(game.state, vertical))
   const [xpBefore] = useState(() => game.state.xp)
@@ -242,6 +244,21 @@ function PlayRound({ vertical, back, orderId, challenge, turn }) {
   // Sin tarjetas para armar la ronda no hay pasos: se avisa (abajo, después de los hooks) en vez de romperse.
   const finished = steps !== null && index >= steps.length
   const step = steps?.[index]
+
+  // El fin de ronda se registra una sola vez (la referencia sobrevive al doble efecto de StrictMode); salir antes no cuenta.
+  const reported = useRef(false)
+  useEffect(() => {
+    if (!finished || reported.current) return
+    reported.current = true
+    track('game_round_finished', {
+      payload: {
+        vertical_juego: vertical,
+        estrellas: roundStars(tally.correct, tally.challenges),
+        aciertos: tally.correct,
+        preguntas: tally.challenges,
+      },
+    })
+  }, [finished, track, vertical, tally])
 
   const record = (result, extra) =>
     setTally((t) => ({

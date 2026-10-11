@@ -11,7 +11,7 @@ make mvp             # esperar «MVP listo: app http://localhost:5174 · panel �
 make mvp LAN=1       # si se muestra desde un iPhone en la misma red (solo en una red de confianza)
 ```
 
-Si la app muestra **«Sin conexión con Mochi»**, la API todavía no terminó de cargar o no está corriendo: espera a «MVP listo» (la pantalla vuelve a probar sola cada 2 s; **Reintentar** prueba al instante) (qué más revisar, en [instalación](instalacion.md#5-el-mvp)). Antes de una presentación, `make mvp-check` comprueba que la app y la API se hablan (la Home, una compra en el Súper de prueba hasta el pago y la caída de la API), contra un catálogo de prueba inventado y sin tocar la base real; no lo corras junto con los tests de rappi-ia.
+Si la app muestra **«Sin conexión con Mochi»**, la API todavía no terminó de cargar o no está corriendo: espera a «MVP listo» (la pantalla vuelve a probar sola cada 2 s; **Reintentar** prueba al instante) (qué más revisar, en [instalación](instalacion.md#5-el-mvp)). Antes de una presentación, `make mvp-check` comprueba que la app y la API se hablan (la Home, una compra en el Súper de prueba hasta el pago, el kit de Mochi, una ronda del juego, el panel con «Uso del MVP» y la caída de la API), contra un catálogo de prueba inventado y sin tocar la base real; no lo corras junto con los tests de rappi-ia.
 
 1. Abre el prototipo (http://localhost:5174) y deja el modo **Prototipo final** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy», la app como es hoy).
 2. Justo antes de presentar, con la API arriba: `cd rappi-ia && make warm`. Pasa por los botones del guion sin registrarlos: en frío la primera respuesta tarda de 2 a 5 s; después, menos de medio segundo. Repetirlo si la API pasó un rato sin uso.
@@ -56,6 +56,16 @@ El pasaporte y su envío gratis son una idea para probar con usuarios, no una pr
 2. Haz un pedido y, en el seguimiento, toca **«Juega mientras llega tu pedido»**: la ronda muestra arriba cuánto falta y avisa cuando llega (en la demo, a los 20 s). **Qué decir:** la espera se aprovecha para descubrir otra vertical y suma un sello.
 3. Vuelve a la Home: el sello nuevo está en el pasaporte.
 4. Abre el buscador con Mochi y toca **Algo dulce**: la respuesta trae un **«¿Sabías que…?»** con su fuente, ligado a lo que se buscó, y lo suma al álbum. **Qué decir:** el juego y el buscador comparten una sola base de conocimiento; Mochi nunca trae un dato de alcohol o salud por su cuenta.
+
+### El panel con lo que acaba de pasar (2 minutos, opcional)
+
+Con `make mvp` el panel ya está arriba. Después de la demo de la app, ábrelo en [http://localhost:5175/?vista=mvp&fuente=prototipo](http://localhost:5175/?vista=mvp&fuente=prototipo) (o elige **Prototipo** arriba y la pestaña **Uso del MVP**; **Actualizar** vuelve a pedir lo nuevo sin recargar).
+
+1. **Ofertas del agente por momento:** el kit de «Carrete» aparece en **Plan** y, si usaste el carro o el checkout, en **Carro** y **Antes de pagar**, con lo mostrado y lo aceptado. **Qué decir:** así se ve en qué momento la oferta de Mochi funciona; el porcentaje aparece recién con 10 mostradas, antes solo las cuentas.
+2. **Juego:** las rondas terminadas y las tarjetas descubiertas, por vertical del juego. Las estrellas promedio aparecen desde 5 rondas.
+3. **Búsquedas sin resultado:** una búsqueda sin resultado en la app (por ejemplo, algo que el catálogo no tiene) suma a su vertical; el concepto solo se suma si la pregunta pasó por el agente (las búsquedas de la app no llevan concepto). Nunca se ve lo que se escribió.
+
+**Qué decir:** cada bloque lleva el rótulo «uso del MVP, pocas personas: no es evidencia». Son las pruebas de unas pocas personas, no una medición, y nunca se mezclan con los datos simulados del resto del panel. «Olvidar» en la app borra también los eventos de esa persona.
 
 ## Qué aclarar si preguntan
 

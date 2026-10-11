@@ -3,17 +3,23 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { fixture, gameCards, gameServer, stubApi } from '../api/testing'
 import { userId } from '../api/user'
-import { cardsOf, datosOf, setKnowledge } from '../game/knowledge.js'
+import { cardsOf, datosOf, preguntasOf, setKnowledge } from '../game/knowledge.js'
 import { initialState } from '../game/progress.js'
 import { gameReady, savedAs, seed, stored } from '../game/testSeed.js'
 import { GameProvider, useGame } from './GameContext.jsx'
 import { REPLAY_EVENT } from './liveMemory'
 
 // Lo que dejaba el juego en el navegador antes de que el progreso viviera en el servidor.
+const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
+vi.mock('./EventsContext', async (importOriginal) => ({ ...(await importOriginal()), useEvents: () => events }))
+
 const LOCAL_KEY = 'rappi-proto-juego-v1'
 const LEGACY_KEY = 'rappi-proto-pasaporte'
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  events.track.mockClear()
+})
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
@@ -407,5 +413,53 @@ describe('estado del juego', () => {
     expect(screen.getByTestId('events').textContent).toBe('mision:50,nivel:2')
     fireEvent.click(screen.getByText('cerrar'))
     expect(screen.getByTestId('events').textContent).toBe('nivel:2')
+  })
+})
+
+describe('eventos de tarjetas descubiertas', () => {
+  const discovered = () => events.track.mock.calls.filter(([type]) => type === 'game_card_discovered')
+
+  test('a new card sends game_card_discovered once', async () => {
+    const [a] = datosOf('turbo')
+    seed()
+    stubApi({})
+    renderProbe((game) => game.discover('turbo', a.id))
+    await gameReady()
+    fireEvent.click(screen.getByRole('button', { name: 'actuar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'actuar' }))
+    expect(discovered()).toEqual([['game_card_discovered', { payload: { vertical_juego: 'turbo', tarjeta: a.id } }]])
+  })
+
+  test('seeing a known card again sends nothing', async () => {
+    const [a, b] = datosOf('turbo')
+    seed({ discovered: { turbo: [a.id] }, cards: [b.id] })
+    stubApi({})
+    renderProbe((game) => {
+      game.discover('turbo', a.id)
+      game.discover('turbo', b.id) // ya está en el álbum aunque no figure como descubierta
+    })
+    await gameReady()
+    fireEvent.click(screen.getByRole('button', { name: 'actuar' }))
+    expect(discovered()).toEqual([])
+  })
+
+  test('a correct new pregunta sends the event; a wrong or repeated answer does not', async () => {
+    const [q] = preguntasOf('turbo')
+    seed()
+    stubApi({})
+    const answers = [false, true, true]
+    renderProbe((game) => game.answer('turbo', answers.shift(), q.id))
+    await gameReady()
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: 'actuar' }))
+    expect(discovered()).toEqual([['game_card_discovered', { payload: { vertical_juego: 'turbo', tarjeta: q.id } }]])
+  })
+
+  test('a challenge without card sends nothing', async () => {
+    seed()
+    stubApi({})
+    renderProbe((game) => game.answer('turbo', true))
+    await gameReady()
+    fireEvent.click(screen.getByRole('button', { name: 'actuar' }))
+    expect(events.track).not.toHaveBeenCalled()
   })
 })

@@ -8,6 +8,7 @@ import * as progress from '../game/progress.js'
 import { createSaver } from '../game/saver.js'
 import { clearLegacy, legacyProgress } from '../game/storage.js'
 import { SCREEN_TO_GAME } from '../game/verticals.js'
+import { useEvents } from './EventsContext'
 import { REPLAY_EVENT } from './liveMemory'
 
 const GameContext = createContext(null)
@@ -15,6 +16,10 @@ const DATE_CHECK_MS = 30_000
 
 /** Un 4xx (422, 409…) es el servidor diciendo «esto no»: reintentar no lo arregla. Red caída y 5xx sí pueden mejorar. */
 const isRejection = (error) => error instanceof ApiError && error.kind === 'http' && error.status >= 400 && error.status < 500
+
+/** Una tarjeta es nueva si no está en las descubiertas de su vertical ni en el álbum. */
+const isNewCard = (state, vertical, cardId) =>
+  Boolean(cardId) && !(state.discovered[vertical] ?? []).includes(cardId) && !state.cards.includes(cardId)
 
 /**
  * Las tarjetas y el progreso del servidor, en ese orden. El progreso que este navegador guardó antes (ya no se escribe)
@@ -64,6 +69,7 @@ function loadOnce(local) {
 export function GameProvider({ children }) {
   const [state, setState] = useState(progress.initialState)
   const latest = useRef(state)
+  const { track } = useEvents()
   const paused = useRef(false) // «Olvidar» pausó el guardado (ver `settle`)
   const [loaded, setLoaded] = useState('loading') // 'loading' | 'ready' | 'offline'
   const [attempt, setAttempt] = useState(0)
@@ -171,9 +177,19 @@ export function GameProvider({ children }) {
       date,
       events,
       generation,
-      discover: (vertical, conceptId) => run((s, d) => progress.discover(s, vertical, conceptId, d)),
+      discover: (vertical, cardId) => {
+        const fresh = isNewCard(latest.current, vertical, cardId)
+        const result = run((s, d) => progress.discover(s, vertical, cardId, d))
+        if (fresh) track('game_card_discovered', { payload: { vertical_juego: vertical, tarjeta: cardId } })
+        return result
+      },
       // `cardId`: la pregunta de conocimiento respondida (si se acierta, entra al álbum); sin él, un desafío del catálogo.
-      answer: (vertical, isCorrect, cardId) => run((s, d) => progress.answer(s, vertical, isCorrect, d, cardId)),
+      answer: (vertical, isCorrect, cardId) => {
+        const fresh = isCorrect && isNewCard(latest.current, vertical, cardId)
+        const result = run((s, d) => progress.answer(s, vertical, isCorrect, d, cardId))
+        if (fresh) track('game_card_discovered', { payload: { vertical_juego: vertical, tarjeta: cardId } })
+        return result
+      },
       openCard: (cardId) => run((s, d) => progress.openCard(s, cardId, d)),
       seeIntro: () => commit(progress.markIntroSeen(latest.current)),
       // Abrir una vertical en la app (id de pantalla del prototipo) la sella. Devuelve si el sello es nuevo.
@@ -188,7 +204,7 @@ export function GameProvider({ children }) {
       settle,
       resume,
     }),
-    [state, date, events, generation, run, commit, dismissEvent, clearEvents, reset, forget, settle, resume],
+    [state, date, events, generation, run, track, commit, dismissEvent, clearEvents, reset, forget, settle, resume],
   )
 
   if (loaded !== 'ready') {

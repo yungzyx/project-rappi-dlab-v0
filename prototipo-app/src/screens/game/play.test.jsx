@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { fixture, gameCards, gameChallenge, gameServer, stubApi } from '../../api/testing'
@@ -8,7 +9,12 @@ import { makeRound } from '../../game/round.js'
 import { seed, stored } from '../../game/testSeed.js'
 import { LABELS } from '../../game/verticals.js'
 
+const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
+vi.mock('../../state/EventsContext', async (importOriginal) => ({ ...(await importOriginal()), useEvents: () => ({ ...events, track: (...args) => events.track(...args) }), // `track` nuevo en cada pintada
+}))
+
 beforeEach(() => {
+  events.track.mockClear()
   localStorage.clear()
   stubApi({})
   seed()
@@ -25,16 +31,16 @@ const roundOf = (state, vertical) =>
   makeRound(state, vertical, gameChallenge(vertical, String(state.answered[vertical] ?? 0)))
 
 /** Abre el camino y toca «Jugar» en una vertical; la ronda recién parte cuando llega su desafío de la API. */
-async function openRound(vertical, level = 'Sin sello') {
-  await mount(<App />)
+async function openRound(vertical, level = 'Sin sello', wrap = (ui) => ui) {
+  await mount(wrap(<App />))
   const path = screen.getByRole('region', { name: 'Camino de verticales' })
   fireEvent.click(within(path).getByRole('button', { name: new RegExp(`^${LABELS[vertical]}: ${level}`) }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
 }
 
 /** Abre la ronda y espera su primer paso (un dato). */
-async function startRound(vertical, level) {
-  await openRound(vertical, level)
+async function startRound(vertical, level, wrap) {
+  await openRound(vertical, level, wrap)
   await screen.findByRole('button', { name: 'Dar vuelta' })
 }
 
@@ -54,6 +60,36 @@ function playRound(round, pick) {
 }
 
 describe('ronda', () => {
+  const roundEvents = () => events.track.mock.calls.filter(([type]) => type === 'game_round_finished')
+
+  test('a finished round sends one game_round_finished', async () => {
+    const round = roundOf(initialState(), 'licores')
+    const asks = round.filter((step) => step.type !== 'dato').length
+    await startRound('licores', undefined, (ui) => <StrictMode>{ui}</StrictMode>)
+    playRound(round, (challenge) => challenge.answer)
+    expect(await screen.findByRole('heading', { name: '¡Ronda completa!' })).toBeTruthy()
+    expect(roundEvents()).toEqual([
+      ['game_round_finished', { payload: { vertical_juego: 'licores', estrellas: 3, aciertos: asks, preguntas: asks } }],
+    ])
+  })
+
+  test('the finished round is recorded once even when the screen repaints afterwards', async () => {
+    await startRound('licores')
+    playRound(roundOf(initialState(), 'licores'), (challenge) => challenge.answer)
+    fireEvent.click(await screen.findByRole('button', { name: 'Abrir carta' })) // cambia el estado del juego: repinta
+    expect(screen.queryByRole('button', { name: 'Abrir carta' })).toBeNull()
+    expect(roundEvents()).toHaveLength(1)
+  })
+
+  test('leaving a round before the end sends no round event', async () => {
+    await startRound('licores')
+    fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salir' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Salir de la ronda' }))
+    expect(roundEvents()).toEqual([])
+  })
+
   test('the round shows the challenge from the API', async () => {
     const challenge = { ...fixture('game-challenge'), kind: 'combo', question: '¿Qué va con las galletas de la API?' }
     const fetchMock = stubApi({ 'GET /game/challenge': challenge })

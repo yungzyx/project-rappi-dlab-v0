@@ -445,6 +445,126 @@ def services(conn: Connection, source: str = "synthetic") -> list[dict]:
     ]
 
 
+# Momentos de las ofertas del agente, en el orden del panel. «pregunta» = lo que sugiere al preguntarle; «para_ti» =
+# la sección "Para ti"; «sin_momento» = sin origen o con uno desconocido (las sugerencias cruzadas simuladas no lo
+# traen): se cuentan aparte en vez de perderse.
+OFFER_MOMENTS = ("plan", "carrito", "checkout", "proximo_pedido", "sin_resultado", "vertical_por_probar")
+OFFER_ORDER = (*OFFER_MOMENTS, "pregunta", "para_ti", "sin_momento")
+
+
+def offers(conn: Connection, source: str = "synthetic") -> dict:
+    """Ofertas del agente mostradas y aceptadas por momento, según `payload.origen` de la sugerencia.
+
+    `agent-<momento>` es el origen actual; `mochi-<momento>` y `chat` son nombres históricos que siguen en la base.
+    Los servicios (RappiTravel, RappiFavor) tienen su propia vista y el aviso sobre el carro no es una oferta: no
+    entran. El % de aceptación necesita 10 mostradas, como en `suggestions`.
+    """
+    _check(source)
+    params = {
+        "source": source,
+        "excluded": [*load_taxonomy().services, "aviso"],
+        "moments": list(OFFER_MOMENTS),
+        "min_rate": MIN_SUGGESTIONS_SHOWN,
+    }
+    shown = """WITH e AS (
+                   SELECT user_id, type,
+                          CASE WHEN origen IN ('agent-ask', 'chat') THEN 'pregunta'  -- 'chat': nombre histórico
+                               -- 'para-ti-local' y 'vertical-para-ti': nombres históricos de «Para ti»
+                               WHEN origen IN ('para-ti', 'para-ti-local', 'vertical-para-ti') THEN 'para_ti'
+                               -- 'mochi-<momento>': nombre histórico de 'agent-<momento>'
+                               WHEN left(origen, 6) IN ('agent-', 'mochi-') AND substr(origen, 7) = ANY(%(moments)s)
+                                    THEN substr(origen, 7)
+                               ELSE 'sin_momento' END AS momento
+                   FROM (SELECT user_id, type, payload ->> 'origen' AS origen FROM app_events
+                         WHERE source = %(source)s AND type IN ('suggestion_shown', 'suggestion_accepted')) o
+                   WHERE coalesce(origen, '') <> ALL(%(excluded)s)
+               )"""
+    [row] = _rows(conn, f"{shown} SELECT count(DISTINCT user_id) AS personas FROM e", params)
+    row["momentos"] = _rows(
+        conn,
+        f"""{shown}
+            SELECT momento, mostradas, aceptadas,
+                   CASE WHEN mostradas >= %(min_rate)s THEN round(100.0 * aceptadas / mostradas, 1) END
+                       AS aceptacion_pct
+            FROM (SELECT momento, count(*) FILTER (WHERE type = 'suggestion_shown') AS mostradas,
+                         count(*) FILTER (WHERE type = 'suggestion_accepted') AS aceptadas
+                  FROM e GROUP BY 1) g""",
+        params,
+    )
+    row["momentos"].sort(key=lambda m: OFFER_ORDER.index(m["momento"]))
+    return row
+
+
+MIN_GAME_ROUNDS = 5  # rondas mínimas para mostrar el promedio de estrellas
+
+
+def game(conn: Connection, source: str = "synthetic") -> dict:
+    """Juego de verticales: personas que jugaron, rondas terminadas, estrellas promedio y tarjetas descubiertas, en
+    total y por vertical del juego. Un payload sin estrellas numéricas cuenta como ronda pero no entra al promedio."""
+    _check(source)
+    params = {"source": source}
+    played = """FROM app_events WHERE source = %(source)s AND type IN ('game_round_finished', 'game_card_discovered')"""
+    # Una tarjeta cuenta una vez por persona: «Repetir escena» conserva el id y no debe sumarla otra vez.
+    cards = "count(DISTINCT (user_id, payload ->> 'tarjeta')) FILTER (WHERE type = 'game_card_discovered')"
+    [row] = _rows(
+        conn,
+        f"""SELECT count(DISTINCT user_id) AS personas,
+                   count(*) FILTER (WHERE type = 'game_round_finished') AS rondas,
+                   round(avg(CASE WHEN type = 'game_round_finished' AND jsonb_typeof(payload -> 'estrellas') = 'number'
+                                  THEN least(greatest((payload ->> 'estrellas')::numeric, 0), 3) END), 1)
+                       AS estrellas_promedio,  -- de 0 a 3, como en la app
+                   {cards} AS tarjetas
+            {played}""",
+        params,
+    )
+    if row["rondas"] < MIN_GAME_ROUNDS:
+        row["estrellas_promedio"] = None
+    row["por_vertical"] = _rows(
+        conn,
+        f"""SELECT payload ->> 'vertical_juego' AS vertical_juego,
+                   count(*) FILTER (WHERE type = 'game_round_finished') AS rondas,
+                   {cards} AS tarjetas
+            {played} AND payload ->> 'vertical_juego' IS NOT NULL
+            GROUP BY payload ->> 'vertical_juego'
+            ORDER BY count(*) DESC, (payload ->> 'vertical_juego') COLLATE "C"  -- el mismo orden en cualquier base
+            """,
+        params,
+    )
+    return row
+
+
+MAX_UNMET_ROWS = 20
+
+
+def unmet(conn: Connection, source: str = "synthetic") -> dict:
+    """Búsquedas y preguntas al agente que saben si encontraron algo (`unmet` no nulo) y, de las sin resultado, cuántas
+    por vertical y concepto. Nunca el texto buscado (`concepto` es NULL si no se reconoció) ni conceptos sensibles."""
+    _check(source)
+    params = {"source": source, "limit": MAX_UNMET_ROWS}
+    # Los conceptos sensibles no entran en ninguna cifra, ni en los totales: no se deducen de la resta.
+    searched = """FROM app_events e LEFT JOIN concepts c ON c.concept_id = e.concept_id
+                  WHERE e.source = %(source)s AND e.type IN ('search', 'chat', 'ask') AND e.unmet IS NOT NULL
+                    AND c.sensitive IS NOT TRUE"""
+    [row] = _rows(
+        conn,
+        f"""SELECT count(DISTINCT e.user_id) AS personas, count(*) AS busquedas,
+                   count(*) FILTER (WHERE e.unmet) AS sin_resultado
+            {searched}""",
+        params,
+    )
+    row["por_vertical"] = _rows(
+        conn,
+        f"""SELECT e.vertical, c.emoji || ' ' || c.name AS concepto, count(*) AS sin_resultado
+            {searched} AND e.unmet
+            GROUP BY e.vertical, e.concept_id, c.emoji, c.name
+            -- empates por códigos en "C": el mismo orden en cualquier base (las respuestas de ejemplo se comparan)
+            ORDER BY 3 DESC, e.vertical COLLATE "C" NULLS LAST, e.concept_id COLLATE "C" NULLS LAST
+            LIMIT %(limit)s""",
+        params,
+    )
+    return row
+
+
 def multi_vertical_retention(conn: Connection, source: str = "synthetic") -> list[dict]:
     """Retención (pedido entre días 61 y 120) de multi-vertical vs un vertical, a igual número de compras.
 

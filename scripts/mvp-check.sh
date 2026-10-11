@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # make mvp-check: recorre la app con Chrome (Playwright) contra un catálogo de prueba inventado. No toca la base real:
-# `rappi-ia seed-demo` solo siembra DATABASE_URL_TEST (rappi_ia_test), y la API de prueba corre en :8010, la app en :5184.
+# `rappi-ia seed-demo` solo siembra DATABASE_URL_TEST (rappi_ia_test), y la API de prueba corre en :8010, la app en :5184
+# y el panel en :5185.
 #   1. en línea: la app abre en la Home conectada;
 #   2. compra: Home → Grocery → primera tienda → agregar un producto → carrito → pagar, y en rappi_ia_test (solo lectura)
 #      queda un pedido `prototype` cuyas líneas son productos (o platos) sembrados;
@@ -10,7 +11,10 @@
 #   4. juego: Home → Jugar → una ronda en el Súper abre con el primer dato que sirve la API, y en rappi_ia_test (solo
 #      lectura) `game_state` guarda a la persona del navegador de la prueba con ese dato en `discovered`;
 #   5. dato: el chip «Algo dulce» del buscador con Mochi trae en la respuesta del agente un «¿Sabías que…?» con su fuente;
-#   6. sin API: se detiene la API y la app muestra «Sin conexión con Mochi».
+#   6. panel: «Uso del MVP» del panel (fuente prototipo) muestra lo que dejaron las revisiones 3 y 4 (una oferta aceptada
+#      en «Plan» y una tarjeta del juego) con el rótulo «uso del MVP, pocas personas: no es evidencia». Corre después de
+#      las demás, con la API todavía en marcha;
+#   7. sin API: se detiene la API y la app muestra «Sin conexión con Mochi».
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # shellcheck source=scripts/mvp-lib.sh
@@ -20,14 +24,16 @@ IA=rappi-ia/.venv/bin/rappi-ia
 IA_PY=rappi-ia/.venv/bin/python
 CHECK=prototipo-app/scripts/mvp-check.mjs
 APP=http://localhost:5184
+PANEL=http://localhost:5185
 
 need_command node "instala Node (la versión de .nvmrc) o revisa tu PATH, y vuelve a correr \`make mvp-check\`."
 need_command curl "viene con macOS; revisa tu PATH."
 need_command lsof "viene con macOS; revisa tu PATH."
 need_dir rappi-ia/.venv "corre \`make install\` en rappi-ia."
 need_dir prototipo-app/node_modules "corre \`npm ci\` en prototipo-app."
+need_dir dashboard-empresa/node_modules "corre \`npm ci\` en dashboard-empresa."
 exit_if_missing
-require_free_ports 8010 5184
+require_free_ports 8010 5184 5185
 
 # La misma URL que usa seed-demo (rappi-ia/.env; una variable ya exportada gana). Nunca se imprime: puede traer la clave.
 # Solo la variable que falta sale con 3; cualquier otro error (un .venv roto, por ejemplo) se deja ver tal cual.
@@ -136,10 +142,12 @@ install_traps
 start api env RAPPI_IA_LIGHT=1 GAME_MIN_ITEMS=1 DATABASE_URL="$TEST_URL" "$IA_PY" -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8010
 start app env VITE_API_URL=http://localhost:8010 npm --prefix prototipo-app run dev -- --port 5184 --strictPort
 wait_for_url "La API de prueba" http://localhost:8010/health 60 api
+start panel env VITE_API_URL=http://localhost:8010 npm --prefix dashboard-empresa run dev -- --port 5185 --strictPort
 wait_for_url "La app" "$APP" 30 app
+wait_for_url "El panel" "$PANEL" 30 panel
 
 passed=0
-total=6
+total=7
 if node "$CHECK" --app "$APP"; then passed=$((passed + 1)); fi
 if node "$CHECK" --app "$APP" --shop && "$IA_PY" -c "$CHECK_ORDER"; then passed=$((passed + 1)); fi
 if node "$CHECK" --app "$APP" --kit && "$IA_PY" -c "$CHECK_ORDER" kit; then passed=$((passed + 1)); fi
@@ -147,6 +155,7 @@ USER_FILE=$(mktemp)
 if node "$CHECK" --app "$APP" --game --user-file "$USER_FILE" && "$IA_PY" -c "$CHECK_GAME" "$(cat "$USER_FILE")"; then passed=$((passed + 1)); fi
 rm -f "$USER_FILE"
 if node "$CHECK" --app "$APP" --dato; then passed=$((passed + 1)); fi
+if node "$CHECK" --panel "$PANEL" --api http://localhost:8010; then passed=$((passed + 1)); fi
 stop_one api
 if node "$CHECK" --app "$APP" --expect-offline; then passed=$((passed + 1)); fi
 

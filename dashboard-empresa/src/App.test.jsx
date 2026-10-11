@@ -27,6 +27,8 @@ describe('App', () => {
     expect(window.location.search).toContain('vista=oportunidades')
 
     fireEvent.keyDown(opportunitiesTab, { key: 'End' })
+    expect(screen.getByRole('tab', { name: 'Uso del MVP' }).getAttribute('aria-selected')).toBe('true')
+    await act(async () => fireEvent.keyDown(screen.getByRole('tab', { name: 'Uso del MVP' }), { key: 'ArrowLeft' }))
     expect(screen.getByRole('tab', { name: 'Catálogo (real)' }).getAttribute('aria-selected')).toBe('true')
     expect(await screen.findByText('Salud del catálogo')).toBeTruthy()
     expect(screen.getByText('Usuarios y eventos SIMULADOS:')).toBeTruthy()

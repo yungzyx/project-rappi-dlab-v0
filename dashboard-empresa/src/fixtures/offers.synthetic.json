@@ -1,0 +1,14 @@
+{
+  "data": {
+    "momentos": [
+      {
+        "aceptacion_pct": 26.5,
+        "aceptadas": 13,
+        "momento": "sin_momento",
+        "mostradas": 49
+      }
+    ],
+    "personas": 22
+  },
+  "source": "synthetic"
+}

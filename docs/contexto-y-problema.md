@@ -80,7 +80,7 @@ Estado al 30-09-2026:
 | **Prototipo** | App navegable: Mochi en la Home, buscador con Mochi, pasaporte y juego de verticales (`prototipo-app/`) | **Listo para demo.** Necesita la API (`make mvp`) y usa el catálogo real; sin ella muestra «Sin conexión con Mochi». Ver [decisiones.md](decisiones.md#agente-bigotes) |
 | **2. RAG** | Conceptos (capa 2), embeddings de texto, búsqueda híbrida por vertical y evaluación (`rappi-ia/`) | **Construido.** Todos los documentos de búsqueda con embedding de texto. Evaluación en [README → Resultados](../README.md#resultados) |
 | **3. Agente** | Mochi en el backend y API: herramientas de búsqueda, reglas de conducta; LLM opcional | **Construido.** Responde solo por texto (`POST /agent/ask`) y hace ofertas (`/agent/offer`, `/agent/plans`) |
-| **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono | **Construido** (`dashboard-empresa/`), como herramienta para más adelante: usuarios simulados, salvo la pestaña Catálogo (real) |
+| **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono | **Construido** (`dashboard-empresa/`) y conectado a la API como parte del MVP: usuarios simulados, salvo la pestaña Catálogo (real) y la vista «Uso del MVP» (lo hecho en la app, pocas personas: no es evidencia) |
 | **Cierre** | CI, documentación y validación final (etapa 8 de [diseno-ia.md](diseno-ia.md#7-etapas)) | **Hecha.** CI en verde y corrida post-refresh sobre el catálogo completo (30-09-2026) |
 
 ## 7. Límites y riesgos
