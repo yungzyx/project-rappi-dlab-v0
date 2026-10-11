@@ -6,7 +6,8 @@ import { AssistantProvider, useAssistant } from '../../state/AssistantContext'
 import { CartProvider, formatPrice, useCart } from '../../state/CartContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { GameProvider } from '../../state/GameContext'
-import { seed } from '../../game/testSeed.js'
+import { gameReady, seed } from '../../game/testSeed.js'
+import { stubApi } from '../../api/testing'
 import { AGENT_DRAG_TYPE } from '../../assistant/agentAsk'
 import { AGENT_CART_EVENT, resetLive } from '../../state/liveMemory'
 import { QUIET_KEY, resetQuiet } from '../../state/agentQuiet'
@@ -46,12 +47,22 @@ const tree = (props = {}) => (
     </ProfileProvider>
   </DemoProvider>
 )
+// Monta el árbol y espera a que el juego cargue su progreso del servidor simulado (`stubApi`).
+const mountTree = async (props) => {
+  const result = render(tree(props))
+  await gameReady()
+  return result
+}
 const agentButton = () => screen.queryByRole('button', { name: 'Mochi: ayuda y opciones' })
 
-beforeEach(() => localStorage.setItem('rappi-proto-demo-mode', 'final'))
+beforeEach(() => {
+  localStorage.setItem('rappi-proto-demo-mode', 'final')
+  stubApi({})
+})
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
+  vi.unstubAllGlobals()
   resetQuiet()
   localStorage.clear()
 })
@@ -60,17 +71,17 @@ const added = (product) => act(() => window.dispatchEvent(new CustomEvent(AGENT_
 const bubble = () => document.querySelector('.agent-bubble')
 
 describe('Mochi y el carro', () => {
-  test('al agregar dice «¡Listo! … está en tu carrito» y se va a los 4 s', () => {
+  test('al agregar dice «¡Listo! … está en tu carrito» y se va a los 4 s', async () => {
     vi.useFakeTimers()
-    render(tree())
+    await mountTree()
     added(BEER)
     expect(bubble().textContent).toContain(`¡Listo! ${BEER.name} está en tu carrito.`)
     act(() => vi.advanceTimersByTime(4000))
     expect(bubble()).toBeNull()
   })
 
-  test('«Deshacer» quita el producto', () => {
-    render(tree())
+  test('«Deshacer» quita el producto', async () => {
+    await mountTree()
     act(() => probe.cart.add(BEER))
     added(BEER)
     fireEvent.click(screen.getByRole('button', { name: 'Deshacer' }))
@@ -78,15 +89,15 @@ describe('Mochi y el carro', () => {
     expect(bubble()).toBeNull()
   })
 
-  test('silenciado no dice nada', () => {
+  test('silenciado no dice nada', async () => {
     localStorage.setItem(QUIET_KEY, today())
-    render(tree())
+    await mountTree()
     added(BEER)
     expect(bubble()).toBeNull()
   })
 
-  test('cerrar el globo cuenta como ignorarlo: a la segunda, se calla', () => {
-    render(tree())
+  test('cerrar el globo cuenta como ignorarlo: a la segunda, se calla', async () => {
+    await mountTree()
     for (let i = 0; i < 2; i++) {
       added(BEER)
       fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
@@ -97,35 +108,35 @@ describe('Mochi y el carro', () => {
 })
 
 describe('Mochi flotante', () => {
-  test('aparece en una vertical y no en la Home, el checkout, el seguimiento ni el juego', () => {
-    render(tree())
+  test('aparece en una vertical y no en la Home, el checkout, el seguimiento ni el juego', async () => {
+    await mountTree()
     expect(agentButton()).toBeTruthy()
     for (const screenName of ['home', 'checkout', 'tracking', 'game']) {
       cleanup()
-      render(tree({ screen: screenName, homeTab: 'home' }))
+      await mountTree({ screen: screenName, homeTab: 'home' })
       expect(agentButton(), screenName).toBeNull()
     }
   })
 
-  test('en las otras pestañas de la Home sí aparece', () => {
-    render(tree({ screen: 'home', homeTab: 'offers' }))
+  test('en las otras pestañas de la Home sí aparece', async () => {
+    await mountTree({ screen: 'home', homeTab: 'offers' })
     expect(agentButton()).toBeTruthy()
   })
 
-  test('en «Rappi hoy» no aparece', () => {
+  test('en «Rappi hoy» no aparece', async () => {
     localStorage.setItem('rappi-proto-demo-mode', 'actual')
-    render(tree())
+    await mountTree()
     expect(agentButton()).toBeNull()
   })
 
-  test('con el buscador con Mochi abierto no aparece', () => {
-    render(tree())
+  test('con el buscador con Mochi abierto no aparece', async () => {
+    await mountTree()
     act(() => probe.assistant.open())
     expect(agentButton()).toBeNull()
   })
 
-  test('tocarlo salta y abre el menú con sus 4 opciones; Escape lo cierra', () => {
-    const { container } = render(tree())
+  test('tocarlo salta y abre el menú con sus 4 opciones; Escape lo cierra', async () => {
+    const { container } = await mountTree()
     fireEvent.pointerDown(agentButton())
     fireEvent.click(agentButton())
     expect(container.querySelector('.agent-presence .mascot').classList).toContain('mascot--jump')
@@ -137,9 +148,9 @@ describe('Mochi flotante', () => {
     expect(document.activeElement).toBe(agentButton())
   })
 
-  test('«¿Qué puedo probar?» abre el buscador con la oferta de la vertical por probar y los sellos del juego', () => {
+  test('«¿Qué puedo probar?» abre el buscador con la oferta de la vertical por probar y los sellos del juego', async () => {
     seed({ visited: ['restaurantes', 'supermercado', 'licores'] })
-    render(tree())
+    await mountTree()
     fireEvent.click(agentButton())
     fireEvent.click(screen.getByRole('button', { name: '¿Qué puedo probar?' }))
     expect(probe.assistant.isOpen).toBe(true)
@@ -149,26 +160,26 @@ describe('Mochi flotante', () => {
     expect(probe.assistant.session.query).toBe('Muéstrame algo nuevo para probar')
   })
 
-  test('con carro, la segunda opción es revisarlo con el total', () => {
-    render(tree())
+  test('con carro, la segunda opción es revisarlo con el total', async () => {
+    await mountTree()
     act(() => probe.cart.add(BEER))
     fireEvent.click(agentButton())
     expect(screen.getByRole('button', { name: `Revisar mi carrito · ${formatPrice(probe.cart.total)}` })).toBeTruthy()
   })
 
-  test('«Mover a la izquierda» lo cambia de lado y lo recuerda', () => {
-    const { container } = render(tree())
+  test('«Mover a la izquierda» lo cambia de lado y lo recuerda', async () => {
+    const { container } = await mountTree()
     fireEvent.click(agentButton())
     fireEvent.click(screen.getByRole('button', { name: 'Mover a la izquierda' }))
     expect(container.querySelector('.agent-presence').classList).toContain('is-left')
     expect(localStorage.getItem(SIDE_KEY)).toBe('left')
     cleanup()
-    const again = render(tree())
+    const again = await mountTree()
     expect(again.container.querySelector('.agent-presence').classList).toContain('is-left')
   })
 
-  test('arrastrarlo más allá de la mitad del teléfono lo deja en ese lado, sin abrir el menú', () => {
-    const { container } = render(tree())
+  test('arrastrarlo más allá de la mitad del teléfono lo deja en ese lado, sin abrir el menú', async () => {
+    const { container } = await mountTree()
     container.querySelector('.phone').getBoundingClientRect = () => ({ left: 0, width: 400, top: 0, height: 800 })
     const body = agentButton()
     fireEvent.pointerDown(body, { clientX: 360, pointerId: 1 })
@@ -179,8 +190,8 @@ describe('Mochi flotante', () => {
     expect(screen.queryByRole('group', { name: 'Opciones de Mochi' })).toBeNull()
   })
 
-  test('«Silenciar por hoy» lo deja como pestañita y tocarla lo despierta', () => {
-    const { container } = render(tree())
+  test('«Silenciar por hoy» lo deja como pestañita y tocarla lo despierta', async () => {
+    const { container } = await mountTree()
     fireEvent.click(agentButton())
     fireEvent.click(screen.getByRole('button', { name: 'Silenciar por hoy' }))
     expect(container.querySelector('.agent-presence').classList).toContain('is-quiet')
@@ -190,8 +201,8 @@ describe('Mochi flotante', () => {
     expect(agentButton()).toBeTruthy()
   })
 
-  test('soltar una tarjeta sobre Mochi pregunta por ese producto', () => {
-    render(tree())
+  test('soltar una tarjeta sobre Mochi pregunta por ese producto', async () => {
+    await mountTree()
     const data = { [AGENT_DRAG_TYPE]: JSON.stringify(BEER) }
     const dataTransfer = { types: [AGENT_DRAG_TYPE], getData: (type) => data[type] ?? '' }
     fireEvent.dragOver(agentButton(), { dataTransfer })
@@ -200,9 +211,9 @@ describe('Mochi flotante', () => {
     expect(probe.assistant.session.product).toMatchObject({ name: BEER.name }) // el panel pide su complemento a la API
   })
 
-  test('en silencio queda a la misma altura: sobre el carro y la barra inferior, sin taparlos', () => {
+  test('en silencio queda a la misma altura: sobre el carro y la barra inferior, sin taparlos', async () => {
     localStorage.setItem(QUIET_KEY, today())
-    const { container } = render(tree({ raised: true }))
+    const { container } = await mountTree({ raised: true })
     act(() => probe.cart.add(BEER))
     const classes = container.querySelector('.agent-presence').classList
     expect(classes).toContain('is-quiet')
@@ -210,16 +221,16 @@ describe('Mochi flotante', () => {
     expect(classes).toContain('is-raised')
   })
 
-  test('«Repetir escena» lo despierta', () => {
+  test('«Repetir escena» lo despierta', async () => {
     localStorage.setItem(QUIET_KEY, today())
-    const { container } = render(tree())
+    const { container } = await mountTree()
     expect(container.querySelector('.agent-presence').classList).toContain('is-quiet')
     act(() => resetLive())
     expect(container.querySelector('.agent-presence').classList).not.toContain('is-quiet')
   })
 
-  test('«Buscar con Mochi» abre el buscador', () => {
-    render(tree())
+  test('«Buscar con Mochi» abre el buscador', async () => {
+    await mountTree()
     fireEvent.click(agentButton())
     fireEvent.click(screen.getByRole('button', { name: 'Buscar con Mochi' }))
     expect(probe.assistant.isOpen).toBe(true)

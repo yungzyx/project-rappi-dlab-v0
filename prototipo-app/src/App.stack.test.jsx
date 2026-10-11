@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { fixture, stubApi } from './api/testing'
+import { gameReady } from './game/testSeed.js'
 import App from './App'
 
 vi.mock('./api/client', async (importOriginal) => ({
@@ -31,6 +32,7 @@ const wraps = () => [...document.querySelectorAll('.screen-wrap')]
 describe('pila de pantallas montada', () => {
   test('al volver, el buscador conserva su texto y la Home nunca se desmontó', async () => {
     render(<App />)
+    await gameReady() // el juego carga sus tarjetas y su progreso antes de pintar la app
     const home = wraps()[0]
     fireEvent.click(screen.getByLabelText('Buscar'))
     expect(wraps()).toHaveLength(2)

@@ -34,3 +34,21 @@ def test_lan_mode_still_rejects_other_hosts_and_ports():
         "https://localhost:5174",
     ):
         assert not allowed(origin, True), origin
+
+
+def test_preflight_allows_put_for_the_game_state():
+    from fastapi.testclient import TestClient
+
+    from rappi_ia.api.app import app
+
+    reply = TestClient(app).options(
+        "/game/state/u-1",
+        headers={
+            "Origin": "http://localhost:5174",
+            "Access-Control-Request-Method": "PUT",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert reply.status_code == 200
+    assert "PUT" in reply.headers["access-control-allow-methods"]

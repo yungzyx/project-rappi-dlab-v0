@@ -1,6 +1,5 @@
 import { CaretLeft } from '@phosphor-icons/react'
 import { useState } from 'react'
-import { DATA } from '../../game/data.js'
 import { useGame } from '../../state/GameContext'
 import './settings.css'
 
@@ -47,8 +46,8 @@ export default function Settings({ back, home }) {
       <section className="settings-about">
         <h2 className="section-title">Sobre este prototipo</h2>
         <p className="muted">
-          Prototipo de prueba, independiente y no afiliado a Rappi. Los números salen del catálogo público de Rappi
-          Chile del {DATA.asOf}. No hay compras ni datos de usuarios reales.
+          Prototipo de prueba, independiente y no afiliado a Rappi. Los desafíos salen del catálogo público de Rappi
+          Chile que sirve la API. No hay compras ni datos de usuarios reales.
         </p>
       </section>
     </div>

@@ -4,6 +4,9 @@ import FactCard, { Source } from './FactCard.jsx'
 import Mascot from '../../components/assistant/Mascot'
 import Sheet from './GameSheet.jsx'
 import Stamp, { LEVEL_NAMES } from './Stamp.jsx'
+import { challenge as fetchChallenge } from '../../api/game'
+import { useApi } from '../../api/useApi'
+import { ConnectionNotice } from '../../components/ConnectionGate'
 import { cardById } from '../../game/knowledge.js'
 import { LABELS } from '../../game/verticals.js'
 import { LEVELS, explorerLevel, verticalLevel } from '../../game/progress.js'
@@ -16,8 +19,6 @@ const KIND_TITLES = {
   combo: 'Arma el combo',
   sustituto: 'Si no hay',
   imposible: 'La pareja imposible',
-  puente: 'Producto puente',
-  trivia: 'Trivia',
   conocimiento: 'Pregunta curiosa',
 }
 
@@ -194,12 +195,43 @@ function Confetti() {
   )
 }
 
-/** Una ronda de 5 pasos en una vertical: dar vuelta datos «¿Sabías que…?» y responder preguntas y un desafío. */
-/** `orderId`: se juega mientras llega un pedido; al final se vuelve a él. */
+/** La vertical sin las tarjetas que la ronda necesita (la base sin `rappi-ia knowledge`): un aviso con «Salir». */
+function NoCards({ vertical, back }) {
+  return (
+    <div className="game-screen no-nav round-end" style={{ '--v': `var(--v-${vertical})` }}>
+      <Mascot size={86} mood="listen" />
+      <h1>Aún no hay tarjetas de {LABELS[vertical]}</h1>
+      <p className="muted">
+        La API no tiene las tarjetas del juego. Cárgalas con <code>make knowledge</code> en rappi-ia (<code>make mvp</code>{' '}
+        lo hace solo) y vuelve a intentar.
+      </p>
+      <button type="button" className="btn-game end-done" onClick={back}>
+        Salir
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Una ronda de 5 pasos en una vertical: dar vuelta datos «¿Sabías que…?» y responder preguntas y un desafío.
+ * `orderId`: se juega mientras llega un pedido; al final se vuelve a él.
+ * El desafío del catálogo lo arma la API: se pide al abrir la ronda (con la semilla de las respuestas de hoy en la
+ * vertical, fija mientras dura la ronda) y, si falla, la ronda no parte: «Sin conexión» con «Reintentar».
+ */
 export default function Round({ vertical, back, orderId }) {
+  const { state } = useGame()
+  const [seed] = useState(() => String(state.answered[vertical] ?? 0))
+  const { data: challenge, error, loading, retry } = useApi(() => fetchChallenge(vertical, seed), [vertical, seed])
+
+  if (error || loading) return <ConnectionNotice status={error ? 'offline' : 'checking'} onRetry={retry} onLeave={back} />
+  return <PlayRound vertical={vertical} back={back} orderId={orderId} challenge={challenge} turn={Number(seed)} />
+}
+
+/** La ronda ya armada; `challenge` es el desafío de la API, o null si la vertical no tiene (Viajes), pedido en el turno `turn`. */
+function PlayRound({ vertical, back, orderId, challenge, turn }) {
   const game = useGame()
   const { clearEvents } = game
-  const [steps] = useState(() => makeRound(game.state, vertical))
+  const [steps] = useState(() => makeRound(game.state, vertical, challenge, turn))
   const [levelBefore] = useState(() => verticalLevel(game.state, vertical))
   const [xpBefore] = useState(() => game.state.xp)
   const [index, setIndex] = useState(0)
@@ -207,8 +239,9 @@ export default function Round({ vertical, back, orderId }) {
   const [confirmExit, setConfirmExit] = useState(false)
   const [tally, setTally] = useState({ xp: 0, bonus: 0, correct: 0, challenges: 0, cards: [] })
 
-  const finished = index >= steps.length
-  const step = steps[index]
+  // Sin tarjetas para armar la ronda no hay pasos: se avisa (abajo, después de los hooks) en vez de romperse.
+  const finished = steps !== null && index >= steps.length
+  const step = steps?.[index]
 
   const record = (result, extra) =>
     setTally((t) => ({
@@ -257,7 +290,7 @@ export default function Round({ vertical, back, orderId }) {
 
   // Teclado para la demo en computador: 1 a 4 responden, Enter o espacio dan vuelta la carta o siguen.
   useEffect(() => {
-    if (finished || confirmExit) return undefined
+    if (!steps || finished || confirmExit) return undefined
     const onKey = (e) => {
       if (e.repeat) return
       // Enter sobre un enlace (la fuente) lo abre: no sigue la ronda.
@@ -276,6 +309,8 @@ export default function Round({ vertical, back, orderId }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+
+  if (!steps) return <NoCards vertical={vertical} back={back} />
 
   if (finished) {
     return (

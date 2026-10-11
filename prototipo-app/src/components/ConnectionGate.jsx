@@ -38,6 +38,15 @@ export default function ConnectionGate({ children }) {
 
   if (status === 'online') return children
 
+  return <ConnectionNotice status={status} onRetry={() => setAttempt((n) => n + 1)} />
+}
+
+/**
+ * El aviso de «Conectando…» (`status` 'checking') o «Sin conexión» con «Reintentar» (`status` 'offline'): lo usan la puerta
+ * de conexión y GameProvider, mientras carga sus tarjetas y su progreso. Con `onLeave`, sin conexión también ofrece «Salir»
+ * (para una pantalla que oculta su propia navegación, como la ronda del juego).
+ */
+export function ConnectionNotice({ status, onRetry, onLeave }) {
   return (
     <main className="connection-gate">
       <div className="connection-card">
@@ -61,8 +70,13 @@ export default function ConnectionGate({ children }) {
         </div>
         {/* Siempre montado una vez sin conexión: así el foco no cae al body con cada «Reintentar». */}
         {status === 'offline' && (
-          <button type="button" className="connection-retry tap" onClick={() => setAttempt((n) => n + 1)}>
+          <button type="button" className="connection-retry tap" onClick={onRetry}>
             Reintentar
+          </button>
+        )}
+        {status === 'offline' && onLeave && (
+          <button type="button" className="connection-leave tap" onClick={onLeave}>
+            Salir
           </button>
         )}
       </div>

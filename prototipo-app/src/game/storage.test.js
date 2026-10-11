@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { datosOf } from './knowledge.js'
 import { initialState } from './progress.js'
-import { KEY, clear, load, save } from './storage.js'
+import { KEY, LEGACY_PASSPORT_KEY, clearLegacy, legacyProgress } from './storage.js'
 
 function memoryStorage(initial = {}) {
   const data = { ...initial }
@@ -29,16 +29,20 @@ const broken = {
   },
 }
 
-describe('guardado local', () => {
-  test('guarda y vuelve a cargar el mismo estado', () => {
-    const store = memoryStorage()
+describe('progreso viejo del navegador', () => {
+  test('lee el progreso que guardó el juego antes', () => {
     const state = { ...initialState(), xp: 130 }
-    expect(save(state, store)).toBe(true)
-    expect(load(store)).toEqual(state)
+    expect(legacyProgress(memoryStorage({ [KEY]: JSON.stringify(state) }))).toEqual(state)
   })
 
-  test('sin nada guardado parte en cero', () => {
-    expect(load(memoryStorage())).toEqual(initialState())
+  test('sin nada guardado no hay nada que traspasar', () => {
+    expect(legacyProgress(memoryStorage())).toBeNull()
+  })
+
+  test('leerlo no toca el almacenamiento: borrarlo es aparte', () => {
+    const store = memoryStorage({ [KEY]: JSON.stringify(initialState()), [LEGACY_PASSPORT_KEY]: '["grocery"]' })
+    legacyProgress(store)
+    expect(Object.keys(store.data).sort()).toEqual([LEGACY_PASSPORT_KEY, KEY].sort())
   })
 
   const base = { version: 1, xp: 5, discovered: {}, correct: {}, answered: {}, cards: [], opened: [] }
@@ -61,43 +65,49 @@ describe('guardado local', () => {
     odd({ seenIntro: 'sí' }),
     odd({ correct: { turbo: 'x' } }),
     odd({ discovered: { turbo: [3] } }),
-  ])('un valor roto (%s) parte en cero', (raw) => {
-    expect(load(memoryStorage({ [KEY]: raw }))).toEqual(initialState())
+  ])('un valor roto (%s) no se traspasa', (raw) => {
+    expect(legacyProgress(memoryStorage({ [KEY]: raw }))).toBeNull()
   })
 
-  test('si el navegador no deja leer ni escribir, el juego sigue', () => {
-    expect(load(broken)).toEqual(initialState())
-    expect(save(initialState(), broken)).toBe(false)
-    expect(clear(broken)).toBe(false)
+  test('si el navegador no deja leer ni borrar, el juego sigue', () => {
+    expect(legacyProgress(broken)).toBeNull()
+    expect(clearLegacy(broken)).toBe(false)
   })
 
   test('sin localStorage disponible también sigue', () => {
-    expect(load(null)).toEqual(initialState())
-    expect(save(initialState(), null)).toBe(false)
+    expect(legacyProgress(null)).toBeNull()
+    expect(clearLegacy(null)).toBe(false)
   })
 
-  test('un progreso guardado con conceptos y cartas viejas se carga sin ids huérfanos y conserva sellos, XP y racha', () => {
+  test('las tarjetas no se filtran al leer (el registro aún está vacío): ids viejos incluidos, conserva sellos, XP y racha', () => {
     const card = datosOf('licores')[0].id
     const old = {
       ...initialState(),
       xp: 340,
       streak: { count: 3, lastDate: '2026-10-08' },
-      visited: ['supermercado', 'restaurantes', 'licores'],
+      visited: ['supermercado', 'restaurantes', 'licores', 'mascotas'],
       discovered: { licores: ['vino', 'cerveza', card], turbo: ['frutas'] },
       cards: ['licores-tamano', card],
       opened: ['licores-tamano'],
     }
-    const loaded = load(memoryStorage({ [KEY]: JSON.stringify(old) }))
-    expect(loaded.discovered).toEqual({ licores: [card], turbo: [] })
-    expect(loaded.cards).toEqual([card])
-    expect(loaded.opened).toEqual([])
-    expect(loaded).toMatchObject({ xp: 340, streak: { count: 3, lastDate: '2026-10-08' }, visited: old.visited })
+    const loaded = legacyProgress(memoryStorage({ [KEY]: JSON.stringify(old) }))
+    expect(loaded.discovered).toEqual(old.discovered)
+    expect(loaded.cards).toEqual(old.cards)
+    expect(loaded.opened).toEqual(old.opened)
+    expect(loaded).toMatchObject({ xp: 340, streak: { count: 3, lastDate: '2026-10-08' } })
+    expect(loaded.visited).toEqual(['supermercado', 'restaurantes', 'licores']) // las verticales sí se conocen
   })
 
-  test('clear borra lo guardado', () => {
-    const store = memoryStorage()
-    save({ ...initialState(), xp: 10 }, store)
-    expect(clear(store)).toBe(true)
-    expect(load(store)).toEqual(initialState())
+  test('la forma es la de initialState: claves de más fuera, enteros >= 0, huecos completados', () => {
+    const raw = { version: 1, xp: 5.9, discovered: { turbo: ['a', 'x'.repeat(65)] }, correct: { turbo: -2 }, answered: {}, cards: [], opened: [], extra: 1 }
+    const loaded = legacyProgress(memoryStorage({ [KEY]: JSON.stringify(raw) }))
+    expect(loaded).toEqual({ ...initialState(), xp: 5, discovered: { turbo: ['a'] }, correct: { turbo: 0 } })
+  })
+
+  test('clearLegacy borra el progreso y el pasaporte viejo', () => {
+    const store = memoryStorage({ [KEY]: JSON.stringify({ ...initialState(), xp: 10 }), [LEGACY_PASSPORT_KEY]: '[]' })
+    expect(clearLegacy(store)).toBe(true)
+    expect(store.data).toEqual({})
+    expect(legacyProgress(store)).toBeNull()
   })
 })

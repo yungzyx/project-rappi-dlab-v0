@@ -1,0 +1,202 @@
+{
+  "cards": [
+    {
+      "concepts": [
+        "verduras"
+      ],
+      "id": "supermercado-01",
+      "kind": "dato",
+      "source": {
+        "title": "Syn-Propanethial-S-oxide — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Syn-Propanethial-S-oxide"
+      },
+      "text": "Al cortar una cebolla rompes sus células y unas enzimas fabrican un compuesto volátil, el óxido de syn-propanotial-S. Su vapor llega a tus ojos y los hace lagrimear.",
+      "title": "Por qué lloras con la cebolla",
+      "vertical": "supermercado"
+    },
+    {
+      "concepts": [],
+      "id": "supermercado-02",
+      "kind": "dato",
+      "source": {
+        "title": "Universal Product Code — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Universal_Product_Code"
+      },
+      "text": "El primer producto con código de barras UPC que se escaneó en la caja de un supermercado fue un paquete de chicles Juicy Fruit, en Troy (Ohio, EE.UU.), el 26 de junio de 1974.",
+      "title": "El primer código escaneado",
+      "vertical": "supermercado"
+    },
+    {
+      "concepts": [],
+      "id": "supermercado-03",
+      "kind": "dato",
+      "source": {
+        "title": "Shopping cart — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Shopping_cart"
+      },
+      "text": "Sylvan Goldman lanzó el carro de supermercado en 1937, en Oklahoma. Al principio no prendió: a los hombres les parecía poco varonil y a las mujeres les recordaba un coche de guagua.",
+      "title": "El carrito que nadie quería",
+      "vertical": "supermercado"
+    },
+    {
+      "concepts": [
+        "frutas"
+      ],
+      "id": "supermercado-04",
+      "kind": "dato",
+      "source": {
+        "title": "Strawberry — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Strawberry"
+      },
+      "text": "Para la botánica, la frutilla no es una baya. Cada «semillita» de su superficie es en realidad un fruto diminuto, llamado aquenio, con su propia semilla adentro.",
+      "title": "La frutilla engaña",
+      "vertical": "supermercado"
+    },
+    {
+      "concepts": [
+        "frutas"
+      ],
+      "id": "supermercado-05",
+      "kind": "dato",
+      "source": {
+        "title": "Hass avocado — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Hass_avocado"
+      },
+      "text": "Todos los paltos Hass comerciales vienen de injertos de un árbol que el cartero Rudolph Hass plantó en California en 1926. A comienzos de este siglo eran cerca del 80% de las paltas del mundo.",
+      "title": "Todas las Hass, de un solo árbol",
+      "vertical": "supermercado"
+    },
+    {
+      "concepts": [
+        "frutas"
+      ],
+      "id": "supermercado-06",
+      "kind": "dato",
+      "source": {
+        "title": "Frutas — Aportes de América a la alimentación, Museo Chileno de Arte Precolombino",
+        "url": "https://precolombino.cl/wp/en/recursos-educativos/aportes-de-america-a-la-alimentacion/frutas/"
+      },
+      "text": "El nombre «chirimoya» viene del quechua y significaría «semilla fría». Es una fruta de origen andino, y hoy España es su mayor productor en el mundo.",
+      "title": "Chirimoya, «semilla fría»",
+      "vertical": "supermercado"
+    },
+    {
+      "answer": 0,
+      "concepts": [
+        "salsas"
+      ],
+      "explanation": "Habría designado la salmuera de pescado o mariscos. El tomate llegó mucho después: la primera receta conocida de ketchup de tomate es de 1812.",
+      "id": "supermercado-07",
+      "kind": "pregunta",
+      "options": [
+        "La salmuera de pescados o mariscos en conserva",
+        "Una salsa dulce de tomate",
+        "Un vinagre de arroz"
+      ],
+      "question": "Una teoría dice que «ketchup» viene del hokkien, una lengua del sur de China. ¿Qué nombraba esa palabra?",
+      "source": {
+        "title": "Ketchup — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Ketchup"
+      },
+      "vertical": "supermercado"
+    },
+    {
+      "answer": 2,
+      "concepts": [
+        "verduras"
+      ],
+      "explanation": "Las zanahorias orientales eran moradas o amarillas. Que la naranja se creara en honor a Guillermo de Orange es una historia con poca evidencia.",
+      "id": "supermercado-08",
+      "kind": "pregunta",
+      "options": [
+        "Azules",
+        "Verdes",
+        "Moradas o amarillas"
+      ],
+      "question": "Las zanahorias domesticadas en Persia, antes de que los holandeses fijaran la variedad naranja, ¿de qué color eran por lo general?",
+      "source": {
+        "title": "Carrot — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Carrot"
+      },
+      "vertical": "supermercado"
+    },
+    {
+      "answer": 0,
+      "concepts": [
+        "frutos-secos"
+      ],
+      "explanation": "El maní no es una nuez sino una legumbre, y sus vainas maduran enterradas. Ese rasgo poco común se llama geocarpia.",
+      "id": "supermercado-09",
+      "kind": "pregunta",
+      "options": [
+        "Bajo tierra",
+        "En racimos colgando del tallo",
+        "Dentro de una mazorca"
+      ],
+      "question": "¿Dónde se desarrollan los frutos del maní?",
+      "source": {
+        "title": "Peanut — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Peanut"
+      },
+      "vertical": "supermercado"
+    },
+    {
+      "answer": 1,
+      "concepts": [
+        "aceites-condimentos"
+      ],
+      "explanation": "El merkén es ají cacho de cabra seco y ahumado, molido junto con semillas de cilantro tostadas y sal.",
+      "id": "supermercado-10",
+      "kind": "pregunta",
+      "options": [
+        "Ají cristal",
+        "Ají cacho de cabra",
+        "Rocoto"
+      ],
+      "question": "¿Qué ají se seca y ahúma para hacer el merkén, condimento de origen mapuche?",
+      "source": {
+        "title": "Merkén — Wikipedia",
+        "url": "https://es.wikipedia.org/wiki/Merkén"
+      },
+      "vertical": "supermercado"
+    },
+    {
+      "answer": 2,
+      "concepts": [],
+      "explanation": "Fue el primer almacén de autoservicio de verdad. Su fundador, Clarence Saunders, patentó en 1917 la idea de la «tienda autoservida».",
+      "id": "supermercado-11",
+      "kind": "pregunta",
+      "options": [
+        "Vendía solo productos congelados",
+        "Tenía cajas sin cajero",
+        "Era de autoservicio: el cliente tomaba sus productos"
+      ],
+      "question": "En 1916 abrió Piggly Wiggly en Memphis (EE.UU.). ¿Qué tenía de novedoso?",
+      "source": {
+        "title": "Piggly Wiggly — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Piggly_Wiggly"
+      },
+      "vertical": "supermercado"
+    },
+    {
+      "answer": 1,
+      "concepts": [
+        "panaderia"
+      ],
+      "explanation": "Fue una medida de ahorro en tiempos de guerra: el pan rebanado necesitaba más envoltorio. Rigió del 18 de enero al 8 de marzo de 1943.",
+      "id": "supermercado-12",
+      "kind": "pregunta",
+      "options": [
+        "El chicle",
+        "El pan de molde ya rebanado",
+        "La mantequilla de maní"
+      ],
+      "question": "En 1943, Estados Unidos prohibió durante unas siete semanas vender un producto muy común. ¿Cuál?",
+      "source": {
+        "title": "Sliced bread — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Sliced_bread"
+      },
+      "vertical": "supermercado"
+    }
+  ]
+}

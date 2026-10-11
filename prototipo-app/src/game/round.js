@@ -1,5 +1,3 @@
-import { makeChallenge } from './challenges.js'
-import { DATA } from './data.js'
 import { asChallenge, datosOf, preguntasOf } from './knowledge.js'
 
 export const ROUND_SIZE = 5
@@ -16,21 +14,24 @@ function pick(cards, seen, n, round) {
 }
 
 /**
- * Una ronda en una vertical: 2 datos «¿Sabías que…?», 2 preguntas de conocimiento y 1 desafío del catálogo (la
- * pregunta del día de challenges.js), intercalados. Viajes no tiene catálogo: cambia el desafío por otra pregunta.
+ * Una ronda en una vertical: 2 datos «¿Sabías que…?», 2 preguntas de conocimiento y 1 desafío del catálogo (el que
+ * pide la API, `challenge`), intercalados. `turn`: las respuestas de la vertical con que se pidió el desafío (la semilla). Sin desafío (`null`: Viajes no tiene catálogo) cambia el desafío por otra pregunta.
+ * Devuelve null si la vertical no tiene las tarjetas que la ronda necesita (la base sin `rappi-ia knowledge`).
  */
-export function makeRound(state, vertical) {
+export function makeRound(state, vertical, challenge, turn = state.answered[vertical] ?? 0) {
   const seen = new Set(state.discovered[vertical] ?? [])
-  const turn = state.answered[vertical] ?? 0
-  // Cada ronda completa responde 3 preguntas (2 y el desafío; en Viajes, 3 preguntas).
+  // Cada ronda completa responde 3 preguntas (2 y el desafío; sin desafío, 3 preguntas).
   const round = Math.floor(turn / 3)
-  const hasCatalog = DATA.order.includes(vertical)
-  const [d1, d2] = pick(datosOf(vertical), seen, 2, round)
-  const [p1, p2, p3] = pick(preguntasOf(vertical), seen, hasCatalog ? 2 : 3, round)
+  const hasChallenge = Boolean(challenge)
+  const datos = pick(datosOf(vertical), seen, 2, round)
+  const preguntas = pick(preguntasOf(vertical), seen, hasChallenge ? 2 : 3, round)
+  if (datos.length < 2 || preguntas.length < (hasChallenge ? 2 : 3)) return null
+  const [d1, d2] = datos
+  const [p1, p2, p3] = preguntas
   // Las alternativas rotan con la ronda: una pregunta fallada no vuelve con el mismo orden.
   const ask = (card) => asChallenge(card, round)
-  const middle = hasCatalog
-    ? { type: 'desafio', challenge: makeChallenge(vertical, String(turn)) }
+  const middle = hasChallenge
+    ? { type: 'desafio', challenge }
     : { type: 'pregunta', challenge: ask(p3) }
   return [
     { type: 'dato', card: d1 },

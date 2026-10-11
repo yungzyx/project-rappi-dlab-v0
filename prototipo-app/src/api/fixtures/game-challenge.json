@@ -1,0 +1,27 @@
+{
+  "anchor": "reposteria",
+  "answer": "reposteria",
+  "explanation": "Mochi asocia 🧁 Harinas y repostería con Súper, donde tiene 4 productos. Las otras opciones tienen menos de 1 ahí.",
+  "id": "supermercado:tipico:reposteria:0",
+  "kind": "tipico",
+  "options": [
+    {
+      "id": "reposteria",
+      "label": "🧁 Harinas y repostería"
+    },
+    {
+      "id": "juguetes-infantiles",
+      "label": "🧸 Juguetes"
+    },
+    {
+      "id": "desayuno",
+      "label": "🥞 Desayunos y brunch"
+    },
+    {
+      "id": "cuidado-cabello",
+      "label": "💇 Cuidado del cabello"
+    }
+  ],
+  "question": "¿Cuál de estos es típico de Súper?",
+  "vertical": "supermercado"
+}

@@ -130,7 +130,8 @@ export default function Path({ go, open: openAtStart = null }) {
             const level = verticalLevel(state, v)
             const Icon = ICONS[v]
             const isHere = v === here
-            const progress = (state.discovered[v]?.length ?? 0) / cardsOf(v).length
+            const total = cardsOf(v).length // 0 si la base no tiene sus tarjetas: el anillo queda vacío, no NaN
+            const progress = total ? (state.discovered[v]?.length ?? 0) / total : 0
             return (
               <div
                 key={v}

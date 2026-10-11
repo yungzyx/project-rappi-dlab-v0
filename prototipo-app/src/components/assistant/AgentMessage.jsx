@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import AddButton from '../AddButton'
 import HScroll from '../HScroll'
 import Img from '../Img'
+import { useGame } from '../../state/GameContext'
 import { useProductSheet } from '../../state/ProductSheetContext'
 
 const CHARS_PER_SECOND = 70
@@ -111,6 +112,48 @@ function AlsoIn({ alsoIn, onAction }) {
   )
 }
 
+/** «¿Sabías que…?»: un dato con su fuente. Mostrarlo lo suma al álbum, salvo que la tarjeta ya esté ahí. */
+function DidYouKnow({ fact }) {
+  const game = useGame()
+  const tagId = useId()
+  const gameRef = useRef(game)
+  const handled = useRef(false)
+  useEffect(() => {
+    gameRef.current = game
+  }, [game])
+  useEffect(() => {
+    // Con StrictMode el efecto corre dos veces, y al cerrar y reabrir el panel el bloque se monta de nuevo:
+    // la marca evita contarlo dos veces y el estado, volver a sumar (y guardar) una tarjeta que ya está.
+    if (handled.current) return
+    handled.current = true
+    const { state, discover } = gameRef.current
+    if (state.discovered[fact.vertical]?.includes(fact.id) || state.cards.includes(fact.id)) return
+    discover(fact.vertical, fact.id)
+  }, [fact.vertical, fact.id])
+
+  // Solo https se vuelve enlace: la fuente viene del servidor y no debe poder abrir otro esquema.
+  const linkable = fact.source.url.startsWith('https://')
+  return (
+    <div className="agent-msg-fact" role="note" aria-labelledby={tagId}>
+      <span id={tagId} className="agent-msg-suggestion-tag">
+        ¿Sabías que…?
+      </span>
+      <strong className="agent-msg-fact-title">{fact.title}</strong>
+      <p className="agent-msg-fact-text">{fact.text}</p>
+      <p className="agent-msg-fact-source">
+        Fuente:{' '}
+        {linkable ? (
+          <a href={fact.source.url} target="_blank" rel="noopener noreferrer">
+            {fact.source.title}
+          </a>
+        ) : (
+          fact.source.title
+        )}
+      </p>
+    </div>
+  )
+}
+
 /** Una respuesta del agente con tarjetas (lo elegido se muestra aparte, sin burbuja). */
 export default function AgentMessage({ message, onStreamDone, onOpenProduct, onOpenStore, onAction, onRetry }) {
   const [revealed, setRevealed] = useState(!message.animate)
@@ -163,6 +206,7 @@ export default function AgentMessage({ message, onStreamDone, onOpenProduct, onO
               </div>
             )}
             {message.alsoIn?.verticals?.length > 0 && <AlsoIn alsoIn={message.alsoIn} onAction={onAction} />}
+            {message.didYouKnow && <DidYouKnow fact={message.didYouKnow} />}
             {message.stores?.length > 0 && (
               <div className="agent-msg-stores">
                 {message.stores.map((store, i) => (

@@ -23,6 +23,12 @@ vi.mock('../../state/EventsContext', async (importOriginal) => ({
   ...(await importOriginal()),
   useEvents: () => events,
 }))
+// El juego, con su acción «forget»: que vuelva a cero sin subir nada se prueba en state/GameContext.test.jsx.
+const game = vi.hoisted(() => ({ forget: vi.fn() }))
+vi.mock('../../state/GameContext', async (importOriginal) => ({
+  ...(await importOriginal()),
+  useGame: () => game,
+}))
 
 function deferred() {
   let resolve
@@ -470,6 +476,24 @@ describe('lo aprendido y Olvidar', () => {
     pendingFlush.resolve()
     await advance(0)
     expect(api.forget).toHaveBeenCalledTimes(1)
+  })
+
+  test('Olvidar también deja el juego en cero (su progreso se borró con el perfil), solo si el servidor borró', async () => {
+    api.profile.mockResolvedValue({ interests: [VINO] })
+    await renderPanel()
+    fireEvent.click(screen.getByText('Olvidar'))
+    await runUntilIdle()
+    expect(api.forget).toHaveBeenCalledTimes(1)
+    expect(game.forget).toHaveBeenCalledTimes(1)
+    expect(api.forget.mock.invocationCallOrder[0]).toBeLessThan(game.forget.mock.invocationCallOrder[0])
+
+    cleanup()
+    game.forget.mockClear()
+    api.forget.mockRejectedValueOnce(new Error('API caída'))
+    await renderPanel()
+    fireEvent.click(screen.getByText('Olvidar'))
+    await runUntilIdle()
+    expect(game.forget).not.toHaveBeenCalled() // el progreso sigue en el servidor: el juego no cambia
   })
 
   test('un perfil remoto que llega después de Olvidar no revive lo olvidado', async () => {

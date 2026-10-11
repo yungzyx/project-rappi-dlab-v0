@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+from rappi_ia import config
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
@@ -29,7 +30,8 @@ FIXTURES = Path(__file__).resolve().parents[3] / "prototipo-app" / "src" / "api"
 class Example:
     """Una petición a la API cuya respuesta es el ejemplo `<name>.json` que usa la app.
 
-    Con `status=204` no hay cuerpo que guardar: el ejemplo es solo el estado.
+    Con `status=204` no hay cuerpo que guardar: el ejemplo es solo el estado. Cada test parte de una base nueva: un
+    ejemplo que lee lo que otro guardó nombra a ese otro en `after`, y el test lo pide antes.
     """
 
     name: str
@@ -37,6 +39,7 @@ class Example:
     path: str  # con su query string, si la tiene
     body: dict | None = None
     status: int = 200
+    after: str | None = None  # el Example que se pide antes: cada test parte de una base nueva
 
 
 # Las etapas siguientes agregan aquí los endpoints que la app consume.
@@ -57,6 +60,12 @@ CONTRACT: tuple[Example, ...] = (
         "POST",
         "/agent/ask",
         {"message": "pizza", "vertical": "restaurants", "user_id": "u-contrato", "session_id": "s-contrato"},
+    ),
+    Example(
+        "agent-ask-dato",
+        "POST",
+        "/agent/ask",
+        {"message": "pizza", "vertical": "restaurants", "user_id": "u-contrato-dato", "session_id": "s-contrato-dato"},
     ),
     Example("recommendations", "GET", "/recommendations?user_id=u-contrato&vertical=restaurants"),
     Example("agent-plans", "GET", "/agent/plans"),
@@ -106,12 +115,51 @@ CONTRACT: tuple[Example, ...] = (
         "/agent/offer",
         {"moment": "vertical_por_probar", "context": {"stamped": ["supermercado"]}},
     ),
+    Example("game-cards", "GET", "/game/cards?vertical=supermercado"),
+    Example("game-challenge", "GET", "/game/challenge?vertical=supermercado&seed=0"),
+    Example(
+        "game-state-put",
+        "PUT",
+        "/game/state/u-contrato",
+        {
+            "state": {
+                "version": 1,
+                "xp": 10,
+                "discovered": {"supermercado": ["supermercado-01"]},
+                "correct": {},
+                "answered": {},
+                "cards": ["supermercado-01"],
+                "opened": [],
+                "daily": {"date": "2026-10-10", "discovered": 1, "correct": 0, "opened": 0, "done": False},
+                "streak": {"count": 0, "lastDate": None},
+                "seenIntro": True,
+                "visited": ["supermercado"],
+            }
+        },
+    ),
+    Example("game-state", "GET", "/game/state/u-contrato", after="game-state-put"),
 )
 
 
+GAME_STATE = {
+    "version": 1,
+    "xp": 0,
+    "discovered": {},
+    "correct": {},
+    "answered": {},
+    "cards": [],
+    "opened": [],
+    "daily": {"date": "2026-10-10", "discovered": 0, "correct": 0, "opened": 0, "done": False},
+    "streak": {"count": 0, "lastDate": None},
+    "seenIntro": True,
+    "visited": [],
+}
+
+
 @pytest.fixture
-def client(db):
+def client(db, monkeypatch):
     seed_demo(db)
+    monkeypatch.setattr(config, "GAME_MIN_ITEMS", 1)  # el catálogo de prueba es chico: sus conceptos tienen 1 a 7 ítems
     # /health estima los documentos con las estadísticas de Postgres: si el autovacuum analizara solo algunas
     # particiones, la cifra saldría parcial. Con pocas filas ANALYZE las lee todas y la estimación es exacta.
     db.execute("ANALYZE search_documents")
@@ -135,6 +183,10 @@ def client(db):
         "query": "pizza",
     }
     assert test_client.post("/events", json={"user_id": "u-contrato", "events": [interest]}).status_code == 200
+    # Ya descubrió el dato de la pizza: `agent-ask` (pizza) es la respuesta sin «¿Sabías que…?», y `agent-ask-dato`
+    # (otro usuario, sin progreso) la que lo trae. `game-state-put` reemplaza este estado, así que no lo afecta.
+    discovered = {**GAME_STATE, "discovered": {"restaurantes": ["restaurantes-01"]}, "cards": ["restaurantes-01"]}
+    assert test_client.put("/game/state/u-contrato", json={"state": discovered}).status_code == 200
     yield test_client
     api.app.dependency_overrides.clear()
 
@@ -176,6 +228,10 @@ def response(status: int, body: dict | None = None) -> SimpleNamespace:
 
 @pytest.mark.parametrize("example", CONTRACT, ids=lambda example: example.name)
 def test_contract_examples_are_up_to_date(client, example):
+    if example.after:
+        before = {e.name: e for e in CONTRACT}.get(example.after)
+        assert before, f"El Example {example.name} pide antes a «{example.after}», que no está en CONTRACT"
+        assert client.request(before.method, before.path, json=before.body).status_code == before.status
     reply = client.request(example.method, example.path, json=example.body)
     check_example(example, reply, FIXTURES, write=os.environ.get("RAPPI_CONTRACT_WRITE") == "1")
 

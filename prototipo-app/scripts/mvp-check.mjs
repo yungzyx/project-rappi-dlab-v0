@@ -1,23 +1,31 @@
 // Revisa en un Chrome real que la app del MVP responda como debe (lo corre scripts/mvp-check.sh con `make mvp-check`).
-// Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--shop | --kit | --expect-offline]
+// Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--api http://localhost:8010] [--shop | --kit | --game [--user-file ruta] | --dato | --expect-offline]
 //   sin banderas: la app abre en la Home conectada, con la barra «Busca o pídele ideas a <agente>»;
 //   con --shop: Home → vertical Grocery → primera tienda → agregar un producto → carrito → pagar, y la API recibe el
 //     pedido (que después verifica scripts/mvp-check.sh en la base de prueba);
 //   con --kit: busca «cerveza» en el buscador con Mochi (ve la búsqueda agrupada por vertical), vuelve a la Home, elige
 //     la ocasión «Carrete», agrega el kit que arma Mochi (`plan`) y paga; scripts/mvp-check.sh verifica después en la base
 //     de prueba que el pedido tiene líneas sembradas y al menos una aceptación `agent-plan`;
+//   con --game: abre el juego desde el pasaporte de la Home, empieza una ronda en el Súper, ve como primer paso el primer
+//     dato de `GET /game/cards?vertical=supermercado` (de --api), lo da vuelta y sigue; scripts/mvp-check.sh verifica
+//     después en la base de prueba que el progreso de esa persona quedó guardado con esa tarjeta en `discovered`; el id de la
+//     persona (el `rappi-proto-user` del navegador) se deja en el archivo de `--user-file`;
+//   con --dato: en el buscador con Mochi toca «Algo dulce» y ve el bloque «¿Sabías que…?» con su fuente en la respuesta;
 //   con --expect-offline: la API está detenida y la app muestra «Sin conexión con <agente>».
 // Con la API en marcha (sin --expect-offline) también falla ante un error de la página o de la consola, o una respuesta
 // 4xx/5xx, desde la primera carga; solo se ignoran las imágenes del catálogo de prueba, que no existen.
 // Sale con 0 si la revisión pasa y con 1 si no. Usa el Chrome instalado (playwright-core, sin descargar navegadores).
+import { writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { chromium } from 'playwright-core'
 import { AGENT_NAME } from '../src/agent/name.js'
+import { LABELS } from '../src/game/verticals.js'
 
 // Los textos visibles llevan el nombre del agente: salen de la misma constante que usa la app.
 const HOME_HINT = `Busca o pídele ideas a ${AGENT_NAME}`
 const OFFLINE_TITLE = `Sin conexión con ${AGENT_NAME}`
 const SEARCH_DIALOG = `Buscador con ${AGENT_NAME}`
+const API_DEFAULT = 'http://localhost:8010'
 const TIMEOUT_MS = 20_000 // la barra rota tres frases cada 3,2 s: la de Mochi tarda hasta ~6 s en salir
 
 /** Qué dice la página ahora: ayuda a entender por qué falló una espera. */
@@ -150,6 +158,68 @@ async function checkKit(page) {
   return `buscó «cerveza» (${found} grupos), pidió el kit «Carrete», lo agregó y la API aceptó el pedido`
 }
 
+/**
+ * Abre el juego con «Jugar» del pasaporte de la Home, empieza una ronda en el Súper y comprueba que el primer paso es el
+ * primer dato que sirve la API; al darlo vuelta y seguir, la app guarda el progreso (lo verifica scripts/mvp-check.sh).
+ */
+async function checkGame(page, api, userFile) {
+  await checkOnline(page)
+  const first = await step(page, 'pedir las tarjetas del Súper a la API', async () => {
+    const reply = await fetch(`${api}/game/cards?vertical=supermercado`)
+    if (!reply.ok) throw new Error(`GET /game/cards → ${reply.status}`)
+    const dato = (await reply.json()).cards.find((card) => card.kind === 'dato')
+    if (!dato) throw new Error('la API no tiene ningún dato del Súper')
+    return dato
+  })
+  await step(page, 'abrir el juego desde el pasaporte', () =>
+    page.getByRole('button', { name: 'Jugar', exact: true }).click(),
+  )
+  await step(page, 'cerrar la bienvenida', () => page.getByRole('button', { name: 'Ver el camino primero' }).click())
+  const path = page.getByRole('region', { name: 'Camino de verticales' })
+  // El nodo donde está el agente pulsa sin parar y Playwright nunca lo da por estable: se toca sin esperar a que se quede quieto.
+  await step(page, 'abrir el sello del Súper', () =>
+    path.getByRole('button', { name: new RegExp(`^${LABELS.supermercado}:`) }).click({ force: true }),
+  )
+  await step(page, 'empezar la ronda del Súper', () =>
+    page.getByRole('dialog').getByRole('button', { name: 'Jugar', exact: true }).click(),
+  )
+  await step(page, 'ver el primer dato de la ronda', () => page.getByText('¿Sabías que…?').first().waitFor())
+  await step(page, 'dar vuelta el dato', () => page.getByRole('button', { name: 'Dar vuelta' }).click())
+  const title = await step(page, 'ver el título del dato', async () => {
+    const heading = page.getByRole('heading', { level: 2, name: first.title })
+    await heading.waitFor()
+    return heading.innerText()
+  })
+  await step(page, 'seguir al próximo paso', () => page.getByRole('button', { name: 'Continuar' }).click())
+  await step(page, 'ver la pregunta que sigue', () => page.getByRole('group', { name: 'Opciones' }).waitFor())
+  if (userFile) {
+    const user = await step(page, 'leer el id de la persona del navegador', () =>
+      page.evaluate(() => localStorage.getItem('rappi-proto-user')),
+    )
+    if (!user) throw new Error('el navegador no tiene id de persona (rappi-proto-user)')
+    writeFileSync(userFile, user)
+  }
+  return `la ronda del Súper abre con «${title}» (el primer dato de la API) y avanza un paso`
+}
+
+/**
+ * Le pide ideas al agente con el chip «Algo dulce» (no hay otra forma de escribirle desde el buscador) y ve en su
+ * respuesta el bloque «¿Sabías que…?» con título, texto y fuente. La persona es nueva, así que el dato no se ha visto.
+ */
+async function checkDato(page) {
+  await checkOnline(page)
+  await step(page, 'abrir el buscador con Mochi', () => page.locator('.smart-bar').first().click())
+  const panel = page.getByRole('dialog', { name: SEARCH_DIALOG })
+  await step(page, 'tocar «Algo dulce»', () => panel.getByRole('button', { name: /Algo dulce/ }).click())
+  const fact = panel.getByRole('note', { name: '¿Sabías que…?' })
+  await step(page, 'ver el «¿Sabías que…?» en la respuesta', () => fact.waitFor())
+  const title = await fact.locator('.agent-msg-fact-title').innerText()
+  const text = await fact.locator('.agent-msg-fact-text').innerText()
+  if (!title.trim() || !text.trim()) throw new Error('el «¿Sabías que…?» salió vacío')
+  if ((await fact.getByRole('link').count()) === 0) throw new Error('el «¿Sabías que…?» no trae su fuente')
+  return `la respuesta del agente trae el «¿Sabías que…?» «${title}» con su fuente`
+}
+
 /** Un paso del recorrido: si falla, dice cuál era y qué mostraba la página. */
 async function step(page, what, action) {
   try {
@@ -174,11 +244,25 @@ const { values } = parseArgs({
     app: { type: 'string' },
     shop: { type: 'boolean', default: false },
     kit: { type: 'boolean', default: false },
+    game: { type: 'boolean', default: false },
+    dato: { type: 'boolean', default: false },
+    api: { type: 'string', default: API_DEFAULT },
+    'user-file': { type: 'string' },
     'expect-offline': { type: 'boolean', default: false },
   },
 })
 const offline = values['expect-offline']
-const label = offline ? 'sin API' : values.kit ? 'kit de Mochi' : values.shop ? 'compra' : 'en línea'
+const label = offline
+  ? 'sin API'
+  : values.kit
+    ? 'kit de Mochi'
+    : values.shop
+      ? 'compra'
+      : values.game
+        ? 'juego'
+        : values.dato
+          ? 'dato'
+          : 'en línea'
 
 async function main() {
   if (!values.app) throw new Error('falta --app <url> (por ejemplo --app http://localhost:5184)')
@@ -190,7 +274,14 @@ async function main() {
     page.setDefaultTimeout(TIMEOUT_MS)
     const problems = watchProblems(page)
     await page.goto(values.app, { timeout: TIMEOUT_MS })
-    const check = offline ? checkOffline : values.kit ? checkKit : values.shop ? checkShop : checkOnline
+    const checks = {
+      kit: checkKit,
+      shop: checkShop,
+      game: (p) => checkGame(p, values.api, values['user-file']),
+      dato: checkDato,
+    }
+    const picked = Object.keys(checks).find((name) => values[name])
+    const check = offline ? checkOffline : (checks[picked] ?? checkOnline)
     const done = await check(page)
     // Sin API es lo esperado que fallen sus llamadas: ahí no se miran.
     if (!offline && problems.length > 0) throw new Error(`fallos en la página o en la API: ${problems[0]}`)

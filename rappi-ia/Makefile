@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
+.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts knowledge embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -46,6 +46,9 @@ contract:  ## Reescribe las respuestas de ejemplo de la API que usa la app (prot
 concepts:  ## Capa 2: conceptos por producto y plato (con kNN si hay extra ml)
 	$(PY) -m rappi_ia concepts
 
+knowledge:  ## Tarjetas del juego en la base, con sus ligas a conceptos (después de concepts)
+	$(PY) -m rappi_ia knowledge
+
 embed:  ## Embeddings de texto (incrementales) + índices HNSW por vertical
 	$(PY) -m rappi_ia embed-text
 
@@ -71,10 +74,11 @@ HF_OFFLINE := $(shell for m in $(HF_MODELS); do test -d "$(HF_CACHE)/models--$$m
 # serve y serve-lan migran antes: tras un `git pull`, el código puede necesitar una migración nueva (sin la 019, todo
 # lo que muestra productos respondía 500). Antes de migrar, check-migrations se niega a aplicar a la base real las
 # migraciones de una rama sin fusionar (se registran por nombre de archivo: una editada después no se vuelve a aplicar).
-serve: check-migrations migrate  ## API en http://localhost:8000, solo este Mac (docs en /docs)
+# Después de migrar cargan las tarjetas del juego (knowledge, idempotente): sin ellas una ronda no tiene datos.
+serve: check-migrations migrate knowledge  ## API en http://localhost:8000, solo este Mac (docs en /docs)
 	$(HF_OFFLINE) $(PY) -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8000
 
-serve-lan: check-migrations migrate  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
+serve-lan: check-migrations migrate knowledge  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
 	$(HF_OFFLINE) API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --host 0.0.0.0 --port 8000
 
 # Las frases del guion (docs/demo.md) sin user_id: no se registran. Frío, «una hamburguesa» tarda 2 a 5 s; caliente, 0,3 s.
@@ -114,6 +118,6 @@ layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.m
 	$(PY) -m rappi_ia layer-report
 
 post-refresh: migrate purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
-	$(MAKE) concepts embed eval synth layers
+	$(MAKE) concepts knowledge embed eval synth layers
 	$(MAKE) purge
-	@echo "Listo: conceptos, embeddings, evaluación y datos simulados al día."
+	@echo "Listo: conceptos, tarjetas del juego, embeddings, evaluación y datos simulados al día."

@@ -1,0 +1,32 @@
+{
+  "state": {
+    "answered": {},
+    "cards": [
+      "supermercado-01"
+    ],
+    "correct": {},
+    "daily": {
+      "correct": 0,
+      "date": "2026-10-10",
+      "discovered": 1,
+      "done": false,
+      "opened": 0
+    },
+    "discovered": {
+      "supermercado": [
+        "supermercado-01"
+      ]
+    },
+    "opened": [],
+    "seenIntro": true,
+    "streak": {
+      "count": 0,
+      "lastDate": null
+    },
+    "version": 1,
+    "visited": [
+      "supermercado"
+    ],
+    "xp": 10
+  }
+}
