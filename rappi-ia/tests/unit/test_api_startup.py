@@ -42,8 +42,11 @@ def test_api_connections_fail_fast(monkeypatch):
     connections = api.get_conn()
     conn = next(connections)
     try:
-        assert conn.execute("SHOW statement_timeout").fetchone()[0] == "20s"
+        assert conn.execute("SHOW statement_timeout").fetchone()[0] == "5s"  # lo que espera una pantalla
         assert "connect_timeout=3" in conn.info.dsn
+        conn.rollback()  # un endpoint que deshace a mitad no pierde el tope
+        assert conn.execute("SHOW statement_timeout").fetchone()[0] == "5s"
+        assert api.get_analytics_conn(conn).execute("SHOW statement_timeout").fetchone()[0] == "30s"  # el panel
     finally:
         connections.close()
 

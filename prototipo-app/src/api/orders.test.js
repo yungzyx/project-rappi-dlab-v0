@@ -139,6 +139,20 @@ describe('pedidos para el panel', () => {
     expect(orders[0].lines.map((line) => line.entity_id)).toEqual(['94001', '200'])
   })
 
+  test("buildOrders en modo actual lleva mode 'actual' y ningún concept_id", () => {
+    // En «Rappi hoy» la app no aprende: el pedido lo dice y no nombra conceptos (el backend tampoco lo lleva al perfil).
+    const items = [{ product: beer(), qty: 1 }, { product: toPrototypeProduct(fixture('catalog-product')), qty: 2 }]
+    const orders = buildOrders(items, { ...ctx, mode: 'actual' })
+    expect(orders).toHaveLength(2)
+    orders.forEach((order) => {
+      expect(order.mode).toBe('actual')
+      order.lines.forEach((line) => expect(line).not.toHaveProperty('concept_id'))
+    })
+    const [proposal] = buildOrders([{ product: beer(), qty: 1 }], ctx)
+    expect(proposal.mode).toBe('propuesta')
+    expect(proposal.lines[0].concept_id).toBe('cerveza')
+  })
+
   test('from_suggestion sale de la línea del carrito', () => {
     const [order] = buildOrders([{ product: beer(), qty: 1, fromSuggestion: true }], ctx)
     expect(order.lines[0].from_suggestion).toBe(true)

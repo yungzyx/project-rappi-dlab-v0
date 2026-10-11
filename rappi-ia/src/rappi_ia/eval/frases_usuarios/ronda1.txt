@@ -65,5 +65,8 @@ tienen ofertas?
 # saludos y otros
 hola
 gracias bigotes
+gracias mochi
+hola mochi
+quiero mochi
 quien eres
 ayuda

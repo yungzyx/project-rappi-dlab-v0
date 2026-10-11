@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
+from conftest import add_price, add_product, add_store
 from rappi_ia.api import app as api
 from rappi_ia.concepts.store import seed_taxonomy
 from rappi_ia.concepts.taxonomy import load_taxonomy
@@ -28,10 +29,18 @@ def _shared(db):
     return connector
 
 
+def _catalog(db):
+    """La taxonomía y el producto de `_line`: /orders toma el precio del catálogo."""
+    seed_taxonomy(db, load_taxonomy())
+    add_store(db, 1, "supermercado", "Súper")
+    add_product(db, 91001, "Papas fritas clásicas 180 g", 1, "Snacks salados")
+    add_price(db, 1, 91001, 1990)
+    db.commit()
+
+
 @pytest.fixture
 def client(db):
-    seed_taxonomy(db, load_taxonomy())
-    db.commit()
+    _catalog(db)
 
     def conn_override():
         yield db
@@ -204,8 +213,7 @@ def test_one_users_metrics_match_the_whole_source(db):
 def test_a_client_without_its_own_connector_never_opens_the_real_db(db, real_db_guard, caplog):
     """Un cliente de test que solo reemplaza `get_conn`: el recálculo choca con la guarda de `conftest.py` (nunca
     con la base real), queda un aviso y el pedido sale igual."""
-    seed_taxonomy(db, load_taxonomy())
-    db.commit()
+    _catalog(db)
 
     def conn_override():
         yield db

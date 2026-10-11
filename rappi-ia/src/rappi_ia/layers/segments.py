@@ -424,8 +424,9 @@ def _context_hit(signal: Signal, key: str, wanted) -> bool:
 
 _SIGNALS_SQL = """
 WITH raw AS (
-    -- Solo lo que dice un concepto: «Rappi hoy» le quita el concepto al evento (y marca payload.mode = 'actual'), y
-    -- «Olvidar» un concepto se lo quita a las líneas de pedido; sin concepto no hay huella de gusto.
+    -- Solo lo que dice un concepto: «Rappi hoy» le quita el concepto al evento (y marca payload.mode = 'actual') y
+    -- sus pedidos van con mode = 'actual', y «Olvidar» un concepto se lo quita a las líneas de pedido; sin concepto no
+    -- hay huella de gusto.
     SELECT e.user_id, 'e' || e.event_id AS event_key, e.session_id AS unit_key, e.ts, e.type, e.concept_id,
            e.vertical, e.query, e.modality, e.entity_type, e.entity_id,
            coalesce(e.payload ->> 'from_suggestion', '') = 'true' AS from_suggestion,
@@ -439,7 +440,8 @@ WITH raw AS (
            l.concept_id, o.vertical, NULL, NULL, l.entity_type, l.entity_id, l.from_suggestion, NULL,
            sum(l.qty) OVER (PARTITION BY l.order_id), o.total
     FROM app_order_lines l JOIN app_orders o USING (order_id)
-    WHERE o.source = %(source)s AND l.concept_id IS NOT NULL AND (%(user)s::text IS NULL OR o.user_id = %(user)s)
+    WHERE o.source = %(source)s AND o.mode = 'propuesta' AND l.concept_id IS NOT NULL
+      AND (%(user)s::text IS NULL OR o.user_id = %(user)s)
 ),
 needed AS (SELECT DISTINCT concept_id FROM raw WHERE concept_id IS NOT NULL),
 ranked AS (  -- posición del precio entre los ítems de su concepto en esa vertical (un ítem puede estar en varias)

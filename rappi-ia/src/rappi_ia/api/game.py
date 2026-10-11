@@ -63,7 +63,7 @@ UserId = Annotated[str, Path(min_length=1, max_length=64)]
 
 
 @router.get("/cards")
-def cards(vertical: Annotated[str | None, Query()] = None, conn: Connection = Depends(get_conn)) -> dict:
+def cards(vertical: Annotated[str | None, Query(max_length=64)] = None, conn: Connection = Depends(get_conn)) -> dict:
     """Las tarjetas de conocimiento en el orden del archivo, con sus conceptos; `vertical` filtra por una del
     pasaporte."""
     if vertical is not None and vertical not in GAME_VERTICALS:

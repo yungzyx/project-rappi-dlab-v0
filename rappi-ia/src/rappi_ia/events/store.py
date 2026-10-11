@@ -12,6 +12,7 @@ from datetime import datetime
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from ..catalog.stores import product_detail
 from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import load_taxonomy
 
@@ -35,6 +36,8 @@ EVENT_TYPES = {
     "game_round_finished",  # payload: vertical_juego, estrellas, aciertos, preguntas
     "game_card_discovered",  # payload: vertical_juego, tarjeta
 }
+# Lo que el cliente puede mandar a /events: `order_placed` nace solo en /orders, con un pedido guardado detrás.
+CLIENT_EVENT_TYPES = EVENT_TYPES - {"order_placed"}
 QUERY_RETENTION_DAYS = 90
 HALF_LIFE_DAYS = 14  # el interés se reduce a la mitad cada 2 semanas sin actividad
 # Solo señales positivas del propio usuario. Lo que el agente mostró (suggestion_shown), lo que rechazó
@@ -197,15 +200,17 @@ def record_order(
     lines: list[dict],
     source: str = "prototype",
     ts: datetime | None = None,
+    mode: str = "propuesta",
 ) -> str:
-    """Pedido + líneas (producto o plato) + evento `order_placed`."""
+    """Pedido + líneas (producto o plato) + evento `order_placed`. Los precios de `lines` se guardan tal cual: la API
+    los pone antes con `catalog_prices`. Un pedido en modo `actual` («Rappi hoy») no entra al perfil."""
     order_id = f"ord-{uuid.uuid4().hex[:12]}"
     total = sum(float(line.get("unit_price") or 0) * int(line.get("qty", 1)) for line in lines)
     ensure_user(conn, user_id, source)
     conn.execute(
-        """INSERT INTO app_orders (order_id, user_id, session_id, cart_id, ts, vertical, total, source)
-           VALUES (%s, %s, %s, %s, coalesce(%s, now()), %s, %s, %s)""",
-        (order_id, user_id, session_id, cart_id, ts, vertical, total, source),
+        """INSERT INTO app_orders (order_id, user_id, session_id, cart_id, ts, vertical, total, source, mode)
+           VALUES (%s, %s, %s, %s, coalesce(%s, now()), %s, %s, %s, %s)""",
+        (order_id, user_id, session_id, cart_id, ts, vertical, total, source, mode),
     )
     known = _known_concepts(conn)
     with conn.cursor() as cur:
@@ -244,6 +249,19 @@ def record_order(
         source,
     )
     return order_id
+
+
+def catalog_prices(conn: Connection, lines: list[dict]) -> list[dict]:
+    """Las líneas de un pedido del cliente con el precio vigente del catálogo (el de la ficha del producto): el que
+    manda el cliente no se usa, porque el total alimenta segmentos y métricas. ValueError si un producto no está en el
+    catálogo o no tiene precio."""
+    priced = []
+    for line in lines:
+        product = product_detail(conn, line["entity_type"], line["entity_id"])
+        if product is None:
+            raise ValueError("Producto no disponible")
+        priced.append({**line, "unit_price": product["price_value"]})
+    return priced
 
 
 def profile(conn: Connection, user_id: str, now: datetime | None = None) -> dict[str, float]:

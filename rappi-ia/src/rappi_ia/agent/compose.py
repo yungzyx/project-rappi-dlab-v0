@@ -152,21 +152,32 @@ class ClaudeComposer:
             message = self._client.messages.create(
                 model=self.model,
                 max_tokens=200,
+                # Sin pensar: el pensamiento llega en un bloque sin texto y se come los 200 tokens de la respuesta.
+                thinking={"type": "disabled"},
                 system=self.system,
                 messages=[{"role": "user", "content": json.dumps(facts(d, refs), ensure_ascii=False)}],
             )
-            text = json.loads(_first_json(message.content[0].text))["text"]
+            if message.stop_reason != "end_turn":  # cortado (max_tokens) o rechazado: el JSON no está completo
+                return _fallback(template, message.stop_reason)
+            block = next((b for b in message.content if b.type == "text"), None)
+            if block is None:
+                return _fallback(template, "sin_texto")
+            text = json.loads(_first_json(block.text))["text"]
             if not isinstance(text, str):
                 raise ValueError("text no es texto")
         except Exception as exc:  # red, cuota, JSON inválido: la plantilla siempre responde
-            log.warning("Claude no disponible (%s); uso plantilla", type(exc).__name__)
-            return template
+            return _fallback(template, f"error:{type(exc).__name__}")
         allowed = " ".join([*refs.values(), d.concept_label or "", d.vertical_label or ""])
         verified = verify_llm_text(text, refs, allowed)
         if verified is None:
-            log.warning("Texto del LLM rechazado por el verificador; uso plantilla")
-            return template
+            return _fallback(template, "verificador")
         return " ".join([verified, *notices(d)])
+
+
+def _fallback(template: str, reason: str) -> str:
+    """La plantilla responde cuando Claude no da un texto usable; el log dice por qué (para ver si Claude sirve)."""
+    log.warning("Claude no redactó (%s); uso plantilla", reason)
+    return template
 
 
 def facts(d: Draft, refs: dict[str, str]) -> dict:

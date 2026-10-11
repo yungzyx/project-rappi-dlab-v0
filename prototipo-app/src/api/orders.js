@@ -54,9 +54,10 @@ const orderVertical = (vertical) => (BACKEND_CODES.has(vertical) ? vertical : BA
 /**
  * Líneas del carrito → pedidos por vertical. Todo producto trae su `entityId` real de la API: una línea sin él no
  * existe (nunca se inventa un id) y se descarta con un aviso en desarrollo. Un producto sin vertical del catálogo
- * sigue en el carrito de la demo, pero no se envía: la API rechazaría el pedido completo.
+ * sigue en el carrito de la demo, pero no se envía: la API rechazaría el pedido completo. En «Rappi hoy»
+ * (`mode: 'actual'`) la app no aprende: el pedido va marcado y sin conceptos, como los eventos de ese modo.
  */
-export function buildOrders(items, { userId, sessionId, cartId }) {
+export function buildOrders(items, { userId, sessionId, cartId, mode = 'propuesta' }) {
   const byVertical = new Map()
   for (const { product, qty, fromSuggestion } of items) {
     const vertical = orderVertical(product.backendVertical ?? product.vertical)
@@ -68,7 +69,7 @@ export function buildOrders(items, { userId, sessionId, cartId }) {
     const line = {
       entity_type: product.entityType === 'menu_item' ? 'menu_item' : 'catalog_item',
       entity_id: product.entityId,
-      concept_id: conceptOf(product),
+      ...(mode === 'propuesta' ? { concept_id: conceptOf(product) } : {}),
       qty,
       unit_price: parsePrice(product.price) || undefined,
       from_suggestion: Boolean(fromSuggestion ?? product.fromSuggestion),
@@ -80,6 +81,7 @@ export function buildOrders(items, { userId, sessionId, cartId }) {
     session_id: sessionId,
     cart_id: cartId,
     vertical,
+    mode,
     lines,
   }))
 }

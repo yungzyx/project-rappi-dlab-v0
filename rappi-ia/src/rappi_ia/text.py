@@ -3,12 +3,16 @@
 import re
 import unicodedata
 
+from . import config
+
 _NON_WORD = re.compile(r"[^a-z0-9]+")
 
 # Palabras de un mensaje que no dicen qué se busca (normalizadas): saludo, cortesía, nombre del asistente y pedido.
+# El nombre actual del asistente no está aquí: lo da `assistant_words()`, y solo se quita como vocativo (el mochi
+# también es un postre).
 GREETING_WORDS = {"hola", "holi", "buenas", "buenos", "dias", "tardes", "noches", "hey", "wena", "alo", "ola"}
 THANKS_WORDS = {"gracias", "muchas", "vale", "listo", "ok", "okay", "perfecto", "genial", "bacan", "buenisimo"}
-ASSISTANT_WORDS = {"bigotes"}
+LEGACY_ASSISTANT_NAME = "bigotes"  # el nombre anterior de la mascota: hay quien todavía la llama así
 REQUEST_WORDS = {
     "quiero",
     "queria",
@@ -32,7 +36,7 @@ REQUEST_WORDS = {
     "unos",
     "unas",
 }
-FILLER_WORDS = frozenset(GREETING_WORDS | THANKS_WORDS | ASSISTANT_WORDS | REQUEST_WORDS)
+FILLER_WORDS = frozenset(GREETING_WORDS | THANKS_WORDS | {LEGACY_ASSISTANT_NAME} | REQUEST_WORDS)
 
 
 def normalize(text: str) -> str:
@@ -44,6 +48,12 @@ def normalize(text: str) -> str:
 
 def tokens(text: str) -> list[str]:
     return normalize(text).split()
+
+
+def assistant_words() -> frozenset[str]:
+    """Los nombres con que la persona llama al agente: `config.AGENT_NAME` (leído al usarlo, no al importar) y el
+    antiguo «bigotes», normalizados."""
+    return frozenset({LEGACY_ASSISTANT_NAME, normalize(config.AGENT_NAME)})
 
 
 # Desde aquí el prospecto de un medicamento ya no dice para qué sirve: «consulte si presenta fiebre» no vuelve
