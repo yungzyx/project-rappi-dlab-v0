@@ -91,11 +91,11 @@ def refresh(
         not resume_only and repository.open_run(conn, "restaurants") is None
     ):
         run_id = ensure_run(conn, "stores", discover_stores)
-        _scrape(conn, run_id, "stores", lambda: process_store_jobs(conn, client, run_id), reports_dir)
+        _scrape(conn, run_id, lambda: process_store_jobs(conn, client, run_id), reports_dir)
         # Los listados que fallaron al descubrir (botillerías cerradas a las 03:00) se piden de nuevo ahora, horas
-        # después, y lo que aparezca se baja en la misma corrida.
-        if retry_stores is not None and retry_stores(conn, run_id):
-            _scrape(conn, run_id, "stores", lambda: process_store_jobs(conn, client, run_id), reports_dir)
+        # después, y lo que aparezca se baja en la misma corrida. Un bloqueo al pedirlos se trata como en la descarga.
+        if retry_stores is not None and _scrape(conn, run_id, lambda: retry_stores(conn, run_id), reports_dir):
+            _scrape(conn, run_id, lambda: process_store_jobs(conn, client, run_id), reports_dir)
         reports.append(finish_and_report(conn, run_id, "stores", reports_dir)[0])
 
     if not resume_only or repository.open_run(conn, "restaurants") is not None:
@@ -109,7 +109,7 @@ def refresh(
 
         run_id = ensure_run(conn, "restaurants", discover_restaurants, on_failure=discovery_failed)
         if run_id is not None:
-            _scrape(conn, run_id, "restaurants", lambda: process_restaurant_jobs(conn, client, run_id), reports_dir)
+            _scrape(conn, run_id, lambda: process_restaurant_jobs(conn, client, run_id), reports_dir)
             reports.append(finish_and_report(conn, run_id, "restaurants", reports_dir)[0])
 
     # Cierra la transacción de lectura que abre `open_run` (con `resume_only`): si no, la búsqueda quedaría en un
@@ -126,12 +126,13 @@ def refresh(
     return reports, backup_failed
 
 
-def _scrape(conn: Connection, run_id: int, kind: str, process: Callable[[], None], reports_dir: Path) -> None:
-    """Ante un posible bloqueo deja el reporte y la corrida abierta (la próxima actualización la retoma), y no sigue:
-    ni restaurantes, ni búsqueda, ni respaldo."""
+def _scrape(conn: Connection, run_id: int, process: Callable[[], int | None], reports_dir: Path) -> int | None:
+    """Corre `process` (la descarga o el nuevo pedido de los listados) y devuelve lo que devuelva. Ante un posible
+    bloqueo deja el reporte y la corrida abierta, aunque no le queden jobs pendientes (la próxima actualización la
+    retoma y vuelve a pedir los listados), y no sigue: ni restaurantes, ni búsqueda, ni respaldo."""
     try:
-        process()
+        return process()
     except PossibleBlock as exc:
         log.error("Corrida %d detenida: %s", run_id, exc)
-        finish_and_report(conn, run_id, kind, reports_dir, alert=str(exc))
+        log.info("Reporte guardado en %s", write_run_report(conn, run_id, reports_dir, alert=str(exc))[1])
         raise

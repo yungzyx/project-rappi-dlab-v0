@@ -270,6 +270,33 @@ def test_refresh_retries_failed_listings_after_the_stores_and_scrapes_what_appea
     assert reports[0]["jobs"] == {"done": 1, "skipped": 1} and reports[0]["status"] == "done"
 
 
+def test_a_block_while_retrying_listings_leaves_the_same_report_and_alert(db, tmp_path):
+    """Un posible bloqueo al volver a pedir los listados de las botillerías se trata igual que dentro de la descarga:
+    reporte con la alerta, corrida abierta y nada más (ni restaurantes, ni búsqueda, ni respaldo)."""
+
+    def retry(conn, run_id):
+        raise PossibleBlock("posible bloqueo: 20 respuestas seguidas de rechazo")
+
+    backups = []
+    with pytest.raises(PossibleBlock):
+        refresh(
+            db,
+            FakeClient(),
+            _discoverer(STORE_JOB, []),
+            _no_discovery,
+            backup=lambda: backups.append("ok"),
+            reports_dir=tmp_path,
+            retry_stores=retry,
+        )
+
+    run = repository.open_run(db, "stores")
+    assert run is not None
+    assert "posible bloqueo" in (tmp_path / f"run_{run}_stores.md").read_text(encoding="utf-8")
+    alert = db.execute("SELECT report->>'alert' FROM scrape_runs WHERE run_id = %s", (run,)).fetchone()[0]
+    assert "posible bloqueo" in alert
+    assert backups == [] and repository.latest_run(db, "restaurants") is None
+
+
 def _offline(conn, run_id):
     raise RuntimeError("sitemap: sin red")
 
