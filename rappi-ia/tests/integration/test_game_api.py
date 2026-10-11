@@ -105,13 +105,13 @@ def test_put_drops_unknown_cards_and_verticals(client):
     assert client.get("/game/state/u-juego").json()["state"] == body
 
 
-def test_put_for_a_synthetic_user_is_409_and_writes_nothing(client, db):
+def test_put_for_a_synthetic_user_is_400_and_writes_nothing(client, db):
     db.execute("INSERT INTO app_users (user_id, source) VALUES ('1', 'synthetic')")
     db.commit()
 
     reply = put(client, "1", STATE)
 
-    assert reply.status_code == 409
+    assert reply.status_code == 400 and reply.json() == {"detail": "Solicitud no válida"}
     assert db.execute("SELECT count(*) FROM game_state").fetchone() == (0,)
     assert db.execute("SELECT source FROM app_users WHERE user_id = '1'").fetchone() == ("synthetic",)
 

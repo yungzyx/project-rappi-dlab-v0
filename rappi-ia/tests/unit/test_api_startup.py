@@ -89,7 +89,7 @@ def test_a_text_model_missing_from_the_cache_does_not_stop_the_api(monkeypatch):
     finally:
         services._load_services.cache_clear()
 
-    assert "outgoing traffic has been disabled" in loaded.missing["ml"]
+    assert "outgoing traffic has been disabled" in loaded.missing["busqueda_semantica"]
     assert loaded.embedder is None
 
 

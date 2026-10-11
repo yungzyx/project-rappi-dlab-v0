@@ -171,8 +171,8 @@ def test_startup_runtime_error_goes_to_faltantes(monkeypatch):
 
     monkeypatch.setattr(services, "default_composer", broken_composer)
     loaded = services._load_services.__wrapped__()
-    assert loaded.embedder is None and "MPS backend out of memory" in loaded.missing["ml"]
-    assert loaded.agent.composer.name == "plantillas" and "redaccion" in loaded.missing
+    assert loaded.embedder is None and "MPS backend out of memory" in loaded.missing["busqueda_semantica"]
+    assert loaded.agent.composer.name == "plantillas" and "redaccion_llm" in loaded.missing
 
 
 def test_each_request_class_has_its_own_statement_timeout(monkeypatch):

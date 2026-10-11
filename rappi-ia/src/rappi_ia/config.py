@@ -48,6 +48,15 @@ def _flag(name: str, default: bool) -> bool:
 API_ENABLE_ANALYTICS = _flag("API_ENABLE_ANALYTICS", not API_PRODUCTION)
 API_DOCS = _flag("API_DOCS", not API_PRODUCTION)
 
+# Nivel de los registros de la API (DEBUG, INFO, WARNING, ERROR).
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+if LOG_LEVEL not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+    raise RuntimeError(f"LOG_LEVEL debe ser DEBUG, INFO, WARNING, ERROR o CRITICAL (vale {LOG_LEVEL!r})")
+
+# Con API_REQUIRE_SEMANTIC=1, una API sin la búsqueda semántica (el modelo no cargó) no está lista: /health da 503.
+# Apagado por defecto: en local la demo sigue con la búsqueda léxica.
+API_REQUIRE_SEMANTIC = _flag("API_REQUIRE_SEMANTIC", False)
+
 # Red local (iPhone): solo con API_ALLOW_LAN=1 (`make serve-lan`). La API no tiene autenticación. En producción
 # se ignora, igual que el patrón de `localhost:51xx`: los orígenes son exactamente los de API_CORS_ORIGINS (el sitio
 # público; el beacon de eventos también compara con esa lista, aunque el sitio sirva la API en el mismo origen).

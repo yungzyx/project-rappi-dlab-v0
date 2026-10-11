@@ -112,7 +112,7 @@ def test_fifty_requests_stay_within_pool(db, test_url, make_pool, live_client):
 
     def call(_):
         barrier.wait()  # los 50 a la vez
-        return live_client.get("/health").status_code
+        return live_client.get("/profile/u1").status_code
 
     watcher = threading.Thread(target=sample)
     watcher.start()
@@ -138,7 +138,7 @@ def test_a_burst_does_not_starve_the_threadpool(test_url, make_pool, live_client
 
     def call(_):
         barrier.wait()
-        return live_client.get("/health").status_code
+        return live_client.get("/profile/u1").status_code
 
     with ThreadPoolExecutor(100) as executor:
         statuses = list(executor.map(call, range(100)))
@@ -164,12 +164,12 @@ def test_pool_timeout_is_503(test_url, make_pool, client):
     make_pool(test_url, max_size=1, timeout=0.2)
 
     with deps._checkout(config.API_TIMEOUT_INTERACTIVE_MS):  # otro request tiene la única conexión
-        reply = client.get("/health")
+        reply = client.get("/profile/u1")
 
     assert reply.status_code == 503
     assert reply.json()["detail"] == "Hay mucha gente ahora; intenta en unos segundos."
     assert reply.headers["retry-after"] == "2"
-    assert client.get("/health").status_code == 200  # se liberó
+    assert client.get("/profile/u1").status_code == 200  # se liberó
 
 
 def test_an_order_releases_its_connection_before_recalculating_segments(db, test_url, make_pool, live_client, caplog):
@@ -217,14 +217,14 @@ def test_a_cancelled_request_returns_its_connection(test_url, make_pool):
 def test_a_broken_connection_is_replaced_before_use(db, test_url, make_pool, live_client):
     """Una conexión que Postgres cortó (reinicio, idle timeout) no le llega a un request: el pool la revisa."""
     make_pool(test_url, max_size=1)
-    assert live_client.get("/health").status_code == 200
+    assert live_client.get("/profile/u1").status_code == 200
     db.execute(
         """SELECT pg_terminate_backend(pid) FROM pg_stat_activity
            WHERE application_name = 'rappi-ia-api' AND datname = current_database()"""
     )
     db.commit()
 
-    assert live_client.get("/health").status_code == 200
+    assert live_client.get("/profile/u1").status_code == 200
 
 
 def test_waiting_for_a_turn_counts_against_the_pool_timeout(monkeypatch):

@@ -15,6 +15,7 @@ from ..game.cards import list_cards
 from ..game.challenges import make_challenge
 from ..game.state import get_state, save_state
 from .deps import Clean, get_conn
+from .logs import rejected
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -99,6 +100,6 @@ def write_state(user_id: UserId, body: StateIn, conn: Connection = Depends(get_c
         state = save_state(conn, user_id, body.state.model_dump())
     except ValueError as exc:  # un usuario de otra fuente (simulado)
         conn.rollback()
-        raise HTTPException(409, str(exc)) from exc
+        raise rejected(exc, user_id) from exc
     conn.commit()
     return {"state": state}

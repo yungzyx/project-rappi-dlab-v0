@@ -272,6 +272,14 @@ describe('checkConnection', () => {
     expect(await checkConnection()).toEqual({ ok: false, kind: 'http' })
   })
 
+  test('health con 503 cuenta como sin conexión', async () => {
+    // La API viva pero no lista (sin base, sin documentos, migraciones pendientes) contesta 503 con { ok: false, motivos }.
+    stubApi({ '/health': 503 })
+    expect(await checkConnection()).toEqual({ ok: false, kind: 'http' })
+    resetHealthCache()
+    expect(await health({ force: true })).toBeNull()
+  })
+
   test('checkConnection no espera a una API más lenta que su tiempo límite', async () => {
     vi.useFakeTimers()
     try {

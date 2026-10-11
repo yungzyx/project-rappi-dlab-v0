@@ -80,10 +80,10 @@ HF_OFFLINE := $(shell for m in $(HF_MODELS); do test -d "$(HF_CACHE)/models--$$m
 # migraciones de una rama sin fusionar (se registran por nombre de archivo: una editada después no se vuelve a aplicar).
 # Después de migrar cargan las tarjetas del juego (knowledge, idempotente): sin ellas una ronda no tiene datos.
 serve: check-migrations migrate knowledge  ## API en http://localhost:8000, solo este Mac (docs en /docs)
-	$(HF_OFFLINE) $(PY) -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8000
+	$(HF_OFFLINE) $(PY) -m uvicorn rappi_ia.api.app:app --no-access-log --host 127.0.0.1 --port 8000
 
 serve-lan: check-migrations migrate knowledge  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
-	$(HF_OFFLINE) API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --host 0.0.0.0 --port 8000
+	$(HF_OFFLINE) API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --no-access-log --host 0.0.0.0 --port 8000
 
 # Las frases del guion (docs/demo.md) sin user_id: no se registran. Frío, «una hamburguesa» tarda 2 a 5 s; caliente, 0,3 s.
 API ?= http://localhost:8000

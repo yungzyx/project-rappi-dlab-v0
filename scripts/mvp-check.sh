@@ -149,7 +149,7 @@ USER_FILE=$(mktemp)
 TEMP_FILE=$USER_FILE
 install_traps
 # La URL va como variable de entorno solo de la API (no en la línea de comandos de `env`, que `ps` deja ver).
-DATABASE_URL="$TEST_URL" start api env RAPPI_IA_LIGHT=1 GAME_MIN_ITEMS=1 "$IA_PY" -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8010
+DATABASE_URL="$TEST_URL" start api env RAPPI_IA_LIGHT=1 GAME_MIN_ITEMS=1 "$IA_PY" -m uvicorn rappi_ia.api.app:app --no-access-log --host 127.0.0.1 --port 8010
 start app env VITE_API_URL=http://localhost:8010 npm --prefix prototipo-app run dev -- --port 5184 --strictPort
 wait_for_url "La API de prueba" http://localhost:8010/health 60 api
 start panel env VITE_API_URL=http://localhost:8010 npm --prefix dashboard-empresa run dev -- --port 5185 --strictPort

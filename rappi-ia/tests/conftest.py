@@ -1,3 +1,4 @@
+import logging
 import os
 import zlib
 
@@ -32,6 +33,22 @@ def real_db_guard(monkeypatch):
     monkeypatch.setattr(deps, "_own_connection", refuse)
     monkeypatch.setattr(deps, "open_pool", lambda: attempts.append("pool"))
     return attempts
+
+
+@pytest.fixture(autouse=True)
+def keep_logging_config():
+    """El `lifespan` de la API configura el logging de todo el proceso (handler y nivel de la raíz): ningún test se lo
+    deja al siguiente."""
+    root = logging.getLogger()
+    handlers, level = list(root.handlers), root.level
+    factory = logging.getLogRecordFactory()
+    quiet = {name: logging.getLogger(name).level for name in ("httpx", "httpcore")}
+    yield
+    root.handlers[:] = handlers
+    root.setLevel(level)
+    logging.setLogRecordFactory(factory)
+    for name, previous in quiet.items():
+        logging.getLogger(name).setLevel(previous)
 
 
 @pytest.fixture(autouse=True)

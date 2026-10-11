@@ -18,7 +18,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from psycopg import Connection, DataError, Error, OperationalError
-from psycopg.errors import QueryCanceled
+from psycopg.errors import QueryCanceled, UndefinedTable
 from psycopg_pool import PoolTimeout
 from pydantic import Field, ValidationError, field_validator
 
@@ -28,6 +28,7 @@ from ..agent.rappi_agent import PROTOTYPE_VERTICALS, Context
 from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
 from ..concepts.taxonomy import load_taxonomy
+from ..demo.doctor import pending_migrations
 from ..events import store as events
 from ..game.cards import did_you_know
 from ..layers.segments import recalculate_user_segments
@@ -39,6 +40,7 @@ from .catalog import router as catalog_router
 from .deps import Clean, backend_vertical, get_analytics_conn, get_conn, get_connector, get_services
 from .game import router as game_router
 from .limits import MaxBodySize, RateLimit, busy, concurrency_cap
+from .logs import AccessLog, configure_logging, rejected, route_template
 from .services import Services, services
 
 log = logging.getLogger(__name__)
@@ -48,6 +50,7 @@ log = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Carga los modelos antes de «startup complete»: si no, los paga la primera petición (el /health del prototipo,
     que se rinde a los 1,5 s y la app muestra «Sin conexión»). El pool de conexiones vive lo mismo que la app."""
+    configure_logging(config.LOG_LEVEL)
     deps.open_pool()
     try:
         start = time.perf_counter()
@@ -120,13 +123,19 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["content-type"],
 )
+app.add_middleware(AccessLog)  # el más externo: también los 413 y 429 llevan su id y su línea
+
+
+def _is_health(request: Request) -> bool:
+    """/health responde en su forma de readiness (`{"ok": false, "motivos": [...]}`) también cuando falla la base."""
+    return route_template(request) == "/health"
 
 
 @app.exception_handler(QueryCanceled)
 async def query_too_slow(request: Request, exc: QueryCanceled) -> JSONResponse:
     """Una consulta que pasó el statement_timeout (es un OperationalError, pero la base sí responde): 504, no «Sin
     conexión»."""
-    log.warning("Consulta cancelada por tiempo en %s: %s", request.url.path, exc)
+    log.warning("Consulta cancelada por tiempo en %s (%s)", route_template(request), _db_error(exc))
     return JSONResponse(status_code=504, content={"detail": "La consulta tardó demasiado"})
 
 
@@ -136,16 +145,18 @@ async def no_free_connection(request: Request, exc: PoolTimeout) -> JSONResponse
     conectarse); si no, la API está llena: 503 con Retry-After."""
     if deps.connections_in_use() == 0:
         return await database_unavailable(request, exc)
-    log.warning("Sin conexiones libres en %s", request.url.path)
+    log.warning("Sin conexiones libres en %s", route_template(request))
     error = busy()
-    return JSONResponse(status_code=error.status_code, content={"detail": error.detail}, headers=error.headers)
+    content = {"ok": False, "motivos": ["saturada"]} if _is_health(request) else {"detail": error.detail}
+    return JSONResponse(status_code=error.status_code, content=content, headers=error.headers)
 
 
 @app.exception_handler(OperationalError)
 async def database_unavailable(request: Request, exc: OperationalError) -> JSONResponse:
     """Postgres caído o sin respuesta: un 503 claro y rápido (la app muestra «Sin conexión»), no un 500."""
     log.error("Base de datos no disponible: %s", exc)
-    return JSONResponse(status_code=503, content={"detail": "Base de datos no disponible"})
+    content = {"ok": False, "motivos": ["base"]} if _is_health(request) else {"detail": "Base de datos no disponible"}
+    return JSONResponse(status_code=503, content=content)
 
 
 @app.exception_handler(RequestValidationError)
@@ -164,7 +175,7 @@ def _db_error(exc: Error) -> str:
 @app.exception_handler(DataError)
 async def invalid_data(request: Request, exc: DataError) -> JSONResponse:
     """Un valor que Postgres no acepta (un \x00 en un parámetro de la URL): es un error de quien pide, no un 500."""
-    log.warning("Dato inválido en %s: %s", request.url.path, _db_error(exc))
+    log.warning("Dato inválido en %s: %s", route_template(request), _db_error(exc))
     return JSONResponse(status_code=400, content={"detail": "Dato inválido"})
 
 
@@ -262,17 +273,46 @@ class OrderIn(Clean):
 
 
 # ── Agente ──────────────────────────────────────────────────────────────────
+@app.get("/live")
+def live() -> dict:
+    """Liveness del contenedor: el proceso responde. No toca la base ni los servicios (si Postgres cae, no hay nada que
+    reiniciar en la API)."""
+    return {"ok": True}
+
+
+def _count_documents(conn: Connection) -> int:
+    """Estimación de las estadísticas de Postgres: contar las ~250 mil filas leía ~390 MB en cada chequeo (el prototipo
+    lo pide cada 30 s y se rinde a los 1,5 s). Sin estadísticas todavía (base recién creada), se cuenta. Sin la tabla
+    (migraciones pendientes), no hay documentos."""
+    try:
+        with conn.transaction():
+            return (
+                conn.execute(
+                    """SELECT coalesce(sum(greatest(c.reltuples, 0)), 0)::bigint FROM pg_inherits i
+                   JOIN pg_class c ON c.oid = i.inhrelid WHERE i.inhparent = 'search_documents'::regclass"""
+                ).fetchone()[0]
+                or conn.execute("SELECT count(*) FROM search_documents").fetchone()[0]
+            )
+    except UndefinedTable:
+        return 0
+
+
 @app.get("/health")
-def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
-    # Estimación de las estadísticas de Postgres: contar las ~250 mil filas leía ~390 MB en cada chequeo (el prototipo
-    # lo pide cada 30 s y se rinde a los 1,5 s). Sin estadísticas todavía (base recién creada), se cuenta.
-    documents = (
-        conn.execute(
-            """SELECT coalesce(sum(greatest(c.reltuples, 0)), 0)::bigint FROM pg_inherits i
-           JOIN pg_class c ON c.oid = i.inhrelid WHERE i.inhparent = 'search_documents'::regclass"""
-        ).fetchone()[0]
-        or conn.execute("SELECT count(*) FROM search_documents").fetchone()[0]
-    )
+def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)):
+    """Readiness: 200 si la API puede atender (`ok`, documentos y capacidades), o 503 con `motivos`, códigos de lo que
+    falta (`base`, `saturada`, `sin_documentos`, `migraciones_pendientes`, `busqueda_semantica`): nunca texto de una
+    excepción ni rutas. La app lo cuenta como «sin conexión»."""
+    documents = _count_documents(conn)
+    reasons = []
+    if pending_migrations(conn):
+        reasons.append("migraciones_pendientes")
+    if documents == 0:
+        reasons.append("sin_documentos")
+    if config.API_REQUIRE_SEMANTIC and svc.embedder is None:
+        reasons.append("busqueda_semantica")
+    if reasons:
+        log.warning("La API no está lista: %s", ", ".join(reasons))
+        return JSONResponse(status_code=503, content={"ok": False, "motivos": reasons})
     return {"ok": True, "documentos": documents, "capacidades": svc.capabilities}
 
 
@@ -286,7 +326,7 @@ def ask(body: AskIn, conn: Connection = Depends(get_conn), svc: Services = Depen
     try:
         response = svc.agent.reply(conn, body.message, ctx)
     except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        raise rejected(exc, body.user_id) from exc
     _log_ask(conn, body.user_id, body.session_id, body.message, response, "texto", body.mode)
     concepts = (response.get("intent") or {}).get("concepts")
     if body.mode == "propuesta" and concepts:  # «¿Sabías que…?»: una oferta, así que no en «Rappi hoy»
@@ -331,7 +371,7 @@ def search(
             conn, code, q, None, svc.embedder, price_max, k=limit or VERTICAL_SEARCH_LIMIT, mode=mode
         )
     except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        raise rejected(exc) from exc
     return {
         "vertical": code,
         "products": [p.to_dict() for p in outcome.products],
@@ -439,7 +479,7 @@ def _save_events(connect, body: EventsIn) -> int:
                 source="prototype",
             )
         except ValueError as exc:
-            raise HTTPException(400, str(exc)) from exc
+            raise rejected(exc, body.user_id) from exc
         conn.commit()
     return n
 
@@ -468,7 +508,7 @@ def post_order(
             conn, body.user_id, body.session_id, body.cart_id, vertical, lines, source="prototype", mode=body.mode
         )
     except ValueError as exc:  # un usuario de otra fuente (simulado)
-        raise HTTPException(400, str(exc)) from exc
+        raise rejected(exc, body.user_id) from exc
     conn.commit()
     if skipped:
         log.warning("Pedido %s: %d línea(s) sin precio vigente quedaron fuera", order_id, skipped)
