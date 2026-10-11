@@ -94,3 +94,30 @@ def test_checksum_mismatch_warns(db, caplog):
     assert [r.getMessage() for r in caplog.records] == [f"La migración {first} cambió después de aplicarse"]
     missing = db.execute("SELECT count(*) FROM schema_migrations WHERE checksum IS NULL").fetchone()[0]
     assert missing == 0
+
+
+def test_migrate_with_nothing_pending_does_not_wait_for_a_dump(db, monkeypatch):
+    """pg_dump tiene ACCESS SHARE sobre schema_migrations todo el volcado: `migrate` sin nada pendiente no la altera."""
+    monkeypatch.setattr(db_module.config, "MIGRATE_LOCK_TIMEOUT", "300ms")
+    with connect(database_url("DATABASE_URL_TEST")) as dump:
+        dump.execute("SELECT count(*) FROM schema_migrations")  # transacción abierta, como la de pg_dump
+        assert migrate(db) == []
+        dump.rollback()
+
+
+def test_backfill_and_each_migration_commit_on_their_own(db, extra_migration):
+    """Completar los checksum viejos no deja abierta una transacción que convierta a cada migración en un savepoint: si
+    la conexión se cae en una migración, las anteriores y el relleno ya quedaron confirmados."""
+    db.execute("UPDATE schema_migrations SET checksum = NULL")
+    db.commit()
+    extra_migration("CREATE TABLE prueba_ok (id int);")
+    (db_module.MIGRATIONS_DIR / "999_zz_corte.sql").write_text(
+        "SELECT pg_terminate_backend(pg_backend_pid());", encoding="utf-8"
+    )
+
+    with pytest.raises(psycopg.OperationalError):
+        migrate(db)
+
+    with connect(database_url("DATABASE_URL_TEST")) as other:
+        assert other.execute("SELECT to_regclass('prueba_ok')").fetchone()[0] is not None
+        assert other.execute("SELECT count(*) FROM schema_migrations WHERE checksum IS NULL").fetchone()[0] == 0

@@ -42,7 +42,14 @@ def connect(url: str | None = None) -> psycopg.Connection:
 
 
 def _checksum(path: Path) -> str:
-    return hashlib.md5(path.read_bytes()).hexdigest()
+    return hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
+
+
+def _has_checksum_column(conn: psycopg.Connection) -> bool:
+    return conn.execute(
+        """SELECT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'schema_migrations'::regclass
+                          AND attname = 'checksum' AND NOT attisdropped)"""
+    ).fetchone()[0]
 
 
 def _applied(conn: psycopg.Connection) -> dict[str, str | None]:
@@ -66,30 +73,38 @@ def migrate(conn: psycopg.Connection) -> list[str]:
             "CREATE TABLE IF NOT EXISTS schema_migrations "
             "(name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"
         )
-        conn.execute("ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum text")
+        # Solo si falta: el ALTER pide ACCESS EXCLUSIVE aun con IF NOT EXISTS, y pg_dump tiene la tabla tomada (ACCESS
+        # SHARE) todo el volcado: un `migrate` durante un respaldo fallaba a los 10 s aunque no hubiera nada pendiente.
+        if not _has_checksum_column(conn):
+            conn.execute("ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum text")
         applied = _applied(conn)
+        files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+        for path in files:
+            if path.name in applied and applied[path.name] is None:
+                conn.execute("UPDATE schema_migrations SET checksum = %s WHERE name = %s", (_checksum(path), path.name))
         conn.commit()  # así cada `conn.transaction()` de abajo es una transacción propia, no un savepoint
         newly_applied = []
-        for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
-            checksum = _checksum(path)
+        for path in files:
             if path.name in applied:
-                if applied[path.name] is None:
-                    conn.execute("UPDATE schema_migrations SET checksum = %s WHERE name = %s", (checksum, path.name))
                 continue
             with conn.transaction():
                 conn.execute(path.read_text(encoding="utf-8"))
-                conn.execute("INSERT INTO schema_migrations (name, checksum) VALUES (%s, %s)", (path.name, checksum))
+                conn.execute(
+                    "INSERT INTO schema_migrations (name, checksum) VALUES (%s, %s)", (path.name, _checksum(path))
+                )
             log.info("Migración aplicada: %s", path.name)
             newly_applied.append(path.name)
         conn.commit()
         return newly_applied
     finally:
-        # Lo aplicado ya está confirmado: el candado se suelta después, y la sesión vuelve con su lock_timeout.
-        if conn.info.transaction_status == TransactionStatus.INERROR:
-            conn.rollback()
-        conn.execute("SELECT set_config('lock_timeout', %s, false)", (previous_timeout,))
-        conn.execute("SELECT pg_advisory_unlock(%s)", (MIGRATE_LOCK,))
-        conn.commit()
+        # Lo aplicado ya está confirmado: el candado se suelta después, y la sesión vuelve con su lock_timeout. Con la
+        # conexión caída no hay nada que soltar (el candado muere con la sesión) y se ve el error original.
+        if not conn.closed:
+            if conn.info.transaction_status == TransactionStatus.INERROR:
+                conn.rollback()
+            conn.execute("SELECT set_config('lock_timeout', %s, false)", (previous_timeout,))
+            conn.execute("SELECT pg_advisory_unlock(%s)", (MIGRATE_LOCK,))
+            conn.commit()
 
 
 def check_migrations(conn: psycopg.Connection) -> None:

@@ -31,8 +31,10 @@ from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
+import psycopg
 from psycopg import sql
 from rappi_scraper.storage.backup import backup_database
+from rappi_scraper.storage.db import MIGRATE_LOCK
 
 from . import config
 from .concepts.pipeline import build_concepts
@@ -542,13 +544,30 @@ PRE_MIGRATION_BACKUP = "pre-migracion"
 def deploy_migrate(conn, backup: Callable[[], Path] | None, grants_file: Path = GRANTS_FILE) -> None:
     """Migrar como paso del despliegue (el servicio `migrate`): si hay migraciones pendientes, primero `backup` (si
     falla, no migra; `None` es --sin-respaldo); después `migrate`, las tarjetas del juego y, con DB_API_ROLE, los
-    permisos de ese rol (`grants_file`, idempotente). Dice qué hizo; sale con error si algo falla."""
+    permisos de ese rol (`grants_file`, idempotente). Dice qué hizo; sale con un mensaje (sin traceback) si algo falla.
+
+    Todo va con el candado de `migrate` (MIGRATE_LOCK, de sesión; `migrate` lo vuelve a tomar en la misma sesión): un
+    segundo despliegue a la vez espera al primero y ya no encuentra nada que respaldar ni aplicar."""
     role = os.environ.get("DB_API_ROLE")
     if role and not grants_file.is_file():
         raise SystemExit(f"DB_API_ROLE={role} pide aplicar {grants_file}, pero ese archivo no existe: no migro.")
+    conn.execute("SELECT pg_advisory_lock(%s)", (MIGRATE_LOCK,))
+    conn.commit()
+    try:
+        _deploy_migrate_locked(conn, backup, role, grants_file)
+    finally:
+        if not conn.closed:
+            conn.rollback()
+            conn.execute("SELECT pg_advisory_unlock(%s)", (MIGRATE_LOCK,))
+            conn.commit()
+
+
+def _deploy_migrate_locked(conn, backup: Callable[[], Path] | None, role: str | None, grants_file: Path) -> None:
     for name in changed_migrations(conn):
         log.warning("La migración %s cambió después de aplicarse", name)
     pending = pending_migrations(conn)
+    # Sin transacción abierta durante el volcado: pg_dump ya tiene las tablas tomadas (ACCESS SHARE) mientras dura.
+    conn.commit()
     if not pending:
         print("Sin migraciones pendientes: no hace falta respaldo.")
     elif backup is None:
@@ -560,7 +579,19 @@ def deploy_migrate(conn, backup: Callable[[], Path] | None, grants_file: Path = 
         except Exception as exc:
             raise SystemExit(f"No se pudo respaldar la base ({exc}): no migro.") from exc
         print(f"Respaldo listo: {path}")
-    applied = migrate(conn)
+    try:
+        applied = migrate(conn)
+    except psycopg.errors.LockNotAvailable as exc:
+        raise SystemExit(
+            "Una tabla está ocupada; la migración no se aplicó. Intenta de nuevo en unos minutos."
+        ) from exc
+    except psycopg.Error as exc:
+        log.error("Error al migrar: %s", exc)
+        remaining = [] if conn.closed else pending_migrations(conn)  # las anteriores ya quedaron confirmadas
+        failed = remaining[0] if remaining else "pendiente"
+        raise SystemExit(
+            f"La migración {failed} falló y no se aplicó ({type(exc).__name__}; el detalle quedó en el registro)."
+        ) from exc
     print("Migraciones aplicadas: " + (", ".join(applied) if applied else "ninguna (al día)"))
     try:
         counts = load_knowledge(conn)
