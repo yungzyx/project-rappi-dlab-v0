@@ -4,7 +4,7 @@
 > Última actualización: 30-09-2026. Contexto: [contexto-y-problema.md](contexto-y-problema.md) · Modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Resultados vigentes: [README → Resultados](../README.md#resultados).
 > Diagramas: [flujo de datos por etapas](diagramas/rag-datos.png) y [vista por carriles](diagramas/arquitectura-ia.png). Sus versiones interactivas ([rag-datos.html](diagramas/rag-datos.html), [arquitectura-ia.html](diagramas/arquitectura-ia.html)) se descargan y se abren en el navegador.
 > Lo marcado "datos parciales" se midió el 27-09-2026, antes de terminar la descarga completa.
-> **09-10-2026:** el repo se enfocó en el prototipo final; el panel de negocio (§5 y etapa 7, `dashboard-empresa/`) queda como herramienta para más adelante, fuera de la propuesta.
+> **09-10-2026:** el repo se enfocó en el prototipo final; el panel de negocio (§5 y etapa 7, `dashboard-empresa/`) quedó fuera de la propuesta; el **11-10-2026** (etapa 6 del MVP) volvió como parte del MVP, conectado a la API, con la vista «Uso del MVP» (§5).
 
 ## 0. La regla que ordena todo
 
@@ -177,7 +177,7 @@ Mochi es el nombre que ve el usuario (antes, Bigotes). El código usa nombres ne
 
 ## 5. Panel para la empresa: ¿vale la pena?
 
-> Desde el 09-10-2026, herramienta para más adelante (`dashboard-empresa/`), fuera de la propuesta del prototipo.
+> Desde el 11-10-2026 es parte del MVP (`dashboard-empresa/`): `make mvp` lo levanta junto a la app y lee la API. Los datos simulados siguen mostrando solo la mecánica; lo que la gente hace en la app se ve aparte, en «Uso del MVP».
 
 **Sí, si se enfoca en decisiones y no en gráficos.** Las preguntas al agente y las búsquedas son una encuesta continua de lo que la gente quiere. El panel convierte eso, junto con la conducta de compra, en acciones para **subir la frecuencia y bajar el abandono**.
 
@@ -195,6 +195,9 @@ Mochi es el nombre que ve el usuario (antes, Bigotes). El código usa nombres ne
 | Usuarios multi-vertical | Pidieron en 2 o más verticales en 60 días. Su retención se compara **a igual número de compras (carros) y antigüedad**: quien pide más cae más en dos verticales y además retiene más, así que la comparación directa no mide el efecto |
 | Sugerencia aceptada / convertida | Aceptada: el producto sugerido (al preguntarle al agente o en "Para ti") se agregó al carro; cuenta una vez por sugerencia (concepto, vertical y origen) en la pestaña, igual que la mostrada, así las aceptadas nunca superan a las mostradas: quitarlo y volver a agregarlo, o agregarlo otra vez en el carro siguiente, no es otra aceptación. Convertida: llegó a un pedido. El aviso sobre el carro se mide aparte: ahí aceptar es abrir al agente |
 | Servicios sin catálogo | Por servicio (RappiTravel, RappiFavor): veces que Mochi lo ofreció (`service_shown`), que se abrió (`service_opened`) y ganchos del catálogo mostrados y aceptados (sugerencias con `origen` = el servicio). Vista «Entre verticales» |
+| Ofertas del agente por momento | Sugerencias mostradas (`suggestion_shown`) y aceptadas (`suggestion_accepted`) agrupadas por el momento que dice su `origen`: `agent-plan`, `agent-carrito`, `agent-checkout`, `agent-proximo_pedido`, `agent-sin_resultado`, `agent-vertical_por_probar`, la pregunta al agente (`agent-ask`) y «Para ti». Los nombres históricos (`mochi-<momento>`, `chat`, `para-ti-local`, `vertical-para-ti`) siguen contando; un origen sin momento o desconocido va a «sin momento» y no se pierde. Quedan fuera los servicios sin catálogo (tienen su sección) y el aviso sobre el carro. La tasa de aceptación necesita 10 mostradas, como en las sugerencias cruzadas. Solo cuentas y personas distintas |
+| Juego | Del juego de verticales, personas distintas, rondas terminadas (`game_round_finished`, una vez por ronda aunque se vuelva a pintar), tarjetas descubiertas (`game_card_discovered`, una vez por tarjeta y persona) y estrellas promedio de las rondas (de 0 a 3; solo desde 5 rondas), en total y por vertical del juego (`payload.vertical_juego`). Quien solo jugó cuenta como persona activa del MVP. Los eventos no llevan texto: solo el id de la tarjeta y números |
+| Búsquedas sin resultado | De las búsquedas (`search`) y preguntas al agente (`ask`, antes `chat`) que saben si encontraron algo, cuántas no y, por vertical y concepto reconocido, cuántas sin resultado (hasta 20 filas). **Nunca el texto buscado**; sin concepto reconocido se rotula «Sin concepto reconocido» y los conceptos sensibles no se muestran. Una fila sin umbral de personas puede reflejar la búsqueda de una sola persona: por eso se lee como demanda que el catálogo no cubre, no como una tendencia |
 | Embudo por vertical | Sesiones que buscan (llegan a la vertical) → agregan al carro → inician pago → piden. La entrada (buscar, preguntarle al agente, navegar, aceptar una sugerencia o agregar al carro desde una lista, que solo manda el agregado) se mira en toda la sesión, porque la sugerencia cruzada lleva el pedido a otra vertical. Una sesión cuenta en una vertical si tuvo ahí algún evento que no sea ver o descartar una sugerencia: ver una sugerencia sin aceptarla no la mete en esa vertical. Por eso una sesión puede contar en dos verticales: la conversión global (el titular) cuenta cada sesión una vez |
 
 **Vistas** (además de una pestaña Resumen con los indicadores y las palancas):
@@ -230,6 +233,7 @@ Ninguna palanca usa conceptos sensibles.
 
 **Límites honestos:**
 
+- **Uso del MVP.** Lo que ve la vista «Uso del MVP» (fuente `prototype`) es lo que hicieron pocas personas probando la app: se rotula «uso del MVP, pocas personas: no es evidencia» y nunca se mezcla con lo simulado. «Olvidar» en la app borra los eventos de esa persona, así que también salen de estas cuentas.
 - Hoy los usuarios, eventos y pedidos son **simulados**: los genera `events/synth.py` (1.500 usuarios × 26 semanas, semilla 7; `source = 'synthetic'`), con supuestos explícitos. Por ejemplo, el generador asume que quien usa más verticales abandona menos. El panel **muestra la mecánica, no evidencia**: con datos reales, esa relación se mide y puede no cumplirse. La pestaña Catálogo es la única que usa datos reales.
 - Cualquier palanca se valida con un grupo de control (A/B con *holdout*) antes de escalar. El efecto causal de "Segunda vertical" se mide solo así, no con la comparación de retención.
 
@@ -271,7 +275,7 @@ Notas del modelo:
 | 4. API | FastAPI | Tests de endpoints | Hecha |
 | 5. Eventos y analítica | Tablas, generador simulado y consultas | Tests con datos controlados | Hecha |
 | 6. Prototipo conectado | Cliente API con respaldo local (salió en la etapa 3 del MVP: hoy la app exige la API), eventos y bugs corregidos | Vitest y prueba en el navegador | Hecha |
-| 7. Panel empresa | `dashboard-empresa/` (para más adelante) | Vitest y chequeo visual | Hecha |
+| 7. Panel empresa | `dashboard-empresa/` (parte del MVP) | Vitest y chequeo visual | Hecha |
 | 8. Cierre | CI (4 jobs), docs y corrida completa post-refresh | CI en verde | Hecha (30-09-2026) |
 
 **Revisión:** tres pasadas de revisión adversarial automatizada (agentes de IA) con 66 hallazgos corregidos (27-09-2026) y una auditoría el 28-09-2026, cuyos 4 bloques de mejoras se aplicaron el 29 y 30-09. Resultados de cobertura, precisión y búsqueda en [README → Resultados](../README.md#resultados).

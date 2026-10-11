@@ -82,7 +82,7 @@ Cada cifra dice qué tipo de dato es: real, evaluación automática, estimación
 | Capa de datos | Atributos, marcas y grafo | 83 atributos sobre 79.617 ítems · 6.359 marcas · 23.534 productos canónicos · 32.105 aristas en 12 relaciones | Real, con reglas propias; atributos 92 % y marcas 97 a 99 % de precisión estimada | `make layers`, 06-10-2026 |
 | Búsqueda | nDCG@10 | híbrido 0,917 · sin refuerzo por concepto 0,860 · vectorial 0,849 · léxico 0,776 | Evaluación automática | [reporte del 06-10](docs/resultados/busqueda-2026-10-06.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [reporte del 30-09](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests | scraper 144 · rappi-ia 1077 · prototipo 589 · panel 90 | Verificación local y CI | `make test` · `npm test` |
+| Calidad | Tests | scraper 144 · rappi-ia 1233 · prototipo 646 · panel 101 | Verificación local y CI | `make test` · `npm test` |
 
 ### Catálogo por vertical
 
@@ -127,7 +127,7 @@ Requisitos (el detalle, en [docs/instalacion.md](docs/instalacion.md)):
 ```bash
 make mvp          # desde la raíz del repositorio; Ctrl-C detiene los tres
 make mvp LAN=1    # abre la API y la app a la red local, para el iPhone (solo en una red de confianza)
-make mvp-check    # recorre la app con Chrome (la Home, una compra en el Súper de prueba, el kit de Mochi, una ronda del juego, el «¿Sabías que…?» del agente y la caída de la API) contra un catálogo inventado, sin tocar la base real
+make mvp-check    # recorre la app con Chrome (la Home, una compra en el Súper de prueba, el kit de Mochi, una ronda del juego, el «¿Sabías que…?» del agente, «Uso del MVP» en el panel y la caída de la API) contra un catálogo inventado, sin tocar la base real
 ```
 
 `make mvp` revisa las dependencias, los puertos y la base (`rappi-ia doctor`, solo lectura), aplica las migraciones pendientes (no las de una rama sin fusionar: `MIGRATE=1` lo fuerza, ver [docs/instalacion.md](docs/instalacion.md#5-el-mvp)), arranca los tres con sus registros prefijados y avisa cuando responden. La API tarda en estar lista porque carga los modelos. No descarga nada de rappi.cl.
@@ -161,7 +161,7 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 ├── prototipo-app/          el prototipo final (Vite + React): Mochi, buscador, pasaporte y juego de verticales
 ├── rappi-ia/               conceptos, embeddings, búsqueda, capa de datos, Mochi y API (comando `rappi-ia`)
 ├── rappi-scraper/          descarga del catálogo público → Postgres + pgvector (comando `rappi`; migraciones de toda la base)
-├── dashboard-empresa/      panel de negocio para más adelante (Vite + React; datos simulados)
+├── dashboard-empresa/      panel de negocio, parte del MVP (Vite + React; lee la API)
 ├── docs/                   propuesta, diseño, decisiones, demo, instalación y resultados
 │   ├── diagramas/          diagramas (PNG e interactivos) y sus fuentes en diagramas-fuente/
 │   ├── mapas/              mapa multivertical y mapa de conceptos
@@ -173,12 +173,15 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 
 **Fuera del repositorio:** la base Postgres `rappi`, `rappi-scraper/data/` y `rappi-ia/data/`. Los datos descargados no se versionan.
 
-## Para más adelante: panel de negocio
+## Panel de negocio
 
-[`dashboard-empresa/`](dashboard-empresa/) es un panel para la empresa que no forma parte de la propuesta de hoy, pero queda en el repo para usarlo más adelante: convierte la conducta de compra y lo que la gente pide en decisiones (tendencias por concepto, demanda no satisfecha, usuarios en riesgo, rendimiento de las sugerencias cruzadas y salud del catálogo). Lee las métricas de la API (`/analytics`). Hoy usa **usuarios simulados**, salvo la pestaña Catálogo (real): muestra la mecánica, no un resultado.
+[`dashboard-empresa/`](dashboard-empresa/) es el panel para la empresa y forma parte del MVP: lee las métricas de la API (`/analytics`) y `make mvp` lo levanta junto a la app. Convierte la conducta de compra y lo que la gente pide en decisiones (tendencias por concepto, demanda no satisfecha, usuarios en riesgo, rendimiento de las sugerencias cruzadas y salud del catálogo). Se elige la fuente de los datos y nunca se mezclan:
+
+- **Simulados** (por defecto): usuarios, eventos y pedidos de un generador con semilla. Muestran la mecánica del panel, no un resultado. La pestaña Catálogo es real (muestra pública de rappi.cl).
+- **Prototipo**: lo que la gente hizo en la app del MVP, con la vista **Uso del MVP**: las ofertas del agente por momento (plan, carro, antes de pagar, próximo pedido, sin resultado, vertical por probar, pregunta y «Para ti»), el juego (rondas, tarjetas descubiertas y estrellas) y las búsquedas sin resultado por vertical y concepto. Es uso de pocas personas y el panel lo rotula «uso del MVP, pocas personas: no es evidencia». Sin nombres ni textos: personas contadas, nunca nombradas.
 
 ```bash
-cd dashboard-empresa && npm ci && npm run dev   # http://localhost:5175 (sin la API usa respuestas guardadas)
+make mvp   # panel en http://localhost:5175?vista=mvp&fuente=prototipo (sin la API usa respuestas guardadas)
 ```
 
 ## Historial del proyecto

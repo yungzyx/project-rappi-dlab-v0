@@ -54,7 +54,7 @@ Las fuentes JSON de los diagramas están en [diagramas-fuente/](diagramas-fuente
 | Consultar la base con SQL | [sql/README.md](sql/README.md) y [consultas.sql](sql/consultas.sql) | 5 min |
 | Probar a Mochi (API) como usuario y dejar cada fallo como test | [pruebas-de-usuario.md](pruebas-de-usuario.md) | 3 min |
 | Trabajar en el código con un asistente de IA | [CLAUDE.md](../CLAUDE.md) | 2 min |
-| Usar el panel de negocio (herramienta para más adelante, datos simulados) | [dashboard-empresa/README.md](../dashboard-empresa/README.md) | 5 min |
+| Usar el panel de negocio (parte del MVP: datos simulados y la vista «Uso del MVP» con lo hecho en la app) | [dashboard-empresa/README.md](../dashboard-empresa/README.md) | 5 min |
 
 ### Reportes generados (fuera de git)
 
