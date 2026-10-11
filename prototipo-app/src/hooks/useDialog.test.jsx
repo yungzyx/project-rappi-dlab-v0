@@ -77,4 +77,41 @@ describe('useDialog con diálogos apilados', () => {
     fireEvent.keyDown(document.activeElement, { key: 'Escape' })
     expect(onClosePanel).toHaveBeenCalledTimes(1)
   })
+
+  test('un diálogo bajo una pantalla inerte no atrapa Tab ni se come Escape', () => {
+    const onClose = vi.fn()
+    const reachedWindow = vi.fn()
+    window.addEventListener('keydown', reachedWindow)
+    render(
+      <>
+        <div inert>
+          <Dialog name="tapada" onClose={onClose} />
+        </div>
+        <button type="button">libre</button>
+      </>,
+    )
+    const free = screen.getByText('libre')
+    free.focus()
+    expect(fireEvent.keyDown(free, { key: 'Tab' })).toBe(true)
+    fireEvent.keyDown(free, { key: 'Escape' })
+    window.removeEventListener('keydown', reachedWindow)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(reachedWindow).toHaveBeenCalledTimes(2) // ni Tab ni Escape se detuvieron en el diálogo tapado
+  })
+
+  test('si el último diálogo abierto está tapado u oculto, atiende el visible de abajo', () => {
+    const onClosePanel = vi.fn()
+    const onCloseHidden = vi.fn()
+    render(
+      <>
+        <Dialog name="panel" onClose={onClosePanel} />
+        <div hidden>
+          <Dialog name="oculta" onClose={onCloseHidden} />
+        </div>
+      </>,
+    )
+    fireEvent.keyDown(screen.getByText('panel uno'), { key: 'Escape' })
+    expect(onClosePanel).toHaveBeenCalledTimes(1)
+    expect(onCloseHidden).not.toHaveBeenCalled()
+  })
 })

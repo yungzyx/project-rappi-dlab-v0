@@ -240,6 +240,14 @@ describe('dentro del prototipo', () => {
     await waitFor(() => expect(stored().visited).toContain('turbo'))
   })
 
+  test('«Abrir Turbo» cierra la hoja antes de abrir la vertical: no queda un diálogo viejo atrapando el teclado', async () => {
+    seed()
+    await mount(<App params={{ vertical: 'turbo' }} push={vi.fn()} />)
+    expect(document.activeElement).toBe(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Abrir Turbo' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   test('«Abrir Viajes» la sella y abre RappiTravel (no una pantalla vacía)', async () => {
     seed()
     const push = vi.fn()

@@ -380,7 +380,7 @@ function PlayRound({ vertical, back, orderId, challenge, turn }) {
             <Mascot size={70} mood="listen" />
             <h2>¿Salir de la ronda?</h2>
             <p className="muted">Lo que ganaste hasta ahora queda guardado.</p>
-            <button type="button" className="btn-game" onClick={() => setConfirmExit(false)}>
+            <button type="button" className="btn-game" data-autofocus onClick={() => setConfirmExit(false)}>
               Seguir jugando
             </button>
             <button type="button" className="btn-ghost" onClick={back}>

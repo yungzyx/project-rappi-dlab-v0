@@ -13,6 +13,11 @@ const FOCUSABLE = [
 // atrapa Tab y atiende Escape; si no, cada uno le deshace al otro el foco y Escape cierra los dos.
 const stack = []
 
+// Un diálogo tapado (bajo una pantalla inerte, como una hoja que quedó abierta al apilar otra pantalla) u oculto no
+// recibe el teclado: nadie puede llegar a él y atraparía el Tab de toda la app.
+const isLive = (root) => Boolean(root?.isConnected) && !root.closest('[inert], [hidden]')
+const topDialog = () => stack.findLast(isLive)
+
 /**
  * Diálogo modal usable con teclado y VoiceOver (WCAG 2.1.2 y 2.4.3): al abrir, el foco entra (a `[data-autofocus]`
  * o al primer control); Escape cierra; Tab no sale del diálogo; al cerrar, el foco vuelve a quien lo abrió.
@@ -32,7 +37,7 @@ export function useDialog(ref, open, onClose) {
 
     stack.push(root)
     const onKeyDown = (event) => {
-      if (stack.at(-1) !== root) return
+      if (topDialog() !== root) return
       if (event.key === 'Escape') {
         event.stopPropagation()
         onCloseRef.current()

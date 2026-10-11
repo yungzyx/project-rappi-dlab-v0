@@ -100,7 +100,7 @@ function MissionSheet({ daily, streak, onPlay }) {
           )
         })}
       </ul>
-      <button type="button" className="btn-game" onClick={onPlay}>
+      <button type="button" className="btn-game" data-autofocus onClick={onPlay}>
         Jugar ahora
       </button>
     </div>
@@ -188,14 +188,14 @@ export default function Path({ go, open: openAtStart = null }) {
       )}
       {open && open !== 'mision' && (
         <Sheet label={LABELS[open]} onClose={() => setOpen(null)}>
-          <VerticalSheet vertical={open} go={go} />
+          <VerticalSheet vertical={open} go={go} close={() => setOpen(null)} />
         </Sheet>
       )}
     </>
   )
 }
 
-function VerticalSheet({ vertical, go }) {
+function VerticalSheet({ vertical, go, close }) {
   const { state } = useGame()
   const shell = useContext(GameShellContext)
   const level = verticalLevel(state, vertical)
@@ -215,14 +215,21 @@ function VerticalSheet({ vertical, go }) {
         {found} de {total} datos · {correct} {correct === 1 ? 'acierto' : 'aciertos'}
       </p>
       <p className="vsheet-goal muted">{nextGoal(level, total, found, correct)}</p>
-      <button type="button" className="btn-game" onClick={() => go('ronda', { vertical })}>
+      <button type="button" className="btn-game" data-autofocus onClick={() => go('ronda', { vertical })}>
         Jugar
       </button>
       <button type="button" className="btn-ghost" onClick={() => go('coleccion', { vertical })}>
         Ver datos
       </button>
       {shell?.openInApp && (
-        <button type="button" className="btn-ghost" onClick={() => shell.openInApp(vertical)}>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => {
+            close() // la hoja no se queda abierta bajo la pantalla que se apila
+            shell.openInApp(vertical)
+          }}
+        >
           Abrir {LABELS[vertical]}
         </button>
       )}
