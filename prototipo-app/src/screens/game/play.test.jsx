@@ -74,6 +74,14 @@ describe('ronda', () => {
     expect(asked[0]).toContain('seed=0')
   })
 
+  test('with the challenge failing, Salir leaves the round', async () => {
+    stubApi({ 'GET /game/challenge': 'offline' })
+    await openRound('licores')
+    await screen.findByRole('heading', { name: /^Sin conexión/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Salir' }))
+    expect(screen.getByRole('region', { name: 'Camino de verticales' })).toBeTruthy()
+  })
+
   test('the round shows Sin conexión with Reintentar when the challenge fails, and retries', async () => {
     let calls = 0
     stubApi({ 'GET /game/challenge': (req) => (++calls === 1 ? 'offline' : gameChallenge('licores', req.query.get('seed'))) })

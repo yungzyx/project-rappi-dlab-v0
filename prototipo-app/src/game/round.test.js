@@ -62,6 +62,14 @@ describe('ronda', () => {
     expect(round[3]).toEqual({ type: 'desafio', challenge })
   })
 
+  test('the round uses the turn it is given, not the one in the state', () => {
+    const state = { ...initialState(), discovered: { turbo: cardsOf('turbo').map((c) => c.id) } }
+    const later = { ...state, answered: { turbo: 3 } }
+    const challenge = gameChallenge('turbo', '0')
+    expect(makeRound(state, 'turbo', challenge, 3)).toEqual(makeRound(later, 'turbo', challenge))
+    expect(makeRound(state, 'turbo', challenge, 3)).not.toEqual(makeRound(state, 'turbo', challenge))
+  })
+
   test('without a challenge the middle step is a third question', () => {
     const round = makeRound(initialState(), 'viajes', null)
     expect(types(round)).toEqual(['dato', 'pregunta', 'dato', 'pregunta', 'pregunta'])

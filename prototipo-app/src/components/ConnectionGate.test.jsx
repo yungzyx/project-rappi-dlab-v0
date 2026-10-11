@@ -40,6 +40,13 @@ describe('ConnectionGate', () => {
     expect(screen.queryByText('La app')).toBeNull()
   })
 
+  test('the app-wide gate has no Salir button', async () => {
+    stubApi({ '/health': 'offline' })
+    renderGate()
+    await screen.findByText('Sin conexión con Mochi')
+    expect(screen.queryByRole('button', { name: 'Salir' })).toBeNull()
+  })
+
   test('una API lenta muestra «Conectando con Mochi…» y después entra', async () => {
     vi.useFakeTimers()
     stubApi({ '/health': 'slow:3000' })

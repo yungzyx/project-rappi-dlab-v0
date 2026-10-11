@@ -15,11 +15,10 @@ function pick(cards, seen, n, round) {
 
 /**
  * Una ronda en una vertical: 2 datos «¿Sabías que…?», 2 preguntas de conocimiento y 1 desafío del catálogo (el que
- * pide la API, `challenge`), intercalados. Sin desafío (`null`: Viajes no tiene catálogo) cambia el desafío por otra pregunta.
+ * pide la API, `challenge`), intercalados. `turn`: las respuestas de la vertical con que se pidió el desafío (la semilla). Sin desafío (`null`: Viajes no tiene catálogo) cambia el desafío por otra pregunta.
  */
-export function makeRound(state, vertical, challenge) {
+export function makeRound(state, vertical, challenge, turn = state.answered[vertical] ?? 0) {
   const seen = new Set(state.discovered[vertical] ?? [])
-  const turn = state.answered[vertical] ?? 0
   // Cada ronda completa responde 3 preguntas (2 y el desafío; sin desafío, 3 preguntas).
   const round = Math.floor(turn / 3)
   const hasChallenge = Boolean(challenge)

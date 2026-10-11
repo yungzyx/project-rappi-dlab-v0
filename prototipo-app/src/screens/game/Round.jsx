@@ -206,15 +206,15 @@ export default function Round({ vertical, back, orderId }) {
   const [seed] = useState(() => String(state.answered[vertical] ?? 0))
   const { data: challenge, error, loading, retry } = useApi(() => fetchChallenge(vertical, seed), [vertical, seed])
 
-  if (error || loading) return <ConnectionNotice status={error ? 'offline' : 'checking'} onRetry={retry} />
-  return <PlayRound vertical={vertical} back={back} orderId={orderId} challenge={challenge} />
+  if (error || loading) return <ConnectionNotice status={error ? 'offline' : 'checking'} onRetry={retry} onLeave={back} />
+  return <PlayRound vertical={vertical} back={back} orderId={orderId} challenge={challenge} turn={Number(seed)} />
 }
 
-/** La ronda ya armada; `challenge` es el desafío de la API, o null si la vertical no tiene (Viajes). */
-function PlayRound({ vertical, back, orderId, challenge }) {
+/** La ronda ya armada; `challenge` es el desafío de la API, o null si la vertical no tiene (Viajes), pedido en el turno `turn`. */
+function PlayRound({ vertical, back, orderId, challenge, turn }) {
   const game = useGame()
   const { clearEvents } = game
-  const [steps] = useState(() => makeRound(game.state, vertical, challenge))
+  const [steps] = useState(() => makeRound(game.state, vertical, challenge, turn))
   const [levelBefore] = useState(() => verticalLevel(game.state, vertical))
   const [xpBefore] = useState(() => game.state.xp)
   const [index, setIndex] = useState(0)
