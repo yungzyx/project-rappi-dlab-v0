@@ -211,6 +211,21 @@
   box-shadow: 0 3px 0 var(--accent-deep);
 }
 
+/* Mientras el juego carga (o no hay conexión con él): el título y nada más, con la altura de un bloque quieto */
+.live-passport.is-pending {
+  min-height: 112px;
+}
+
+.live-passport-retry {
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 0 4px;
+  color: var(--agent-orange);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 .live-passport-bar {
   height: 6px;
   margin-top: 10px;

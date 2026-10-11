@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createSaver } from './saver.js'
 
 /** Una petición que se resuelve o falla cuando el test lo decide. */
@@ -137,5 +137,73 @@ describe('guardado: bordes', () => {
     await saver.save({ xp: 2 })
     expect(send).toHaveBeenLastCalledWith({ xp: 2 })
     expect(saver.pending()).toBe(false)
+  })
+})
+
+describe('guardado: reintento solo', () => {
+  afterEach(() => vi.useRealTimers())
+
+  test('un guardado fallido se reintenta sin otra acción (a los 2 s, 5 s y 15 s, y después cada 15 s)', async () => {
+    vi.useFakeTimers()
+    const send = vi.fn().mockRejectedValue(new Error('sin red'))
+    const saver = createSaver(send)
+    await saver.save({ xp: 10 })
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(saver.pending()).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(send).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(send).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(send).toHaveBeenCalledTimes(3)
+    await vi.advanceTimersByTimeAsync(15000)
+    expect(send).toHaveBeenCalledTimes(4)
+    await vi.advanceTimersByTimeAsync(15000)
+    expect(send).toHaveBeenCalledTimes(5)
+    expect(send).toHaveBeenLastCalledWith({ xp: 10 })
+
+    send.mockResolvedValue(undefined)
+    await vi.advanceTimersByTimeAsync(15000)
+    expect(send).toHaveBeenCalledTimes(6)
+    expect(saver.pending()).toBe(false)
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(send).toHaveBeenCalledTimes(6) // confirmado: no hay más reintentos
+  })
+
+  test('el reintento lleva el estado más nuevo y un cancel lo detiene', async () => {
+    vi.useFakeTimers()
+    const send = vi.fn().mockRejectedValueOnce(new Error('sin red')).mockResolvedValue(undefined)
+    const saver = createSaver(send)
+    await saver.save({ xp: 10 })
+    await saver.cancel() // «Olvidar»: lo pendiente no vuelve a salir
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(saver.pending()).toBe(false)
+  })
+
+  test('retry() reenvía ya lo pendiente (volvió la red) y no hace nada si no hay nada', async () => {
+    vi.useFakeTimers()
+    const send = vi.fn().mockRejectedValueOnce(new Error('sin red')).mockResolvedValue(undefined)
+    const saver = createSaver(send)
+    await saver.retry()
+    expect(send).not.toHaveBeenCalled()
+    await saver.save({ xp: 10 })
+    await saver.retry()
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(saver.pending()).toBe(false)
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+
+  test('stop() deja de reintentar pero conserva lo pendiente', async () => {
+    vi.useFakeTimers()
+    const send = vi.fn().mockRejectedValue(new Error('sin red'))
+    const saver = createSaver(send)
+    await saver.save({ xp: 10 })
+    saver.stop()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(saver.pending()).toBe(true)
   })
 })

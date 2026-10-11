@@ -25,6 +25,88 @@ def test_claude_composer_gives_up_quickly():
     assert composer._client.max_retries == 1
 
 
+def _text(text):
+    return SimpleNamespace(type="text", text=text)
+
+
+def _reply(*content, stop_reason="end_turn"):
+    """Una respuesta de la API de mensajes con sus bloques de contenido."""
+    return SimpleNamespace(content=list(content), stop_reason=stop_reason)
+
+
+def _composer(create):
+    composer = ClaudeComposer.__new__(ClaudeComposer)  # sin red ni clave
+    composer.model, composer._fallback = "claude-sonnet-5", TemplateComposer()
+    composer._client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    return composer
+
+
+RESULTS = Draft(kind="resultados", concept_label="🍺 Cerveza", vertical_label="Licores", product_names=["Escudo"])
+
+
+def test_claude_thinking_block_then_text_uses_text():
+    """Un bloque de pensamiento antes del texto no tiene `.text`: antes eso caía siempre a la plantilla."""
+    sent = {}
+
+    def create(**kwargs):
+        sent.update(kwargs)
+        thinking = SimpleNamespace(type="thinking", thinking="", signature="x")
+        return _reply(thinking, _text('{"text": "Mira, te dejo {p1} bien helada."}'))
+
+    assert _composer(create).compose(RESULTS) == "Mira, te dejo Escudo bien helada."
+    assert sent["thinking"] == {"type": "disabled"}  # 200 tokens no alcanzan para pensar y redactar
+
+
+@pytest.mark.parametrize(
+    ("model", "options"),
+    [
+        ("claude-sonnet-5", {"max_tokens": 200, "thinking": {"type": "disabled"}}),
+        ("claude-opus-5", {"max_tokens": 200, "thinking": {"type": "disabled"}}),
+        # Rechaza "disabled": between_tools no piensa en una respuesta sin herramientas.
+        ("claude-sonnet-5-5", {"max_tokens": 200, "thinking": {"type": "between_tools"}}),
+        # No se puede apagar: esfuerzo bajo y espacio para pensar antes del texto.
+        ("claude-opus-5-5", {"max_tokens": 2000, "output_config": {"effort": "low"}}),
+        ("claude-fable-5", {"max_tokens": 2000}),  # "disabled" es un 400: desconocido, sin `thinking`
+        ("otro-modelo", {"max_tokens": 2000}),
+    ],
+)
+def test_thinking_options_follow_the_model(model, options):
+    sent = {}
+
+    def create(**kwargs):
+        sent.update(kwargs)
+        return _reply(_text('{"text": "Mira, te dejo {p1} bien helada."}'))
+
+    composer = _composer(create)
+    composer.model = model
+    assert composer.compose(RESULTS) == "Mira, te dejo Escudo bien helada."
+    assert {k: v for k, v in sent.items() if k in ("max_tokens", "thinking", "output_config")} == options
+
+
+def test_claude_max_tokens_logs_reason(caplog):
+    cut = _reply(_text('{"text": "Mira, te dejo'), stop_reason="max_tokens")
+    with caplog.at_level("WARNING"):
+        assert _composer(lambda **_: cut).compose(RESULTS) == TemplateComposer().compose(RESULTS)
+    assert "max_tokens" in caplog.text
+
+    for reply, reason in [
+        (_reply(SimpleNamespace(type="thinking", thinking="", signature="x")), "sin_texto"),
+        (_reply(_text('{"text": "Todo a $100"}')), "verificador"),
+    ]:
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            _composer(lambda r=reply, **_: r).compose(RESULTS)
+        assert reason in caplog.text, reason
+
+    def boom(**_):
+        raise ConnectionError("sin red")
+
+    caplog.clear()
+    with caplog.at_level("WARNING"):
+        _composer(boom).compose(RESULTS)
+    assert "error:ConnectionError" in caplog.text
+
+
 def test_claude_composer_falls_back_to_template_on_any_failure():
     composer = ClaudeComposer.__new__(ClaudeComposer)  # sin red ni clave
     composer.model = "test"
@@ -38,7 +120,7 @@ def test_claude_composer_falls_back_to_template_on_any_failure():
     assert composer.compose(draft) == TemplateComposer().compose(draft)
 
     def invents_prices(**_):
-        return SimpleNamespace(content=[SimpleNamespace(text='{"text": "Todo a $100"}')])
+        return _reply(_text('{"text": "Todo a $100"}'))
 
     composer._client = SimpleNamespace(messages=SimpleNamespace(create=invents_prices))
     assert "$100" not in composer.compose(draft)
@@ -197,11 +279,7 @@ def test_llm_never_sees_the_user_query_and_notices_are_added_in_code():
     composer = ClaudeComposer.__new__(ClaudeComposer)
     composer.model, composer._fallback = "test", TemplateComposer()
     composer._client = SimpleNamespace(
-        messages=SimpleNamespace(
-            create=lambda **_: SimpleNamespace(
-                content=[SimpleNamespace(text='{"text": "Uy, eso no lo tengo por ahora."}')]
-            )
-        )
+        messages=SimpleNamespace(create=lambda **_: _reply(_text('{"text": "Uy, eso no lo tengo por ahora."}')))
     )
     text = composer.compose(draft)
     assert text.startswith("Uy, eso no lo tengo") and text.endswith(AGE_NOTICE)

@@ -120,7 +120,7 @@
   height: 52px;
   border-radius: 99px;
   background: var(--green-add);
-  color: var(--surface);
+  color: var(--ink); /* el blanco sobre este verde da 2,2:1; el tinta, 8,2:1 */
   font-size: 17px;
   font-weight: 700;
 }

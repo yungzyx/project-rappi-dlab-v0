@@ -46,7 +46,7 @@ Desde la raíz del repositorio:
 
 La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://localhost:8001 npm run dev` o en `.env.local`. La API ya acepta peticiones desde `localhost:51xx` (CORS). Para abrir el panel desde el iPhone hace falta `VITE_API_URL` con la dirección del Mac, porque por defecto busca la API en `localhost`.
 
-**Sin la API** el panel igual funciona. Cada consulta que falla, o que tarda más de 30 s, cae a la respuesta guardada en `src/fixtures/`. En ese caso aparece el aviso «Modo sin conexión (datos guardados)», que dice qué consultas fallaron y por qué, y trae un botón *Reintentar*.
+**Sin la API** el panel funciona con datos **simulados** y con el catálogo: cada consulta que falla, o que tarda más de 30 s, cae a la respuesta guardada en `src/fixtures/`. Cada archivo trae su `guardado` (`origen` y `fecha`), y el aviso «Modo sin conexión (datos guardados)» lo cita, además de decir qué consultas fallaron y por qué; en «Uso del MVP» cada bloque lo repite. Con la fuente **Prototipo** no hay respaldo: el uso del MVP solo se ve con la base viva, y sin la API cada bloque dice «La API no responde» (las cifras guardadas serían de un recorrido de prueba, no de nadie). Trae un botón *Reintentar*.
 
 **Datos nuevos.** Cada consulta se pide una vez por fuente y queda en memoria mientras la página esté abierta (`/analytics/weekly` tarda varios segundos). El botón *Actualizar*, junto a la fecha de corte, vuelve a pedir solo la fuente elegida: así se ve lo que se acaba de hacer en el prototipo sin recargar la página.
 
@@ -59,7 +59,7 @@ La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://
 | `npm run fixtures` | Vuelve a guardar las respuestas de la API en `src/fixtures/` (correr tras `make synth` o una actualización del catálogo). Las de «Uso del MVP» (ofertas, juego y búsquedas sin resultado) no pasan por aquí: las escribe `make contract` en `rappi-ia/` y el CI falla si quedan desactualizadas |
 | `npm run screenshots` | Regenera `docs/screenshots/` con el Chrome instalado y un Vite propio en el 5198 |
 
-Tests: 101 (Vitest, 11-10-2026). CI en GitHub Actions: lint, tests y build.
+Tests: las cifras vigentes están en [README.md#resultados](../README.md#resultados) (fila «Calidad»). CI en GitHub Actions: lint, tests y build.
 
 ## Vistas
 
@@ -143,7 +143,7 @@ Lo que la gente hizo en la app del MVP, en tres secciones. Con la fuente **Proto
 - **Juego.** Rondas terminadas, tarjetas descubiertas y estrellas promedio (de 0 a 3), en total y por vertical del juego. El promedio aparece desde 5 rondas.
 - **Búsquedas sin resultado.** Por vertical y concepto reconocido: es demanda que el catálogo no cubre. No muestra lo que escribió cada persona ni conceptos sensibles; una búsqueda sin vertical se rotula «Sin vertical».
 
-Las definiciones están en [docs/diseno-ia.md §5](../docs/diseno-ia.md#5-panel-para-la-empresa-vale-la-pena). `make mvp-check` abre esta vista con la fuente del prototipo (puerto 5185) y comprueba que muestra el kit y la tarjeta del juego que dejaron las revisiones anteriores.
+Las definiciones están en [docs/diseno-ia.md §5](../docs/diseno-ia.md#5-panel-para-la-empresa-vale-la-pena). `make mvp-check` abre esta vista con la fuente del prototipo (puerto 5185) y comprueba que muestra el kit y la tarjeta del juego que dejaron las revisiones anteriores (qué revisa, en [docs/instalacion.md](../docs/instalacion.md#5-el-mvp)).
 
 Todas las vistas tienen versión móvil (sin scroll horizontal; las tablas pasan a tarjetas) y tema claro y oscuro: sigue al sistema y se puede fijar con el botón.
 

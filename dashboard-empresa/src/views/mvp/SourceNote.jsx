@@ -13,3 +13,13 @@ export function SourceNote({ source }) {
     </p>
   )
 }
+
+/** Si el bloque se muestra con una respuesta guardada, de dónde salió y de qué día (`saved` = `{ origen, fecha }`). */
+export function SavedNote({ saved }) {
+  if (!saved) return null
+  return (
+    <p className="card-note mvp-note">
+      Guardado sin conexión: {saved.origen} ({saved.fecha}).
+    </p>
+  )
+}

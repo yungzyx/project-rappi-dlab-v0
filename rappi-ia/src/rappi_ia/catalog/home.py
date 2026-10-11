@@ -5,6 +5,7 @@ from psycopg import Connection
 from rappi_scraper.storage.search import MIN_PRICE
 
 from .. import config
+from .cache import cached
 from .restaurants import restaurants
 from .stores import _CURRENT_OFFERS, _OWN_VERTICAL, _card, downloaded_cte, not_pushed_params
 
@@ -40,7 +41,11 @@ ORDER BY d.km, d.store_id"""
 def home(conn: Connection) -> dict:
     """Lo que la Home muestra del catálogo: `nearby_stores` (las tiendas más cercanas al punto fijo de la demo),
     `fast_restaurants` (los de menor tiempo de entrega; uno sin tiempo no es rápido) y `low_fee_restaurants` (los de
-    menor costo de envío). Una lista sin datos queda vacía."""
+    menor costo de envío). Una lista sin datos queda vacía. Sale de la caché del catálogo (catalog/cache.py)."""
+    return cached("home", conn, lambda: _home(conn))
+
+
+def _home(conn: Connection) -> dict:
     fast = restaurants(conn, sort="eta", limit=FAST_RESTAURANTS)
     return {
         "nearby_stores": _nearby_stores(conn, config.MVP_HOME_LAT, config.MVP_HOME_LNG, NEARBY_STORES),

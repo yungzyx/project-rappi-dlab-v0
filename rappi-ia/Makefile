@@ -29,7 +29,7 @@ check-migrations:
 	$(PY) -m rappi_ia check-migrations
 
 test:  ## Tests (unitarios + integración contra rappi_ia_test)
-	$(PY) -m pytest
+	scripts/with-test-db-lock.sh $(PY) -m pytest
 
 lint:  ## Revisa estilo y errores comunes
 	$(PY) -m ruff check src tests
@@ -41,7 +41,7 @@ format:  ## Formatea el código
 
 contract:  ## Reescribe las respuestas de ejemplo de la API que usan la app (prototipo-app/src/api/fixtures) y el panel (uso del MVP)
 	@$(PY) -c 'import os, sys, rappi_ia; os.environ.get("DATABASE_URL_TEST") or sys.exit("Falta DATABASE_URL_TEST: `make contract` no puede escribir los ejemplos")'
-	RAPPI_CONTRACT_WRITE=1 $(PY) -m pytest tests/integration/test_contract.py
+	RAPPI_CONTRACT_WRITE=1 scripts/with-test-db-lock.sh $(PY) -m pytest tests/integration/test_contract.py
 
 jev-categorias:  ## Jev etiqueta las categorías nuevas (opcional: sin clave o sin adopción no hace nada; ver docs/jev.md)
 	$(PY) -m rappi_ia map-categories --jev --solo-nuevas
@@ -107,8 +107,6 @@ probar-agente:  ## Prueba al agente con las frases de usuarios (con la API corri
 purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/diseno-ia.md §2)
 	$(PY) -m rappi_ia purge
 
-# purge va primero, para que la retención de 90 días se cumpla aunque falle un paso posterior, y otra vez al final
-# para los eventos simulados que synth acaba de generar.
 layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las etapas del plan)
 	$(PY) -m rappi_ia measures
 	$(PY) -m rappi_ia brands
@@ -121,6 +119,8 @@ layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las 
 layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.md)
 	$(PY) -m rappi_ia layer-report
 
+# purge va primero, para que la retención de 90 días se cumpla aunque falle un paso posterior, y otra vez al final
+# para los eventos simulados que synth acaba de generar.
 post-refresh: migrate purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
 	$(MAKE) jev-categorias concepts knowledge embed eval synth layers
 	$(MAKE) purge

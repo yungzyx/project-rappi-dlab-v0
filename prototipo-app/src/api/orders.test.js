@@ -139,6 +139,38 @@ describe('pedidos para el panel', () => {
     expect(orders[0].lines.map((line) => line.entity_id)).toEqual(['94001', '200'])
   })
 
+  test("buildOrders en modo actual lleva mode 'actual' y ningún concept_id", () => {
+    // En «Rappi hoy» la app no aprende: el pedido lo dice y no nombra conceptos (el backend tampoco lo lleva al perfil).
+    const items = [{ product: beer(), qty: 1 }, { product: toPrototypeProduct(fixture('catalog-product')), qty: 2 }]
+    const orders = buildOrders(items, { ...ctx, mode: 'actual' })
+    expect(orders).toHaveLength(2)
+    orders.forEach((order) => {
+      expect(order.mode).toBe('actual')
+      order.lines.forEach((line) => expect(line).not.toHaveProperty('concept_id'))
+    })
+    const [proposal] = buildOrders([{ product: beer(), qty: 1 }], ctx)
+    expect(proposal.mode).toBe('propuesta')
+    expect(proposal.lines[0].concept_id).toBe('cerveza')
+  })
+
+  test('cada línea lleva la tienda de donde se agregó: el backend toma el precio de esa tienda', () => {
+    const item = toPrototypeProduct(fixture('catalog-product'))
+    const dish = toPrototypeProduct(fixture('catalog-menu').sections[0].items[0])
+    const [grocery, restaurant] = buildOrders(
+      [
+        { product: { ...item, storeId: 9102 }, qty: 1 },
+        { product: dish, qty: 1 },
+      ],
+      ctx,
+    )
+    expect(grocery.lines[0].store_id).toBe(9102)
+    expect(restaurant.lines[0].store_id).toBe(dish.storeId)
+    expect(dish.storeId).toEqual(expect.any(Number))
+    // Sin tienda (un producto sin oferta abierta), la línea va sin ella y el backend usa la oferta más barata.
+    const [loose] = buildOrders([{ product: { ...item, storeId: undefined }, qty: 1 }], ctx)
+    expect(loose.lines[0]).not.toHaveProperty('store_id')
+  })
+
   test('from_suggestion sale de la línea del carrito', () => {
     const [order] = buildOrders([{ product: beer(), qty: 1, fromSuggestion: true }], ctx)
     expect(order.lines[0].from_suggestion).toBe(true)

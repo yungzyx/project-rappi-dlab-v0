@@ -11,7 +11,7 @@
   border-radius: 99px;
   background: var(--green-add);
   border: 2px solid var(--surface);
-  color: var(--surface);
+  color: var(--ink);
   cursor: pointer;
   transition: transform var(--duration-fast) var(--ease-out);
   animation: add-pop 260ms var(--ease-out);

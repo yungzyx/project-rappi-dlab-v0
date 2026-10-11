@@ -28,7 +28,7 @@ export default function Intro({ onStart, onClose }) {
             </li>
           ))}
         </ul>
-        <button type="button" className="btn-game" onClick={onStart}>
+        <button type="button" className="btn-game" data-autofocus onClick={onStart}>
           Empezar
         </button>
         <button type="button" className="btn-ghost" onClick={onClose}>

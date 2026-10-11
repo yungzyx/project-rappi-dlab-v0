@@ -1,22 +1,40 @@
 import { Async } from '../../components/Async.jsx'
 import { ProvenanceBadge } from '../../components/ProvenanceBadge.jsx'
-import { useAnalytics } from '../../lib/useAnalytics.js'
+import { useAnalyticsWithOrigin } from '../../lib/useAnalytics.js'
 import { GameUsage } from './GameUsage.jsx'
 import { OffersByMoment } from './OffersByMoment.jsx'
-import { SourceNote } from './SourceNote.jsx'
+import { SavedNote, SourceNote } from './SourceNote.jsx'
 import { UnmetSearches } from './UnmetSearches.jsx'
 import './mvp.css'
 
 function Offers({ source }) {
-  return <OffersByMoment data={useAnalytics('offers', source)} source={source} />
+  const { data, saved } = useAnalyticsWithOrigin('offers', source)
+  return (
+    <>
+      <SavedNote saved={saved} />
+      <OffersByMoment data={data} source={source} />
+    </>
+  )
 }
 
 function Game({ source }) {
-  return <GameUsage data={useAnalytics('game', source)} source={source} />
+  const { data, saved } = useAnalyticsWithOrigin('game', source)
+  return (
+    <>
+      <SavedNote saved={saved} />
+      <GameUsage data={data} source={source} />
+    </>
+  )
 }
 
 function Unmet({ source }) {
-  return <UnmetSearches data={useAnalytics('unmet', source)} />
+  const { data, saved } = useAnalyticsWithOrigin('unmet', source)
+  return (
+    <>
+      <SavedNote saved={saved} />
+      <UnmetSearches data={data} />
+    </>
+  )
 }
 
 export function MvpUsageView({ source }) {

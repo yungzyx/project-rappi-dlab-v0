@@ -1,8 +1,9 @@
 # Entorno local
 .DS_Store
 .venv/
-.env
-.env*.local
+# Variables de entorno (cualquier variante: .env.production, .env.staging…); solo los ejemplos se versionan
+.env*
+!.env.example
 __pycache__/
 .pytest_cache/
 .ruff_cache/
@@ -11,12 +12,19 @@ __pycache__/
 # Datos descargados de rappi.cl: no se versionan (tamaño y uso responsable; ver README.md#uso-responsable-de-los-datos).
 # Se traspasan con un respaldo de la base (ver docs/instalacion.md).
 rappi-scraper/data/
+# Respaldos de la base (docs/instalacion.md): traen el catálogo descargado y los eventos; no se suben, estén donde estén
+*.dump
+*.sql.gz
+*.backup
 
 # Evidencia generada por archify al verificar diagramas
 docs/diagramas/*.visual-check.*
 
 # Carpeta local fuera del proyecto
 Proyecto/
+
+# Planes y reportes de trabajo de superpowers (herramienta local)
+.superpowers/
 
 # Configuración local de Claude Code y sus worktrees (no se ignora .claude/ entero)
 .claude/settings.local.json

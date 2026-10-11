@@ -1,23 +1,24 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AGENT_NAME } from '../../agent/name'
 import { storeOfProduct } from '../../api/catalog'
-import { ask as askAgent, forget, profile as remoteProfile, recommendations, toMessage } from '../../api/client'
+import { ask as askAgent, profile as remoteProfile, recommendations, toMessage } from '../../api/client'
 import { offer } from '../../api/agent'
-import { ordersSettled } from '../../api/orders'
 import { firstShowing, noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
 import { askAbout } from '../../assistant/agentAsk'
 import { routeForScreen } from '../../data/verticals'
-import { PopularStores, RecentSearches, SearchResults } from '../search/SearchSections'
+import { PopularStores, SearchIdeas, SearchResults } from '../search/SearchSections'
 import { useSearch } from '../search/useSearch'
 import { useDemo } from '../../state/DemoContext'
-import { clearShownTopics, noteShownTopic, sessionId, shownTopics, useEvents } from '../../state/EventsContext'
+import { noteShownTopic, sessionId, shownTopics, useEvents } from '../../state/EventsContext'
+import { useForgetAll } from '../../state/forgetAll'
 import { useAssistant } from '../../state/AssistantContext'
 import { useCart } from '../../state/CartContext'
 import { useDialog } from '../../hooks/useDialog'
-import { useGame } from '../../state/GameContext'
 import { useProfile } from '../../state/ProfileContext'
 import BackButton from '../BackButton'
+import ForgetConfirm, { FORGET_TITLE } from '../ForgetConfirm'
+import Sheet from '../Sheet'
 import AgentMessage from './AgentMessage'
 import DiscoverSection from './DiscoverSection'
 import Mascot from './Mascot'
@@ -52,7 +53,7 @@ const asForYou = (product) => ({ ...product, fromSuggestion: true, suggestionOri
 export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const assistant = useAssistant()
   const profile = useProfile()
-  const game = useGame()
+  const forgetEverything = useForgetAll()
   const demo = useDemo()
   const events = useEvents()
   const cart = useCart()
@@ -69,6 +70,8 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const profileGeneration = useRef(0) // sube al "Olvidar": un perfil remoto pedido antes ya no vale
   const [learnedRemote, setLearnedRemote] = useState(null)
   const [forgetting, setForgetting] = useState(false)
+  const [confirmingForget, setConfirmingForget] = useState(false)
+  const [forgetFailed, setForgetFailed] = useState(false)
   const [discoverRows, setDiscoverRows] = useState([])
   const search = useSearch({ vertical })
 
@@ -343,33 +346,29 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const learned = learnedRemote ?? []
   const forgetAll = async () => {
     setForgetting(true) // mientras tanto no se envía nada: una pregunta nueva recrearía lo borrado
+    setForgetFailed(false)
     profileGeneration.current++
     lastTurn.current = null
     profile.reset()
     setLearnedRemote(null)
     setDiscoverRows([])
-    // Lo que ya salió (preguntas pendientes, un lote de eventos, un pedido, un guardado del juego) podría recrear lo
-    // olvidado en el servidor: se espera antes del DELETE, y lo que haya dejado en cola se descarta.
-    await Promise.allSettled([askQueue.current])
-    events.clear()
-    clearShownTopics()
-    await events.settled()
     try {
-      // Lo último, pegado al DELETE: el juego pausa su guardado (sigue en pantalla, no sube nada) y se espera lo que
-      // ya iba en vuelo, para que nada llegue después y recree al usuario.
-      await Promise.allSettled([game.settle()])
-      await ordersSettled()
-      await forget(userId())
-      // Borrar el perfil borró también el progreso del juego: queda en cero sin subirlo (subirlo lo recrearía).
-      game.forget()
-      // La conversación hablaba de lo aprendido («Vi que te gusta…»): se reemplaza para que se vea que ya no está.
-      setMessages([{ id: nextId++, from: 'bot', text: 'Listo, olvidé lo que aprendí de ti 🧹 ¿Qué se te antoja hoy?' }])
+      // Lo que ya salió (preguntas pendientes, un lote de eventos, un pedido, un guardado del juego) podría recrear lo
+      // olvidado en el servidor: forgetAll lo espera antes del DELETE, descarta lo que haya dejado en cola, y deja el
+      // navegador y el juego en cero.
+      await forgetEverything({ settle: () => Promise.allSettled([askQueue.current]) }) // si salió bien, la app se recarga
+      setConfirmingForget(false)
     } catch {
-      game.resume() // el servidor sigue con su perfil: el juego vuelve a guardar (su estado actual, una vez)
-      botSays({ text: 'No pude borrar lo aprendido en el servidor 😿 Inténtalo de nuevo en un rato.' })
+      setForgetFailed(true) // el servidor sigue con sus datos: la hoja lo dice y se puede reintentar
     } finally {
       setForgetting(false)
     }
+  }
+
+  const closeForget = () => {
+    if (forgetting) return
+    setConfirmingForget(false)
+    setForgetFailed(false)
   }
 
   // Lo que el agente muestra es su última respuesta (no un historial), con lo que la persona eligió.
@@ -452,17 +451,20 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
                 </span>
               </header>
 
-              {learned.length > 0 && (
-                <div className="assistant-learning">
-                  <span>Aprendiendo de ti:</span>
-                  {learned.map((item) => (
-                    <b key={item.concept}>{item.label}</b>
-                  ))}
-                  <button type="button" onClick={forgetAll}>
-                    Olvidar
-                  </button>
-                </div>
-              )}
+              {/* «Olvidar» siempre a mano: aunque no haya intereses que mostrar, hay búsquedas y eventos que borrar. */}
+              <div className="assistant-learning">
+                {learned.length > 0 && (
+                  <>
+                    <span>Aprendiendo de ti:</span>
+                    {learned.map((item) => (
+                      <b key={item.concept}>{item.label}</b>
+                    ))}
+                  </>
+                )}
+                <button type="button" onClick={() => setConfirmingForget(true)}>
+                  Olvidar
+                </button>
+              </div>
 
               {showAsked && <p className="agent-asked">Elegiste «{asked.text}»</p>}
               {current && (
@@ -496,7 +498,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
             </section>
 
             <section className="agent-block">
-              <RecentSearches onPick={search.pick} />
+              <SearchIdeas onPick={search.pick} />
             </section>
 
             {discoverRows.length > 0 && (
@@ -511,6 +513,11 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
           </>
         )}
       </div>
+
+      {/* «Olvidar» borra lo mismo que Cuenta → «Borrar mis datos»: pide la misma confirmación. */}
+      <Sheet open={confirmingForget} onClose={closeForget} title={FORGET_TITLE}>
+        <ForgetConfirm forgetting={forgetting} failed={forgetFailed} onConfirm={forgetAll} onCancel={closeForget} />
+      </Sheet>
     </div>
   )
 }

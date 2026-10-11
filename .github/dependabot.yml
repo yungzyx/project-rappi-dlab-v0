@@ -1,0 +1,23 @@
+# Actualizaciones semanales de dependencias: cada una llega como un PR que pasa por el mismo CI.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /prototipo-app
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /dashboard-empresa
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /rappi-ia
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /rappi-scraper
+    schedule:
+      interval: weekly

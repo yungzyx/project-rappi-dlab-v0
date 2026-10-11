@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Un push nuevo al mismo PR cancela la corrida anterior; las de main terminan todas.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   rappi-scraper:
     runs-on: ubuntu-latest
@@ -35,16 +40,18 @@ jobs:
       DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/rappi_test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: rappi-scraper/pyproject.toml
+          cache-dependency-path: |
+            rappi-scraper/pyproject.toml
+            rappi-ia/requirements.lock.txt
 
       - name: Instalar
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -c ../rappi-ia/requirements.lock.txt -e ".[dev]"  # mismas versiones que rappi-ia
 
       # La tarea semanal es un script de zsh: sin zsh sus 9 tests se saltaban en silencio.
       - name: Instalar zsh
@@ -85,9 +92,9 @@ jobs:
       RAPPI_IA_LIGHT: "1"  # sin modelos: los tests usan un embedder falso determinista
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.13"
           cache: pip
@@ -115,11 +122,11 @@ jobs:
         working-directory: prototipo-app
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version: "24"  # jsdom y vitest piden Node ≥ 22.22 o ≥ 24.15
+          node-version-file: .nvmrc  # jsdom y vitest piden Node ≥ 22.22 o ≥ 24.15
           cache: npm
           cache-dependency-path: prototipo-app/package-lock.json
 
@@ -136,11 +143,11 @@ jobs:
         working-directory: dashboard-empresa
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version: "24"
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: dashboard-empresa/package-lock.json
 
@@ -148,3 +155,89 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      # shellcheck ya viene en las imágenes de ubuntu-latest.
+      - name: shellcheck
+        run: shellcheck -x scripts/*.sh rappi-ia/scripts/with-test-db-lock.sh
+
+  # La única prueba de punta a punta (app + panel + API + base): lo mismo que `make mvp-check` en el Mac, con Chrome y
+  # Postgres de la imagen. Sin modelos (RAPPI_IA_LIGHT=1: embeddings falsos y redacción por plantilla).
+  mvp-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rappi_ia_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/rappi_ia_test
+      RAPPI_IA_LIGHT: "1"
+      MVP_CHECK_ARTIFACTS: ${{ github.workspace }}/mvp-check-artifacts  # capturas de lo que falle
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            rappi-ia/pyproject.toml
+            rappi-ia/requirements.lock.txt
+            rappi-scraper/pyproject.toml
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            prototipo-app/package-lock.json
+            dashboard-empresa/package-lock.json
+
+      # El .venv que esperan los scripts (rappi-ia/.venv), sin los extras de modelos ni de desarrollo.
+      - name: Instalar rappi-ia (sin modelos)
+        working-directory: rappi-ia
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -q -c requirements.lock.txt -e ../rappi-scraper -e ".[api]"
+
+      - name: Instalar la app y el panel
+        run: |
+          npm --prefix prototipo-app ci
+          npm --prefix dashboard-empresa ci
+
+      # Chrome ya viene en ubuntu-latest: se falla aquí, con claro motivo, si algún día deja de venir.
+      - name: Chrome
+        run: |
+          google-chrome --version
+          echo "CHROME_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+
+      - name: make mvp-check
+        run: make mvp-check
+
+      - name: Capturas de lo que falló
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: mvp-check-capturas
+          path: mvp-check-artifacts
+          if-no-files-found: ignore
+          retention-days: 7

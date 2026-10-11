@@ -2,7 +2,7 @@ import { Icon } from './Icon.jsx'
 
 export function EmptyState({ title, children }) {
   return (
-    <div className="state" role="status">
+    <div className="state">
       <strong>{title}</strong>
       {children && <p>{children}</p>}
     </div>

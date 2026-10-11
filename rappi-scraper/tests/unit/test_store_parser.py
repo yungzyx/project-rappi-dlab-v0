@@ -16,6 +16,29 @@ def test_extract_next_data_raises_when_script_missing():
         extract_next_data("<html><body>sin datos</body></html>")
 
 
+def test_broken_next_data_is_parse_error():
+    """Una página cortada es un error de esa página (se omite), no uno que tumba la tienda entera."""
+    with pytest.raises(ParseError):
+        extract_next_data('<script id="__NEXT_DATA__" type="application/json">{"a":</script>')
+
+
+def test_next_data_any_attribute_order():
+    html = '<script type="application/json" nonce="x1" id="__NEXT_DATA__">{"a": 1}</script>'
+    assert extract_next_data(html) == {"a": 1}
+
+
+def test_unexpected_shapes_are_parse_errors(page):
+    store = page("store")
+    tree = store["props"]["pageProps"]["fallback"]
+    storefront = next(v for k, v in tree.items() if k.startswith("storefront/"))
+    storefront["aisles_tree_response"]["data"]["components"][0]["resource"].pop("name")
+    with pytest.raises(ParseError):
+        parse_aisles(store)
+    storefront["aisles_tree_response"]["data"]["components"] = 7  # un tipo inesperado
+    with pytest.raises(ParseError):
+        parse_aisles(store)
+
+
 def test_parse_store_returns_store_info_and_canonical_path(page):
     store = parse_store(page("store"))
     assert store["store_id"] == 900025946

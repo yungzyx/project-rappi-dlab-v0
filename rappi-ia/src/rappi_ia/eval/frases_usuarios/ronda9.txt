@@ -29,6 +29,7 @@ vino tinto entre 5 y 10 mil
 cerveza a menos de mil
 # texto largo
 hola bigotes buenas noches mira te cuento que mañana es el cumpleaños de mi hijo de 7 años y quiero hacerle una fiesta en la casa con sus amigos del colegio, necesito cosas para la fiesta
+hola mochi buenas noches mira te cuento que mañana es el cumpleaños de mi hijo de 7 años y quiero hacerle una fiesta en la casa con sus amigos del colegio, necesito cosas para la fiesta
 # seguimientos que cambian de tema
 pizza
 + y para tomar?

@@ -84,4 +84,26 @@ describe('camino', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sí, reiniciar' }))
     expect(screen.getByText('Nivel 1')).toBeTruthy()
   })
+
+  test('el texto de privacidad dice lo que se guarda y dónde, sin prometer que nada sale del dispositivo', async () => {
+    await mount(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustes' }))
+    expect(screen.queryByText(/Ningún dato sale del dispositivo/)).toBeNull()
+    expect(screen.queryByText(/datos de usuarios reales/)).toBeNull()
+    expect(
+      screen.getByText(
+        'Tu progreso se guarda en el servidor del prototipo con un identificador anónimo de este navegador. «Borrar mis datos», en Cuenta, lo borra.',
+      ),
+    ).toBeTruthy()
+    expect(screen.getByText(/No pedimos tu nombre ni tu correo/)).toBeTruthy()
+  })
+
+  test('«Reiniciar progreso» avisa que borra el progreso y no lo ya enviado', async () => {
+    await mount(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reiniciar progreso' }))
+    const confirm = screen.getByRole('group', { name: 'Confirmar reinicio' })
+    expect(confirm.textContent).toMatch(/no borra lo que ya enviamos/i)
+    expect(confirm.textContent).toMatch(/Borrar mis datos/)
+  })
 })

@@ -11,12 +11,13 @@ from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Annotated, Literal
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from psycopg import Connection, DataError, Error, OperationalError
+from psycopg.errors import QueryCanceled
 from pydantic import Field, ValidationError, field_validator
 
 from .. import config
@@ -32,7 +33,7 @@ from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
 from .agent import router as agent_router
 from .catalog import router as catalog_router
-from .deps import Clean, backend_vertical, get_conn, get_connector, get_services
+from .deps import Clean, backend_vertical, get_analytics_conn, get_conn, get_connector, get_services
 from .game import router as game_router
 from .services import Services, services
 
@@ -77,6 +78,14 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(QueryCanceled)
+async def query_too_slow(request: Request, exc: QueryCanceled) -> JSONResponse:
+    """Una consulta que pasó el statement_timeout (es un OperationalError, pero la base sí responde): 504, no «Sin
+    conexión»."""
+    log.warning("Consulta cancelada por tiempo en %s: %s", request.url.path, exc)
+    return JSONResponse(status_code=504, content={"detail": "La consulta tardó demasiado"})
+
+
 @app.exception_handler(OperationalError)
 async def database_unavailable(request: Request, exc: OperationalError) -> JSONResponse:
     """Postgres caído o sin respuesta: un 503 claro y rápido (la app muestra «Sin conexión»), no un 500."""
@@ -91,15 +100,27 @@ async def invalid_request(request: Request, exc: RequestValidationError) -> JSON
     return JSONResponse(status_code=422, content={"detail": errors})
 
 
+def _db_error(exc: Error) -> str:
+    """Un error de Postgres para el log: su clase y su sqlstate. El texto no, porque puede traer la fila que falló
+    («Failing row contains (…)») con lo que escribió la persona."""
+    return f"{type(exc).__name__} (sqlstate {exc.sqlstate})"
+
+
 @app.exception_handler(DataError)
 async def invalid_data(request: Request, exc: DataError) -> JSONResponse:
     """Un valor que Postgres no acepta (un \x00 en un parámetro de la URL): es un error de quien pide, no un 500."""
-    log.warning("Dato inválido en %s: %s", request.url.path, exc)
+    log.warning("Dato inválido en %s: %s", request.url.path, _db_error(exc))
     return JSONResponse(status_code=400, content={"detail": "Dato inválido"})
 
 
 EMPTY_VERTICAL_FALLBACK = {"turbo": "conveniencia"}  # mismo tipo de tienda (minimarket con entrega rápida)
 MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
+MAX_EVENT_VALUE = 100_000_000  # un evento con valor (cart_add) es una línea del carro: el mismo tope que su precio
+
+# Textos cortos de la URL (ids, conceptos, verticales, cocinas): el SQL va con parámetros, pero sin tope se aceptaba
+# un texto de cualquier largo.
+ShortQuery = Annotated[str, Query(max_length=64)]
+ShortPath = Annotated[str, Path(max_length=64)]
 
 
 # ── Modelos ──────────────────────────────────────────────────────────────────
@@ -114,10 +135,10 @@ class PreviousTurnIn(Clean):
 
 class AskIn(Clean):
     message: str = Field(min_length=1, max_length=500)
-    vertical: str | None = None
+    vertical: str | None = Field(default=None, max_length=64)
     user_id: str | None = Field(default=None, max_length=64)
     session_id: str | None = Field(default=None, max_length=64)
-    profile: dict[str, float] | None = Field(default=None, max_length=200)
+    profile: dict[str, Annotated[float, Field(allow_inf_nan=False)]] | None = Field(default=None, max_length=200)
     shown_topics: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=50)
     mode: Literal["propuesta", "actual"] = "propuesta"
     previous: PreviousTurnIn | None = None
@@ -139,7 +160,7 @@ class EventIn(Clean):
     modality: Literal["texto"] | None = None
     results: int | None = Field(default=None, ge=0, le=1_000_000)
     unmet: bool | None = None
-    value: float | None = Field(default=None, allow_inf_nan=False)
+    value: float | None = Field(default=None, le=MAX_EVENT_VALUE, allow_inf_nan=False)
     payload: dict = Field(default_factory=dict)
 
     @field_validator("payload")
@@ -159,8 +180,10 @@ class EventsIn(Clean):
 class OrderLineIn(Clean):
     entity_type: Literal["catalog_item", "menu_item"]
     entity_id: str = Field(max_length=64)
-    concept_id: str | None = None
+    concept_id: str | None = Field(default=None, max_length=64)
+    store_id: int | None = Field(default=None, ge=0, le=2**63 - 1)  # la tienda de donde se agregó: su precio manda
     qty: int = Field(default=1, ge=1, le=99)
+    # Se ignora: el precio de cada línea sale del catálogo. Queda para no romper a un cliente que lo manda.
     unit_price: float | None = Field(default=None, ge=0, le=100_000_000, allow_inf_nan=False)
     from_suggestion: bool = False
 
@@ -169,8 +192,9 @@ class OrderIn(Clean):
     user_id: str = Field(max_length=64)
     session_id: str = Field(max_length=64)
     cart_id: str = Field(max_length=64)
-    vertical: str
+    vertical: str = Field(max_length=64)
     lines: list[OrderLineIn] = Field(min_length=1, max_length=100)
+    mode: Literal["propuesta", "actual"] = "propuesta"  # en «Rappi hoy» (actual) el pedido no entra al perfil
 
 
 # ── Agente ──────────────────────────────────────────────────────────────────
@@ -220,9 +244,9 @@ VERTICAL_SEARCH_LIMIT = 10
 @app.get("/search")
 def search(
     q: str = Query(min_length=1, max_length=200),
-    vertical: str | None = None,
-    current: str | None = None,
-    price_max: float | None = None,
+    vertical: ShortQuery | None = None,
+    current: ShortQuery | None = None,
+    price_max: float | None = Query(None, ge=0, allow_inf_nan=False),
     limit: int | None = Query(None, ge=1, le=50),
     mode: str = Query("hibrido"),
     conn: Connection = Depends(get_conn),
@@ -254,8 +278,8 @@ def search(
 
 @app.get("/recommendations")
 def recommendations(
-    user_id: str,
-    vertical: str | None = None,
+    user_id: ShortQuery,
+    vertical: ShortQuery | None = None,
     limit: int = Query(3, ge=1, le=6),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
@@ -291,7 +315,7 @@ def recommendations(
 
 # ── Perfil y eventos ─────────────────────────────────────────────────────────
 @app.get("/profile/{user_id}")
-def get_profile(user_id: str, conn: Connection = Depends(get_conn)) -> dict:
+def get_profile(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dict:
     taxonomy = load_taxonomy()
     scores = events.profile(conn, user_id)
     return {
@@ -305,7 +329,7 @@ def get_profile(user_id: str, conn: Connection = Depends(get_conn)) -> dict:
 
 
 @app.delete("/profile/{user_id}")
-def forget(user_id: str, concept: str | None = None, conn: Connection = Depends(get_conn)) -> dict:
+def forget(user_id: ShortPath, concept: ShortQuery | None = None, conn: Connection = Depends(get_conn)) -> dict:
     deleted = events.forget(conn, user_id, concept)
     conn.commit()
     return {"user_id": user_id, "concept": concept, "eventos_borrados": deleted}
@@ -338,6 +362,8 @@ async def post_events_beacon(request: Request, conn: Connection = Depends(get_co
 
 
 def _save_events(conn: Connection, body: EventsIn) -> int:
+    if any(e.type not in events.CLIENT_EVENT_TYPES for e in body.events):
+        raise HTTPException(400, "Tipo de evento no permitido")
     try:
         n = events.record(
             conn,
@@ -360,25 +386,26 @@ def post_order(
     conn: Connection = Depends(get_conn),
     connector=Depends(get_connector),
 ) -> dict:
-    """Guarda el pedido y, ya respondido, recalcula los segmentos de esa persona (solo los suyos, con otra conexión)."""
+    """Guarda el pedido con el precio del catálogo en la tienda de cada línea (las que no tienen precio vigente quedan
+    fuera y se cuentan en `lineas_omitidas`) y, ya respondido, recalcula los segmentos de esa persona (solo los suyos,
+    con otra conexión)."""
     vertical = backend_vertical(body.vertical)
     if vertical is None:  # un pedido es de una tienda: sin vertical del catálogo no se puede guardar
         raise HTTPException(400, f"Vertical desconocido: {body.vertical}")
+    lines, skipped = events.catalog_prices(conn, [line.model_dump() for line in body.lines])
+    if not lines:  # sin decir cuál: la respuesta no sirve para sondear el catálogo
+        raise HTTPException(400, "Producto no disponible")
     try:
         order_id = events.record_order(
-            conn,
-            body.user_id,
-            body.session_id,
-            body.cart_id,
-            vertical,
-            [line.model_dump() for line in body.lines],
-            source="prototype",
+            conn, body.user_id, body.session_id, body.cart_id, vertical, lines, source="prototype", mode=body.mode
         )
     except ValueError as exc:  # un usuario de otra fuente (simulado)
         raise HTTPException(400, str(exc)) from exc
     conn.commit()
+    if skipped:
+        log.warning("Pedido %s: %d línea(s) sin precio vigente quedaron fuera", order_id, skipped)
     background.add_task(recalculate_user_segments, connector, body.user_id)
-    return {"order_id": order_id}
+    return {"order_id": order_id, "lineas_omitidas": skipped}
 
 
 @app.get("/concepts")
@@ -415,13 +442,13 @@ ANALYTICS = {
 
 
 @app.get("/analytics/catalog")
-def analytics_catalog(conn: Connection = Depends(get_conn)) -> dict:
+def analytics_catalog(conn: Connection = Depends(get_analytics_conn)) -> dict:
     return {"source": "catalogo_real", "data": queries.catalog_health(conn)}
 
 
 @app.get("/analytics/{name}")
 def analytics(
-    name: str, source: Literal["synthetic", "prototype"] = "synthetic", conn: Connection = Depends(get_conn)
+    name: str, source: Literal["synthetic", "prototype"] = "synthetic", conn: Connection = Depends(get_analytics_conn)
 ) -> dict:
     if name not in ANALYTICS:
         raise HTTPException(404, f"Métrica desconocida: {name}")
@@ -467,9 +494,12 @@ def _log_ask(conn, user_id, session_id, text, response, modality, mode) -> None:
         payload={"mode": mode, "intent": response.get("intent", {}).get("kind")},
     )
     try:
-        events.record(conn, [event], source="prototype")
+        with conn.transaction():  # un error deja la conexión lista para lo que sigue («¿Sabías que…?»)
+            events.record(conn, [event], source="prototype")
     except ValueError:  # un id de usuario simulado: la respuesta sale igual, no se registra
-        conn.rollback()
+        return
+    except Error as exc:  # registrar es secundario: la respuesta ya está calculada y sale igual
+        log.warning("No se pudo registrar la consulta; la respuesta sale igual (%s)", _db_error(exc))
         return
     conn.commit()
 

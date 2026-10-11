@@ -1233,6 +1233,24 @@ def test_a_flavor_missing_here_is_shown_where_it_is(ice_creams):
     assert "Turbo" in r["text"] and "lúcuma" in r["text"]
 
 
+def test_a_detail_said_in_plural_or_english_finds_its_vertical(ice_creams):
+    """«helado kids»: el singular a mano es «kid», pero el índice guarda «kids» (no es español). La búsqueda de la
+    vertical que lo tiene mira el singular y sus plurales, como la expresión regular del nombre."""
+    agent, db = ice_creams
+    for pid, name in ((308, "Helado Kids frutilla 1 L"), (309, "Helado Kids chocolate 1 L")):
+        add_product(db, pid, name, 4, "Helados")
+        add_price(db, 4, pid, 3990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    r = agent.reply(db, "helado kids", Context(vertical="supermercado"))
+
+    assert r["vertical"] == "turbo"
+    assert sorted(p["name"] for p in r["products"]) == ["Helado Kids chocolate 1 L", "Helado Kids frutilla 1 L"]
+
+
 def test_a_missing_without_x_is_said_as_such(ice_creams):
     agent, db = ice_creams
     for pid in (303, 306):
@@ -1408,3 +1426,31 @@ def test_a_remedy_treats_the_symptom_not_just_mentions_it(remedies_rappi_agent):
     embed_search_documents(db, agent.embedder)
     shown = {p["entity_id"] for p in agent.reply(db, "tengo fiebre", Context())["products"]}
     assert "807" not in shown and {"800", "801", "808"} <= shown
+
+
+class TextCountingEmbedder(HashEmbedder):
+    """Anota cada texto que se embebe como consulta."""
+
+    def __init__(self):
+        super().__init__()
+        self.texts: list[str] = []
+
+    def embed_queries(self, texts: list[str]):
+        self.texts.extend(texts)
+        return super().embed_queries(texts)
+
+
+def test_ask_embeds_each_text_once(ice_creams):
+    """«helado de lúcuma bajo 5000»: la búsqueda con tope, la del más barato sin tope, el reintento por el concepto y la
+    del detalle repiten consultas; cada texto se embebe una vez por turno (el modelo tiene un solo candado)."""
+    agent, db = ice_creams
+    counting = TextCountingEmbedder()
+    agent.embedder = counting
+
+    r = agent.reply(db, "helado de lúcuma bajo 5000", Context(vertical="supermercado"))
+
+    assert r["products"]
+    assert counting.texts and len(counting.texts) == len(set(counting.texts)), counting.texts
+    counting.texts.clear()
+    agent.reply(db, "helado de lúcuma bajo 5000", Context(vertical="supermercado"))
+    assert counting.texts  # la memoria es del turno: el siguiente vuelve a embeber

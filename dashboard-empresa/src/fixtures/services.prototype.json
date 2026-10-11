@@ -17,5 +17,9 @@
       "ganchos_mostrados": 0,
       "ganchos_aceptados": 0
     }
-  ]
+  ],
+  "guardado": {
+    "origen": "npm run fixtures · uso del prototipo en la base local (no es evidencia)",
+    "fecha": "2026-10-09"
+  }
 }

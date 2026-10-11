@@ -141,5 +141,9 @@
       "items_en_catalogo": 218,
       "usuarios_por_item": 0.43
     }
-  ]
+  ],
+  "guardado": {
+    "origen": "npm run fixtures · simulación de 1.500 usuarios × 26 semanas (semilla 7)",
+    "fecha": "2026-10-09"
+  }
 }

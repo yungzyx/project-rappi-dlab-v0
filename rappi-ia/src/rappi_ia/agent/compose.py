@@ -151,22 +151,44 @@ class ClaudeComposer:
         try:
             message = self._client.messages.create(
                 model=self.model,
-                max_tokens=200,
+                **thinking_options(self.model),
                 system=self.system,
                 messages=[{"role": "user", "content": json.dumps(facts(d, refs), ensure_ascii=False)}],
             )
-            text = json.loads(_first_json(message.content[0].text))["text"]
+            if message.stop_reason != "end_turn":  # cortado (max_tokens) o rechazado: el JSON no está completo
+                return _fallback(template, message.stop_reason)
+            block = next((b for b in message.content if b.type == "text"), None)
+            if block is None:
+                return _fallback(template, "sin_texto")
+            text = json.loads(_first_json(block.text))["text"]
             if not isinstance(text, str):
                 raise ValueError("text no es texto")
         except Exception as exc:  # red, cuota, JSON inválido: la plantilla siempre responde
-            log.warning("Claude no disponible (%s); uso plantilla", type(exc).__name__)
-            return template
+            return _fallback(template, f"error:{type(exc).__name__}")
         allowed = " ".join([*refs.values(), d.concept_label or "", d.vertical_label or ""])
         verified = verify_llm_text(text, refs, allowed)
         if verified is None:
-            log.warning("Texto del LLM rechazado por el verificador; uso plantilla")
-            return template
+            return _fallback(template, "verificador")
         return " ".join([verified, *notices(d)])
+
+
+def thinking_options(model: str) -> dict:
+    """Cómo pedir una o dos oraciones sin pensar de más, según lo que acepta cada modelo: el pensamiento llega en un
+    bloque sin texto y se come los tokens de la respuesta. Un modelo desconocido va sin `thinking` y con espacio: se
+    toma el primer bloque de texto y, si no alcanza, responde la plantilla."""
+    if model in ("claude-sonnet-5", "claude-opus-5"):  # aceptan apagarlo (Opus 5, con el esfuerzo por defecto)
+        return {"max_tokens": 200, "thinking": {"type": "disabled"}}
+    if model == "claude-sonnet-5-5":  # "disabled" es un 400; between_tools no piensa en una respuesta sin herramientas
+        return {"max_tokens": 200, "thinking": {"type": "between_tools"}}
+    if model == "claude-opus-5-5":  # no se puede apagar: esfuerzo bajo y espacio para pensar antes del texto
+        return {"max_tokens": 2000, "output_config": {"effort": "low"}}
+    return {"max_tokens": 2000}
+
+
+def _fallback(template: str, reason: str) -> str:
+    """La plantilla responde cuando Claude no da un texto usable; el log dice por qué (para ver si Claude sirve)."""
+    log.warning("Claude no redactó (%s); uso plantilla", reason)
+    return template
 
 
 def facts(d: Draft, refs: dict[str, str]) -> dict:

@@ -205,15 +205,15 @@ def _in_groups(rule: AttributeRule, entity_type: str, group: str | None) -> bool
 
 _COLUMNS = "entity_type, entity_id, attribute_id, value, source, confidence, evidence, rules_version, run_id"
 
-# Precio y descuento vigentes, como los ve la búsqueda (última foto de la tienda, última corrida de su formato).
+# Precio y descuento vigentes, como los ve la búsqueda (las ofertas vigentes de v_latest_offers).
 _DISCOUNTED = f"""
 INSERT INTO item_attributes ({_COLUMNS})
 SELECT 'catalog_item', sp.master_product_id::text, 'con-descuento', NULL, 'derivado', %(conf)s,
        '-' || round(max(100 * (1 - lp.price / lp.real_price)))::int || '%%', %(version)s, %(run)s
 FROM store_products sp
-JOIN v_latest_prices lp ON lp.store_id = sp.store_id AND lp.sku = sp.sku
-JOIN v_store_format_runs f ON f.store_id = lp.store_id AND f.format_run_id = lp.run_id
-WHERE sp.master_product_id IS NOT NULL AND lp.real_price > 0 AND lp.price > 0 AND lp.price < lp.real_price
+JOIN v_latest_offers lp ON lp.store_id = sp.store_id AND lp.sku = sp.sku
+WHERE sp.master_product_id IS NOT NULL AND lp.current
+  AND lp.real_price > 0 AND lp.price > 0 AND lp.price < lp.real_price
 GROUP BY sp.master_product_id
 ON CONFLICT DO NOTHING
 """

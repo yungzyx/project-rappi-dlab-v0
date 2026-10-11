@@ -1,10 +1,10 @@
 # Diseño: RAG, agente Mochi y panel para la empresa
 
-> Cómo se conectan el catálogo (scraper), la búsqueda semántica, el agente, el prototipo y un panel de negocio. Las etapas 0–8 están construidas (§7); lo que el código todavía no cubre se marca como pendiente.
-> Última actualización: 30-09-2026. Contexto: [contexto-y-problema.md](contexto-y-problema.md) · Modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Resultados vigentes: [README → Resultados](../README.md#resultados).
+> Cómo se conectan el catálogo (scraper), la búsqueda semántica, el agente, el prototipo y un panel de negocio. Las etapas de diseño 0–8 se construyeron hasta el 30-09-2026, y el MVP integrado se armó encima en 7 etapas (10 y 11-10-2026, §7); lo que el código todavía no cubre se marca como pendiente.
+> Última actualización: 11-10-2026. Contexto: [contexto-y-problema.md](contexto-y-problema.md) · Modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Resultados vigentes: [README → Resultados](../README.md#resultados).
 > Diagramas: [flujo de datos por etapas](diagramas/rag-datos.png) y [vista por carriles](diagramas/arquitectura-ia.png). Sus versiones interactivas ([rag-datos.html](diagramas/rag-datos.html), [arquitectura-ia.html](diagramas/arquitectura-ia.html)) se descargan y se abren en el navegador.
 > Lo marcado "datos parciales" se midió el 27-09-2026, antes de terminar la descarga completa.
-> **09-10-2026:** el repo se enfocó en el prototipo final; el panel de negocio (§5 y etapa 7, `dashboard-empresa/`) quedó fuera de la propuesta; el **11-10-2026** (etapa 6 del MVP) volvió como parte del MVP, conectado a la API, con la vista «Uso del MVP» (§5).
+> **09-10-2026:** el repo se enfocó en el prototipo final; el panel de negocio (§5 y etapa de diseño 7, `dashboard-empresa/`) quedó fuera de la propuesta; el **11-10-2026** (etapa 6 del MVP) volvió como parte del MVP, conectado a la API, con la vista «Uso del MVP» (§5).
 
 ## 0. La regla que ordena todo
 
@@ -75,7 +75,7 @@ Decisiones:
   - **Métricas:** P@10, MRR y nDCG@10, comparando léxico, vectorial, híbrido e híbrido sin refuerzo por concepto (ablación), con comparación pareada por consulta e intervalo de confianza por bootstrap. Recall@10 no se calcula.
   - **Lo que ve el usuario:** la fila «híbrido mostrado» juzga los productos que devuelve `search_products` (/search y Mochi: sin sensibles no pedidos, con foco en el concepto, precio vigente y sin repetidos). Su «sin resultado» usa la regla con que Mochi registra la demanda: la búsqueda lo marca, no se muestra ningún producto y la consulta no habla de síntomas.
   - **Resultado:** el híbrido quedó como modo por defecto. Cifras en [README → Resultados](../README.md#resultados); el reporte de cada corrida queda en `rappi-ia/data/eval/busqueda.md` y la copia que respalda las cifras, en [resultados/](resultados/).
-  - **Salvedad:** el híbrido recibe un refuerzo por el mismo concepto con que se juzga la relevancia. Sin el refuerzo, 0,860 frente a 0,846 del vectorial: la diferencia no es concluyente (IC 95 % −0,012 a 0,042).
+  - **Salvedad:** el híbrido recibe un refuerzo por el mismo concepto con que se juzga la relevancia. Sin el refuerzo, 0,860 frente a 0,849 del vectorial: la diferencia no es concluyente (IC 95 % −0,015 a 0,038, [reporte del 06-10](resultados/busqueda-2026-10-06.md)).
 - **Dos audiencias, un solo núcleo:**
   - Mochi, para clientes, en el prototipo;
   - más adelante, preguntas del equipo interno (Marketing, Producto, BI), que usan las mismas herramientas más consultas SQL de análisis.
@@ -133,7 +133,7 @@ Mochi es el nombre que ve el usuario (antes, Bigotes). El código usa nombres ne
 - `buscar_productos(vertical, consulta, conceptos, precio_max)`: `search_products` en `tools.py`
 - `recomendar_complementos(conceptos, vertical_actual)`: `suggest_complement` en `tools.py`
 - `buscar_remedios(sintoma)`: `search_remedies` en `tools.py` (remedios sin receta que nombran el síntoma)
-- **Servicios sin catálogo** (`[[service]]` en `taxonomy.toml`): RappiTravel (viajes, vuelos, hoteles) y RappiFavor (envíos, compras en cualquier tienda, trámites). Si la consulta los nombra y no nombra un producto, Mochi lleva a su pantalla y, en «Propuesta», sugiere un gancho del catálogo (RappiTravel: protector solar, traje de baño o maleta). Lo que no está en el catálogo se ofrece con RappiFavor.
+- **Servicios sin catálogo** (`[[service]]` en `taxonomy.toml`): RappiTravel (viajes, vuelos, hoteles) y RappiFavor (envíos, compras en cualquier tienda, trámites). Si la consulta los nombra y no nombra un producto, Mochi lleva a su pantalla y, en el prototipo final (`mode=propuesta` en la API), sugiere un gancho del catálogo (RappiTravel: protector solar, traje de baño o maleta). Lo que no está en el catálogo se ofrece con RappiFavor.
 - `detalle(entidad)`: pendiente
 - `historial_precio(producto)`: pendiente
 
@@ -254,6 +254,9 @@ erDiagram
     APP_ORDER ||--o{ APP_ORDER_LINE : contiene
     APP_ORDER_LINE }o--o| CATALOG_ITEM : "producto"
     APP_ORDER_LINE }o--o| MENU_ITEM : "plato"
+    KNOWLEDGE_CARD ||--o{ KNOWLEDGE_CARD_CONCEPT : liga
+    CONCEPT ||--o{ KNOWLEDGE_CARD_CONCEPT : tema
+    APP_USER ||--o| GAME_STATE : progreso
 ```
 
 Notas del modelo:
@@ -261,6 +264,10 @@ Notas del modelo:
 - **Platos y productos:** no hay una tabla de platos estándar. Un plato y un producto del súper se conectan al compartir concepto en `item_concepts`.
 - **Eventos:** `APP_EVENT` lleva `session_id` (una sesión termina tras 30 minutos sin actividad) y `cart_id` en los eventos de carro (`cart_add`, `cart_remove`, `checkout_start`, `order_placed`).
 - **Líneas de pedido:** `APP_ORDER_LINE` puede apuntar a un producto o a un plato.
+- **Juego:** `knowledge_cards` (108 tarjetas, las carga `rappi-ia knowledge`), `knowledge_card_concepts` (ligas revisadas) y `game_state` (progreso por persona, `source` del prototipo): migración 028.
+- **Precio vigente:** `latest_prices` y `latest_menu_prices` guardan el último precio de cada oferta y de cada plato (migración 032), y `v_latest_offers` es la única definición de oferta vigente.
+- **Jev:** `eval_judgments` guarda los juicios de Jev (migración 030), y el mapa de categorías suma el método `jev`.
+- **Capa de datos:** las vistas estables para otras herramientas están en el esquema `capa` ([capa-de-datos.md](capa-de-datos.md)).
 - **Tabla sin uso:** `image_embeddings` (de una versión anterior) sigue en la base, sin que nada la escriba ni la lea; una migración para borrarla se dejó fuera para no tocar el historial.
 - **Procedencia:** todo dato inferido guarda `method` (`curado`, `llm`, `regla`, `embedding`, `coocurrencia`), `confidence`, `model_version` y fecha. Los datos de usuario guardan `source`.
 - **H3:** queda para después, porque no lo necesita ninguna vista de este plan.
@@ -280,3 +287,19 @@ Notas del modelo:
 | 8. Cierre | CI (4 jobs), docs y corrida completa post-refresh | CI en verde | Hecha (30-09-2026) |
 
 **Revisión:** tres pasadas de revisión adversarial automatizada (agentes de IA) con 66 hallazgos corregidos (27-09-2026) y una auditoría el 28-09-2026, cuyos 4 bloques de mejoras se aplicaron el 29 y 30-09. Resultados de cobertura, precisión y búsqueda en [README → Resultados](../README.md#resultados).
+
+### Etapas del MVP (10–11-10-2026)
+
+El MVP integrado se armó encima de las etapas de diseño en 7 etapas, cada una con su plan. La [especificación del MVP](superpowers/specs/2026-10-10-mvp-integrado-design.md) dice qué es el producto completo.
+
+| Etapa del MVP | Entrega | Plan |
+|---|---|---|
+| 1. Base | `make mvp` levanta API, app y panel; `make mvp-check` los recorre con Chrome | [etapa 1](superpowers/plans/2026-10-10-mvp-etapa-1-base.md) |
+| 2. Catálogo real | Las pantallas de catálogo leen la base (`/catalog`) | [etapa 2](superpowers/plans/2026-10-10-mvp-etapa-2-catalogo.md) |
+| 3. Buscador y agente sobre el RAG | El buscador con Mochi y sus ofertas salen de la API (`/agent`) | [etapa 3](superpowers/plans/2026-10-10-mvp-etapa-3-mochi.md) |
+| 4. Juego en el RAG | Tarjetas, desafíos y progreso en la base (`knowledge`, `/game`) | [etapa 4](superpowers/plans/2026-10-10-mvp-etapa-4-juego.md) |
+| 5. Personalización | Lo aprendido, «Para ti» y eventos del prototipo | [etapa 5](superpowers/plans/2026-10-10-mvp-etapa-5-personalizacion.md) |
+| 6. Panel conectado | «Uso del MVP» con lo que la gente hace en la app | [etapa 6](superpowers/plans/2026-10-11-mvp-etapa-6-panel.md) |
+| 7. Jev | Etiquetas de categorías y juez de la búsqueda, listo y apagado hasta el piloto | [etapa 7](superpowers/plans/2026-10-11-mvp-etapa-7-jev.md) |
+
+Después: la [revisión integral](superpowers/plans/2026-10-11-revision-integral.md) (11-10-2026, decisiones en [decisiones.md](decisiones.md#operación)) y, a continuación, la [etapa de calidad y despliegue](superpowers/plans/2026-10-11-calidad-y-despliegue.md).

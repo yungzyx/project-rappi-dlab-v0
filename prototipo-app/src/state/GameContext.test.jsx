@@ -32,6 +32,7 @@ function Probe({ onClick }) {
   return (
     <>
       <p data-testid="xp">{game.state.xp}</p>
+      <p data-testid="status">{game.status}</p>
       <p data-testid="date">{game.date}</p>
       <p data-testid="events">{game.events.map((e) => `${e.type}:${e.value}`).join(',')}</p>
       <button type="button" onClick={() => onClick(game)}>
@@ -39,6 +40,9 @@ function Probe({ onClick }) {
       </button>
       <button type="button" onClick={() => game.dismissEvent()}>
         cerrar
+      </button>
+      <button type="button" onClick={() => game.retry()}>
+        reintentar
       </button>
     </>
   )
@@ -55,15 +59,17 @@ const requests = (fetchMock, method) =>
   fetchMock.mock.calls.filter(([, init]) => (init?.method ?? 'GET') === method).map(([url]) => new URL(url).pathname)
 
 describe('carga desde la API', () => {
-  test('loads cards and state from the API before rendering', async () => {
+  test('loads cards and state from the API while its children are already on screen', async () => {
     setKnowledge([])
     seed({ xp: 130 })
     const api = stubApi({ 'GET /game/cards': fixture('game-cards') })
     renderProbe()
-    // Mientras carga no pinta a los hijos: solo el aviso de carga.
-    expect(screen.queryByTestId('xp')).toBeNull()
-    expect(screen.getByRole('status').textContent).toMatch(/Conectando con/)
+    // La app no espera al juego: los hijos se pintan de una vez, con el estado en cero y status «loading».
+    expect(screen.getByTestId('status').textContent).toBe('loading')
+    expect(screen.getByTestId('xp').textContent).toBe('0')
+    expect(screen.queryByRole('status')).toBeNull() // el aviso de conexión ya no vive aquí: lo muestran las pantallas del juego
     await gameReady()
+    expect(screen.getByTestId('status').textContent).toBe('ready')
     expect(screen.getByTestId('xp').textContent).toBe('130')
     expect(cardsOf('supermercado')).toHaveLength(12)
     expect(requests(api, 'GET')).toEqual(['/game/cards', `/game/state/${userId()}`])
@@ -77,23 +83,45 @@ describe('carga desde la API', () => {
     expect(requests(api, 'PUT')).toEqual([])
   })
 
-  test('shows Sin conexión with Reintentar when cards fail', async () => {
+  test('cuando fallan las tarjetas queda offline sin tapar a los hijos, y retry vuelve a intentar', async () => {
     let online = false
     stubApi({ 'GET /game/cards': () => (online ? fixture('game-cards') : 'offline') })
     renderProbe()
-    expect(await screen.findByRole('heading', { name: /Sin conexión/ })).toBeTruthy()
-    expect(screen.queryByTestId('xp')).toBeNull()
-    online = true
-    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     await gameReady()
-    expect(screen.getByTestId('xp').textContent).toBe('0')
+    expect(screen.getByTestId('status').textContent).toBe('offline')
+    expect(screen.getByTestId('xp')).toBeTruthy()
+    online = true
+    fireEvent.click(screen.getByText('reintentar'))
+    expect(screen.getByTestId('status').textContent).toBe('loading')
+    await gameReady()
+    expect(screen.getByTestId('status').textContent).toBe('ready')
   })
 
-  test('también muestra Sin conexión si falla el progreso', async () => {
+  test('también queda offline si falla el progreso', async () => {
     stubApi({ 'GET /game/state/*': 500 })
     renderProbe()
-    expect(await screen.findByRole('button', { name: 'Reintentar' })).toBeTruthy()
-    expect(screen.queryByTestId('xp')).toBeNull()
+    await gameReady()
+    expect(screen.getByTestId('status').textContent).toBe('offline')
+  })
+
+  test('fuera de «ready» las acciones no hacen nada: ni progreso, ni guardado, ni eventos', async () => {
+    const [a] = datosOf('turbo')
+    const api = stubApi({ 'GET /game/cards': 500 })
+    let visited
+    renderProbe((game) => {
+      game.discover('turbo', a.id)
+      game.answer('turbo', true, a.id)
+      game.openCard(a.id)
+      game.seeIntro()
+      visited = game.visit('grocery')
+    })
+    await gameReady()
+    fireEvent.click(screen.getByText('actuar'))
+    await act(async () => {})
+    expect(screen.getByTestId('xp').textContent).toBe('0')
+    expect(visited).toBe(false)
+    expect(requests(api, 'PUT')).toEqual([])
+    expect(events.track).not.toHaveBeenCalled()
   })
 })
 
@@ -185,7 +213,8 @@ describe('progreso que quedó en el navegador', () => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(local()))
     stubApi({ 'PUT /game/state/*': failure })
     renderProbe()
-    expect(await screen.findByRole('button', { name: 'Reintentar' })).toBeTruthy()
+    await gameReady()
+    expect(screen.getByTestId('status').textContent).toBe('offline')
     expect(JSON.parse(localStorage.getItem(LOCAL_KEY)).xp).toBe(90)
   })
 
@@ -196,7 +225,7 @@ describe('progreso que quedó en el navegador', () => {
     stubApi({ 'PUT /game/state/*': status })
     renderProbe()
     await gameReady()
-    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+    expect(screen.getByTestId('status').textContent).toBe('ready')
     expect(screen.getByTestId('xp').textContent).toBe('0') // parte en cero
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/traspas/i), expect.anything())
     expect(JSON.parse(localStorage.getItem(LOCAL_KEY)).xp).toBe(90)
@@ -366,6 +395,86 @@ describe('guardado en el servidor', () => {
     fireEvent.click(screen.getByText('actuar'))
     expect(screen.getByTestId('xp').textContent).toBe('20')
     await savedAs((s) => expect(s).toMatchObject({ xp: 20, discovered: { turbo: [a.id, b.id] } }))
+  })
+})
+
+describe('guardado que se reintenta solo', () => {
+  const puts = (api) => api.mock.calls.filter(([, init]) => init?.method === 'PUT')
+
+  test('un guardado fallido se reintenta sin otra acción', async () => {
+    const [a] = datosOf('turbo')
+    vi.useFakeTimers()
+    let online = false
+    stubApi({
+      'PUT /game/state/*': (req) => {
+        if (!online) return 'offline'
+        gameServer.puts.push(req.body.state)
+        return { state: req.body.state }
+      },
+    })
+    renderProbe((game) => game.discover('turbo', a.id))
+    await gameReady()
+    fireEvent.click(screen.getByText('actuar'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(stored()).toBeNull()
+    online = true
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(stored()).toMatchObject({ xp: 10 })
+  })
+
+  test.each([
+    ['online', () => window],
+    ['visibilitychange', () => document],
+  ])('al disparar %s reenvía lo pendiente', async (type, target) => {
+    const [a] = datosOf('turbo')
+    let online = false
+    stubApi({
+      'PUT /game/state/*': (req) => {
+        if (!online) return 'offline'
+        gameServer.puts.push(req.body.state)
+        return { state: req.body.state }
+      },
+    })
+    renderProbe((game) => game.discover('turbo', a.id))
+    await gameReady()
+    fireEvent.click(screen.getByText('actuar'))
+    await act(async () => {})
+    expect(stored()).toBeNull()
+    online = true
+    act(() => target().dispatchEvent(new Event(type)))
+    await savedAs((s) => expect(s).toMatchObject({ xp: 10 }))
+  })
+
+  test('pagehide manda el estado con keepalive si quedó algo sin guardar', async () => {
+    const [a] = datosOf('turbo')
+    const api = stubApi({ 'PUT /game/state/*': 'offline' })
+    renderProbe((game) => game.discover('turbo', a.id))
+    await gameReady()
+    fireEvent.click(screen.getByText('actuar'))
+    await act(async () => {})
+    const before = puts(api).length
+    window.dispatchEvent(new Event('pagehide'))
+    const sent = puts(api).slice(before)
+    expect(sent).toHaveLength(1)
+    expect(sent[0][1].keepalive).toBe(true)
+    expect(new URL(sent[0][0]).pathname).toBe(`/game/state/${userId()}`)
+    expect(JSON.parse(sent[0][1].body).state).toMatchObject({ xp: 10, discovered: { turbo: [a.id] } })
+  })
+
+  test('pagehide sin nada pendiente no manda nada', async () => {
+    const [a] = datosOf('turbo')
+    const api = stubApi({})
+    renderProbe((game) => game.discover('turbo', a.id))
+    await gameReady()
+    fireEvent.click(screen.getByText('actuar'))
+    await savedAs((s) => expect(s).toMatchObject({ xp: 10 }))
+    const before = puts(api).length
+    window.dispatchEvent(new Event('pagehide'))
+    expect(puts(api)).toHaveLength(before)
   })
 })
 

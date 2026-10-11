@@ -1,5 +1,6 @@
 import { CaretLeft } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
+import { ConnectionNotice } from '../../components/ConnectionGate'
 import { routeForScreen } from '../../data/verticals'
 import { nextVertical } from '../../game/progress.js'
 import { GAME_TO_SCREEN } from '../../game/verticals.js'
@@ -35,7 +36,10 @@ function firstScreen({ tab, vertical, round, orderId }) {
  */
 export default function GameScreen(props) {
   // Tras «Repetir escena» o «Reiniciar progreso» el juego vuelve a su pantalla de entrada (una ronda a medias no sigue).
-  const { generation } = useGame()
+  const { generation, status, retry } = useGame()
+  // Sin las tarjetas y el progreso del servidor no hay juego que mostrar (el resto de la app sigue en pie).
+  if (status !== 'ready')
+    return <ConnectionNotice nested status={status === 'offline' ? 'offline' : 'checking'} onRetry={retry} onLeave={props.back} />
   return <GameView key={generation} {...props} />
 }
 

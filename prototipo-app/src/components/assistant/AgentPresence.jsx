@@ -149,10 +149,11 @@ export default function AgentPresence({ screen, homeTab, raised }) {
     { id: 'search', label: `Buscar con ${AGENT_NAME}` },
     cart.count > 0
       ? { id: 'cart', label: `Revisar mi carrito · ${formatPrice(cart.total)}` }
-      : { id: 'try', label: '¿Qué puedo probar?' },
+      : // Sin el progreso del juego cargado no se sabe qué sellos tiene la persona: no se ofrece lo que depende de ellos.
+        game.status === 'ready' && { id: 'try', label: '¿Qué puedo probar?' },
     { id: 'move', label: side === 'right' ? 'Mover a la izquierda' : 'Mover a la derecha' },
     { id: 'quiet', label: 'Silenciar por hoy' },
-  ]
+  ].filter(Boolean)
   const run = (id) => {
     setMenu(false)
     noteEngaged()

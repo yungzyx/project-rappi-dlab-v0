@@ -1,5 +1,5 @@
 import { API_URL } from '../../lib/api.js'
-import { describeFallbacks } from '../../lib/labels.js'
+import { describeFallbacks, describeOrigins } from '../../lib/labels.js'
 import { Icon } from '../Icon.jsx'
 
 const MESSAGES = {
@@ -33,8 +33,8 @@ export function ProvenanceBanner({ source, fallbacks, onRetry }) {
             <Icon name="offline" />
             <p>
               <strong>Modo sin conexión (datos guardados):</strong> la API de rappi-ia en{' '}
-              <span className="mono">{API_URL}</span> falló en {describeFallbacks(fallbacks)}. Esos bloques muestran las
-              últimas respuestas guardadas en el repo.
+              <span className="mono">{API_URL}</span> falló en {describeFallbacks(fallbacks)}. Esos bloques muestran
+              respuestas guardadas en el repo ({describeOrigins(fallbacks)}).
             </p>
             <button type="button" className="link-button" onClick={onRetry}>
               Reintentar

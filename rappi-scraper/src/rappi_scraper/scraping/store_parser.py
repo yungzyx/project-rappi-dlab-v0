@@ -3,7 +3,7 @@
 import re
 import unicodedata
 
-from .next_data import ParseError, components, page_props
+from .next_data import ParseError, components, page_props, parse_errors
 
 
 def _storefront_entry(next_data: dict) -> tuple[str, dict]:
@@ -28,6 +28,7 @@ def slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
 
 
+@parse_errors
 def parse_store(next_data: dict) -> dict:
     ctx = page_props(next_data).get("storeContext")
     if not ctx:
@@ -49,6 +50,7 @@ def parse_store(next_data: dict) -> dict:
     }
 
 
+@parse_errors
 def parse_aisles(next_data: dict) -> list[dict]:
     """Pasillos de la tienda: [{aisle_id, name, friendly_url, product_count}]."""
     tree = _storefront(next_data).get("aisles_tree_response")
@@ -64,6 +66,7 @@ def parse_aisles(next_data: dict) -> list[dict]:
     ]
 
 
+@parse_errors
 def parse_sub_aisles(next_data: dict) -> list[dict]:
     """Sub-pasillos de una página de pasillo: [{aisle_id, name, friendly_url, product_count}].
 
@@ -91,6 +94,7 @@ def parse_sub_aisles(next_data: dict) -> list[dict]:
     ]
 
 
+@parse_errors
 def parse_products(next_data: dict) -> list[dict]:
     """Todos los productos renderizados en la página (tienda, pasillo o sub-pasillo), tal como vienen."""
     products = []

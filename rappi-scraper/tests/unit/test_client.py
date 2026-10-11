@@ -7,16 +7,25 @@ import requests
 
 from rappi_scraper import config
 from rappi_scraper.scraping import client as client_module
-from rappi_scraper.scraping.client import PageNotFound, RappiClient, RestaurantGone, StoreUnavailable, location_cookie
+from rappi_scraper.scraping.client import (
+    PageNotFound,
+    PossibleBlock,
+    RappiClient,
+    RestaurantGone,
+    StoreUnavailable,
+    location_cookie,
+)
 
 NEXT_DATA_HTML = '<script id="__NEXT_DATA__" type="application/json">{"props": {"pageProps": {}}}</script>'
 
 
 class _Response:
-    def __init__(self, status_code: int, url: str = config.BASE_URL + "/x", text: str = NEXT_DATA_HTML):
+    def __init__(self, status_code: int, url: str = config.BASE_URL + "/x", text: str = NEXT_DATA_HTML, headers=None):
         self.status_code = status_code
         self.url = url
         self.text = text
+        self.headers = headers or {}
+        self.encoding = "utf-8"
 
     def raise_for_status(self):
         raise requests.HTTPError(f"HTTP {self.status_code}")
@@ -24,11 +33,14 @@ class _Response:
 
 @pytest.fixture
 def client(monkeypatch):
-    """Cliente sin pausas reales; `responses` define lo que devuelve cada GET, en orden."""
-    monkeypatch.setattr(client_module.time, "sleep", lambda _seconds: None)
+    """Cliente sin pausas reales (quedan en `sleeps`; la pausa al azar entre requests vale 0); `responses` define lo que
+    devuelve cada GET, en orden."""
     c = RappiClient()
     c.responses = []
     c.calls = 0
+    c.sleeps = []
+    monkeypatch.setattr(client_module.time, "sleep", c.sleeps.append)
+    monkeypatch.setattr(client_module.random, "uniform", lambda _a, _b: 0)
 
     def fake_get(url, timeout):
         c.calls += 1
@@ -98,3 +110,65 @@ def test_redirect_to_restaurant_not_found_means_restaurant_gone(client):
     client.responses = [_Response(200, url=config.BASE_URL + "/restaurantes?restaurantNotFound=true")]
     with pytest.raises(RestaurantGone):
         client.get_next_data("/restaurantes/900057334-papas-truck-talca")
+
+
+def _waits(client) -> list[float]:
+    """Pausas de espera entre intentos (sin las pausas al azar entre requests, que en los tests valen 0)."""
+    return [s for s in client.sleeps if s]
+
+
+def test_retry_after_is_honoured(client):
+    """Ante un 429 rappi.cl dice cuánto esperar: se respeta (con tope), en vez del backoff propio."""
+    client.responses = [
+        _Response(429, headers={"Retry-After": "120"}),
+        _Response(429, headers={"Retry-After": "86400"}),  # un día: se espera el tope, no un día
+        _Response(200),
+    ]
+    assert client.get_next_data("/tiendas/1") == {"props": {"pageProps": {}}}
+    assert _waits(client) == [120, config.RETRY_AFTER_MAX_S]
+
+
+def test_no_sleep_after_last_attempt(client):
+    """El backoff crece (exponencial) y no se duerme después del último intento: la URL ya se da por perdida."""
+    client.responses = [_Response(502)] * config.MAX_RETRIES
+    with pytest.raises(RuntimeError):
+        client.get_next_data("/tiendas/1")
+    backoff = config.RETRY_BACKOFF_SECONDS
+    assert _waits(client) == [backoff * 2**i for i in range(config.MAX_RETRIES - 1)]
+
+
+def test_request_block_streak_raises_possible_block(client):
+    """403, 429 y páginas de desafío seguidas (contadas por request, no por job) detienen la descarga."""
+    client.responses = [_Response(403)] * (config.BLOCK_STREAK_REQUESTS - 1) + [_Response(200, text="<p>captcha</p>")]
+    for _ in range(config.BLOCK_STREAK_REQUESTS - 1):
+        with pytest.raises(requests.HTTPError):
+            client.get_next_data("/tiendas/1")
+    with pytest.raises(PossibleBlock):
+        client.get_next_data("/tiendas/1")
+    assert client.calls == config.BLOCK_STREAK_REQUESTS
+
+
+def test_a_good_page_resets_the_block_streak(client):
+    n = config.BLOCK_STREAK_REQUESTS - 1
+    client.responses = [_Response(403)] * n + [_Response(200)] + [_Response(403)] * n
+    for i in range(2 * n + 1):
+        if i == n:
+            client.get_next_data("/tiendas/1")
+            continue
+        with pytest.raises(requests.HTTPError):
+            client.get_next_data("/tiendas/1")
+
+
+def test_utf8_without_charset(client):
+    """`requests` decodifica text/html sin charset como Latin-1: las ñ y las tildes llegaban rotas."""
+    html = '<script id="__NEXT_DATA__" type="application/json">{"name": "Ñuñoa café"}</script>'
+    response = requests.Response()
+    response.status_code = 200
+    response.url = config.BASE_URL + "/tiendas/1"
+    response.headers["Content-Type"] = "text/html"
+    response._content = html.encode("utf-8")
+    response.encoding = requests.utils.get_encoding_from_headers(response.headers)
+    assert response.encoding == "ISO-8859-1"  # lo que haría requests
+    client.responses = [response]
+
+    assert client.get_next_data("/tiendas/1") == {"name": "Ñuñoa café"}

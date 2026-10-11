@@ -90,7 +90,25 @@ const LEVEL_NAMES = { explorador: 'Explorador', conocedor: 'Conocedor', experto:
  * El pasaporte Rappi es el del juego de verticales: un sello por vertical (Explorador o más, jugando o abriéndola en la
  * app), con su nivel en el borde. El título abre el pasaporte del juego, «Jugar» su camino y cada sello su vertical.
  */
-export function Passport({ state, fresh, onOpenGame, onOpenStamp }) {
+export function Passport({ state, status = 'ready', onRetry, fresh, onOpenGame, onOpenStamp }) {
+  // Sin el progreso del servidor no hay cuenta de sellos que mostrar: un marcador quieto mientras carga, y «Sin conexión».
+  if (status !== 'ready') {
+    return (
+      <section className="live-passport is-pending" aria-busy={status === 'loading'}>
+        <div className="live-passport-head">
+          <h2 className="live-passport-title">Tu pasaporte Rappi</h2>
+          {status === 'offline' && (
+            <>
+              <p>Sin conexión con el juego</p>
+              <button type="button" className="live-passport-retry tap" onClick={onRetry}>
+                Reintentar
+              </button>
+            </>
+          )}
+        </div>
+      </section>
+    )
+  }
   const count = stampedVerticals(state).length
   const left = Math.max(PASSPORT_GOAL - count, 0)
   return (

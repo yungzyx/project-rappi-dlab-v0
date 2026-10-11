@@ -107,6 +107,46 @@ describe('ronda', () => {
     expect(screen.getByText('¿Sabías que…?')).toBeTruthy()
   })
 
+  test('Enter sobre la X en un paso de dato no da vuelta la carta ni suma XP: deja que el botón salga', async () => {
+    seed()
+    await mount(<App params={{ round: 'turbo' }} />)
+    await roundLoaded()
+    const exit = screen.getByRole('button', { name: 'Salir' })
+    const untouched = fireEvent.keyDown(exit, { key: 'Enter' }) // false si alguien le quitó la acción nativa
+    expect(untouched).toBe(true)
+    expect(screen.getByRole('button', { name: 'Dar vuelta' })).toBeTruthy()
+    fireEvent.click(exit) // la activación nativa de Enter sobre un botón es este clic
+    expect(screen.getByRole('dialog', { name: '¿Salir de la ronda?' })).toBeTruthy()
+  })
+
+  test('Escape en la ronda pide confirmar y Escape de nuevo cierra solo la confirmación', async () => {
+    seed()
+    await mount(<App params={{ round: 'turbo' }} />)
+    await roundLoaded()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: '¿Salir de la ronda?' })).toBeTruthy()
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: '¿Salir de la ronda?' })).toBeNull()
+    expect(screen.getByRole('progressbar', { name: 'Avance de la ronda' })).toBeTruthy()
+  })
+
+  test('la confirmación de salir no roba el foco al re-renderizar y lo devuelve a la X al cerrar', async () => {
+    seed()
+    await mount(<App params={{ round: 'turbo' }} />)
+    await roundLoaded()
+    const exit = screen.getByRole('button', { name: 'Salir' })
+    exit.focus()
+    fireEvent.click(exit)
+    const keep = screen.getByRole('button', { name: 'Seguir jugando' })
+    keep.focus()
+    // Un re-render del padre (el tic de fecha, un toque en el progreso) no mueve el foco.
+    act(() => window.dispatchEvent(new Event('resize')))
+    fireEvent.keyDown(window, { key: '3' })
+    expect(document.activeElement).toBe(keep)
+    fireEvent.click(keep)
+    expect(document.activeElement).toBe(exit)
+  })
+
   test('al subir de nivel de explorador, el final de la ronda lo celebra', async () => {
     seed({ xp: 70 })
     const round = roundOf({ ...initialState(), xp: 70 }, 'supermercado')
@@ -198,6 +238,14 @@ describe('dentro del prototipo', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Abrir Turbo' }))
     expect(push).toHaveBeenCalledWith(...routeForScreen('turbo'))
     await waitFor(() => expect(stored().visited).toContain('turbo'))
+  })
+
+  test('«Abrir Turbo» cierra la hoja antes de abrir la vertical: no queda un diálogo viejo atrapando el teclado', async () => {
+    seed()
+    await mount(<App params={{ vertical: 'turbo' }} push={vi.fn()} />)
+    expect(document.activeElement).toBe(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Abrir Turbo' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   test('«Abrir Viajes» la sella y abre RappiTravel (no una pantalla vacía)', async () => {

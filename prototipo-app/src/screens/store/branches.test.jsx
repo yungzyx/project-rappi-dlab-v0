@@ -1,5 +1,5 @@
 import { StrictMode } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
 import { toPrototypeProduct } from '../../api/client'
 import { fixture, stubApi } from '../../api/testing'
@@ -82,9 +82,12 @@ describe('sucursales con el mismo nombre (restaurantes de la API)', () => {
     stubBranches()
     openStore({ store: { id: 9805, name: 'Pizzería de prueba', vertical: 'restaurants' } })
     await screen.findByText('Pizza de Las Condes (prueba)')
-    expect(visits()).toEqual([
-      expect.objectContaining({ vertical: 'restaurants', entity_type: 'store', entity_id: '9805' }),
-    ])
+    // La visita la registra un efecto después de pintar el menú: se espera el evento, no el texto.
+    await waitFor(() =>
+      expect(visits()).toEqual([
+        expect.objectContaining({ vertical: 'restaurants', entity_type: 'store', entity_id: '9805' }),
+      ]),
+    )
   })
 
   test('el plato de una sucursal abre esa sucursal por su menú, no como tienda', async () => {

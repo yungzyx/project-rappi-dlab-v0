@@ -152,6 +152,18 @@ export default function AccountScreen({ onBack, push }) {
             </div>
           ))}
 
+          <button
+            type="button"
+            className="account-forget tap"
+            aria-label="Borrar mis datos"
+            aria-describedby="account-forget-note"
+            onClick={() => setSheet('forget')}
+          >
+            <span className="account-forget-title">Borrar mis datos</span>
+            <span id="account-forget-note" className="account-forget-note">
+              Borra del servidor lo que guardamos con tu identificador anónimo y lo que hay en este navegador.
+            </span>
+          </button>
           <button type="button" className="account-logout tap" onClick={() => setSheet('logout')}>
             <LogoutIcon size={25} />
             Log out

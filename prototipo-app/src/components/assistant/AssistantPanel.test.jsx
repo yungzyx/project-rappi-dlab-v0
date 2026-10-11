@@ -11,6 +11,7 @@ import { routeForScreen } from '../../data/verticals'
 import { trackOrder } from '../../api/orders'
 import { fixture, stubApi } from '../../api/testing'
 import { askAbout } from '../../assistant/agentAsk'
+import { reloadToHome } from '../../state/reloadApp'
 
 const api = vi.hoisted(() => ({
   health: vi.fn(),
@@ -80,6 +81,16 @@ function say(text) {
   fireEvent.click(ask)
 }
 
+/** «Olvidar» y su confirmación: la misma hoja de Cuenta → «Borrar mis datos». */
+function clickForget() {
+  fireEvent.click(screen.getByText('Olvidar'))
+  fireEvent.click(screen.getByText('Sí, borrar'))
+}
+async function forget() {
+  clickForget()
+  await runUntilIdle()
+}
+
 function OpenButton() {
   const assistant = useAssistant()
   return (
@@ -139,6 +150,7 @@ afterAll(() => {
   delete Element.prototype.scrollTo
 })
 beforeEach(() => {
+  vi.mocked(reloadToHome).mockClear()
   vi.useFakeTimers()
   stubCatalog()
   window.history.replaceState(null, '', '/') // cada test parte sin una entrada del asistente debajo
@@ -340,6 +352,27 @@ describe('teclado y lector de pantalla', () => {
     expect(document.activeElement).toBe(focusable[0])
   })
 
+  test('con el panel y la hoja de producto abiertos, Tab llega al segundo control de la hoja y Escape cierra solo la hoja', async () => {
+    await renderPanel()
+    fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: 'cerveza' } })
+    await runUntilIdle()
+    fireEvent.click(screen.getByText('Cerveza negra botella 330 cc (prueba)')) // la hoja del producto, sobre el panel
+    await runUntilIdle()
+    const sheet = document.querySelector('.product-sheet')
+    const inSheet = [...sheet.querySelectorAll('button:not([disabled]), [href], input:not([disabled])')]
+    expect(inSheet.length).toBeGreaterThan(1)
+    expect(document.activeElement).toBe(inSheet[0])
+    // Tab desde el primer control no se cancela ni lo recoge el panel: el navegador sigue al segundo.
+    expect(fireEvent.keyDown(inSheet[0], { key: 'Tab' })).toBe(true)
+    inSheet[1].focus()
+    expect(sheet.contains(document.activeElement)).toBe(true)
+
+    fireEvent.keyDown(document.activeElement, { key: 'Escape' })
+    await runUntilIdle()
+    expect(document.querySelector('.product-sheet')).toBeNull()
+    expect(screen.getByRole('dialog')).toBeTruthy() // el panel de Mochi sigue abierto
+  })
+
   test('cada respuesta completa se anuncia una vez al lector de pantalla', async () => {
     api.ask.mockResolvedValueOnce(apiAnswer('Mira estas cervezas'))
     await renderPanel()
@@ -428,30 +461,42 @@ describe('lo aprendido y Olvidar', () => {
     expect(screen.getByText('Olvidar')).toBeTruthy()
   })
 
-  test('Aprendiendo de ti se oculta si el servidor no aprendió nada o no contesta', async () => {
+  test('Aprendiendo de ti se oculta si el servidor no aprendió nada o no contesta, pero Olvidar sigue ahí', async () => {
     localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
     await renderPanel() // interests: []
     expect(screen.queryByText('Aprendiendo de ti:')).toBeNull()
-    expect(screen.queryByText('Olvidar')).toBeNull()
+    // Aunque no haya intereses que mostrar, se enviaron búsquedas y eventos: borrarlos no depende del perfil.
+    expect(screen.getByText('Olvidar')).toBeTruthy()
 
     cleanup()
     api.profile.mockRejectedValue(new Error('API caída'))
     await renderPanel()
     expect(screen.queryByText('Aprendiendo de ti:')).toBeNull()
     expect(screen.queryByText('🍺 Cerveza')).toBeNull()
+    expect(screen.getByText('Olvidar')).toBeTruthy()
   })
 
-  test('tras Olvidar, Para ti se va y queda la confirmación', async () => {
+  test('Olvidar pide la misma confirmación que «Borrar mis datos» y solo borra al confirmar', async () => {
     api.profile.mockResolvedValue({ interests: [VINO] })
     stubCatalog({ '/recommendations': fixture('recommendations') })
     await renderPanel()
     expect(screen.getByText('Gaseosa cola 500 cc (prueba)')).toBeTruthy()
     fireEvent.click(screen.getByText('Olvidar'))
     await runUntilIdle()
-    expect(screen.queryByText('Gaseosa cola 500 cc (prueba)')).toBeNull()
-    expect(screen.getAllByText(/olvidé lo que aprendí de ti/).length).toBeGreaterThan(0)
+    expect(screen.getByRole('dialog', { name: 'Borrar mis datos' })).toBeTruthy()
+    expect(screen.getByText(/No se puede deshacer/)).toBeTruthy()
+    expect(api.forget).not.toHaveBeenCalled()
+    expect(screen.getByText('Gaseosa cola 500 cc (prueba)')).toBeTruthy() // nada se tocó todavía
+
+    fireEvent.click(screen.getByText('Cancelar'))
+    await runUntilIdle()
+    expect(api.forget).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog', { name: 'Borrar mis datos' })).toBeNull()
+
+    await forget()
     expect(screen.queryByText('Descubre con Mochi')).toBeNull()
     expect(api.forget).toHaveBeenCalledTimes(1)
+    expect(reloadToHome).toHaveBeenCalledTimes(1) // la app se recarga en la Home: no queda un mensaje que mostrar
   })
 
   test('Olvidar espera la pregunta en curso y el lote de eventos antes del DELETE, y mientras no se envía nada', async () => {
@@ -463,7 +508,7 @@ describe('lo aprendido y Olvidar', () => {
     await renderPanel()
     say('pregunta A')
     await advance(500) // sale al terminar de abrir
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await advance(100)
     say('pregunta mientras se olvida')
     await advance(500)
@@ -490,7 +535,7 @@ describe('lo aprendido y Olvidar', () => {
     const puts = []
     stubCatalog({ 'PUT /game/state/*': (req) => puts.push(req.body) && {} })
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await advance(100)
     expect(game.settle).toHaveBeenCalledTimes(1)
     expect(api.forget).not.toHaveBeenCalled() // el guardado en vuelo todavía no termina
@@ -507,10 +552,11 @@ describe('lo aprendido y Olvidar', () => {
     api.profile.mockResolvedValue({ interests: [VINO] })
     api.forget.mockRejectedValueOnce(new Error('API caída'))
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await runUntilIdle()
     expect(game.resume).toHaveBeenCalledTimes(1)
     expect(game.forget).not.toHaveBeenCalled()
+    expect(reloadToHome).not.toHaveBeenCalled() // no se borró nada: la app sigue como estaba
   })
 
   test('Olvidar waits for an order in flight', async () => {
@@ -518,7 +564,7 @@ describe('lo aprendido y Olvidar', () => {
     const sending = deferred()
     trackOrder(sending.promise)
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await advance(100)
     expect(api.forget).not.toHaveBeenCalled() // el pedido todavía va en camino
 
@@ -530,17 +576,18 @@ describe('lo aprendido y Olvidar', () => {
   test('Olvidar también deja el juego en cero (su progreso se borró con el perfil), solo si el servidor borró', async () => {
     api.profile.mockResolvedValue({ interests: [VINO] })
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await runUntilIdle()
     expect(api.forget).toHaveBeenCalledTimes(1)
     expect(game.forget).toHaveBeenCalledTimes(1)
     expect(api.forget.mock.invocationCallOrder[0]).toBeLessThan(game.forget.mock.invocationCallOrder[0])
+    expect(reloadToHome).toHaveBeenCalledTimes(1) // borrado todo, la app arranca de cero en la Home
 
     cleanup()
     game.forget.mockClear()
     api.forget.mockRejectedValueOnce(new Error('API caída'))
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await runUntilIdle()
     expect(game.forget).not.toHaveBeenCalled() // el progreso sigue en el servidor: el juego no cambia
   })
@@ -555,7 +602,7 @@ describe('lo aprendido y Olvidar', () => {
     api.profile.mockReturnValueOnce(remote.promise) // al reabrir, esta respuesta queda pendiente
     fireEvent.click(screen.getByText('abrir'))
     await runUntilIdle()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     remote.resolve({ interests: [{ concept: 'pisco', label: '🍸 Pisco' }] })
     await runUntilIdle()
     expect(screen.queryByText('🍸 Pisco')).toBeNull()

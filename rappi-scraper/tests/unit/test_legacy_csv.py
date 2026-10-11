@@ -1,5 +1,10 @@
+import pytest
+
+from rappi_scraper import lock
+from rappi_scraper.legacy import csv_scraper
 from rappi_scraper.legacy.csv_format import CSV_COLUMNS, consolidate, product_to_row, write_csv
 from rappi_scraper.legacy.csv_scraper import select_branches
+from rappi_scraper.lock import download_lock
 from rappi_scraper.scraping.store_metadata import normalize_stores
 
 
@@ -77,3 +82,11 @@ def test_write_csv_is_atomic_and_consolidate_joins_group_files(tmp_path):
     assert target.read_bytes().startswith(b"\xef\xbb\xbf")  # BOM para Excel
     assert "Pañal" in target.read_text(encoding="utf-8-sig")
     assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_rappi_csv_refuses_while_locked(monkeypatch, tmp_path):
+    """`rappi-csv` también descarga de rappi.cl: no puede correr junto a la tarea semanal."""
+    monkeypatch.setattr(lock, "LOCK_FILE", tmp_path / "scraper.lock")
+    monkeypatch.setattr(csv_scraper, "RappiClient", lambda: pytest.fail("no debería descargar"))
+    with download_lock(), pytest.raises(SystemExit, match="Ya hay una descarga en curso"):
+        csv_scraper.main(["--list-chains"])

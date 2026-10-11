@@ -11,13 +11,14 @@ Reglas de conducta (docs/diseno-ia.md §4) que se aplican aquí, en código:
 7. En modo "Rappi hoy" no hay sugerencias cruzadas ni aprendizaje.
 """
 
+import copy
 import re
 from dataclasses import dataclass, field, replace
 
 from psycopg import Connection
 
 from ..concepts.taxonomy import load_taxonomy
-from ..embeddings.base import TextEmbedder
+from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
 from ..offers.guards import is_offerable, offerable_vertical, unofferable_subverticals
 from ..text import normalize, tokens
 from .compose import Draft, TemplateComposer, notices
@@ -96,7 +97,17 @@ class RappiAgent:
 
     def reply(self, conn: Connection, message: str, ctx: Context | None = None, offer: bool = False) -> dict:
         """Con `offer`, la respuesta es algo que el agente propone sin que se lo pidan (el «Como te gusta…» de «qué me
-        recomiendas»): sus productos pasan por las guardias de offers/guards.py (`search_products(..., offer=True)`)."""
+        recomiendas»): sus productos pasan por las guardias de offers/guards.py (`search_products(..., offer=True)`).
+
+        Un turno embebe cada texto una sola vez (con tope de precio, detalle o reintento la misma consulta se busca
+        varias veces): corre en una copia del agente con su propia memoria, porque el mismo agente atiende varios
+        requests a la vez."""
+        turn = copy.copy(self)
+        if self.embedder is not None:
+            turn.embedder = MemoizedQueryEmbedder(self.embedder)
+        return turn._reply(conn, message, ctx, offer)
+
+    def _reply(self, conn: Connection, message: str, ctx: Context | None, offer: bool) -> dict:
         ctx = ctx or Context()
         intent = self.understander.understand(conn, message, ctx.vertical, previous=ctx.previous)
         if intent.kind == "recomendar":  # «qué me recomiendas»: lo que le gusta; sin perfil, ejemplos
@@ -104,7 +115,7 @@ class RappiAgent:
             if interest is None:
                 return self._small_talk(replace(intent, kind="ayuda"), ctx)
             concept = self.taxonomy.concepts[interest]
-            response = self.reply(conn, concept.name, ctx, offer=True)
+            response = self._reply(conn, concept.name, ctx, offer=True)
             response["text"] = f"Como te gusta {concept.label.lower()} 😉 " + response["text"]
             return response
         if intent.kind in (
@@ -442,20 +453,40 @@ class RappiAgent:
         self, conn: Connection, intent: Intent, vertical: str, detail: tuple[str, str, bool], offer: bool = False
     ):
         """(vertical, resultado, productos) del concepto que dicen el detalle en el nombre: entre más candidatos de
-        esta vertical y, si no se nombró una, en las que más productos del concepto lo dicen. None si no hay."""
+        esta vertical y, si no se nombró una, en las que más productos del concepto lo dicen. None si no hay.
+
+        Esas verticales se buscan entre los productos con documento de búsqueda (los que tienen una oferta vigente)
+        cuyo texto tiene la palabra, por el índice de `tsv_unaccent`; la expresión regular sobre el nombre, que no
+        tiene índice, solo revisa esos. La palabra se busca en las formas que acepta la expresión (la raíz y sus
+        plurales): el índice guarda la raíz de cada forma («kids» no es «kid»). Una palabra vacía de sentido
+        («mucho», una stopword) no tiene raíz en el índice y no lleva a otra vertical."""
         stem, _, free_from = detail
         candidates = [vertical]
         if not intent.explicit_vertical:
             candidates += [
                 v
                 for (v,) in conn.execute(
-                    """SELECT sv.vertical FROM catalog_items ci
-                       JOIN item_concepts ic ON ic.entity_type = 'catalog_item'
-                        AND ic.entity_id = ci.master_product_id::text
+                    """WITH forms AS (  -- con to_tsvector, una stopword no deja aviso: queda NULL y no calza nada
+                           SELECT string_agg(quote_literal(lexeme), ' | ')::tsquery AS q
+                           FROM unnest(to_tsvector('spanish', es_unaccent(%(forms)s)))
+                       ),
+                       said AS MATERIALIZED (
+                           SELECT DISTINCT ic.entity_id FROM search_documents sd
+                           JOIN item_concepts ic USING (entity_type, entity_id)
+                           WHERE sd.entity_type = 'catalog_item' AND ic.concept_id = %(concept)s
+                             AND sd.tsv_unaccent @@ (SELECT q FROM forms)
+                       )
+                       SELECT sv.vertical FROM said
+                       JOIN catalog_items ci ON ci.master_product_id = said.entity_id::bigint
                        JOIN store_products sp USING (master_product_id) JOIN store_verticals sv USING (store_id)
-                       WHERE ic.concept_id = %s AND unaccent(lower(ci.name)) ~ %s AND sv.vertical <> %s
+                       WHERE unaccent(lower(ci.name)) ~ %(pattern)s AND sv.vertical <> %(vertical)s
                        GROUP BY 1 ORDER BY count(DISTINCT ci.master_product_id) DESC LIMIT 2""",
-                    (intent.concepts[0], _name_pattern(stem, free_from, sql=True), vertical),
+                    {
+                        "concept": intent.concepts[0],
+                        "forms": f"{stem} {stem}s {stem}es",  # lo que acepta `_name_pattern`
+                        "pattern": _name_pattern(stem, free_from, sql=True),
+                        "vertical": vertical,
+                    },
                 )
             ]
         for candidate in candidates:

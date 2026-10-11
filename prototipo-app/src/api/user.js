@@ -35,3 +35,10 @@ export function userId() {
   }
   return id
 }
+
+/** Id nuevo para este navegador (tras «Borrar mis datos»): nada del anterior queda asociado a quien siga usando la app. */
+export function resetUserId() {
+  const id = randomId('proto')
+  writeStore(localStorage, USER_KEY, id)
+  return id
+}

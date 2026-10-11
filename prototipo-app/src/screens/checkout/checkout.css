@@ -193,11 +193,11 @@
   width: 100%;
   height: 54px;
   border-radius: 99px;
-  background: linear-gradient(135deg, #ff6a3d, #f0452b);
+  background: var(--accent-ink); /* blanco sobre él da 6,1:1 (el degradado anterior, 2,8 a 3,8:1) */
   color: var(--surface);
   font-size: 17px;
   font-weight: 700;
-  box-shadow: 0 10px 24px rgba(240, 69, 43, 0.3);
+  box-shadow: 0 10px 24px rgba(184, 48, 13, 0.3);
 }
 
 /* «¿Me falta algo?» (prototipo final): solo si se pide, Mochi sugiere una cosa de otra vertical */

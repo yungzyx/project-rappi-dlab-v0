@@ -6,6 +6,7 @@ import SmartBar from '../../../components/assistant/SmartBar'
 import { useToast } from '../../../components/Toast'
 import { ChevronDown } from '../../../components/Icons'
 import { VERTICAL_NAMES, routeForScreen } from '../../../data/verticals'
+import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { useScrollState } from '../../../hooks/useScrollState'
 import { useAddress } from '../../../state/AddressContext'
 import { useAddToCart } from '../../../hooks/useAddToCart'
@@ -54,18 +55,6 @@ const ACTIONS_HOLD = 12000 // un globo con botones se va solo después de esto (
 /** Un toque de vibración en los momentos clave (solo donde el navegador lo permite, como Android). */
 const buzz = () => navigator.vibrate?.(12)
 
-function usePrefersReducedMotion() {
-  const query = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')
-  const [reduce, setReduce] = useState(Boolean(query?.matches))
-  useEffect(() => {
-    if (!query) return undefined
-    const change = () => setReduce(query.matches)
-    query.addEventListener?.('change', change)
-    return () => query.removeEventListener?.('change', change)
-  }, [query])
-  return reduce
-}
-
 /**
  * Home del prototipo final: la barra abre el buscador con el agente. El agente de cuerpo entero vive en
  * la Home sin reordenarla: saluda, acompaña el pasaporte y el plan del día, y al tocarlo invita a una vertical nueva.
@@ -77,11 +66,17 @@ export default function LiveHomeFeed({ push, active = true }) {
   const { add: addToCart } = useAddToCart()
   const profile = useProfile()
   const events = useEvents()
-  const reduceMotion = usePrefersReducedMotion()
+  const reduceMotion = useReducedMotion()
   const [replays, setReplays] = useState(0)
 
   const game = useGame()
-  const stamps = stampedVerticals(game.state) // ids del juego
+  // Sin el progreso del servidor cargado los sellos no son los de la persona: nada se calcula ni se envía con ellos.
+  const gameReady = game.status === 'ready'
+  // Los temporizadores y la guía llaman a funciones de un render anterior: leen el juego de ahora, no el de entonces.
+  const gameRef = useRef(game)
+  useEffect(() => {
+    gameRef.current = game
+  })
   const [freshStamp, setFreshStamp] = useState(() => session.newStamp)
   const [plans, setPlans] = useState([]) // las ocasiones que el agente sabe armar (GET /agent/plans)
   const [plan, setPlan] = useState(() => session.plan?.id ?? null) // la ocasión elegida
@@ -276,6 +271,9 @@ export default function LiveHomeFeed({ push, active = true }) {
       session.lastAdded = null
       later(1800, () => setFreshStamp(null))
     } else if (session.newStamp) {
+      const now = gameRef.current
+      if (now.status !== 'ready') return // «te faltan N» necesita los sellos de verdad: espera a que el juego cargue
+      const stamps = stampedVerticals(now.state)
       const name = VERTICAL_NAMES[session.newStamp]
       const left = Math.max(PASSPORT_GOAL - stamps.length, 0)
       later(T.notice, () => {
@@ -300,12 +298,31 @@ export default function LiveHomeFeed({ push, active = true }) {
       commentOn(added)
     }
   }
+  // Con otra pantalla encima, lo que Mochi esperaba (una oferta, un kit) ya no corresponde: se calla y no habla después.
+  // La guía no: sigue donde quedó cuando la Home vuelve a estar arriba.
+  useEffect(() => {
+    if (active) return
+    run.current += 1
+    if (!touring.current) speak(null)
+  }, [active, speak])
+
   useEffect(() => {
     if (!active || !session.played || touring.current) return
     welcomeBack()
     // Solo al volver a estar arriba (y al montar).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
+
+  // Un sello nuevo que llegó antes de que el juego cargara se celebra cuando carga (solo ese cambio de estado).
+  const wasGameReady = useRef(gameReady)
+  useEffect(() => {
+    const justLoaded = gameReady && !wasGameReady.current
+    wasGameReady.current = gameReady
+    if (!justLoaded || !active || !session.played || touring.current || !session.newStamp) return
+    welcomeBack()
+    // Solo reacciona a que el juego termine de cargar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameReady])
 
   // Las ocasiones del plan del día salen de la API; sin ellas el bloque no ofrece nada (no hay kits locales).
   useEffect(() => {
@@ -405,7 +422,8 @@ export default function LiveHomeFeed({ push, active = true }) {
   // Tocar al agente: la API propone la primera vertical sin sello (con los sellos del juego en el contexto).
   const poke = async () => {
     // Mientras saluda, tocarlo no cambia de tema.
-    if (!session.played || poking.current) return
+    if (!session.played || poking.current || gameRef.current.status !== 'ready') return
+    const stamps = stampedVerticals(gameRef.current.state)
     poking.current = true
     const mine = run.current
     let made = null
@@ -463,6 +481,8 @@ export default function LiveHomeFeed({ push, active = true }) {
     passport: (
       <Passport
         state={game.state}
+        status={game.status}
+        onRetry={game.retry}
         fresh={freshStamp}
         onOpenGame={(tab) => push('game', { tab })}
         onOpenStamp={(vertical) => push('game', { vertical })}
@@ -527,7 +547,7 @@ export default function LiveHomeFeed({ push, active = true }) {
         target={target}
         getBlock={getBlock}
         entering={entering}
-        away={!present}
+        away={!present || !active}
         reduceMotion={reduceMotion}
         onPoke={poke}
         onWhyToggle={onWhyToggle}

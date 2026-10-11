@@ -13,8 +13,8 @@ import AgentMessage from './AgentMessage'
 
 const noop = () => {}
 
-async function mount(response) {
-  const message = { ...toMessage(response), animate: false }
+async function mount(response, { animate = false } = {}) {
+  const message = { ...toMessage(response), animate }
   const result = render(
     <StrictMode>
       <DemoProvider>
@@ -102,5 +102,27 @@ describe('«¿Sabías que…?»', () => {
     expect(screen.queryByRole('link')).toBeNull()
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(stored()).toBeNull()
+  })
+})
+
+describe('reducir movimiento', () => {
+  const matchMedia = (reduce) => (query) => ({
+    matches: reduce && query.includes('prefers-reduced-motion'),
+    addEventListener() {},
+    removeEventListener() {},
+  })
+
+  test('con reduce la respuesta aparece entera en el primer render', async () => {
+    vi.stubGlobal('matchMedia', matchMedia(true))
+    const response = fixture('agent-ask-dato')
+    await mount(response, { animate: true })
+    expect(screen.getByText(response.text)).toBeTruthy()
+  })
+
+  test('sin reduce la respuesta se escribe de a poco', async () => {
+    vi.stubGlobal('matchMedia', matchMedia(false))
+    const response = fixture('agent-ask-dato')
+    await mount(response, { animate: true })
+    expect(screen.queryByText(response.text)).toBeNull()
   })
 })

@@ -63,6 +63,14 @@ const GAME_ROUTES = {
   },
 }
 
+/**
+ * Las peticiones de carga del juego (tarjetas y progreso) que el servidor simulado todavía no contesta: `gameReady()` de
+ * game/testSeed.js las espera. Vive aquí, y no en GameContext, porque algunas pruebas reinician los módulos de la app.
+ */
+const gameLoads = new Set()
+export const pendingGameLoads = () => [...gameLoads]
+const isGameLoad = (verb, pathname) => verb === 'GET' && (pathname === '/game/cards' || pathname.startsWith('/game/state/'))
+
 const json = (status, body) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
@@ -159,7 +167,16 @@ export function stubApi(routes) {
     const { pathname, searchParams } = new URL(url)
     const verb = method.toUpperCase()
     const req = { method: verb, path: pathname, query: searchParams, body: parseBody(body) }
-    return respond(findRoute(table, verb, pathname), req, signal)
+    const response = respond(findRoute(table, verb, pathname), req, signal)
+    if (isGameLoad(verb, pathname)) {
+      const load = response.then(
+        () => {},
+        () => {},
+      )
+      gameLoads.add(load)
+      load.then(() => gameLoads.delete(load))
+    }
+    return response
   })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock

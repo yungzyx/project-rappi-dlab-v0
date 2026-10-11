@@ -52,29 +52,23 @@ WHERE NOT EXISTS (SELECT 1 FROM staged_documents s
 # que bajó su formato o su cadena: así salen las sucursales viejas y lo que ya no se vende, y un formato que la última
 # corrida no pudo bajar conserva su último dato. Un plato también sale si una corrida posterior ya no encontró su
 # local o su cadena en Rappi (el motivo que anota pipeline/restaurants.py). Lo que no tiene ningún precio guardado
-# no se descarta (no hay con qué compararlo). La corrida de cada formato sale de v_store_format_runs (migración 019),
-# la misma que usa el precio que muestra Bigotes.
+# no se descarta (no hay con qué compararlo).
+# La vigencia de las ofertas está definida una sola vez, en la vista v_latest_offers (migración 032): la misma que usan
+# la API y el agente en rappi-ia, con la excepción de los pasillos que la corrida no pudo leer. El último precio sale
+# de latest_prices y latest_menu_prices (migración 032), sin ordenar todo el historial.
 _OFFER_PRICES = """
 CREATE TEMP TABLE offer_prices ON COMMIT DROP AS
-WITH latest AS (
-    SELECT DISTINCT ON (store_id, sku) store_id, sku, price, run_id
-    FROM price_snapshots
-    ORDER BY store_id, sku, scraped_at DESC, run_id DESC  -- el mismo desempate que v_store_format_runs
-)
-SELECT l.store_id, l.sku, l.price, l.run_id = f.format_run_id AS current
-FROM latest l
-JOIN v_store_format_runs f USING (store_id)
+SELECT store_id, sku, price, current FROM v_latest_offers
 """
 
 _DISH_PRICES = """
 CREATE TEMP TABLE dish_prices ON COMMIT DROP AS
 WITH latest AS (
-    SELECT DISTINCT ON (mps.item_id) mps.item_id, mps.price, mps.real_price, mps.run_id, mps.scraped_at,
+    SELECT lmp.item_id, lmp.price, lmp.real_price, lmp.run_id, lmp.scraped_at,
            mi.store_id, s.brand_id, COALESCE(s.brand_id::text, 'id:' || s.store_id) AS chain
-    FROM menu_price_snapshots mps
-    JOIN menu_items mi ON mi.item_id = mps.item_id
+    FROM latest_menu_prices lmp
+    JOIN menu_items mi ON mi.item_id = lmp.item_id
     JOIN stores s ON s.store_id = mi.store_id
-    ORDER BY mps.item_id, mps.scraped_at DESC
 ),
 chain_run AS (
     SELECT DISTINCT ON (chain) chain, run_id FROM latest ORDER BY chain, scraped_at DESC, run_id DESC

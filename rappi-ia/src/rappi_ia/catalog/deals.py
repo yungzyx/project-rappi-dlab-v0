@@ -25,6 +25,7 @@ from rappi_scraper.storage.search import MIN_PRICE
 
 from ..agent.tools import Product
 from ..concepts.taxonomy import load_taxonomy, sensitive_concepts
+from .cache import cached
 from .stores import _CURRENT_OFFERS, _OWN_VERTICAL, _product, downloaded_cte, not_pushed_params
 
 MAX_DISCOUNT_PCT = 60
@@ -35,6 +36,8 @@ MAX_DISCOUNT_PCT = 60
 # tienda, que es la definición de v_price_changes (`lag` por tienda y SKU); se busca por el índice (store_id, sku,
 # scraped_at) solo para las filas de la corrida, porque la ventana de la vista no se puede acotar a unas tiendas sin
 # recorrer casi todo el historial. Un test compara ambas.
+# Una oferta rescatada de un pasillo omitido (v_latest_offers) no es candidata a oferta, a propósito: su precio es de
+# la corrida anterior, no cambió en la corrida de su formato.
 _DEALS = f"""
 WITH {{downloaded}},
 changed AS MATERIALIZED (
@@ -93,9 +96,14 @@ ORDER BY 1 - t.price / t.before DESC, ci.master_product_id"""
 def deals(conn: Connection, vertical: str | None = None, limit: int = 24) -> list[dict]:
     """Los productos que bajaron de precio (o que su tienda rebajó), del mayor descuento al menor, de una vertical si
     se pide. Sin vertical, no entran las tiendas que no se empujan (farmacia, sex shops, smoking shops). Ninguno es de
-    un concepto sensible. Restaurantes no vende productos del catálogo: no tiene ofertas."""
+    un concepto sensible. Restaurantes no vende productos del catálogo: no tiene ofertas. Sale de la caché del
+    catálogo (catalog/cache.py)."""
     if vertical == "restaurantes":
         return []
+    return cached(f"deals:{vertical}:{limit}", conn, lambda: _deals(conn, vertical, limit))
+
+
+def _deals(conn: Connection, vertical: str | None, limit: int) -> list[dict]:
     sql = _DEALS.format(
         downloaded=downloaded_cte(vertical is not None, history=True),
         vertical=_OWN_VERTICAL if vertical is None else "%(vertical)s",

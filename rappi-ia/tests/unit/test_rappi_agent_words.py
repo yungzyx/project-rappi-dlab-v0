@@ -53,3 +53,66 @@ def test_what_is_asked_without(agent, text, vertical, avoided):
 def test_without_x_is_a_free_from_detail(agent):
     intent = agent.understander.understand(None, "vino sin alcohol", "licores")
     assert agent._detail(intent) == ("alcohol", "sin alcohol", True)
+
+
+# El nombre del agente (C1): sale de config.AGENT_NAME, más el antiguo «bigotes». Se quita solo como vocativo: al lado
+# de un saludo o un «gracias», o antes de un pedido; si es todo el pedido («quiero mochi»), se busca el postre.
+@pytest.fixture(scope="module")
+def understander():
+    from rappi_ia.agent.understand import Understander
+
+    return Understander()
+
+
+def _name():
+    from rappi_ia import config
+
+    return config.AGENT_NAME
+
+
+def test_greeting_with_agent_name(understander):
+    for text in [f"hola {_name()}", f"Hola, {_name()}!", f"buenas tardes {_name().lower()}"]:
+        assert understander.understand(None, text, "restaurantes").kind == "saludo", text
+
+
+def test_thanks_with_agent_name(understander):
+    for text in [f"gracias {_name()}", f"ok, muchas gracias {_name()}!"]:
+        assert understander.understand(None, text, "restaurantes").kind == "gracias", text
+
+
+def test_vocative_is_stripped_before_query(understander):
+    for text in [
+        f"hola {_name()} quiero sushi",
+        f"{_name()}, quiero sushi",
+        f"oye {_name()} necesito sushi porfa",
+        f"sushi porfa {_name()}",
+    ]:
+        assert understander.understand(None, text, "restaurantes").query == "sushi", text
+
+
+def test_the_name_before_courtesy_or_an_article_is_the_dessert(understander):
+    """Solo antes de un saludo o de un verbo de pedido el nombre es vocativo: «porfa», «por» o un artículo después
+    no lo vuelven un llamado."""
+    name = _name().lower()
+    for text in [f"quiero un {name} porfa", f"quiero {name} por favor", f"dame {name} un poco"]:
+        intent = understander.understand(None, text, "restaurantes")
+        assert intent.query.split()[0] == name, (text, intent.query)
+    assert understander.understand(None, f"quiero un {name} porfa", "restaurantes").query == name
+
+
+def test_dessert_alone_stays_a_query(understander):
+    """El mochi también es un postre: si el nombre es todo el pedido, se busca."""
+    name = _name().lower()
+    for text, query in [(f"quiero {name}", name), (name, name), (f"{name} de matcha", f"{name} de matcha")]:
+        intent = understander.understand(None, text, "restaurantes")
+        assert intent.kind == "buscar" and intent.query == query, text
+
+
+def test_follows_agent_name_env(understander, monkeypatch):
+    from rappi_ia import config
+
+    monkeypatch.setattr(config, "AGENT_NAME", "Pelusa")
+    assert understander.understand(None, "hola pelusa", "restaurantes").kind == "saludo"
+    assert understander.understand(None, "gracias Pelusa", "restaurantes").kind == "gracias"
+    assert understander.understand(None, "hola pelusa quiero sushi", "restaurantes").query == "sushi"
+    assert understander.understand(None, "hola bigotes quiero sushi", "restaurantes").query == "sushi"  # el antiguo

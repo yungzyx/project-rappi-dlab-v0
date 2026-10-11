@@ -23,6 +23,7 @@ describe('MvpUsageView', () => {
   beforeEach(() => {
     window.history.replaceState(null, '', '/')
     vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {}) // el límite de error de un bloque lo registra
   })
 
   afterEach(resetApi)
@@ -130,18 +131,35 @@ describe('MvpUsageView', () => {
     expect(within(offers).getByText('Plan')).toBeTruthy()
   })
 
-  test('offline uses saved data and says so', async () => {
+  test('con la API caída y fuente prototipo no aparecen cifras guardadas', async () => {
     window.history.replaceState(null, '', '/?vista=mvp&fuente=prototipo')
     apiDown()
     await renderWithData(<App />)
 
-    const banner = (await screen.findByText('Modo sin conexión (datos guardados):')).parentElement
-    await screen.findByRole('table', { name: 'Ofertas del agente por momento' })
-    await screen.findByRole('table', { name: 'Juego por vertical' })
+    const errors = await screen.findAllByText('La API no responde: el uso del MVP solo se ve con la base viva.')
+    expect(errors).toHaveLength(4) // un ErrorState por bloque y otro en la fecha de corte de la cabecera
+    expect(screen.queryByRole('table', { name: 'Ofertas del agente por momento' })).toBeNull()
+    expect(screen.queryByRole('table', { name: 'Juego por vertical' })).toBeNull()
+    expect(screen.queryByText('1 persona')).toBeNull()
+    expect(screen.queryByText('Modo sin conexión (datos guardados):')).toBeNull() // no hay nada guardado que avisar
+  })
+
+  test('el bloque simulado sin conexión muestra su origen', async () => {
+    apiDown()
+    await renderWithData(<MvpUsageView source="synthetic" />)
+
     await screen.findByRole('table', { name: 'Búsquedas sin resultado por vertical y concepto' })
-    // El aviso nombra las consultas del MVP que cayeron a lo guardado (la lista larga se resume con «y N más»).
-    expect(banner.textContent).toMatch(/falló en .*(ofertas por momento|juego|búsquedas sin resultado)/)
-    expect(screen.getAllByText(NOT_EVIDENCE)).toHaveLength(3)
+    const origin = (await import('../../fixtures/unmet.synthetic.json')).default.guardado
+    expect(screen.getAllByText(`Guardado sin conexión: ${origin.origen} (${origin.fecha}).`).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Guardado sin conexión:/)).toHaveLength(3) // uno por bloque
+  })
+
+  test('con la API viva no hay rótulo de guardado', async () => {
+    serveFixtures()
+    await renderWithData(<MvpUsageView source="synthetic" />)
+
+    await screen.findByRole('table', { name: 'Búsquedas sin resultado por vertical y concepto' })
+    expect(screen.queryByText(/Guardado sin conexión/)).toBeNull()
   })
 
   test('switching source refetches and never mixes', async () => {
@@ -164,7 +182,8 @@ describe('MvpUsageView', () => {
     serveWith({ unmet: synthetic }) // la API contesta «simulado» a todo, también a ?source=prototype
     await renderWithData(<MvpUsageView source="prototype" />)
 
-    expect(await screen.findByText('1 de 1 búsqueda sin resultado')).toBeTruthy() // cae a lo guardado del prototipo
+    expect(await screen.findByText('La API no responde: el uso del MVP solo se ve con la base viva.')).toBeTruthy()
     expect(screen.queryByText('🥛 Leche y yogur')).toBeNull()
+    expect(screen.queryByText('1 de 1 búsqueda sin resultado')).toBeNull() // tampoco cae a lo guardado
   })
 })

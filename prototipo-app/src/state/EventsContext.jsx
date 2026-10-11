@@ -4,7 +4,7 @@ import { randomId, readStore, userId, writeStore } from '../api/user'
 import { useDemo } from './DemoContext'
 
 // Eventos de uso para el panel de la empresa (búsquedas, carrito, sugerencias, pedidos). Se envían en lotes a
-// rappi-ia; sin API, se descartan en silencio. En "Rappi hoy" se envían sin concepto: el agente no aprende.
+// rappi-ia; sin API esperan en la cola (con tope) hasta que contesta. En "Rappi hoy" se envían sin concepto: el agente no aprende.
 const SESSION_KEY = 'rappi-proto-session'
 const SESSION_IDLE_MS = 30 * 60 * 1000 // una sesión termina tras 30 min sin actividad
 const FLUSH_MS = 5000
@@ -70,9 +70,11 @@ export function EventsProvider({ children }) {
 
   const flush = useCallback(async () => {
     if (queue.current.length === 0) return
-    const batch = queue.current.splice(0, MAX_QUEUE)
     const sending = (async () => {
-      if (!(await health())) return // sin API no hay a quién enviarlos
+      // Sin API (arrancando, o reiniciándose) el lote espera en la cola; la cola ya tiene su tope (MAX_QUEUE).
+      if (!(await health())) return
+      const batch = queue.current.splice(0, MAX_QUEUE)
+      if (batch.length === 0) return // «Olvidar» vació la cola mientras se revisaba la API
       try {
         await sendEvents(userId(), batch)
       } catch {

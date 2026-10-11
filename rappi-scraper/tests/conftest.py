@@ -16,15 +16,18 @@ def load_page(name: str) -> dict:
 
 
 class FakeClient:
-    """Sirve fixtures según la ruta. `unavailable` y `failing_once` simulan tiendas caídas y errores; `blocked`, un
-    rappi.cl que responde 403 a todo."""
+    """Sirve fixtures según la ruta. `unavailable`, `failing_once` y `failing` simulan tiendas caídas y errores
+    (una vez o siempre); `blocked`, un rappi.cl que responde 403 a todo."""
 
-    def __init__(self, pages: dict[str, str] | None = None, unavailable=(), failing_once=(), gone=(), blocked=False):
+    def __init__(
+        self, pages: dict[str, str] | None = None, unavailable=(), failing_once=(), gone=(), blocked=False, failing=()
+    ):
         self.pages = pages or {}
         self.blocked = blocked
         self.unavailable = set(unavailable)
         self.gone = set(gone)
         self.failing_once = set(failing_once)
+        self.failing = set(failing)
         self.requested: list[str] = []
 
     def set_location(self, *args):
@@ -44,10 +47,23 @@ class FakeClient:
         if path in self.failing_once:
             self.failing_once.discard(path)
             raise ParseError("respuesta incompleta")
+        if path in self.failing:
+            raise ParseError("respuesta incompleta")
         if path in self.pages:
             return load_page(self.pages[path])
         depth = path.count("/")  # /tiendas/x -> tienda, /tiendas/x/a -> pasillo, /tiendas/x/a/b -> sub-pasillo
         return load_page({2: "store", 3: "aisle", 4: "subaisle"}[depth])
+
+
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """Ningún test sale a la red: un cliente real que se colara fallaría en vez de descargar de rappi.cl."""
+
+    def refuse(*args, **kwargs):
+        pytest.fail("los tests corren sin red: usa FakeClient o un `_session.get` falso")
+
+    monkeypatch.setattr(requests.Session, "request", refuse)
+    monkeypatch.setattr(requests.Session, "get", refuse)
 
 
 @pytest.fixture

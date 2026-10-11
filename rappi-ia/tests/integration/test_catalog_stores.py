@@ -10,12 +10,14 @@ import re
 
 import pytest
 from fastapi.testclient import TestClient
+from psycopg.types.json import Jsonb
 from rappi_scraper.storage.search import build_search_documents
 
 from rappi_ia.agent.tools import search_products
 from rappi_ia.agent.verticals import LOGO_BASE_URL
 from rappi_ia.api import app as api
-from rappi_ia.catalog.stores import product_detail, store_page, vertical_stores
+from rappi_ia.catalog import cache as catalog_cache
+from rappi_ia.catalog.stores import offer_price, product_detail, store_page, vertical_stores
 from rappi_ia.demo.seed import DEMO_VERTICALS, seed_demo
 
 CENTRO, NORTE, OLD_BRANCH, DISCOVERED, PIZZERIA = 9101, 9102, 9103, 9104, 9801
@@ -248,6 +250,8 @@ def test_store_page_for_another_aisle_and_for_an_aisle_the_store_does_not_have(s
     nothing = store_page(seeded, CENTRO, aisle_id=999_999)
     assert (nothing["aisle"], nothing["products"], nothing["has_more"]) == (None, [], False)
     assert len(nothing["aisles"]) == 5
+    for aisle in (-1, 2**70):  # ni uno negativo ni uno fuera de bigint rompen la consulta
+        assert store_page(seeded, CENTRO, aisle_id=aisle)["aisle"] is None
 
 
 def test_unknown_or_empty_store_is_404_with_spanish_detail(seeded, client):
@@ -457,3 +461,71 @@ def test_search_products_carry_the_store_and_presentation(seeded):
 
 def _aisle_id(conn, store_id: int, name: str) -> int:
     return next(a["id"] for a in store_page(conn, store_id)["aisles"] if a["name"] == name)
+
+
+def test_offer_of_a_skipped_aisle_is_current_everywhere(seeded):
+    """Una corrida nueva baja el Centro sin poder leer el subpasillo de las papas ni el pasillo del atún: las papas
+    siguen vigentes con su precio de la bajada anterior del formato (la del Centro) en la búsqueda, el detalle, el
+    precio del pedido, el agente, la página y la tarjeta de la tienda (una sola definición, v_latest_offers). El atún,
+    cuyo último precio es de antes de esa bajada anterior, no revive en ninguna."""
+    papas_aisle, papas_sub, papas_price = seeded.execute(
+        """SELECT sp.aisle_id, sp.sub_aisle_id, ps.price
+           FROM store_products sp JOIN latest_prices ps USING (store_id, sku)
+           WHERE sp.store_id = %s AND sp.sku = 'sku-91001'""",
+        (CENTRO,),
+    ).fetchone()
+    tuna_aisle = seeded.execute(
+        "SELECT aisle_id FROM store_products WHERE store_id = %s AND sku = 'sku-91201'", (CENTRO,)
+    ).fetchone()[0]
+    skipped = [papas_sub, tuna_aisle]
+    before = vertical_stores(seeded, "supermercado")[0]
+    # La bajada anterior del formato fue la del Centro: el scraper deja su job terminado (la siembra no deja jobs).
+    previous = seeded.execute("SELECT max(run_id) FROM price_snapshots WHERE store_id = %s", (CENTRO,)).fetchone()[0]
+    seeded.execute(
+        """INSERT INTO scrape_jobs (run_id, job_key, job_type, payload, status, result)
+           VALUES (%s, 'type:prueba_9101', 'store_group', '{}', 'done', %s)""",
+        (previous, Jsonb({"store_id": CENTRO, "products": 1, "pasillos_omitidos": []})),
+    )
+    run = seeded.execute(
+        "INSERT INTO scrape_runs (kind, status) VALUES ('stores', 'done') RETURNING run_id"
+    ).fetchone()[0]
+    seeded.execute(
+        """INSERT INTO price_snapshots (run_id, store_id, sku, price, real_price, discount_pct, in_stock, scraped_at)
+           SELECT %(run)s, lp.store_id, lp.sku, lp.price, lp.real_price, lp.discount_pct, lp.in_stock,
+                  lp.scraped_at + interval '1 hour'
+           FROM latest_prices lp JOIN store_products sp USING (store_id, sku)
+           WHERE lp.store_id = %(store)s
+             AND lp.run_id = (SELECT max(run_id) FROM price_snapshots WHERE store_id = %(store)s)
+             AND sp.aisle_id <> ALL(%(skipped)s) AND coalesce(sp.sub_aisle_id, 0) <> ALL(%(skipped)s)""",
+        {"run": run, "store": CENTRO, "skipped": skipped},
+    )
+    seeded.execute(
+        """INSERT INTO scrape_jobs (run_id, job_key, job_type, payload, status, result)
+           VALUES (%s, 'type:prueba_9101', 'store_group', '{}', 'done', %s)""",
+        (run, Jsonb({"store_id": CENTRO, "products": 1, "pasillos_omitidos": skipped})),
+    )
+    assert seeded.execute(
+        "SELECT run_id < %s FROM latest_prices WHERE store_id = %s AND sku = 'sku-91001'", (run, CENTRO)
+    ).fetchone()[0]  # el último precio de las papas es de la corrida anterior
+
+    build_search_documents(seeded)
+    searched = seeded.execute(
+        "SELECT (metadata->>'precio_min')::int FROM search_documents"
+        " WHERE entity_id = '91001' AND vertical = 'supermercado'"
+    ).fetchone()[0]
+    detail = product_detail(seeded, "catalog_item", "91001")
+    agent = next(p for p in search_products(seeded, "supermercado", "papas fritas", None, None).products
+                 if p.entity_id == "91001")  # fmt: skip
+    page = store_page(seeded, CENTRO, papas_aisle, page_size=100)
+
+    assert searched == papas_price
+    assert (detail["price_value"], detail["store_id"]) == (papas_price, CENTRO)
+    assert offer_price(seeded, "catalog_item", "91001", CENTRO) == papas_price
+    assert (agent.price_value, agent.store_id) == (papas_price, CENTRO)
+    assert "91001" in {p["entity_id"] for p in page["products"]}
+    catalog_cache.clear()
+    assert vertical_stores(seeded, "supermercado")[0] == before  # mismas ofertas vigentes en la tarjeta
+
+    assert product_detail(seeded, "catalog_item", "91201") is None
+    assert offer_price(seeded, "catalog_item", "91201", CENTRO) is None
+    assert seeded.execute("SELECT count(*) FROM search_documents WHERE entity_id = '91201'").fetchone()[0] == 0

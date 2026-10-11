@@ -35,6 +35,11 @@ API_CORS_ORIGINS = [
     if o.strip()
 ]
 
+# Tope por consulta de la API (statement_timeout), en milisegundos: lo que espera una pantalla de la app, y el panel,
+# cuyas métricas recorren todos los eventos. Una consulta que lo pasa responde 504 («La consulta tardó demasiado»).
+API_TIMEOUT_INTERACTIVE_MS = int(os.environ.get("API_TIMEOUT_INTERACTIVE_MS", "5000"))
+API_TIMEOUT_ANALYTICS_MS = int(os.environ.get("API_TIMEOUT_ANALYTICS_MS", "30000"))
+
 # Ciudad fija de la demo (Santiago): «Cerca de ti» mide la distancia a este punto de Providencia.
 MVP_HOME_LAT = float(os.environ.get("MVP_HOME_LAT", "-33.4263"))
 MVP_HOME_LNG = float(os.environ.get("MVP_HOME_LNG", "-70.6106"))

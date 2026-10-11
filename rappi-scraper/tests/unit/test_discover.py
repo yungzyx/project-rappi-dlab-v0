@@ -1,4 +1,8 @@
+import gzip
+
+from rappi_scraper.pipeline import discover
 from rappi_scraper.pipeline.discover import _add_candidate, canonical_vertical, city_locations
+from rappi_scraper.scraping.client import PageNotFound
 
 
 def test_canonical_vertical_moves_turbo_out_of_other_listings():
@@ -47,3 +51,44 @@ def test_add_candidate_groups_by_store_type_and_collects_verticals():
     assert set(groups) == {"type:lider", "id:9"}
     assert groups["type:lider"]["verticals"] == ["supermercado", "conveniencia"]
     assert [c["store_id"] for c in groups["type:lider"]["candidates"]] == [1, 2]
+
+
+class _SitemapClient:
+    """Sirve sitemaps `.xml.gz` por URL; las demás dan 404."""
+
+    def __init__(self, shards: dict[str, list[str]]):
+        self.shards = shards
+        self.requested = []
+
+    def get_content(self, url):
+        self.requested.append(url)
+        if url not in self.shards:
+            raise PageNotFound(url)
+        xml = "".join(f"<url><loc>{loc}</loc></url>" for loc in self.shards[url])
+        return gzip.compress(xml.encode())
+
+
+def test_reads_all_sitemap_shards():
+    """Los sitemaps vienen numerados (-0, -1, …): se leían solo los del -0."""
+    template = discover.PARTNER_SITEMAP
+    client = _SitemapClient({template.format(0): ["https://x/a", "https://x/b"], template.format(1): ["https://x/c"]})
+
+    assert discover._sitemap_urls(client, template) == ["https://x/a", "https://x/b", "https://x/c"]
+    assert client.requested[-1] == template.format(2)  # hasta el primer 404
+
+
+class _EndlessSitemapClient(_SitemapClient):
+    """Responde 200 con el mismo sitemap a cualquier número (sin 404 nunca)."""
+
+    def get_content(self, url):
+        self.requested.append(url)
+        return gzip.compress(b"<url><loc>https://x/a</loc></url>")
+
+
+def test_sitemap_shards_are_capped():
+    client = _EndlessSitemapClient({})
+
+    urls = discover._sitemap_urls(client, discover.PARTNER_SITEMAP)
+
+    assert len(client.requested) == discover.MAX_SITEMAP_SHARDS
+    assert len(urls) == discover.MAX_SITEMAP_SHARDS

@@ -2,8 +2,10 @@ import zlib
 
 import pytest
 
+from rappi_ia.catalog import cache
 from rappi_ia.db import connect, database_url
 from rappi_ia.demo.seed import reset_test_database
+from rappi_ia.layers.segments import forget_source_spend
 
 
 @pytest.fixture(autouse=True)
@@ -21,6 +23,17 @@ def real_db_guard(monkeypatch):
 
     monkeypatch.setattr(deps, "_own_connection", refuse)
     return attempts
+
+
+@pytest.fixture(autouse=True)
+def fresh_caches():
+    """Cada test recrea la base (y su corrida 1): nada de la caché del catálogo ni del gasto por fuente de los segmentos
+    pasa de un test a otro."""
+    cache.clear()
+    forget_source_spend()
+    yield
+    cache.clear()
+    forget_source_spend()
 
 
 @pytest.fixture

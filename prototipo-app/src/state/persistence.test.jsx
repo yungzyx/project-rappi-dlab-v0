@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test } from 'vitest'
 import { AddressProvider, useAddress } from './AddressContext'
 import { FavoritesProvider, useFavorites } from './FavoritesContext'
 import { LoyaltyProvider, useLoyalty } from './LoyaltyContext'
+import { OrdersProvider, useOrders } from './OrdersContext'
 import { loadStored, saveStored } from './storage'
 
 afterEach(() => localStorage.clear())
@@ -39,5 +40,22 @@ describe('persistencia en el navegador', () => {
     saveStored('k', 5)
     expect(loadStored('k', (v) => typeof v === 'string', 'def')).toBe('def')
     expect(loadStored('k', (v) => typeof v === 'number', 'def')).toBe(5)
+  })
+
+  test('pedidos guardados con forma rara no tumban la app: se ignoran', () => {
+    for (const bad of ['{"a":1}', '[1,2]', '[{"id":"order-1"}]', '"texto"']) {
+      localStorage.setItem('rappi-proto-orders', bad)
+      const { result, unmount } = renderHook(() => useOrders(), { wrapper: OrdersProvider })
+      expect(result.current.orders).toEqual([])
+      expect(result.current.find('order-1')).toBeUndefined()
+      unmount()
+    }
+  })
+
+  test('pedidos guardados con su forma se recuperan', () => {
+    const order = { id: 'order-1', placedAt: 1, stores: ['Súper'], items: [], total: 1000, address: 'Casa' }
+    localStorage.setItem('rappi-proto-orders', JSON.stringify([order]))
+    const { result } = renderHook(() => useOrders(), { wrapper: OrdersProvider })
+    expect(result.current.orders).toEqual([order])
   })
 })

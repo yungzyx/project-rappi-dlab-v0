@@ -104,14 +104,16 @@ def search_products(
     symptom: bool = False,
     offer: bool = False,
     adult_ok: bool = False,
+    words: bool | None = None,
 ) -> SearchOutcome:
     """Con `concepts=None`, los conceptos los detecta la búsqueda en la consulta (endpoint /search). Con `symptom` (o
     en farmacia) no se muestra lo que no tiene concepto: podría ser un medicamento sin categoría mapeada. Con `offer`,
     la búsqueda es de una oferta del agente y solo trae lo que puede proponer por su cuenta: nada +18 ni de tiendas
     Farmacia, Sex shop o Smoking shop (offers/guards.py); el concepto y la vertical los elige quien llama. `adult_ok`
-    deja pasar lo +18 en una oferta: solo para el kit de una ocasión que la persona eligió (alcohol con su marca)."""
+    deja pasar lo +18 en una oferta: solo para el kit de una ocasión que la persona eligió (alcohol con su marca).
+    `words`: si a la consulta le queda alguna palabra (`retrieval.hybrid.has_words`), si quien llama ya lo sabe."""
     result = retrieve(
-        conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), mode=mode, concepts=concepts
+        conn, vertical, query, embedder, k=k * 2, filters=Filters(price_max), mode=mode, concepts=concepts, words=words
     )
     concepts = result.query_concepts
     capped = price_max is not None
@@ -120,7 +122,7 @@ def search_products(
     products = _dedupe(_within_budget(_with_prices(conn, vertical, hits, offer, adult_ok), price_max))[:k]
     cheapest = None
     if not products and capped:
-        unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, mode=mode, concepts=concepts)
+        unfiltered = retrieve(conn, vertical, query, embedder, k=k * 2, mode=mode, concepts=concepts, words=words)
         allowed = [h for h in unfiltered.hits if _allowed(h.concept_id, concepts, strict)]
         # «El más barato» es de lo pedido: el mismo foco que con tope.
         candidates = _with_prices(conn, vertical, _focus(allowed, concepts, unfiltered.unmet, capped), offer, adult_ok)
@@ -311,35 +313,27 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adu
     prices: dict[tuple[str, str], tuple] = {}
     store_filter = _OFFER_STORES if offer else ""
     if catalog_ids:
-        # Solo ofertas vigentes, con la misma regla que la búsqueda (v_store_format_runs): una sucursal que la última
+        # Solo ofertas vigentes, con la misma regla que la búsqueda (v_latest_offers): una sucursal que la última
         # corrida de su formato ya no bajó no pone el precio, así el tope y el precio mostrado coinciden.
         # El precio, el precio anterior y la tienda (id y nombre) son los de una misma oferta: la más barata de las
         # tiendas que la app abre con este producto en un pasillo (como /catalog/stores). Una tienda sin pasillos,
         # importada de un CSV antiguo, no tiene página: sin ninguna que se abra vale la oferta más barata de todas y
         # el id es nulo.
         for pid, name, price, real, store, age, store_id, presentation in conn.execute(
-            f"""WITH latest AS (
-                   SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock,
-                          ps.run_id, sp.aisle_id
-                   FROM price_snapshots ps
-                   JOIN store_products sp USING (store_id, sku)
-                   WHERE sp.master_product_id = ANY(%(ids)s::bigint[])
-                   ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC, ps.run_id DESC  -- el desempate de la vista
-               ),
-               offers AS (
+            f"""WITH offers AS (
                    SELECT sp.master_product_id, ci.name, l.price, l.real_price, l.store_id,
                           btrim(coalesce(b.name, s.name)) AS store, ci.is_alcoholic OR ci.age_restricted AS adult,
                           ci.presentation,
-                          EXISTS (SELECT 1 FROM aisles a WHERE a.store_id = l.store_id AND a.aisle_id = l.aisle_id
+                          EXISTS (SELECT 1 FROM aisles a WHERE a.store_id = l.store_id AND a.aisle_id = sp.aisle_id
                                                            AND a.parent_aisle_id IS NULL) AS openable
-                   FROM latest l
-                   JOIN store_products sp USING (store_id, sku)
-                   JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
+                   FROM store_products sp
+                   JOIN v_latest_offers l ON l.store_id = sp.store_id AND l.sku = sp.sku
                    JOIN stores s ON s.store_id = sp.store_id
                    LEFT JOIN brands b ON b.brand_id = s.brand_id
                    JOIN catalog_items ci ON ci.master_product_id = sp.master_product_id
                    JOIN v_store_verticals v ON v.store_id = s.store_id AND v.vertical = %(vertical)s
-                   WHERE l.in_stock IS NOT FALSE{store_filter}
+                   WHERE sp.master_product_id = ANY(%(ids)s::bigint[]) AND l.current
+                     AND l.in_stock IS NOT FALSE{store_filter}
                )
                SELECT DISTINCT ON (master_product_id) master_product_id::text, name, price, real_price, store, adult,
                       CASE WHEN openable THEN store_id END, presentation
@@ -350,12 +344,11 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adu
             prices[("catalog_item", pid)] = (name, price, real, store, age, store_id, presentation)
     if menu_ids:
         for iid, name, price, real, store, store_id in conn.execute(
-            """SELECT DISTINCT ON (mi.item_id) mi.item_id::text, mi.name, mp.price, mp.real_price, s.name, mi.store_id
+            """SELECT mi.item_id::text, mi.name, mp.price, mp.real_price, s.name, mi.store_id
                FROM menu_items mi
                JOIN stores s USING (store_id)
-               LEFT JOIN menu_price_snapshots mp ON mp.item_id = mi.item_id
-               WHERE mi.item_id = ANY(%s::bigint[])
-               ORDER BY mi.item_id, mp.scraped_at DESC NULLS LAST""",
+               LEFT JOIN latest_menu_prices mp ON mp.item_id = mi.item_id
+               WHERE mi.item_id = ANY(%s::bigint[])""",
             (menu_ids,),
         ):
             prices[("menu_item", iid)] = (name, price, real, store, False, store_id, None)

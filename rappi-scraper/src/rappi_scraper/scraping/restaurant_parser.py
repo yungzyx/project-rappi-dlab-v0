@@ -1,7 +1,7 @@
 """Parser de la página de un restaurante (`/restaurantes/<id>-<slug>`): datos, cocinas y menú."""
 
 from ..pricing import discount_pct
-from .next_data import ParseError, page_props
+from .next_data import ParseError, page_props, parse_errors
 
 IMAGE_BASE_URL = "https://images.rappi.cl/products/"
 
@@ -22,6 +22,7 @@ def _section_id(corridor: dict, position: int) -> int:
     return -(position + 1)  # sección sin platos: ID sintético estable dentro del restaurante
 
 
+@parse_errors
 def parse_restaurant(next_data: dict) -> dict:
     r = _restaurant_block(next_data)
     location = r.get("location") or [None, None]  # viene como [lng, lat]

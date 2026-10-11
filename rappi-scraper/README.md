@@ -59,7 +59,8 @@ La primera descarga completa (24–27-09-2026) tomó **unos 3 días para las tie
 - **Progreso:** cada línea muestra `[i/N · transcurrido · faltan ~X]`.
 - **Errores transitorios:** cada job fallido se reintenta una vez, automáticamente, al final de la corrida.
 - **Ctrl+C:** detiene sin perder nada; se retoma con el mismo comando.
-- **Posible bloqueo:** si 10 jobs seguidos fallan sin respuesta útil de rappi.cl (403, 429, red, página de desafío), la corrida se detiene: el reporte queda con la alerta ⛔ y la corrida abierta, para retomarla más tarde con el mismo comando (o en la próxima actualización semanal). `refresh` no sigue con restaurantes, búsqueda ni respaldo. Los jobs de la racha vuelven a la cola hasta su 4.º intento: si la misma racha se repite cada vez, es un error fijo de esos jobs (hay que revisarlo) y al 4.º intento quedan fallidos y la corrida sigue.
+- **Ritmo y 429:** entre intentos se espera lo que pida rappi.cl en `Retry-After` (hasta 15 min) o un backoff exponencial (10, 20 s…), y no se espera después del último intento.
+- **Posible bloqueo:** si 20 requests seguidos son rechazados (403, 429 o página de desafío) o 10 jobs seguidos fallan sin respuesta útil de rappi.cl (403, 429, red, página de desafío), la corrida se detiene: el reporte queda con la alerta ⛔ y la corrida abierta, para retomarla más tarde con el mismo comando (o en la próxima actualización semanal). `refresh` no sigue con restaurantes, búsqueda ni respaldo. Los jobs de la racha vuelven a la cola hasta su 4.º intento: si la misma racha se repite cada vez, es un error fijo de esos jobs (hay que revisarlo) y al 4.º intento quedan fallidos y la corrida sigue.
 - **Reporte:** al terminar se imprime y se guarda en `data/reports/run_<id>_<tipo>.md` (y en `scrape_runs.report`): jobs por estado, errores frecuentes, productos por vertical, páginas omitidas y validaciones de calidad. Un `⚠` indica un posible cambio en el sitio o una respuesta anómala. Los jobs fallidos se cuentan sobre los intentados (hechos + fallidos), y los totales clave (ofertas; restaurantes y platos) se comparan con la última corrida terminada del mismo tipo: una caída de más del 25 % se marca.
 - **Reintentar a mano:** `rappi retry-failed --kind stores` (o `restaurants`) y volver a correr el comando.
 - **Ver el reporte de nuevo:** `rappi report` (o `rappi report --run N`).
@@ -70,7 +71,7 @@ Resultados de cada descarga y detalle por vertical en [README.md#resultados](../
 
 Una tienda se recorre así: portada → pasillos → sub-pasillos. Cuando algo falla a mitad del recorrido:
 
-- **Página ilegible:** una página de pasillo o sub-pasillo que no se puede leer (error de red, página inexistente o página sin datos de catálogo) se omite y se cuenta en `paginas_omitidas` del resultado del job. La tienda queda hecha con el resto y el reporte suma las páginas omitidas.
+- **Página ilegible:** una página de pasillo o sub-pasillo que no se puede leer (error de red, página inexistente, JSON cortado o con otra forma, página sin datos de catálogo) se omite y queda en el resultado del job (`pasillos_omitidos`, `paginas_omitidas`, `paginas_intentadas`). La tienda queda hecha con el resto, y las ofertas de esos pasillos que estaban en la bajada anterior de su formato siguen vigentes en la búsqueda con ese precio (solo si esa bajada fue de la misma sucursal). Si se omite más del 5 % de las páginas, el job falla (pasa por el reintento) y no se guarda: la corrida anterior sigue siendo la del formato. El reporte muestra el % de páginas omitidas.
 - **Ningún pasillo legible:** si no se pudo leer ningún pasillo, la tienda falla (`ningún pasillo se pudo leer`) en vez de quedar "hecha" solo con la portada.
 - **Sucursal que deja de despachar:** si un pasillo redirige al listado de tiendas, no se guarda un catálogo a medias: se prueba la siguiente sucursal de la misma marca (hasta 3). Lo mismo si redirige la portada de la sucursal.
 - **Restaurante dado de baja:** si Rappi redirige a `restaurantNotFound`, el job queda omitido ("ya no existe en Rappi").
@@ -81,9 +82,10 @@ Una tienda se recorre así: portada → pasillos → sub-pasillos. Cuando algo f
 `rappi refresh` hace la actualización completa: retoma la corrida abierta (o descubre una nueva), descarga tiendas y restaurantes, arma la búsqueda, deja los reportes y respalda la base en `data/backups/` (últimos 4).
 
 - **Retomar:** si una actualización se cortó con las tiendas ya terminadas, retoma en los restaurantes sin volver a bajar tiendas. Con `--resume-only` solo retoma las corridas abiertas (las que reabrió `retry-failed`) y nunca empieza una nueva.
-- **Respaldo:** se escribe a un `.part`, se valida con `pg_restore --list` y recién entonces rota. Si falla, se conservan los anteriores y la actualización sigue, pero `rappi refresh` termina con código 3 (la tarea semanal lo anota como «respaldo fallido» y corre igual la capa de IA).
+- **Respaldo:** se escribe a un `.part`, se valida con `pg_restore --list` y recién entonces rota. Si falla, se conservan los anteriores y la actualización sigue, pero `rappi refresh` termina con código 3 (la tarea semanal lo anota como «respaldo fallido» y corre igual la capa de IA). La clave de la base va a `pg_dump` por `PGPASSWORD`, nunca en sus argumentos.
+- **Códigos de salida:** 4 = posible bloqueo (la corrida queda abierta, salvo si fue al descubrir, y la tarea semanal anota «detenida: posible bloqueo»); 5 = falló el descubrimiento de restaurantes: tiendas, búsqueda y respaldo sí se hicieron, la corrida de restaurantes queda cerrada como fallida con el error en su reporte, y la tarea semanal anota «restaurantes sin actualizar» y corre igual la capa de IA; 6 = eso y además el respaldo fallido (se anotan los dos).
 - **Migraciones:** la tarea semanal aplica las pendientes (`rappi migrate`) antes de descargar, para que una migración que trajo un `git pull` no haga fallar la descarga al final.
-- **Capa de IA:** la tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si la descarga terminó bien (aunque haya fallado el respaldo) y `../rappi-ia` está instalado, sigue con `make -C ../rappi-ia post-refresh` (purga, conceptos, embeddings, evaluación, datos simulados y otra purga).
+- **Capa de IA:** la tarea semanal (`scripts/refresh-semanal.sh`) la corre los domingos a las 03:00 y, si la descarga terminó bien (aunque hayan fallado el respaldo o los restaurantes: códigos 3, 5 y 6) y `../rappi-ia` está instalado, sigue con `make -C ../rappi-ia post-refresh` (los pasos, en [rappi-ia/README.md](../rappi-ia/README.md#correr)).
 
 ```bash
 make schedule          # instala la tarea en launchd (~/Library/LaunchAgents/cl.rappi.refresh.plist)
@@ -92,9 +94,9 @@ make unschedule        # quitarla
 ```
 
 - **Mac dormido o apagado:** si está dormido a esa hora, corre al despertar; si está apagado, esa semana se salta.
-- **Una sola a la vez:** los comandos que descargan (`discover`, `scrape-stores`, `scrape-restaurants`, `refresh`) toman el mismo candado de archivo (`data/scraper.lock`, con `flock`: el sistema lo suelta aunque el proceso muera) y se niegan a empezar si otra descarga lo tiene. Además, un candado (`data/refresh-semanal.pid`) impide que corran dos actualizaciones semanales; se borra aunque la tarea se corte con Ctrl+C o una señal. Si hay otra descarga (`discover`, `scrape-*`, `refresh`) o un `make post-refresh` en curso, la tarea se omite y lo anota.
+- **Una sola a la vez:** los comandos que descargan (`discover`, `scrape-stores`, `scrape-restaurants`, `refresh`, el legado `rappi-csv`) y `backup` toman el mismo candado de archivo (`data/scraper.lock`, con `flock`: el sistema lo suelta aunque el proceso muera) y se niegan a empezar si otra descarga lo tiene. Además, un candado (`data/refresh-semanal.pid`) impide que corran dos actualizaciones semanales; se borra aunque la tarea se corte con Ctrl+C o una señal. Si hay otra descarga (`discover`, `scrape-*`, `refresh`) o un `make post-refresh` en curso, la tarea se omite y lo anota.
 - **Ubicación del proyecto:** debe estar fuera de Documentos, Escritorio y Descargas: macOS no deja que launchd lea esas carpetas (detalle en [docs/instalacion.md](../docs/instalacion.md)).
-- **Logs:** cada ejecución deja una línea en `data/logs/ultimo-estado.txt` (`exit=N`, «omitida», «interrumpida» o «respaldo fallido»), que muestra `make schedule-status` junto con el respaldo más nuevo; la salida de launchd queda en `data/logs/launchd.*.log`, y el log detallado y el reporte, como en cualquier corrida.
+- **Logs:** cada ejecución deja una línea en `data/logs/ultimo-estado.txt` (`exit=N`, «omitida», «interrumpida», «respaldo fallido», «restaurantes sin actualizar» o «detenida: posible bloqueo»), que muestra `make schedule-status` junto con el respaldo más nuevo; la salida de launchd queda en `data/logs/launchd.*.log`, y el log detallado y el reporte, como en cualquier corrida.
 - Programarla en **un solo** equipo.
 
 ## Objetivos del Makefile
@@ -157,7 +159,7 @@ rappi-scraper/
 │   │   ├── repository.py           escrituras idempotentes y consultas de estado
 │   │   ├── search.py               documentos y búsqueda por vertical
 │   │   ├── backup.py               respaldo con pg_dump, validación y rotación
-│   │   └── migrations/             esquema SQL versionado (001–008 y 014–015 del scraper; 009–013 de rappi-ia)
+│   │   └── migrations/             esquema SQL versionado, un solo historial para toda la base (001–032; las de rappi-ia: 009–013, 016, 020, 022–031)
 │   └── legacy/                   scraper original a CSV (ver Legado)
 │       ├── csv_scraper.py          comando `rappi-csv`
 │       ├── csv_format.py           columnas y escritura de CSV
@@ -179,6 +181,7 @@ rappi-scraper/
 |---|---|
 | `catalog_items` | **Contenido único** (un `master_product_id` = un producto en todo Rappi) |
 | `store_products` + `price_snapshots` | El producto en cada tienda y su precio en cada corrida |
+| `latest_prices`, `latest_menu_prices` | El último precio de cada oferta y de cada plato (los mantienen triggers sobre el historial) |
 | `stores`, `brands`, `store_verticals` | Tiendas, marcas y en qué verticales aparece cada una (N:M) |
 | `aisles`, `categories` | Pasillos por tienda y categorías globales de Rappi |
 | `restaurant_details`, `cuisines`, `menu_sections`, `menu_items`, `menu_price_snapshots` | Restaurantes y menús |
@@ -189,12 +192,13 @@ rappi-scraper/
 | `v_price_compare`, `v_price_changes` | Mismo producto entre cadenas / cambios de precio entre corridas |
 | `v_coverage` | Productos declarados vs obtenidos por sub-pasillo |
 | `v_store_format_runs` | Última corrida que bajó el formato de cada tienda (qué ofertas están vigentes) |
+| `v_latest_offers` | El último precio de cada oferta y si está vigente: la única definición de oferta vigente |
 
 Consultas de ejemplo y cómo conectarse: [docs/sql/](../docs/sql/).
 
 **Aislamiento por vertical:** las búsquedas siempre llevan `vertical` y cada vertical es su propia partición, así que un índice vectorial nunca mezcla verticales. Los análisis cruzados se hacen sobre las tablas núcleo.
 
-**Vigencia:** `search_documents` usa solo lo vigente. Una oferta o un plato cuenta si su último precio es de la última corrida que bajó su formato (`store_type`) o su cadena (`brand_id`); así salen las sucursales viejas y lo que ya no se vende. Un plato también sale si una corrida posterior ya no encontró su local o su cadena. Un formato que la última corrida no pudo bajar conserva su último dato. La corrida de cada formato sale de `v_store_format_runs`, que también usa `rappi-ia` para el precio que muestra Mochi: el tope de precio y el precio mostrado salen de las mismas sucursales. Las tablas núcleo y las demás vistas `v_*` guardan todo el historial.
+**Vigencia:** `search_documents` usa solo lo vigente. Una oferta o un plato cuenta si su último precio es de la última corrida que bajó su formato (`store_type`) o su cadena (`brand_id`); así salen las sucursales viejas y lo que ya no se vende. Un plato también sale si una corrida posterior ya no encontró su local o su cadena. Un formato que la última corrida no pudo bajar conserva su último dato. La corrida de cada formato sale de `v_store_format_runs`. Una oferta de un pasillo que esa corrida no pudo leer sigue vigente si su último precio es de la bajada anterior de su formato (el job `store_group` terminado anterior del mismo `store_type`): con B → A → B, la segunda bajada de B no revive los precios de la primera. La regla vive en una sola vista, `v_latest_offers` (migración 032), que también usa `rappi-ia` para el detalle, la página de la tienda, el precio del pedido y el precio que muestra Mochi: el tope de precio y el precio mostrado salen de las mismas ofertas. El último precio se lee de `latest_prices` y `latest_menu_prices`, sin ordenar el historial. Las tablas núcleo y las demás vistas `v_*` guardan todo el historial.
 
 **Embeddings:** `search_documents.content` no incluye precios (un cambio de precio no obliga a regenerar el embedding) y `content_hash` invalida el embedding solo si cambia el texto. El modelo es `intfloat/multilingual-e5-base` (768 dimensiones): `rappi-ia` llena `embedding`/`embedding_model` y crea un índice HNSW por partición con `embedding::vector(768)`. El ejemplo con `vector(1536)` de `003_search.sql` es anterior a la elección del modelo. Diseño completo en [docs/diseno-ia.md](../docs/diseno-ia.md).
 
@@ -207,7 +211,7 @@ make lint         # ruff: errores comunes + formato
 make format       # aplica el formato
 ```
 
-- **Tests:** 104 (pytest, 30-09-2026). Los de integración usan la base `rappi_test`, nunca `rappi`.
+- **Tests:** las cifras vigentes están en [README.md#resultados](../README.md#resultados) (fila «Calidad»). Los de integración usan la base `rappi_test`, nunca `rappi`.
 - **CI:** GitHub Actions (`.github/workflows/ci.yml`) corre lint y tests contra Postgres + pgvector.
 - **Convención:** el código (funciones, variables, módulos) va en inglés; lo que ve el usuario (logs, CLI, columnas de CSV, valores de verticales) en español.
 
@@ -226,7 +230,7 @@ make format       # aplica el formato
 - Fines de investigación y demostración. Un uso comercial requeriría autorización de Rappi. Los datos descargados no se suben al repositorio.
 - Proyecto independiente: no está afiliado a Rappi ni cuenta con su respaldo. Las marcas y el contenido pertenecen a Rappi y a los comercios.
 
-Detalle en [README.md#uso-responsable-de-los-datos](../README.md#uso-responsable-de-los-datos).
+Detalle en [README.md#qué-es-real-y-qué-es-simulado](../README.md#qué-es-real-y-qué-es-simulado).
 
 ## Legado: scraper original a CSV (`rappi-csv`)
 

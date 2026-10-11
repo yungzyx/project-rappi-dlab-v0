@@ -5,10 +5,12 @@ que importar `app`."""
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager
 
+from fastapi import Depends
 from psycopg import Connection
 from pydantic import BaseModel, model_validator
 from rappi_scraper.storage.search import VERTICALS
 
+from .. import config
 from ..agent.rappi_agent import PROTOTYPE_VERTICALS
 from ..db import connect
 from .services import Services, services
@@ -17,9 +19,24 @@ FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 
 
 def get_conn() -> Iterator[Connection]:
-    """Falla rápido si Postgres no responde o una consulta se atasca (la app muestra «Sin conexión»)."""
-    with connect(connect_timeout=3, options="-c statement_timeout=20s") as conn:
+    """Falla rápido si Postgres no responde (503, la app muestra «Sin conexión») o una consulta se atasca (504)."""
+    with connect(connect_timeout=3) as conn:
+        _statement_timeout(conn, config.API_TIMEOUT_INTERACTIVE_MS)
         yield conn
+
+
+def get_analytics_conn(conn: Connection = Depends(get_conn)) -> Connection:
+    """La del panel: sus métricas recorren todos los eventos y tienen más tiempo. Depende de `get_conn`, así un test que
+    la reemplaza también reemplaza esta."""
+    _statement_timeout(conn, config.API_TIMEOUT_ANALYTICS_MS)
+    return conn
+
+
+def _statement_timeout(conn: Connection, ms: int) -> None:
+    """De sesión y confirmado, no `SET LOCAL`: un endpoint que confirma o deshace a mitad (registrar la consulta)
+    seguiría sin tope en la transacción siguiente. Se fija en cada request, así sirve igual con un pool."""
+    conn.execute("SELECT set_config('statement_timeout', %s, false)", (f"{ms}ms",))
+    conn.commit()
 
 
 def _own_connection() -> AbstractContextManager[Connection]:

@@ -20,17 +20,19 @@ concepto sensible, los dos con baja de precio (ver `_NOT_PUSHED_STORES` en el se
 """
 
 import math
+import types
 
 import pytest
 from fastapi.testclient import TestClient
 
 from rappi_ia import config
-from rappi_ia.agent.tools import clp
+from rappi_ia.agent.tools import _with_prices, clp
 from rappi_ia.api import app as api
+from rappi_ia.catalog import cache
 from rappi_ia.catalog.deals import deals
 from rappi_ia.catalog.home import home
 from rappi_ia.catalog.restaurants import restaurant_menu, restaurants
-from rappi_ia.catalog.stores import vertical_stores
+from rappi_ia.catalog.stores import product_detail, vertical_stores
 from rappi_ia.concepts.taxonomy import sensitive_concepts
 from rappi_ia.demo.seed import DEMO_VERTICALS, seed_demo
 
@@ -432,12 +434,14 @@ def test_a_store_rebate_is_a_deal_even_without_earlier_prices(seeded):
 
 
 def list_price(conn, store_id: int, product_id: int, real_price: int) -> None:
-    """La tienda marca un precio de lista para una oferta del catálogo de prueba."""
+    """La tienda marca un precio de lista para una oferta del catálogo de prueba (sin corrida nueva: se olvida la
+    caché del catálogo, como si hubiera vencido)."""
     conn.execute(
         """UPDATE price_snapshots SET real_price = %s, discount_pct = 100 * (1 - price / %s)
            WHERE store_id = %s AND sku = %s AND run_id = (SELECT max(run_id) FROM price_snapshots)""",
         (real_price, real_price, store_id, f"sku-{product_id}"),
     )
+    cache.clear()
 
 
 def test_deals_leave_out_discounts_above_sixty_percent(seeded):
@@ -602,6 +606,7 @@ def test_home_never_calls_a_restaurant_with_an_unknown_eta_fast(seeded):
     assert ids(home(seeded)["fast_restaurants"]) == [PIZZERIA]
 
     seeded.execute("UPDATE restaurant_details SET eta = ''")
+    cache.clear()  # sin corrida nueva: como si la caché del catálogo hubiera vencido
 
     assert home(seeded)["fast_restaurants"] == []
 
@@ -655,3 +660,43 @@ def test_home_endpoint(client):
     assert reply.status_code == 200
     body = reply.json()
     assert [len(body[key]) for key in ("nearby_stores", "fast_restaurants", "low_fee_restaurants")] == [6, 2, 6]
+
+
+@pytest.mark.parametrize("newer_first", [True, False])
+def test_dish_prices_read_latest_menu_prices(seeded, newer_first):
+    """El precio de un plato sale de `latest_menu_prices` (desempate por corrida) en el menú, el detalle y el agente,
+    no de ordenar el historial: dos snapshots con la misma fecha (un CSV importado dos veces) dan el de la corrida más
+    nueva, llegue en el orden que llegue. Con datos normales, lo mismo que antes para todos los platos."""
+    older, newer = (
+        seeded.execute(
+            "INSERT INTO scrape_runs (kind, status) VALUES ('restaurants', 'done') RETURNING run_id"
+        ).fetchone()[0]
+        for _ in range(2)
+    )
+    arrivals = [(newer, 11990), (older, 15990)]
+    for run, price in arrivals if newer_first else arrivals[::-1]:
+        seeded.execute(
+            "INSERT INTO menu_price_snapshots (run_id, item_id, price, real_price, scraped_at)"
+            " VALUES (%s, 98001, %s, %s, '2030-01-01T12:00:00Z')",
+            (run, price, price),
+        )
+    latest = dict(seeded.execute("SELECT item_id::text, price FROM latest_menu_prices").fetchall())
+    assert latest["98001"] == 11990
+
+    menu = {
+        item["entity_id"]: item["price_value"]
+        for store_id in LISTED
+        for section in restaurant_menu(seeded, store_id)["sections"]
+        for item in section["items"]
+    }
+    assert menu == {item_id: float(latest[item_id]) for item_id in menu}
+    assert menu["98001"] == 11990
+    assert product_detail(seeded, "menu_item", "98001")["price_value"] == 11990
+    hits = [
+        types.SimpleNamespace(
+            entity_type="menu_item", entity_id=item_id, concept_id=None, vertical="restaurantes", metadata={}
+        )
+        for item_id in menu
+    ]
+    agent = {p.entity_id: p.price_value for p in _with_prices(seeded, "restaurantes", hits)}
+    assert agent == menu

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from psycopg import Connection
 
-from .config import DATA_DIR
+from .config import DATA_DIR, SKIPPED_PAGES_MAX
 from .storage import repository
 
 REPORTS_DIR = DATA_DIR / "reports"
@@ -60,6 +60,22 @@ FROM v_coverage
 WHERE store_id IN (SELECT DISTINCT store_id FROM price_snapshots WHERE run_id = %(run)s)
 """
 
+# Cambios de precio de la corrida: cada fila de la corrida contra la anterior del mismo SKU en la tienda, buscada por
+# el índice (store_id, sku, scraped_at). Cuenta lo mismo que v_price_changes (`lag` por tienda y SKU), cuya ventana
+# ordena todo el historial antes de filtrar por corrida. Con la misma fecha, la anterior es la de la corrida previa.
+PRICE_CHANGES_SQL = """
+SELECT count(*)
+FROM price_snapshots cur
+CROSS JOIN LATERAL (
+    SELECT p.price FROM price_snapshots p
+    WHERE p.store_id = cur.store_id AND p.sku = cur.sku AND p.scraped_at <= cur.scraped_at
+      AND (p.scraped_at, p.run_id) < (cur.scraped_at, cur.run_id)
+    ORDER BY p.scraped_at DESC, p.run_id DESC
+    LIMIT 1
+) prev
+WHERE cur.run_id = %(run)s AND prev.price <> cur.price
+"""
+
 RESTAURANT_SQL = """
 SELECT count(DISTINCT mi.store_id),
        count(*),
@@ -104,7 +120,15 @@ def _store_section(conn: Connection, params: dict, jobs: dict) -> tuple[list[dic
         "FROM scrape_jobs WHERE run_id = %(run)s AND status = 'done'",
         params,
     ).fetchone()
-    price_changes = conn.execute("SELECT count(*) FROM v_price_changes WHERE run_id = %(run)s", params).fetchone()[0]
+    # Sobre todos los jobs que las cuentan, también los que fallaron por omitir demasiadas (los hechos no pasan del
+    # 5 %).
+    skipped_all, attempted_all = conn.execute(
+        "SELECT coalesce(sum((result->>'paginas_omitidas')::int), 0), "
+        "coalesce(sum((result->>'paginas_intentadas')::int), 0) "
+        "FROM scrape_jobs WHERE run_id = %(run)s AND result ? 'paginas_intentadas'",
+        params,
+    ).fetchone()
+    price_changes = conn.execute(PRICE_CHANGES_SQL, params).fetchone()[0]
     # La marca es solo informativa: depende del vertical (chocolaterías y tecnología suelen no traerla).
     # paginas_omitidas: pasillos y sub-pasillos que no se pudieron leer en tiendas que sí quedaron hechas.
     totals = {
@@ -118,6 +142,7 @@ def _store_section(conn: Connection, params: dict, jobs: dict) -> tuple[list[dic
         _check("Productos sin categoría (%)", _pct(no_category, total), MAX_MISSING_CATEGORY_PCT),
         _check("Productos sin imagen (%)", _pct(no_image, total), MAX_MISSING_IMAGE_PCT),
         _check("Tiendas sin productos (%)", _pct(zero_stores, jobs.get("done", 0)), MAX_ZERO_PRODUCT_STORES_PCT),
+        _check("Páginas omitidas (%)", _pct(int(skipped_all), int(attempted_all)), SKIPPED_PAGES_MAX * 100),
         _check(
             "Cobertura obtenidos/declarados (%)", _pct(int(obtained), int(declared)), MIN_COVERAGE_PCT, minimum=True
         ),
@@ -199,7 +224,9 @@ def _versus_previous(conn: Connection, kind: str, run_id: int, totals: dict) -> 
 def render_markdown(report: dict) -> str:
     warnings = [c for c in report["checks"] if not c["ok"]]
     lines = [f"# Reporte corrida {report['run_id']} ({report['kind']})", ""]
-    if report.get("alert"):
+    if report.get("alert") and report["status"] == "failed":  # falló al descubrir: quedó cerrada
+        lines += [f"⛔ Corrida fallida: {report['alert']}. La próxima actualización empieza otra.", ""]
+    elif report.get("alert"):
         lines += [f"⛔ Corrida detenida: {report['alert']}. Quedó abierta: la próxima actualización la retoma.", ""]
     if warnings:
         names = ", ".join(c["label"] for c in warnings)

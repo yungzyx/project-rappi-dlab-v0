@@ -4,6 +4,7 @@ import AssistantPanel from './components/assistant/AssistantPanel'
 import CartBar from './components/CartBar'
 import DemoToggle from './components/DemoToggle'
 import ErrorBoundary from './components/ErrorBoundary'
+import PrivacyNotice from './components/PrivacyNotice'
 import AgentPresence from './components/assistant/AgentPresence'
 import ProductSheet from './components/ProductSheet'
 import StatusBar from './components/StatusBar'
@@ -136,6 +137,12 @@ export default function App() {
                               <ProductSheet />
                               <AddressSheet />
                               <StatusBar />
+                              <PrivacyNotice
+                                onOpenAccount={() => {
+                                  reset()
+                                  setHomeTab('account')
+                                }}
+                              />
                             </ProductSheetProvider>
                           </ToastProvider>
                         </LoyaltyProvider>

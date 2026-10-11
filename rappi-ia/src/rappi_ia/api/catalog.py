@@ -4,7 +4,9 @@ tienda (solo lectura).
 `app.py` incluye este router; `get_conn` y `backend_vertical` viven en `deps.py`, así este módulo no importa `app`.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from psycopg import Connection
 
 from ..catalog.deals import deals
@@ -23,7 +25,9 @@ RESTAURANT_NOT_FOUND = "Este restaurante no está en el catálogo"
 
 @router.get("/verticals/{vertical}/stores")
 def stores_of_vertical(
-    vertical: str, limit: int = Query(30, ge=1, le=100), conn: Connection = Depends(get_conn)
+    vertical: Annotated[str, Path(max_length=64)],
+    limit: int = Query(30, ge=1, le=100),
+    conn: Connection = Depends(get_conn),
 ) -> dict:
     """Las tiendas de una vertical (código del backend o id del prototipo), de más a menos ofertas vigentes."""
     code = backend_vertical(vertical)
@@ -57,7 +61,7 @@ def product(entity_type: str, entity_id: str, conn: Connection = Depends(get_con
 
 @router.get("/restaurants")
 def restaurant_list(
-    cuisine: str | None = None,
+    cuisine: Annotated[str | None, Query(max_length=64)] = None,
     sort: Sort = "rating",
     limit: int = Query(30, ge=1, le=100),
     conn: Connection = Depends(get_conn),
@@ -77,7 +81,9 @@ def restaurant_menu_page(store_id: int, conn: Connection = Depends(get_conn)) ->
 
 @router.get("/deals")
 def deals_list(
-    vertical: str | None = None, limit: int = Query(24, ge=1, le=100), conn: Connection = Depends(get_conn)
+    vertical: Annotated[str | None, Query(max_length=64)] = None,
+    limit: int = Query(24, ge=1, le=100),
+    conn: Connection = Depends(get_conn),
 ) -> list[dict]:
     """Los productos que bajaron de precio o que su tienda rebajó, de mayor a menor descuento. Una vertical es el código
     del backend o el id del prototipo; sin ella, no entra farmacia."""

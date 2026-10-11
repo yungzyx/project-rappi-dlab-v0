@@ -190,5 +190,9 @@
       "sin_resultado_pct": 19.1,
       "abandono_carrito_pct": 0
     }
-  ]
+  ],
+  "guardado": {
+    "origen": "npm run fixtures · simulación de 1.500 usuarios × 26 semanas (semilla 7)",
+    "fecha": "2026-10-09"
+  }
 }

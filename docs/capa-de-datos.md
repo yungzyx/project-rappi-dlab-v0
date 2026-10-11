@@ -14,7 +14,7 @@ Todo lo que ve una herramienta externa vive en el esquema **`capa`**: vistas con
 | **Grafo de conocimiento** | «¿Con qué se relaciona?»: complementa, sustituye, es de la ocasión, se vende en, tiene el atributo, marca de, sinónimo… | `concepts/relations.toml`, `layers/graph.py` |
 | **Segmentos de usuario** | «¿Qué tipo de persona es?»: 144 segmentos por comportamiento en 12 familias, con puntaje, nivel y evidencia | `concepts/segments.toml`, `layers/segments.py` |
 
-Los conceptos (la taxonomía propia de 113 tipos de producto en 20 grupos) vienen de la capa de IA y son el eje que une todo.
+Los conceptos (la taxonomía propia de 133 conceptos: 113 tipos de producto en 20 grupos) vienen de la capa de IA y son el eje que une todo.
 
 ## Vistas de `capa`
 

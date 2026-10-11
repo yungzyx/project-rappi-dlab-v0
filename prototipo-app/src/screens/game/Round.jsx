@@ -224,7 +224,7 @@ export default function Round({ vertical, back, orderId }) {
   const [seed] = useState(() => String(state.answered[vertical] ?? 0))
   const { data: challenge, error, loading, retry } = useApi(() => fetchChallenge(vertical, seed), [vertical, seed])
 
-  if (error || loading) return <ConnectionNotice status={error ? 'offline' : 'checking'} onRetry={retry} onLeave={back} />
+  if (error || loading) return <ConnectionNotice nested status={error ? 'offline' : 'checking'} onRetry={retry} onLeave={back} />
   return <PlayRound vertical={vertical} back={back} orderId={orderId} challenge={challenge} turn={Number(seed)} />
 }
 
@@ -305,13 +305,17 @@ function PlayRound({ vertical, back, orderId, challenge, turn }) {
   // Lo que se logra en la ronda lo celebra su pantalla final: al salir no se repite como aviso.
   useEffect(() => clearEvents, [clearEvents])
 
-  // Teclado para la demo en computador: 1 a 4 responden, Enter o espacio dan vuelta la carta o siguen.
+  // Teclado para la demo en computador: 1 a 4 responden, Enter o espacio dan vuelta la carta o siguen, Escape pide salir.
   useEffect(() => {
     if (!steps || finished || confirmExit) return undefined
     const onKey = (e) => {
       if (e.repeat) return
-      // Enter sobre un enlace (la fuente) lo abre: no sigue la ronda.
-      const go = (e.key === 'Enter' || e.key === ' ') && !e.target.closest?.('a')
+      if (e.key === 'Escape') {
+        setConfirmExit(true)
+        return
+      }
+      // Enter o espacio sobre un control (la X, la fuente, una opción) hacen lo suyo: no siguen la ronda.
+      const go = (e.key === 'Enter' || e.key === ' ') && !e.target.closest?.('button, a, input, textarea, [role=button]')
       if (outcome && go) {
         e.preventDefault()
         next()
@@ -376,7 +380,7 @@ function PlayRound({ vertical, back, orderId, challenge, turn }) {
             <Mascot size={70} mood="listen" />
             <h2>¿Salir de la ronda?</h2>
             <p className="muted">Lo que ganaste hasta ahora queda guardado.</p>
-            <button type="button" className="btn-game" onClick={() => setConfirmExit(false)}>
+            <button type="button" className="btn-game" data-autofocus onClick={() => setConfirmExit(false)}>
               Seguir jugando
             </button>
             <button type="button" className="btn-ghost" onClick={back}>

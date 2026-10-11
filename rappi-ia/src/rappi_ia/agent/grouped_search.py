@@ -13,7 +13,7 @@ from rappi_scraper.storage.search import VERTICALS
 from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import Occasion, load_taxonomy
 from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
-from ..retrieval.hybrid import detect_concepts
+from ..retrieval.hybrid import detect_concepts, has_words
 from ..text import normalize
 from .rappi_agent import PROTOTYPE_VERTICALS
 from .tools import Product, search_products
@@ -117,8 +117,9 @@ def search_grouped(
         concepts = [c for c in occasion.concepts if not taxonomy.concepts[c].sensitive]
         query, fixed = " ".join(taxonomy.concepts[c].name for c in concepts[:4]), occasion.vertical
     memo = MemoizedQueryEmbedder(embedder) if embedder is not None else None
+    words = has_words(conn, query)  # una vez, no una por vertical
     searched = [
-        (vertical, search_products(conn, vertical, query, concepts, memo, price_max, k=limit, mode=mode))
+        (vertical, search_products(conn, vertical, query, concepts, memo, price_max, k=limit, mode=mode, words=words))
         for vertical in _verticals_to_search(conn, concepts, current, fixed)
     ]
     outcomes = searched if concepts else _related(searched)

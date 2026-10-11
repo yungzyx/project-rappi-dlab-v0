@@ -20,7 +20,7 @@ from psycopg import Connection
 from ..concepts.assign import concept_matcher
 from ..concepts.matcher import KeywordMatcher, Match
 from ..concepts.taxonomy import load_taxonomy
-from ..text import ASSISTANT_WORDS, GREETING_WORDS, REQUEST_WORDS, THANKS_WORDS, normalize
+from ..text import GREETING_WORDS, REQUEST_WORDS, THANKS_WORDS, assistant_words, normalize
 from .verticals import contending_verticals, ranked_verticals
 
 # Menciones inequívocas de un vertical. Palabras sueltas como "mall", "super" o "express" son también marcas
@@ -75,6 +75,26 @@ MEMORY_QUESTIONS = [
 ]
 # Muletillas al dictar por voz («eh quiero este una coca po»): solo se quitan en los bordes del mensaje.
 VOICE_FILLERS = {"eh", "em", "mm", "mmm", "este", "ya", "mira", "oye", "po", "pues"}
+_CALLS = GREETING_WORDS | THANKS_WORDS | VOICE_FILLERS  # lo que va antes de nombrar a quien se le habla
+_COURTESY_AT_END = _CALLS | {"porfa", "por", "favor"}
+# Lo que empieza un pedido después de llamar a alguien («mochi, quiero sushi»). Sin «porfa», «por» ni artículos:
+# «quiero un mochi porfa» pide el postre.
+_REQUEST_VERBS = {
+    "quiero",
+    "queria",
+    "busco",
+    "busca",
+    "necesito",
+    "nesecito",
+    "nececito",
+    "nesesito",
+    "tienen",
+    "tienes",
+    "hay",
+    "dame",
+    "podrias",
+    "puedes",
+}
 # «holaaaa», «cervezaaaa»: tres o más letras iguales seguidas son una (no hay palabras así en español).
 STRETCHED = re.compile(r"([^\W\d_xw])\1{2,}")  # salvo x y w: «talla xxxl», «www»
 # Risas («jajaja», «xd») y links no piden nada: se responde como a un mensaje vacío, sin anotar demanda.
@@ -358,9 +378,11 @@ class Understander:
         words = set(normalized.split())
         if not re.search(r"[a-z]", normalized) or LINK.search(original) or all(LAUGHTER.fullmatch(w) for w in words):
             return Intent("vacio", original)
-        if words <= GREETING_WORDS | ASSISTANT_WORDS:
+        # El nombre solo, sin saludo ni «gracias», es un pedido: el mochi también es un postre.
+        names = assistant_words()
+        if words <= GREETING_WORDS | names and words & GREETING_WORDS:
             return Intent("saludo", text, current_vertical, confidence=1.0)
-        if words <= THANKS_WORDS | GREETING_WORDS | ASSISTANT_WORDS and words & THANKS_WORDS:
+        if words <= THANKS_WORDS | GREETING_WORDS | names and words & THANKS_WORDS:
             return Intent("gracias", text, current_vertical, confidence=1.0)
         if self.memory_questions.best(normalized):
             return Intent("memoria", text, current_vertical, confidence=1.0)
@@ -564,16 +586,29 @@ def _price(text: str) -> tuple[float | None, str]:
 
 def _clean(body: str) -> str:
     """Quita saludo, nombre del asistente y verbos de pedido al inicio, y la cortesía al final:
-    "hola bigotes quiero sushi porfa" → "sushi"."""
+    "hola bigotes quiero sushi porfa" → "sushi". El nombre se quita solo como vocativo: después de un saludo, un
+    «gracias» o un «oye», o antes de un pedido («mochi, quiero sushi»). Si no, es lo que se pide («quiero mochi»,
+    «mochi de matcha»)."""
+    names = assistant_words()
     words = body.split()
+    called = False  # la palabra anterior llama a alguien («hola», «gracias», «oye»)
     # «m» (de «mmm» ya colapsado) solo al inicio: al final es una talla («pañales talla m»)
-    while words and words[0] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | REQUEST_WORDS | VOICE_FILLERS | {"m"}:
+    while words:
+        first = words[0]
+        if first in names:
+            if not (called or (len(words) > 1 and words[1] in _CALLS | _REQUEST_VERBS)):
+                break
+        elif first not in _CALLS | REQUEST_WORDS | {"m"}:
+            break
+        called = first in _CALLS
         words = words[1:]
-    while words and words[-1] in GREETING_WORDS | ASSISTANT_WORDS | THANKS_WORDS | VOICE_FILLERS | {
-        "porfa",
-        "por",
-        "favor",
-    }:
+    while words:
+        last = words[-1]
+        if last in names:
+            if not (len(words) > 1 and words[-2] in _COURTESY_AT_END):
+                break
+        elif last not in _COURTESY_AT_END:
+            break
         words = words[:-1]
     return " ".join(words)
 

@@ -1,7 +1,7 @@
 # Contexto y problema
 
 > Por qué existe este proyecto, qué queremos responder y qué decisiones salen de eso.
-> Última actualización: 30-09-2026. Ecosistema y modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Diseño del RAG, el agente y el panel: [diseno-ia.md](diseno-ia.md) · Registro de decisiones: [decisiones.md](decisiones.md) · Resultados: [README → Resultados](../README.md#resultados).
+> Última actualización: 11-10-2026. Ecosistema y modelo de datos: [ecosistema-rappi.md](ecosistema-rappi.md) · Diseño del RAG, el agente y el panel: [diseno-ia.md](diseno-ia.md) · Registro de decisiones: [decisiones.md](decisiones.md) · Resultados: [README → Resultados](../README.md#resultados).
 
 ## 1. El problema
 
@@ -72,12 +72,12 @@ Registro completo, con fechas: [decisiones.md](decisiones.md).
 
 ## 6. Fases
 
-Estado al 30-09-2026:
+Estado al 11-10-2026:
 
 | Fase | Qué es | Estado |
 |---|---|---|
 | **1. Datos** | Scraper → Postgres: catálogo, menús, precios e historial por vertical (`rappi-scraper/`) | **Hecha.** Primera descarga completa del 24 al 27-09-2026, recuperación de fallidos el 28-09 y primera descarga semanal automática el 29 y 30-09 (`make schedule`). Cifras en [README → Resultados](../README.md#resultados) |
-| **Prototipo** | App navegable: Mochi en la Home, buscador con Mochi, pasaporte y juego de verticales (`prototipo-app/`) | **Listo para demo.** Necesita la API (`make mvp`) y usa el catálogo real; sin ella muestra «Sin conexión con Mochi». Ver [decisiones.md](decisiones.md#agente-bigotes) |
+| **Prototipo** | App navegable: Mochi en la Home, buscador con Mochi, pasaporte y juego de verticales (`prototipo-app/`) | **Listo para demo.** Necesita la API (`make mvp`) y usa el catálogo real; sin ella muestra «Sin conexión con Mochi». Ver [decisiones.md](decisiones.md#agente-mochi) |
 | **2. RAG** | Conceptos (capa 2), embeddings de texto, búsqueda híbrida por vertical y evaluación (`rappi-ia/`) | **Construido.** Todos los documentos de búsqueda con embedding de texto. Evaluación en [README → Resultados](../README.md#resultados) |
 | **3. Agente** | Mochi en el backend y API: herramientas de búsqueda, reglas de conducta; LLM opcional | **Construido.** Responde solo por texto (`POST /agent/ask`) y hace ofertas (`/agent/offer`, `/agent/plans`) |
 | **4. Panel empresa** | Tendencias, demanda no satisfecha, frecuencia y abandono | **Construido** (`dashboard-empresa/`) y conectado a la API como parte del MVP: usuarios simulados, salvo la pestaña Catálogo (real) y la vista «Uso del MVP» (lo hecho en la app, pocas personas: no es evidencia) |
@@ -92,7 +92,7 @@ Estado al 30-09-2026:
   - **Sin datos personales.**
   - **Fines:** investigación y demostración. Las descripciones, imágenes y marcas pertenecen a Rappi y a los comercios; un uso comercial requeriría autorización.
   - **Proyecto independiente:** no está afiliado a Rappi ni cuenta con su respaldo. Las marcas pertenecen a sus dueños.
-- **Métricas con salvedades:** la relevancia de la búsqueda se juzga automáticamente por concepto, y sin el refuerzo por concepto el híbrido no se distingue del vectorial (0,860 frente a 0,846). Falta el juicio humano. La precisión de los conceptos es una estimación con jueces LLM sobre datos parciales. Detalle en [README → Resultados](../README.md#resultados).
+- **Métricas con salvedades:** la relevancia de la búsqueda se juzga automáticamente por concepto, y sin el refuerzo por concepto el híbrido no se distingue del vectorial (0,860 frente a 0,849). Falta el juicio humano. La precisión de los conceptos es una estimación con jueces LLM sobre una muestra versionada del catálogo completo (06-10-2026). Detalle en [README → Resultados](../README.md#resultados).
 - **Datos simulados:** los segmentos y las métricas de negocio usan usuarios, eventos y pedidos simulados. Muestran la mecánica, no son evidencia.
 - **Cambios del sitio:** si rappi.cl cambia su frontend, hay que ajustar los parsers. El reporte de calidad de cada corrida marca con ⚠ las respuestas anómalas; con una página nueva guardada, los tests muestran qué cambió.
 
@@ -100,6 +100,6 @@ Estado al 30-09-2026:
 
 - **¿Quién lo usaría y dónde?** (equipos internos de Rappi, usuarios finales, análisis de mercado). Define la interfaz y las condiciones de uso de los datos.
 - **¿Se confirma el silo con datos internos?** Con eventos reales se puede medir qué hace un mismo usuario en distintos verticales y si las sugerencias cruzadas suben la frecuencia. Eso se valida con un grupo de control ([diseno-ia.md §5](diseno-ia.md#5-panel-para-la-empresa-vale-la-pena)).
-- **¿Mejora de verdad el refuerzo por concepto?** Hay que juzgar a mano la muestra de 200 pares (`rappi-ia eval-sample`) y medirlo con `rappi-ia eval-human`.
+- **¿Mejora de verdad el refuerzo por concepto?** Hay que juzgar a mano la planilla de 200 pares (`rappi-ia jev-planillas`, ver [jev.md](jev.md)) y medirlo con `rappi-ia eval-human`.
 
 Las preguntas ya resueltas (modelos, áreas iniciales, taxonomía, datos simulados) están en [decisiones.md](decisiones.md).

@@ -12,6 +12,7 @@ import { sessionId, useEvents } from '../../state/EventsContext'
 import { formatPrice, lineKey, useCart } from '../../state/CartContext'
 import CheckoutSuggestion from './CheckoutSuggestion'
 import { useOrders } from '../../state/OrdersContext'
+import { useDemo } from '../../state/DemoContext'
 import { DEFAULT_TIP, TIPS, priceBreakdown } from './pricing'
 import './checkout.css'
 
@@ -24,6 +25,7 @@ export default function CheckoutScreen({ back, push }) {
   const orders = useOrders()
   const toast = useToast()
   const events = useEvents()
+  const demo = useDemo()
   const [mode, setMode] = useState(MODES[0])
   const [tip, setTip] = useState(DEFAULT_TIP)
   const pickup = mode === 'Pickup'
@@ -46,7 +48,12 @@ export default function CheckoutScreen({ back, push }) {
   }, [cart.id, verticals, events])
 
   const placeOrder = () => {
-    const pending = buildOrders(cart.items, { userId: userId(), sessionId: sessionId(), cartId: cart.id })
+    const pending = buildOrders(cart.items, {
+      userId: userId(),
+      sessionId: sessionId(),
+      cartId: cart.id,
+      mode: demo.isFinal ? 'propuesta' : 'actual',
+    })
     // Registro para el panel (si la API está arriba). No bloquea el pedido de la demo. Antes salen los eventos en cola
     // (y se esperan los lotes en camino): el servidor les pone la hora al recibirlos, y checkout_start va primero.
     // Todo el camino cuenta como pedido en vuelo: «Olvidar» lo espera antes de borrar el perfil.

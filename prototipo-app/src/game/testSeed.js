@@ -1,6 +1,6 @@
 import { act, waitFor } from '@testing-library/react'
 import { expect, vi } from 'vitest'
-import { gameServer } from '../api/testing'
+import { gameServer, pendingGameLoads } from '../api/testing'
 import { initialState } from './progress.js'
 
 /**
@@ -19,15 +19,23 @@ export const stored = () => gameServer.puts.at(-1) ?? null
 export const savedAs = (check) => waitFor(() => check(stored()))
 
 /**
- * Espera a que el juego termine de cargar sus tarjetas y su progreso: recién ahí pinta lo que lleva dentro. Sirve con
- * relojes de verdad y fingidos (con estos deja correr lo pendiente sin avanzar el tiempo).
+ * Espera a que el juego termine de cargar sus tarjetas y su progreso (bien o mal) y a que no quede un aviso de conexión
+ * en pantalla (el de las pantallas del juego mientras cargan). Sirve con relojes de verdad y fingidos (con estos deja
+ * correr lo pendiente sin avanzar el tiempo).
  */
 export async function gameReady() {
-  for (let turn = 0; turn < 50 && document.querySelector('.connection-card'); turn++) {
-    await act(async () => {
+  const turn = () =>
+    act(async () => {
       if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(0)
       else await new Promise((resolve) => setTimeout(resolve, 0))
     })
+  // La carga va en dos pasos seguidos (tarjetas, luego progreso): se espera lo que haya en vuelo y se deja correr un turno.
+  for (let step = 0; step < 50; step++) {
+    const loads = pendingGameLoads()
+    if (loads.length === 0 && step > 0) break
+    if (loads.length > 0 && !vi.isFakeTimers()) await act(() => Promise.all(loads))
+    await turn()
   }
+  for (let step = 0; step < 50 && document.querySelector('.connection-card'); step++) await turn()
   expect(document.querySelector('.connection-card')).toBeNull()
 }

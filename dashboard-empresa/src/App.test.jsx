@@ -34,6 +34,24 @@ describe('App', () => {
     expect(screen.getByText('Usuarios y eventos SIMULADOS:')).toBeTruthy()
   })
 
+  test('solo la pestaña activa tiene aria-controls (los demás paneles no existen en el DOM)', async () => {
+    serveFixtures()
+    await renderWithData(<App />)
+
+    const controls = screen.getAllByRole('tab').map((tab) => tab.getAttribute('aria-controls'))
+    expect(controls.filter(Boolean)).toEqual(['panel-resumen'])
+    expect(document.getElementById('panel-resumen')).toBe(screen.getByRole('tabpanel'))
+  })
+
+  test('un estado vacío es texto estático: no se anuncia como región viva', async () => {
+    window.history.replaceState(null, '', '/?vista=mvp&fuente=simulados')
+    serveFixtures()
+    await renderWithData(<App />)
+
+    const empty = (await screen.findByText('Los datos simulados no incluyen el juego')).closest('.state')
+    expect(empty.getAttribute('role')).toBeNull()
+  })
+
   test('cambiar a Prototipo cambia el aviso y la URL', async () => {
     serveFixtures()
     await renderWithData(<App />)

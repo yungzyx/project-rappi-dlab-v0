@@ -16,7 +16,11 @@
 #      las demás, con la API todavía en marcha;
 #   7. sin API: se detiene la API y la app muestra «Sin conexión con Mochi».
 set -euo pipefail
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$0")/.."
+# Borra y siembra rappi_ia_test: se corre bajo el candado de la base de prueba (el mismo de `make test` y `make contract`
+# en rappi-ia), y se vuelve a llamar con MVP_CHECK_LOCKED=1 ya con el candado tomado.
+if [ -z "${MVP_CHECK_LOCKED:-}" ]; then exec env MVP_CHECK_LOCKED=1 rappi-ia/scripts/with-test-db-lock.sh "$SELF" "$@"; fi
 # shellcheck source=scripts/mvp-lib.sh
 source scripts/mvp-lib.sh
 
@@ -27,12 +31,14 @@ APP=http://localhost:5184
 PANEL=http://localhost:5185
 
 need_command node "instala Node (la versión de .nvmrc) o revisa tu PATH, y vuelve a correr \`make mvp-check\`."
-need_command curl "viene con macOS; revisa tu PATH."
-need_command lsof "viene con macOS; revisa tu PATH."
+need_command npm "instala Node (la versión de .nvmrc) o revisa tu PATH, y vuelve a correr \`make mvp-check\`."
+need_command curl "instálalo o revisa tu PATH."
 need_dir rappi-ia/.venv "corre \`make install\` en rappi-ia."
 need_dir prototipo-app/node_modules "corre \`npm ci\` en prototipo-app."
 need_dir dashboard-empresa/node_modules "corre \`npm ci\` en dashboard-empresa."
 exit_if_missing
+# Una carpeta .venv que existe pero no arranca: se movió el proyecto (los .venv guardan rutas absolutas).
+"$IA" --help >/dev/null 2>&1 || fail "El .venv de rappi-ia no funciona (¿se movió la carpeta?): corre \`make install\` en rappi-ia."
 require_free_ports 8010 5184 5185
 
 # La misma URL que usa seed-demo (rappi-ia/.env; una variable ya exportada gana). Nunca se imprime: puede traer la clave.
@@ -138,8 +144,12 @@ PY
 echo "Sembrando el catálogo de prueba…"
 "$IA" seed-demo # se niega si la base no termina en _test
 
+# El archivo donde la revisión del juego deja el id de la persona: se crea antes de los traps y lo borra stop_all.
+USER_FILE=$(mktemp)
+TEMP_FILE=$USER_FILE
 install_traps
-start api env RAPPI_IA_LIGHT=1 GAME_MIN_ITEMS=1 DATABASE_URL="$TEST_URL" "$IA_PY" -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8010
+# La URL va como variable de entorno solo de la API (no en la línea de comandos de `env`, que `ps` deja ver).
+DATABASE_URL="$TEST_URL" start api env RAPPI_IA_LIGHT=1 GAME_MIN_ITEMS=1 "$IA_PY" -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8010
 start app env VITE_API_URL=http://localhost:8010 npm --prefix prototipo-app run dev -- --port 5184 --strictPort
 wait_for_url "La API de prueba" http://localhost:8010/health 60 api
 start panel env VITE_API_URL=http://localhost:8010 npm --prefix dashboard-empresa run dev -- --port 5185 --strictPort
@@ -151,9 +161,7 @@ total=7
 if node "$CHECK" --app "$APP"; then passed=$((passed + 1)); fi
 if node "$CHECK" --app "$APP" --shop && "$IA_PY" -c "$CHECK_ORDER"; then passed=$((passed + 1)); fi
 if node "$CHECK" --app "$APP" --kit && "$IA_PY" -c "$CHECK_ORDER" kit; then passed=$((passed + 1)); fi
-USER_FILE=$(mktemp)
 if node "$CHECK" --app "$APP" --game --user-file "$USER_FILE" && "$IA_PY" -c "$CHECK_GAME" "$(cat "$USER_FILE")"; then passed=$((passed + 1)); fi
-rm -f "$USER_FILE"
 if node "$CHECK" --app "$APP" --dato; then passed=$((passed + 1)); fi
 if node "$CHECK" --panel "$PANEL" --api http://localhost:8010; then passed=$((passed + 1)); fi
 stop_one api

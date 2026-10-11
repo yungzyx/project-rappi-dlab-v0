@@ -7,7 +7,7 @@ import threading
 from dataclasses import dataclass, field
 from functools import cache
 
-from ..agent.compose import default_composer
+from ..agent.compose import TemplateComposer, default_composer
 from ..agent.rappi_agent import RappiAgent
 from ..embeddings.base import TextEmbedder
 
@@ -53,8 +53,17 @@ def _load_services() -> Services:
             missing["ml"] = f"falta el extra ml ({exc.name})"
         except OSError as exc:  # p. ej. un modelo de .env que no está en caché, con HF_HUB_OFFLINE=1 (make serve)
             missing["ml"] = f"no se pudo cargar el modelo: {exc}"
+        except Exception as exc:  # torch o MPS: la API arranca igual, sin búsqueda semántica
+            log.exception("No se pudo cargar el modelo de texto")
+            missing["ml"] = f"no se pudo cargar el modelo: {exc}"
     else:
         missing["modelos"] = "RAPPI_IA_LIGHT=1"
-    agent = RappiAgent(embedder, default_composer())
+    try:
+        composer = default_composer()
+    except Exception as exc:  # el cliente de Claude: la API arranca igual y redacta con plantillas
+        log.exception("No se pudo crear el redactor con Claude")
+        missing["redaccion"] = f"no se pudo crear el redactor con Claude: {type(exc).__name__}"
+        composer = TemplateComposer()
+    agent = RappiAgent(embedder, composer)
     log.info("Servicios listos: %s", {k: v for k, v in Services(agent, embedder).capabilities.items() if v})
     return Services(agent, embedder, missing)

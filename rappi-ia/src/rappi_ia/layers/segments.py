@@ -7,13 +7,15 @@ servicio, palabra de consulta; si la regla no tiene ninguna, basta el contexto) 
 
 import logging
 import re
+import threading
 import time
 import tomllib
 from collections import defaultdict
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from functools import cache, lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -424,8 +426,9 @@ def _context_hit(signal: Signal, key: str, wanted) -> bool:
 
 _SIGNALS_SQL = """
 WITH raw AS (
-    -- Solo lo que dice un concepto: «Rappi hoy» le quita el concepto al evento (y marca payload.mode = 'actual'), y
-    -- «Olvidar» un concepto se lo quita a las líneas de pedido; sin concepto no hay huella de gusto.
+    -- Solo lo que dice un concepto: «Rappi hoy» le quita el concepto al evento (y marca payload.mode = 'actual') y
+    -- sus pedidos van con mode = 'actual', y «Olvidar» un concepto se lo quita a las líneas de pedido; sin concepto no
+    -- hay huella de gusto.
     SELECT e.user_id, 'e' || e.event_id AS event_key, e.session_id AS unit_key, e.ts, e.type, e.concept_id,
            e.vertical, e.query, e.modality, e.entity_type, e.entity_id,
            coalesce(e.payload ->> 'from_suggestion', '') = 'true' AS from_suggestion,
@@ -439,7 +442,8 @@ WITH raw AS (
            l.concept_id, o.vertical, NULL, NULL, l.entity_type, l.entity_id, l.from_suggestion, NULL,
            sum(l.qty) OVER (PARTITION BY l.order_id), o.total
     FROM app_order_lines l JOIN app_orders o USING (order_id)
-    WHERE o.source = %(source)s AND l.concept_id IS NOT NULL AND (%(user)s::text IS NULL OR o.user_id = %(user)s)
+    WHERE o.source = %(source)s AND o.mode = 'propuesta' AND l.concept_id IS NOT NULL
+      AND (%(user)s::text IS NULL OR o.user_id = %(user)s)
 ),
 needed AS (SELECT DISTINCT concept_id FROM raw WHERE concept_id IS NOT NULL),
 ranked AS (  -- posición del precio entre los ítems de su concepto en esa vertical (un ítem puede estar en varias)
@@ -496,59 +500,67 @@ def load_signals(conn: Connection, source: str, user_id: str | None = None) -> d
     return dict(signals)
 
 
-_ORDERS_90 = "FROM app_orders o WHERE o.source = %(source)s AND o.ts >= %(now)s - interval '90 days'"
+# `{only}` es el filtro por persona (vacío para toda la fuente): va dentro de cada consulta, donde se leen sus filas.
+_ORDERS_90 = "FROM app_orders o WHERE o.source = %(source)s AND o.ts >= %(now)s - interval '90 days'{only}"
 _METRIC_SQL = {
     "dias_sin_pedido": """SELECT user_id, extract(epoch FROM %(now)s - max(ts)) / 86400 FROM app_orders
-                          WHERE source = %(source)s GROUP BY 1""",
+                          WHERE source = %(source)s{only} GROUP BY 1""",
     "dias_desde_alta": """SELECT u.user_id,
                                  greatest(0, extract(epoch FROM %(now)s - least(u.created_at, min(e.ts))) / 86400)
                           FROM app_users u JOIN app_events e ON e.user_id = u.user_id
-                          WHERE u.source = %(source)s GROUP BY u.user_id, u.created_at""",
+                          WHERE u.source = %(source)s{only_u} GROUP BY u.user_id, u.created_at""",
     "verticales_distintas": f"SELECT o.user_id, count(DISTINCT o.vertical) {_ORDERS_90} GROUP BY 1",
     "pedidos_90d": f"SELECT o.user_id, count(*) {_ORDERS_90} GROUP BY 1",
     "tasa_abandono": """SELECT s.user_id, 1 - count(o.cart_id)::float / count(*)
                         FROM (SELECT DISTINCT user_id, cart_id FROM app_events
                               WHERE source = %(source)s AND type = 'cart_add' AND cart_id IS NOT NULL
-                                AND ts >= %(now)s - interval '90 days') s
+                                AND ts >= %(now)s - interval '90 days'{only}) s
                         LEFT JOIN app_orders o ON o.user_id = s.user_id AND o.cart_id = s.cart_id
                         GROUP BY 1 HAVING count(*) >= %(min_carts)s""",
     "aceptacion_sugerencias": """SELECT user_id, count(*) FILTER (WHERE type = 'suggestion_accepted')::float
                                         / count(*) FILTER (WHERE type = 'suggestion_shown')
-                                 FROM app_events WHERE source = %(source)s AND ts >= %(now)s - interval '90 days'
+                                 FROM app_events
+                                 WHERE source = %(source)s AND ts >= %(now)s - interval '90 days'{only}
                                  GROUP BY 1
                                  HAVING count(*) FILTER (WHERE type = 'suggestion_shown') >= %(min_shown)s""",
-    "gasto_90d_percentil": f"""SELECT user_id, percent_rank() OVER (ORDER BY spent) FROM (
-                                  SELECT o.user_id, sum(o.total) AS spent {_ORDERS_90} GROUP BY 1) t""",
     # Dos pedidos con la misma hora se ordenan por order_id: sin eso, cuál es el último dependía del plan.
     "reactivado": """SELECT user_id, CASE WHEN ts >= %(now)s - interval '30 days' AND gap >= interval '60 days'
                                           THEN 1 ELSE 0 END
                      FROM (SELECT user_id, ts, ts - lag(ts) OVER w AS gap,
                                   row_number() OVER (PARTITION BY user_id ORDER BY ts DESC, order_id DESC) AS rn
-                           FROM app_orders WHERE source = %(source)s AND ts <= %(now)s
+                           FROM app_orders WHERE source = %(source)s AND ts <= %(now)s{only}
                            WINDOW w AS (PARTITION BY user_id ORDER BY ts, order_id)) t
                      WHERE rn = 1 AND gap IS NOT NULL""",
     "concentracion_marca": """SELECT user_id, max(n)::float / sum(n) FROM (
                                  SELECT o.user_id, ib.brand_key, sum(l.qty) AS n
                                  FROM app_order_lines l JOIN app_orders o USING (order_id)
                                  JOIN item_brands ib ON ib.entity_type = l.entity_type AND ib.entity_id = l.entity_id
-                                 WHERE o.source = %(source)s AND o.ts >= %(now)s - interval '90 days'
+                                 WHERE o.source = %(source)s AND o.mode = 'propuesta'
+                                   AND o.ts >= %(now)s - interval '90 days'{only}
                                  GROUP BY 1, 2) t
                               GROUP BY 1 HAVING sum(n) >= %(min_lines)s""",
     "conceptos_distintos_90d": """SELECT user_id, count(DISTINCT concept_id) FROM (
                                      SELECT o.user_id, l.concept_id
                                      FROM app_order_lines l JOIN app_orders o USING (order_id)
-                                     WHERE o.source = %(source)s AND o.ts >= %(now)s - interval '90 days'
+                                     WHERE o.source = %(source)s AND o.ts >= %(now)s - interval '90 days'{only}
                                      UNION ALL
                                      SELECT user_id, concept_id FROM app_events
                                      WHERE source = %(source)s AND type IN ('view_item', 'cart_add', 'search')
-                                       AND ts >= %(now)s - interval '90 days') t
+                                       AND ts >= %(now)s - interval '90 days'{only}) t
                                   WHERE concept_id IS NOT NULL GROUP BY 1""",
     "ticket_creciente": """SELECT user_id, avg(total) FILTER (WHERE ts >= %(now)s - interval '45 days')
                                          / avg(total) FILTER (WHERE ts < %(now)s - interval '45 days')
-                           FROM app_orders WHERE source = %(source)s AND ts >= %(now)s - interval '90 days'
+                           FROM app_orders
+                           WHERE source = %(source)s AND ts >= %(now)s - interval '90 days'{only}
                            GROUP BY 1 HAVING count(*) FILTER (WHERE ts >= %(now)s - interval '45 days') >= 2
                                          AND count(*) FILTER (WHERE ts < %(now)s - interval '45 days') >= 2""",
 }
+# El gasto de 90 días de cada persona; su percentil se mide contra toda la fuente.
+_SPEND_90 = f"SELECT o.user_id, sum(o.total) AS spent {_ORDERS_90} GROUP BY 1"
+_SPEND_PERCENTILE = f"SELECT user_id, percent_rank() OVER (ORDER BY spent) FROM ({_SPEND_90}) t"
+# El gasto de toda la fuente para el percentil de una persona, leído una vez al día: fuente → (día, gasto por persona).
+_SOURCE_SPEND: dict[str, tuple[date, dict[str, Decimal]]] = {}
+_SOURCE_SPEND_LOCK = threading.Lock()
 
 
 def user_metrics(
@@ -556,7 +568,8 @@ def user_metrics(
 ) -> dict[str, dict[str, float]]:
     """Métricas por persona que no son una suma de eventos que calzan (días sin pedido, verticales distintas, tasa de
     abandono…). Sin datos suficientes la métrica falta, y sin la métrica no hay segmento. Con `user_id`, cada consulta
-    se filtra por esa persona en SQL, por fuera: el percentil de gasto se sigue midiendo contra toda la fuente."""
+    lee solo las filas de esa persona; el percentil de gasto la compara con el gasto de toda la fuente, que se lee una
+    vez al día (`_spend_percentile`)."""
     params = {
         "user": user_id,
         "source": source,
@@ -565,14 +578,46 @@ def user_metrics(
         "min_shown": MIN_SUGGESTIONS_SHOWN,
         "min_lines": MIN_BRANDED_LINES,
     }
+    only = {"only": "", "only_u": ""}
+    if user_id is not None:
+        only = {"only": " AND user_id = %(user)s", "only_u": " AND u.user_id = %(user)s"}
     metrics: dict[str, dict[str, float]] = defaultdict(dict)
     for name, sql in _METRIC_SQL.items():
-        if user_id is not None:
-            sql = f"SELECT * FROM ({sql}) m WHERE m.user_id = %(user)s"
-        for user, value in conn.execute(sql, params).fetchall():
+        for user, value in conn.execute(sql.format(**only), params).fetchall():
             if value is not None:
                 metrics[user][name] = float(value)
+    if user_id is None:
+        percentiles = conn.execute(_SPEND_PERCENTILE.format(only=""), params).fetchall()
+    else:
+        percentiles = _spend_percentile(conn, params)
+    for user, value in percentiles:
+        metrics[user]["gasto_90d_percentil"] = float(value)
     return dict(metrics)
+
+
+def _spend_percentile(conn: Connection, params: dict) -> list[tuple[str, float]]:
+    """El percentil de gasto de una persona (`percent_rank`, como para toda la fuente): su gasto se lee siempre; el de
+    las demás, una vez al día por fuente. Sin pedidos en 90 días no tiene."""
+    mine = conn.execute(_SPEND_90.format(only=" AND o.user_id = %(user)s"), params).fetchone()
+    if mine is None:
+        return []
+    user, spent = mine
+    source, day = params["source"], params["now"].astimezone(LOCAL_TZ).date()
+    with _SOURCE_SPEND_LOCK:
+        known = _SOURCE_SPEND.get(source)
+    if known is None or known[0] != day:
+        known = (day, dict(conn.execute(_SPEND_90.format(only=""), params).fetchall()))
+        with _SOURCE_SPEND_LOCK:
+            _SOURCE_SPEND[source] = known
+    others = [value for other, value in known[1].items() if other != user]
+    below = sum(1 for value in others if value < spent)
+    return [(user, below / len(others) if others else 0.0)]
+
+
+def forget_source_spend() -> None:
+    """Olvida el gasto por fuente guardado para el percentil (los tests: cada uno recrea la base)."""
+    with _SOURCE_SPEND_LOCK:
+        _SOURCE_SPEND.clear()
 
 
 def _monday(now: datetime):
@@ -588,11 +633,13 @@ def build_segments(
     commit: bool = True,
 ) -> dict:
     """Recalcula los segmentos de las personas de una fuente (o de una sola) y guarda la foto de la semana. Reemplaza
-    las filas `regla` de ese alcance; lo `curado` no se toca y las otras fuentes tampoco."""
+    las filas `regla` de ese alcance; lo `curado` no se toca y las otras fuentes tampoco. Solo la corrida de toda la
+    fuente queda en `layer_runs`: la de una persona corre después de cada pedido y sumaba una fila por pedido (sus
+    filas quedan sin `run_id`)."""
     now = now or datetime.now(LOCAL_TZ)
     version, rules = load_segment_rules()
     version = rules_version(version, RULES_FILE, Path(__file__))
-    run = start_layer_run(conn, "segments", version)
+    run = start_layer_run(conn, "segments", version) if user_id is None else None
     if user_id is None or not _definitions_current(conn, version, rules):
         _seed_definitions(conn, version, rules)
     signals = load_signals(conn, source, user_id)
@@ -632,7 +679,8 @@ def build_segments(
         "filas": len(rows),
         "segmentos": len({m.segment_id for _u, m in rows}),
     }
-    finish_layer_run(conn, run, counts)
+    if run is not None:
+        finish_layer_run(conn, run, counts)
     if commit:
         conn.commit()
         conn.execute("ANALYZE user_segments")

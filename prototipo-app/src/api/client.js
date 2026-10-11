@@ -29,7 +29,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path, { method = 'GET', body, timeout = DEFAULT_TIMEOUT_MS } = {}) {
+export async function request(path, { method = 'GET', body, timeout = DEFAULT_TIMEOUT_MS, keepalive } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
@@ -38,6 +38,7 @@ export async function request(path, { method = 'GET', body, timeout = DEFAULT_TI
       body: body ? JSON.stringify(body) : undefined,
       headers: body ? { 'content-type': 'application/json' } : undefined,
       signal: controller.signal,
+      ...(keepalive ? { keepalive: true } : {}),
     })
     if (!response.ok) throw new ApiError('http', { status: response.status })
     if (response.status === 204) return null
