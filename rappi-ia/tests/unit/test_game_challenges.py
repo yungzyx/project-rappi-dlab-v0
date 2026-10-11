@@ -1,15 +1,31 @@
-"""Los desafíos del juego: lógica pura sobre un `ChallengeData` armado a mano."""
+"""Los desafíos del juego: lógica pura sobre un `ChallengeData` armado a mano.
 
-import pytest
+Cada propiedad se revisa en TODOS los desafíos de un tipo que dan 200 semillas, no en uno solo: un error de la regla
+(un distractor que sí pertenece a la vertical, uno relacionado con el ancla) aparece en alguna semilla.
+"""
 
 from rappi_ia import config
 from rappi_ia.game.challenges import KINDS, ChallengeData, ConceptInfo, build_challenge
 
 MIN = 20
+SEEDS = range(200)
+EMOJIS = {
+    "pan": "🍞",
+    "leche": "🥛",
+    "cafe": "☕",
+    "te": "🍵",
+    "jugo": "🧃",
+    "cerveza": "🍺",
+    "vino": "🍷",
+    "pizza": "🍕",
+    "sushi": "🍣",
+    "panales": "🧷",
+    "collar": "📿",
+}
 
 
 def concept(concept_id: str, home: str | None, **items: int) -> ConceptInfo:
-    return ConceptInfo(concept_id, concept_id.capitalize(), "🍎", home, items)
+    return ConceptInfo(concept_id, concept_id.capitalize(), EMOJIS.get(concept_id, "🍎"), home, items)
 
 
 def pairs(*couples: tuple[str, str]) -> dict[str, set[str]]:
@@ -21,6 +37,7 @@ def pairs(*couples: tuple[str, str]) -> dict[str, set[str]]:
 
 
 def make_data(**relations) -> ChallengeData:
+    """El súper tiene 5 típicos; la cerveza pertenece al súper (21 >= 20) pero su vertical típica es licores."""
     concepts = [
         concept("pan", "supermercado", supermercado=50),
         concept("leche", "supermercado", supermercado=40),
@@ -39,18 +56,21 @@ def make_data(**relations) -> ChallengeData:
 
 FULL = {
     "complements": pairs(("pan", "leche"), ("cerveza", "pizza"), ("cerveza", "sushi"), ("cerveza", "pan")),
-    "substitutes": pairs(("cafe", "te")),
+    "substitutes": pairs(("cafe", "te"), ("cerveza", "vino")),
     "conflicts": pairs(("cerveza", "panales")),
 }
 
 
-def only(kind: str, data: ChallengeData, vertical: str = "supermercado") -> dict:
-    """El desafío de un tipo, probando semillas hasta que el azar elija ese tipo."""
-    for seed in range(200):
+def challenges_of(kind: str, data: ChallengeData, vertical: str = "supermercado") -> list[dict]:
+    """Todos los desafíos de un tipo que dan las semillas de prueba, con su forma ya revisada."""
+    found = []
+    for seed in SEEDS:
         challenge = build_challenge(data, vertical, str(seed), MIN)
         if challenge and challenge["kind"] == kind:
-            return challenge
-    pytest.fail(f"Ninguna semilla dio un desafío «{kind}»")
+            check_shape(challenge)
+            found.append(challenge)
+    assert len(found) >= 10, f"Pocos desafíos «{kind}» para revisar: {len(found)}"
+    return found
 
 
 def check_shape(challenge: dict) -> None:
@@ -63,42 +83,58 @@ def check_shape(challenge: dict) -> None:
     assert challenge["question"] and challenge["explanation"]
 
 
+def wrong_ids(challenge: dict) -> set[str]:
+    return {option["id"] for option in challenge["options"]} - {challenge["answer"]}
+
+
 def test_tipico_picks_a_typical_concept_and_three_outside_the_vertical():
     data = make_data(**FULL)
 
-    challenge = only("tipico", data)
+    for challenge in challenges_of("tipico", data):
+        answer = data.concepts[challenge["answer"]]
+        assert (
+            answer.home == "supermercado"
+        )  # típico, no solo «pertenece»: la cerveza (21 ítems) no puede ser la respuesta
+        assert answer.items["supermercado"] >= MIN
+        assert challenge["anchor"] == challenge["answer"]
+        assert challenge["question"] == "¿Cuál de estos es típico de Súper?"
+        for other in map(data.concepts.get, wrong_ids(challenge)):
+            assert other.items.get("supermercado", 0) < MIN, other.id  # la cerveza pertenece al súper
+            assert other.home != "supermercado", other.id
+        assert challenge["explanation"].startswith(f"{config.AGENT_NAME} asocia ")
+        assert "menos de 20 ahí" in challenge["explanation"]
 
-    check_shape(challenge)
-    assert challenge["question"] == "¿Cuál de estos es típico de Súper?"
-    assert challenge["answer"] in {"pan", "leche", "cafe", "te", "jugo"}
-    wrong = {o["id"] for o in challenge["options"]} - {challenge["answer"]}
-    assert wrong <= {"vino", "pizza", "sushi", "panales", "collar"}  # cerveza pertenece al súper (21 >= 20)
-    assert challenge["anchor"] == challenge["answer"]
-    assert challenge["explanation"].startswith(f"{config.AGENT_NAME} asocia ")
-    assert "menos de 20 ahí" in challenge["explanation"]
+
+def test_tipico_reaches_every_typical_concept_and_every_outsider_except_those_that_belong():
+    data = make_data(**FULL)
+
+    found = challenges_of("tipico", data)
+
+    assert {c["answer"] for c in found} == {"pan", "leche", "cafe", "te", "jugo"}
+    assert set().union(*map(wrong_ids, found)) == {"vino", "pizza", "sushi", "panales", "collar"}
 
 
 def test_combo_picks_a_complement_and_unrelated_distractors():
     data = make_data(**FULL)
 
-    challenge = only("combo", data)
+    found = challenges_of("combo", data)
 
-    check_shape(challenge)
-    anchor = challenge["anchor"]
-    assert challenge["question"].startswith("¿Qué combina con ")
-    assert challenge["answer"] in data.complements[anchor]
-    wrong = {o["id"] for o in challenge["options"]} - {challenge["answer"]}
-    for other in wrong:
-        assert other != anchor
-        assert other not in data.complements.get(anchor, set())
-        assert other not in data.substitutes.get(anchor, set())
-        assert other not in data.conflicts.get(anchor, set())
+    for challenge in found:
+        anchor = challenge["anchor"]
+        assert challenge["answer"] in data.complements[anchor]
+        assert challenge["question"].startswith("¿Qué combina con ")
+        for other in wrong_ids(challenge):
+            assert other != anchor
+            assert other not in data.complements.get(anchor, set()), (anchor, other)
+            assert other not in data.substitutes.get(anchor, set()), (anchor, other)
+            assert other not in data.conflicts.get(anchor, set()), (anchor, other)
+    assert {c["anchor"] for c in found} >= {"cerveza", "pan"}  # el ancla con conflicto y sustituto también sale
 
 
 def test_combo_says_where_a_complement_from_another_vertical_is_found():
     data = make_data(complements=pairs(("pan", "pizza")))
 
-    challenge = only("combo", data)
+    challenge = challenges_of("combo", data)[0]
 
     assert challenge["anchor"] == "pan"
     assert challenge["answer"] == "pizza"
@@ -108,27 +144,41 @@ def test_combo_says_where_a_complement_from_another_vertical_is_found():
 def test_sustituto_picks_a_substitute():
     data = make_data(**FULL)
 
-    challenge = only("sustituto", data)
+    found = challenges_of("sustituto", data)
 
-    check_shape(challenge)
-    assert challenge["anchor"] in {"cafe", "te"}
-    assert challenge["answer"] == ({"cafe", "te"} - {challenge["anchor"]}).pop()
-    assert challenge["question"].startswith("Si no hay ")
-    assert challenge["question"].endswith(f", ¿qué ofrece {config.AGENT_NAME} en su lugar?")
-    assert challenge["explanation"].startswith("Cuando no hay ")
+    for challenge in found:
+        anchor = challenge["anchor"]
+        assert challenge["answer"] in data.substitutes[anchor]
+        assert challenge["question"].startswith("Si no hay ")
+        assert challenge["question"].endswith(f", ¿qué ofrece {config.AGENT_NAME} en su lugar?")
+        assert challenge["explanation"].startswith("Cuando no hay ")
+        for other in wrong_ids(challenge):
+            assert other != anchor
+            assert other not in data.complements.get(anchor, set()), (anchor, other)
+            assert other not in data.substitutes.get(anchor, set()), (anchor, other)
+            assert other not in data.conflicts.get(anchor, set()), (anchor, other)
+    assert {c["anchor"] for c in found} == {"cafe", "te", "cerveza"}
 
 
 def test_imposible_picks_a_conflict_against_safe_complements():
     data = make_data(**FULL)
 
-    challenge = only("imposible", data)
+    for challenge in challenges_of("imposible", data):
+        assert challenge["anchor"] == "cerveza"
+        assert challenge["answer"] == "panales"
+        assert wrong_ids(challenge) == {"pizza", "sushi", "pan"}
+        assert challenge["question"].startswith(f"¿Cuál nunca sugeriría {config.AGENT_NAME} junto a ")
 
-    check_shape(challenge)
-    assert challenge["anchor"] == "cerveza"
-    assert challenge["answer"] == "panales"
-    wrong = {o["id"] for o in challenge["options"]} - {"panales"}
-    assert wrong == {"pizza", "sushi", "pan"}
-    assert challenge["question"].startswith(f"¿Cuál nunca sugeriría {config.AGENT_NAME} junto a ")
+
+def test_imposible_never_offers_a_conflict_as_a_safe_complement():
+    data = make_data(
+        complements=pairs(("cerveza", "pizza"), ("cerveza", "sushi"), ("cerveza", "pan"), ("cerveza", "panales")),
+        conflicts=pairs(("cerveza", "panales")),
+    )
+
+    for challenge in challenges_of("imposible", data):
+        assert "panales" not in wrong_ids(challenge)
+        assert challenge["answer"] == "panales"
 
 
 def test_imposible_needs_three_safe_complements():
@@ -172,11 +222,13 @@ def test_only_the_kinds_with_data_are_offered():
 def test_labels_are_emoji_and_name():
     data = make_data(**FULL)
 
-    challenge = only("tipico", data)
-
-    assert {o["id"]: o["label"] for o in challenge["options"]}[challenge["answer"]] == (
-        f"🍎 {challenge['answer'].capitalize()}"
-    )
+    for kind in KINDS:
+        for challenge in challenges_of(kind, data):
+            for option in challenge["options"]:
+                c = data.concepts[option["id"]]
+                assert option["label"] == f"{EMOJIS[c.id]} {c.name}"
+            anchor = data.concepts[challenge["anchor"]]
+            assert f"{EMOJIS[anchor.id]} {anchor.name}" in challenge["question"] + challenge["explanation"]
 
 
 def test_explanation_formats_thousands_like_chilean_spanish():

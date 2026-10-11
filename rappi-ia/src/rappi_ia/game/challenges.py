@@ -59,11 +59,11 @@ _EDGES = """
     SELECT from_id, to_id FROM knowledge_edges
     WHERE relation = %s AND method = 'curado' AND from_kind = 'concept' AND to_kind = 'concept'"""
 
-# «Nunca juntos» se cura de un grupo a un concepto (alcohol → pañales): se abre a cada concepto del grupo.
-_GROUP_CONFLICTS = """
-    SELECT c.concept_id, e.to_id FROM knowledge_edges e
-    JOIN concepts c ON c.parent_id = e.from_id
-    WHERE e.relation = 'conflicto' AND e.method = 'curado' AND e.from_kind = 'group' AND e.to_kind = 'concept'"""
+# «Nunca juntos» se cura entre conceptos o grupos (alcohol → pañales): un grupo se abre a cada concepto que contiene.
+_CONFLICTS = """
+    SELECT from_kind, from_id, to_kind, to_id FROM knowledge_edges
+    WHERE relation = 'conflicto' AND method = 'curado'
+      AND from_kind IN ('concept', 'group') AND to_kind IN ('concept', 'group')"""
 
 
 def read_challenge_data(conn: Connection) -> ChallengeData:
@@ -75,8 +75,24 @@ def read_challenge_data(conn: Connection) -> ChallengeData:
         items.setdefault(concept_id, {})[vertical] = count
     homes = typical_verticals(conn)
     concepts = {
-        cid: ConceptInfo(cid, names[cid][0], names[cid][1], homes.get(cid), items[cid]) for cid in sorted(items)
+        cid: ConceptInfo(
+            cid, names[cid][0], names[cid][1], homes.get(cid) or max(items[cid], key=items[cid].get), items[cid]
+        )
+        for cid in sorted(items)
     }
+    members: dict[str, list[str]] = {}
+    for concept_id, parent_id in conn.execute("SELECT concept_id, parent_id FROM concepts WHERE parent_id IS NOT NULL"):
+        members.setdefault(parent_id, []).append(concept_id)
+
+    def expand(kind: str, node_id: str) -> list[str]:
+        return members.get(node_id, []) if kind == "group" else [node_id]
+
+    conflicts = [
+        (a, b)
+        for from_kind, from_id, to_kind, to_id in conn.execute(_CONFLICTS)
+        for a in expand(from_kind, from_id)
+        for b in expand(to_kind, to_id)
+    ]
 
     def symmetric(pairs) -> dict[str, set[str]]:
         related: dict[str, set[str]] = {}
@@ -90,7 +106,7 @@ def read_challenge_data(conn: Connection) -> ChallengeData:
         concepts=concepts,
         complements=symmetric(conn.execute(_EDGES, ("complementa",))),
         substitutes=symmetric(conn.execute(_EDGES, ("sustituye",))),
-        conflicts=symmetric(conn.execute(_GROUP_CONFLICTS)),
+        conflicts=symmetric(conflicts),
     )
 
 

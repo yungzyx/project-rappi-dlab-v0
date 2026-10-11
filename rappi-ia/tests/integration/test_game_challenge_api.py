@@ -115,3 +115,36 @@ def test_read_challenge_data_expands_group_conflicts(db):
         x for relations in (data.complements, data.substitutes, data.conflicts) for v in relations.values() for x in v
     }
     assert not sensitive & related
+
+
+def add_conflict(db, from_kind: str, from_id: str, to_kind: str, to_id: str) -> None:
+    db.execute(
+        """INSERT INTO knowledge_edges (from_kind, from_id, relation, to_kind, to_id, weight, method, data_source)
+           VALUES (%s, %s, 'conflicto', %s, %s, 1, 'curado', 'curado')""",
+        (from_kind, from_id, to_kind, to_id),
+    )
+
+
+def test_read_challenge_data_reads_conflicts_between_concepts_and_between_groups(db):
+    seed_demo(db)
+    add_conflict(db, "concept", "pizza", "concept", "sushi")  # una sola dirección: igual queda simétrico
+    add_conflict(db, "group", "alcohol", "group", "comida")
+
+    data = read_challenge_data(db)
+
+    assert "sushi" in data.conflicts["pizza"]
+    assert "pizza" in data.conflicts["sushi"]
+    assert "cerveza" in data.conflicts["hamburguesa"]  # un concepto de alcohol contra uno de comida
+    assert "hamburguesa" in data.conflicts["cerveza"]
+
+
+def test_a_concept_without_typical_vertical_falls_back_to_the_vertical_with_most_items(db, monkeypatch):
+    seed_demo(db)
+    monkeypatch.setattr("rappi_ia.game.challenges.typical_verticals", lambda conn: {"cerveza": "turbo"})
+
+    data = read_challenge_data(db)
+
+    assert data.concepts["cerveza"].home == "turbo"  # el que da typical_verticals manda
+    most = max(data.concepts["vino"].items, key=data.concepts["vino"].items.get)
+    assert data.concepts["vino"].home == most
+    assert all(c.home in c.items for c in data.concepts.values())
