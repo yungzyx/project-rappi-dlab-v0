@@ -1,6 +1,6 @@
 # Instalación y operación
 
-Cómo montar el proyecto completo en un Mac (Apple Silicon, macOS con [Homebrew](https://brew.sh)) y dejarlo actualizándose solo cada semana.
+Cómo montar el proyecto completo en un Mac (Apple Silicon, macOS con [Homebrew](https://brew.sh)) y dejarlo actualizándose solo cada semana. Para un servidor Linux con Docker, ver [despliegue.md](despliegue.md).
 
 Después de clonar (paso 2), **todos los comandos parten de la raíz del repositorio**.
 
@@ -90,7 +90,7 @@ caffeinate -i make post-refresh           # purga, categorías nuevas con Jev (s
 make mvp                  # desde la raíz del repositorio
 ```
 
-`make mvp` levanta la API (:8000), la app (:5174) y el panel (:5175) sobre la base `rappi`, con el registro de cada uno prefijado (`[api]`, `[app]`, `[panel]`):
+`make mvp` es la **demo local**: levanta la API (:8000), la app (:5174) y el panel (:5175) sobre la base `rappi`, con el registro de cada uno prefijado (`[api]`, `[app]`, `[panel]`). No es para un servidor: migra la base sin respaldo (en un servidor, ver [despliegue.md](despliegue.md)):
 
 1. Revisa que estén instalados `rappi-ia/.venv` y los `node_modules` de la app y del panel, y que los puertos 8000, 5174 y 5175 estén libres. Si falta algo, dice qué comando correr.
 2. Revisa la base con `rappi-ia doctor` (solo lectura): si Postgres no responde, si la base `rappi` no existe o si no tiene catálogo, explica qué falta (sección 3) y termina.
@@ -100,7 +100,7 @@ make mvp                  # desde la raíz del repositorio
 
 Ctrl-C detiene los tres; si uno se cae solo, detiene el resto. No descarga nada de rappi.cl.
 
-**Desde un iPhone:** `make mvp LAN=1` abre la API y la app a la red local (`make serve-lan` y `--host`). El panel pide sus datos a `localhost:8000` (fijo), así que desde otro dispositivo no trae nada: solo sirve en este equipo. Solo en una red de confianza: la API no tiene autenticación.
+**Desde un iPhone:** `make mvp LAN=1` abre la API, la app y el panel a la red local (`make serve-lan` y `--host`); cada uno busca la API en el host desde el que se abrió la página. Solo en una red de confianza: la API no tiene puerta de acceso (los datos de cada persona sí piden su token de sesión).
 
 - La app busca la API en el mismo host desde el que se abrió (puerto 8000), así que no hace falta configurarla.
 - Sirve en la wifi de casa (192.168.x, 10.x), con el hotspot del iPhone (el Mac queda en 172.20.10.x) y con el nombre Bonjour del Mac (`http://nombre-del-mac.local:5174`).
@@ -160,7 +160,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 - **Reportes:** la salida completa queda en `rappi-scraper/data/logs/launchd.*.log` y el reporte de calidad en `rappi-scraper/data/reports/`.
 - **`rappi refresh` lanzado a mano:** `./scripts/despues-del-refresh.sh` en `rappi-ia/` espera a que termine y corre `make post-refresh`. A diferencia de la tarea semanal, recalibra τ en `thresholds.json`: si cambia, revisar y hacer commit.
 
-## Operación
+## 7. Operación
 
 - **Jobs fallidos en una corrida** (el reporte los lista; a veces Rappi entrega páginas incompletas por un rato):
 
@@ -181,3 +181,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
   - como comando de inicio, `SET default_transaction_read_only = on;`.
 
   Consultas de ejemplo: [sql/](sql/).
+
+## 8. Despliegue
+
+En un servidor Linux (Docker Compose, Caddy con TLS y puerta de acceso, roles de base separados, respaldos fuera del equipo): [despliegue.md](despliegue.md).

@@ -277,9 +277,9 @@ def _vector(
             params,
         ).fetchall()
         return [((t, i), float(c)) for t, i, c in rows]
-    conn.execute(  # los dos SET de la sesión en una sola consulta
-        f"SELECT set_config('hnsw.ef_search', '{CANDIDATES}', false), "
-        "set_config('hnsw.iterative_scan', 'relaxed_order', false)"
+    conn.execute(  # SET LOCAL de los dos en una sola consulta: solo esta transacción (la conexión vuelve a un pool)
+        f"SELECT set_config('hnsw.ef_search', '{CANDIDATES}', true), "
+        "set_config('hnsw.iterative_scan', 'relaxed_order', true)"
     )
     rows = conn.execute(
         f"""SELECT entity_type, entity_id, 1 - ({distance}) AS cosine

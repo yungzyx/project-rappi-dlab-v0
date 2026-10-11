@@ -67,6 +67,11 @@ describe('Home de «Rappi hoy»', () => {
     expect(document.querySelector('.search-bar')).not.toBeNull()
   })
 
+  test('la Home muestra el aviso de demo no oficial', () => {
+    renderHome()
+    expect(screen.getByText('Demo no oficial · prototipo independiente, no afiliado a Rappi')).toBeTruthy()
+  })
+
   test('RappiFavor sigue no disponible, como en la app', () => {
     renderHome()
     expect(screen.getByLabelText('RappiFavor (no disponible)')).toBeTruthy()

@@ -1,5 +1,5 @@
-// Id seudónimo de este navegador, compartido por quienes hablan con la API (eventos, preguntas, pedidos, «Para ti»).
-// Los ayudantes de almacenamiento también los usa la sesión de EventsContext.
+// Id seudónimo de este navegador, compartido por quienes hablan con la API (eventos, preguntas, pedidos, «Para ti»), y
+// el token que lo firma. Los ayudantes de almacenamiento también los usa la sesión de EventsContext.
 
 const USER_KEY = 'rappi-proto-user'
 
@@ -26,19 +26,64 @@ export function writeStore(storage, key, value) {
   }
 }
 
-/** Id seudónimo de este navegador (no es una cuenta ni un dato personal). */
+// La sesión de este navegador: el id que dio la API (`POST /session`) y su token firmado, que va en X-User-Token. Sin
+// almacenamiento (el navegador lo bloquea), vive en memoria mientras la pestaña siga abierta.
+const TOKEN_KEY = 'rappi-proto-token'
+const memory = new Map()
+
+function load(key) {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return memory.get(key) ?? null
+  }
+}
+
+function save(key, value) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    memory.set(key, value)
+  }
+}
+
+function drop(key) {
+  memory.delete(key)
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // Sin almacenamiento no hay nada que borrar.
+  }
+}
+
+/**
+ * Id seudónimo de este navegador (no es una cuenta ni un dato personal). Lo da la API con la sesión. Si se perdió, se
+ * inventa uno sin token (un token que quedó es de otro id: con él todo daría 403); el primer 401 pide la sesión.
+ */
 export function userId() {
-  let id = readStore(localStorage, USER_KEY)
+  let id = load(USER_KEY)
   if (!id) {
+    drop(TOKEN_KEY)
     id = randomId('proto')
-    writeStore(localStorage, USER_KEY, id)
+    save(USER_KEY, id)
   }
   return id
 }
 
-/** Id nuevo para este navegador (tras «Borrar mis datos»): nada del anterior queda asociado a quien siga usando la app. */
-export function resetUserId() {
-  const id = randomId('proto')
-  writeStore(localStorage, USER_KEY, id)
-  return id
+/** El id guardado, sin crear uno (null si no hay): el «id viejo» que la primera sesión reclama. */
+export const storedUserId = () => load(USER_KEY)
+
+/** El token de la sesión (null sin sesión). */
+export const userToken = () => load(TOKEN_KEY)
+
+/** Guarda la sesión que dio la API: desde aquí, `userId()` es ese id. */
+export function saveSession({ user_id: id, token }) {
+  save(USER_KEY, id)
+  save(TOKEN_KEY, token)
+}
+
+/** Olvida el id y el token (tras «Borrar mis datos»): la próxima sesión es de una persona nueva. */
+export function clearSession() {
+  drop(USER_KEY)
+  drop(TOKEN_KEY)
 }

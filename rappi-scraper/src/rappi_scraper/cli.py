@@ -16,7 +16,9 @@ Flujo típico:
 import argparse
 import json
 import logging
+import os
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -24,7 +26,7 @@ from . import config
 from .keep_awake import keep_awake
 from .legacy.csv_format import OUTPUT_DIR as LEGACY_CSV_DIR
 from .legacy.csv_io import export_catalog_csv, import_legacy_csv
-from .lock import DownloadInProgress, download_lock
+from .lock import DownloadInProgress, database_lock, file_lock
 from .pipeline.discover import (
     VERTICAL_LISTINGS,
     city_locations,
@@ -40,12 +42,14 @@ from .reporting import render_markdown, write_run_report
 from .scraping.client import RappiClient
 from .storage import repository
 from .storage.backup import backup_database
-from .storage.db import PendingMigrations, check_migrations, connect, database_url, migrate
+from .storage.db import APPLIED_BY_DEPLOY, PendingMigrations, check_migrations, connect, database_url, migrate
 from .storage.search import VERTICALS, build_search_documents, search
 
 log = logging.getLogger("rappi_scraper")
 
 LOGS_DIR = config.DATA_DIR / "logs"
+# Los logs de cada comando largo (`refresh_…log`, `backup_…log`) se borran pasadas estas semanas (LOG_RETENTION_WEEKS).
+LOG_RETENTION_WEEKS = 8
 # Log a archivo, Mac despierto y el candado de descargas: los que descargan de rappi.cl, y `backup`, que no debe correr
 # junto al respaldo de `refresh` (se pisaban al rotar).
 LONG_COMMANDS = {"discover", "scrape-stores", "scrape-restaurants", "refresh", "backup"}
@@ -230,7 +234,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Base de datos de contenido de Rappi Chile por vertical")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("migrate", help="Aplicar migraciones pendientes")
+    p = sub.add_parser("migrate", help="Aplicar migraciones pendientes")
+    p.add_argument(
+        "--solo-revisar",
+        action="store_true",
+        help="No aplica nada: falla si falta una (la tarea semanal en producción; las aplica el despliegue)",
+    )
 
     p = sub.add_parser("discover", help="Descubrir tiendas por vertical y restaurantes; crea la cola")
     p.add_argument(
@@ -299,6 +308,27 @@ COMMANDS = {
 }
 
 
+def prune_old_logs(logs_dir: Path) -> list[Path]:
+    """Borra los `<comando>_<fecha>.log` con más de LOG_RETENTION_WEEKS semanas (mínimo 1). Los de launchd
+    (`launchd.*.log`, los rota refresh-semanal.sh) y ultimo-estado.txt no son de un comando y quedan. Nunca hace fallar
+    el comando: un valor mal escrito usa el de siempre y un log que otro proceso borró en el camino se salta."""
+    try:
+        weeks = max(1, int(os.environ.get("LOG_RETENTION_WEEKS") or LOG_RETENTION_WEEKS))
+    except ValueError:
+        log.warning("LOG_RETENTION_WEEKS no es un número de semanas: uso %d.", LOG_RETENTION_WEEKS)
+        weeks = LOG_RETENTION_WEEKS
+    cutoff = time.time() - weeks * 7 * 86400
+    removed = []
+    for path in logs_dir.glob("*_*.log"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed.append(path)
+        except OSError as exc:
+            log.warning("No pude borrar el log antiguo %s (%s): sigo.", path.name, type(exc).__name__)
+    return removed
+
+
 def _setup_logging(command: str) -> None:
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     if command in LONG_COMMANDS:
@@ -310,15 +340,16 @@ def _setup_logging(command: str) -> None:
     )
     if command in LONG_COMMANDS:
         log.info("Log en %s", log_path)
+        prune_old_logs(LOGS_DIR)  # después de configurar el log: sus avisos quedan en el archivo
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     try:
-        if args.command in LONG_COMMANDS:  # una a la vez (sin candado, ni log)
-            with download_lock():
-                _setup_logging(args.command)
-                with keep_awake(), connect() as conn:
+        if args.command in LONG_COMMANDS:  # una a la vez (sin el candado de archivo, ni log)
+            with file_lock():
+                _setup_logging(args.command)  # antes del candado de la base: su aviso queda en el log
+                with database_lock(), keep_awake(), connect() as conn:
                     COMMANDS[args.command](conn, args)
         else:
             _setup_logging(args.command)
@@ -334,6 +365,9 @@ def _run_simple(args) -> None:
     with connect() as conn:
         if args.command in COMMANDS:
             COMMANDS[args.command](conn, args)
+        elif args.command == "migrate" and args.solo_revisar:
+            check_migrations(conn, APPLIED_BY_DEPLOY)
+            print("Migraciones al día.")
         elif args.command == "migrate":
             print("Aplicadas:", migrate(conn) or "ninguna (al día)")
         elif args.command == "build-search":

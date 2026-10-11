@@ -34,3 +34,33 @@ def test_schedule_status_shows_the_newest_backup(tmp_path):
 
 def test_schedule_status_says_when_there_is_no_backup_yet(tmp_path):
     assert "Respaldo más nuevo (data/backups/):\n  ninguno todavía" in _schedule_status(tmp_path)
+
+
+def _make(project: Path, *args: str) -> subprocess.CompletedProcess:
+    shutil.copy(MAKEFILE, project / "Makefile")
+    # Nunca el ~/Library/LaunchAgents ni el launchd de verdad, aunque el Makefile se equivoque.
+    fakes = project / "fakes"
+    fakes.mkdir()
+    for tool in ("launchctl", "plutil"):
+        (fakes / tool).write_text(f'#!/bin/sh\necho "{tool} $*" >> "{project}/calls.txt"\n')
+        (fakes / tool).chmod(0o755)
+    env = {**os.environ, "HOME": str(project / "home"), "PATH": f"{fakes}:{os.environ['PATH']}"}
+    return subprocess.run(["make", "-s", *args], cwd=project, env=env, capture_output=True, text=True)
+
+
+def test_schedule_on_linux_points_to_systemd(tmp_path):
+    """En el servidor la tarea semanal es un timer de systemd: `make schedule` no intenta launchd y lo dice."""
+    result = _make(tmp_path, "schedule", "UNAME=Linux")
+
+    assert result.returncode != 0
+    assert "deploy/systemd/" in result.stdout
+    assert not (tmp_path / "home").exists()
+    assert not (tmp_path / "calls.txt").exists()
+
+
+def test_schedule_on_macos_is_unchanged(tmp_path):
+    result = _make(tmp_path, "-n", "schedule", "UNAME=Darwin")
+
+    assert result.returncode == 0, result.stderr
+    assert "scripts/launchd/cl.rappi.refresh.plist.template" in result.stdout
+    assert "launchctl bootstrap" in result.stdout

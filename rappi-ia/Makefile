@@ -1,13 +1,15 @@
-.PHONY: help install install-ml db-test migrate check-migrations test lint format jev-categorias concepts knowledge embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
+.PHONY: help install install-ml db-test migrate check-migrations verify-migrations deploy-migrate test lint format jev-categorias concepts knowledge embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
 # (Homebrew: `brew install python@3.13`, que solo instala `python3.13`).
 PYTHON ?= $(shell command -v python3.13 || command -v python3)
-PG_BIN := $(shell brew --prefix 2>/dev/null)/opt/postgresql@17/bin
+# Los comandos de Postgres: en macOS, los de postgresql@17 de Homebrew (no quedan en el PATH); sin brew (Linux, el
+# contenedor jobs), los del PATH.
+PG_BIN := $(if $(shell command -v brew),$(shell brew --prefix)/opt/postgresql@17/bin,$(patsubst %/,%,$(dir $(shell command -v createdb))))
 
 help:  ## Muestra esta ayuda
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-14s %s\n", $$1, $$2}'
 
 install:  ## Crea .venv con rappi-scraper (esquema) + API + dev (sin modelos)
 	$(PYTHON) -m venv .venv
@@ -23,6 +25,9 @@ db-test:  ## Crea la base de tests propia (rappi_ia_test)
 
 migrate:  ## Aplica migraciones pendientes (viven en rappi-scraper)
 	$(PY) -m rappi_ia migrate
+
+deploy-migrate:  ## Paso del despliegue: respalda si hay migraciones pendientes, migra, tarjetas y permisos (DB_API_ROLE)
+	$(PY) -m rappi_ia deploy-migrate
 
 # Sin «##»: no sale en `make help` (la guardia de serve, serve-lan y make mvp; no se corre a mano). MIGRATE=1 la fuerza.
 check-migrations:
@@ -79,11 +84,17 @@ HF_OFFLINE := $(shell for m in $(HF_MODELS); do test -d "$(HF_CACHE)/models--$$m
 # lo que muestra productos respondía 500). Antes de migrar, check-migrations se niega a aplicar a la base real las
 # migraciones de una rama sin fusionar (se registran por nombre de archivo: una editada después no se vuelve a aplicar).
 # Después de migrar cargan las tarjetas del juego (knowledge, idempotente): sin ellas una ronda no tiene datos.
-serve: check-migrations migrate knowledge  ## API en http://localhost:8000, solo este Mac (docs en /docs)
-	$(HF_OFFLINE) $(PY) -m uvicorn rappi_ia.api.app:app --host 127.0.0.1 --port 8000
+# Con API_ENV=production (en el entorno o en el archivo que lee la API: RAPPI_ENV_FILE o .env) no hacen nada de eso:
+# migrar es un paso del despliegue (`make deploy-migrate`, que respalda antes) y, mientras falte, /health da 503.
+DOTENV ?= $(or $(RAPPI_ENV_FILE),.env)
+API_ENV ?= $(shell sed -n 's/^API_ENV=//p' $(DOTENV) 2>/dev/null | tr -d "\"'" | tail -n 1)
+SERVE_PREP := $(if $(filter production,$(API_ENV)),,check-migrations migrate knowledge)
 
-serve-lan: check-migrations migrate knowledge  ## API abierta a la red local (para el iPhone). Sin autenticación: solo en una red de confianza
-	$(HF_OFFLINE) API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --host 0.0.0.0 --port 8000
+serve: $(SERVE_PREP)  ## API en http://localhost:8000, solo este Mac (docs en /docs)
+	$(HF_OFFLINE) $(PY) -m uvicorn rappi_ia.api.app:app --no-access-log --host 127.0.0.1 --port 8000
+
+serve-lan: $(SERVE_PREP)  ## API en la red local (iPhone). Sin puerta de acceso (cada persona, su token firmado): solo red de confianza
+	$(HF_OFFLINE) API_ALLOW_LAN=1 $(PY) -m uvicorn rappi_ia.api.app:app --no-access-log --host 0.0.0.0 --port 8000
 
 # Las frases del guion (docs/demo.md) sin user_id: no se registran. Frío, «una hamburguesa» tarda 2 a 5 s; caliente, 0,3 s.
 API ?= http://localhost:8000
@@ -104,7 +115,7 @@ FRASES ?=
 probar-agente:  ## Prueba al agente con las frases de usuarios (con la API corriendo; ver docs/pruebas-de-usuario.md)
 	@$(PY) scripts/probar_agente.py $(FRASES)
 
-purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/diseno-ia.md §2)
+purge:  ## Borra el texto de consultas con más de 90 días (docs/diseno-ia.md §2) y a las personas del prototipo sin actividad en 180
 	$(PY) -m rappi_ia purge
 
 layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las etapas del plan)
@@ -119,9 +130,13 @@ layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las 
 layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.md)
 	$(PY) -m rappi_ia layer-report
 
+# Sin «##»: lo usa post-refresh en producción, donde migrar sin respaldo no corresponde (lo hace deploy-migrate).
+verify-migrations:
+	$(PY) -m rappi_ia migrate --solo-revisar
+
 # purge va primero, para que la retención de 90 días se cumpla aunque falle un paso posterior, y otra vez al final
-# para los eventos simulados que synth acaba de generar.
-post-refresh: migrate purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
+# para los eventos simulados que synth acaba de generar. En producción (API_ENV=production) no migra: solo revisa.
+post-refresh: $(if $(filter production,$(API_ENV)),verify-migrations,migrate) purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
 	$(MAKE) jev-categorias concepts knowledge embed eval synth layers
 	$(MAKE) purge
 	@echo "Listo: conceptos, tarjetas del juego, embeddings, evaluación y datos simulados al día."

@@ -4,6 +4,6 @@
   "capacidades": {
     "busqueda_semantica": "intfloat/multilingual-e5-base",
     "redaccion": "plantillas",
-    "faltantes": {}
+    "faltantes": []
   }
 }

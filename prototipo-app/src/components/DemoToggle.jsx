@@ -5,6 +5,8 @@ import './demo-toggle.css'
 /** Interruptor de los dos modos fuera del marco del teléfono (solo en notebook). En el prototipo final, repetir la escena. */
 export default function DemoToggle() {
   const demo = useDemo()
+  // El interruptor es de la presentación: el sitio desplegado lo muestra solo con VITE_DEMO=1 en el build.
+  if (!(import.meta.env.DEV || import.meta.env.VITE_DEMO === '1')) return null
 
   return (
     <div className="demo-toggle">

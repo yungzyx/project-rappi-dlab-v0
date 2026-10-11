@@ -240,6 +240,8 @@ class RappiAgent:
         unmet = not intent.symptom and not products and outcome.result.unmet and outcome.cheapest_without_filter is None
         draft = self._draft(intent, vertical, products, outcome, suggestion, unmet)
         also_in = None if intent.symptom else self._also_in(conn, ctx, intent, products, vertical, offer)
+        if self.composer.remote:  # Claude tarda segundos: la conexión no queda «idle in transaction» mientras redacta
+            conn.commit()
         text = self.composer.compose(draft)
         if missing and products:
             text = _moved(missing[0], vertical, missing[1], missing[2]) + text

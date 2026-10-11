@@ -7,9 +7,9 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
 
 from conftest import add_price, add_product, add_store
+from owner_client import OwnerClient
 from rappi_ia.api import app as api
 from rappi_ia.concepts.store import seed_taxonomy
 from rappi_ia.concepts.taxonomy import load_taxonomy
@@ -47,7 +47,7 @@ def client(db):
 
     api.app.dependency_overrides[api.get_conn] = conn_override
     api.app.dependency_overrides[api.get_connector] = lambda: _shared(db)
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 
@@ -118,6 +118,7 @@ def test_two_orders_in_a_row_do_not_collide(client, db, test_url, caplog):
 
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
     assert len([r for r in caplog.records if "Segmentos recalculados" in r.getMessage()]) == 2
+    assert not [r for r in caplog.records if "u1" in r.getMessage()]  # sin el id de la persona en el registro
     db.rollback()  # una foto nueva: lo que guardaron las otras conexiones
     assert _segments(db, "u1")["snacks-salados"] == 5
 
@@ -175,7 +176,7 @@ def test_recalculation_error_does_not_break_the_order(client, db, caplog):
 
     assert db.execute("SELECT count(*) FROM app_orders WHERE order_id = %s", (order_id,)).fetchone()[0] == 1
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-    assert len(warnings) == 1 and "u1" in warnings[0].getMessage()
+    assert len(warnings) == 1 and "u1" not in warnings[0].getMessage()  # sin el id de la persona
 
 
 def test_segment_rules_are_cached(tmp_path):
@@ -297,7 +298,7 @@ def test_a_client_without_its_own_connector_never_opens_the_real_db(db, real_db_
     api.app.dependency_overrides[api.get_conn] = conn_override
     try:
         with caplog.at_level(logging.WARNING, logger=segments.__name__):
-            order_id = post_order(TestClient(api.app), "u1", "c-api-1")
+            order_id = post_order(OwnerClient(api.app), "u1", "c-api-1")
     finally:
         api.app.dependency_overrides.clear()
 

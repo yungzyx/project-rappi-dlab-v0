@@ -8,11 +8,12 @@ import sys
 import types
 from contextlib import contextmanager
 
+import anyio
 import pytest
-from fastapi.testclient import TestClient
 from psycopg import DataError
 from psycopg.errors import QueryCanceled
 
+from owner_client import OwnerClient
 from rappi_ia.api import app as api
 from rappi_ia.api import deps, services
 
@@ -55,7 +56,7 @@ def client(conn):
     agent = types.SimpleNamespace(reply=lambda *_: dict(ANSWER))
     api.app.dependency_overrides[api.get_conn] = lambda: conn
     api.app.dependency_overrides[api.get_services] = lambda: types.SimpleNamespace(agent=agent)
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 
@@ -170,8 +171,8 @@ def test_startup_runtime_error_goes_to_faltantes(monkeypatch):
 
     monkeypatch.setattr(services, "default_composer", broken_composer)
     loaded = services._load_services.__wrapped__()
-    assert loaded.embedder is None and "MPS backend out of memory" in loaded.missing["ml"]
-    assert loaded.agent.composer.name == "plantillas" and "redaccion" in loaded.missing
+    assert loaded.embedder is None and "MPS backend out of memory" in loaded.missing["busqueda_semantica"]
+    assert loaded.agent.composer.name == "plantillas" and "redaccion_llm" in loaded.missing
 
 
 def test_each_request_class_has_its_own_statement_timeout(monkeypatch):
@@ -182,14 +183,19 @@ def test_each_request_class_has_its_own_statement_timeout(monkeypatch):
         def execute(self, query, params=None):
             sent.append(params)
 
-    @contextmanager
-    def fake_connect(**_):
-        yield Recorder()
+    class Pool:
+        @contextmanager
+        def connection(self, timeout=None):
+            yield Recorder()
 
-    monkeypatch.setattr(deps, "connect", fake_connect)
-    opened = deps.get_conn()
-    conn = next(opened)
-    assert sent == [("5000ms",)] and conn.commits == 1
-    deps.get_analytics_conn(conn)
-    assert sent[-1] == ("30000ms",)
-    opened.close()
+    monkeypatch.setattr(deps, "_pool", Pool())
+
+    async def check():
+        opened = deps.get_conn()
+        conn = await anext(opened)
+        assert sent == [("5000ms",)] and conn.commits == 1
+        deps.get_analytics_conn(conn)
+        assert sent[-1] == ("30000ms",)
+        await opened.aclose()
+
+    anyio.run(check)

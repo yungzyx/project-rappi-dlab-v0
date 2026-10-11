@@ -25,6 +25,23 @@ def test_rotate_backups_keeps_newest(tmp_path):
     assert (tmp_path / "otro.txt").exists()
 
 
+def test_backups_before_migrating_rotate_apart_from_the_weekly_ones(monkeypatch, tmp_path):
+    """Los de `rappi-ia deploy-migrate` llevan otro prefijo: varios despliegues seguidos no expulsan los semanales, y
+    uno que coincida con el de `refresh` nunca escribe el mismo archivo."""
+    for i in range(4):
+        _touch(tmp_path / f"rappi_2026090{i}.dump", mtime=1_000 + i)
+    for i in range(4):
+        _touch(tmp_path / f"pre-migracion_2026090{i}.dump", mtime=2_000 + i)
+    _fake_tools(monkeypatch)
+
+    path = backup.backup_database("postgresql:///rappi", backups_dir=tmp_path, keep=4, prefix="pre-migracion")
+
+    assert path.name.startswith("pre-migracion_")
+    assert len(list(tmp_path.glob("rappi_*.dump"))) == 4
+    assert not (tmp_path / "pre-migracion_20260900.dump").exists()
+    assert len(list(tmp_path.glob("pre-migracion_*.dump"))) == 4
+
+
 def test_find_pg_dump_prefers_env(monkeypatch, tmp_path):
     fake = tmp_path / "pg_dump"
     fake.write_text("")

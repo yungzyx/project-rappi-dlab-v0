@@ -21,8 +21,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
 
+from owner_client import OwnerClient
 from rappi_ia import config
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
@@ -176,6 +176,9 @@ CONTRACT: tuple[Example, ...] = (
         },
     ),
     Example("game-state", "GET", "/game/state/u-contrato", after="game-state-put"),
+    # Se reclama el id viejo de un navegador (de antes de la sesión firmada): la respuesta no cambia en cada corrida.
+    # El token sale del secreto de los tests (tests/conftest.py), que no sirve fuera de ellos.
+    Example("session", "POST", "/session", {"legacy_user_id": "proto-0123456789abcdef"}),
 )
 
 
@@ -211,7 +214,7 @@ def client(db, monkeypatch):
     api.app.dependency_overrides[api.get_services] = lambda: Services(
         RappiAgent(embedder, TemplateComposer()), embedder
     )
-    test_client = TestClient(api.app)
+    test_client = OwnerClient(api.app)
     # Un perfil con un interés (pizza) para que /recommendations tenga filas que mostrar.
     interest = {
         "type": "search",
@@ -232,6 +235,9 @@ def client(db, monkeypatch):
     # (otro usuario, sin progreso) la que lo trae. `game-state-put` reemplaza este estado, así que no lo afecta.
     discovered = {**GAME_STATE, "discovered": {"restaurantes": ["restaurantes-01"]}, "cards": ["restaurantes-01"]}
     assert test_client.put("/game/state/u-contrato", json={"state": discovered}).status_code == 200
+    # Una persona de antes de la identidad firmada, para el ejemplo de `/session`.
+    db.execute("INSERT INTO app_users (user_id, source) VALUES ('proto-0123456789abcdef', 'prototype')")
+    db.commit()
     yield test_client
     api.app.dependency_overrides.clear()
 

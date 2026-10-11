@@ -29,7 +29,7 @@ La carpeta trae además una página de presentación de la propuesta (`presentac
 
 Desde la raíz del repositorio:
 
-1. Levantar la API de `rappi-ia` y esperar a «Application startup complete» (carga los modelos al arrancar). El panel la busca por defecto en `http://localhost:8000`:
+1. Levantar la API de `rappi-ia` y esperar a «Application startup complete» (carga los modelos al arrancar). El panel la busca por defecto en el mismo host desde el que se abrió la página, puerto 8000 (`http://localhost:8000`):
 
    ```bash
    cd rappi-ia
@@ -44,7 +44,7 @@ Desde la raíz del repositorio:
    npm run dev          # http://localhost:5175
    ```
 
-La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://localhost:8001 npm run dev` o en `.env.local`. La API ya acepta peticiones desde `localhost:51xx` (CORS). Para abrir el panel desde el iPhone hace falta `VITE_API_URL` con la dirección del Mac, porque por defecto busca la API en `localhost`.
+La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://localhost:8001 npm run dev` o en `.env.local`. La API ya acepta peticiones desde `localhost:51xx` (CORS). Desde el iPhone (`make mvp LAN=1`) no hace falta configurar nada: busca la API en el mismo host. En el build de producción, sin `VITE_API_URL`, la busca en `/api` (el mismo origen); `PANEL_BASE=/panel/` lo construye para servirlo bajo una subruta. En un servidor el panel es opcional: se construye en `/panel/` con `WITH_PANEL=1` y necesita `API_ENABLE_ANALYTICS=1`, porque en producción `/analytics` viene apagado ([docs/despliegue.md](../docs/despliegue.md)).
 
 **Sin la API** el panel funciona con datos **simulados** y con el catálogo: cada consulta que falla, o que tarda más de 30 s, cae a la respuesta guardada en `src/fixtures/`. Cada archivo trae su `guardado` (`origen` y `fecha`), y el aviso «Modo sin conexión (datos guardados)» lo cita, además de decir qué consultas fallaron y por qué; en «Uso del MVP» cada bloque lo repite. Con la fuente **Prototipo** no hay respaldo: el uso del MVP solo se ve con la base viva, y sin la API cada bloque dice «La API no responde» (las cifras guardadas serían de un recorrido de prueba, no de nadie). Trae un botón *Reintentar*.
 

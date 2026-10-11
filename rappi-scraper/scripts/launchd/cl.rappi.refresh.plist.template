@@ -8,7 +8,7 @@
     <string>cl.rappi.refresh</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/zsh</string>
+        <string>/bin/bash</string>
         <string>__PROJECT__/scripts/refresh-semanal.sh</string>
     </array>
     <key>WorkingDirectory</key>

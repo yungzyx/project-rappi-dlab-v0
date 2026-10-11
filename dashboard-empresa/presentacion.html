@@ -10,20 +10,14 @@
     />
     <title>Recomendaciones entre verticales · Propuesta para Rappi Chile</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <script>
-      try {
-        const theme = localStorage.getItem('panel-empresa:tema')
-        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme
-      } catch {
-        // Sin almacenamiento se sigue al sistema.
-      }
-    </script>
+    <!-- El tema elegido, antes de pintar (public/tema.js: síncrono, bajo la base del panel, / o /panel/; vite-ignore: Vite no lo empaqueta) -->
+    <script vite-ignore src="%BASE_URL%tema.js"></script>
     <script type="module" src="/src/presentacion.js"></script>
   </head>
   <body class="landing">
     <header class="masthead-lite">
       <div class="container masthead-lite-inner">
-        <a class="wordmark" href="/presentacion.html" aria-label="Inicio de la propuesta">
+        <a class="wordmark" href="presentacion.html" aria-label="Inicio de la propuesta">
           <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
             <rect width="32" height="32" rx="9" />
             <path class="brand-bar" d="M9 22v-5" />
@@ -39,7 +33,7 @@
           <a href="#resultados">Resultados</a>
           <a href="#limites">Límites</a>
         </nav>
-        <a class="button button--primary" href="/">Abrir el panel</a>
+        <a class="button button--primary" href="./">Abrir el panel</a>
       </div>
     </header>
 
@@ -53,7 +47,7 @@
             sus búsquedas: entender al usuario a través de conceptos comunes y recomendar en el vertical correcto.
           </p>
           <div class="hero-actions">
-            <a class="button button--primary" href="/">Ver el panel de negocio</a>
+            <a class="button button--primary" href="./">Ver el panel de negocio</a>
             <a class="button button--ghost" href="#propuesta">Cómo funciona</a>
           </div>
         </div>
@@ -177,7 +171,7 @@
           </div>
         </dl>
         <figure class="diagram">
-          <a href="/presentacion/mapa-multivertical.html" aria-label="Abrir el mapa multivertical interactivo">
+          <a href="presentacion/mapa-multivertical.html" aria-label="Abrir el mapa multivertical interactivo">
             <img
               src="/presentacion/mapa-conceptos.jpg"
               width="1524"
@@ -192,7 +186,7 @@
           </figcaption>
         </figure>
         <p class="red-cta">
-          <a class="button button--ghost" href="/presentacion/mapa-multivertical.html">Abrir el mapa interactivo</a>
+          <a class="button button--ghost" href="presentacion/mapa-multivertical.html">Abrir el mapa interactivo</a>
         </p>
       </section>
 
@@ -264,7 +258,7 @@ cd dashboard-empresa &amp;&amp; npm ci &amp;&amp; npm run dev</code></pre>
               Postgres 17 con pgvector, Python 3.13 y un modelo local de texto (~1 GB). Mochi pasa a buscar en el
               catálogo real. La guía está en <code>docs/instalacion.md</code>.
             </p>
-            <a class="button button--ghost" href="/">Abrir el panel con datos guardados</a>
+            <a class="button button--ghost" href="./">Abrir el panel con datos guardados</a>
           </div>
         </div>
       </section>

@@ -35,6 +35,7 @@ GitHub muestra las imágenes; las versiones interactivas (HTML) hay que descarga
 | Flujo de datos | Las etapas de punta a punta: descarga → Postgres → IA offline → consulta → prototipo y panel | [rag-datos.png](diagramas/rag-datos.png) | [rag-datos.html](diagramas/rag-datos.html) |
 | Arquitectura de la IA | Catálogo y agente Mochi por carriles: datos offline, consulta online y entre verticales | [arquitectura-ia.png](diagramas/arquitectura-ia.png) | [arquitectura-ia.html](diagramas/arquitectura-ia.html) |
 | Scraper | Cómo `rappi refresh` descubre, descarga y guarda el catálogo | [scraper-flujo.png](diagramas/scraper-flujo.png) | [scraper-flujo.html](diagramas/scraper-flujo.html) |
+| Despliegue | El servidor: Caddy con la puerta, la API, Postgres, `migrate` y los trabajos con sus respaldos | [despliegue.png](diagramas/despliegue.png) | [despliegue.html](diagramas/despliegue.html) |
 | Mapa multivertical | Qué productos y conceptos comparten las verticales, con complementos, sustitutos y «nunca junto»; se regenera con `rappi-ia multivertical` | [mapa-conceptos.jpg](mapas/mapa-conceptos.jpg) | [mapa-multivertical.html](mapas/mapa-multivertical.html) |
 
 Las fuentes JSON de los diagramas están en [diagramas-fuente/](diagramas-fuente/) (se regeneran con la skill Archify).
@@ -54,6 +55,7 @@ Las fuentes JSON de los diagramas están en [diagramas-fuente/](diagramas-fuente
 |---|---|---|
 | Instalar el proyecto y dejarlo actualizándose cada semana | [instalacion.md](instalacion.md) | 10 min de lectura |
 | Levantar el MVP (`make mvp`), probarlo (`make mvp-check`) y qué hacer con «Sin conexión con Mochi» | [instalacion.md §5](instalacion.md#5-el-mvp) | 5 min |
+| Desplegar el MVP en un servidor (Docker Compose, Caddy con TLS y puerta, respaldos con restic) | [despliegue.md](despliegue.md) | 20 min |
 | Consultar la base con SQL | [sql/README.md](sql/README.md) y [consultas.sql](sql/consultas.sql) | 5 min |
 | Probar a Mochi (API) como usuario y dejar cada fallo como test | [pruebas-de-usuario.md](pruebas-de-usuario.md) | 3 min |
 | Trabajar en el código con un asistente de IA | [CLAUDE.md](../CLAUDE.md) | 2 min |

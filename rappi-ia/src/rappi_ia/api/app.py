@@ -6,18 +6,21 @@ make serve   →   http://localhost:8000/docs
 import json
 import logging
 import re
+import threading
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from dataclasses import replace
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Path, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from psycopg import Connection, DataError, Error, OperationalError
-from psycopg.errors import QueryCanceled
+from psycopg.errors import QueryCanceled, UndefinedTable
+from psycopg_pool import PoolTimeout
 from pydantic import Field, ValidationError, field_validator
 
 from .. import config
@@ -26,15 +29,20 @@ from ..agent.rappi_agent import PROTOTYPE_VERTICALS, Context
 from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
 from ..concepts.taxonomy import load_taxonomy
+from ..demo.doctor import pending_migrations
 from ..events import store as events
 from ..game.cards import did_you_know
 from ..layers.segments import recalculate_user_segments
 from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
+from . import deps, identity
 from .agent import router as agent_router
 from .catalog import router as catalog_router
 from .deps import Clean, backend_vertical, get_analytics_conn, get_conn, get_connector, get_services
 from .game import router as game_router
+from .identity import owner_in_path, owner_in_query, owner_of_body
+from .limits import TOO_MANY, MaxBodySize, RateLimit, busy, concurrency_cap
+from .logs import AccessLog, configure_logging, rejected, route_template
 from .services import Services, services
 
 log = logging.getLogger(__name__)
@@ -43,23 +51,38 @@ log = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Carga los modelos antes de «startup complete»: si no, los paga la primera petición (el /health del prototipo,
-    que se rinde a los 1,5 s y la app muestra «Sin conexión»)."""
-    start = time.perf_counter()
-    await run_in_threadpool(services)
-    # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
-    logging.getLogger("uvicorn.error").info("Servicios cargados en %.1f s", time.perf_counter() - start)
-    yield
+    que se rinde a los 1,5 s y la app muestra «Sin conexión»). El pool de conexiones vive lo mismo que la app.
+    Nunca migra: en local lo hacen `make serve` y `make mvp` antes de arrancarla; en producción, `rappi-ia
+    deploy-migrate` (con respaldo antes). Mientras falten migraciones, /health da 503 `migraciones_pendientes`."""
+    configure_logging(config.LOG_LEVEL)
+    identity.secret()  # sin API_SECRET en producción, la API no arranca
+    deps.open_pool()
+    try:
+        start = time.perf_counter()
+        await run_in_threadpool(services)
+        # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
+        logging.getLogger("uvicorn.error").info("Servicios cargados en %.1f s", time.perf_counter() - start)
+        yield
+    finally:
+        await run_in_threadpool(deps.close_pool)
 
 
+# Con API_DOCS apagado (producción) no hay /docs, /redoc ni /openapi.json: el esquema no se publica.
 app = FastAPI(
-    title="rappi-ia", version="0.1.0", description="El agente, búsqueda por vertical y panel empresa", lifespan=lifespan
+    title="rappi-ia",
+    version="0.1.0",
+    description="El agente, búsqueda por vertical y panel empresa",
+    lifespan=lifespan,
+    docs_url="/docs" if config.API_DOCS else None,
+    redoc_url="/redoc" if config.API_DOCS else None,
+    openapi_url="/openapi.json" if config.API_DOCS else None,
 )
 
 
 def cors_origin_regex(allow_lan: bool) -> str:
-    """Solo este Mac por defecto. La red local (iPhone) se abre con API_ALLOW_LAN=1 (`make serve-lan`): la API no
-    tiene autenticación, así que solo en una red de confianza. Redes privadas: 192.168/16, 10/8 y 172.16/12 (el
-    hotspot del iPhone da 172.20.10.x), más nombres `.local` (Bonjour)."""
+    """Solo este Mac por defecto. La red local (iPhone) se abre con API_ALLOW_LAN=1 (`make serve-lan`): fuera de los
+    datos de cada persona (que piden su token) la API es abierta, así que solo en una red de confianza. Redes
+    privadas: 192.168/16, 10/8 y 172.16/12 (el hotspot del iPhone da 172.20.10.x), más nombres `.local` (Bonjour)."""
     hosts = r"localhost|127\.0\.0\.1"
     if allow_lan:
         hosts += (
@@ -69,28 +92,78 @@ def cors_origin_regex(allow_lan: bool) -> str:
     return rf"http://({hosts}):51\d\d"
 
 
+# En producción no hay patrón: los orígenes son exactamente los de API_CORS_ORIGINS (ni localhost:51xx ni la red local).
+CORS_ORIGIN_REGEX = None if config.API_PRODUCTION else cors_origin_regex(config.API_ALLOW_LAN)
+
+
+def origin_allowed(origin: str) -> bool:
+    return origin in config.API_CORS_ORIGINS or (
+        CORS_ORIGIN_REGEX is not None and re.fullmatch(CORS_ORIGIN_REGEX, origin) is not None
+    )
+
+
+def is_same_origin(origin: str, host: str | None) -> bool:
+    """¿El Origin es el propio sitio? Con la API detrás del mismo dominio (proxy en /api), el navegador manda Origin
+    igual a la página, o sea al Host de la petición. Se compara solo el host y el puerto (tras un proxy con TLS la API
+    ve http y el navegador manda https). Un navegador no deja a una página ajena fingir el Host; un cliente que no es
+    un navegador puede mandar lo que quiera, pero también puede omitir el Origin."""
+    parts = urlsplit(origin)
+    return bool(host) and parts.scheme in ("http", "https") and parts.netloc.lower() == host.lower()
+
+
+# Sin tope por IP: en local, este Mac (la demo y `make mvp-check`). En producción nadie: tras un proxy que no pasa la
+# IP del cliente, todos llegarían como 127.0.0.1.
+NO_LIMIT_HOSTS = () if config.API_PRODUCTION else ("127.0.0.1", "::1")
+
+# Dentro de CORS (se agregan antes: el último queda por fuera), así un 413 o un 429 lleva sus cabeceras y la app lo lee.
+app.add_middleware(MaxBodySize, max_bytes=config.API_MAX_BODY_BYTES)
+app.add_middleware(
+    RateLimit,
+    per_minute=config.API_RATE_PER_MIN,
+    writes_per_minute=config.API_RATE_WRITE_PER_MIN,
+    exempt=NO_LIMIT_HOSTS,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.API_CORS_ORIGINS,
-    allow_origin_regex=cors_origin_regex(config.API_ALLOW_LAN),
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["content-type"],
+    allow_headers=["content-type", identity.TOKEN_HEADER.lower()],
 )
+app.add_middleware(AccessLog)  # el más externo: también los 413 y 429 llevan su id y su línea
+
+
+def _is_health(request: Request) -> bool:
+    """/health responde en su forma de readiness (`{"ok": false, "motivos": [...]}`) también cuando falla la base."""
+    return route_template(request) == "/health"
 
 
 @app.exception_handler(QueryCanceled)
 async def query_too_slow(request: Request, exc: QueryCanceled) -> JSONResponse:
     """Una consulta que pasó el statement_timeout (es un OperationalError, pero la base sí responde): 504, no «Sin
     conexión»."""
-    log.warning("Consulta cancelada por tiempo en %s: %s", request.url.path, exc)
+    log.warning("Consulta cancelada por tiempo en %s (%s)", route_template(request), _db_error(exc))
     return JSONResponse(status_code=504, content={"detail": "La consulta tardó demasiado"})
+
+
+@app.exception_handler(PoolTimeout)
+async def no_free_connection(request: Request, exc: PoolTimeout) -> JSONResponse:
+    """Ninguna conexión libre a tiempo. Si nadie tiene una ocupada, es que Postgres no responde (el pool no logra
+    conectarse); si no, la API está llena: 503 con Retry-After."""
+    if deps.connections_in_use() == 0:
+        return await database_unavailable(request, exc)
+    log.warning("Sin conexiones libres en %s", route_template(request))
+    error = busy()
+    content = {"ok": False, "motivos": ["saturada"]} if _is_health(request) else {"detail": error.detail}
+    return JSONResponse(status_code=error.status_code, content=content, headers=error.headers)
 
 
 @app.exception_handler(OperationalError)
 async def database_unavailable(request: Request, exc: OperationalError) -> JSONResponse:
     """Postgres caído o sin respuesta: un 503 claro y rápido (la app muestra «Sin conexión»), no un 500."""
     log.error("Base de datos no disponible: %s", exc)
-    return JSONResponse(status_code=503, content={"detail": "Base de datos no disponible"})
+    content = {"ok": False, "motivos": ["base"]} if _is_health(request) else {"detail": "Base de datos no disponible"}
+    return JSONResponse(status_code=503, content=content)
 
 
 @app.exception_handler(RequestValidationError)
@@ -109,13 +182,28 @@ def _db_error(exc: Error) -> str:
 @app.exception_handler(DataError)
 async def invalid_data(request: Request, exc: DataError) -> JSONResponse:
     """Un valor que Postgres no acepta (un \x00 en un parámetro de la URL): es un error de quien pide, no un 500."""
-    log.warning("Dato inválido en %s: %s", request.url.path, _db_error(exc))
+    log.warning("Dato inválido en %s: %s", route_template(request), _db_error(exc))
     return JSONResponse(status_code=400, content={"detail": "Dato inválido"})
 
 
 EMPTY_VERTICAL_FALLBACK = {"turbo": "conveniencia"}  # mismo tipo de tienda (minimarket con entrega rápida)
 MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
 MAX_EVENT_VALUE = 100_000_000  # un evento con valor (cart_add) es una línea del carro: el mismo tope que su precio
+
+# Cupos por ruta cara (config.API_MAX_CONCURRENT_*): el de /agent/offer vive en agent.py. Las de la app rechazan al
+# tiro; el panel pide ~16 métricas a la vez y hace fila hasta su tope (el mismo que su statement_timeout).
+ASK_CAP = concurrency_cap("ask", config.API_MAX_CONCURRENT_ASK)
+SEARCH_CAP = concurrency_cap("search", config.API_MAX_CONCURRENT_SEARCH)
+ORDERS_CAP = concurrency_cap("orders", config.API_MAX_CONCURRENT_ORDERS)
+ANALYTICS_CAP = concurrency_cap(
+    "analytics", config.API_MAX_CONCURRENT_ANALYTICS, wait_s=config.API_TIMEOUT_ANALYTICS_MS / 1000
+)
+# Personas nuevas por día de cada IP (`POST /session`): el mismo conteo por IP que el límite de requests, en un día.
+# `/session` corre en el threadpool (no en el event loop, como el middleware): su conteo va con candado.
+NEW_USERS = RateLimit(
+    None, per_minute=config.API_NEW_USERS_PER_IP_DAY, writes_per_minute=0, exempt=NO_LIMIT_HOSTS, window_s=86_400
+)
+_new_users_lock = threading.Lock()
 
 # Textos cortos de la URL (ids, conceptos, verticales, cocinas): el SQL va con parámetros, pero sin tope se aceptaba
 # un texto de cualquier largo.
@@ -177,6 +265,16 @@ class EventsIn(Clean):
     events: list[EventIn] = Field(max_length=200)
 
 
+class BeaconIn(EventsIn):
+    """El beacon no manda cabeceras (sendBeacon): el token de la persona va en el cuerpo."""
+
+    token: str | None = Field(default=None, max_length=200)
+
+
+class SessionIn(Clean):
+    legacy_user_id: str | None = Field(default=None, max_length=64)
+
+
 class OrderLineIn(Clean):
     entity_type: Literal["catalog_item", "menu_item"]
     entity_id: str = Field(max_length=64)
@@ -198,22 +296,54 @@ class OrderIn(Clean):
 
 
 # ── Agente ──────────────────────────────────────────────────────────────────
+@app.get("/live")
+def live() -> dict:
+    """Liveness del contenedor: el proceso responde. No toca la base ni los servicios (si Postgres cae, no hay nada que
+    reiniciar en la API)."""
+    return {"ok": True}
+
+
+def _count_documents(conn: Connection) -> int:
+    """Estimación de las estadísticas de Postgres: contar las ~250 mil filas leía ~390 MB en cada chequeo (el prototipo
+    lo pide cada 30 s y se rinde a los 1,5 s). Sin estadísticas todavía (base recién creada), se cuenta. Sin la tabla
+    (migraciones pendientes), no hay documentos."""
+    try:
+        with conn.transaction():
+            return (
+                conn.execute(
+                    """SELECT coalesce(sum(greatest(c.reltuples, 0)), 0)::bigint FROM pg_inherits i
+                   JOIN pg_class c ON c.oid = i.inhrelid WHERE i.inhparent = 'search_documents'::regclass"""
+                ).fetchone()[0]
+                or conn.execute("SELECT count(*) FROM search_documents").fetchone()[0]
+            )
+    except UndefinedTable:
+        return 0
+
+
 @app.get("/health")
-def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
-    # Estimación de las estadísticas de Postgres: contar las ~250 mil filas leía ~390 MB en cada chequeo (el prototipo
-    # lo pide cada 30 s y se rinde a los 1,5 s). Sin estadísticas todavía (base recién creada), se cuenta.
-    documents = (
-        conn.execute(
-            """SELECT coalesce(sum(greatest(c.reltuples, 0)), 0)::bigint FROM pg_inherits i
-           JOIN pg_class c ON c.oid = i.inhrelid WHERE i.inhparent = 'search_documents'::regclass"""
-        ).fetchone()[0]
-        or conn.execute("SELECT count(*) FROM search_documents").fetchone()[0]
-    )
+def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)):
+    """Readiness: 200 si la API puede atender (`ok`, documentos y capacidades), o 503 con `motivos`, códigos de lo que
+    falta (`base`, `saturada`, `sin_documentos`, `migraciones_pendientes`, `busqueda_semantica`): nunca texto de una
+    excepción ni rutas. La app lo cuenta como «sin conexión»."""
+    documents = _count_documents(conn)
+    reasons = []
+    if pending_migrations(conn):
+        reasons.append("migraciones_pendientes")
+    if documents == 0:
+        reasons.append("sin_documentos")
+    if config.API_REQUIRE_SEMANTIC and svc.embedder is None:
+        reasons.append("busqueda_semantica")
+    if reasons:
+        log.warning("La API no está lista: %s", ", ".join(reasons))
+        return JSONResponse(status_code=503, content={"ok": False, "motivos": reasons})
     return {"ok": True, "documentos": documents, "capacidades": svc.capabilities}
 
 
-@app.post("/agent/ask")
-def ask(body: AskIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
+@app.post("/agent/ask", dependencies=[Depends(ASK_CAP)])
+def ask(
+    body: AskIn, request: Request, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)
+) -> dict:
+    owner_of_body(request, body.user_id)
     ctx = _context(conn, body.vertical, body.user_id, body.profile, body.shown_topics, body.mode)
     if body.previous and body.previous.concepts:
         previous = body.previous.model_dump()
@@ -222,7 +352,7 @@ def ask(body: AskIn, conn: Connection = Depends(get_conn), svc: Services = Depen
     try:
         response = svc.agent.reply(conn, body.message, ctx)
     except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        raise rejected(exc, body.user_id) from exc
     _log_ask(conn, body.user_id, body.session_id, body.message, response, "texto", body.mode)
     concepts = (response.get("intent") or {}).get("concepts")
     if body.mode == "propuesta" and concepts:  # «¿Sabías que…?»: una oferta, así que no en «Rappi hoy»
@@ -241,7 +371,7 @@ GROUPED_SEARCH_LIMIT = 6  # por grupo
 VERTICAL_SEARCH_LIMIT = 10
 
 
-@app.get("/search")
+@app.get("/search", dependencies=[Depends(SEARCH_CAP)])
 def search(
     q: str = Query(min_length=1, max_length=200),
     vertical: ShortQuery | None = None,
@@ -267,7 +397,7 @@ def search(
             conn, code, q, None, svc.embedder, price_max, k=limit or VERTICAL_SEARCH_LIMIT, mode=mode
         )
     except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        raise rejected(exc) from exc
     return {
         "vertical": code,
         "products": [p.to_dict() for p in outcome.products],
@@ -276,7 +406,7 @@ def search(
     }
 
 
-@app.get("/recommendations")
+@app.get("/recommendations", dependencies=[Depends(owner_in_query)])
 def recommendations(
     user_id: ShortQuery,
     vertical: ShortQuery | None = None,
@@ -313,8 +443,25 @@ def recommendations(
     return {"user_id": user_id, "interests": interests[:5], "rows": rows}
 
 
-# ── Perfil y eventos ─────────────────────────────────────────────────────────
-@app.get("/profile/{user_id}")
+# ── Sesión, perfil y eventos ────────────────────────────────────────────────
+@app.post("/session")
+def new_session(body: SessionIn, request: Request, conn: Connection = Depends(get_conn)) -> dict:
+    """El id de este navegador y su token (X-User-Token). Un id viejo de la app (de antes de la identidad firmada) se
+    reclama una sola vez y conserva lo que ya tenía; si no, una persona nueva, con un tope por IP al día (429)."""
+    user_id = identity.claim_legacy(conn, body.legacy_user_id)
+    if user_id is None:
+        client = request.client
+        with _new_users_lock:
+            retry = NEW_USERS.wait(client.host if client else "", write=False)
+        if retry:
+            conn.rollback()
+            raise HTTPException(429, TOO_MANY, headers={"Retry-After": str(retry)})
+        user_id = identity.create_user(conn)
+    conn.commit()
+    return {"user_id": user_id, "token": identity.sign(user_id)}
+
+
+@app.get("/profile/{user_id}", dependencies=[Depends(owner_in_path)])
 def get_profile(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dict:
     taxonomy = load_taxonomy()
     scores = events.profile(conn, user_id)
@@ -328,7 +475,7 @@ def get_profile(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dic
     }
 
 
-@app.delete("/profile/{user_id}")
+@app.delete("/profile/{user_id}", dependencies=[Depends(owner_in_path)])
 def forget(user_id: ShortPath, concept: ShortQuery | None = None, conn: Connection = Depends(get_conn)) -> dict:
     deleted = events.forget(conn, user_id, concept)
     conn.commit()
@@ -336,59 +483,68 @@ def forget(user_id: ShortPath, concept: ShortQuery | None = None, conn: Connecti
 
 
 @app.post("/events")
-def post_events(body: EventsIn, conn: Connection = Depends(get_conn)) -> dict:
-    return {"guardados": _save_events(conn, body)}
+def post_events(body: EventsIn, request: Request, conn: Connection = Depends(get_conn)) -> dict:
+    owner_of_body(request, body.user_id)
+    return {"guardados": _save_events(lambda: nullcontext(conn), body)}
 
 
 @app.post("/events/beacon", status_code=204)
-async def post_events_beacon(request: Request, conn: Connection = Depends(get_conn)) -> None:
+async def post_events_beacon(request: Request, connector=Depends(get_connector)) -> None:
     """Lo que queda en cola al cerrar la pestaña (navigator.sendBeacon). Llega como text/plain, que no necesita
-    preflight de CORS; el contenido es el mismo JSON de /events."""
+    preflight de CORS; el contenido es el mismo JSON de /events, más el token de la persona (`token`: sendBeacon no
+    manda cabeceras). Valida el origen, el tamaño y el token antes de pedir una conexión: una página ajena no gasta
+    las del pool."""
     origin = request.headers.get("origin")
-    if (
-        origin
-        and origin not in config.API_CORS_ORIGINS
-        and not re.fullmatch(cors_origin_regex(config.API_ALLOW_LAN), origin)
-    ):  # text/plain no tiene preflight: sin esto, cualquier página abierta podía escribir eventos
+    # text/plain no tiene preflight: sin esta revisión, cualquier página abierta podía escribir eventos
+    if origin and not origin_allowed(origin) and not is_same_origin(origin, request.headers.get("host")):
         raise HTTPException(403, "Origen no permitido")
     raw = await request.body()
     if len(raw) > MAX_BEACON_BYTES:
         raise HTTPException(413, "Demasiados eventos")
     try:
-        body = EventsIn.model_validate_json(raw)
+        body = BeaconIn.model_validate_json(raw)
     except ValidationError as exc:
         raise HTTPException(422, "Eventos inválidos") from exc
-    await run_in_threadpool(_save_events, conn, body)
+    identity.require_user(body.user_id, identity.verify(body.token))
+    await run_in_threadpool(_save_events, connector, body)
 
 
-def _save_events(conn: Connection, body: EventsIn) -> int:
+def _save_events(connect, body: EventsIn) -> int:
+    """`connect()` da la conexión (la del request, o una del pool para el beacon): se pide después de revisar los
+    tipos."""
     if any(e.type not in events.CLIENT_EVENT_TYPES for e in body.events):
         raise HTTPException(400, "Tipo de evento no permitido")
-    try:
-        n = events.record(
-            conn,
-            [
-                events.Event(user_id=body.user_id, **{**e.model_dump(), "vertical": backend_vertical(e.vertical)})
-                for e in body.events
-            ],
-            source="prototype",
-        )
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    conn.commit()
+    with connect() as conn:
+        try:
+            n = events.record(
+                conn,
+                [
+                    events.Event(user_id=body.user_id, **{**e.model_dump(), "vertical": backend_vertical(e.vertical)})
+                    for e in body.events
+                ],
+                source="prototype",
+            )
+        except ValueError as exc:
+            raise rejected(exc, body.user_id) from exc
+        conn.commit()
     return n
 
 
-@app.post("/orders")
+# Alcance `function`: la conexión, su turno y el cupo se sueltan al terminar el endpoint. Con el de siempre (`request`)
+# FastAPI los suelta después de las tareas en segundo plano, y el recálculo pediría una segunda conexión con la primera
+# todavía tomada.
+@app.post("/orders", dependencies=[Depends(ORDERS_CAP, scope="function")])
 def post_order(
     body: OrderIn,
+    request: Request,
     background: BackgroundTasks,
-    conn: Connection = Depends(get_conn),
+    conn: Connection = Depends(get_conn, scope="function"),
     connector=Depends(get_connector),
 ) -> dict:
     """Guarda el pedido con el precio del catálogo en la tienda de cada línea (las que no tienen precio vigente quedan
     fuera y se cuentan en `lineas_omitidas`) y, ya respondido, recalcula los segmentos de esa persona (solo los suyos,
-    con otra conexión)."""
+    con otra conexión del pool, ya devuelta la del pedido)."""
+    owner_of_body(request, body.user_id)
     vertical = backend_vertical(body.vertical)
     if vertical is None:  # un pedido es de una tienda: sin vertical del catálogo no se puede guardar
         raise HTTPException(400, f"Vertical desconocido: {body.vertical}")
@@ -400,7 +556,7 @@ def post_order(
             conn, body.user_id, body.session_id, body.cart_id, vertical, lines, source="prototype", mode=body.mode
         )
     except ValueError as exc:  # un usuario de otra fuente (simulado)
-        raise HTTPException(400, str(exc)) from exc
+        raise rejected(exc, body.user_id) from exc
     conn.commit()
     if skipped:
         log.warning("Pedido %s: %d línea(s) sin precio vigente quedaron fuera", order_id, skipped)
@@ -441,12 +597,16 @@ ANALYTICS = {
 }
 
 
-@app.get("/analytics/catalog")
+# El panel: solo si API_ENABLE_ANALYTICS (apagado en producción, donde estas rutas responden 404). Se incluye al final.
+analytics_router = APIRouter(prefix="/analytics", dependencies=[Depends(ANALYTICS_CAP)])
+
+
+@analytics_router.get("/catalog")
 def analytics_catalog(conn: Connection = Depends(get_analytics_conn)) -> dict:
     return {"source": "catalogo_real", "data": queries.catalog_health(conn)}
 
 
-@app.get("/analytics/{name}")
+@analytics_router.get("/{name}")
 def analytics(
     name: str, source: Literal["synthetic", "prototype"] = "synthetic", conn: Connection = Depends(get_analytics_conn)
 ) -> dict:
@@ -504,6 +664,8 @@ def _log_ask(conn, user_id, session_id, text, response, modality, mode) -> None:
     conn.commit()
 
 
+if config.API_ENABLE_ANALYTICS:
+    app.include_router(analytics_router)
 app.include_router(catalog_router)
 app.include_router(agent_router)
 app.include_router(game_router)

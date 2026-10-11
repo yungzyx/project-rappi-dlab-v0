@@ -3,6 +3,7 @@
 
 import { VERTICAL_NAMES, routeForScreen, screenForBackend } from '../data/verticals'
 import { PLACEHOLDER_IMG } from '../components/Img'
+import { saveSession, storedUserId, userToken } from './user'
 
 const DEFAULT_PORT = 8000
 const HEALTH_TTL_MS = 30_000
@@ -10,9 +11,24 @@ const HEALTH_TIMEOUT_MS = 1500
 const DEFAULT_TIMEOUT_MS = 8_000 // más que esto, el público ya nota la espera: la pregunta al agente muestra «Sin conexión»
 const CONNECTION_TIMEOUT_MS = 5_000
 
-export const API_URL =
-  import.meta.env.VITE_API_URL ??
-  (typeof window !== 'undefined' ? `http://${window.location.hostname || 'localhost'}:${DEFAULT_PORT}` : '')
+/**
+ * Dónde está la API. `VITE_API_URL` manda (sin la barra final). Sin ella: en el build de producción, el mismo origen
+ * bajo `/api` (un proxy inverso la sirve); en desarrollo, el host desde donde se abrió la página en el puerto 8000
+ * (así el iPhone con `LAN=1` llega a la API del Mac).
+ */
+export function apiUrl(env, location) {
+  const configured = env.VITE_API_URL?.trim().replace(/\/+$/, '')
+  if (configured) return configured
+  if (env.PROD || !devApiUrl) return '/api'
+  return devApiUrl(location)
+}
+
+// Solo existe en desarrollo: el build de producción la descarta, y `dist/` no lleva rastros de «localhost» ni del puerto.
+const devApiUrl = import.meta.env.DEV
+  ? (location) => `http://${location?.hostname || 'localhost'}:${DEFAULT_PORT}`
+  : undefined
+
+export const API_URL = apiUrl(import.meta.env, typeof window !== 'undefined' ? window.location : undefined)
 
 let healthCache = { at: 0, value: null }
 
@@ -29,14 +45,56 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path, { method = 'GET', body, timeout = DEFAULT_TIMEOUT_MS, keepalive } = {}) {
+const SESSION_PATH = '/session'
+const TOKEN_HEADER = 'X-User-Token'
+
+/**
+ * Una petición a la API, con el token de la sesión en X-User-Token. Un 401 (el token no es de esta API, o se perdió)
+ * pide una sesión nueva y repite la petición una sola vez, como la persona de esa sesión: el id con que salió, en la
+ * ruta o en el `user_id` del cuerpo, pasa a ser el de la sesión. Si la sesión ya cambió mientras esta iba en camino
+ * (otra petición la renovó), no se pide otra: se repite con la actual.
+ */
+export async function request(path, options = {}) {
+  const sent = { id: storedUserId(), token: userToken() }
+  try {
+    return await send(path, options)
+  } catch (error) {
+    if (error.status !== 401 || path === SESSION_PATH) throw error
+    if (userToken() === sent.token) await renewSession()
+    const after = storedUserId()
+    if (!sent.id || sent.id === after) return send(path, options)
+    const body = options.body?.user_id === sent.id ? { ...options.body, user_id: after } : options.body
+    return send(path.split(encodeURIComponent(sent.id)).join(encodeURIComponent(after)), { ...options, body })
+  }
+}
+
+let renewing = null
+
+/**
+ * Pide a la API la sesión de este navegador (`POST /session`) con el id que ya tenía, que la API reclama una sola vez
+ * para no perder lo suyo; si no, la API da uno nuevo. Varias llamadas a la vez comparten la misma petición.
+ */
+export function renewSession() {
+  renewing ??= send(SESSION_PATH, { method: 'POST', body: { legacy_user_id: storedUserId() } })
+    .then(saveSession)
+    .finally(() => {
+      renewing = null
+    })
+  return renewing
+}
+
+/** La sesión de este navegador: la que ya tiene o, la primera vez, una nueva (la pide ConnectionGate al abrir). */
+export const ensureSession = () => (userToken() ? Promise.resolve() : renewSession())
+
+async function send(path, { method = 'GET', body, timeout = DEFAULT_TIMEOUT_MS, keepalive } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
+  const token = userToken()
   try {
     const response = await fetch(`${API_URL}${path}`, {
       method,
       body: body ? JSON.stringify(body) : undefined,
-      headers: body ? { 'content-type': 'application/json' } : undefined,
+      headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(token ? { [TOKEN_HEADER]: token } : {}) },
       signal: controller.signal,
       ...(keepalive ? { keepalive: true } : {}),
     })
@@ -116,11 +174,11 @@ export const sendOrder = (order) => request('/orders', { method: 'POST', body: o
 /**
  * Al cerrar la pestaña: envío que el navegador completa aunque la página se descargue. Va como text/plain a
  * /events/beacon (mismo JSON que /events): con application/json el navegador pediría un preflight CORS
- * que el beacon no puede hacer, y el envío se bloquearía.
+ * que el beacon no puede hacer, y el envío se bloquearía. sendBeacon no manda cabeceras: el token va en el cuerpo.
  */
 export function beaconEvents(userId, events) {
   if (typeof navigator === 'undefined' || !navigator.sendBeacon || events.length === 0) return false
-  const blob = new Blob([JSON.stringify({ user_id: userId, events })], { type: 'text/plain' })
+  const blob = new Blob([JSON.stringify({ user_id: userId, events, token: userToken() })], { type: 'text/plain' })
   return navigator.sendBeacon(`${API_URL}/events/beacon`, blob)
 }
 

@@ -1,3 +1,6 @@
+import logging
+from contextlib import contextmanager
+
 import pytest
 
 from rappi_ia.concepts.taxonomy import load_taxonomy
@@ -11,6 +14,7 @@ from rappi_ia.layers.segments import (
     METRICS,
     SENSITIVE_SEGMENTS,
     load_segment_rules,
+    recalculate_user_segments,
 )
 
 VERSION, RULES = load_segment_rules()
@@ -368,3 +372,41 @@ def test_evidence_also_drops_taxonomy_sensitive_concepts():
     rule = replace(BY_ID["cazaofertas"], min_signals=1, min_share=0.0, levels=_LOW)
     found = score_user([_signal(2, concept=sensitive_concept, discounted=True, price_percentile=0.5)], {}, [rule], NOW)
     assert found and found[0].evidence["top"] == []
+
+
+def test_a_failed_recalculation_is_logged_without_the_user_id(caplog):
+    """El aviso de un recálculo fallido queda en el registro, pero sin el id de la persona."""
+
+    @contextmanager
+    def broken():
+        raise RuntimeError("sin base")
+        yield
+
+    with caplog.at_level(logging.INFO, logger="rappi_ia.layers.segments"):
+        recalculate_user_segments(broken, "persona-123")
+
+    assert "No se pudieron recalcular los segmentos" in caplog.text
+    assert "persona-123" not in caplog.text
+
+
+def test_failed_recalculation_never_logs_the_persons_id(caplog):
+    """Un error de Postgres trae la fila en su texto (`Key (user_id)=(…)`): el aviso lleva su clase y su sqlstate,
+    sin el texto ni la traza."""
+    from contextlib import contextmanager
+
+    import psycopg
+
+    from rappi_ia.layers import segments
+
+    @contextmanager
+    def failing_connector():
+        raise psycopg.errors.ForeignKeyViolation("Key (user_id)=(proto-0123456789abcdef) is not present")
+        yield  # pragma: no cover
+
+    with caplog.at_level(logging.WARNING, logger=segments.__name__):
+        segments.recalculate_user_segments(failing_connector, "proto-0123456789abcdef")
+
+    [record] = [r for r in caplog.records if r.name == segments.__name__]
+    assert "proto-0123456789abcdef" not in record.getMessage()
+    assert record.exc_info is None
+    assert "ForeignKeyViolation" in record.getMessage()

@@ -3,8 +3,8 @@ del concepto que se ofrece, el de su marca va primero y el porqué la nombra. Si
 la oferta es la de siempre."""
 
 import pytest
-from fastapi.testclient import TestClient
 
+from owner_client import OwnerClient
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
@@ -35,7 +35,7 @@ def client(db, monkeypatch):
     api.app.dependency_overrides[api.get_services] = lambda: Services(
         RappiAgent(embedder, TemplateComposer()), embedder
     )
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 

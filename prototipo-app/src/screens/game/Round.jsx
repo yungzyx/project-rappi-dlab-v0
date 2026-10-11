@@ -203,8 +203,14 @@ function NoCards({ vertical, back }) {
       <Mascot size={86} mood="listen" />
       <h1>Aún no hay tarjetas de {LABELS[vertical]}</h1>
       <p className="muted">
-        La API no tiene las tarjetas del juego. Cárgalas con <code>make knowledge</code> en rappi-ia (<code>make mvp</code>{' '}
-        lo hace solo) y vuelve a intentar.
+        {import.meta.env.DEV || import.meta.env.VITE_DEMO === '1' ? (
+          <>
+            La API no tiene las tarjetas del juego. Cárgalas con <code>make knowledge</code> en rappi-ia (
+            <code>make mvp</code> lo hace solo) y vuelve a intentar.
+          </>
+        ) : (
+          'Intenta de nuevo en un momento.'
+        )}
       </p>
       <button type="button" className="btn-game end-done" onClick={back}>
         Salir

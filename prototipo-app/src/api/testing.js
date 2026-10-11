@@ -52,6 +52,9 @@ export function gameChallenge(vertical, seed) {
 export const gameServer = { state: null, puts: [] }
 export const resetGameServer = () => Object.assign(gameServer, { state: null, puts: [] })
 
+// La sesión del navegador (`POST /session`): la que escribe el backend (`make contract`).
+const SESSION_ROUTES = { 'POST /session': () => fixture('session') }
+
 const GAME_ROUTES = {
   'GET /game/cards': () => ({ cards: gameCards() }),
   'GET /game/challenge': (req) => gameChallenge(req.query.get('vertical'), req.query.get('seed')) ?? 204,
@@ -158,11 +161,14 @@ function parseBody(body) {
  * - { slow: ms, body }: responde `body` (cualquiera de estos valores) pasados esos ms;
  * - (req) => valor: decide según `req = { method, path, query: URLSearchParams, body }` (el cuerpo, ya leído como JSON).
  * Una clave puede terminar en `/*` para calzar cualquier ruta que empiece así (`'PUT /game/state/*'`). El juego ya trae sus
- * rutas (tarjetas, desafíos y progreso, ver `gameChallenge` y `gameServer`); las de `routes` las reemplazan.
+ * rutas (tarjetas, desafíos y progreso, ver `gameChallenge` y `gameServer`), y `POST /session` responde la sesión de
+ * ejemplo; las de `routes` las reemplazan.
  * Lo que no está en `routes` responde 404. Devuelve el mock de `fetch` para revisar las llamadas.
  */
 export function stubApi(routes) {
-  const table = new Map(Object.entries({ ...GAME_ROUTES, ...routes }).map(([key, route]) => [normalizeKey(key), route]))
+  const table = new Map(
+    Object.entries({ ...SESSION_ROUTES, ...GAME_ROUTES, ...routes }).map(([key, route]) => [normalizeKey(key), route]),
+  )
   const fetchMock = vi.fn(async (url, { method = 'GET', body, signal } = {}) => {
     const { pathname, searchParams } = new URL(url)
     const verb = method.toUpperCase()

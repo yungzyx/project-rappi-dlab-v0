@@ -4,18 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="description" content="Panel de negocio (demo) para Rappi Chile: frecuencia, abandono, demanda no satisfecha y salud del catálogo." />
-    <title>Panel de negocio · Rappi Chile (propuesta)</title>
+    <meta name="description" content="Panel de negocio (demo no oficial, prototipo independiente): frecuencia, abandono, demanda no satisfecha y salud del catálogo." />
+    <title>Panel de negocio · demo independiente</title>
+    <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <script>
-      // Aplica el tema elegido antes de pintar, para no mostrar un destello del otro tema.
-      try {
-        const theme = localStorage.getItem('panel-empresa:tema')
-        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme
-      } catch {
-        // Sin almacenamiento se sigue al sistema.
-      }
-    </script>
+    <!-- El tema elegido, antes de pintar (public/tema.js: síncrono, bajo la base del panel, / o /panel/; vite-ignore: Vite no lo empaqueta) -->
+    <script vite-ignore src="%BASE_URL%tema.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -5,6 +5,8 @@ PY := .venv/bin/python
 # (Homebrew: `brew install python@3.13`, que solo instala `python3.13`).
 PYTHON ?= $(shell command -v python3.13 || command -v python3)
 PLIST := $(HOME)/Library/LaunchAgents/cl.rappi.refresh.plist
+# `make schedule` es de macOS (launchd); en Linux remite a los timers de systemd (deploy/systemd/).
+UNAME ?= $(shell uname -s)
 # postgresql@17 de Homebrew no agrega sus comandos al PATH
 PG_BIN := $(shell brew --prefix 2>/dev/null)/opt/postgresql@17/bin
 
@@ -56,6 +58,10 @@ backup:  ## Respaldar la base en data/backups/
 	$(PY) -m rappi_scraper backup
 
 schedule:  ## Programar la tarea semanal (descarga + capa de IA) los domingos 03:00 (launchd, en este Mac)
+ifeq ($(UNAME),Linux)
+	@echo "En Linux la tarea semanal es un timer de systemd del despliegue: ver deploy/systemd/ y docs/despliegue.md."
+	@exit 1
+endif
 	mkdir -p data/logs $(dir $(PLIST))
 	sed "s#__PROJECT__#$(CURDIR)#g" scripts/launchd/cl.rappi.refresh.plist.template > $(PLIST)
 	plutil -lint $(PLIST)

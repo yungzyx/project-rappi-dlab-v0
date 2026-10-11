@@ -23,14 +23,19 @@ def _device() -> str:
 class E5Embedder:
     """`intfloat/multilingual-e5-*`: exige prefijos `passage:` (documentos) y `query:` (consultas)."""
 
-    def __init__(self, model_name: str = config.TEXT_EMBEDDING_MODEL, batch_size: int = 64):
+    def __init__(
+        self,
+        model_name: str = config.TEXT_EMBEDDING_MODEL,
+        batch_size: int = 64,
+        revision: str | None = config.TEXT_EMBEDDING_REVISION,
+    ):
         from sentence_transformers import SentenceTransformer
 
         self.model_name = model_name
         self.batch_size = batch_size
         device = _device()
         log.info("Cargando %s en %s", model_name, device)
-        self._model = SentenceTransformer(model_name, device=device)
+        self._model = SentenceTransformer(model_name, device=device, revision=revision)
         self._model.max_seq_length = 512
         self._lock = threading.Lock()  # la API atiende en un pool de hilos: una inferencia a la vez por modelo
         dimension = (

@@ -3,11 +3,14 @@ import { PLACEHOLDER_IMG } from '../components/Img'
 import {
   API_URL,
   ApiError,
+  apiUrl,
   beaconEvents,
   ask,
   checkConnection,
+  ensureSession,
   forget,
   health,
+  profile,
   recommendations,
   resetHealthCache,
   toMessage,
@@ -15,7 +18,7 @@ import {
 } from './client'
 import { lineKey } from '../state/CartContext'
 import { fixture, stubApi } from './testing'
-import { userId } from './user'
+import { userId, userToken } from './user'
 
 const API_PRODUCT = {
   id: 'cat-200',
@@ -271,6 +274,14 @@ describe('checkConnection', () => {
     expect(await checkConnection()).toEqual({ ok: false, kind: 'http' })
   })
 
+  test('health con 503 cuenta como sin conexión', async () => {
+    // La API viva pero no lista (sin base, sin documentos, migraciones pendientes) contesta 503 con { ok: false, motivos }.
+    stubApi({ '/health': 503 })
+    expect(await checkConnection()).toEqual({ ok: false, kind: 'http' })
+    resetHealthCache()
+    expect(await health({ force: true })).toBeNull()
+  })
+
   test('checkConnection no espera a una API más lenta que su tiempo límite', async () => {
     vi.useFakeTimers()
     try {
@@ -390,10 +401,101 @@ describe('stubApi', () => {
   })
 })
 
+describe('sesión firmada', () => {
+  const OLD = 'proto-1111111111111111'
+  const NEW = 'proto-2222222222222222'
+  const signIn = (id, token) => {
+    localStorage.setItem('rappi-proto-user', id)
+    localStorage.setItem('rappi-proto-token', token)
+  }
+  const paths = (api) => api.mock.calls.map(([url, init]) => `${init?.method ?? 'GET'} ${new URL(url).pathname}`)
+
+  test('client manda X-User-Token', async () => {
+    signIn(OLD, `${OLD}.firma`)
+    const api = stubApi({ '/profile/*': { user_id: OLD, interests: [] } })
+    await profile(OLD)
+    await health({ force: true })
+    expect(api.mock.calls.map(([, init]) => init.headers['X-User-Token'])).toEqual([`${OLD}.firma`, `${OLD}.firma`])
+  })
+
+  test('sin sesión no inventa la cabecera', async () => {
+    const api = stubApi({ '/health': fixture('health') })
+    await health({ force: true })
+    expect(api.mock.calls[0][1].headers?.['X-User-Token']).toBeUndefined()
+  })
+
+  test('un 401 renueva la sesión una sola vez', async () => {
+    signIn(OLD, `${OLD}.de-otro-secreto`)
+    const api = stubApi({
+      'POST /session': (req) => {
+        expect(req.body).toEqual({ legacy_user_id: OLD })
+        return { user_id: NEW, token: `${NEW}.firma` }
+      },
+      'GET /profile/*': (req) => (req.path === `/profile/${NEW}` ? { user_id: NEW, interests: [] } : 401),
+    })
+    // Dos peticiones a la vez con el token viejo: una sola sesión nueva, y cada una se repite como la persona nueva
+    const [first, second] = await Promise.all([profile(OLD), profile(OLD)])
+    expect(first.user_id).toBe(NEW)
+    expect(second.user_id).toBe(NEW)
+    expect(paths(api).filter((p) => p === 'POST /session')).toHaveLength(1)
+    expect(userId()).toBe(NEW)
+    expect(userToken()).toBe(`${NEW}.firma`)
+    const retried = api.mock.calls.filter(([url]) => url.endsWith(`/profile/${NEW}`))
+    expect(retried.map(([, init]) => init.headers['X-User-Token'])).toEqual([`${NEW}.firma`, `${NEW}.firma`])
+  })
+
+  test('un 401 que llega después de renovar no pide otra sesión y se repite desde el id con que salió', async () => {
+    signIn(OLD, `${OLD}.vencido`)
+    let oldCalls = 0
+    const api = stubApi({
+      'POST /session': { user_id: NEW, token: `${NEW}.firma` },
+      'GET /profile/*': (req) => {
+        if (req.path === `/profile/${NEW}`) return { user_id: NEW, interests: [] }
+        oldCalls += 1
+        return oldCalls === 1 ? 401 : { slow: 30, body: 401 } // el segundo, con el token viejo, contesta tarde
+      },
+    })
+    const first = profile(OLD)
+    const late = profile(OLD)
+    expect((await first).user_id).toBe(NEW)
+    expect((await late).user_id).toBe(NEW)
+    expect(paths(api).filter((p) => p === 'POST /session')).toHaveLength(1)
+    expect(userId()).toBe(NEW)
+  })
+
+  test('si el reintento también da 401, falla sin pedir otra sesión', async () => {
+    signIn(OLD, `${OLD}.vencido`)
+    const api = stubApi({ 'POST /session': { user_id: NEW, token: `${NEW}.firma` }, 'GET /profile/*': 401 })
+    await expect(profile(OLD)).rejects.toMatchObject({ kind: 'http', status: 401 })
+    expect(paths(api)).toEqual([`GET /profile/${OLD}`, 'POST /session', `GET /profile/${NEW}`])
+  })
+
+  test('un 403 no renueva la sesión', async () => {
+    signIn(OLD, `${OLD}.firma`)
+    const api = stubApi({ 'GET /profile/*': 403 })
+    await expect(profile('proto-ajeno')).rejects.toMatchObject({ status: 403 })
+    expect(paths(api)).toEqual(['GET /profile/proto-ajeno'])
+  })
+
+  test('con sesión, ensureSession no vuelve a pedirla', async () => {
+    signIn(OLD, `${OLD}.firma`)
+    const api = stubApi({})
+    await ensureSession()
+    expect(api).not.toHaveBeenCalled()
+  })
+})
+
 describe('usuario compartido', () => {
   test('el usuario guardado conserva su id', () => {
     localStorage.setItem('rappi-proto-user', 'proto-0123456789abcdef')
     expect(userId()).toBe('proto-0123456789abcdef')
+  })
+
+  test('un id que se inventa de nuevo no hereda el token de otro (sin token, la API pide sesión con un 401)', () => {
+    localStorage.setItem('rappi-proto-token', 'proto-0123456789abcdef.firma') // se perdió el id, quedó el token
+    const id = userId()
+    expect(id).not.toBe('proto-0123456789abcdef')
+    expect(userToken()).toBeNull()
   })
 })
 
@@ -401,15 +503,41 @@ describe('envíos', () => {
   test('al cerrar la pestaña los eventos van como text/plain a /events/beacon (sin preflight CORS)', async () => {
     const sendBeacon = vi.fn(() => true)
     Object.defineProperty(navigator, 'sendBeacon', { value: sendBeacon, configurable: true })
+    localStorage.setItem('rappi-proto-token', 'proto-1.firma')
     try {
       expect(beaconEvents('proto-1', [{ type: 'app_open', session_id: 's-1' }])).toBe(true)
       const [url, blob] = sendBeacon.mock.calls[0]
       expect(url).toMatch(/\/events\/beacon$/)
       expect(blob.type).toBe('text/plain')
-      expect(JSON.parse(await blob.text())).toEqual({ user_id: 'proto-1', events: [{ type: 'app_open', session_id: 's-1' }] })
+      expect(JSON.parse(await blob.text())).toEqual({
+        user_id: 'proto-1',
+        events: [{ type: 'app_open', session_id: 's-1' }],
+        token: 'proto-1.firma', // sendBeacon no manda cabeceras: el token va en el cuerpo
+      })
     } finally {
       delete navigator.sendBeacon
     }
   })
 
+})
+
+describe('apiUrl', () => {
+  test('en producción sin variable devuelve /api (el mismo origen)', () => {
+    expect(apiUrl({ PROD: true }, { hostname: 'demo.example.cl' })).toBe('/api')
+  })
+
+  test('quita la barra final de VITE_API_URL', () => {
+    expect(apiUrl({ VITE_API_URL: 'https://api.example.cl/', PROD: true }, {})).toBe('https://api.example.cl')
+    expect(apiUrl({ VITE_API_URL: 'https://api.example.cl//' }, {})).toBe('https://api.example.cl')
+  })
+
+  test('una variable vacía (el .env.example) cuenta como ausente', () => {
+    expect(apiUrl({ VITE_API_URL: '', PROD: true }, {})).toBe('/api')
+  })
+
+  test('en desarrollo usa el host de la página en el puerto 8000', () => {
+    expect(apiUrl({ PROD: false }, { hostname: '10.0.0.5' })).toBe('http://10.0.0.5:8000')
+    expect(apiUrl({ PROD: false }, { hostname: '' })).toBe('http://localhost:8000')
+    expect(apiUrl({ PROD: false }, undefined)).toBe('http://localhost:8000')
+  })
 })

@@ -1,6 +1,6 @@
 {
-  "name": "Prototipo Rappi",
-  "short_name": "Rappi Demo",
+  "name": "Prototipo independiente",
+  "short_name": "Demo no oficial",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",

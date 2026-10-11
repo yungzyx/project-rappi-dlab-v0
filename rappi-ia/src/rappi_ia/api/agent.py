@@ -6,18 +6,22 @@
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from psycopg import Connection
 from pydantic import Field
 
+from .. import config
 from ..offers.engine import OfferError, home_occasions, make_offer
 from ..offers.personal import user_interests
 from .deps import Clean, backend_vertical, get_conn, get_services
+from .identity import owner_in_query, owner_of_body
+from .limits import concurrency_cap
 from .services import Services
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
 MAX_LINES = 100  # como un pedido (OrderIn)
+OFFER_CAP = concurrency_cap("offer", config.API_MAX_CONCURRENT_OFFER)
 
 
 class EntityIn(Clean):
@@ -88,10 +92,15 @@ class ToTryIn(OfferBase):
 OfferIn = Annotated[PlanIn | CartIn | CheckoutIn | NoResultIn | NextOrderIn | ToTryIn, Field(discriminator="moment")]
 
 
-@router.post("/offer", responses={204: {"description": "Sin una buena oferta para este momento"}})
-def offer(body: OfferIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)):
+@router.post(
+    "/offer",
+    responses={204: {"description": "Sin una buena oferta para este momento"}},
+    dependencies=[Depends(OFFER_CAP)],
+)
+def offer(body: OfferIn, request: Request, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)):
     """La oferta de un momento: `{ moment, text, products, vertical, prototype_vertical, reason, actions }`, o 204.
     Una ocasión que no existe, o que el agente no arma (guagua, enfermo), es un 422."""
+    owner_of_body(request, body.user_id)
     context = body.context.model_dump()
     if body.moment == "vertical_por_probar":
         context["stamped"] = [v for v in map(backend_vertical, context["stamped"]) if v]
@@ -102,7 +111,7 @@ def offer(body: OfferIn, conn: Connection = Depends(get_conn), svc: Services = D
     return Response(status_code=204) if found is None else found.to_dict()
 
 
-@router.get("/plans")
+@router.get("/plans", dependencies=[Depends(owner_in_query)])
 def plans(
     user_id: Annotated[str | None, Query(max_length=64)] = None, conn: Connection = Depends(get_conn)
 ) -> list[dict]:

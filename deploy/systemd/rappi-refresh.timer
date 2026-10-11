@@ -1,0 +1,13 @@
+# NO SE ACTIVA TODAVÍA. Se copia con los demás, pero `systemctl enable --now rappi-refresh.timer` solo cuando el
+# usuario haya decidido el User-Agent y robots.txt, aceptado el riesgo de la IP de datacenter y apagado la tarea
+# semanal del Mac mini (`make unschedule` allá): nunca dos descargas a la vez contra rappi.cl.
+[Unit]
+Description=Rappi: descarga semanal (domingos 03:00, hora de Chile)
+
+[Timer]
+OnCalendar=Sun 03:00 America/Santiago
+# Si el servidor estaba apagado a esa hora, corre al encender.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

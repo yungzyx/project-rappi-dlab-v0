@@ -53,7 +53,8 @@ jobs:
       - name: Instalar
         run: python -m pip install -c ../rappi-ia/requirements.lock.txt -e ".[dev]"  # mismas versiones que rappi-ia
 
-      # La tarea semanal es un script de zsh: sin zsh sus 9 tests se saltaban en silencio.
+      # Los tests de la tarea semanal la corren también con zsh (así la llama la tarea de launchd ya instalada en el Mac
+      # mini y el script se vuelve a lanzar con bash): sin zsh esos casos se saltan.
       - name: Instalar zsh
         working-directory: .
         run: sudo apt-get update -q && sudo apt-get install -y -q zsh
@@ -156,6 +157,37 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # Los builds que se despliegan (app en /api, panel bajo /panel/) no llevan rastros de desarrollo: ni localhost, ni :8000,
+  # ni los textos de `make mvp` (scripts/check-dist.sh).
+  build-produccion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            prototipo-app/package-lock.json
+            dashboard-empresa/package-lock.json
+
+      - run: npm --prefix prototipo-app ci
+      - run: npm --prefix dashboard-empresa ci
+      - name: Construir la app
+        run: npm --prefix prototipo-app run build
+        env:
+          VITE_API_URL: /api
+      - name: Construir el panel
+        run: npm --prefix dashboard-empresa run build
+        env:
+          VITE_API_URL: /api
+          PANEL_BASE: /panel/
+      - name: Revisar que dist/ no tenga rastros de desarrollo
+        run: scripts/check-dist.sh
+
   scripts:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -165,7 +197,118 @@ jobs:
 
       # shellcheck ya viene en las imágenes de ubuntu-latest.
       - name: shellcheck
-        run: shellcheck -x scripts/*.sh rappi-ia/scripts/with-test-db-lock.sh
+        run: shellcheck -x scripts/*.sh rappi-scraper/scripts/*.sh rappi-ia/scripts/*.sh deploy/*.sh deploy/db/*.sh deploy/scripts/*.sh
+
+  # El stack de deploy/ de punta a punta, como en un servidor: construye las imágenes (la API sin hornear el modelo,
+  # BAKE_MODEL=0: lo descarga al arrancar), levanta Postgres con sus roles, restaura como rappi_owner un dump del
+  # catálogo de prueba (seed-demo, inventado), deja que migrate corra deploy-migrate y pasa deploy/smoke.sh contra Caddy
+  # con DOMAIN=localhost (su CA interna). Las claves son desechables, generadas aquí.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: deploy/.env.example arma el stack
+        run: RAPPI_ENV_FILE="$PWD/deploy/.env.example" docker compose --env-file deploy/.env.example -f deploy/docker-compose.yml config -q
+
+      - name: Archivo de entorno de prueba
+        run: |
+          set -euo pipefail
+          env_file="$RUNNER_TEMP/rappi.env"
+          gate=$(openssl rand -hex 16)
+          super=$(openssl rand -hex 24)
+          owner=$(openssl rand -hex 24)
+          api=$(openssl rand -hex 24)
+          echo "::add-mask::$gate"
+          hash=$(docker run --rm caddy:2 caddy hash-password --plaintext "$gate")
+          cat > "$env_file" <<EOF
+          DOMAIN=localhost
+          BASIC_AUTH_USER=ci
+          BASIC_AUTH_HASH='$hash'
+          POSTGRES_PASSWORD=$super
+          POSTGRES_DB=rappi
+          RAPPI_OWNER_PASSWORD=$owner
+          RAPPI_API_PASSWORD=$api
+          DATABASE_URL_OWNER=postgresql://rappi_owner:$owner@db:5432/rappi
+          DATABASE_URL_API=postgresql://rappi_api:$api@db:5432/rappi
+          API_SECRET=$(openssl rand -hex 32)
+          API_ENABLE_ANALYTICS=0
+          WITH_PANEL=0
+          API_WORKERS=1
+          API_POOL_MAX=10
+          LLM_DAILY_CALL_CAP=0
+          ANTHROPIC_API_KEY=
+          TYPESAFE_API_KEY=
+          RESTIC_REPOSITORY=
+          RESTIC_PASSWORD=
+          # Solo en el CI: la imagen no trae el modelo (BAKE_MODEL=0) y la API lo descarga al arrancar.
+          HF_HUB_OFFLINE=0
+          # El catálogo de prueba es chico: cualquier concepto con un producto entra al juego.
+          GAME_MIN_ITEMS=1
+          EOF
+          {
+            echo "RAPPI_ENV_FILE=$env_file"
+            echo "BASIC_AUTH_PASSWORD=$gate"
+            echo "SEED_URL=postgresql://postgres:$super@db:5432/rappi_ia_test"
+            echo "COMPOSE=docker compose --env-file $env_file -f deploy/docker-compose.yml"
+          } >> "$GITHUB_ENV"
+
+      - name: Construir las imágenes (api, jobs y web)
+        run: $COMPOSE build --build-arg BAKE_MODEL=0
+
+      - name: Base vacía con los roles (init-roles.sh)
+        run: $COMPOSE up -d --wait db
+
+      # Como el primer despliegue: un dump restaurado como rappi_owner (sin dueño ni permisos del origen). El comentario
+      # de las extensiones se salta: las creó el superusuario y rappi_owner no puede cambiarlo.
+      - name: Catálogo de prueba en un dump, restaurado como rappi_owner
+        run: |
+          set -euo pipefail
+          $COMPOSE exec -T db createdb -U postgres rappi_ia_test
+          $COMPOSE run --rm --no-deps -e DATABASE_URL_TEST="$SEED_URL" migrate rappi-ia seed-demo
+          $COMPOSE exec -T db sh -c 'pg_dump -U postgres -Fc -f /tmp/demo.dump rappi_ia_test \
+            && pg_restore -l /tmp/demo.dump | grep -v "COMMENT - EXTENSION" > /tmp/demo.list \
+            && PGPASSWORD="$RAPPI_OWNER_PASSWORD" pg_restore -h 127.0.0.1 -U rappi_owner -d "$POSTGRES_DB" \
+                 --no-owner --no-privileges --exit-on-error -L /tmp/demo.list /tmp/demo.dump'
+
+      - name: Levantar el stack (migrate, api y web)
+        run: |
+          set -euo pipefail
+          $COMPOSE up -d
+          for _ in $(seq 1 90); do
+            status=$($COMPOSE ps --format '{{.Service}} {{.Status}}')
+            if grep -q '^api .*(healthy)' <<<"$status" && grep -q '^web .*(healthy)' <<<"$status"; then
+              break
+            fi
+            sleep 10
+          done
+          $COMPOSE ps -a
+          test "$($COMPOSE ps -a --format '{{.ExitCode}}' migrate)" = 0
+          $COMPOSE logs --no-color migrate
+
+      - name: deploy/smoke.sh https://localhost
+        run: deploy/smoke.sh https://localhost
+
+      # Sin internet hacia huggingface.co la API sigue lista: con HF_HUB_OFFLINE=1 (lo de la imagen) el modelo carga del
+      # caché en el commit fijado, sin consultar la red.
+      - name: El modelo carga sin red (HF_HUB_OFFLINE=1)
+        run: |
+          $COMPOSE exec -T -e HF_HUB_OFFLINE=1 api python -c \
+            "from rappi_ia.embeddings.models import E5Embedder; print('modelo', E5Embedder().dim)"
+
+      # El servicio jobs: pg_dump 17 con la base, el volumen de respaldos y el candado de descargas en la base.
+      - name: Trabajos (rappi backup en el volumen de respaldos)
+        run: |
+          set -euo pipefail
+          $COMPOSE --profile jobs run --rm jobs sh -c 'pg_dump --version && restic version && make --version | head -n 1'
+          $COMPOSE --profile jobs run --rm jobs rappi backup
+          $COMPOSE --profile jobs run --rm jobs sh -c 'ls -l /data/backups/rappi_*.dump'
+
+      - name: Registros del stack
+        if: failure()
+        run: $COMPOSE logs --no-color --tail 300
 
   # La única prueba de punta a punta (app + panel + API + base): lo mismo que `make mvp-check` en el Mac, con Chrome y
   # Postgres de la imagen. Sin modelos (RAPPI_IA_LIGHT=1: embeddings falsos y redacción por plantilla).

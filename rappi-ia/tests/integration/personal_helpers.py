@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from fastapi.testclient import TestClient
 from psycopg import Connection
 
+from owner_client import OwnerClient
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
@@ -83,7 +84,7 @@ def prepare_people(db: Connection, monkeypatch) -> Iterator[People]:
     api.app.dependency_overrides[api.get_services] = lambda: Services(
         RappiAgent(embedder, TemplateComposer()), embedder
     )
-    client = TestClient(api.app)
+    client = OwnerClient(api.app)
 
     def search_and_add(user, session, concept, query, product, vertical):
         events = [

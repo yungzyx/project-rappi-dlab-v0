@@ -11,10 +11,14 @@ from dotenv import load_dotenv
 
 # Rutas absolutas desde la raíz del proyecto: funcionan sin importar desde dónde se ejecute.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data"
-EXPORT_DIR = DATA_DIR / "exports"
 
-load_dotenv(PROJECT_ROOT / ".env")
+# El .env de siempre (rappi-scraper/.env) o el que diga RAPPI_ENV_FILE (en un servidor, /etc/rappi/rappi.env).
+load_dotenv(os.environ.get("RAPPI_ENV_FILE") or PROJECT_ROOT / ".env")
+
+# Datos descargados, registros y respaldos: por defecto rappi-scraper/data; en un contenedor, RAPPI_DATA_DIR (un
+# volumen, fuera del código).
+DATA_DIR = Path(os.environ.get("RAPPI_DATA_DIR") or PROJECT_ROOT / "data")
+EXPORT_DIR = DATA_DIR / "exports"
 
 
 def _env_float(name: str, default: float) -> float:
@@ -61,3 +65,7 @@ MAX_BLOCKED_JOB_ATTEMPTS = MAX_JOB_ATTEMPTS + 2
 UNAVAILABLE_PATH_PREFIX = "/tiendas/tipo/"
 # Rappi redirige a /restaurantes?restaurantNotFound=true cuando el restaurante ya no existe (cerró o se dio de baja).
 RESTAURANT_NOT_FOUND_QUERY = "restaurantNotFound=true"
+
+# Cuánto espera cada sentencia de una migración por un candado de tabla antes de fallar (lock_timeout de Postgres): un
+# ALTER detrás de una transacción larga dejaba en fila a todas las consultas de esa tabla mientras esperaba.
+MIGRATE_LOCK_TIMEOUT = os.environ.get("MIGRATE_LOCK_TIMEOUT", "10s")

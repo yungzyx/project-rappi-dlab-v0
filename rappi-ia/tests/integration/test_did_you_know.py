@@ -3,9 +3,9 @@
 import copy
 
 import pytest
-from fastapi.testclient import TestClient
 from psycopg.types.json import Jsonb
 
+from owner_client import OwnerClient
 from rappi_ia import config
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
@@ -47,7 +47,7 @@ def client(db, monkeypatch):
     api.app.dependency_overrides[api.get_services] = lambda: Services(
         RappiAgent(embedder, TemplateComposer()), embedder
     )
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 

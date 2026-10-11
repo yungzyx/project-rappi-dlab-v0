@@ -19,6 +19,8 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia seed-demo               # catálogo de prueba inventado, SOLO en la base DATABASE_URL_TEST (_test)
     rappi-ia doctor                  # revisa (solo lectura) que DATABASE_URL tenga catálogo; sale 1 si no
     rappi-ia check-migrations        # se niega a migrar la base real desde una rama sin fusionar (MIGRATE=1 lo fuerza)
+    rappi-ia deploy-migrate          # paso del despliegue: respalda si hay pendientes, migra, tarjetas y permisos
+    rappi-ia token proto-…           # token (X-User-Token) de una persona, firmado con el secreto de la API
 """
 
 import argparse
@@ -26,13 +28,20 @@ import logging
 import os
 import sys
 from collections import Counter
+from collections.abc import Callable
+from pathlib import Path
+
+import psycopg
+from psycopg import sql
+from rappi_scraper.storage.backup import backup_database
+from rappi_scraper.storage.db import APPLIED_BY_DEPLOY, MIGRATE_LOCK, PendingMigrations, check_migrations
 
 from . import config
 from .concepts.pipeline import build_concepts
 from .concepts.report import coverage_report, jev_review_path, render_text, write_category_proposals
 from .concepts.taxonomy import load_taxonomy
-from .db import connect, database_url, migrate
-from .demo.doctor import check_database, check_pending_migrations
+from .db import changed_migrations, connect, database_url, migrate
+from .demo.doctor import check_database, check_pending_migrations, pending_migrations
 from .demo.seed import ensure_test_database, reset_test_database, seed_demo
 from .game.cards import load_knowledge
 from .layers.attributes import build_attributes
@@ -47,8 +56,22 @@ from .retrieval.hybrid import MODES, Filters, retrieve
 log = logging.getLogger("rappi_ia")
 
 
+# Una tabla tomada más allá de MIGRATE_LOCK_TIMEOUT: lo dicen igual `migrate` y `deploy-migrate`, sin traceback.
+BUSY_TABLE = "Una tabla está ocupada; la migración no se aplicó. Intenta de nuevo en unos minutos."
+
+
 def cmd_migrate(conn, args) -> None:
-    applied = migrate(conn)
+    if args.solo_revisar:  # post-refresh en producción: las aplica el despliegue, que respalda antes
+        try:
+            check_migrations(conn, APPLIED_BY_DEPLOY)
+        except PendingMigrations as exc:
+            raise SystemExit(str(exc)) from exc
+        print("Migraciones al día.")
+        return
+    try:
+        applied = migrate(conn)
+    except psycopg.errors.LockNotAvailable as exc:
+        raise SystemExit(BUSY_TABLE) from exc
     print("Migraciones aplicadas: " + (", ".join(applied) if applied else "ninguna (al día)"))
 
 
@@ -441,11 +464,14 @@ def cmd_jev_piloto(conn, args) -> None:
 
 
 def cmd_purge(conn, args) -> None:
-    from .events.store import QUERY_RETENTION_DAYS, purge_old_queries
+    from .events.store import QUERY_RETENTION_DAYS, purge_inactive_users, purge_old_queries
 
     n = purge_old_queries(conn, args.dias or QUERY_RETENTION_DAYS)
+    days = config.PROTOTYPE_USER_RETENTION_DAYS
+    users = purge_inactive_users(conn, days)
     conn.commit()
     print(f"Consultas de más de {args.dias or QUERY_RETENTION_DAYS} días borradas: {n}")
+    print(f"Usuarios del prototipo sin actividad en {days} días borrados: {users}")
 
 
 def cmd_synth(conn, args) -> None:
@@ -523,11 +549,98 @@ def cmd_check_migrations(conn, args) -> None:
         print(message)
 
 
-# Comandos que no usan la conexión de DATABASE_URL (la abren ellos o usan otra).
-OWN_CONNECTION = {"seed-demo", "doctor", "check-migrations"}
+# Permisos del rol de la API (lo escribe el despliegue, deploy/db/): nombra el rol como `{api_role}`.
+GRANTS_FILE = config.PROJECT_ROOT.parent / "deploy" / "db" / "grants.sql"
+# Los respaldos de antes de migrar rotan aparte de los semanales de `rappi refresh` (`rappi_*.dump`).
+PRE_MIGRATION_BACKUP = "pre-migracion"
+
+
+def deploy_migrate(conn, backup: Callable[[], Path] | None, grants_file: Path = GRANTS_FILE) -> None:
+    """Migrar como paso del despliegue (el servicio `migrate`): si hay migraciones pendientes, primero `backup` (si
+    falla, no migra; `None` es --sin-respaldo); después `migrate`, las tarjetas del juego y, con DB_API_ROLE, los
+    permisos de ese rol (`grants_file`, idempotente). Dice qué hizo; sale con un mensaje (sin traceback) si algo falla.
+
+    Todo va con el candado de `migrate` (MIGRATE_LOCK, de sesión; `migrate` lo vuelve a tomar en la misma sesión): un
+    segundo despliegue a la vez espera al primero y ya no encuentra nada que respaldar ni aplicar."""
+    role = os.environ.get("DB_API_ROLE")
+    if role and not grants_file.is_file():
+        raise SystemExit(f"DB_API_ROLE={role} pide aplicar {grants_file}, pero ese archivo no existe: no migro.")
+    conn.execute("SELECT pg_advisory_lock(%s)", (MIGRATE_LOCK,))
+    conn.commit()
+    try:
+        _deploy_migrate_locked(conn, backup, role, grants_file)
+    finally:
+        if not conn.closed:
+            conn.rollback()
+            conn.execute("SELECT pg_advisory_unlock(%s)", (MIGRATE_LOCK,))
+            conn.commit()
+
+
+def _deploy_migrate_locked(conn, backup: Callable[[], Path] | None, role: str | None, grants_file: Path) -> None:
+    for name in changed_migrations(conn):
+        log.warning("La migración %s cambió después de aplicarse", name)
+    pending = pending_migrations(conn)
+    # Sin transacción abierta durante el volcado: pg_dump ya tiene las tablas tomadas (ACCESS SHARE) mientras dura.
+    conn.commit()
+    if not pending:
+        print("Sin migraciones pendientes: no hace falta respaldo.")
+    elif backup is None:
+        print(f"Migraciones pendientes ({', '.join(pending)}): sigo sin respaldo (--sin-respaldo).")
+    else:
+        print(f"Migraciones pendientes ({', '.join(pending)}): respaldo antes de aplicarlas…")
+        try:
+            path = backup()
+        except Exception as exc:
+            raise SystemExit(f"No se pudo respaldar la base ({exc}): no migro.") from exc
+        print(f"Respaldo listo: {path}")
+    try:
+        applied = migrate(conn)
+    except psycopg.errors.LockNotAvailable as exc:
+        raise SystemExit(BUSY_TABLE) from exc
+    except psycopg.Error as exc:
+        log.error("Error al migrar: %s", exc)
+        remaining = [] if conn.closed else pending_migrations(conn)  # las anteriores ya quedaron confirmadas
+        failed = remaining[0] if remaining else "pendiente"
+        raise SystemExit(
+            f"La migración {failed} falló y no se aplicó ({type(exc).__name__}; el detalle quedó en el registro)."
+        ) from exc
+    print("Migraciones aplicadas: " + (", ".join(applied) if applied else "ninguna (al día)"))
+    try:
+        counts = load_knowledge(conn)
+    except ValueError as exc:
+        raise SystemExit(f"Tarjetas del juego: {exc}") from exc
+    conn.commit()
+    print(f"Tarjetas del juego: {counts['tarjetas']}, ligas a conceptos: {counts['ligas']}")
+    if role:
+        conn.execute(sql.SQL(grants_file.read_text(encoding="utf-8")).format(api_role=sql.Identifier(role)))
+        conn.commit()
+        print(f"Permisos del rol de la API ({role}) aplicados desde {grants_file}")
+
+
+def cmd_deploy_migrate(conn, args) -> None:
+    def backup() -> Path:
+        return backup_database(database_url(), prefix=PRE_MIGRATION_BACKUP)
+
+    deploy_migrate(conn, None if args.sin_respaldo else backup)
+
+
+def cmd_token(conn, args) -> None:
+    """Para herramientas del operador que leen rutas de una persona (su perfil, su juego): no toca la base."""
+    from .api.identity import sign
+
+    try:
+        print(sign(args.user_id))
+    except RuntimeError as exc:  # sin API_SECRET en producción
+        raise SystemExit(str(exc)) from exc
+
+
+# Comandos que no usan la conexión de DATABASE_URL (la abren ellos, usan otra o no la necesitan).
+OWN_CONNECTION = {"seed-demo", "doctor", "check-migrations", "token"}
 
 COMMANDS = {
+    "token": cmd_token,
     "check-migrations": cmd_check_migrations,
+    "deploy-migrate": cmd_deploy_migrate,
     "doctor": cmd_doctor,
     "seed-demo": cmd_seed_demo,
     "measures": cmd_measures,
@@ -563,7 +676,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="log detallado")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("migrate", help="aplica migraciones pendientes (las de rappi-scraper)")
+    mg = sub.add_parser("migrate", help="aplica migraciones pendientes (las de rappi-scraper)")
+    mg.add_argument(
+        "--solo-revisar",
+        action="store_true",
+        help="no aplica nada: falla si falta una (post-refresh en producción; las aplica el despliegue)",
+    )
     concepts = sub.add_parser("concepts", help="capa 2: conceptos, complementos y mapeo de productos y platos")
     concepts.add_argument("--solo-reporte", action="store_true", help="solo muestra la cobertura actual")
     concepts.add_argument("--sin-knn", action="store_true", help="sin refinar con vecinos cercanos (embeddings)")
@@ -633,7 +751,11 @@ def build_parser() -> argparse.ArgumentParser:
     synth.add_argument("--semanas", type=int, default=26)
     synth.add_argument("--semilla", type=int, default=7)
     synth.add_argument("--hasta", help="fecha final AAAA-MM-DD (por defecto hoy)")
-    purge = sub.add_parser("purge", help="borra el texto de consultas más antiguas que la retención (90 días)")
+    purge = sub.add_parser(
+        "purge",
+        help="borra el texto de consultas más antiguas que la retención (90 días) y a las personas del prototipo sin "
+        "actividad en PROTOTYPE_USER_RETENTION_DAYS (180)",
+    )
     purge.add_argument("--dias", type=int)
     mv = sub.add_parser(
         "multivertical", help="mapa de productos y conceptos compartidos entre verticales (presentación)"
@@ -649,6 +771,16 @@ def build_parser() -> argparse.ArgumentParser:
         "check-migrations",
         help="se niega si la base rappi tiene migraciones pendientes y el código no está en origin/main (MIGRATE=1)",
     )
+    dm = sub.add_parser(
+        "deploy-migrate",
+        help="paso del despliegue: si hay migraciones pendientes respalda la base y las aplica; después las tarjetas "
+        "del juego y, con DB_API_ROLE, los permisos de la API (deploy/db/grants.sql)",
+    )
+    dm.add_argument("--sin-respaldo", action="store_true", help="migra sin respaldar antes")
+    token = sub.add_parser(
+        "token", help="token (X-User-Token) de una persona para las herramientas del operador; no toca la base"
+    )
+    token.add_argument("user_id")
     return parser
 
 
