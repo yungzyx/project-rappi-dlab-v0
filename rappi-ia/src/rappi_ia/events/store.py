@@ -32,11 +32,13 @@ EVENT_TYPES = {
     "recommendation_click",
     "service_shown",  # el agente ofreció un servicio sin catálogo (payload.servicio)
     "service_opened",  # se tocó el botón que abre ese servicio
+    "game_round_finished",  # payload: vertical_juego, estrellas, aciertos, preguntas
+    "game_card_discovered",  # payload: vertical_juego, tarjeta
 }
 QUERY_RETENTION_DAYS = 90
 HALF_LIFE_DAYS = 14  # el interés se reduce a la mitad cada 2 semanas sin actividad
 # Solo señales positivas del propio usuario. Lo que el agente mostró (suggestion_shown), lo que rechazó
-# (suggestion_dismissed) o sacó del carro (cart_remove) no suma interés.
+# (suggestion_dismissed) o sacó del carro (cart_remove) no suma interés; jugar tampoco (game_*).
 WEIGHTS = {
     "order_placed": 5.0,
     "cart_add": 3.0,
