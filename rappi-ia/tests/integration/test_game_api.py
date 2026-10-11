@@ -3,8 +3,8 @@
 import copy
 
 import pytest
-from fastapi.testclient import TestClient
 
+from owner_client import OwnerClient
 from rappi_ia.api import app as api
 from rappi_ia.demo.seed import seed_demo
 from rappi_ia.game import GAME_VERTICALS
@@ -33,7 +33,7 @@ def client(db):
         yield db
 
     api.app.dependency_overrides[api.get_conn] = conn_override
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 

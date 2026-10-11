@@ -12,11 +12,11 @@ from types import SimpleNamespace
 
 import anyio
 import pytest
-from fastapi.testclient import TestClient
 from psycopg.pq import TransactionStatus
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_price, add_product, add_store
+from owner_client import OwnerClient
 from rappi_ia import cli, config
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import Context, RappiAgent
@@ -60,7 +60,7 @@ def client():
     api.app.dependency_overrides[api.get_services] = lambda: Services(
         RappiAgent(embedder, TemplateComposer()), embedder
     )
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 
@@ -75,7 +75,7 @@ def live_client(monkeypatch):
         RappiAgent(embedder, TemplateComposer()), embedder
     )
     try:
-        with TestClient(api.app) as client:
+        with OwnerClient(api.app) as client:
             yield client
     finally:
         api.app.dependency_overrides.clear()

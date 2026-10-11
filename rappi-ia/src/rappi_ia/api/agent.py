@@ -14,6 +14,7 @@ from .. import config
 from ..offers.engine import OfferError, home_occasions, make_offer
 from ..offers.personal import user_interests
 from .deps import Clean, backend_vertical, get_conn, get_services
+from .identity import require_owner
 from .limits import concurrency_cap
 from .services import Services
 
@@ -94,7 +95,7 @@ OfferIn = Annotated[PlanIn | CartIn | CheckoutIn | NoResultIn | NextOrderIn | To
 @router.post(
     "/offer",
     responses={204: {"description": "Sin una buena oferta para este momento"}},
-    dependencies=[Depends(OFFER_CAP)],
+    dependencies=[Depends(require_owner), Depends(OFFER_CAP)],
 )
 def offer(body: OfferIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)):
     """La oferta de un momento: `{ moment, text, products, vertical, prototype_vertical, reason, actions }`, o 204.
@@ -109,7 +110,7 @@ def offer(body: OfferIn, conn: Connection = Depends(get_conn), svc: Services = D
     return Response(status_code=204) if found is None else found.to_dict()
 
 
-@router.get("/plans")
+@router.get("/plans", dependencies=[Depends(require_owner)])
 def plans(
     user_id: Annotated[str | None, Query(max_length=64)] = None, conn: Connection = Depends(get_conn)
 ) -> list[dict]:

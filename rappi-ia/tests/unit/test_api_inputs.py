@@ -10,10 +10,10 @@ from contextlib import contextmanager
 
 import anyio
 import pytest
-from fastapi.testclient import TestClient
 from psycopg import DataError
 from psycopg.errors import QueryCanceled
 
+from owner_client import OwnerClient
 from rappi_ia.api import app as api
 from rappi_ia.api import deps, services
 
@@ -56,7 +56,7 @@ def client(conn):
     agent = types.SimpleNamespace(reply=lambda *_: dict(ANSWER))
     api.app.dependency_overrides[api.get_conn] = lambda: conn
     api.app.dependency_overrides[api.get_services] = lambda: types.SimpleNamespace(agent=agent)
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 

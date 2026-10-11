@@ -1,6 +1,6 @@
-import { forget } from '../api/client'
+import { forget, renewSession } from '../api/client'
 import { ordersSettled } from '../api/orders'
-import { resetUserId, userId } from '../api/user'
+import { clearSession, userId } from '../api/user'
 import { clearShownTopics, useEvents } from './EventsContext'
 import { useGame } from './GameContext'
 import { reloadToHome } from './reloadApp'
@@ -23,8 +23,9 @@ function wipe(storage) {
  * 2. Espera lo que ya iba en camino (`settle`: las preguntas del buscador; lotes de eventos; el guardado del juego,
  *    que queda en pausa; pedidos) y recién ahí llama `DELETE /profile/{id}`. Si falla, el juego retoma su guardado y
  *    el error sube a quien llamó: no se toca nada local.
- * 3. Si salió bien: borra las claves `rappi-proto-*`, genera un id nuevo, deja el juego en cero (sin subirlo, subirlo
- *    recrearía al usuario) y recarga la app en la Home (`reload`; solo si salió bien) para que nada quede en memoria.
+ * 3. Si salió bien: borra las claves `rappi-proto-*` (también el id y el token de la sesión), deja el juego en cero (sin
+ *    subirlo, subirlo recrearía al usuario), pide a la API una sesión nueva (otra persona, sin el id viejo; si falla, la
+ *    app la pide al abrir) y recarga la app en la Home (`reload`; solo si salió bien) para que nada quede en memoria.
  * `events` y `game` son los de sus contextos; `profile` (opcional) sube la «generación» del perfil.
  */
 export async function forgetAll({ events, game, profile, settle, reload = reloadToHome } = {}) {
@@ -45,10 +46,11 @@ export async function forgetAll({ events, game, profile, settle, reload = reload
   }
   wipe(localStorage)
   wipe(sessionStorage)
-  resetUserId()
+  clearSession()
   events?.clear()
   profile?.reset()
   game?.forget()
+  await renewSession().catch(() => {})
   reload()
 }
 

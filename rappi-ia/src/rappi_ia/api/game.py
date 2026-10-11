@@ -15,6 +15,7 @@ from ..game.cards import list_cards
 from ..game.challenges import make_challenge
 from ..game.state import get_state, save_state
 from .deps import Clean, get_conn
+from .identity import require_owner
 from .logs import rejected
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -86,14 +87,14 @@ def challenge(
     return Response(status_code=204) if made is None else made
 
 
-@router.get("/state/{user_id}", response_model=None)
+@router.get("/state/{user_id}", response_model=None, dependencies=[Depends(require_owner)])
 def read_state(user_id: UserId, conn: Connection = Depends(get_conn)) -> dict | Response:
     """El progreso guardado de la persona, o 204 si todavía no guardó nada."""
     state = get_state(conn, user_id)
     return Response(status_code=204) if state is None else {"state": state}
 
 
-@router.put("/state/{user_id}")
+@router.put("/state/{user_id}", dependencies=[Depends(require_owner)])
 def write_state(user_id: UserId, body: StateIn, conn: Connection = Depends(get_conn)) -> dict:
     """Guarda el progreso (sin las tarjetas ni verticales que no existen) y lo devuelve limpio."""
     try:

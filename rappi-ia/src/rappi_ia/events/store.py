@@ -135,13 +135,14 @@ class Event:
 
 def ensure_user(conn: Connection, user_id: str, source: str = "prototype", **extra) -> None:
     """Crea el usuario si no existe. Un id de otra fuente no se puede usar: con la API abierta a la red, el prototipo
-    podía colgarles eventos a los usuarios simulados (ids correlativos)."""
+    podía colgarles eventos a los usuarios simulados (ids correlativos). Una persona del prototipo que se crea aquí
+    llegó con su token (la API lo exige): queda con `token_issued_at`, así nadie la reclama como id viejo."""
     row = conn.execute(
-        """INSERT INTO app_users (user_id, source, segment, city, consent_notifications)
-           VALUES (%s, %s, %s, %s, %s)
+        """INSERT INTO app_users (user_id, source, segment, city, consent_notifications, token_issued_at)
+           VALUES (%s, %s, %s, %s, %s, CASE WHEN %s = 'prototype' THEN now() END)
            ON CONFLICT (user_id) DO UPDATE SET source = app_users.source
            RETURNING source""",
-        (user_id, source, extra.get("segment"), extra.get("city"), extra.get("consent", False)),
+        (user_id, source, extra.get("segment"), extra.get("city"), extra.get("consent", False), source),
     ).fetchone()
     if row[0] != source:
         raise ValueError(f"El usuario {user_id} es de otra fuente")

@@ -119,7 +119,10 @@ class _Window:
 class RateLimit:
     """Middleware ASGI: requests por minuto de cada IP con una ventana deslizante (el conteo del minuto anterior pesa
     según cuánto queda de él), y aparte las escrituras. Pasado el tope responde 429 con Retry-After; lo rechazado no
-    cuenta. Recuerda a lo más `max_clients` IPs: las que llevan más tiempo sin pedir nada se olvidan primero."""
+    cuenta. Recuerda a lo más `max_clients` IPs: las que llevan más tiempo sin pedir nada se olvidan primero.
+
+    Con otra ventana (`window_s`) y sin `app`, cuenta otra cosa por IP con `wait()`: las personas nuevas por día de
+    `POST /session`."""
 
     WINDOW_S = 60.0
 
@@ -131,6 +134,7 @@ class RateLimit:
         exempt: Iterable[str] = (),
         max_clients: int = 10_000,
         clock: Callable[[], float] = time.monotonic,
+        window_s: float = WINDOW_S,
     ):
         self.app = app
         self.per_minute = per_minute
@@ -138,6 +142,7 @@ class RateLimit:
         self.exempt = frozenset(exempt)
         self.max_clients = max_clients
         self.clock = clock
+        self.window_s = window_s
         self.clients: OrderedDict[str, _Window] = OrderedDict()
 
     async def __call__(self, scope, receive, send):
@@ -157,7 +162,7 @@ class RateLimit:
         if host in self.exempt or (self.per_minute <= 0 and (self.writes_per_minute <= 0 or not write)):
             return 0
         now = self.clock()
-        window = int(now // self.WINDOW_S)
+        window = int(now // self.window_s)
         counts = self.clients.get(host)
         if counts is None:
             counts = self.clients[host] = _Window(window)
@@ -166,10 +171,10 @@ class RateLimit:
         else:
             self.clients.move_to_end(host)
             counts.roll(window)
-        elapsed = now - window * self.WINDOW_S
-        retry = _retry_after(counts.previous, counts.current, self.per_minute, elapsed, self.WINDOW_S)
+        elapsed = now - window * self.window_s
+        retry = _retry_after(counts.previous, counts.current, self.per_minute, elapsed, self.window_s)
         if write:
-            writes = _retry_after(counts.previous_writes, counts.writes, self.writes_per_minute, elapsed, self.WINDOW_S)
+            writes = _retry_after(counts.previous_writes, counts.writes, self.writes_per_minute, elapsed, self.window_s)
             retry = max(retry, writes)
         if retry:
             return retry

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { AGENT_NAME } from '../agent/name'
-import { API_URL, checkConnection } from '../api/client'
+import { API_URL, checkConnection, ensureSession } from '../api/client'
 import Mascot from './assistant/Mascot'
 import './connection-gate.css'
 
 const RETRY_MS = 2000 // sin conexión, se vuelve a preguntar solo: el MVP puede estar arrancando (carga modelos)
 
 /**
- * Sin la API no hay agente, y la app no arranca con reglas locales: antes de montar `children` revisa la API.
+ * Sin la API no hay agente, y la app no arranca con reglas locales: antes de montar `children` revisa la API y saca la
+ * sesión de este navegador (la primera vez, `POST /session` con el id que ya tenía): sin sesión es «Sin conexión».
  * Mientras revisa o sin conexión no se monta la app, así que ningún contexto llama a la API. Sin conexión
  * vuelve a preguntar cada 2 s, en silencio (la pantalla no cambia), y «Reintentar» pregunta ya. Una vez dentro,
  * la app sigue sola: sus propios errores de red los maneja ella.
@@ -21,8 +22,9 @@ export default function ConnectionGate({ children }) {
     let timer
     const check = async () => {
       const result = await checkConnection()
+      const ready = result.ok && (await ensureSession().then(() => true, () => false))
       if (!current) return
-      if (result.ok) {
+      if (ready) {
         setStatus('online')
       } else {
         setStatus('offline')

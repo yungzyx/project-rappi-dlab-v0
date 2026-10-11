@@ -5,15 +5,15 @@ import math
 from contextlib import contextmanager
 
 import pytest
-from fastapi.testclient import TestClient
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_price, add_product, add_store
+from owner_client import OwnerClient
 from rappi_ia import config
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
-from rappi_ia.api import deps
+from rappi_ia.api import deps, identity
 from rappi_ia.api.services import Services
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.embeddings.base import HashEmbedder
@@ -53,7 +53,7 @@ def client(db):
     api.app.dependency_overrides[api.get_services] = lambda: Services(
         RappiAgent(embedder, TemplateComposer()), embedder
     )
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 
@@ -200,7 +200,7 @@ def test_beacon_accepts_text_plain_without_cors_preflight(client, db):
     events = [{"type": "app_open", "session_id": "s1"}, {"type": "cart_add", "session_id": "s1", "vertical": "turbo"}]
     sent = client.post(
         "/events/beacon",
-        content=json.dumps({"user_id": "u-beacon", "events": events}),
+        content=json.dumps({"user_id": "u-beacon", "events": events, "token": identity.sign("u-beacon")}),
         headers={"content-type": "text/plain;charset=UTF-8", "origin": "http://localhost:5174"},
     )
     assert sent.status_code == 204
@@ -280,7 +280,7 @@ def test_database_down_is_a_clear_503_not_a_500(monkeypatch):
     monkeypatch.setattr(deps, "_pool", pool)
     api.app.dependency_overrides.clear()
     try:
-        response = TestClient(api.app, raise_server_exceptions=False).get("/profile/u1")
+        response = OwnerClient(api.app, raise_server_exceptions=False).get("/profile/u1")
     finally:
         pool.close(timeout=1)
     assert response.status_code == 503
@@ -307,7 +307,8 @@ def test_the_prototype_cannot_forget_or_write_on_behalf_of_simulated_users(clien
 
 def test_the_beacon_only_accepts_the_apps_origin(client, db):
     """Llega como text/plain, sin preflight: cualquier página abierta podía escribir eventos (y texto en el panel)."""
-    body = json.dumps({"user_id": "u-evil", "events": [{"type": "app_open", "session_id": "s"}]})
+    events = [{"type": "app_open", "session_id": "s"}]
+    body = json.dumps({"user_id": "u-evil", "events": events, "token": identity.sign("u-evil")})
     headers = {"content-type": "text/plain"}
     assert (
         client.post("/events/beacon", content=body, headers={**headers, "origin": "https://evil.com"}).status_code

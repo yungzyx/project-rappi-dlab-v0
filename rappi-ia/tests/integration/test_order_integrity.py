@@ -4,8 +4,8 @@ en «Rappi hoy» (modo actual) no enseña nada al perfil de la persona."""
 from contextlib import contextmanager
 
 import pytest
-from fastapi.testclient import TestClient
 
+from owner_client import OwnerClient
 from rappi_ia.api import app as api
 from rappi_ia.demo import seed
 from rappi_ia.events import store as events
@@ -38,7 +38,7 @@ def client(db):
 
     api.app.dependency_overrides[api.get_conn] = conn_override
     api.app.dependency_overrides[api.get_connector] = lambda: shared_connection
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 

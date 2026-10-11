@@ -57,7 +57,8 @@ if LOG_LEVEL not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
 # Apagado por defecto: en local la demo sigue con la búsqueda léxica.
 API_REQUIRE_SEMANTIC = _flag("API_REQUIRE_SEMANTIC", False)
 
-# Red local (iPhone): solo con API_ALLOW_LAN=1 (`make serve-lan`). La API no tiene autenticación. En producción
+# Red local (iPhone): solo con API_ALLOW_LAN=1 (`make serve-lan`). Los datos de cada persona piden su token (ver
+# API_SECRET), pero el resto de la API es abierto. En producción
 # se ignora, igual que el patrón de `localhost:51xx`: los orígenes son exactamente los de API_CORS_ORIGINS (el sitio
 # público; el beacon de eventos también compara con esa lista, aunque el sitio sirva la API en el mismo origen).
 API_ALLOW_LAN = os.environ.get("API_ALLOW_LAN") == "1" and not API_PRODUCTION
@@ -96,6 +97,15 @@ API_MAX_BODY_BYTES = int(os.environ.get("API_MAX_BODY_BYTES", "524288"))
 # un proxy, con --proxy-headers). En local, este Mac (127.0.0.1) no tiene tope.
 API_RATE_PER_MIN = int(os.environ.get("API_RATE_PER_MIN", "120"))
 API_RATE_WRITE_PER_MIN = int(os.environ.get("API_RATE_WRITE_PER_MIN", "60"))
+
+# Secreto que firma la identidad anónima de cada persona (el token de `POST /session`, en X-User-Token): al menos 32
+# bytes (`openssl rand -hex 32`). Sin la variable, en local se crea una vez API_SECRET_FILE (modo 0600, fuera de git);
+# en producción la API no arranca sin ella. Cambiarlo invalida todas las sesiones: la app pide una nueva (otro id).
+API_SECRET = os.environ.get("API_SECRET") or None
+API_SECRET_FILE = DATA_DIR / "api-secret"
+# Personas nuevas por día que cada IP puede crear con `POST /session` (429 si se pasa; 0 = sin tope). En memoria del
+# proceso, como API_RATE_PER_MIN; en local, este Mac no tiene tope.
+API_NEW_USERS_PER_IP_DAY = int(os.environ.get("API_NEW_USERS_PER_IP_DAY", "20"))
 
 # `rappi-ia purge` borra a las personas del prototipo sin actividad (eventos, pedidos ni juego) en estos días.
 PROTOTYPE_USER_RETENTION_DAYS = int(os.environ.get("PROTOTYPE_USER_RETENTION_DAYS", "180"))

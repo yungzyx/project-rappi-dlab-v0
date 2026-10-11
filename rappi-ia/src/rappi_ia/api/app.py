@@ -6,6 +6,7 @@ make serve   →   http://localhost:8000/docs
 import json
 import logging
 import re
+import threading
 import time
 from contextlib import asynccontextmanager, nullcontext
 from dataclasses import replace
@@ -34,12 +35,13 @@ from ..game.cards import did_you_know
 from ..layers.segments import recalculate_user_segments
 from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
-from . import deps
+from . import deps, identity
 from .agent import router as agent_router
 from .catalog import router as catalog_router
 from .deps import Clean, backend_vertical, get_analytics_conn, get_conn, get_connector, get_services
 from .game import router as game_router
-from .limits import MaxBodySize, RateLimit, busy, concurrency_cap
+from .identity import require_owner
+from .limits import TOO_MANY, MaxBodySize, RateLimit, busy, concurrency_cap
 from .logs import AccessLog, configure_logging, rejected, route_template
 from .services import Services, services
 
@@ -51,6 +53,7 @@ async def lifespan(app: FastAPI):
     """Carga los modelos antes de «startup complete»: si no, los paga la primera petición (el /health del prototipo,
     que se rinde a los 1,5 s y la app muestra «Sin conexión»). El pool de conexiones vive lo mismo que la app."""
     configure_logging(config.LOG_LEVEL)
+    identity.secret()  # sin API_SECRET en producción, la API no arranca
     deps.open_pool()
     try:
         start = time.perf_counter()
@@ -75,9 +78,9 @@ app = FastAPI(
 
 
 def cors_origin_regex(allow_lan: bool) -> str:
-    """Solo este Mac por defecto. La red local (iPhone) se abre con API_ALLOW_LAN=1 (`make serve-lan`): la API no
-    tiene autenticación, así que solo en una red de confianza. Redes privadas: 192.168/16, 10/8 y 172.16/12 (el
-    hotspot del iPhone da 172.20.10.x), más nombres `.local` (Bonjour)."""
+    """Solo este Mac por defecto. La red local (iPhone) se abre con API_ALLOW_LAN=1 (`make serve-lan`): fuera de los
+    datos de cada persona (que piden su token) la API es abierta, así que solo en una red de confianza. Redes
+    privadas: 192.168/16, 10/8 y 172.16/12 (el hotspot del iPhone da 172.20.10.x), más nombres `.local` (Bonjour)."""
     hosts = r"localhost|127\.0\.0\.1"
     if allow_lan:
         hosts += (
@@ -106,22 +109,24 @@ def is_same_origin(origin: str, host: str | None) -> bool:
     return bool(host) and parts.scheme in ("http", "https") and parts.netloc.lower() == host.lower()
 
 
+# Sin tope por IP: en local, este Mac (la demo y `make mvp-check`). En producción nadie: tras un proxy que no pasa la
+# IP del cliente, todos llegarían como 127.0.0.1.
+NO_LIMIT_HOSTS = () if config.API_PRODUCTION else ("127.0.0.1", "::1")
+
 # Dentro de CORS (se agregan antes: el último queda por fuera), así un 413 o un 429 lleva sus cabeceras y la app lo lee.
 app.add_middleware(MaxBodySize, max_bytes=config.API_MAX_BODY_BYTES)
 app.add_middleware(
     RateLimit,
     per_minute=config.API_RATE_PER_MIN,
     writes_per_minute=config.API_RATE_WRITE_PER_MIN,
-    # En local, este Mac no tiene tope (la demo y `make mvp-check`). En producción nadie: tras un proxy que no pasa la
-    # IP del cliente, todos llegarían como 127.0.0.1.
-    exempt=() if config.API_PRODUCTION else ("127.0.0.1", "::1"),
+    exempt=NO_LIMIT_HOSTS,
 )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.API_CORS_ORIGINS,
     allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["content-type"],
+    allow_headers=["content-type", identity.TOKEN_HEADER.lower()],
 )
 app.add_middleware(AccessLog)  # el más externo: también los 413 y 429 llevan su id y su línea
 
@@ -191,6 +196,12 @@ ORDERS_CAP = concurrency_cap("orders", config.API_MAX_CONCURRENT_ORDERS)
 ANALYTICS_CAP = concurrency_cap(
     "analytics", config.API_MAX_CONCURRENT_ANALYTICS, wait_s=config.API_TIMEOUT_ANALYTICS_MS / 1000
 )
+# Personas nuevas por día de cada IP (`POST /session`): el mismo conteo por IP que el límite de requests, en un día.
+# `/session` corre en el threadpool (no en el event loop, como el middleware): su conteo va con candado.
+NEW_USERS = RateLimit(
+    None, per_minute=config.API_NEW_USERS_PER_IP_DAY, writes_per_minute=0, exempt=NO_LIMIT_HOSTS, window_s=86_400
+)
+_new_users_lock = threading.Lock()
 
 # Textos cortos de la URL (ids, conceptos, verticales, cocinas): el SQL va con parámetros, pero sin tope se aceptaba
 # un texto de cualquier largo.
@@ -250,6 +261,16 @@ class EventIn(Clean):
 class EventsIn(Clean):
     user_id: str = Field(max_length=64)
     events: list[EventIn] = Field(max_length=200)
+
+
+class BeaconIn(EventsIn):
+    """El beacon no manda cabeceras (sendBeacon): el token de la persona va en el cuerpo."""
+
+    token: str | None = Field(default=None, max_length=200)
+
+
+class SessionIn(Clean):
+    legacy_user_id: str | None = Field(default=None, max_length=64)
 
 
 class OrderLineIn(Clean):
@@ -316,7 +337,7 @@ def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_ser
     return {"ok": True, "documentos": documents, "capacidades": svc.capabilities}
 
 
-@app.post("/agent/ask", dependencies=[Depends(ASK_CAP)])
+@app.post("/agent/ask", dependencies=[Depends(require_owner), Depends(ASK_CAP)])
 def ask(body: AskIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
     ctx = _context(conn, body.vertical, body.user_id, body.profile, body.shown_topics, body.mode)
     if body.previous and body.previous.concepts:
@@ -380,7 +401,7 @@ def search(
     }
 
 
-@app.get("/recommendations")
+@app.get("/recommendations", dependencies=[Depends(require_owner)])
 def recommendations(
     user_id: ShortQuery,
     vertical: ShortQuery | None = None,
@@ -417,8 +438,25 @@ def recommendations(
     return {"user_id": user_id, "interests": interests[:5], "rows": rows}
 
 
-# ── Perfil y eventos ─────────────────────────────────────────────────────────
-@app.get("/profile/{user_id}")
+# ── Sesión, perfil y eventos ────────────────────────────────────────────────
+@app.post("/session")
+def new_session(body: SessionIn, request: Request, conn: Connection = Depends(get_conn)) -> dict:
+    """El id de este navegador y su token (X-User-Token). Un id viejo de la app (de antes de la identidad firmada) se
+    reclama una sola vez y conserva lo que ya tenía; si no, una persona nueva, con un tope por IP al día (429)."""
+    user_id = identity.claim_legacy(conn, body.legacy_user_id)
+    if user_id is None:
+        client = request.client
+        with _new_users_lock:
+            retry = NEW_USERS.wait(client.host if client else "", write=False)
+        if retry:
+            conn.rollback()
+            raise HTTPException(429, TOO_MANY, headers={"Retry-After": str(retry)})
+        user_id = identity.create_user(conn)
+    conn.commit()
+    return {"user_id": user_id, "token": identity.sign(user_id)}
+
+
+@app.get("/profile/{user_id}", dependencies=[Depends(require_owner)])
 def get_profile(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dict:
     taxonomy = load_taxonomy()
     scores = events.profile(conn, user_id)
@@ -432,14 +470,14 @@ def get_profile(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dic
     }
 
 
-@app.delete("/profile/{user_id}")
+@app.delete("/profile/{user_id}", dependencies=[Depends(require_owner)])
 def forget(user_id: ShortPath, concept: ShortQuery | None = None, conn: Connection = Depends(get_conn)) -> dict:
     deleted = events.forget(conn, user_id, concept)
     conn.commit()
     return {"user_id": user_id, "concept": concept, "eventos_borrados": deleted}
 
 
-@app.post("/events")
+@app.post("/events", dependencies=[Depends(require_owner)])
 def post_events(body: EventsIn, conn: Connection = Depends(get_conn)) -> dict:
     return {"guardados": _save_events(lambda: nullcontext(conn), body)}
 
@@ -447,8 +485,9 @@ def post_events(body: EventsIn, conn: Connection = Depends(get_conn)) -> dict:
 @app.post("/events/beacon", status_code=204)
 async def post_events_beacon(request: Request, connector=Depends(get_connector)) -> None:
     """Lo que queda en cola al cerrar la pestaña (navigator.sendBeacon). Llega como text/plain, que no necesita
-    preflight de CORS; el contenido es el mismo JSON de /events. Valida el origen y el tamaño antes de pedir una
-    conexión: una página ajena no gasta las del pool."""
+    preflight de CORS; el contenido es el mismo JSON de /events, más el token de la persona (`token`: sendBeacon no
+    manda cabeceras). Valida el origen, el tamaño y el token antes de pedir una conexión: una página ajena no gasta
+    las del pool."""
     origin = request.headers.get("origin")
     # text/plain no tiene preflight: sin esta revisión, cualquier página abierta podía escribir eventos
     if origin and not origin_allowed(origin) and not is_same_origin(origin, request.headers.get("host")):
@@ -457,9 +496,10 @@ async def post_events_beacon(request: Request, connector=Depends(get_connector))
     if len(raw) > MAX_BEACON_BYTES:
         raise HTTPException(413, "Demasiados eventos")
     try:
-        body = EventsIn.model_validate_json(raw)
+        body = BeaconIn.model_validate_json(raw)
     except ValidationError as exc:
         raise HTTPException(422, "Eventos inválidos") from exc
+    identity.require_user(body.user_id, identity.verify(body.token))
     await run_in_threadpool(_save_events, connector, body)
 
 
@@ -487,7 +527,7 @@ def _save_events(connect, body: EventsIn) -> int:
 # Alcance `function`: la conexión, su turno y el cupo se sueltan al terminar el endpoint. Con el de siempre (`request`)
 # FastAPI los suelta después de las tareas en segundo plano, y el recálculo pediría una segunda conexión con la primera
 # todavía tomada.
-@app.post("/orders", dependencies=[Depends(ORDERS_CAP, scope="function")])
+@app.post("/orders", dependencies=[Depends(require_owner), Depends(ORDERS_CAP, scope="function")])
 def post_order(
     body: OrderIn,
     background: BackgroundTasks,

@@ -6,6 +6,10 @@ import zlib
 # test_api_env y test_limits prueban el límite con sus propios valores.
 os.environ["API_RATE_PER_MIN"] = "0"
 os.environ["API_RATE_WRITE_PER_MIN"] = "0"
+# Las sesiones de la suite: un secreto fijo de prueba (no se crea data/api-secret) y sin tope de personas nuevas por IP
+# (test_ownership lo prueba con el suyo).
+os.environ["API_SECRET"] = "secreto-de-los-tests-no-sirve-fuera-de-ellos"
+os.environ["API_NEW_USERS_PER_IP_DAY"] = "0"
 
 import pytest  # noqa: E402
 

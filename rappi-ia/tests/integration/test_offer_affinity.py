@@ -4,9 +4,9 @@
 from datetime import UTC, datetime
 
 import pytest
-from fastapi.testclient import TestClient
 from psycopg.types.json import Jsonb
 
+from owner_client import OwnerClient
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
@@ -33,7 +33,7 @@ def client(db):
     api.app.dependency_overrides[api.get_services] = lambda: Services(
         RappiAgent(embedder, TemplateComposer()), embedder
     )
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 

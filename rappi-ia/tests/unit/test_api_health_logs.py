@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from psycopg import DataError, OperationalError
 from psycopg_pool import PoolTimeout
 
+from owner_client import OwnerClient
 from rappi_ia import config
 from rappi_ia.api import app as api
 from rappi_ia.api import deps, logs
@@ -61,7 +62,7 @@ def conn():
 def client(conn):
     api.app.dependency_overrides[api.get_conn] = lambda: conn
     api.app.dependency_overrides[api.get_services] = lambda: services()
-    yield TestClient(api.app)
+    yield OwnerClient(api.app)
     api.app.dependency_overrides.clear()
 
 
@@ -255,7 +256,7 @@ def test_server_errors_are_logged_as_warnings(client, caplog, monkeypatch):
 
     monkeypatch.setattr(api.events, "profile", boom)
     with caplog.at_level(logging.INFO):
-        TestClient(api.app, raise_server_exceptions=False).get("/profile/u1")
+        OwnerClient(api.app, raise_server_exceptions=False).get("/profile/u1")
 
     line = _access(caplog)[0]
     assert line.levelno == logging.WARNING and line.getMessage().startswith("GET /profile/{user_id} 500 ")

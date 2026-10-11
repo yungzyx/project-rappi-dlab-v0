@@ -19,6 +19,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia seed-demo               # catálogo de prueba inventado, SOLO en la base DATABASE_URL_TEST (_test)
     rappi-ia doctor                  # revisa (solo lectura) que DATABASE_URL tenga catálogo; sale 1 si no
     rappi-ia check-migrations        # se niega a migrar la base real desde una rama sin fusionar (MIGRATE=1 lo fuerza)
+    rappi-ia token proto-…           # token (X-User-Token) de una persona, firmado con el secreto de la API
 """
 
 import argparse
@@ -526,10 +527,21 @@ def cmd_check_migrations(conn, args) -> None:
         print(message)
 
 
-# Comandos que no usan la conexión de DATABASE_URL (la abren ellos o usan otra).
-OWN_CONNECTION = {"seed-demo", "doctor", "check-migrations"}
+def cmd_token(conn, args) -> None:
+    """Para herramientas del operador que leen rutas de una persona (su perfil, su juego): no toca la base."""
+    from .api.identity import sign
+
+    try:
+        print(sign(args.user_id))
+    except RuntimeError as exc:  # sin API_SECRET en producción
+        raise SystemExit(str(exc)) from exc
+
+
+# Comandos que no usan la conexión de DATABASE_URL (la abren ellos, usan otra o no la necesitan).
+OWN_CONNECTION = {"seed-demo", "doctor", "check-migrations", "token"}
 
 COMMANDS = {
+    "token": cmd_token,
     "check-migrations": cmd_check_migrations,
     "doctor": cmd_doctor,
     "seed-demo": cmd_seed_demo,
@@ -656,6 +668,10 @@ def build_parser() -> argparse.ArgumentParser:
         "check-migrations",
         help="se niega si la base rappi tiene migraciones pendientes y el código no está en origin/main (MIGRATE=1)",
     )
+    token = sub.add_parser(
+        "token", help="token (X-User-Token) de una persona para las herramientas del operador; no toca la base"
+    )
+    token.add_argument("user_id")
     return parser
 
 

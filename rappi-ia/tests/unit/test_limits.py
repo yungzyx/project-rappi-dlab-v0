@@ -12,11 +12,12 @@ import pytest
 from fastapi import Depends, FastAPI, Request
 from fastapi.testclient import TestClient
 
+from owner_client import OwnerClient
 from rappi_ia import config
 from rappi_ia.agent import compose
 from rappi_ia.agent.compose import ClaudeComposer, DailyCallCap, Draft, TemplateComposer
 from rappi_ia.api import app as api
-from rappi_ia.api import limits, services
+from rappi_ia.api import identity, limits, services
 
 ANSWER = {"kind": "resultados", "text": "Mira estas opciones.", "products": [], "intent": {"kind": "buscar"}}
 
@@ -47,7 +48,7 @@ def client(opened, monkeypatch):
     api.app.dependency_overrides[api.get_connector] = lambda: connection
     api.app.dependency_overrides[api.get_services] = lambda: types.SimpleNamespace(agent=agent, embedder=None)
     try:
-        with TestClient(api.app) as test_client:
+        with OwnerClient(api.app) as test_client:
             yield test_client
     finally:
         api.app.dependency_overrides.clear()
@@ -340,7 +341,8 @@ def test_llm_daily_cap_zero_never_calls(monkeypatch):
 def test_beacon_bad_origin_opens_no_connection(client, opened, monkeypatch):
     monkeypatch.setattr(api.events, "record", lambda conn, events, source: len(events))
     headers = {"content-type": "text/plain"}
-    body = '{"user_id": "u1", "events": []}'
+    token = identity.sign("u1")
+    body = f'{{"user_id": "u1", "events": [], "token": "{token}"}}'
 
     assert (
         client.post("/events/beacon", content=body, headers={**headers, "origin": "https://evil.com"}).status_code
@@ -348,7 +350,8 @@ def test_beacon_bad_origin_opens_no_connection(client, opened, monkeypatch):
     )
     assert client.post("/events/beacon", content=b"x" * (api.MAX_BEACON_BYTES + 1), headers=headers).status_code == 413
     assert client.post("/events/beacon", content="{roto", headers=headers).status_code == 422
-    bad_type = '{"user_id": "u1", "events": [{"type": "order_placed", "session_id": "s"}]}'
+    bad_type = f'{{"user_id": "u1", "events": [{{"type": "order_placed", "session_id": "s"}}], "token": "{token}"}}'
+    assert client.post("/events/beacon", content=bad_type.replace(token, "otro"), headers=headers).status_code == 401
     assert client.post("/events/beacon", content=bad_type, headers=headers).status_code == 400
     assert opened == []
 

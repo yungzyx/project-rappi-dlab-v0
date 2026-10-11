@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { stubApi } from '../../api/testing'
+import { fixture, stubApi } from '../../api/testing'
 import { userId } from '../../api/user'
 import { ToastProvider } from '../../components/Toast'
 import { gameReady, seed } from '../../game/testSeed.js'
@@ -69,8 +69,9 @@ describe('Borrar mis datos (Cuenta)', () => {
 
     await waitFor(() => expect(userId()).not.toBe(before))
     const left = Object.keys(localStorage).filter((key) => key.startsWith('rappi-proto-'))
-    expect(left).toEqual(['rappi-proto-user'])
+    expect(left.sort()).toEqual(['rappi-proto-token', 'rappi-proto-user'])
     expect(localStorage.getItem('rappi-proto-user')).toBe(userId())
+    expect(localStorage.getItem('rappi-proto-token')).toBe(fixture('session').token)
     expect(sessionStorage.getItem('rappi-proto-session')).toBeNull()
     // Con todo borrado, la app se recarga en la Home: ni el carro ni los pedidos en memoria sobreviven.
     await waitFor(() => expect(reloadToHome).toHaveBeenCalledTimes(1))
@@ -113,6 +114,38 @@ describe('forgetAll', () => {
     await forgetAll({ events: { clear: vi.fn(), settled: vi.fn().mockResolvedValue(undefined) }, game, reload })
     expect(reload).toHaveBeenCalledTimes(1)
     expect(game.resume).not.toHaveBeenCalled()
+  })
+
+  test('forgetAll pide una sesión nueva', async () => {
+    localStorage.setItem('rappi-proto-user', 'proto-1111111111111111')
+    localStorage.setItem('rappi-proto-token', 'proto-1111111111111111.firma')
+    const api = stubApi({
+      'DELETE /profile/*': {},
+      'POST /session': (req) => {
+        // Sin el id ni el token de antes: la persona nueva no hereda nada
+        expect(req.body).toEqual({ legacy_user_id: null })
+        return { user_id: 'proto-2222222222222222', token: 'proto-2222222222222222.firma' }
+      },
+    })
+    const reload = vi.fn()
+    await forgetAll({ events: { clear: vi.fn(), settled: vi.fn().mockResolvedValue(undefined) }, reload })
+    const calls = api.mock.calls.map(([url, init]) => `${init?.method} ${new URL(url).pathname}`)
+    expect(calls).toEqual(['DELETE /profile/proto-1111111111111111', 'POST /session'])
+    expect(api.mock.calls[1][1].headers['X-User-Token']).toBeUndefined()
+    expect(userId()).toBe('proto-2222222222222222')
+    expect(localStorage.getItem('rappi-proto-token')).toBe('proto-2222222222222222.firma')
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  test('si la sesión nueva falla, igual recarga sin el id viejo (la app la pide al abrir)', async () => {
+    localStorage.setItem('rappi-proto-user', 'proto-1111111111111111')
+    localStorage.setItem('rappi-proto-token', 'proto-1111111111111111.firma')
+    stubApi({ 'DELETE /profile/*': {}, 'POST /session': 'offline' })
+    const reload = vi.fn()
+    await forgetAll({ events: { clear: vi.fn(), settled: vi.fn().mockResolvedValue(undefined) }, reload })
+    expect(localStorage.getItem('rappi-proto-token')).toBeNull()
+    expect(localStorage.getItem('rappi-proto-user')).not.toBe('proto-1111111111111111')
+    expect(reload).toHaveBeenCalledTimes(1)
   })
 
   test('si el DELETE falla, devuelve el guardado al juego, no recarga y no cambia el id', async () => {

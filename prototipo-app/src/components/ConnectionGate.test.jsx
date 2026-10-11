@@ -1,14 +1,22 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { API_URL } from '../api/client'
 import { fixture, stubApi } from '../api/testing'
+import { userId, userToken } from '../api/user'
 import ConnectionGate from './ConnectionGate'
+
+// Un navegador que ya tiene su sesión: la puerta solo revisa la API. La primera carga (sin token) se prueba aparte.
+beforeEach(() => {
+  localStorage.setItem('rappi-proto-user', 'proto-1111111111111111')
+  localStorage.setItem('rappi-proto-token', 'proto-1111111111111111.firma')
+})
 
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
+  localStorage.clear()
 })
 
 const renderGate = () =>
@@ -26,6 +34,39 @@ describe('ConnectionGate', () => {
     expect(screen.queryByText('Sin conexión con Mochi')).toBeNull()
     expect(api).toHaveBeenCalledTimes(1)
     expect(api.mock.calls[0][0]).toBe(`${API_URL}/health`)
+  })
+
+  test('la primera carga migra el id viejo', async () => {
+    localStorage.removeItem('rappi-proto-token')
+    localStorage.setItem('rappi-proto-user', 'proto-0123456789abcdef') // el id de antes de la sesión firmada
+    const api = stubApi({
+      '/health': fixture('health'),
+      'POST /session': (req) => ({ user_id: req.body.legacy_user_id, token: `${req.body.legacy_user_id}.firma` }),
+    })
+    renderGate()
+    expect(await screen.findByText('La app')).toBeTruthy()
+    expect(api.mock.calls.map(([url]) => new URL(url).pathname)).toEqual(['/health', '/session'])
+    expect(JSON.parse(api.mock.calls[1][1].body)).toEqual({ legacy_user_id: 'proto-0123456789abcdef' })
+    expect(userId()).toBe('proto-0123456789abcdef')
+    expect(userToken()).toBe('proto-0123456789abcdef.firma')
+  })
+
+  test('la primera carga sin id viejo recibe uno nuevo del servidor', async () => {
+    localStorage.clear()
+    const session = fixture('session')
+    stubApi({ '/health': fixture('health'), 'POST /session': session })
+    renderGate()
+    expect(await screen.findByText('La app')).toBeTruthy()
+    expect(userId()).toBe(session.user_id)
+    expect(userToken()).toBe(session.token)
+  })
+
+  test('si no consigue sesión, no abre la app', async () => {
+    localStorage.removeItem('rappi-proto-token')
+    stubApi({ '/health': fixture('health'), 'POST /session': 429 })
+    renderGate()
+    expect(await screen.findByRole('heading', { name: 'Sin conexión con Mochi' })).toBeTruthy()
+    expect(screen.queryByText('La app')).toBeNull()
   })
 
   test('sin API muestra «Sin conexión con Mochi» y no la app', async () => {
