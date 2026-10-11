@@ -90,6 +90,16 @@ def test_vocative_is_stripped_before_query(understander):
         assert understander.understand(None, text, "restaurantes").query == "sushi", text
 
 
+def test_the_name_before_courtesy_or_an_article_is_the_dessert(understander):
+    """Solo antes de un saludo o de un verbo de pedido el nombre es vocativo: «porfa», «por» o un artículo después
+    no lo vuelven un llamado."""
+    name = _name().lower()
+    for text in [f"quiero un {name} porfa", f"quiero {name} por favor", f"dame {name} un poco"]:
+        intent = understander.understand(None, text, "restaurantes")
+        assert intent.query.split()[0] == name, (text, intent.query)
+    assert understander.understand(None, f"quiero un {name} porfa", "restaurantes").query == name
+
+
 def test_dessert_alone_stays_a_query(understander):
     """El mochi también es un postre: si el nombre es todo el pedido, se busca."""
     name = _name().lower()

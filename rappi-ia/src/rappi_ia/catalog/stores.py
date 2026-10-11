@@ -210,6 +210,38 @@ LEFT JOIN item_concepts ic ON ic.entity_type = 'menu_item' AND ic.entity_id = mi
 WHERE mi.item_id = %(id)s"""
 
 
+# El precio vigente de un producto del catálogo en UNA tienda: su último precio por SKU, de la corrida de su formato y
+# no agotado (la regla de _CATALOG_DETAIL, sin pedir pasillo); si la tienda lo tiene en dos SKU, el más barato.
+_STORE_PRICE = """
+WITH latest AS (
+    SELECT DISTINCT ON (ps.sku) ps.price, ps.in_stock, ps.run_id
+    FROM price_snapshots ps
+    JOIN store_products sp ON sp.store_id = ps.store_id AND sp.sku = ps.sku
+    WHERE ps.store_id = %(store_id)s AND sp.master_product_id = %(id)s
+    ORDER BY ps.sku, ps.scraped_at DESC, ps.run_id DESC
+)
+SELECT min(l.price)
+FROM latest l
+JOIN v_store_format_runs f ON f.store_id = %(store_id)s AND f.format_run_id = l.run_id
+WHERE l.in_stock IS NOT FALSE AND l.price >= %(min_price)s"""
+
+
+def offer_price(conn: Connection, entity_type: str, entity_id: str, store_id: int | None) -> float | None:
+    """El precio vigente de una línea de pedido: el de su tienda (`store_id`, de donde la persona lo agregó: entre
+    tiendas el precio cambia) o, sin tienda, el de la ficha del producto (la oferta más barata). Un plato es de un solo
+    restaurante: con otra tienda no tiene precio. `None` si no hay oferta vigente."""
+    if entity_type == "catalog_item" and store_id is not None:
+        item_id = int(entity_id) if entity_id.isascii() and entity_id.isdigit() else None
+        if item_id is None or item_id > BIGINT_MAX or not 0 <= store_id <= BIGINT_MAX:
+            return None
+        price = conn.execute(_STORE_PRICE, {"id": item_id, "store_id": store_id, "min_price": MIN_PRICE}).fetchone()[0]
+        return float(price) if price is not None else None
+    detail = product_detail(conn, entity_type, entity_id)
+    if detail is None or (entity_type == "menu_item" and store_id is not None and detail["store_id"] != store_id):
+        return None
+    return detail["price_value"]
+
+
 def vertical_stores(conn: Connection, vertical: str, limit: int = 30) -> list[dict]:
     """Una tarjeta por formato de tienda del vertical, de más a menos ofertas vigentes. Restaurantes no entra: sus
     locales no venden productos del catálogo (tienen menú)."""

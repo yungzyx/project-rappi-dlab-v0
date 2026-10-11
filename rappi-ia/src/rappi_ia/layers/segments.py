@@ -533,7 +533,8 @@ _METRIC_SQL = {
                                  SELECT o.user_id, ib.brand_key, sum(l.qty) AS n
                                  FROM app_order_lines l JOIN app_orders o USING (order_id)
                                  JOIN item_brands ib ON ib.entity_type = l.entity_type AND ib.entity_id = l.entity_id
-                                 WHERE o.source = %(source)s AND o.ts >= %(now)s - interval '90 days'
+                                 WHERE o.source = %(source)s AND o.mode = 'propuesta'
+                                   AND o.ts >= %(now)s - interval '90 days'
                                  GROUP BY 1, 2) t
                               GROUP BY 1 HAVING sum(n) >= %(min_lines)s""",
     "conceptos_distintos_90d": """SELECT user_id, count(DISTINCT concept_id) FROM (

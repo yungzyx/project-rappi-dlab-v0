@@ -12,7 +12,7 @@ from datetime import datetime
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
-from ..catalog.stores import product_detail
+from ..catalog.stores import offer_price
 from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import load_taxonomy
 
@@ -224,7 +224,8 @@ def record_order(
                     i,
                     line["entity_type"],
                     line["entity_id"],
-                    line.get("concept_id") if line.get("concept_id") in known else None,
+                    # En «Rappi hoy» no se aprende: la línea no guarda concepto, como los eventos de ese modo.
+                    line.get("concept_id") if mode == "propuesta" and line.get("concept_id") in known else None,
                     int(line.get("qty", 1)),
                     line.get("unit_price"),
                     bool(line.get("from_suggestion")),
@@ -251,17 +252,16 @@ def record_order(
     return order_id
 
 
-def catalog_prices(conn: Connection, lines: list[dict]) -> list[dict]:
-    """Las líneas de un pedido del cliente con el precio vigente del catálogo (el de la ficha del producto): el que
-    manda el cliente no se usa, porque el total alimenta segmentos y métricas. ValueError si un producto no está en el
-    catálogo o no tiene precio."""
+def catalog_prices(conn: Connection, lines: list[dict]) -> tuple[list[dict], int]:
+    """Las líneas de un pedido del cliente con el precio vigente del catálogo en su tienda (`offer_price`): el que
+    manda el cliente no se usa, porque el total alimenta segmentos y métricas. Devuelve las líneas con precio y cuántas
+    se omitieron (agotadas, de una tienda que no las vende o que no están en el catálogo)."""
     priced = []
     for line in lines:
-        product = product_detail(conn, line["entity_type"], line["entity_id"])
-        if product is None:
-            raise ValueError("Producto no disponible")
-        priced.append({**line, "unit_price": product["price_value"]})
-    return priced
+        price = offer_price(conn, line["entity_type"], line["entity_id"], line.get("store_id"))
+        if price is not None:
+            priced.append({**line, "unit_price": price})
+    return priced, len(lines) - len(priced)
 
 
 def profile(conn: Connection, user_id: str, now: datetime | None = None) -> dict[str, float]:

@@ -70,6 +70,8 @@ export function buildOrders(items, { userId, sessionId, cartId, mode = 'propuest
       entity_type: product.entityType === 'menu_item' ? 'menu_item' : 'catalog_item',
       entity_id: product.entityId,
       ...(mode === 'propuesta' ? { concept_id: conceptOf(product) } : {}),
+      // La tienda de donde se agregó: el precio cambia entre tiendas y el backend toma el de esa.
+      ...(product.storeId != null ? { store_id: product.storeId } : {}),
       qty,
       unit_price: parsePrice(product.price) || undefined,
       from_suggestion: Boolean(fromSuggestion ?? product.fromSuggestion),

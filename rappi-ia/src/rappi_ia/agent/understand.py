@@ -77,6 +77,24 @@ MEMORY_QUESTIONS = [
 VOICE_FILLERS = {"eh", "em", "mm", "mmm", "este", "ya", "mira", "oye", "po", "pues"}
 _CALLS = GREETING_WORDS | THANKS_WORDS | VOICE_FILLERS  # lo que va antes de nombrar a quien se le habla
 _COURTESY_AT_END = _CALLS | {"porfa", "por", "favor"}
+# Lo que empieza un pedido después de llamar a alguien («mochi, quiero sushi»). Sin «porfa», «por» ni artículos:
+# «quiero un mochi porfa» pide el postre.
+_REQUEST_VERBS = {
+    "quiero",
+    "queria",
+    "busco",
+    "busca",
+    "necesito",
+    "nesecito",
+    "nececito",
+    "nesesito",
+    "tienen",
+    "tienes",
+    "hay",
+    "dame",
+    "podrias",
+    "puedes",
+}
 # «holaaaa», «cervezaaaa»: tres o más letras iguales seguidas son una (no hay palabras así en español).
 STRETCHED = re.compile(r"([^\W\d_xw])\1{2,}")  # salvo x y w: «talla xxxl», «www»
 # Risas («jajaja», «xd») y links no piden nada: se responde como a un mensaje vacío, sin anotar demanda.
@@ -578,7 +596,7 @@ def _clean(body: str) -> str:
     while words:
         first = words[0]
         if first in names:
-            if not (called or (len(words) > 1 and words[1] in _CALLS | REQUEST_WORDS)):
+            if not (called or (len(words) > 1 and words[1] in _CALLS | _REQUEST_VERBS)):
                 break
         elif first not in _CALLS | REQUEST_WORDS | {"m"}:
             break

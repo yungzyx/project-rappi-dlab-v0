@@ -151,9 +151,7 @@ class ClaudeComposer:
         try:
             message = self._client.messages.create(
                 model=self.model,
-                max_tokens=200,
-                # Sin pensar: el pensamiento llega en un bloque sin texto y se come los 200 tokens de la respuesta.
-                thinking={"type": "disabled"},
+                **thinking_options(self.model),
                 system=self.system,
                 messages=[{"role": "user", "content": json.dumps(facts(d, refs), ensure_ascii=False)}],
             )
@@ -172,6 +170,19 @@ class ClaudeComposer:
         if verified is None:
             return _fallback(template, "verificador")
         return " ".join([verified, *notices(d)])
+
+
+def thinking_options(model: str) -> dict:
+    """Cómo pedir una o dos oraciones sin pensar de más, según lo que acepta cada modelo: el pensamiento llega en un
+    bloque sin texto y se come los tokens de la respuesta. Un modelo desconocido va sin `thinking` y con espacio: se
+    toma el primer bloque de texto y, si no alcanza, responde la plantilla."""
+    if model in ("claude-sonnet-5", "claude-opus-5"):  # aceptan apagarlo (Opus 5, con el esfuerzo por defecto)
+        return {"max_tokens": 200, "thinking": {"type": "disabled"}}
+    if model == "claude-sonnet-5-5":  # "disabled" es un 400; between_tools no piensa en una respuesta sin herramientas
+        return {"max_tokens": 200, "thinking": {"type": "between_tools"}}
+    if model == "claude-opus-5-5":  # no se puede apagar: esfuerzo bajo y espacio para pensar antes del texto
+        return {"max_tokens": 2000, "output_config": {"effort": "low"}}
+    return {"max_tokens": 2000}
 
 
 def _fallback(template: str, reason: str) -> str:

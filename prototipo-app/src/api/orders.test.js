@@ -153,6 +153,24 @@ describe('pedidos para el panel', () => {
     expect(proposal.lines[0].concept_id).toBe('cerveza')
   })
 
+  test('cada línea lleva la tienda de donde se agregó: el backend toma el precio de esa tienda', () => {
+    const item = toPrototypeProduct(fixture('catalog-product'))
+    const dish = toPrototypeProduct(fixture('catalog-menu').sections[0].items[0])
+    const [grocery, restaurant] = buildOrders(
+      [
+        { product: { ...item, storeId: 9102 }, qty: 1 },
+        { product: dish, qty: 1 },
+      ],
+      ctx,
+    )
+    expect(grocery.lines[0].store_id).toBe(9102)
+    expect(restaurant.lines[0].store_id).toBe(dish.storeId)
+    expect(dish.storeId).toEqual(expect.any(Number))
+    // Sin tienda (un producto sin oferta abierta), la línea va sin ella y el backend usa la oferta más barata.
+    const [loose] = buildOrders([{ product: { ...item, storeId: undefined }, qty: 1 }], ctx)
+    expect(loose.lines[0]).not.toHaveProperty('store_id')
+  })
+
   test('from_suggestion sale de la línea del carrito', () => {
     const [order] = buildOrders([{ product: beer(), qty: 1, fromSuggestion: true }], ctx)
     expect(order.lines[0].from_suggestion).toBe(true)

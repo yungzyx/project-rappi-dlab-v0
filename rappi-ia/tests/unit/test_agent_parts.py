@@ -36,7 +36,7 @@ def _reply(*content, stop_reason="end_turn"):
 
 def _composer(create):
     composer = ClaudeComposer.__new__(ClaudeComposer)  # sin red ni clave
-    composer.model, composer._fallback = "test", TemplateComposer()
+    composer.model, composer._fallback = "claude-sonnet-5", TemplateComposer()
     composer._client = SimpleNamespace(messages=SimpleNamespace(create=create))
     return composer
 
@@ -55,6 +55,32 @@ def test_claude_thinking_block_then_text_uses_text():
 
     assert _composer(create).compose(RESULTS) == "Mira, te dejo Escudo bien helada."
     assert sent["thinking"] == {"type": "disabled"}  # 200 tokens no alcanzan para pensar y redactar
+
+
+@pytest.mark.parametrize(
+    ("model", "options"),
+    [
+        ("claude-sonnet-5", {"max_tokens": 200, "thinking": {"type": "disabled"}}),
+        ("claude-opus-5", {"max_tokens": 200, "thinking": {"type": "disabled"}}),
+        # Rechaza "disabled": between_tools no piensa en una respuesta sin herramientas.
+        ("claude-sonnet-5-5", {"max_tokens": 200, "thinking": {"type": "between_tools"}}),
+        # No se puede apagar: esfuerzo bajo y espacio para pensar antes del texto.
+        ("claude-opus-5-5", {"max_tokens": 2000, "output_config": {"effort": "low"}}),
+        ("claude-fable-5", {"max_tokens": 2000}),  # "disabled" es un 400: desconocido, sin `thinking`
+        ("otro-modelo", {"max_tokens": 2000}),
+    ],
+)
+def test_thinking_options_follow_the_model(model, options):
+    sent = {}
+
+    def create(**kwargs):
+        sent.update(kwargs)
+        return _reply(_text('{"text": "Mira, te dejo {p1} bien helada."}'))
+
+    composer = _composer(create)
+    composer.model = model
+    assert composer.compose(RESULTS) == "Mira, te dejo Escudo bien helada."
+    assert {k: v for k, v in sent.items() if k in ("max_tokens", "thinking", "output_config")} == options
 
 
 def test_claude_max_tokens_logs_reason(caplog):

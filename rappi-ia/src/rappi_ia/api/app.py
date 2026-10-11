@@ -175,6 +175,7 @@ class OrderLineIn(Clean):
     entity_type: Literal["catalog_item", "menu_item"]
     entity_id: str = Field(max_length=64)
     concept_id: str | None = Field(default=None, max_length=64)
+    store_id: int | None = Field(default=None, ge=0, le=2**63 - 1)  # la tienda de donde se agregó: su precio manda
     qty: int = Field(default=1, ge=1, le=99)
     # Se ignora: el precio de cada línea sale del catálogo. Queda para no romper a un cliente que lo manda.
     unit_price: float | None = Field(default=None, ge=0, le=100_000_000, allow_inf_nan=False)
@@ -379,14 +380,15 @@ def post_order(
     conn: Connection = Depends(get_conn),
     connector=Depends(get_connector),
 ) -> dict:
-    """Guarda el pedido y, ya respondido, recalcula los segmentos de esa persona (solo los suyos, con otra conexión)."""
+    """Guarda el pedido con el precio del catálogo en la tienda de cada línea (las que no tienen precio vigente quedan
+    fuera y se cuentan en `lineas_omitidas`) y, ya respondido, recalcula los segmentos de esa persona (solo los suyos,
+    con otra conexión)."""
     vertical = backend_vertical(body.vertical)
     if vertical is None:  # un pedido es de una tienda: sin vertical del catálogo no se puede guardar
         raise HTTPException(400, f"Vertical desconocido: {body.vertical}")
-    try:
-        lines = events.catalog_prices(conn, [line.model_dump() for line in body.lines])
-    except ValueError as exc:  # sin decir cuál: la respuesta no sirve para sondear el catálogo
-        raise HTTPException(400, "Producto no disponible") from exc
+    lines, skipped = events.catalog_prices(conn, [line.model_dump() for line in body.lines])
+    if not lines:  # sin decir cuál: la respuesta no sirve para sondear el catálogo
+        raise HTTPException(400, "Producto no disponible")
     try:
         order_id = events.record_order(
             conn, body.user_id, body.session_id, body.cart_id, vertical, lines, source="prototype", mode=body.mode
@@ -394,8 +396,10 @@ def post_order(
     except ValueError as exc:  # un usuario de otra fuente (simulado)
         raise HTTPException(400, str(exc)) from exc
     conn.commit()
+    if skipped:
+        log.warning("Pedido %s: %d línea(s) sin precio vigente quedaron fuera", order_id, skipped)
     background.add_task(recalculate_user_segments, connector, body.user_id)
-    return {"order_id": order_id}
+    return {"order_id": order_id, "lineas_omitidas": skipped}
 
 
 @app.get("/concepts")
