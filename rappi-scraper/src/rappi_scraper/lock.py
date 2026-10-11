@@ -37,7 +37,15 @@ class DownloadLockRefused(DownloadInProgress):
 
 
 # Con estos FATAL la base está, pero todavía no o ya no atiende: se trata como caída (sigue el candado de archivo).
-_TRANSIENT_FATAL = ("too many connections", "starting up", "shutting down", "in recovery mode")
+_TRANSIENT_FATAL = (
+    "too many connections",
+    "too many clients already",
+    "remaining connection slots are reserved",
+    "starting up",
+    "shutting down",
+    "not yet accepting connections",
+    "in recovery mode",
+)
 
 
 @contextmanager

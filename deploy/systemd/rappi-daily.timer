@@ -1,0 +1,10 @@
+# Se activa en el despliegue: `systemctl enable --now rappi-daily.timer` (docs/despliegue.md).
+[Unit]
+Description=Rappi: purga y respaldo (todos los días 04:00, hora de Chile)
+
+[Timer]
+OnCalendar=*-*-* 04:00 America/Santiago
+Persistent=true
+
+[Install]
+WantedBy=timers.target

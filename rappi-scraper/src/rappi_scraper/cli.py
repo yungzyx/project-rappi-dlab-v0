@@ -16,7 +16,9 @@ Flujo típico:
 import argparse
 import json
 import logging
+import os
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -46,6 +48,8 @@ from .storage.search import VERTICALS, build_search_documents, search
 log = logging.getLogger("rappi_scraper")
 
 LOGS_DIR = config.DATA_DIR / "logs"
+# Los logs de cada comando largo (`refresh_…log`, `backup_…log`) se borran pasadas estas semanas (LOG_RETENTION_WEEKS).
+LOG_RETENTION_WEEKS = 8
 # Log a archivo, Mac despierto y el candado de descargas: los que descargan de rappi.cl, y `backup`, que no debe correr
 # junto al respaldo de `refresh` (se pisaban al rotar).
 LONG_COMMANDS = {"discover", "scrape-stores", "scrape-restaurants", "refresh", "backup"}
@@ -299,10 +303,22 @@ COMMANDS = {
 }
 
 
+def prune_old_logs(logs_dir: Path) -> list[Path]:
+    """Borra los `<comando>_<fecha>.log` con más de LOG_RETENTION_WEEKS semanas. Los de launchd (`launchd.*.log`, los
+    rota refresh-semanal.sh) y ultimo-estado.txt no son de un comando y quedan."""
+    weeks = int(os.environ.get("LOG_RETENTION_WEEKS") or LOG_RETENTION_WEEKS)
+    cutoff = time.time() - weeks * 7 * 86400
+    removed = [path for path in logs_dir.glob("*_*.log") if path.stat().st_mtime < cutoff]
+    for path in removed:
+        path.unlink(missing_ok=True)
+    return removed
+
+
 def _setup_logging(command: str) -> None:
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     if command in LONG_COMMANDS:
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        prune_old_logs(LOGS_DIR)
         log_path = LOGS_DIR / f"{command}_{datetime.now():%Y%m%d-%H%M%S}.log"
         handlers.append(logging.FileHandler(log_path, encoding="utf-8"))
     logging.basicConfig(

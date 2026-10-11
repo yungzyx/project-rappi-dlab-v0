@@ -196,7 +196,7 @@ jobs:
 
       # shellcheck ya viene en las imágenes de ubuntu-latest.
       - name: shellcheck
-        run: shellcheck -x scripts/*.sh rappi-ia/scripts/with-test-db-lock.sh deploy/smoke.sh deploy/db/init-roles.sh
+        run: shellcheck -x scripts/*.sh rappi-scraper/scripts/*.sh rappi-ia/scripts/*.sh deploy/*.sh deploy/db/*.sh deploy/scripts/*.sh
 
   # El stack de deploy/ de punta a punta, como en un servidor: construye las imágenes (la API sin hornear el modelo,
   # BAKE_MODEL=0: lo descarga al arrancar), levanta Postgres con sus roles, restaura como rappi_owner un dump del

@@ -55,6 +55,8 @@ COPY rappi-scraper/Makefile rappi-scraper/Makefile
 COPY rappi-scraper/scripts rappi-scraper/scripts
 # Los permisos del rol de la API que aplica deploy-migrate (rappi-ia busca ../deploy/db/grants.sql).
 COPY deploy/db/grants.sql deploy/db/grants.sql
+# El respaldo nocturno y la prueba de restauración (deploy/systemd/rappi-daily.service).
+COPY deploy/scripts deploy/scripts
 
 # Los volúmenes nuevos heredan este dueño: el usuario rappi escribe en /data (y /data/backups) sin ser root.
 RUN mkdir -p /data/backups /data/ia && chown -R rappi:rappi /data
@@ -88,6 +90,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PG_DUMP=/usr/lib/postgresql/17/bin/pg_dump
+# La tarea semanal (rappi-scraper/scripts/refresh-semanal.sh) sin .venv: los comandos instalados en la imagen.
+ENV RAPPI_BIN=rappi \
+    RAPPI_IA_PY=python
 
 USER rappi
 CMD ["rappi-ia", "--help"]

@@ -1,0 +1,20 @@
+# Tarea semanal en el servidor: la descarga de rappi.cl y la capa de IA (rappi-scraper/scripts/refresh-semanal.sh),
+# dentro del contenedor jobs. La dispara rappi-refresh.timer, que se instala SIN ACTIVAR: antes el usuario decide el
+# User-Agent y robots.txt y acepta que rappi.cl pueda frenar una IP de datacenter. Mientras tanto la descarga sigue
+# en el Mac mini (docs/despliegue.md). Nunca dos descargas a la vez: si el Mac mini sigue descargando, este timer no se
+# activa.
+[Unit]
+Description=Rappi: descarga semanal del catálogo y capa de IA
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Editar: la carpeta del repo en el servidor (la misma en rappi-daily.service).
+WorkingDirectory=/opt/rappi
+# El archivo de entorno de deploy/.env.example; compose lo lee para armar el stack y lo pasa a los contenedores.
+Environment=RAPPI_ENV_FILE=/etc/rappi/rappi.env
+ExecStart=/usr/bin/docker compose --env-file ${RAPPI_ENV_FILE} -f deploy/docker-compose.yml --profile jobs run --rm jobs bash rappi-scraper/scripts/refresh-semanal.sh
+# La descarga dura horas (un día entero si rappi.cl va lento): sin límite.
+TimeoutStartSec=infinity

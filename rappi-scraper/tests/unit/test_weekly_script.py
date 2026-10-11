@@ -1,173 +1,359 @@
-"""scripts/refresh-semanal.sh, corrido de verdad en una copia del proyecto con un `rappi` falso."""
+"""scripts/refresh-semanal.sh (y despues-del-refresh.sh de rappi-ia), corridos de verdad en una copia del proyecto con
+un `rappi` falso. Con /bin/bash (el 3.2 de macOS; en el CI de Ubuntu, bash 5) y con zsh, que es como lo llama la tarea
+de launchd ya instalada en el Mac mini: el script se vuelve a lanzar con bash."""
 
+import logging
 import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "refresh-semanal.sh"
-pytestmark = pytest.mark.skipif(shutil.which("zsh") is None, reason="el script es de zsh (macOS)")
+from rappi_scraper import cli
+
+SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+SCRIPT = SCRIPTS / "refresh-semanal.sh"
+AFTER_REFRESH = Path(__file__).resolve().parents[3] / "rappi-ia" / "scripts" / "despues-del-refresh.sh"
+SHELLS = [
+    "/bin/bash",
+    pytest.param("zsh", marks=pytest.mark.skipif(shutil.which("zsh") is None, reason="sin zsh")),
+]
+# Lo que usan los scripts, sin caffeinate (no existe en Linux): para probar que no hace falta también en macOS.
+TOOLS = ["bash", "cat", "date", "dirname", "grep", "mkdir", "mv", "ps", "rm", "sleep", "tee", "wc"]
+
+
+@pytest.fixture(params=SHELLS)
+def shell(request) -> str:
+    return request.param
+
+
+def _write_fake(path: Path, body: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"#!/bin/bash\n{body}\n")
+    path.chmod(0o755)
 
 
 def _project(tmp_path: Path, rappi_body: str, other_download_running: bool = False, ai_layer: bool = False) -> Path:
-    """Copia mínima del proyecto: el script, un `.venv/bin/rappi` falso, un `caffeinate` que solo ejecuta, un `pgrep`
-    que responde lo que diga el test (el real vería las descargas de verdad que corren en este equipo) y un `make` que
-    anota cómo lo llamaron. Con `ai_layer`, un rappi-ia instalado al lado."""
+    """Copia mínima del proyecto: el script, un `.venv/bin/rappi` falso, un `pgrep` que responde lo que diga el test (el
+    real vería las descargas de verdad que corren en este equipo) y un `make` que anota cómo lo llamaron. Con
+    `ai_layer`, un rappi-ia instalado al lado."""
     project = tmp_path / "rappi-scraper"
     (project / "scripts").mkdir(parents=True)
     shutil.copy(SCRIPT, project / "scripts" / SCRIPT.name)
-    bin_dir = project / "bin"
-    fakes = {
-        project / ".venv" / "bin" / "rappi": rappi_body,
-        bin_dir / "caffeinate": 'shift; exec "$@"',  # caffeinate -i cmd… → cmd…
-        bin_dir / "pgrep": f"exit {0 if other_download_running else 1}",
-        bin_dir / "make": 'echo "make $*" >> calls.txt',
-    }
+    _write_fake(project / ".venv" / "bin" / "rappi", rappi_body)
+    _write_fake(project / "bin" / "pgrep", f"exit {0 if other_download_running else 1}")
+    _write_fake(project / "bin" / "make", 'echo "make $*" >> calls.txt')
     if ai_layer:
-        fakes[tmp_path / "rappi-ia" / ".venv" / "bin" / "python"] = "exit 0"
-    for path, body in fakes.items():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(f"#!/bin/zsh\n{body}\n")
-        path.chmod(0o755)
+        _write_fake(tmp_path / "rappi-ia" / ".venv" / "bin" / "python", "exit 0")
     return project
 
 
-def _run(project: Path, *args: str) -> subprocess.CompletedProcess:
-    env = {**os.environ, "PATH": f"{project / 'bin'}:{os.environ['PATH']}"}
-    return subprocess.run(["zsh", project / "scripts" / SCRIPT.name, *args], env=env, capture_output=True, text=True)
+def _env(project: Path, path: str | None = None, **extra: str) -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if k not in {"RAPPI_DATA_DIR", "RAPPI_BIN", "RAPPI_IA_PY"}}
+    return {**env, "PATH": f"{project / 'bin'}:{path or os.environ['PATH']}", **extra}
+
+
+def _run(project: Path, shell: str, *args: str, path: str | None = None, **extra: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [shell, project / "scripts" / SCRIPT.name, *args],
+        env=_env(project, path, **extra),
+        capture_output=True,
+        text=True,
+    )
 
 
 def _status_lines(project: Path) -> list[str]:
     return (project / "data" / "logs" / "ultimo-estado.txt").read_text().splitlines()
 
 
+def _calls(project: Path) -> list[str]:
+    return (project / "calls.txt").read_text().splitlines()
+
+
+POST_REFRESH = "make -C ../rappi-ia post-refresh PY=.venv/bin/python EVAL_ARGS="
+
+
+def test_runs_without_caffeinate_exit0(tmp_path, shell):
+    """En Linux (y en el contenedor) no hay caffeinate: el script corre igual, sin él."""
+    project = _project(tmp_path, 'echo "$*" >> calls.txt', ai_layer=True)
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    for tool in [*TOOLS, "zsh"]:
+        if found := shutil.which(tool):
+            (tools / tool).symlink_to(found)
+
+    result = _run(project, shell, path=str(tools))
+
+    assert result.returncode == 0, result.stderr
+    assert _calls(project) == ["migrate", "refresh", POST_REFRESH]
+    [line] = _status_lines(project)
+    assert re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d exit=0", line)
+    assert not (project / "data" / "refresh-semanal.lock").exists()
+
+
 @pytest.mark.parametrize("code", [0, 7])
-def test_each_run_leaves_its_exit_code(tmp_path, code):
+def test_each_run_leaves_its_exit_code(tmp_path, shell, code):
     """Un fallo del domingo no queda solo en launchd.err.log: `make schedule-status` lo muestra."""
     project = _project(tmp_path, f"exit {code}")
 
-    result = _run(project)
+    result = _run(project, shell)
 
     assert result.returncode == code
     [line] = _status_lines(project)
     assert re.fullmatch(rf"\d{{4}}-\d\d-\d\d \d\d:\d\d:\d\d exit={code}", line)
+    assert not (project / "data" / "refresh-semanal.lock").exists()
+
+
+def test_lock_dir_blocks_second_run(tmp_path, shell):
+    """Mientras corre una tarea semanal, otra (lanzada a mano o por launchd) se omite sin tocar nada."""
+    project = _project(tmp_path, '[ "$1" = refresh ] && while [ ! -f release ]; do sleep 0.05; done; exit 0')
+    first = subprocess.Popen(
+        [shell, project / "scripts" / SCRIPT.name], env=_env(project), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    try:
+        deadline = time.monotonic() + 10
+        while not (project / "data" / "refresh-semanal.lock" / "pid").exists():
+            assert time.monotonic() < deadline, "la primera ejecución no tomó el candado"
+            time.sleep(0.05)
+
+        second = _run(project, shell)
+
+        assert second.returncode == 0
+        assert "ya hay una actualización semanal en curso; se omite" in second.stdout
+    finally:
+        (project / "release").touch()
+        first.wait(timeout=10)
+    assert first.returncode == 0
+    [line] = _status_lines(project)  # solo la primera anota su línea
+    assert line.endswith("exit=0")
+
+
+@pytest.mark.parametrize("pid", ["999999\n", "", None], ids=["pid-muerto", "pid-vacio", "sin-pid"])
+def test_stale_lock_is_recovered(tmp_path, shell, pid):
+    """Un apagado o un corte de luz no dejan correr el trap: la ejecución siguiente encuentra el candado abandonado, lo
+    anota y sigue."""
+    project = _project(tmp_path, "exit 0")
+    lock = project / "data" / "refresh-semanal.lock"
+    lock.mkdir(parents=True)
+    if pid is not None:
+        (lock / "pid").write_text(pid)
+
+    result = _run(project, shell)
+
+    assert result.returncode == 0, result.stderr
+    interrupted, finished = _status_lines(project)
+    assert interrupted.endswith("interrumpida: la ejecución anterior no terminó (apagado o corte de luz)")
+    assert finished.endswith("exit=0")
+    assert not lock.exists()
+
+
+def test_old_pid_lock_of_a_dead_run_is_removed(tmp_path, shell):
+    """El candado del script anterior (data/refresh-semanal.pid) de una ejecución muerta se anota y se borra."""
+    project = _project(tmp_path, "exit 0")
+    (project / "data").mkdir()
+    (project / "data" / "refresh-semanal.pid").write_text("999999\n")  # un PID que no es la tarea semanal
+
+    result = _run(project, shell)
+
+    assert result.returncode == 0
+    interrupted, finished = _status_lines(project)
+    assert interrupted.endswith("interrumpida: la ejecución anterior no terminó (apagado o corte de luz)")
+    assert finished.endswith("exit=0")
     assert not (project / "data" / "refresh-semanal.pid").exists()
 
 
-def test_a_skipped_run_is_not_reported_as_a_success(tmp_path):
+def test_old_pid_lock_of_a_running_weekly_blocks(tmp_path, shell):
+    """Al pasar del script anterior a este, una tarea semanal antigua todavía en curso (con su .pid) no se cruza con la
+    nueva."""
+    project = _project(tmp_path, 'echo "$*" >> calls.txt')
+    (project / "data").mkdir()
+    old = subprocess.Popen(["/bin/bash", "-c", "sleep 30; :", "refresh-semanal.sh"])
+    try:
+        (project / "data" / "refresh-semanal.pid").write_text(f"{old.pid}\n")
+
+        result = _run(project, shell)
+    finally:
+        old.kill()
+        old.wait()
+
+    assert result.returncode == 0
+    assert "ya hay una actualización semanal en curso; se omite" in result.stdout
+    assert not (project / "calls.txt").exists()
+    assert (project / "data" / "refresh-semanal.pid").exists()
+
+
+def test_a_skipped_run_is_not_reported_as_a_success(tmp_path, shell):
     # Otra descarga en curso, lanzada a mano: el script no debe correr ni anotar «exit=0» a secas.
     project = _project(tmp_path, "exit 0", other_download_running=True)
 
-    result = _run(project)
+    result = _run(project, shell)
 
     assert result.returncode == 0
     [line] = _status_lines(project)
     assert line.endswith("exit=0 (omitida: había una descarga o una actualización en curso)")
 
 
-def test_migrations_are_applied_before_downloading(tmp_path):
+def test_migrations_are_applied_before_downloading(tmp_path, shell):
     """Tras un `git pull` con una migración nueva, la descarga de un día no debe reventar al final (p. ej. sin la
     función `clean_html` en build_search_documents) ni repetir el fallo cada domingo."""
     project = _project(tmp_path, 'echo "$*" >> calls.txt')
 
-    result = _run(project)
+    result = _run(project, shell)
 
     assert result.returncode == 0
-    assert (project / "calls.txt").read_text().splitlines() == ["migrate", "refresh"]
+    assert _calls(project) == ["migrate", "refresh"]
 
 
-def test_the_script_passes_its_options_to_refresh(tmp_path):
+def test_the_script_passes_its_options_to_refresh(tmp_path, shell):
     """Tras `retry-failed`, `./scripts/refresh-semanal.sh --resume-only` retoma solo lo reencolado."""
     project = _project(tmp_path, 'echo "$*" >> calls.txt')
 
-    result = _run(project, "--resume-only")
+    result = _run(project, shell, "--resume-only")
 
     assert result.returncode == 0
-    assert (project / "calls.txt").read_text().splitlines() == ["migrate", "refresh --resume-only"]
+    assert _calls(project) == ["migrate", "refresh --resume-only"]
 
 
-def test_a_failed_migration_stops_before_downloading(tmp_path):
+def test_rappi_bin_data_dir_and_ia_python_come_from_the_environment(tmp_path, shell):
+    """En el contenedor: `rappi` y `python` en el PATH (sin .venv) y los datos en el volumen (RAPPI_DATA_DIR)."""
+    project = _project(tmp_path, "exit 9")
+    _write_fake(project / "bin" / "rappi-del-contenedor", 'echo "$*" >> calls.txt')
+    data = tmp_path / "volumen"
+
+    result = _run(project, shell, RAPPI_BIN="rappi-del-contenedor", RAPPI_IA_PY="python", RAPPI_DATA_DIR=str(data))
+
+    assert result.returncode == 0, result.stderr
+    assert _calls(project) == ["migrate", "refresh", "make -C ../rappi-ia post-refresh PY=python EVAL_ARGS="]
+    [line] = (data / "logs" / "ultimo-estado.txt").read_text().splitlines()
+    assert line.endswith("exit=0")
+    assert not (project / "data").exists()
+
+
+def test_a_failed_migration_stops_before_downloading(tmp_path, shell):
     project = _project(tmp_path, '[[ $1 == migrate ]] && exit 1; echo "$*" >> calls.txt')
 
-    result = _run(project)
+    result = _run(project, shell)
 
     assert result.returncode == 1
     assert not (project / "calls.txt").exists()
     assert _status_lines(project)[0].endswith("exit=1")
 
 
-def test_a_failed_backup_is_recorded_and_the_ai_layer_still_runs(tmp_path):
-    """`rappi refresh` sale con 3 si solo falló el respaldo: la capa de IA tiene que correr igual, pero no puede quedar
-    como «exit=0» a secas (quedan los respaldos anteriores y nadie notaría que el más nuevo tiene semanas)."""
-    project = _project(tmp_path, "[[ $1 == refresh ]] && exit 3; exit 0", ai_layer=True)
+@pytest.mark.parametrize(
+    ("code", "exit_code", "ai_layer_runs", "note"),
+    [
+        # Solo falló el respaldo: la capa de IA corre igual, pero no queda como «exit=0» a secas (quedan los respaldos
+        # anteriores y nadie notaría que el más nuevo tiene semanas).
+        (3, 0, True, " (respaldo fallido: se conservan los anteriores)"),
+        # Posible bloqueo: no es un fallo cualquiera; la línea lo dice y no sigue con la IA.
+        (4, 4, False, " (detenida: posible bloqueo)"),
+        # Tiendas, búsqueda y respaldo quedaron; solo los restaurantes no se actualizaron.
+        (5, 0, True, " (restaurantes sin actualizar)"),
+        (6, 0, True, " (restaurantes sin actualizar; respaldo fallido: se conservan los anteriores)"),
+        # Cualquier otro fallo detiene la ejecución, sin capa de IA.
+        (7, 7, False, ""),
+    ],
+)
+def test_exit_codes_3_4_5_noted(tmp_path, shell, code, exit_code, ai_layer_runs, note):
+    project = _project(tmp_path, f"[[ $1 == refresh ]] && exit {code}; exit 0", ai_layer=True)
 
-    result = _run(project)
+    result = _run(project, shell)
 
-    assert result.returncode == 0
-    assert (project / "calls.txt").read_text().splitlines() == ["make -C ../rappi-ia post-refresh EVAL_ARGS="]
+    assert result.returncode == exit_code
+    if ai_layer_runs:
+        assert _calls(project) == [POST_REFRESH]
+    else:
+        assert not (project / "calls.txt").exists()
     [line] = _status_lines(project)
-    assert line.endswith("exit=0 (respaldo fallido: se conservan los anteriores)")
+    assert line.endswith(f"exit={exit_code}{note}")
 
 
-def test_weekly_script_exit4_notes_block(tmp_path):
-    """Un posible bloqueo (código 4) no es un fallo cualquiera: la línea de estado lo dice y no sigue con la IA."""
-    project = _project(tmp_path, "[[ $1 == refresh ]] && exit 4; exit 0", ai_layer=True)
-
-    result = _run(project)
-
-    assert result.returncode == 4
-    assert not (project / "calls.txt").exists()
-    [line] = _status_lines(project)
-    assert line.endswith("exit=4 (detenida: posible bloqueo)")
-
-
-def test_weekly_script_exit5_runs_post_refresh(tmp_path):
-    """Código 5: las tiendas, la búsqueda y el respaldo quedaron; solo los restaurantes no se actualizaron."""
-    project = _project(tmp_path, "[[ $1 == refresh ]] && exit 5; exit 0", ai_layer=True)
-
-    result = _run(project)
-
-    assert result.returncode == 0
-    assert (project / "calls.txt").read_text().splitlines() == ["make -C ../rappi-ia post-refresh EVAL_ARGS="]
-    [line] = _status_lines(project)
-    assert line.endswith("exit=0 (restaurantes sin actualizar)")
-
-
-def test_weekly_script_exit6_notes_both_failures(tmp_path):
-    """Código 6: sin restaurantes nuevos y sin respaldo nuevo; la línea de estado dice las dos cosas."""
-    project = _project(tmp_path, "[[ $1 == refresh ]] && exit 6; exit 0", ai_layer=True)
-
-    result = _run(project)
-
-    assert result.returncode == 0
-    assert (project / "calls.txt").read_text().splitlines() == ["make -C ../rappi-ia post-refresh EVAL_ARGS="]
-    [line] = _status_lines(project)
-    assert line.endswith("exit=0 (restaurantes sin actualizar; respaldo fallido: se conservan los anteriores)")
-
-
-def test_any_other_refresh_failure_still_stops_the_run(tmp_path):
-    project = _project(tmp_path, "[[ $1 == refresh ]] && exit 7; exit 0", ai_layer=True)
-
-    result = _run(project)
-
-    assert result.returncode == 7
-    assert not (project / "calls.txt").exists()  # sin capa de IA
-    [line] = _status_lines(project)
-    assert line.endswith("exit=7")
-
-
-def test_a_run_cut_by_a_shutdown_is_recorded_on_the_next_run(tmp_path):
-    """Un apagado no deja correr el trap: la ejecución siguiente encuentra el candado huérfano y lo anota."""
+def test_big_launchd_log_rotated(tmp_path, shell):
+    """launchd escribe siempre en el mismo archivo: pasados 10 MB, el script lo deja como .1 (y pisa el .1 anterior)."""
     project = _project(tmp_path, "exit 0")
-    (project / "data").mkdir()
-    (project / "data" / "refresh-semanal.pid").write_text("999999\n")  # un PID que no es la tarea semanal
+    logs = project / "data" / "logs"
+    logs.mkdir(parents=True)
+    with (logs / "launchd.err.log").open("wb") as big:
+        big.truncate(11 * 1024 * 1024)
+    (logs / "launchd.err.log.1").write_text("la anterior\n")
+    (logs / "launchd.out.log").write_text("poco\n")
 
-    result = _run(project)
+    result = _run(project, shell)
 
-    assert result.returncode == 0
-    interrupted, finished = _status_lines(project)
-    assert interrupted.endswith("interrumpida: la ejecución anterior no terminó (apagado o corte de luz)")
-    assert finished.endswith("exit=0")
+    assert result.returncode == 0, result.stderr
+    assert (logs / "launchd.err.log.1").stat().st_size == 11 * 1024 * 1024
+    assert not (logs / "launchd.err.log").exists()
+    assert (logs / "launchd.out.log").read_text() == "poco\n"
+    assert not (logs / "launchd.out.log.1").exists()
+
+
+def test_old_logs_are_pruned(tmp_path, monkeypatch):
+    """Cada comando largo deja su log (refresh_…, backup_…): los de más de LOG_RETENTION_WEEKS semanas se borran. Los de
+    launchd y ultimo-estado.txt no son de un comando y no se tocan."""
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    nine_weeks_ago = time.time() - 9 * 7 * 86400
+    old = ["refresh_20260801-030000.log", "backup_20260801-030000.log"]
+    kept = ["refresh_20261004-030000.log", "launchd.err.log", "launchd.out.log", "ultimo-estado.txt"]
+    for name in [*old, *kept]:
+        (logs / name).write_text("x\n")
+    for name in [*old, *kept[1:]]:
+        os.utime(logs / name, (nine_weeks_ago, nine_weeks_ago))
+    monkeypatch.setattr(cli, "LOGS_DIR", logs)
+    monkeypatch.delenv("LOG_RETENTION_WEEKS", raising=False)
+    root = logging.getLogger()
+    handlers, level = list(root.handlers), root.level
+    root.handlers[:] = []
+    try:
+        cli._setup_logging("refresh")
+    finally:
+        for handler in root.handlers:
+            handler.close()
+        root.handlers[:] = handlers
+        root.setLevel(level)
+
+    remaining = {p.name for p in logs.iterdir()}
+    assert remaining.isdisjoint(old)
+    assert set(kept) <= remaining
+    assert len(remaining) == len(kept) + 1  # y el log de esta ejecución
+
+
+def test_log_retention_weeks_from_environment(tmp_path, monkeypatch):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    three_weeks_ago = time.time() - 3 * 7 * 86400
+    (logs / "refresh_20260920-030000.log").write_text("x\n")
+    os.utime(logs / "refresh_20260920-030000.log", (three_weeks_ago, three_weeks_ago))
+    monkeypatch.setenv("LOG_RETENTION_WEEKS", "2")
+
+    cli.prune_old_logs(logs)
+
+    assert not (logs / "refresh_20260920-030000.log").exists()
+
+
+def test_after_refresh_script_runs_post_refresh(tmp_path, shell):
+    """despues-del-refresh.sh (rappi-ia): sin caffeinate y con bash, espera que no haya descargas y actualiza la IA."""
+    project = tmp_path / "rappi-ia"
+    (project / "scripts").mkdir(parents=True)
+    shutil.copy(AFTER_REFRESH, project / "scripts" / AFTER_REFRESH.name)
+    _write_fake(project / "bin" / "pgrep", "exit 1")
+    _write_fake(project / "bin" / "make", 'echo "make $*" >> calls.txt')
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    for tool in [*TOOLS, "zsh"]:
+        if found := shutil.which(tool):
+            (tools / tool).symlink_to(found)
+
+    result = subprocess.run(
+        [shell, project / "scripts" / AFTER_REFRESH.name],
+        env=_env(project, str(tools), RAPPI_IA_PY="python"),
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert _calls(project) == ["make post-refresh PY=python"]
+    assert list((project / "data" / "logs").glob("despues-del-refresh_*.log"))
