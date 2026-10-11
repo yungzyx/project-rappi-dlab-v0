@@ -313,35 +313,27 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adu
     prices: dict[tuple[str, str], tuple] = {}
     store_filter = _OFFER_STORES if offer else ""
     if catalog_ids:
-        # Solo ofertas vigentes, con la misma regla que la búsqueda (v_store_format_runs): una sucursal que la última
+        # Solo ofertas vigentes, con la misma regla que la búsqueda (v_latest_offers): una sucursal que la última
         # corrida de su formato ya no bajó no pone el precio, así el tope y el precio mostrado coinciden.
         # El precio, el precio anterior y la tienda (id y nombre) son los de una misma oferta: la más barata de las
         # tiendas que la app abre con este producto en un pasillo (como /catalog/stores). Una tienda sin pasillos,
         # importada de un CSV antiguo, no tiene página: sin ninguna que se abra vale la oferta más barata de todas y
         # el id es nulo.
         for pid, name, price, real, store, age, store_id, presentation in conn.execute(
-            f"""WITH latest AS (
-                   SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.sku, ps.price, ps.real_price, ps.in_stock,
-                          ps.run_id, sp.aisle_id
-                   FROM price_snapshots ps
-                   JOIN store_products sp USING (store_id, sku)
-                   WHERE sp.master_product_id = ANY(%(ids)s::bigint[])
-                   ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC, ps.run_id DESC  -- el desempate de la vista
-               ),
-               offers AS (
+            f"""WITH offers AS (
                    SELECT sp.master_product_id, ci.name, l.price, l.real_price, l.store_id,
                           btrim(coalesce(b.name, s.name)) AS store, ci.is_alcoholic OR ci.age_restricted AS adult,
                           ci.presentation,
-                          EXISTS (SELECT 1 FROM aisles a WHERE a.store_id = l.store_id AND a.aisle_id = l.aisle_id
+                          EXISTS (SELECT 1 FROM aisles a WHERE a.store_id = l.store_id AND a.aisle_id = sp.aisle_id
                                                            AND a.parent_aisle_id IS NULL) AS openable
-                   FROM latest l
-                   JOIN store_products sp USING (store_id, sku)
-                   JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
+                   FROM store_products sp
+                   JOIN v_latest_offers l ON l.store_id = sp.store_id AND l.sku = sp.sku
                    JOIN stores s ON s.store_id = sp.store_id
                    LEFT JOIN brands b ON b.brand_id = s.brand_id
                    JOIN catalog_items ci ON ci.master_product_id = sp.master_product_id
                    JOIN v_store_verticals v ON v.store_id = s.store_id AND v.vertical = %(vertical)s
-                   WHERE l.in_stock IS NOT FALSE{store_filter}
+                   WHERE sp.master_product_id = ANY(%(ids)s::bigint[]) AND l.current
+                     AND l.in_stock IS NOT FALSE{store_filter}
                )
                SELECT DISTINCT ON (master_product_id) master_product_id::text, name, price, real_price, store, adult,
                       CASE WHEN openable THEN store_id END, presentation

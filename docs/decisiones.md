@@ -196,7 +196,7 @@
 ## Abiertas
 
 - **Quién usaría el agente y dónde** (equipo interno, usuarios finales o análisis de mercado). Define la interfaz y el nivel de revisión que haría falta.
-- **Historial de precios:** `price_snapshots` y `menu_price_snapshots` crecen unos 40 MB por semana (112 MB tras 3 corridas de precios de cada tipo, 30-09-2026) y `v_price_changes` tarda 0,4 s por reporte. Sin poda por ahora: revisar al pasar de 1 GB (unos 6 meses).
+- **Historial de precios:** `price_snapshots` y `menu_price_snapshots` crecen unos 40 MB por semana (112 MB tras 3 corridas de precios de cada tipo, 30-09-2026). Desde la migración 032 (11-10-2026) el último precio vive en `latest_prices` y `latest_menu_prices`, y ni la búsqueda ni el reporte ordenan el historial (con 457 mil precios: vigencia de 0,47 s a 0,05 s, cambios del reporte de 0,30 s a 0,10 s). Sin poda por ahora: revisar al pasar de 1 GB (unos 6 meses).
 - **Fallidos de cada descarga** (26 grupos de tiendas y 301 restaurantes el 29 y 30-09): revisar el reporte de calidad para separar cambios del sitio de sucursales dadas de baja.
 - **Turbo sin actualizar:** en la descarga del 29-09 ningún listado público recorrido traía sus tiendas como Turbo; sus precios son del 27-09. Revisar dónde las lista hoy Rappi.
 - **τ de Rappi Mall:** conserva 0,70; el reporte del 30-09 propone 0,82. Revisar antes de guardarlo que no vuelva la falsa alarma de «regalo para mi polola».

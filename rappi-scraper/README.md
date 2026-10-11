@@ -181,6 +181,7 @@ rappi-scraper/
 |---|---|
 | `catalog_items` | **Contenido único** (un `master_product_id` = un producto en todo Rappi) |
 | `store_products` + `price_snapshots` | El producto en cada tienda y su precio en cada corrida |
+| `latest_prices`, `latest_menu_prices` | El último precio de cada oferta y de cada plato (los mantienen triggers sobre el historial) |
 | `stores`, `brands`, `store_verticals` | Tiendas, marcas y en qué verticales aparece cada una (N:M) |
 | `aisles`, `categories` | Pasillos por tienda y categorías globales de Rappi |
 | `restaurant_details`, `cuisines`, `menu_sections`, `menu_items`, `menu_price_snapshots` | Restaurantes y menús |
@@ -191,12 +192,13 @@ rappi-scraper/
 | `v_price_compare`, `v_price_changes` | Mismo producto entre cadenas / cambios de precio entre corridas |
 | `v_coverage` | Productos declarados vs obtenidos por sub-pasillo |
 | `v_store_format_runs` | Última corrida que bajó el formato de cada tienda (qué ofertas están vigentes) |
+| `v_latest_offers` | El último precio de cada oferta y si está vigente: la única definición de oferta vigente |
 
 Consultas de ejemplo y cómo conectarse: [docs/sql/](../docs/sql/).
 
 **Aislamiento por vertical:** las búsquedas siempre llevan `vertical` y cada vertical es su propia partición, así que un índice vectorial nunca mezcla verticales. Los análisis cruzados se hacen sobre las tablas núcleo.
 
-**Vigencia:** `search_documents` usa solo lo vigente. Una oferta o un plato cuenta si su último precio es de la última corrida que bajó su formato (`store_type`) o su cadena (`brand_id`); así salen las sucursales viejas y lo que ya no se vende. Un plato también sale si una corrida posterior ya no encontró su local o su cadena. Un formato que la última corrida no pudo bajar conserva su último dato. La corrida de cada formato sale de `v_store_format_runs`, que también usa `rappi-ia` para el precio que muestra Mochi: el tope de precio y el precio mostrado salen de las mismas sucursales. Las tablas núcleo y las demás vistas `v_*` guardan todo el historial.
+**Vigencia:** `search_documents` usa solo lo vigente. Una oferta o un plato cuenta si su último precio es de la última corrida que bajó su formato (`store_type`) o su cadena (`brand_id`); así salen las sucursales viejas y lo que ya no se vende. Un plato también sale si una corrida posterior ya no encontró su local o su cadena. Un formato que la última corrida no pudo bajar conserva su último dato. La corrida de cada formato sale de `v_store_format_runs`. Una oferta de un pasillo que esa corrida no pudo leer sigue vigente si su último precio es de la corrida anterior de la tienda. La regla vive en una sola vista, `v_latest_offers` (migración 032), que también usa `rappi-ia` para el detalle, la página de la tienda, el precio del pedido y el precio que muestra Mochi: el tope de precio y el precio mostrado salen de las mismas ofertas. El último precio se lee de `latest_prices` y `latest_menu_prices`, sin ordenar el historial. Las tablas núcleo y las demás vistas `v_*` guardan todo el historial.
 
 **Embeddings:** `search_documents.content` no incluye precios (un cambio de precio no obliga a regenerar el embedding) y `content_hash` invalida el embedding solo si cambia el texto. El modelo es `intfloat/multilingual-e5-base` (768 dimensiones): `rappi-ia` llena `embedding`/`embedding_model` y crea un índice HNSW por partición con `embedding::vector(768)`. El ejemplo con `vector(1536)` de `003_search.sql` es anterior a la elección del modelo. Diseño completo en [docs/diseno-ia.md](../docs/diseno-ia.md).
 

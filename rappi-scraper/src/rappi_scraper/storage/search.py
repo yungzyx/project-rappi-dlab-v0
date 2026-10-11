@@ -52,50 +52,23 @@ WHERE NOT EXISTS (SELECT 1 FROM staged_documents s
 # que bajó su formato o su cadena: así salen las sucursales viejas y lo que ya no se vende, y un formato que la última
 # corrida no pudo bajar conserva su último dato. Un plato también sale si una corrida posterior ya no encontró su
 # local o su cadena en Rappi (el motivo que anota pipeline/restaurants.py). Lo que no tiene ningún precio guardado
-# no se descarta (no hay con qué compararlo). La corrida de cada formato sale de v_store_format_runs (migración 019),
-# la misma que usa el precio que muestra Bigotes. Una oferta de un pasillo o sub-pasillo que esa corrida no pudo leer
-# (`pasillos_omitidos` del job que bajó la tienda) sigue vigente si su último precio es de la corrida anterior de esa
-# misma tienda: una página caída no la esconde, pero tampoco revive lo que esa corrida anterior ya no encontró.
+# no se descarta (no hay con qué compararlo).
+# La vigencia de las ofertas está definida una sola vez, en la vista v_latest_offers (migración 032): la misma que usan
+# la API y el agente en rappi-ia, con la excepción de los pasillos que la corrida no pudo leer. El último precio sale
+# de latest_prices y latest_menu_prices (migración 032), sin ordenar todo el historial.
 _OFFER_PRICES = """
 CREATE TEMP TABLE offer_prices ON COMMIT DROP AS
-WITH latest AS (
-    SELECT DISTINCT ON (store_id, sku) store_id, sku, price, run_id
-    FROM price_snapshots
-    ORDER BY store_id, sku, scraped_at DESC, run_id DESC  -- el mismo desempate que v_store_format_runs
-),
-skipped AS (
-    SELECT j.run_id, (j.result->>'store_id')::bigint AS store_id, array_agg(a.aisle_id::bigint) AS aisles
-    FROM scrape_jobs j
-    CROSS JOIN LATERAL jsonb_array_elements_text(j.result->'pasillos_omitidos') a(aisle_id)
-    WHERE j.job_type = 'store_group' AND j.status = 'done' AND jsonb_typeof(j.result->'pasillos_omitidos') = 'array'
-    GROUP BY 1, 2
-),
--- Solo para las tiendas con pasillos omitidos: su corrida anterior con precios.
-rescue AS (
-    SELECT sk.run_id, sk.store_id, sk.aisles,
-           (SELECT max(ps.run_id) FROM price_snapshots ps
-            WHERE ps.store_id = sk.store_id AND ps.run_id < sk.run_id) AS previous_run
-    FROM skipped sk
-)
-SELECT l.store_id, l.sku, l.price,
-       l.run_id = f.format_run_id
-       OR COALESCE(l.run_id = r.previous_run
-                   AND (sp.aisle_id = ANY(r.aisles) OR sp.sub_aisle_id = ANY(r.aisles)), false) AS current
-FROM latest l
-JOIN v_store_format_runs f USING (store_id)
-LEFT JOIN rescue r ON r.run_id = f.format_run_id AND r.store_id = l.store_id
-LEFT JOIN store_products sp ON sp.store_id = l.store_id AND sp.sku = l.sku
+SELECT store_id, sku, price, current FROM v_latest_offers
 """
 
 _DISH_PRICES = """
 CREATE TEMP TABLE dish_prices ON COMMIT DROP AS
 WITH latest AS (
-    SELECT DISTINCT ON (mps.item_id) mps.item_id, mps.price, mps.real_price, mps.run_id, mps.scraped_at,
+    SELECT lmp.item_id, lmp.price, lmp.real_price, lmp.run_id, lmp.scraped_at,
            mi.store_id, s.brand_id, COALESCE(s.brand_id::text, 'id:' || s.store_id) AS chain
-    FROM menu_price_snapshots mps
-    JOIN menu_items mi ON mi.item_id = mps.item_id
+    FROM latest_menu_prices lmp
+    JOIN menu_items mi ON mi.item_id = lmp.item_id
     JOIN stores s ON s.store_id = mi.store_id
-    ORDER BY mps.item_id, mps.scraped_at DESC
 ),
 chain_run AS (
     SELECT DISTINCT ON (chain) chain, run_id FROM latest ORDER BY chain, scraped_at DESC, run_id DESC

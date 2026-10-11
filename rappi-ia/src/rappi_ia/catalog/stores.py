@@ -1,9 +1,10 @@
 """Tiendas y productos del catálogo con el precio vigente de cada tienda. Solo lectura, consultas parametrizadas.
 
-Oferta vigente: la misma regla que el precio que muestra el agente (`_with_prices`, agent/tools.py) y que la búsqueda
-(`_OFFER_PRICES`, rappi_scraper/storage/search.py): el último precio de la tienda para ese SKU es de la corrida
-`format_run_id` de su formato (`v_store_format_runs`, migración 019) y `in_stock` no es `false`. Además, el precio tiene
-que ser real (desde `MIN_PRICE`): uno de relleno cuenta como desconocido y el producto no se ofrece.
+Oferta vigente: la de la vista `v_latest_offers` (migración 032), la misma que usan el precio que muestra el agente
+(`_with_prices`, agent/tools.py) y la búsqueda (`_OFFER_PRICES`, rappi_scraper/storage/search.py): el último precio de
+la tienda para ese SKU es de la corrida `format_run_id` de su formato (`v_store_format_runs`, migración 019) o, en un
+pasillo que esa corrida no pudo leer, de la corrida anterior de la tienda; y `in_stock` no es `false`. Además, el
+precio tiene que ser real (desde `MIN_PRICE`): uno de relleno cuenta como desconocido y el producto no se ofrece.
 
 Una tienda se lista y se abre por sus ofertas vigentes que están en un pasillo (la página muestra los productos por
 pasillo): así la cuenta de la tarjeta es la suma de sus pasillos, y una tienda sin pasillos no sale como una página
@@ -40,19 +41,13 @@ def not_pushed_params() -> dict[str, list[str]]:
 # Las ofertas vigentes de UNA tienda con su pasillo, una por producto del catálogo (la más barata, si la tienda lo tiene
 # en dos SKU): `offers` es el CTE de la página de la tienda (`_STORE_PAGE`).
 _STORE_OFFERS = """
-latest AS (
-    SELECT DISTINCT ON (ps.sku) ps.sku, ps.price, ps.real_price, ps.in_stock, ps.run_id
-    FROM price_snapshots ps
-    WHERE ps.store_id = %(store_id)s
-    ORDER BY ps.sku, ps.scraped_at DESC, ps.run_id DESC  -- el desempate de v_store_format_runs
-),
 offers AS (
     SELECT DISTINCT ON (sp.master_product_id) sp.master_product_id, a.aisle_id, a.name AS aisle, l.price, l.real_price
-    FROM latest l
-    JOIN v_store_format_runs f ON f.store_id = %(store_id)s AND f.format_run_id = l.run_id
+    FROM v_latest_offers l
     JOIN store_products sp ON sp.store_id = %(store_id)s AND sp.sku = l.sku
     JOIN aisles a ON a.store_id = %(store_id)s AND a.aisle_id = sp.aisle_id AND a.parent_aisle_id IS NULL
-    WHERE sp.master_product_id IS NOT NULL AND l.in_stock IS NOT FALSE AND l.price >= %(min_price)s
+    WHERE l.store_id = %(store_id)s AND l.current AND sp.master_product_id IS NOT NULL AND l.in_stock IS NOT FALSE
+      AND l.price >= %(min_price)s
     ORDER BY sp.master_product_id, l.price, sp.sku
 )"""
 
@@ -104,22 +99,16 @@ FROM stores s
 LEFT JOIN brands b ON b.brand_id = s.brand_id
 WHERE s.store_id = %(store_id)s"""
 
-# Las ofertas vigentes de la tienda `d` (una fila con `store_id` y `format_run_id` de v_store_format_runs), por su
-# último precio `ps`, con su producto `sp` y su pasillo `a`. Solo se leen los precios de la corrida de su formato (por
-# su llave, sin recorrer el historial), y uno vale si ningún precio posterior del mismo SKU lo reemplazó, que es lo
-# mismo que "el último precio es de esa corrida". Es la regla de _STORE_OFFERS, _CATALOG_DETAIL y _with_prices dicha
-# desde las tiendas: la usan las tarjetas de una vertical, «Cerca de ti» y las ofertas (rappi_ia/catalog/). Va tras un
-# SELECT que elige columnas de `ps` y `sp`, dentro de un LATERAL o de un EXISTS.
+# Las ofertas vigentes de la tienda `d` (una fila con `store_id`), por su último precio `ps` (v_latest_offers), con su
+# producto `sp` y su pasillo `a`. Es la regla de _STORE_OFFERS, _CATALOG_DETAIL y _with_prices dicha desde las tiendas:
+# la usan las tarjetas de una vertical, «Cerca de ti» y las ofertas (rappi_ia/catalog/). Va tras un SELECT que elige
+# columnas de `ps` y `sp`, dentro de un LATERAL o de un EXISTS.
 _CURRENT_OFFERS = """
-FROM price_snapshots ps
+FROM v_latest_offers ps
 JOIN store_products sp ON sp.store_id = ps.store_id AND sp.sku = ps.sku
 JOIN aisles a ON a.store_id = sp.store_id AND a.aisle_id = sp.aisle_id AND a.parent_aisle_id IS NULL
-WHERE ps.run_id = d.format_run_id AND ps.store_id = d.store_id AND sp.master_product_id IS NOT NULL
-  AND ps.in_stock IS NOT FALSE AND ps.price >= %(min_price)s
-  AND NOT EXISTS (SELECT 1 FROM price_snapshots later
-                  WHERE later.store_id = ps.store_id AND later.sku = ps.sku
-                    AND later.scraped_at >= ps.scraped_at
-                    AND (later.scraped_at, later.run_id) > (ps.scraped_at, ps.run_id))"""
+WHERE ps.store_id = d.store_id AND ps.current AND sp.master_product_id IS NOT NULL
+  AND ps.in_stock IS NOT FALSE AND ps.price >= %(min_price)s"""
 
 # Las tiendas descargadas por última vez en su formato (`downloaded`, con `store_id` y `format_run_id`): las de una
 # vertical (`%(vertical)s`) o, sin vertical, las que tienen alguna que se empuje (`%(not_pushed)s` son las que no) y
@@ -184,21 +173,13 @@ ORDER BY t.products DESC, s.store_id"""
 # pasillo (como en /catalog/stores): el precio, el precio anterior y la tienda son de esa misma oferta. Sin ninguna
 # tienda que se abra, la oferta más barata de todas, con el id de tienda nulo.
 _CATALOG_DETAIL = f"""
-WITH latest AS (
-    SELECT DISTINCT ON (ps.store_id, ps.sku) ps.store_id, ps.price, ps.real_price, ps.in_stock, ps.run_id,
-           sp.aisle_id
-    FROM price_snapshots ps
-    JOIN store_products sp ON sp.store_id = ps.store_id AND sp.sku = ps.sku
-    WHERE sp.master_product_id = %(id)s
-    ORDER BY ps.store_id, ps.sku, ps.scraped_at DESC, ps.run_id DESC  -- el desempate de v_store_format_runs
-),
-offers AS (
+WITH offers AS (
     SELECT l.store_id, l.price, l.real_price,
            EXISTS (SELECT 1 FROM aisles a
-                   WHERE a.store_id = l.store_id AND a.aisle_id = l.aisle_id AND a.parent_aisle_id IS NULL) AS openable
-    FROM latest l
-    JOIN v_store_format_runs f ON f.store_id = l.store_id AND f.format_run_id = l.run_id
-    WHERE l.in_stock IS NOT FALSE AND l.price >= %(min_price)s
+                   WHERE a.store_id = l.store_id AND a.aisle_id = sp.aisle_id AND a.parent_aisle_id IS NULL) AS openable
+    FROM store_products sp
+    JOIN v_latest_offers l ON l.store_id = sp.store_id AND l.sku = sp.sku
+    WHERE sp.master_product_id = %(id)s AND l.current AND l.in_stock IS NOT FALSE AND l.price >= %(min_price)s
 ),
 chosen AS (SELECT * FROM offers ORDER BY openable DESC, price, store_id LIMIT 1)
 SELECT ci.master_product_id::text, ci.name, c.price, c.real_price, btrim(coalesce(b.name, s.name)),
@@ -223,20 +204,14 @@ LEFT JOIN item_concepts ic ON ic.entity_type = 'menu_item' AND ic.entity_id = mi
 WHERE mi.item_id = %(id)s"""
 
 
-# El precio vigente de un producto del catálogo en UNA tienda: su último precio por SKU, de la corrida de su formato y
-# no agotado (la regla de _CATALOG_DETAIL, sin pedir pasillo); si la tienda lo tiene en dos SKU, el más barato.
+# El precio vigente de un producto del catálogo en UNA tienda: su oferta vigente por SKU, no agotada (la regla de
+# _CATALOG_DETAIL, sin pedir pasillo); si la tienda lo tiene en dos SKU, el más barato.
 _STORE_PRICE = """
-WITH latest AS (
-    SELECT DISTINCT ON (ps.sku) ps.price, ps.in_stock, ps.run_id
-    FROM price_snapshots ps
-    JOIN store_products sp ON sp.store_id = ps.store_id AND sp.sku = ps.sku
-    WHERE ps.store_id = %(store_id)s AND sp.master_product_id = %(id)s
-    ORDER BY ps.sku, ps.scraped_at DESC, ps.run_id DESC
-)
 SELECT min(l.price)
-FROM latest l
-JOIN v_store_format_runs f ON f.store_id = %(store_id)s AND f.format_run_id = l.run_id
-WHERE l.in_stock IS NOT FALSE AND l.price >= %(min_price)s"""
+FROM store_products sp
+JOIN v_latest_offers l ON l.store_id = sp.store_id AND l.sku = sp.sku
+WHERE sp.store_id = %(store_id)s AND sp.master_product_id = %(id)s AND l.current AND l.in_stock IS NOT FALSE
+  AND l.price >= %(min_price)s"""
 
 
 def offer_price(conn: Connection, entity_type: str, entity_id: str, store_id: int | None) -> float | None:

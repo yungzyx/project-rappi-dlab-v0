@@ -60,6 +60,22 @@ FROM v_coverage
 WHERE store_id IN (SELECT DISTINCT store_id FROM price_snapshots WHERE run_id = %(run)s)
 """
 
+# Cambios de precio de la corrida: cada fila de la corrida contra la anterior del mismo SKU en la tienda, buscada por
+# el índice (store_id, sku, scraped_at). Cuenta lo mismo que v_price_changes (`lag` por tienda y SKU), cuya ventana
+# ordena todo el historial antes de filtrar por corrida. Con la misma fecha, la anterior es la de la corrida previa.
+PRICE_CHANGES_SQL = """
+SELECT count(*)
+FROM price_snapshots cur
+CROSS JOIN LATERAL (
+    SELECT p.price FROM price_snapshots p
+    WHERE p.store_id = cur.store_id AND p.sku = cur.sku AND p.scraped_at <= cur.scraped_at
+      AND (p.scraped_at, p.run_id) < (cur.scraped_at, cur.run_id)
+    ORDER BY p.scraped_at DESC, p.run_id DESC
+    LIMIT 1
+) prev
+WHERE cur.run_id = %(run)s AND prev.price <> cur.price
+"""
+
 RESTAURANT_SQL = """
 SELECT count(DISTINCT mi.store_id),
        count(*),
@@ -112,7 +128,7 @@ def _store_section(conn: Connection, params: dict, jobs: dict) -> tuple[list[dic
         "FROM scrape_jobs WHERE run_id = %(run)s AND result ? 'paginas_intentadas'",
         params,
     ).fetchone()
-    price_changes = conn.execute("SELECT count(*) FROM v_price_changes WHERE run_id = %(run)s", params).fetchone()[0]
+    price_changes = conn.execute(PRICE_CHANGES_SQL, params).fetchone()[0]
     # La marca es solo informativa: depende del vertical (chocolaterías y tecnología suelen no traerla).
     # paginas_omitidas: pasillos y sub-pasillos que no se pudieron leer en tiendas que sí quedaron hechas.
     totals = {
