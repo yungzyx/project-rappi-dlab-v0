@@ -46,11 +46,14 @@ def test_keep_awake_starts_and_stops_caffeinate(monkeypatch):
         def terminate(self):
             calls.append(("stop",))
 
+        def wait(self, timeout):
+            calls.append(("wait", timeout))
+
     monkeypatch.setattr(keep_awake_module.shutil, "which", lambda _name: "/usr/bin/caffeinate")
     monkeypatch.setattr(keep_awake_module.subprocess, "Popen", FakeProcess)
     with keep_awake():
         assert calls[0][1][:3] == ["/usr/bin/caffeinate", "-i", "-w"]
-    assert calls[-1] == ("stop",)
+    assert calls[-2:] == [("stop",), ("wait", 5)]  # sin quedar como proceso zombi
 
 
 def _report(checks):
@@ -83,18 +86,19 @@ def test_render_markdown_all_ok():
     assert "✓ Todas las validaciones dentro de rango" in render_markdown(_report(ok))
 
 
-def test_refresh_command_exits_with_a_clear_message_on_a_block(monkeypatch):
+def test_refresh_command_exits_with_a_clear_message_on_a_block(monkeypatch, capsys):
     def blocked(*args, **kwargs):
         raise PossibleBlock("posible bloqueo: 10 fallos consecutivos (último: 403)")
 
     monkeypatch.setattr(cli, "refresh", blocked)
-    with pytest.raises(SystemExit, match="Descarga detenida: posible bloqueo") as exit_info:
+    with pytest.raises(SystemExit) as exit_info:
         cli.cmd_refresh(None, Namespace(no_backup=True, resume_only=False))
-    assert exit_info.value.code != 0
+    assert exit_info.value.code == 4  # refresh-semanal.sh lo anota como «posible bloqueo»
+    assert "Descarga detenida: posible bloqueo" in capsys.readouterr().err
 
 
 def test_refresh_command_ends_normally_when_everything_worked(monkeypatch, capsys):
-    monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: ([{"kind": "stores"}], False))
+    monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: ([{"kind": "stores", "status": "done"}], False))
     monkeypatch.setattr(cli, "render_markdown", lambda report: f"reporte de {report['kind']}")
 
     cli.cmd_refresh(None, Namespace(no_backup=False, resume_only=False))
@@ -104,7 +108,7 @@ def test_refresh_command_ends_normally_when_everything_worked(monkeypatch, capsy
 
 def test_refresh_command_exits_with_its_own_code_when_only_the_backup_failed(monkeypatch, capsys):
     """refresh-semanal.sh distingue el código 3: anota «respaldo fallido» y sigue con la capa de IA."""
-    monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: ([{"kind": "stores"}], True))
+    monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: ([{"kind": "stores", "status": "done"}], True))
     monkeypatch.setattr(cli, "render_markdown", lambda report: f"reporte de {report['kind']}")
 
     with pytest.raises(SystemExit) as exit_info:

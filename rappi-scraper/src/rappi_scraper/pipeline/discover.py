@@ -6,6 +6,7 @@ por cadena de restaurantes; los restaurantes independientes van uno por uno.
 """
 
 import gzip
+import itertools
 import logging
 import re
 from collections import defaultdict
@@ -13,7 +14,7 @@ from collections import defaultdict
 from psycopg import Connection
 
 from .. import config
-from ..scraping.client import PAGE_ERRORS, RappiClient, StoreUnavailable
+from ..scraping.client import PAGE_ERRORS, PageNotFound, RappiClient, StoreUnavailable
 from ..scraping.listing_parser import parse_brand_chain, parse_vertical_listing
 from ..scraping.store_metadata import normalize_stores
 from ..storage import repository
@@ -32,8 +33,9 @@ VERTICAL_LISTINGS = {
 MIN_STORES_PER_CITY = 3
 MAX_CANDIDATES = 5
 SITEMAP_BASE = "https://www.rappi.cl/sitemaps/country/cl/"
-CHAIN_SITEMAP = SITEMAP_BASE + "sitemap-restaurant-brand-chain-country-cl-0.xml.gz"
-PARTNER_SITEMAP = SITEMAP_BASE + "sitemap-restaurant-partner-cl-0.xml.gz"
+# Plantillas: los sitemaps vienen numerados (-0, -1, …; cada uno con hasta 50.000 URLs) y se leen todos.
+CHAIN_SITEMAP = SITEMAP_BASE + "sitemap-restaurant-brand-chain-country-cl-{}.xml.gz"
+PARTNER_SITEMAP = SITEMAP_BASE + "sitemap-restaurant-partner-cl-{}.xml.gz"
 _RESTAURANT_ID_RE = re.compile(r"/restaurantes/(\d+)")
 
 
@@ -78,9 +80,9 @@ def discover_stores(
     Parte de los jobs pendientes de la corrida, así redescubrir algunas ciudades suma
     candidatas y verticales en vez de reemplazar lo ya descubierto.
 
-    Los listados que fallan quedan anotados en la corrida (`failed_listings`), como (ciudad, vertical); con `only`
-    se piden solo esos. A las 03:00 las botillerías están cerradas y su listado llega sin tiendas: se reintenta al
-    terminar la descarga de tiendas, y el reporte de calidad avisa de los que sigan fallando.
+    Los listados que fallan o llegan sin tiendas quedan anotados en la corrida (`failed_listings`), como (ciudad,
+    vertical); con `only` se piden solo esos. A las 03:00 las botillerías están cerradas y su listado llega sin
+    tiendas: se reintenta al terminar la descarga de tiendas, y el reporte de calidad avisa de los que sigan fallando.
     """
     failed: list[list[str]] = []
     groups = repository.pending_payloads(conn, run_id, "store_group")
@@ -97,13 +99,17 @@ def discover_stores(
                 failed.append([city["city"], vertical])
                 continue
             log.info("%-22s %-13s %3d tiendas", city["city"], vertical, len(listing))
+            if not listing:
+                failed.append([city["city"], vertical])
+                continue
             for store in listing:
                 store_vertical = canonical_vertical(vertical, store)
                 if not store["store_type"]:
                     # Solo salió en filtros: si su página ya dijo que es Turbo (lo guardó save_crawl), sigue en Turbo.
                     saved = repository.saved_store_format(conn, store["store_id"])
                     store_vertical = canonical_vertical(store_vertical, saved)
-                repository.upsert_store(conn, {**store, "city": city["city"]})
+                # Una tienda nacional sale en el listado de varias ciudades: la del listado solo vale si no tenía.
+                repository.upsert_store(conn, {**store, "city": city["city"]}, keep_city=True)
                 repository.upsert_store_vertical(
                     conn,
                     store["store_id"],
@@ -148,9 +154,19 @@ def _add_candidate(groups: dict, store: dict, vertical: str, city: dict) -> None
         )
 
 
-def _sitemap_urls(client: RappiClient, url: str) -> list[str]:
-    xml = gzip.decompress(client.get_content(url)).decode("utf-8")
-    return re.findall(r"<loc>([^<]+)</loc>", xml)
+def _sitemap_urls(client: RappiClient, template: str) -> list[str]:
+    """URLs de todos los sitemaps numerados de la plantilla (-0, -1, …), hasta el primero que no existe. El -0 tiene que
+    existir: sin él, el error sube (no es lo mismo que no haya restaurantes)."""
+    urls = []
+    for shard in itertools.count():
+        try:
+            content = client.get_content(template.format(shard))
+            xml = gzip.decompress(content).decode("utf-8")
+        except (PageNotFound, gzip.BadGzipFile):  # una página de error con 200 en vez de un 404 también es el final
+            if shard == 0:
+                raise
+            return urls
+        urls += re.findall(r"<loc>([^<]+)</loc>", xml)
 
 
 def _add_chain_job(conn: Connection, run_id: int, chain: dict, jobs: list, chain_store_ids: set) -> None:

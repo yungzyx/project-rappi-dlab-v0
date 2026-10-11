@@ -30,14 +30,22 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 )
 
-# Ritmo prudente: pausa aleatoria entre requests (segundos) y reintentos ante 429/5xx.
+# Ritmo prudente: pausa aleatoria entre requests (segundos) y reintentos ante 429/5xx, con espera exponencial
+# (10, 20, 40 s…) o la que pida rappi.cl en `Retry-After`, hasta un tope.
 REQUEST_DELAY_RANGE = (_env_float("RAPPI_DELAY_MIN", 1.5), _env_float("RAPPI_DELAY_MAX", 3.0))
 TIMEOUT_SECONDS = _env_float("RAPPI_TIMEOUT", 30)
 MAX_RETRIES = int(_env_float("RAPPI_MAX_RETRIES", 3))
 RETRY_BACKOFF_SECONDS = _env_float("RAPPI_RETRY_BACKOFF", 10)
+RETRY_AFTER_MAX_S = 900
+# Requests seguidos rechazados (403, 429 o página de desafío sin __NEXT_DATA__): la descarga se detiene (PossibleBlock)
+# sin esperar a que fallen jobs enteros, que con 19 pasillos y 3 intentos por página tardaban casi una hora.
+BLOCK_STREAK_REQUESTS = 20
 
 # Si una sucursal no está disponible, cuántas otras de la misma marca probar.
 MAX_BRANCH_ATTEMPTS = 3
+# Fracción máxima de páginas (pasillos y sub-pasillos) omitidas para dar una tienda por bajada. Más que esto y el job
+# falla: un catálogo a medias pasaría a ser la corrida vigente del formato y escondería lo que no se leyó.
+SKIPPED_PAGES_MAX = 0.05
 
 # Intentos por job: 1 + una pasada automática de reintento al final de la corrida
 # (cubre errores transitorios de Rappi como 502 o páginas incompletas).

@@ -1,13 +1,23 @@
 """Pipeline completo contra `rappi_test`, con un cliente falso que sirve páginas reales guardadas."""
 
+from argparse import Namespace
+
 import pytest
+from psycopg.pq import TransactionStatus
 
 from conftest import FakeClient
-from rappi_scraper.pipeline import discover
+from rappi_scraper import cli
+from rappi_scraper.pipeline import discover, stores
+from rappi_scraper.pipeline.queue import PossibleBlock
 from rappi_scraper.pipeline.restaurants import process_restaurant_jobs
 from rappi_scraper.pipeline.stores import process_store_jobs
+from rappi_scraper.scraping.next_data import extract_next_data
 from rappi_scraper.storage import repository
 from rappi_scraper.storage.db import migrate
+from rappi_scraper.storage.search import build_search_documents
+
+LIDER = "/tiendas/900025946-lider"
+LACTEOS = f"{LIDER}/lacteos-y-huevos"  # pasillo 14406; su primer sub-pasillo es yogurt (14521)
 
 
 def _store_job(key, *paths, verticals=("supermercado",)):
@@ -122,27 +132,136 @@ def test_store_job_fails_when_no_branch_available(db):
 
 
 @pytest.mark.parametrize(
-    ("bad_path", "next_path"),
+    ("bad_path", "next_path", "skipped_aisle"),
     [
-        ("/tiendas/900025946-lider/lacteos-y-huevos", "/tiendas/900025946-lider/snacks-y-dulces"),
-        ("/tiendas/900025946-lider/lacteos-y-huevos/yogurt", "/tiendas/900025946-lider/lacteos-y-huevos/leche"),
+        (LACTEOS, f"{LIDER}/snacks-y-dulces", 14406),
+        (f"{LACTEOS}/yogurt", f"{LACTEOS}/leche", 14521),
     ],
     ids=["pasillo", "sub-pasillo"],
 )
-def test_page_without_storefront_skips_only_that_aisle(db, bad_path, next_path):
+def test_page_without_storefront_skips_only_that_aisle(db, bad_path, next_path, skipped_aisle):
     # Rappi a veces entrega un pasillo o sub-pasillo sin fallback['storefront/...'] (27-09-2026): se omite esa
     # página y la tienda sigue, en vez de perder todo lo recorrido.
     run = repository.start_run(db, "stores", {})
-    repository.add_jobs(db, run, [_store_job("type:lider", "/tiendas/900025946-lider")])
+    repository.add_jobs(db, run, [_store_job("type:lider", LIDER)])
     client = FakeClient({bad_path: "listing_market"})  # página real sin storefront
 
-    process_store_jobs(db, client, run, max_aisles=2)
+    process_store_jobs(db, client, run)
 
     # sigue con la página hermana siguiente, no corta el recorrido
     assert client.requested.index(next_path) > client.requested.index(bad_path)
     status, result = db.execute("SELECT status, result FROM scrape_jobs WHERE job_key = 'type:lider'").fetchone()
-    assert (status, result["paginas_omitidas"]) == ("done", 1)
+    assert (status, result["paginas_omitidas"], result["pasillos_omitidos"]) == ("done", 1, [skipped_aisle])
+    assert result["paginas_intentadas"] == len(client.requested) - 1  # todas menos la portada
     assert db.execute("SELECT count(*) FROM store_products").fetchone()[0] > 0
+
+
+def test_one_broken_aisle_page_is_skipped_not_fatal(db):
+    """Un pasillo con el JSON cortado (json.loads → ValueError) tumbaba toda la tienda tras recorrerla."""
+
+    class BrokenAisle(FakeClient):
+        def get_next_data(self, path):
+            if path == LACTEOS:
+                self.requested.append(path)
+                return extract_next_data('<script id="__NEXT_DATA__" type="application/json">{"props":</script>')
+            return super().get_next_data(path)
+
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:lider", LIDER)])
+
+    process_store_jobs(db, BrokenAisle(), run)
+
+    status, result = db.execute("SELECT status, result FROM scrape_jobs WHERE job_key = 'type:lider'").fetchone()
+    assert (status, result["paginas_omitidas"]) == ("done", 1)
+
+
+def _seed_previous_run(db) -> tuple[int, list[str]]:
+    """Corrida 1 de Lider con dos productos que no están en las páginas guardadas: uno del pasillo Lácteos (14406) y
+    otro de Snacks (14411). Devuelve la corrida y sus master_product_id."""
+    run = repository.start_run(db, "stores", {})
+    repository.upsert_store(db, {"store_id": 900025946, "name": "Lider", "store_type": "lider", "path": LIDER})
+    repository.upsert_store_vertical(db, 900025946, "supermercado")
+    products = [
+        {"product_id": f"x{aisle}", "master_product_id": aisle * 100, "name": f"Producto {aisle}", "price": 990,
+         "in_stock": True, "_aisle_id": aisle}
+        for aisle in (14406, 14411)
+    ]  # fmt: skip
+    repository.save_products(db, run, 900025946, products)
+    repository.finish_run(db, run)
+    return run, ["1440600", "1441100"]
+
+
+def test_skipped_aisle_keeps_its_offers_current(db):
+    """La corrida 2 no pudo leer Lácteos: sus productos siguen en la búsqueda (con su último precio) hasta la próxima
+    corrida, en vez de desaparecer una semana. Lo que no salió en un pasillo que sí se leyó deja de estar vigente."""
+    _, (in_skipped, in_read) = _seed_previous_run(db)
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:lider", LIDER)])
+
+    process_store_jobs(db, FakeClient(failing={LACTEOS}), run)
+    build_search_documents(db)
+
+    status, result = db.execute("SELECT status, result FROM scrape_jobs WHERE run_id = %s", (run,)).fetchone()
+    assert (status, result["pasillos_omitidos"]) == ("done", [14406])
+    ids = {r[0] for r in db.execute("SELECT entity_id FROM search_documents WHERE entity_type = 'catalog_item'")}
+    assert in_skipped in ids
+    assert in_read not in ids
+
+
+def test_too_many_skipped_pages_fails_job(db):
+    """Con más del 5 % de las páginas omitidas el job falla (y pasa por el reintento): no se guarda un catálogo a
+    medias, y la corrida anterior sigue siendo la que vale para el formato."""
+    previous, (in_skipped, in_read) = _seed_previous_run(db)
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:lider", LIDER)])
+
+    process_store_jobs(db, FakeClient(failing={LACTEOS}), run, max_aisles=2)  # 1 de 12 páginas: 8 %
+    build_search_documents(db)
+
+    status, error, attempts, result = db.execute(
+        "SELECT status, error, attempts, result FROM scrape_jobs WHERE run_id = %s", (run,)
+    ).fetchone()
+    assert (status, error, attempts) == ("failed", "demasiadas páginas omitidas", 2)
+    assert (result["paginas_omitidas"], result["paginas_intentadas"]) == (1, 12)
+    assert db.execute("SELECT count(*) FROM price_snapshots WHERE run_id = %s", (run,)).fetchone()[0] == 0
+    ids = {r[0] for r in db.execute("SELECT entity_id FROM search_documents WHERE entity_type = 'catalog_item'")}
+    assert {in_skipped, in_read} <= ids  # la corrida 1 sigue vigente
+
+
+def test_possible_block_from_the_client_stops_the_store_job(db):
+    """El cliente detecta el bloqueo por request: ni el pasillo ni la tienda lo atrapan, y el job sigue pendiente."""
+
+    class Blocking(FakeClient):
+        def get_next_data(self, path):
+            if path == LACTEOS:
+                raise PossibleBlock("posible bloqueo: 20 respuestas seguidas de rechazo")
+            return super().get_next_data(path)
+
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:lider", LIDER)])
+
+    with pytest.raises(PossibleBlock):
+        process_store_jobs(db, Blocking(), run)
+
+    assert _statuses(db) == {"type:lider": "pending"}
+
+
+def test_first_handler_runs_outside_transaction(db, monkeypatch):
+    """Leer la cola abría una transacción que quedaba «idle in transaction» durante todo el primer job (decenas de
+    minutos): retenía vacuum y cualquier migración."""
+    seen = []
+
+    def handler(conn, client, run_id, payload, done_types, max_aisles):
+        seen.append(conn.info.transaction_status)
+        return "done", {}, None
+
+    monkeypatch.setattr(stores, "_run_store_job", handler)
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:lider", LIDER)])
+
+    process_store_jobs(db, FakeClient(), run)
+
+    assert seen == [TransactionStatus.IDLE]
 
 
 def test_branch_that_redirects_mid_crawl_falls_back_to_next_branch(db):
@@ -292,3 +411,38 @@ def test_a_listing_that_failed_is_reported_and_can_be_retried_alone(db, monkeypa
     payload = db.execute("SELECT payload FROM scrape_jobs WHERE job_key = 'type:boti'").fetchone()[0]
     assert payload["verticals"] == ["supermercado", "licores"]
     assert discover.failed_listings(db, run) == set()  # ya no falla ninguno
+
+
+def test_empty_listing_is_retried(db, monkeypatch):
+    """A las 03:00 el listado de licores llega con 0 tiendas, sin error: también se anota para reintentarlo."""
+    monkeypatch.setattr(discover, "parse_vertical_listing", lambda data: [])
+    run = repository.start_run(db, "stores", {})
+    city = {"city": "Viña del Mar", "lat": -33.0, "lng": -71.5}
+
+    discover.discover_stores(db, FakeClient(), run, ["licores"], [city])
+
+    assert discover.failed_listings(db, run) == {("Viña del Mar", "licores")}
+
+
+def test_city_not_overwritten_by_listing(db, monkeypatch):
+    """Una tienda nacional sale en el listado de varias ciudades: su ciudad no cambia según el último listado."""
+    store = {
+        "store_id": 900030001, "name": "Mall", "store_type": "mall_x", "subvertical": "", "landing_classification": "",
+        "path": "/tiendas/900030001-mall", "filters": [],
+    }  # fmt: skip
+    monkeypatch.setattr(discover, "parse_vertical_listing", lambda data: [store])
+    run = repository.start_run(db, "stores", {})
+    cities = [{"city": c, "lat": -33.0, "lng": -71.0} for c in ("Santiago de Chile", "Temuco")]
+
+    discover.discover_stores(db, FakeClient(), run, ["mall"], cities)
+
+    assert db.execute("SELECT city FROM stores WHERE store_id = 900030001").fetchone() == ("Santiago de Chile",)
+
+
+def test_new_run_closes_previous(db):
+    """`discover --new-run` dejaba la corrida anterior «en curso» para siempre (y rappi-ia no embebía)."""
+    first = cli._run_id(db, "stores", Namespace(new_run=False))
+    second = cli._run_id(db, "stores", Namespace(new_run=True))
+
+    runs = db.execute("SELECT run_id, status FROM scrape_runs ORDER BY run_id").fetchall()
+    assert runs == [(first, "failed"), (second, "running")]

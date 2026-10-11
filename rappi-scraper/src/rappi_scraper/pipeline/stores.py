@@ -14,6 +14,8 @@ from .queue import GONE_MID_CRAWL, NO_BRANCH_AVAILABLE, process_with_retry
 
 log = logging.getLogger(__name__)
 
+TOO_MANY_SKIPPED = "demasiadas páginas omitidas"
+
 
 def _tag(products: list[dict], aisle_id=None, sub_aisle_id=None) -> dict[str, dict]:
     """Copia cada producto con su pasillo/sub-pasillo (sin mutar el original)."""
@@ -27,24 +29,27 @@ def _tag(products: list[dict], aisle_id=None, sub_aisle_id=None) -> dict[str, di
 def crawl_store(client: RappiClient, store_data: dict, max_aisles: int | None = None) -> dict:
     """Recorre pasillos y sub-pasillos a partir de la página de la tienda ya descargada.
 
-    Una página de pasillo o sub-pasillo ilegible se omite (y se cuenta); si no se pudo leer ningún pasillo,
-    lanza ParseError para que el job quede fallido en vez de "hecho" solo con la portada. Un pasillo que redirige
-    al listado (StoreUnavailable) no se atrapa aquí: es la sucursal la que dejó de despachar."""
+    Una página de pasillo o sub-pasillo ilegible se omite y se anota (`skipped_aisles`, con el id del pasillo o
+    sub-pasillo); si no se pudo leer ningún pasillo, lanza ParseError para que el job quede fallido en vez de "hecho"
+    solo con la portada. Un pasillo que redirige al listado (StoreUnavailable) no se atrapa aquí: es la sucursal la que
+    dejó de despachar. Tampoco un posible bloqueo (PossibleBlock), que detiene la corrida."""
     store = parse_store(store_data)
     products = _tag(parse_products(store_data))
     aisles = []
     store_aisles = parse_aisles(store_data)[:max_aisles]
-    skipped_pages = aisles_read = 0
+    skipped_aisles: list[int] = []
+    attempted_pages = aisles_read = 0
 
     for aisle in store_aisles:
         aisles.append({**aisle, "parent_aisle_id": None})
         aisle_path = f"{store['path']}/{aisle['friendly_url']}"
+        attempted_pages += 1
         try:  # leer la página también va aquí: puede llegar sin fallback['storefront/...'] (ParseError)
             aisle_data = client.get_next_data(aisle_path)
             aisle_products, sub_aisles = parse_products(aisle_data), parse_sub_aisles(aisle_data)
         except PAGE_ERRORS as exc:
             log.warning("  pasillo omitido %s: %s", aisle_path, exc)
-            skipped_pages += 1
+            skipped_aisles.append(aisle["aisle_id"])
             continue
         aisles_read += 1
         products.update(_tag(aisle_products, aisle["aisle_id"]))
@@ -52,16 +57,17 @@ def crawl_store(client: RappiClient, store_data: dict, max_aisles: int | None = 
         for sub in sub_aisles:
             aisles.append({**sub, "parent_aisle_id": aisle["aisle_id"]})
             sub_path = f"{aisle_path}/{sub['friendly_url']}"
+            attempted_pages += 1
             try:
                 sub_products = parse_products(client.get_next_data(sub_path))
             except PAGE_ERRORS as exc:
                 log.warning("  sub-pasillo omitido %s: %s", sub_path, exc)
-                skipped_pages += 1
+                skipped_aisles.append(sub["aisle_id"])
                 continue
             products.update(_tag(sub_products, aisle["aisle_id"], sub["aisle_id"]))
 
     if store_aisles and not aisles_read:  # sin números en el mensaje: el reporte agrupa los errores por texto
-        log.warning("  ningún pasillo se pudo leer (%d omitidos)", skipped_pages)
+        log.warning("  ningún pasillo se pudo leer (%d omitidos)", len(skipped_aisles))
         raise ParseError("ningún pasillo se pudo leer")
     context = store_data["props"]["pageProps"].get("storeContext")
     return {
@@ -69,7 +75,8 @@ def crawl_store(client: RappiClient, store_data: dict, max_aisles: int | None = 
         "context": context,
         "aisles": aisles,
         "products": list(products.values()),
-        "skipped_pages": skipped_pages,
+        "skipped_aisles": skipped_aisles,
+        "attempted_pages": attempted_pages,
     }
 
 
@@ -100,6 +107,7 @@ def process_store_jobs(
     jobs = repository.pending_jobs(conn, run_id, "store_group", vertical)[:limit]
     log.info("%d jobs de tiendas pendientes", len(jobs))
     done_types = repository.store_types_done(conn, run_id)
+    conn.commit()  # sin esto, la lectura queda «idle in transaction» durante todo el primer job
     process_with_retry(
         conn,
         run_id,
@@ -134,14 +142,24 @@ def _run_store_job(
             log.info("  %s dejó de estar disponible (%s), probando otra", cand["store_id"], exc)
             error = GONE_MID_CRAWL
             continue
+        skipped, attempted = len(crawl["skipped_aisles"]), crawl["attempted_pages"]
+        pages = {
+            "pasillos_omitidos": crawl["skipped_aisles"],
+            "paginas_omitidas": skipped,
+            "paginas_intentadas": attempted,
+        }
+        if attempted and skipped / attempted > config.SKIPPED_PAGES_MAX:
+            # Guardarla la volvería la corrida vigente del formato y escondería lo no leído: falla (y pasa por el
+            # reintento), y la corrida anterior sigue siendo la que vale. Sin números: el reporte agrupa por texto.
+            log.warning("  %s: %d de %d páginas omitidas, no se guarda", cand["store_id"], skipped, attempted)
+            return (
+                "failed",
+                {"store_id": crawl["store"]["store_id"], "store_type": store_type, **pages},
+                TOO_MANY_SKIPPED,
+            )
         saved = save_crawl(conn, run_id, crawl, payload["verticals"])
         done_types.add(store_type)
         log.info("  -> %s: %d productos", crawl["store"]["name"], saved)
-        result = {
-            "store_id": crawl["store"]["store_id"],
-            "store_type": store_type,
-            "products": saved,
-            "paginas_omitidas": crawl["skipped_pages"],
-        }
+        result = {"store_id": crawl["store"]["store_id"], "store_type": store_type, "products": saved, **pages}
         return "done", result, None
     return "failed", None, error

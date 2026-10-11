@@ -25,7 +25,9 @@ def database_url(env_var: str = "DATABASE_URL") -> str:
 
 
 def connect(url: str | None = None) -> psycopg.Connection:
-    return psycopg.connect(url or database_url())
+    """Con timeout al conectar y keepalives: la conexión del scraper vive días, y sin ellos una caída de red o un NAT
+    que la olvida la dejaba colgada en vez de fallar."""
+    return psycopg.connect(url or database_url(), connect_timeout=10, keepalives=1, keepalives_idle=60)
 
 
 def migrate(conn: psycopg.Connection) -> list[str]:

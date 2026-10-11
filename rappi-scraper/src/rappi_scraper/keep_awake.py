@@ -23,3 +23,4 @@ def keep_awake() -> Iterator[None]:
         yield
     finally:
         process.terminate()
+        process.wait(timeout=5)  # sin esto, caffeinate queda como proceso zombi hasta que termina el comando

@@ -152,8 +152,9 @@ def upsert_brand(conn: Connection, brand_id: int | None, name: str, kind: str = 
     )
 
 
-def upsert_store(conn: Connection, store: dict, raw: dict | None = None) -> None:
-    """Crea o completa una tienda. Los campos vacíos no pisan datos ya guardados."""
+def upsert_store(conn: Connection, store: dict, raw: dict | None = None, keep_city: bool = False) -> None:
+    """Crea o completa una tienda. Los campos vacíos no pisan datos ya guardados; con `keep_city` (el descubrimiento),
+    la ciudad tampoco pisa una que ya tenía."""
     upsert_brand(conn, store.get("brand_id"), store.get("brand_name") or "", store.get("brand_kind", "store"))
     conn.execute(
         """
@@ -166,7 +167,8 @@ def upsert_store(conn: Connection, store: dict, raw: dict | None = None) -> None
             brand_id   = COALESCE(EXCLUDED.brand_id, stores.brand_id),
             store_type = COALESCE(NULLIF(EXCLUDED.store_type, ''), stores.store_type),
             sub_group  = COALESCE(NULLIF(EXCLUDED.sub_group, ''), stores.sub_group),
-            city       = COALESCE(NULLIF(EXCLUDED.city, ''), stores.city),
+            city       = CASE WHEN %(keep_city)s THEN COALESCE(NULLIF(stores.city, ''), EXCLUDED.city)
+                              ELSE COALESCE(NULLIF(EXCLUDED.city, ''), stores.city) END,
             address    = COALESCE(NULLIF(EXCLUDED.address, ''), stores.address),
             lat        = COALESCE(EXCLUDED.lat, stores.lat),
             lng        = COALESCE(EXCLUDED.lng, stores.lng),
@@ -186,6 +188,7 @@ def upsert_store(conn: Connection, store: dict, raw: dict | None = None) -> None
             "lng": store.get("lng"),
             "path": store.get("path") or "",
             "raw": Jsonb(raw) if raw is not None else None,
+            "keep_city": keep_city,
         },
     )
 

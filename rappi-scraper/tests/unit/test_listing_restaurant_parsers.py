@@ -1,4 +1,7 @@
+import pytest
+
 from rappi_scraper.scraping.listing_parser import parse_brand_chain, parse_vertical_listing
+from rappi_scraper.scraping.next_data import ParseError
 from rappi_scraper.scraping.restaurant_parser import parse_restaurant
 
 
@@ -43,3 +46,15 @@ def test_parse_restaurant_menu_and_details(page):
     section_ids = {s["section_id"] for s in r["sections"]}
     assert all(i["section_id"] in section_ids for i in r["items"])
     assert all(i["image_url"].startswith("https://images.rappi.cl/") for i in r["items"] if i["image_url"])
+
+
+def test_restaurant_with_unexpected_shape_is_parse_error(page):
+    """Un plato sin id (KeyError) o con un id raro (ValueError) es un error de página: se prueba otra sucursal."""
+    data = page("restaurant")
+    block = next(v for k, v in data["props"]["pageProps"]["fallback"].items() if k.startswith('@"restaurant/'))
+    block["corridors"][0]["products"][0].pop("id")
+    with pytest.raises(ParseError):
+        parse_restaurant(data)
+    block["corridors"][0]["products"][0]["id"] = "no-es-numero"
+    with pytest.raises(ParseError):
+        parse_restaurant(data)

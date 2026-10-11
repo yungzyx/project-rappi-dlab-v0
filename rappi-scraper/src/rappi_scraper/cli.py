@@ -46,14 +46,27 @@ from .storage.search import VERTICALS, build_search_documents, search
 log = logging.getLogger("rappi_scraper")
 
 LOGS_DIR = config.DATA_DIR / "logs"
-LONG_COMMANDS = {"discover", "scrape-stores", "scrape-restaurants", "refresh"}  # log a archivo + Mac despierto
-# `refresh` terminó todo menos el respaldo: refresh-semanal.sh lo anota («respaldo fallido») y sigue con la capa de IA.
+# Log a archivo, Mac despierto y el candado de descargas: los que descargan de rappi.cl, y `backup`, que no debe correr
+# junto al respaldo de `refresh` (se pisaban al rotar).
+LONG_COMMANDS = {"discover", "scrape-stores", "scrape-restaurants", "refresh", "backup"}
+# Códigos de salida de `refresh` que refresh-semanal.sh distingue:
+# 3: terminó todo menos el respaldo; se anota («respaldo fallido») y sigue con la capa de IA.
 BACKUP_FAILED_EXIT = 3
+# 4: posible bloqueo; la corrida quedó abierta y la tarea semanal se detiene ahí.
+POSSIBLE_BLOCK_EXIT = 4
+# 5: los restaurantes no se actualizaron (falló su descubrimiento), y tiendas, búsqueda y respaldo sí: sigue la capa
+# de IA.
+RESTAURANTS_FAILED_EXIT = 5
 
 
 def _run_id(conn, kind: str, args) -> int:
-    """Reanuda la última corrida abierta de ese tipo, o crea una nueva con --new-run."""
-    run_id = None if args.new_run else repository.open_run(conn, kind)
+    """Reanuda la última corrida abierta de ese tipo, o crea una nueva con --new-run (y cierra la abierta como fallida:
+    si quedara «en curso», `rappi-ia embed` no correría nunca)."""
+    run_id = repository.open_run(conn, kind)
+    if args.new_run and run_id is not None:
+        repository.finish_run(conn, run_id, "failed")
+        log.info("Corrida %d (%s) cerrada como fallida: se empieza otra", run_id, kind)
+        run_id = None
     if run_id is None:
         run_id = repository.start_run(conn, kind, {})
         log.info("Corrida nueva %d (%s)", run_id, kind)
@@ -138,12 +151,17 @@ def cmd_refresh(conn, args) -> None:
             resume_only=args.resume_only,
         )
     except PossibleBlock as exc:
-        raise SystemExit(
+        print(
             f"Descarga detenida: {exc}. El reporte está en data/reports/; la corrida quedó abierta y la próxima"
-            " actualización la retoma."
-        ) from exc
+            " actualización la retoma.",
+            file=sys.stderr,
+        )
+        raise SystemExit(POSSIBLE_BLOCK_EXIT) from exc
     for report in reports:
         print(render_markdown(report))
+    # Si fallaron los dos, el código es el de los restaurantes; el respaldo fallido queda en el log.
+    if any(r["status"] == "failed" for r in reports):
+        raise SystemExit(RESTAURANTS_FAILED_EXIT)
     if backup_failed:
         raise SystemExit(BACKUP_FAILED_EXIT)
 
@@ -293,7 +311,7 @@ def _setup_logging(command: str) -> None:
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     try:
-        if args.command in LONG_COMMANDS:  # todas descargan de rappi.cl: una a la vez (sin candado, ni log)
+        if args.command in LONG_COMMANDS:  # una a la vez (sin candado, ni log)
             with download_lock():
                 _setup_logging(args.command)
                 with keep_awake(), connect() as conn:

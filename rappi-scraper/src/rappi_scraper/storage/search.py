@@ -53,17 +53,29 @@ WHERE NOT EXISTS (SELECT 1 FROM staged_documents s
 # corrida no pudo bajar conserva su último dato. Un plato también sale si una corrida posterior ya no encontró su
 # local o su cadena en Rappi (el motivo que anota pipeline/restaurants.py). Lo que no tiene ningún precio guardado
 # no se descarta (no hay con qué compararlo). La corrida de cada formato sale de v_store_format_runs (migración 019),
-# la misma que usa el precio que muestra Bigotes.
+# la misma que usa el precio que muestra Bigotes. Una oferta de un pasillo o sub-pasillo que esa corrida no pudo leer
+# (`pasillos_omitidos` del job que bajó la tienda) sigue vigente con su último precio: una página caída no la esconde.
 _OFFER_PRICES = """
 CREATE TEMP TABLE offer_prices ON COMMIT DROP AS
 WITH latest AS (
     SELECT DISTINCT ON (store_id, sku) store_id, sku, price, run_id
     FROM price_snapshots
     ORDER BY store_id, sku, scraped_at DESC, run_id DESC  -- el mismo desempate que v_store_format_runs
+),
+skipped AS (
+    SELECT j.run_id, (j.result->>'store_id')::bigint AS store_id, array_agg(a.aisle_id::bigint) AS aisles
+    FROM scrape_jobs j
+    CROSS JOIN LATERAL jsonb_array_elements_text(j.result->'pasillos_omitidos') a(aisle_id)
+    WHERE j.job_type = 'store_group' AND j.status = 'done' AND jsonb_typeof(j.result->'pasillos_omitidos') = 'array'
+    GROUP BY 1, 2
 )
-SELECT l.store_id, l.sku, l.price, l.run_id = f.format_run_id AS current
+SELECT l.store_id, l.sku, l.price,
+       l.run_id = f.format_run_id
+       OR COALESCE(sp.aisle_id = ANY(sk.aisles) OR sp.sub_aisle_id = ANY(sk.aisles), false) AS current
 FROM latest l
 JOIN v_store_format_runs f USING (store_id)
+LEFT JOIN skipped sk ON sk.run_id = f.format_run_id AND sk.store_id = l.store_id
+LEFT JOIN store_products sp ON sp.store_id = l.store_id AND sp.sku = l.sku
 """
 
 _DISH_PRICES = """

@@ -2,9 +2,11 @@
 
 from collections import Counter
 
+import psycopg
 import pytest
 
 from conftest import FakeClient, load_page
+from rappi_scraper.pipeline import queue
 from rappi_scraper.pipeline.queue import PossibleBlock, process_with_retry
 from rappi_scraper.pipeline.stores import process_store_jobs
 from rappi_scraper.reporting import build_run_report, render_markdown, write_run_report
@@ -231,6 +233,18 @@ def test_store_report_sums_skipped_pages(db):
     assert build_run_report(db, run)["totals"]["paginas_omitidas"] == 3
 
 
+def test_store_report_flags_the_share_of_skipped_pages(db):
+    """Las omitidas como % de las intentadas (también en los jobs que fallaron por omitir demasiadas)."""
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_job("a"), _job("b")])
+    repository.mark_job(db, run, "a", "done", {"products": 5, "paginas_omitidas": 1, "paginas_intentadas": 100})
+    repository.mark_job(db, run, "b", "failed", {"paginas_omitidas": 9, "paginas_intentadas": 20}, "demasiadas")
+
+    check = next(c for c in build_run_report(db, run)["checks"] if c["label"] == "Páginas omitidas (%)")
+
+    assert (check["value"], check["limit"], check["ok"]) == (8.3, 5.0, False)
+
+
 def test_restaurant_report_and_written_files(db, tmp_path):
     run = repository.start_run(db, "restaurants", {})
     repository.save_restaurant(db, run, parse_restaurant(load_page("restaurant")))
@@ -257,3 +271,39 @@ def test_store_report_warns_about_listings_that_failed_at_discovery(db):
     check = next(c for c in report["checks"] if c["label"] == "Listados fallidos al descubrir")
     assert check["value"] == 2 and not check["ok"]
     assert "licores: Temuco, Viña del Mar" in render_markdown(report)
+
+
+def test_mark_job_is_retried_once_after_a_database_error(db, monkeypatch):
+    """Un error pasajero de la base al anotar el job (p. ej. un timeout) no tumba una corrida de días."""
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_job("a")])
+    real_mark_job = repository.mark_job
+    calls = []
+
+    def flaky(*args, **kwargs):
+        calls.append(args[2])
+        if len(calls) == 1:
+            raise psycopg.errors.QueryCanceled("canceling statement due to statement timeout")
+        real_mark_job(*args, **kwargs)
+
+    monkeypatch.setattr(queue.repository, "mark_job", flaky)
+
+    process_with_retry(db, run, repository.pending_jobs(db, run, "store_group"), lambda job: ("done", {}, None))
+
+    assert calls == ["a", "a"]
+    assert _status(db, "a") == ("done", 1)
+
+
+def test_a_lost_connection_stops_with_a_clear_message(db):
+    """Con la conexión caída (Postgres reiniciado) el rollback del `except` reventaba con una traza confusa."""
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_job("a")])
+    jobs = repository.pending_jobs(db, run, "store_group")
+    db.commit()
+
+    def handler(job):
+        db.close()  # como un pg_terminate_backend a mitad del job
+        raise psycopg.OperationalError("server closed the connection unexpectedly")
+
+    with pytest.raises(psycopg.OperationalError, match="Se perdió la conexión con la base"):
+        process_with_retry(db, run, jobs, handler)

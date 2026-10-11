@@ -7,6 +7,8 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
 from ..config import DATA_DIR
 
 log = logging.getLogger(__name__)
@@ -37,6 +39,19 @@ def rotate_backups(backups_dir: Path, keep: int) -> list[Path]:
     return removed
 
 
+def _connection_args(database_url: str) -> tuple[list[str], dict[str, str]]:
+    """Argumentos de conexión de `pg_dump` y su entorno. La clave va en PGPASSWORD y nunca en el argv, que `ps` muestra
+    durante todo el volcado y que un error dejaba escrito en los logs. Lo que no es host, puerto ni usuario (la base y
+    opciones como sslmode) va en `--dbname` como conninfo, sin la clave."""
+    params = conninfo_to_dict(database_url)
+    password = params.pop("password", None)
+    flags = {"host": "--host", "port": "--port", "user": "--username"}
+    args = [f"{flag}={params.pop(key)}" for key, flag in flags.items() if params.get(key)]
+    args.append(f"--dbname={make_conninfo(**params)}")
+    env = {**os.environ, "PGPASSWORD": str(password)} if password else None
+    return args, env
+
+
 def backup_database(database_url: str, backups_dir: Path = BACKUPS_DIR, keep: int = KEEP_BACKUPS) -> Path:
     """Vuelca a `.part`, lo valida con `pg_restore --list` y recién entonces lo renombra y rota: un volcado cortado
     (disco lleno, corte de luz) nunca pasa por el respaldo más nuevo ni expulsa uno sano."""
@@ -44,13 +59,11 @@ def backup_database(database_url: str, backups_dir: Path = BACKUPS_DIR, keep: in
     target = backups_dir / f"rappi_{datetime.now():%Y%m%d-%H%M%S}.dump"
     partial = target.with_name(target.name + ".part")
     pg_dump = find_pg_dump()
+    connection_args, env = _connection_args(database_url)
     try:
-        subprocess.run(
-            [pg_dump, "--format=custom", "--no-owner", f"--file={partial}", f"--dbname={database_url}"],
-            check=True,
-        )
+        _run("pg_dump", [pg_dump, "--format=custom", "--no-owner", f"--file={partial}", *connection_args], env=env)
         pg_restore = str(Path(pg_dump).with_name("pg_restore"))
-        subprocess.run([pg_restore, "--list", str(partial)], check=True, stdout=subprocess.DEVNULL)
+        _run("pg_restore --list", [pg_restore, "--list", str(partial)], stdout=subprocess.DEVNULL)
     except BaseException:
         partial.unlink(missing_ok=True)
         raise
@@ -58,3 +71,11 @@ def backup_database(database_url: str, backups_dir: Path = BACKUPS_DIR, keep: in
     removed = rotate_backups(backups_dir, keep)
     log.info("Respaldo en %s (%d antiguos borrados)", target, len(removed))
     return target
+
+
+def _run(name: str, cmd: list[str], **kwargs) -> None:
+    """Como `subprocess.run(check=True)`, pero el error dice solo el código: el de subprocess trae el argv entero."""
+    try:
+        subprocess.run(cmd, check=True, **kwargs)
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"{name} falló con código {exc.returncode}") from None

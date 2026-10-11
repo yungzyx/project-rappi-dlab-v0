@@ -3,21 +3,17 @@
 import logging
 from collections.abc import Callable
 
+import psycopg
 from psycopg import Connection
 
 from .. import config
-from ..scraping.client import RestaurantGone, StoreUnavailable
+from ..scraping.client import PossibleBlock, RestaurantGone, StoreUnavailable
 from ..storage import repository
 from .progress import Progress
 
 log = logging.getLogger(__name__)
 
 JobResult = tuple[str, dict | None, str | None]  # (status, result, error)
-
-
-class PossibleBlock(RuntimeError):
-    """Demasiados jobs seguidos fallaron sin que rappi.cl respondiera: podría estar bloqueando la descarga."""
-
 
 # Fallos en los que rappi.cl sí respondió (no hay sucursal, no hay menú): no son señal de bloqueo.
 NO_BRANCH_AVAILABLE = "ninguna sucursal disponible"
@@ -42,12 +38,18 @@ def _process(
         try:
             status, result, error = handler(job)
             site_answered = status != "failed" or error in SITE_ANSWERED
+        except PossibleBlock:
+            # El cliente vio demasiados requests rechazados seguidos: este job queda pendiente y los fallidos de la
+            # racha vuelven a la cola, como cuando la racha es de jobs.
+            _rollback(conn)
+            repository.requeue_failed(conn, run_id, config.MAX_BLOCKED_JOB_ATTEMPTS, streak)
+            raise
         except Exception as exc:  # un dato inesperado no debe detener una corrida de horas
-            conn.rollback()  # deja la conexión usable si el error vino de la base
+            _rollback(conn)  # deja la conexión usable si el error vino de la base
             log.exception("  job %s falló", job["job_key"])
             status, result, error = "failed", None, f"{type(exc).__name__}: {exc}"
             site_answered = isinstance(exc, StoreUnavailable | RestaurantGone)
-        repository.mark_job(conn, run_id, job["job_key"], status, result, error)
+        _mark_job(conn, run_id, job["job_key"], status, result, error)
         streak = [] if site_answered else [*streak, job["job_key"]]
         # Esos fallos los causó el bloqueo, no el job: vuelven a la cola para la próxima actualización, con un tope más
         # alto que el normal (un job de la pasada de reintento, o de un bloqueo anterior, ya llegó a ese). Si ninguno
@@ -57,6 +59,31 @@ def _process(
             conn, run_id, config.MAX_BLOCKED_JOB_ATTEMPTS, streak
         ):
             raise PossibleBlock(f"posible bloqueo: {len(streak)} fallos consecutivos (último: {error})")
+
+
+def _rollback(conn: Connection) -> None:
+    """Como `conn.rollback()`, pero sin reventar si la conexión se cayó (el error claro lo da `_mark_job`)."""
+    try:
+        conn.rollback()
+    except psycopg.OperationalError:
+        log.warning("  no se pudo deshacer la transacción: la conexión con la base se cayó")
+
+
+def _mark_job(conn: Connection, run_id: int, job_key: str, status: str, result: dict | None, error: str | None) -> None:
+    """Anota el job; ante un error pasajero de la base (un timeout, un bloqueo) reintenta una vez. Una conexión caída
+    no se puede retomar a mitad de la corrida (el resto del proceso usa la misma): se detiene con un mensaje claro, y
+    la corrida queda abierta para retomarla con el mismo comando."""
+    try:
+        repository.mark_job(conn, run_id, job_key, status, result, error)
+        return
+    except psycopg.OperationalError as exc:
+        if conn.closed or conn.broken:
+            raise psycopg.OperationalError(
+                "Se perdió la conexión con la base: la corrida quedó abierta, retómala con el mismo comando"
+            ) from exc
+        log.warning("  error de la base al anotar el job %s (%s): se reintenta", job_key, exc)
+        _rollback(conn)
+    repository.mark_job(conn, run_id, job_key, status, result, error)
 
 
 def process_with_retry(

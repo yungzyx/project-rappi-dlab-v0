@@ -67,7 +67,9 @@ def refresh(
     resume_only: bool = False,
     retry_stores: Discoverer | None = None,
 ) -> tuple[list[dict], bool]:
-    """Corre la actualización completa y devuelve los reportes (tiendas, restaurantes) y si falló el respaldo.
+    """Corre la actualización completa y devuelve los reportes (tiendas, restaurantes) y si falló el respaldo. Si falló
+    el descubrimiento de restaurantes, su reporte viene con estado 'failed' y la alerta (salvo un posible bloqueo, que
+    sube como PossibleBlock).
 
     Con `resume_only` solo retoma las corridas abiertas (p. ej. las que reabrió `retry-failed`) y nunca empieza una
     nueva: sin él, una corrida de restaurantes cerrada se volvería a bajar entera."""
@@ -87,9 +89,20 @@ def refresh(
         reports.append(finish_and_report(conn, run_id, "stores", reports_dir)[0])
 
     if not resume_only or repository.open_run(conn, "restaurants") is not None:
-        run_id = ensure_run(conn, "restaurants", discover_restaurants)
-        _scrape(conn, run_id, "restaurants", lambda: process_restaurant_jobs(conn, client, run_id), reports_dir)
-        reports.append(finish_and_report(conn, run_id, "restaurants", reports_dir)[0])
+        try:
+            run_id = ensure_run(conn, "restaurants", discover_restaurants)
+        except PossibleBlock:
+            raise
+        except Exception as exc:
+            # Un sitemap caído al final de días de tiendas no debe dejar esas tiendas fuera de la búsqueda una semana
+            # más: la corrida queda cerrada como fallida (con el error en su reporte) y se sigue con búsqueda y
+            # respaldo.
+            log.exception("Descubrimiento de restaurantes fallido: no se actualizan esta vez")
+            failed_run = repository.latest_run(conn, "restaurants")
+            reports.append(write_run_report(conn, failed_run, reports_dir, f"{type(exc).__name__}: {exc}")[0])
+        else:
+            _scrape(conn, run_id, "restaurants", lambda: process_restaurant_jobs(conn, client, run_id), reports_dir)
+            reports.append(finish_and_report(conn, run_id, "restaurants", reports_dir)[0])
 
     # Cierra la transacción de lectura que abre `open_run` (con `resume_only`): si no, la búsqueda quedaría en un
     # savepoint sin guardar, `pg_dump` respaldaría los documentos viejos y un respaldo fallido (exit 3) la desharía.

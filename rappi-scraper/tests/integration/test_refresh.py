@@ -1,5 +1,6 @@
 """`refresh`: retoma corridas abiertas o crea nuevas, y deja búsqueda, reportes y respaldo."""
 
+from argparse import Namespace
 from contextlib import nullcontext
 
 import pytest
@@ -267,3 +268,59 @@ def test_refresh_retries_failed_listings_after_the_stores_and_scrapes_what_appea
     assert order == [("retry", 0)]  # después de bajar las tiendas, no antes
     # el job tardío se procesó en la misma corrida (aquí queda «omitido»: es la misma tienda del primero)
     assert reports[0]["jobs"] == {"done": 1, "skipped": 1} and reports[0]["status"] == "done"
+
+
+def _offline(conn, run_id):
+    raise RuntimeError("sitemap: sin red")
+
+
+def test_restaurant_discovery_error_still_builds_search_and_backup(db, tmp_path):
+    """Tras tres días de tiendas, un error al descubrir restaurantes (sitemap caído) se saltaba la búsqueda, el
+    respaldo y la capa de IA: las tiendas nuevas recién llegaban a la app la semana siguiente."""
+    backups = []
+
+    reports, backup_failed = refresh(
+        db,
+        FakeClient(),
+        _discoverer(STORE_JOB, []),
+        _offline,
+        backup=lambda: backups.append("ok"),
+        reports_dir=tmp_path,
+    )
+
+    assert [(r["kind"], r["status"]) for r in reports] == [("stores", "done"), ("restaurants", "failed")]
+    assert "sin red" in reports[1]["alert"]
+    assert db.execute("SELECT count(*) FROM search_documents").fetchone()[0] > 0
+    assert backups == ["ok"] and not backup_failed
+    assert repository.open_run(db, "restaurants") is None  # la próxima actualización descubre de nuevo
+    restaurants_md = next(tmp_path.glob("run_*_restaurants.md")).read_text(encoding="utf-8")
+    assert "sin red" in restaurants_md and "Quedó abierta" not in restaurants_md
+
+
+def _cmd_refresh(db, monkeypatch, tmp_path, discover_restaurants) -> int:
+    """`rappi refresh` con un cliente falso, sin respaldo y con reportes en tmp_path; devuelve el código de salida."""
+    monkeypatch.setattr(cli, "RappiClient", FakeClient)
+    monkeypatch.setattr(cli, "_store_discoverer", lambda client, verticals: _with_retry(_discoverer(STORE_JOB, [])))
+    monkeypatch.setattr(cli, "_restaurant_discoverer", lambda client: discover_restaurants)
+    monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: refresh(*args, reports_dir=tmp_path, **kwargs))
+    with pytest.raises(SystemExit) as stop:
+        cli.cmd_refresh(db, Namespace(no_backup=True, resume_only=False))
+    return stop.value.code
+
+
+def _with_retry(discover):
+    discover.retry = lambda conn, run_id: 0
+    return discover
+
+
+def test_refresh_exits_5_when_restaurants_were_not_updated(db, monkeypatch, tmp_path):
+    assert _cmd_refresh(db, monkeypatch, tmp_path, _offline) == cli.RESTAURANTS_FAILED_EXIT == 5
+
+
+def test_refresh_exits_4_on_a_possible_block(db, monkeypatch, tmp_path):
+    """El código 1 de cualquier caída no dejaba distinguir un bloqueo en la línea de estado de la tarea semanal."""
+
+    def blocked(conn, run_id):
+        raise PossibleBlock("posible bloqueo: 20 respuestas seguidas de rechazo")
+
+    assert _cmd_refresh(db, monkeypatch, tmp_path, blocked) == cli.POSSIBLE_BLOCK_EXIT == 4

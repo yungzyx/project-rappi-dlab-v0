@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 from .. import config
+from ..lock import DownloadInProgress, download_lock
 from ..scraping.client import PAGE_ERRORS, RappiClient, StoreUnavailable
 from ..scraping.store_metadata import normalize_stores
 from ..scraping.store_parser import parse_aisles, parse_products, parse_store, parse_sub_aisles, slugify
@@ -146,6 +147,14 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
     args = parse_args(argv)
+    try:
+        with download_lock():  # también descarga de rappi.cl: nunca junto a otra descarga
+            _run(args)
+    except DownloadInProgress as exc:
+        raise SystemExit(str(exc)) from exc
+
+
+def _run(args: argparse.Namespace) -> None:
     client = RappiClient()
     stores = normalize_stores(client.get_json(config.STORES_METADATA_URL))
 
