@@ -222,9 +222,15 @@ def cmd_search(conn, args) -> None:
 
 
 def cmd_eval_search(conn, args) -> None:
+    from . import jev
     from .eval import search_eval
     from .retrieval.hybrid import thresholds
 
+    jev_client = None
+    if args.juez_jev:
+        jev_client = jev.client_or_none()
+        if jev_client is None:
+            raise SystemExit("--juez-jev necesita TYPESAFE_API_KEY (en rappi-ia/.env): sin ella no hay juez Jev.")
     embedder = None
     if not args.solo_lexico:
         from .embeddings.models import text_embedder
@@ -241,12 +247,25 @@ def cmd_eval_search(conn, args) -> None:
     unmet = search_eval.unmet_quality(runs, in_use, run_taus=current)
     model = embedder.model_name if embedder else None
     comparisons = search_eval.compare_modes(runs)
-    report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model, comparisons)
+    jev_part = _jev_judgment(conn, jev_client, runs) if jev_client else None
+    report = search_eval.render_markdown(summary, unmet, current, proposed, saved, model, comparisons, jev_part)
     out = config.DATA_DIR / "eval" / "busqueda.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
     print(report)
     print(f"Reporte en {out}")
+
+
+def _jev_judgment(conn, client, runs) -> dict:
+    """Jev juzga lo que devolvió cada modo (lo que ya juzgó, de la caché); las personas, si hay planilla juzgada."""
+    from .eval import judge, sheets
+
+    judgments = judge.judge_pairs(conn, client, judge.pairs_from_runs(runs))
+    conn.commit()
+    sheet = sheets.sheet_dir() / sheets.SEARCH_SHEET
+    human = sheets.read_search_sheet(sheet) if sheet.exists() else {}
+    print(f"Jev ({client.model}): {len(judgments)} pares juzgados, {client.stats.requests} llamadas")
+    return judge.jev_report(runs, judgments, human, client.model)
 
 
 def cmd_eval_sample(conn, args) -> None:
@@ -497,6 +516,7 @@ def build_parser() -> argparse.ArgumentParser:
     ev = sub.add_parser("eval-search", help="evalúa la búsqueda con el set de src/rappi_ia/eval/queries.json")
     ev.add_argument("--solo-lexico", action="store_true", help="sin modelo de embeddings")
     ev.add_argument("--guardar-tau", action="store_true", help="guarda los τ calibrados en eval/thresholds.json")
+    ev.add_argument("--juez-jev", action="store_true", help="agrega a Jev como juez (necesita TYPESAFE_API_KEY)")
     sub.add_parser("eval-sample", help="muestra de ~200 pares (consulta, producto) para juzgar a mano")
     sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano, y κ")
     sheets_cmd = sub.add_parser("jev-planillas", help="planillas CSV para juzgar a mano la búsqueda y las categorías")
