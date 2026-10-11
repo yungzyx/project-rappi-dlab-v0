@@ -1,6 +1,6 @@
 -- Etapa 4 del MVP: las tarjetas de conocimiento del juego viven en la base, ligadas a conceptos, y el progreso de cada
 -- persona se guarda en el servidor. Las tarjetas las carga `rappi-ia knowledge` desde knowledge.json; las ligas a
--- conceptos, desde card_concepts.toml (propuestas de una regla, revisadas a mano).
+-- conceptos, desde card_concepts.toml (propuestas de una regla, revisadas una por una).
 CREATE TABLE knowledge_cards (
     card_id      text PRIMARY KEY,
     vertical     text NOT NULL CHECK (vertical IN (
@@ -54,7 +54,7 @@ COMMENT ON COLUMN knowledge_cards.source_title IS 'Título de la fuente que resp
 COMMENT ON COLUMN knowledge_cards.source_url IS 'Dirección https de la fuente que respalda la tarjeta.';
 COMMENT ON COLUMN knowledge_cards.updated_at IS 'Última vez que `rappi-ia knowledge` escribió la tarjeta.';
 
-COMMENT ON TABLE knowledge_card_concepts IS 'Conceptos de los que habla cada tarjeta: propuestas de una regla de palabras clave, revisadas a mano (card_concepts.toml).';
+COMMENT ON TABLE knowledge_card_concepts IS 'Conceptos de los que habla cada tarjeta: propuestas de una regla de palabras clave, revisadas una por una (card_concepts.toml).';
 COMMENT ON COLUMN knowledge_card_concepts.card_id IS 'Tarjeta ligada.';
 COMMENT ON COLUMN knowledge_card_concepts.concept_id IS 'Concepto del que habla la tarjeta.';
 COMMENT ON COLUMN knowledge_card_concepts.method IS 'Origen de la liga: regla (la propuso la regla y se aceptó) o manual (se agregó a mano).';

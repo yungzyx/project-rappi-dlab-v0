@@ -1,4 +1,4 @@
-"""El archivo de tarjetas del juego (108) y la revisión a mano de sus ligas a conceptos."""
+"""El archivo de tarjetas del juego (108) y la revisión una por una de sus ligas a conceptos."""
 
 import json
 import re

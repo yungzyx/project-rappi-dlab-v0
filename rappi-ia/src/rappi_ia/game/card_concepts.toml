@@ -1,5 +1,5 @@
 version = "2026-10-10"
-revision = "Revisado a mano el 10-10-2026: cada propuesta de la regla quedó aceptada o rechazada."
+revision = "Revisado uno por uno el 10-10-2026 por el implementador y el revisor (Claude): cada propuesta de la regla quedó aceptada o rechazada."
 
 [cards.supermercado-01]
 concepts = ["verduras"]
