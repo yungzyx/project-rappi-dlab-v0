@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ForgetConfirm, { FORGET_TITLE } from '../../components/ForgetConfirm'
 import Sheet from '../../components/Sheet'
 import { useToast } from '../../components/Toast'
 import { useForgetAll } from '../../state/forgetAll'
@@ -10,7 +11,7 @@ const TITLES = {
   notifications: 'Notifications',
   logout: 'Log out?',
   'logout-all': 'Log out of all sessions?',
-  forget: 'Borrar mis datos',
+  forget: FORGET_TITLE,
 }
 
 /** Hojas de Account: idioma, notificaciones y confirmación de cierre de sesión (simulados), y «Borrar mis datos» (real). */
@@ -98,22 +99,7 @@ export default function AccountSheets({ sheet, onClose }) {
       )}
 
       {shown === 'forget' && (
-        <div className="sheet-confirm">
-          <p>
-            Borramos de nuestro servidor tus búsquedas, lo que hiciste en la app y tu progreso del juego, y de este
-            navegador tus pedidos, tu carro y tus preferencias. Después la app te trata como a una persona nueva. No se
-            puede deshacer.
-          </p>
-          {forgetFailed && (
-            <p role="alert">No pude borrar tus datos en el servidor. No se borró nada: inténtalo de nuevo en un rato.</p>
-          )}
-          <button type="button" className="sheet-confirm-primary tap" disabled={forgetting} onClick={confirmForget}>
-            Sí, borrar
-          </button>
-          <button type="button" className="sheet-confirm-secondary tap" disabled={forgetting} onClick={onClose}>
-            Cancelar
-          </button>
-        </div>
+        <ForgetConfirm forgetting={forgetting} failed={forgetFailed} onConfirm={confirmForget} onCancel={onClose} />
       )}
     </Sheet>
   )

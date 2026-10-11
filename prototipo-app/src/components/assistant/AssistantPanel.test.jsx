@@ -81,6 +81,16 @@ function say(text) {
   fireEvent.click(ask)
 }
 
+/** «Olvidar» y su confirmación: la misma hoja de Cuenta → «Borrar mis datos». */
+function clickForget() {
+  fireEvent.click(screen.getByText('Olvidar'))
+  fireEvent.click(screen.getByText('Sí, borrar'))
+}
+async function forget() {
+  clickForget()
+  await runUntilIdle()
+}
+
 function OpenButton() {
   const assistant = useAssistant()
   return (
@@ -466,17 +476,27 @@ describe('lo aprendido y Olvidar', () => {
     expect(screen.getByText('Olvidar')).toBeTruthy()
   })
 
-  test('tras Olvidar, Para ti se va y queda la confirmación', async () => {
+  test('Olvidar pide la misma confirmación que «Borrar mis datos» y solo borra al confirmar', async () => {
     api.profile.mockResolvedValue({ interests: [VINO] })
     stubCatalog({ '/recommendations': fixture('recommendations') })
     await renderPanel()
     expect(screen.getByText('Gaseosa cola 500 cc (prueba)')).toBeTruthy()
     fireEvent.click(screen.getByText('Olvidar'))
     await runUntilIdle()
-    expect(screen.queryByText('Gaseosa cola 500 cc (prueba)')).toBeNull()
-    expect(screen.getAllByText(/olvidé lo que aprendí de ti/).length).toBeGreaterThan(0)
+    expect(screen.getByRole('dialog', { name: 'Borrar mis datos' })).toBeTruthy()
+    expect(screen.getByText(/No se puede deshacer/)).toBeTruthy()
+    expect(api.forget).not.toHaveBeenCalled()
+    expect(screen.getByText('Gaseosa cola 500 cc (prueba)')).toBeTruthy() // nada se tocó todavía
+
+    fireEvent.click(screen.getByText('Cancelar'))
+    await runUntilIdle()
+    expect(api.forget).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog', { name: 'Borrar mis datos' })).toBeNull()
+
+    await forget()
     expect(screen.queryByText('Descubre con Mochi')).toBeNull()
     expect(api.forget).toHaveBeenCalledTimes(1)
+    expect(reloadToHome).toHaveBeenCalledTimes(1) // la app se recarga en la Home: no queda un mensaje que mostrar
   })
 
   test('Olvidar espera la pregunta en curso y el lote de eventos antes del DELETE, y mientras no se envía nada', async () => {
@@ -488,7 +508,7 @@ describe('lo aprendido y Olvidar', () => {
     await renderPanel()
     say('pregunta A')
     await advance(500) // sale al terminar de abrir
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await advance(100)
     say('pregunta mientras se olvida')
     await advance(500)
@@ -515,7 +535,7 @@ describe('lo aprendido y Olvidar', () => {
     const puts = []
     stubCatalog({ 'PUT /game/state/*': (req) => puts.push(req.body) && {} })
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await advance(100)
     expect(game.settle).toHaveBeenCalledTimes(1)
     expect(api.forget).not.toHaveBeenCalled() // el guardado en vuelo todavía no termina
@@ -532,7 +552,7 @@ describe('lo aprendido y Olvidar', () => {
     api.profile.mockResolvedValue({ interests: [VINO] })
     api.forget.mockRejectedValueOnce(new Error('API caída'))
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await runUntilIdle()
     expect(game.resume).toHaveBeenCalledTimes(1)
     expect(game.forget).not.toHaveBeenCalled()
@@ -544,7 +564,7 @@ describe('lo aprendido y Olvidar', () => {
     const sending = deferred()
     trackOrder(sending.promise)
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await advance(100)
     expect(api.forget).not.toHaveBeenCalled() // el pedido todavía va en camino
 
@@ -556,7 +576,7 @@ describe('lo aprendido y Olvidar', () => {
   test('Olvidar también deja el juego en cero (su progreso se borró con el perfil), solo si el servidor borró', async () => {
     api.profile.mockResolvedValue({ interests: [VINO] })
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await runUntilIdle()
     expect(api.forget).toHaveBeenCalledTimes(1)
     expect(game.forget).toHaveBeenCalledTimes(1)
@@ -567,7 +587,7 @@ describe('lo aprendido y Olvidar', () => {
     game.forget.mockClear()
     api.forget.mockRejectedValueOnce(new Error('API caída'))
     await renderPanel()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     await runUntilIdle()
     expect(game.forget).not.toHaveBeenCalled() // el progreso sigue en el servidor: el juego no cambia
   })
@@ -582,7 +602,7 @@ describe('lo aprendido y Olvidar', () => {
     api.profile.mockReturnValueOnce(remote.promise) // al reabrir, esta respuesta queda pendiente
     fireEvent.click(screen.getByText('abrir'))
     await runUntilIdle()
-    fireEvent.click(screen.getByText('Olvidar'))
+    clickForget()
     remote.resolve({ interests: [{ concept: 'pisco', label: '🍸 Pisco' }] })
     await runUntilIdle()
     expect(screen.queryByText('🍸 Pisco')).toBeNull()
