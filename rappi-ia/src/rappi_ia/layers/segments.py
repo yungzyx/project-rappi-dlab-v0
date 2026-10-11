@@ -591,8 +591,10 @@ def build_segments(
     las filas `regla` de ese alcance; lo `curado` no se toca y las otras fuentes tampoco."""
     now = now or datetime.now(LOCAL_TZ)
     version, rules = load_segment_rules()
-    run = start_layer_run(conn, "segments", rules_version(version, RULES_FILE, Path(__file__)))
-    _seed_definitions(conn, version, rules)
+    version = rules_version(version, RULES_FILE, Path(__file__))
+    run = start_layer_run(conn, "segments", version)
+    if user_id is None or not _definitions_current(conn, version, rules):
+        _seed_definitions(conn, version, rules)
     signals = load_signals(conn, source, user_id)
     metrics = user_metrics(conn, source, user_id, now)
     users = sorted(set(signals) | set(metrics))
@@ -638,6 +640,12 @@ def build_segments(
     return counts
 
 
+def lock_user_segments(conn: Connection, user_id: str) -> None:
+    """El candado por persona (advisory, hasta el fin de la transacción) que comparten el recálculo después de un
+    pedido y «Olvidar»: nunca recalculan sus segmentos a la vez."""
+    conn.execute("SELECT pg_advisory_xact_lock(hashtext('segments:' || %s))", (user_id,))
+
+
 def recalculate_user_segments(connector: Callable[[], AbstractContextManager[Connection]], user_id: str) -> None:
     """Los segmentos de una persona del prototipo después de un pedido, en segundo plano y con su propia conexión.
 
@@ -647,7 +655,7 @@ def recalculate_user_segments(connector: Callable[[], AbstractContextManager[Con
     start = time.perf_counter()
     try:
         with connector() as conn:
-            conn.execute("SELECT pg_advisory_xact_lock(hashtext('segments:' || %s))", (user_id,))
+            lock_user_segments(conn, user_id)
             known = conn.execute(
                 "SELECT 1 FROM app_users WHERE user_id = %s AND source = 'prototype'", (user_id,)
             ).fetchone()
@@ -660,6 +668,16 @@ def recalculate_user_segments(connector: Callable[[], AbstractContextManager[Con
         log.warning("No se pudieron recalcular los segmentos de %s después del pedido", user_id, exc_info=True)
         return
     log.info("Segmentos recalculados de %s en %.0f ms", user_id, (time.perf_counter() - start) * 1000)
+
+
+def _definitions_current(conn: Connection, version: str, rules: list[SegmentRule]) -> bool:
+    """`segment_defs` tiene justo estas reglas, sembradas con esta versión (fecha y huella): el recálculo de una
+    persona, que corre después de cada pedido, no las vuelve a escribir."""
+    current, total = conn.execute(
+        "SELECT count(*) FILTER (WHERE rules_version = %s AND segment_id = ANY(%s)), count(*) FROM segment_defs",
+        (version, [r.id for r in rules]),
+    ).fetchone()
+    return current == total == len(rules)
 
 
 def _seed_definitions(conn: Connection, version: str, rules: list[SegmentRule]) -> None:

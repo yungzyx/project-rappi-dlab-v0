@@ -199,3 +199,91 @@ def test_one_users_metrics_match_the_whole_source(db):
     assert set(whole) == {"u1", "u2", "u3"} and "gasto_90d_percentil" in whole["u2"]
     for user in whole:
         assert segments.user_metrics(db, "prototype", user, now=now) == {user: whole[user]}
+
+
+def test_a_client_without_its_own_connector_never_opens_the_real_db(db, real_db_guard, caplog):
+    """Un cliente de test que solo reemplaza `get_conn`: el recálculo choca con la guarda de `conftest.py` (nunca
+    con la base real), queda un aviso y el pedido sale igual."""
+    seed_taxonomy(db, load_taxonomy())
+    db.commit()
+
+    def conn_override():
+        yield db
+
+    api.app.dependency_overrides[api.get_conn] = conn_override
+    try:
+        with caplog.at_level(logging.WARNING, logger=segments.__name__):
+            order_id = post_order(TestClient(api.app), "u1", "c-api-1")
+    finally:
+        api.app.dependency_overrides.clear()
+
+    assert real_db_guard == ["connector"]
+    assert db.execute("SELECT count(*) FROM app_orders WHERE order_id = %s", (order_id,)).fetchone()[0] == 1
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1 and "base real" in str(warnings[0].exc_info[1])
+
+
+def test_a_concept_forget_waits_for_the_recalculation_in_flight(db, test_url):
+    """«Olvidar» toma el mismo candado por persona: no recalcula a la vez que un recálculo de un pedido."""
+    seed_taxonomy(db, load_taxonomy())
+    _order_direct(db, "u1", 3)
+
+    def forget():
+        with connect(test_url) as conn:
+            events.forget(conn, "u1", "snacks-salados")
+
+    with connect(test_url) as in_flight:
+        in_flight.execute("SELECT pg_advisory_xact_lock(hashtext('segments:' || %s))", ("u1",))
+        waiting = threading.Thread(target=forget)
+        waiting.start()
+        waiting.join(timeout=0.5)
+        assert waiting.is_alive()  # espera el candado
+        in_flight.commit()
+        waiting.join()
+
+    db.rollback()
+    assert "snacks-salados" not in _segments(db, "u1")
+
+
+def test_a_whole_user_forget_also_waits_for_the_recalculation_in_flight(db, test_url):
+    seed_taxonomy(db, load_taxonomy())
+    _order_direct(db, "u1", 3)
+
+    def forget():
+        with connect(test_url) as conn:
+            events.forget(conn, "u1")
+
+    with connect(test_url) as in_flight:
+        in_flight.execute("SELECT pg_advisory_xact_lock(hashtext('segments:' || %s))", ("u1",))
+        waiting = threading.Thread(target=forget)
+        waiting.start()
+        waiting.join(timeout=0.5)
+        assert waiting.is_alive()
+        in_flight.commit()
+        waiting.join()
+
+    db.rollback()
+    assert db.execute("SELECT count(*) FROM app_users WHERE user_id = 'u1'").fetchone()[0] == 0
+
+
+def test_a_single_user_recalculation_does_not_reseed_current_definitions(db):
+    seed_taxonomy(db, load_taxonomy())
+    _order_direct(db, "u1", 3)
+    rules = load_segment_rules()[1]
+
+    segments.build_segments(db, "prototype", "u1")  # base nueva: siembra aunque sea de una persona
+    assert db.execute("SELECT count(*) FROM segment_defs").fetchone()[0] == len(rules)
+    db.execute("UPDATE segment_defs SET name = 'marca de prueba' WHERE segment_id = 'snacks-salados'")
+
+    segments.build_segments(db, "prototype", "u1")  # reglas al día: no las vuelve a escribir
+    name = "SELECT name FROM segment_defs WHERE segment_id = 'snacks-salados'"
+    assert db.execute(name).fetchone()[0] == "marca de prueba"
+    assert "snacks-salados" in _segments(db, "u1")
+
+    db.execute("UPDATE segment_defs SET rules_version = 'vieja' WHERE segment_id = 'gaseosas'")
+    segments.build_segments(db, "prototype", "u1")  # una definición de otras reglas: siembra de nuevo
+    assert db.execute(name).fetchone()[0] != "marca de prueba"
+
+    db.execute("UPDATE segment_defs SET name = 'marca de prueba' WHERE segment_id = 'snacks-salados'")
+    segments.build_segments(db, "prototype")  # la corrida de toda la fuente siempre siembra
+    assert db.execute(name).fetchone()[0] != "marca de prueba"
