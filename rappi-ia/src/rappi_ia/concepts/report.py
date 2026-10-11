@@ -12,9 +12,10 @@ LISTED_UNMAPPED = 10
 MIN_SUGGESTION_SHARE = 0.5  # se sugiere un concepto si lo tiene al menos la mitad de los productos de la categoría
 CATEGORY_MAP_COLUMNS = ["tipo", "nombre", "concept_id", "confianza", "metodo", "revision", "nota", "productos"]
 
-# Categorías del catálogo sin mapeo revisado (curado o LLM, los de category_map.csv): sus productos quedan en manos de
-# las reglas por nombre o del kNN. El concepto sugerido es el más común entre los productos que ya lo tienen. Las
-# revisadas sin concepto (filas «ninguno» del CSV, el parámetro) tampoco se listan.
+# Categorías del catálogo sin mapeo (curado o LLM, los de category_map.csv, o propuesto por Jev, que se cuenta aparte
+# en `mapeos_jev`): sus productos quedan en manos de las reglas por nombre o del kNN. El concepto sugerido es el más
+# común entre los productos que ya lo tienen. Las revisadas sin concepto (filas «ninguno» del CSV, el parámetro)
+# tampoco se listan.
 UNMAPPED_CATEGORIES = """
 WITH products AS (
     SELECT c.name, i.master_product_id::text AS id
@@ -22,7 +23,7 @@ WITH products AS (
     WHERE lower(trim(c.name)) <> ALL(%s)
       AND NOT EXISTS (SELECT 1 FROM category_map m
                       WHERE m.source_kind = 'categoria' AND m.source_key = lower(trim(c.name))
-                        AND m.method IN ('curado', 'llm'))
+                        AND m.method IN ('curado', 'llm', 'jev'))
 ),
 tagged AS (
     SELECT p.name, p.id, ic.concept_id
@@ -80,8 +81,10 @@ def coverage_report(conn: Connection) -> dict:
             UNMAPPED_CATEGORIES, (categories_reviewed_without_concept(),)
         )
     ]
+    jev_mappings = conn.execute("SELECT count(*) FROM category_map WHERE method = 'jev'").fetchone()[0]
     return {
         "categorias_sin_mapear": unmapped,
+        "mapeos_jev": jev_mappings,
         "totales": {kind: _pct_row(total, mapped) for kind, total, mapped in totals},
         "por_vertical": {vertical: _pct_row(total, mapped) for vertical, total, mapped in by_vertical},
         "por_metodo": [{"tipo": t, "metodo": m, "n": n} for t, m, n in by_method],
@@ -115,6 +118,8 @@ def render_text(report: dict) -> str:
     lines.append(f"Conceptos con más ítems: {top}")
     if report["conceptos_sin_items"]:
         lines.append("Conceptos sin ítems todavía: " + ", ".join(report["conceptos_sin_items"]))
+    if report["mapeos_jev"]:
+        lines.append(f"Mapeos de Jev sin revisar: {report['mapeos_jev']} (pasan a category_map.csv al revisarlos)")
     unmapped = report["categorias_sin_mapear"]
     if unmapped:
         products = sum(row["productos"] for row in unmapped)

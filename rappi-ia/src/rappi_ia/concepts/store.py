@@ -13,7 +13,8 @@ CATEGORY_MAP_CSV = DATA_DIR / "category_map.csv"
 # Los mapeos `llm` salieron de dos agentes independientes + un juez (flujo del 27-09-2026).
 LLM_MAP_VERSION = "claude-opus-5-5/2-mapeadores+juez/2026-09-27"
 NO_CONCEPT = "ninguno"
-MANAGED_METHODS = ("curado", "llm", "regla", "embedding")  # `concepts` recalcula todo en cada corrida
+# `concepts` recalcula todo en cada corrida; los `jev` se heredan de los mapeos de category_map, que el CSV no borra.
+MANAGED_METHODS = ("curado", "llm", "regla", "embedding", "jev")
 
 
 def seed_taxonomy(conn: Connection, taxonomy: Taxonomy) -> int:
@@ -96,7 +97,8 @@ def _check_one_concept_per_key(rows: list[dict]) -> None:
 
 
 def load_category_map(conn: Connection, rows: list[dict]) -> int:
-    """Reemplaza los mapeos curados/LLM por los del CSV versionado en el repo."""
+    """Reemplaza los mapeos curados/LLM por los del CSV versionado en el repo. Los de Jev (propuestos por máquina,
+    sin revisión) se conservan, salvo los que el CSV también trae: ahí gana la revisión humana."""
     conn.execute("DELETE FROM category_map WHERE method IN ('curado', 'llm')")
     with conn.cursor() as cur:
         cur.executemany(

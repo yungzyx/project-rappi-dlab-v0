@@ -3,7 +3,7 @@
 import numpy as np
 
 from rappi_ia.concepts.assign import Assignment
-from rappi_ia.concepts.knn import ItemText, _decide
+from rappi_ia.concepts.knn import ItemText, _decide, _labels
 
 ITEM = ItemText("catalog_item", "1", "Wok Surtidos GRA30BV11")
 MODEL = "knn/test"
@@ -95,3 +95,14 @@ def test_neighbors_still_fix_a_flavour_word_and_keep_a_protein_word():
     fish = Assignment("menu_item", "2", "pescados-mariscos", "regla", 0.7, None, "nombre:pescado")
     dish = ItemText("menu_item", "2", "PESCADO FRITO - REINETA")
     assert _decide(fish, dish, *_neighbors(["platos-listos"] * 15), MODEL) == fish
+
+
+def test_jev_assignments_do_not_vote_as_knn_labels():
+    """Un mapeo de Jev lo hizo una máquina sin revisión: no sirve de etiqueta para los vecinos de otros productos."""
+    items = [ItemText("catalog_item", str(i), f"Producto {i}") for i in range(3)]
+    current = {
+        ("catalog_item", str(i)): Assignment("catalog_item", str(i), "cerveza", method, 0.9, None, "x")
+        for i, method in enumerate(["curado", "llm", "jev"])
+    }
+    label_idx, label_concepts = _labels(items, current)
+    assert sorted(label_idx) == [0, 1] and label_concepts == ["cerveza", "cerveza"]
