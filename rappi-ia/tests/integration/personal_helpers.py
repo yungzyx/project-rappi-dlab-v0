@@ -20,12 +20,14 @@ from rappi_ia.embeddings.text_store import embed_search_documents
 
 SWEET, GRILL, NEWBIE = "u-dulce", "u-asado", "u-nuevo"
 
-# El catálogo de prueba no vende carne ni carbón, y de galletas hay una por vertical: se suman tres productos al súper
-# y a la chocolatería (la galleta de avena es la segunda de ahí, así que su marca puede ir antes que la de siempre).
-BEEF, CHARCOAL, OAT_COOKIES = 99001, 99002, 97008
+# El catálogo de prueba no vende carne ni carbón, y de galletas hay una por vertical: se suman cuatro productos (dos
+# cortes de carne, así «carne» devuelve más de uno) al súper y a la chocolatería. La galleta de avena es la segunda de
+# ahí, así que su marca puede ir antes que la de siempre.
+BEEF, CHARCOAL, OAT_COOKIES, SIRLOIN = 99001, 99002, 97008, 99003
 # fmt: off
 EXTRA_PRODUCTS = [
     (BEEF, "Asado de tira 1 kg (prueba)", "Res", False, {"supermercado": (9990, 10490)}),
+    (SIRLOIN, "Lomo vetado 1 kg (prueba)", "Res", False, {"supermercado": (11990, 12490)}),
     (CHARCOAL, "Carbón vegetal 3 kg (prueba)", "Carbón, Leña y chispa", False, {"supermercado": (3990, 4190)}),
     (OAT_COOKIES, "Galletas de avena 150 g (prueba)", "Galletas", False, {"chocolateria": (1890, 1890)}),
 ]

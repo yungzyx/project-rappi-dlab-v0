@@ -1,5 +1,5 @@
 """Hecho cuando (etapa 5): dos personas con historias distintas reciben ofertas distintas, y cada porqué se puede
-rastrear hasta algo que esa persona hizo. La preparación (`people`) está en conftest.py y se hizo solo con la API."""
+rastrear hasta algo que esa persona hizo. La preparación (`people`, en `personal_helpers.py`) usa solo la API."""
 
 import pytest
 from personal_helpers import COFFEE, GRILL, SWEET, SWEET_BRAND, prepare_people
@@ -35,10 +35,17 @@ def checkout(client, user):
     return reply.json()
 
 
-def names_a_concept_of(reason, history):
-    """El texto de la razón nombra (por su nombre en la taxonomía) algún concepto de la historia."""
+def names_top_concept_of_basis(reason):
+    """El texto de la razón nombra el concepto que más suma en su propia base (con margen para un empate)."""
+    totals: dict[str, float] = {}
+    for signal in reason["basis"]:
+        totals[signal["id"]] = totals.get(signal["id"], 0) + signal["score"]
     concepts = load_taxonomy().concepts
-    return any(concepts[c].name.lower() in reason["text"] for c in history)
+    return any(
+        concepts[c].name.lower() in reason["text"]
+        for c, total in totals.items()
+        if total >= max(totals.values()) - 0.01
+    )
 
 
 def assert_traceable(db, user, reason, history):
@@ -72,7 +79,7 @@ def test_two_users_with_different_histories_get_different_offers(people, db):
     for user, history in histories.items():
         for reason in (to_try_offers[user]["reason"], first_plans[user]["reason"]):
             assert reason["text"].startswith("Porque te gusta")
-            assert names_a_concept_of(reason, history), reason["text"]
+            assert names_top_concept_of_basis(reason), reason
             assert_traceable(db, user, reason, history)
 
 

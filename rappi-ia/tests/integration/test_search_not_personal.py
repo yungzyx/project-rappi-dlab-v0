@@ -22,9 +22,25 @@ def test_search_route_takes_no_user():
     assert "user_id" not in params and "profile" not in params
 
 
-@pytest.mark.parametrize("query", QUERIES)
-@pytest.mark.parametrize("extra", [{}, {"vertical": "supermercado"}, {"mode": "lexico"}])
-def test_search_results_do_not_depend_on_history(people, query, extra):
+def count_products(body):
+    """Los productos de una respuesta de /search, agrupada (`groups`) o de una vertical (`products`)."""
+    if "groups" in body:
+        return sum(len(group["products"]) for group in body["groups"])
+    return len(body["products"])
+
+
+# (consulta, parámetros extra, mínimo de productos): todas las búsquedas comparadas tienen resultados reales.
+SEARCHES = [
+    ("chocolate", {}, 2),
+    ("chocolate", {"vertical": "chocolateria"}, 2),
+    ("chocolate", {"mode": "vector"}, 2),
+    ("carne", {}, 2),
+    ("carne", {"vertical": "supermercado"}, 2),
+]
+
+
+@pytest.mark.parametrize(("query", "extra", "minimum"), SEARCHES)
+def test_search_results_do_not_depend_on_history(people, query, extra, minimum):
     client = people.client
 
     def search(**who):
@@ -33,7 +49,7 @@ def test_search_results_do_not_depend_on_history(people, query, extra):
         return reply.json()
 
     anonymous = search()
-    assert anonymous  # hay resultados con qué comparar
+    assert count_products(anonymous) >= minimum  # hay resultados con qué comparar
     # Aunque se le pase un usuario, la ruta lo ignora: ve lo mismo quien tiene historia que quien no.
     for user in (SWEET, GRILL, NEWBIE):
         assert search(user_id=user) == anonymous
@@ -50,6 +66,6 @@ def test_ask_products_do_not_depend_on_history(people, message):
         return reply.json()["products"]
 
     anonymous = ask(None)
-    assert anonymous
+    assert len(anonymous) >= 2  # productos reales que comparar
     for user in (SWEET, GRILL, NEWBIE):
         assert ask(user) == anonymous  # el texto puede cambiar; los productos no
