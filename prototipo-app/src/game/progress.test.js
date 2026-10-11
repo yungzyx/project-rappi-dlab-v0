@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { cardsOf, datosOf, preguntasOf } from './knowledge.js'
+import { cardsOf, datosOf, preguntasOf, setKnowledge } from './knowledge.js'
+import { gameCards } from '../api/testing'
 import { PASSPORT_ORDER } from './verticals.js'
 import {
   answer,
@@ -128,6 +129,20 @@ describe('niveles de vertical', () => {
     expect(conoceRappi(s)).toBe(false)
     s = play(s, last, { discovered: 6, correct: 3 })
     expect(conoceRappi(s)).toBe(true)
+  })
+})
+
+describe('sin tarjetas cargadas (el juego no pudo bajarlas)', () => {
+  test('ninguna vertical sale Conocedor ni Experto, y nextVertical no se rompe', () => {
+    setKnowledge([])
+    try {
+      const s = { ...initialState(), correct: Object.fromEntries(PASSPORT_ORDER.map((v) => [v, 9])) }
+      for (const v of PASSPORT_ORDER) expect(['ninguno', 'explorador']).toContain(verticalLevel(s, v))
+      expect(conoceRappi(s)).toBe(false)
+      expect(PASSPORT_ORDER).toContain(nextVertical(s))
+    } finally {
+      setKnowledge(gameCards())
+    }
   })
 })
 

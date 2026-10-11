@@ -224,7 +224,7 @@ export default function Round({ vertical, back, orderId }) {
   const [seed] = useState(() => String(state.answered[vertical] ?? 0))
   const { data: challenge, error, loading, retry } = useApi(() => fetchChallenge(vertical, seed), [vertical, seed])
 
-  if (error || loading) return <ConnectionNotice status={error ? 'offline' : 'checking'} onRetry={retry} onLeave={back} />
+  if (error || loading) return <ConnectionNotice nested status={error ? 'offline' : 'checking'} onRetry={retry} onLeave={back} />
   return <PlayRound vertical={vertical} back={back} orderId={orderId} challenge={challenge} turn={Number(seed)} />
 }
 

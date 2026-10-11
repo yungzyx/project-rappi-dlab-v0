@@ -240,6 +240,30 @@
   color: var(--agent-orange);
 }
 
+/* «Borrar mis datos»: una entrada fija, con su explicación, antes de cerrar sesión */
+.account-forget {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  margin-top: 27px;
+  padding: 14px 18px;
+  border-radius: 20px;
+  border: 1.5px solid #e3e6ea;
+  background: var(--surface);
+  text-align: left;
+}
+
+.account-forget-title {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.account-forget-note {
+  color: var(--ink-3);
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
 .account-logout {
   display: flex;
   align-items: center;

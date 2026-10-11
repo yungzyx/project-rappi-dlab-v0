@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { DemoProvider } from './DemoContext'
+import { resetHealthCache } from '../api/client'
 import { userId } from '../api/user'
 import { EventsProvider, noteShownTopic, sessionId, shownTopics, useEvents } from './EventsContext'
 
@@ -158,4 +159,30 @@ describe('regresiones', () => {
       delete navigator.sendBeacon
     }
   })
+})
+
+test('con la API todavía sin responder, el lote espera en la cola y sale al segundo intento', async () => {
+  resetHealthCache()
+  let online = false
+  const fetchMock = vi.fn(async (url) => {
+    if (!online) throw new TypeError('Failed to fetch')
+    return { ok: true, json: async () => (String(url).endsWith('/health') ? { capacidades: {} } : {}) }
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  const { result } = renderHook(() => useEvents(), {
+    wrapper: ({ children }) => (
+      <DemoProvider>
+        <EventsProvider>{children}</EventsProvider>
+      </DemoProvider>
+    ),
+  })
+  act(() => result.current.track('cart_add', { concept_id: 'cerveza' }))
+  await act(() => result.current.flush())
+  expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/events'))).toBe(false)
+
+  online = true
+  resetHealthCache()
+  await act(() => result.current.flush())
+  const body = JSON.parse(fetchMock.mock.calls.find(([url]) => String(url).endsWith('/events'))[1].body)
+  expect(body.events.map((e) => e.type)).toEqual(['app_open', 'cart_add'])
 })

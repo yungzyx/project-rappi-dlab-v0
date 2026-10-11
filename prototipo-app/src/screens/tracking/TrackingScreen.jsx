@@ -108,7 +108,7 @@ function WaitingGame({ orderId, push }) {
   const demo = useDemo()
   const game = useGame()
   const pick = waitingRoundVertical(game.state)
-  if (!demo.isFinal || !pick) return null
+  if (!demo.isFinal || !pick || game.status !== 'ready') return null
   const name = VERTICAL_NAMES[GAME_TO_SCREEN[pick.vertical]]
   return (
     <button

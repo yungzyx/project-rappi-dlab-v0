@@ -18,10 +18,16 @@ export default function Settings({ back, home }) {
 
       <section className="card settings-block">
         <h2 className="section-title">Tu progreso</h2>
-        <p className="muted">Se guarda solo en este navegador. Ningún dato sale del dispositivo.</p>
+        <p className="muted">
+          Tu progreso se guarda en el servidor del prototipo con un identificador anónimo de este navegador. «Borrar mis
+          datos», en Cuenta, lo borra.
+        </p>
         {confirming ? (
           <div className="settings-confirm" role="group" aria-label="Confirmar reinicio">
-            <p>Se borran tu nivel, tus sellos y tus cartas. No se puede deshacer.</p>
+            <p>
+              Se borran tu nivel, tus sellos y tus cartas. Reiniciar no borra lo que ya enviamos (tus búsquedas y lo que
+              hiciste en la app): eso se borra con «Borrar mis datos», en Cuenta. No se puede deshacer.
+            </p>
             <button
               type="button"
               className="btn btn-primary btn-block"
@@ -47,7 +53,7 @@ export default function Settings({ back, home }) {
         <h2 className="section-title">Sobre este prototipo</h2>
         <p className="muted">
           Prototipo de prueba, independiente y no afiliado a Rappi. Los desafíos salen del catálogo público de Rappi
-          Chile que sirve la API. No hay compras ni datos de usuarios reales.
+          Chile que sirve la API. No pedimos tu nombre ni tu correo.
         </p>
       </section>
     </div>

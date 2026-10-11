@@ -20,3 +20,6 @@ export function saveStored(key, value) {
     // Sin almacenamiento: el estado vive solo en memoria.
   }
 }
+
+/** Evento de ventana con que «Borrar mis datos» avisa a quienes tienen datos en memoria (los pedidos) que se borró todo. */
+export const FORGET_EVENT = 'rappi-proto-olvidar'

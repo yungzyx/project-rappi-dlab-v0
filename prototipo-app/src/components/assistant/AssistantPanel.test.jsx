@@ -428,17 +428,19 @@ describe('lo aprendido y Olvidar', () => {
     expect(screen.getByText('Olvidar')).toBeTruthy()
   })
 
-  test('Aprendiendo de ti se oculta si el servidor no aprendió nada o no contesta', async () => {
+  test('Aprendiendo de ti se oculta si el servidor no aprendió nada o no contesta, pero Olvidar sigue ahí', async () => {
     localStorage.setItem('rappi-proto-profile', JSON.stringify({ cerveza: 3 }))
     await renderPanel() // interests: []
     expect(screen.queryByText('Aprendiendo de ti:')).toBeNull()
-    expect(screen.queryByText('Olvidar')).toBeNull()
+    // Aunque no haya intereses que mostrar, se enviaron búsquedas y eventos: borrarlos no depende del perfil.
+    expect(screen.getByText('Olvidar')).toBeTruthy()
 
     cleanup()
     api.profile.mockRejectedValue(new Error('API caída'))
     await renderPanel()
     expect(screen.queryByText('Aprendiendo de ti:')).toBeNull()
     expect(screen.queryByText('🍺 Cerveza')).toBeNull()
+    expect(screen.getByText('Olvidar')).toBeTruthy()
   })
 
   test('tras Olvidar, Para ti se va y queda la confirmación', async () => {

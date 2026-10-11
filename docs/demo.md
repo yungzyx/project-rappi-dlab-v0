@@ -15,7 +15,7 @@ Si la app muestra **«Sin conexión con Mochi»**, la API todavía no terminó d
 
 1. Abre el prototipo (http://localhost:5174) y deja el modo **Prototipo final** (arriba a la izquierda; la tecla **D** alterna con «Rappi hoy», la app como es hoy).
 2. Justo antes de presentar, con la API arriba: `cd rappi-ia && make warm`. Pasa por los botones del guion sin registrarlos: en frío la primera respuesta tarda de 2 a 5 s; después, menos de medio segundo. Repetirlo si la API pasó un rato sin uso.
-3. Para empezar sin rastros de pruebas anteriores, toca la barra de la Home («¿Qué se te antoja hoy?») para abrir el buscador con Mochi y, arriba, en «Aprendiendo de ti», toca **Olvidar**: borra lo aprendido y los eventos del usuario de este navegador, y Mochi lo confirma («Listo, olvidé lo que aprendí de ti»). El botón solo aparece si Mochi ya aprendió algo.
+3. Para empezar sin rastros de pruebas anteriores, toca la barra de la Home («¿Qué se te antoja hoy?») para abrir el buscador con Mochi y, arriba, en «Aprendiendo de ti», toca **Olvidar**: borra lo aprendido y los eventos del usuario de este navegador, y Mochi lo confirma («Listo, olvidé lo que aprendí de ti»). El botón aparece siempre, aunque Mochi todavía no haya aprendido nada.
 
 ## Recorrido
 

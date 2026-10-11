@@ -118,6 +118,7 @@ function DidYouKnow({ fact }) {
   const game = useGame()
   const tagId = useId()
   const gameRef = useRef(game)
+  const status = game.status
   const handled = useRef(false)
   useEffect(() => {
     gameRef.current = game
@@ -125,12 +126,13 @@ function DidYouKnow({ fact }) {
   useEffect(() => {
     // Con StrictMode el efecto corre dos veces, y al cerrar y reabrir el panel el bloque se monta de nuevo:
     // la marca evita contarlo dos veces y el estado, volver a sumar (y guardar) una tarjeta que ya está.
-    if (handled.current) return
+    // Mientras el juego no cargó no hay progreso sobre el que sumar: espera a 'ready' (o no cuenta si nunca llega).
+    if (handled.current || status !== 'ready') return
     handled.current = true
     const { state, discover } = gameRef.current
     if (state.discovered[fact.vertical]?.includes(fact.id) || state.cards.includes(fact.id)) return
     discover(fact.vertical, fact.id)
-  }, [fact.vertical, fact.id])
+  }, [fact.vertical, fact.id, status])
 
   // Solo https se vuelve enlace: la fuente viene del servidor y no debe poder abrir otro esquema.
   const linkable = fact.source.url.startsWith('https://')

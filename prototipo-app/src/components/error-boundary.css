@@ -28,6 +28,11 @@
   font-weight: 700;
 }
 
+/* El de la raíz no vive dentro del teléfono: ocupa la ventana */
+.error-screen--root {
+  min-height: 100dvh;
+}
+
 /* Mientras una pantalla perezosa carga: el fondo del teléfono, sin spinner */
 .screen-loading {
   background: var(--surface);

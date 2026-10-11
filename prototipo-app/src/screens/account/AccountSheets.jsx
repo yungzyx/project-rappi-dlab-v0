@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import Sheet from '../../components/Sheet'
 import { useToast } from '../../components/Toast'
+import { useForgetAll } from '../../state/forgetAll'
+import { useProfile } from '../../state/ProfileContext'
 import { LANGUAGES, NOTIFICATION_CHANNELS } from './data'
 
 const TITLES = {
@@ -8,11 +10,16 @@ const TITLES = {
   notifications: 'Notifications',
   logout: 'Log out?',
   'logout-all': 'Log out of all sessions?',
+  forget: 'Borrar mis datos',
 }
 
-/** Hojas de Account: idioma, notificaciones y confirmación de cierre de sesión (todo simulado). */
+/** Hojas de Account: idioma, notificaciones y confirmación de cierre de sesión (simulados), y «Borrar mis datos» (real). */
 export default function AccountSheets({ sheet, onClose }) {
   const toast = useToast()
+  const forgetAll = useForgetAll()
+  const profile = useProfile()
+  const [forgetting, setForgetting] = useState(false)
+  const [forgetFailed, setForgetFailed] = useState(false)
   const [language, setLanguage] = useState(LANGUAGES[0])
   const [channels, setChannels] = useState(() =>
     Object.fromEntries(NOTIFICATION_CHANNELS.map((channel) => [channel.id, channel.defaultOn])),
@@ -24,6 +31,20 @@ export default function AccountSheets({ sheet, onClose }) {
   const confirmLogout = () => {
     onClose()
     toast('Sesión cerrada')
+  }
+
+  const confirmForget = async () => {
+    setForgetting(true)
+    setForgetFailed(false)
+    try {
+      await forgetAll({ profile })
+      onClose()
+      toast('Listo, borré tus datos')
+    } catch {
+      setForgetFailed(true) // el servidor sigue con sus datos y el navegador no se tocó: se puede reintentar
+    } finally {
+      setForgetting(false)
+    }
   }
 
   return (
@@ -73,6 +94,25 @@ export default function AccountSheets({ sheet, onClose }) {
           </button>
           <button type="button" className="sheet-confirm-secondary tap" onClick={onClose}>
             Cancel
+          </button>
+        </div>
+      )}
+
+      {shown === 'forget' && (
+        <div className="sheet-confirm">
+          <p>
+            Borramos de nuestro servidor tus búsquedas, lo que hiciste en la app y tu progreso del juego, y de este
+            navegador tus pedidos, tu carro y tus preferencias. Después la app te trata como a una persona nueva. No se
+            puede deshacer.
+          </p>
+          {forgetFailed && (
+            <p role="alert">No pude borrar tus datos en el servidor. No se borró nada: inténtalo de nuevo en un rato.</p>
+          )}
+          <button type="button" className="sheet-confirm-primary tap" disabled={forgetting} onClick={confirmForget}>
+            Sí, borrar
+          </button>
+          <button type="button" className="sheet-confirm-secondary tap" disabled={forgetting} onClick={onClose}>
+            Cancelar
           </button>
         </div>
       )}

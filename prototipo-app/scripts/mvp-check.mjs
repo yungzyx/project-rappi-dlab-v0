@@ -1,6 +1,7 @@
 // Revisa en un Chrome real que la app del MVP responda como debe (lo corre scripts/mvp-check.sh con `make mvp-check`).
 // Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--api http://localhost:8010] [--shop | --kit | --game [--user-file ruta] | --dato | --expect-offline | --panel http://localhost:5185]
-//   sin banderas: la app abre en la Home conectada, con la barra «Busca o pídele ideas a <agente>»;
+//   sin banderas: la app abre en la Home conectada, con la barra «Busca o pídele ideas a <agente>» y el aviso de privacidad
+//     de la primera visita (que se cierra con «Entendido»);
 //   con --shop: Home → vertical Grocery → primera tienda → agregar un producto → carrito → pagar, y la API recibe el
 //     pedido (que después verifica scripts/mvp-check.sh en la base de prueba);
 //   con --kit: busca «cerveza» en el buscador con Mochi (ve la búsqueda agrupada por vertical), vuelve a la Home, elige
@@ -49,7 +50,15 @@ async function checkOnline(page) {
   if ((await page.getByRole('heading', { name: OFFLINE_TITLE }).count()) > 0) {
     throw new Error(`apareció «${OFFLINE_TITLE}» con la API en marcha`)
   }
-  return `la Home abre con la barra «${HOME_HINT}»`
+  // Una persona nueva ve el aviso de privacidad (qué se guarda y cómo borrarlo); se cierra para que no tape el resto.
+  const notice = page.getByRole('region', { name: 'Privacidad' })
+  try {
+    await notice.waitFor({ timeout: TIMEOUT_MS })
+  } catch {
+    throw new Error(`la primera visita no mostró el aviso de privacidad: ${await pageSays(page)}`)
+  }
+  await notice.getByRole('button', { name: 'Entendido' }).click()
+  return `la Home abre con la barra «${HOME_HINT}» y el aviso de privacidad`
 }
 
 /**

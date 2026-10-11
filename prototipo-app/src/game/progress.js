@@ -127,8 +127,9 @@ export function verticalLevel(state, vertical) {
   const total = cardsOf(vertical).length
   const found = state.discovered[vertical]?.length ?? 0
   const correct = state.correct[vertical] ?? 0
-  if (found >= total && correct >= 8) return 'experto'
-  if (found >= Math.ceil(total / 2) && correct >= 3) return 'conocedor'
+  // Sin tarjetas cargadas (la API no las dio) no hay nivel que ganar: 0 de 0 no es «todas descubiertas».
+  if (total > 0 && found >= total && correct >= 8) return 'experto'
+  if (total > 0 && found >= Math.ceil(total / 2) && correct >= 3) return 'conocedor'
   if (found >= 1 || state.visited?.includes(vertical)) return 'explorador'
   return 'ninguno'
 }
@@ -145,7 +146,7 @@ export function currentStreak(state, date) {
 
 /** La vertical con menos avance (tarjetas descubiertas sobre el total); empate, la primera del pasaporte. */
 export function nextVertical(state) {
-  const ratio = (v) => (state.discovered[v]?.length ?? 0) / cardsOf(v).length
+  const ratio = (v) => (state.discovered[v]?.length ?? 0) / (cardsOf(v).length || 1)
   return PASSPORT_ORDER.reduce((best, v) => (ratio(v) < ratio(best) ? v : best))
 }
 

@@ -19,6 +19,14 @@ export async function saveGameState(userId, state) {
   return (await request(`/game/state/${enc(userId)}`, { method: 'PUT', body: { state } })).state
 }
 
+/**
+ * Al cerrar la pestaña: el mismo PUT, con `keepalive` para que el navegador lo complete aunque la página se descargue.
+ * No se espera ni se lee la respuesta; si falla, lo guardado antes en el servidor sigue ahí.
+ */
+export function saveGameStateOnHide(userId, state) {
+  request(`/game/state/${enc(userId)}`, { method: 'PUT', body: { state }, keepalive: true }).catch(() => {})
+}
+
 /** Un desafío del catálogo para una vertical (la misma `seed` da el mismo), o null si no hay (204). */
 export const challenge = (vertical, seed) =>
   request(`/game/challenge?vertical=${enc(vertical)}&seed=${enc(seed)}`)

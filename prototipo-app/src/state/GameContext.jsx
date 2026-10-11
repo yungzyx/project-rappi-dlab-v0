@@ -1,8 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { cards, gameState, saveGameState } from '../api/game'
+import { cards, gameState, saveGameState, saveGameStateOnHide } from '../api/game'
 import { ApiError } from '../api/client'
 import { userId } from '../api/user'
-import { ConnectionNotice } from '../components/ConnectionGate'
 import { setKnowledge } from '../game/knowledge.js'
 import * as progress from '../game/progress.js'
 import { createSaver } from '../game/saver.js'
@@ -61,8 +60,11 @@ function loadOnce(local) {
 }
 
 /**
- * Estado del juego: antes de pintar a sus hijos carga las tarjetas y el progreso del servidor (con «Sin conexión» y
- * «Reintentar» si no puede). Cada acción aplica la función pura de progress.js sobre el último estado (una referencia,
+ * Estado del juego. Monta siempre a sus hijos (un fallo del juego no bloquea la tienda) y carga en segundo plano las
+ * tarjetas y el progreso del servidor: `status` es 'loading', 'ready' u 'offline' (`retry()` vuelve a intentar), y las
+ * pantallas del juego muestran su propio «Sin conexión» con «Reintentar». Mientras no esté 'ready', las acciones
+ * (`discover`, `visit`…) no hacen nada: partir de un estado en cero y guardarlo pisaría el progreso del servidor. Cada
+ * acción aplica la función pura de progress.js sobre el último estado (una referencia,
  * para que dos acciones en el mismo toque no se pisen), lo guarda en el servidor y deja avisos para celebrar: misión
  * del día completa y nivel de explorador nuevo. El progreso nunca se escribe en el navegador.
  */
@@ -72,6 +74,7 @@ export function GameProvider({ children }) {
   const { track } = useEvents()
   const paused = useRef(false) // «Olvidar» pausó el guardado (ver `settle`)
   const [loaded, setLoaded] = useState('loading') // 'loading' | 'ready' | 'offline'
+  const ready = useRef(false) // `loaded === 'ready'`, legible desde las acciones sin esperar al render
   const [attempt, setAttempt] = useState(0)
   const saver = useRef(null)
   saver.current ??= createSaver((next) => saveGameState(userId(), next))
@@ -87,6 +90,7 @@ export function GameProvider({ children }) {
       (loadedState) => {
         if (!current) return
         latest.current = loadedState
+        ready.current = true
         setState(loadedState)
         setLoaded('ready')
       },
@@ -106,6 +110,27 @@ export function GameProvider({ children }) {
     return () => {
       clearInterval(timer)
       document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [])
+
+  // Un guardado que falló se reintenta solo (ver saver.js); además, al volver la red o la pestaña se reenvía ya, y al
+  // cerrar la página el último estado sale con `keepalive` (el navegador lo completa aunque la página se descargue).
+  useEffect(() => {
+    const own = saver.current
+    const retry = () => own.retry()
+    const onVisible = () => document.visibilityState !== 'hidden' && own.retry()
+    const onHide = () => {
+      if (ready.current && !paused.current && own.pending()) saveGameStateOnHide(userId(), latest.current)
+    }
+    retry() // StrictMode desmonta y vuelve a montar: lo pendiente retoma sus reintentos
+    window.addEventListener('online', retry)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pagehide', onHide)
+    return () => {
+      window.removeEventListener('online', retry)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pagehide', onHide)
+      own.stop()
     }
   }, [])
 
@@ -129,7 +154,7 @@ export function GameProvider({ children }) {
   }, [])
   const resume = useCallback(() => {
     paused.current = false
-    saver.current.save(latest.current)
+    if (ready.current) saver.current.save(latest.current)
   }, [])
 
   const reset = useCallback(() => {
@@ -155,6 +180,8 @@ export function GameProvider({ children }) {
 
   const run = useCallback(
     (action) => {
+      // Sin el progreso del servidor cargado no hay sobre qué actuar.
+      if (!ready.current) return { state: latest.current, xp: 0, bonus: 0, isNew: false }
       const before = latest.current
       const result = action(before, progress.today())
       commit(result.state)
@@ -171,27 +198,34 @@ export function GameProvider({ children }) {
   const dismissEvent = useCallback(() => setEvents((list) => list.slice(1)), [])
   const clearEvents = useCallback(() => setEvents([]), [])
 
+  const retry = useCallback(() => {
+    setLoaded('loading')
+    setAttempt((n) => n + 1)
+  }, [])
+
   const value = useMemo(
     () => ({
       state,
+      status: loaded,
+      retry,
       date,
       events,
       generation,
       discover: (vertical, cardId) => {
-        const fresh = isNewCard(latest.current, vertical, cardId)
+        const fresh = ready.current && isNewCard(latest.current, vertical, cardId)
         const result = run((s, d) => progress.discover(s, vertical, cardId, d))
         if (fresh) track('game_card_discovered', { payload: { vertical_juego: vertical, tarjeta: cardId } })
         return result
       },
       // `cardId`: la pregunta de conocimiento respondida (si se acierta, entra al álbum); sin él, un desafío del catálogo.
       answer: (vertical, isCorrect, cardId) => {
-        const fresh = isCorrect && isNewCard(latest.current, vertical, cardId)
+        const fresh = ready.current && isCorrect && isNewCard(latest.current, vertical, cardId)
         const result = run((s, d) => progress.answer(s, vertical, isCorrect, d, cardId))
         if (fresh) track('game_card_discovered', { payload: { vertical_juego: vertical, tarjeta: cardId } })
         return result
       },
       openCard: (cardId) => run((s, d) => progress.openCard(s, cardId, d)),
-      seeIntro: () => commit(progress.markIntroSeen(latest.current)),
+      seeIntro: () => ready.current && commit(progress.markIntroSeen(latest.current)),
       // Abrir una vertical en la app (id de pantalla del prototipo) la sella. Devuelve si el sello es nuevo.
       visit: (screenId) => {
         const vertical = SCREEN_TO_GAME[screenId]
@@ -204,16 +238,9 @@ export function GameProvider({ children }) {
       settle,
       resume,
     }),
-    [state, date, events, generation, run, track, commit, dismissEvent, clearEvents, reset, forget, settle, resume],
+    [state, loaded, retry, date, events, generation, run, track, commit, dismissEvent, clearEvents, reset, forget, settle, resume],
   )
 
-  if (loaded !== 'ready') {
-    const retry = () => {
-      setLoaded('loading')
-      setAttempt((n) => n + 1)
-    }
-    return <ConnectionNotice status={loaded === 'offline' ? 'offline' : 'checking'} onRetry={retry} />
-  }
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>
 }
 
