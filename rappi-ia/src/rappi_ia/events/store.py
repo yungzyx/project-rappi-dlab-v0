@@ -154,13 +154,16 @@ def _known_concepts(conn: Connection) -> set[str]:
 
 
 def record(conn: Connection, events: list[Event], source: str = "prototype") -> int:
-    """Guarda eventos válidos (tipo conocido, concepto existente) y devuelve cuántos."""
+    """Guarda eventos válidos (tipo conocido, concepto existente) y devuelve cuántos. Cada persona del lote se crea una
+    sola vez (un lote de la app trae hasta 200 eventos de una misma persona)."""
+    unknown = next((e.type for e in events if e.type not in EVENT_TYPES), None)
+    if unknown is not None:
+        raise ValueError(f"Tipo de evento desconocido: {unknown}")
+    for user_id in dict.fromkeys(e.user_id for e in events):
+        ensure_user(conn, user_id, source)
     known = _known_concepts(conn)
     rows = []
     for e in events:
-        if e.type not in EVENT_TYPES:
-            raise ValueError(f"Tipo de evento desconocido: {e.type}")
-        ensure_user(conn, e.user_id, source)
         rows.append(
             (
                 e.user_id,
@@ -319,6 +322,21 @@ def forget(conn: Connection, user_id: str, concept_id: str | None = None) -> int
     conn.execute("DELETE FROM user_segment_history WHERE user_id = %s", (user_id,))
     build_segments(conn, "prototype", user_id, commit=False)
     return deleted
+
+
+def purge_inactive_users(conn: Connection, days: int) -> int:
+    """Borra a las personas del prototipo sin actividad en `days` días: sin eventos, pedidos ni progreso del juego en
+    ese tiempo, y creadas antes (con sus eventos, pedidos y segmentos, en cascada). Los usuarios simulados no se tocan.
+    Devuelve cuántas."""
+    return conn.execute(
+        """WITH cutoff AS (SELECT now() - make_interval(days => %s) AS ts)
+           DELETE FROM app_users u USING cutoff
+           WHERE u.source = 'prototype' AND u.created_at < cutoff.ts
+             AND NOT EXISTS (SELECT 1 FROM app_events e WHERE e.user_id = u.user_id AND e.ts >= cutoff.ts)
+             AND NOT EXISTS (SELECT 1 FROM app_orders o WHERE o.user_id = u.user_id AND o.ts >= cutoff.ts)
+             AND NOT EXISTS (SELECT 1 FROM game_state g WHERE g.user_id = u.user_id AND g.updated_at >= cutoff.ts)""",
+        (days,),
+    ).rowcount
 
 
 def purge_old_queries(conn: Connection, days: int = QUERY_RETENTION_DAYS) -> int:

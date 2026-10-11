@@ -8,6 +8,7 @@ import sys
 import types
 from contextlib import contextmanager
 
+import anyio
 import pytest
 from fastapi.testclient import TestClient
 from psycopg import DataError
@@ -182,14 +183,19 @@ def test_each_request_class_has_its_own_statement_timeout(monkeypatch):
         def execute(self, query, params=None):
             sent.append(params)
 
-    @contextmanager
-    def fake_connect(**_):
-        yield Recorder()
+    class Pool:
+        @contextmanager
+        def connection(self):
+            yield Recorder()
 
-    monkeypatch.setattr(deps, "connect", fake_connect)
-    opened = deps.get_conn()
-    conn = next(opened)
-    assert sent == [("5000ms",)] and conn.commits == 1
-    deps.get_analytics_conn(conn)
-    assert sent[-1] == ("30000ms",)
-    opened.close()
+    monkeypatch.setattr(deps, "_pool", Pool())
+
+    async def check():
+        opened = deps.get_conn()
+        conn = await anext(opened)
+        assert sent == [("5000ms",)] and conn.commits == 1
+        deps.get_analytics_conn(conn)
+        assert sent[-1] == ("30000ms",)
+        await opened.aclose()
+
+    anyio.run(check)

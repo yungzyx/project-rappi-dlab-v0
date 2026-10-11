@@ -26,6 +26,9 @@ GAME_MIN_ITEMS = int(os.environ.get("GAME_MIN_ITEMS", "20"))
 # LLM opcional: sin ANTHROPIC_API_KEY, el agente responde con plantillas.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or None
 AGENT_LLM_MODEL = os.environ.get("AGENT_LLM_MODEL", "claude-sonnet-5")
+# Tope de redacciones con Claude por día de Santiago, en cada proceso de la API: alcanzado, responden las plantillas.
+# 0 = nunca llama a Claude.
+LLM_DAILY_CALL_CAP = int(os.environ.get("LLM_DAILY_CALL_CAP", "300"))
 
 # Entorno de la API: `local` (la demo en este Mac, por defecto) o `production` (un servidor detrás de un proxy).
 API_ENV = os.environ.get("API_ENV", "local")
@@ -61,6 +64,32 @@ API_CORS_ORIGINS = [
 # cuyas métricas recorren todos los eventos. Una consulta que lo pasa responde 504 («La consulta tardó demasiado»).
 API_TIMEOUT_INTERACTIVE_MS = int(os.environ.get("API_TIMEOUT_INTERACTIVE_MS", "5000"))
 API_TIMEOUT_ANALYTICS_MS = int(os.environ.get("API_TIMEOUT_ANALYTICS_MS", "30000"))
+
+# Conexiones de la API a Postgres: un pool por proceso. Un request que no consigue una en API_POOL_TIMEOUT_S segundos
+# responde 503 («Hay mucha gente ahora…»).
+API_POOL_MIN = int(os.environ.get("API_POOL_MIN", "2"))
+API_POOL_MAX = int(os.environ.get("API_POOL_MAX", "10"))
+API_POOL_TIMEOUT_S = float(os.environ.get("API_POOL_TIMEOUT_S", "3"))
+
+# Cupos: cuántos requests de cada ruta cara se atienden a la vez en un proceso; el siguiente recibe 503 al tiro (con
+# Retry-After), sin ocupar una conexión ni un hilo mientras espera.
+API_MAX_CONCURRENT_ASK = int(os.environ.get("API_MAX_CONCURRENT_ASK", "4"))
+API_MAX_CONCURRENT_SEARCH = int(os.environ.get("API_MAX_CONCURRENT_SEARCH", "8"))
+API_MAX_CONCURRENT_OFFER = int(os.environ.get("API_MAX_CONCURRENT_OFFER", "4"))
+API_MAX_CONCURRENT_ORDERS = int(os.environ.get("API_MAX_CONCURRENT_ORDERS", "4"))
+API_MAX_CONCURRENT_ANALYTICS = int(os.environ.get("API_MAX_CONCURRENT_ANALYTICS", "2"))
+
+# Cuerpo máximo de un request (413 si se pasa): el mismo orden que el beacon de eventos (512 KB).
+API_MAX_BODY_BYTES = int(os.environ.get("API_MAX_BODY_BYTES", "524288"))
+
+# Requests por minuto de cada IP (429 si se pasa), y de esos, cuántos pueden escribir (POST, PUT, DELETE). 0 = sin
+# tope. Se cuenta en memoria del proceso: vale con un solo worker. La IP es la del cliente que ve uvicorn (tras un
+# proxy, con --proxy-headers). En local, este Mac (127.0.0.1) no tiene tope.
+API_RATE_PER_MIN = int(os.environ.get("API_RATE_PER_MIN", "120"))
+API_RATE_WRITE_PER_MIN = int(os.environ.get("API_RATE_WRITE_PER_MIN", "60"))
+
+# `rappi-ia purge` borra a las personas del prototipo sin actividad (eventos, pedidos ni juego) en estos días.
+PROTOTYPE_USER_RETENTION_DAYS = int(os.environ.get("PROTOTYPE_USER_RETENTION_DAYS", "180"))
 
 # Ciudad fija de la demo (Santiago): «Cerca de ti» mide la distancia a este punto de Providencia.
 MVP_HOME_LAT = float(os.environ.get("MVP_HOME_LAT", "-33.4263"))

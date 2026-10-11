@@ -7,7 +7,7 @@ import json
 import logging
 import re
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from dataclasses import replace
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from psycopg import Connection, DataError, Error, OperationalError
 from psycopg.errors import QueryCanceled
+from psycopg_pool import PoolTimeout
 from pydantic import Field, ValidationError, field_validator
 
 from .. import config
@@ -32,10 +33,12 @@ from ..game.cards import did_you_know
 from ..layers.segments import recalculate_user_segments
 from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
+from . import deps
 from .agent import router as agent_router
 from .catalog import router as catalog_router
 from .deps import Clean, backend_vertical, get_analytics_conn, get_conn, get_connector, get_services
 from .game import router as game_router
+from .limits import MaxBodySize, RateLimit, busy, concurrency_cap
 from .services import Services, services
 
 log = logging.getLogger(__name__)
@@ -44,12 +47,16 @@ log = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Carga los modelos antes de «startup complete»: si no, los paga la primera petición (el /health del prototipo,
-    que se rinde a los 1,5 s y la app muestra «Sin conexión»)."""
-    start = time.perf_counter()
-    await run_in_threadpool(services)
-    # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
-    logging.getLogger("uvicorn.error").info("Servicios cargados en %.1f s", time.perf_counter() - start)
-    yield
+    que se rinde a los 1,5 s y la app muestra «Sin conexión»). El pool de conexiones vive lo mismo que la app."""
+    deps.open_pool()
+    try:
+        start = time.perf_counter()
+        await run_in_threadpool(services)
+        # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
+        logging.getLogger("uvicorn.error").info("Servicios cargados en %.1f s", time.perf_counter() - start)
+        yield
+    finally:
+        await run_in_threadpool(deps.close_pool)
 
 
 # Con API_DOCS apagado (producción) no hay /docs, /redoc ni /openapi.json: el esquema no se publica.
@@ -96,6 +103,16 @@ def is_same_origin(origin: str, host: str | None) -> bool:
     return bool(host) and parts.scheme in ("http", "https") and parts.netloc.lower() == host.lower()
 
 
+# Dentro de CORS (se agregan antes: el último queda por fuera), así un 413 o un 429 lleva sus cabeceras y la app lo lee.
+app.add_middleware(MaxBodySize, max_bytes=config.API_MAX_BODY_BYTES)
+app.add_middleware(
+    RateLimit,
+    per_minute=config.API_RATE_PER_MIN,
+    writes_per_minute=config.API_RATE_WRITE_PER_MIN,
+    # En local, este Mac no tiene tope (la demo y `make mvp-check`). En producción nadie: tras un proxy que no pasa la
+    # IP del cliente, todos llegarían como 127.0.0.1.
+    exempt=() if config.API_PRODUCTION else ("127.0.0.1", "::1"),
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.API_CORS_ORIGINS,
@@ -111,6 +128,17 @@ async def query_too_slow(request: Request, exc: QueryCanceled) -> JSONResponse:
     conexión»."""
     log.warning("Consulta cancelada por tiempo en %s: %s", request.url.path, exc)
     return JSONResponse(status_code=504, content={"detail": "La consulta tardó demasiado"})
+
+
+@app.exception_handler(PoolTimeout)
+async def no_free_connection(request: Request, exc: PoolTimeout) -> JSONResponse:
+    """Ninguna conexión libre a tiempo. Si nadie tiene una ocupada, es que Postgres no responde (el pool no logra
+    conectarse); si no, la API está llena: 503 con Retry-After."""
+    if deps.connections_in_use() == 0:
+        return await database_unavailable(request, exc)
+    log.warning("Sin conexiones libres en %s", request.url.path)
+    error = busy()
+    return JSONResponse(status_code=error.status_code, content={"detail": error.detail}, headers=error.headers)
 
 
 @app.exception_handler(OperationalError)
@@ -143,6 +171,15 @@ async def invalid_data(request: Request, exc: DataError) -> JSONResponse:
 EMPTY_VERTICAL_FALLBACK = {"turbo": "conveniencia"}  # mismo tipo de tienda (minimarket con entrega rápida)
 MAX_BEACON_BYTES = 512_000  # 200 eventos caben de sobra
 MAX_EVENT_VALUE = 100_000_000  # un evento con valor (cart_add) es una línea del carro: el mismo tope que su precio
+
+# Cupos por ruta cara (config.API_MAX_CONCURRENT_*): el de /agent/offer vive en agent.py. Las de la app rechazan al
+# tiro; el panel pide ~16 métricas a la vez y hace fila hasta su tope (el mismo que su statement_timeout).
+ASK_CAP = concurrency_cap("ask", config.API_MAX_CONCURRENT_ASK)
+SEARCH_CAP = concurrency_cap("search", config.API_MAX_CONCURRENT_SEARCH)
+ORDERS_CAP = concurrency_cap("orders", config.API_MAX_CONCURRENT_ORDERS)
+ANALYTICS_CAP = concurrency_cap(
+    "analytics", config.API_MAX_CONCURRENT_ANALYTICS, wait_s=config.API_TIMEOUT_ANALYTICS_MS / 1000
+)
 
 # Textos cortos de la URL (ids, conceptos, verticales, cocinas): el SQL va con parámetros, pero sin tope se aceptaba
 # un texto de cualquier largo.
@@ -239,7 +276,7 @@ def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_ser
     return {"ok": True, "documentos": documents, "capacidades": svc.capabilities}
 
 
-@app.post("/agent/ask")
+@app.post("/agent/ask", dependencies=[Depends(ASK_CAP)])
 def ask(body: AskIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
     ctx = _context(conn, body.vertical, body.user_id, body.profile, body.shown_topics, body.mode)
     if body.previous and body.previous.concepts:
@@ -268,7 +305,7 @@ GROUPED_SEARCH_LIMIT = 6  # por grupo
 VERTICAL_SEARCH_LIMIT = 10
 
 
-@app.get("/search")
+@app.get("/search", dependencies=[Depends(SEARCH_CAP)])
 def search(
     q: str = Query(min_length=1, max_length=200),
     vertical: ShortQuery | None = None,
@@ -364,13 +401,14 @@ def forget(user_id: ShortPath, concept: ShortQuery | None = None, conn: Connecti
 
 @app.post("/events")
 def post_events(body: EventsIn, conn: Connection = Depends(get_conn)) -> dict:
-    return {"guardados": _save_events(conn, body)}
+    return {"guardados": _save_events(lambda: nullcontext(conn), body)}
 
 
 @app.post("/events/beacon", status_code=204)
-async def post_events_beacon(request: Request, conn: Connection = Depends(get_conn)) -> None:
+async def post_events_beacon(request: Request, connector=Depends(get_connector)) -> None:
     """Lo que queda en cola al cerrar la pestaña (navigator.sendBeacon). Llega como text/plain, que no necesita
-    preflight de CORS; el contenido es el mismo JSON de /events."""
+    preflight de CORS; el contenido es el mismo JSON de /events. Valida el origen y el tamaño antes de pedir una
+    conexión: una página ajena no gasta las del pool."""
     origin = request.headers.get("origin")
     # text/plain no tiene preflight: sin esta revisión, cualquier página abierta podía escribir eventos
     if origin and not origin_allowed(origin) and not is_same_origin(origin, request.headers.get("host")):
@@ -382,28 +420,31 @@ async def post_events_beacon(request: Request, conn: Connection = Depends(get_co
         body = EventsIn.model_validate_json(raw)
     except ValidationError as exc:
         raise HTTPException(422, "Eventos inválidos") from exc
-    await run_in_threadpool(_save_events, conn, body)
+    await run_in_threadpool(_save_events, connector, body)
 
 
-def _save_events(conn: Connection, body: EventsIn) -> int:
+def _save_events(connect, body: EventsIn) -> int:
+    """`connect()` da la conexión (la del request, o una del pool para el beacon): se pide después de revisar los
+    tipos."""
     if any(e.type not in events.CLIENT_EVENT_TYPES for e in body.events):
         raise HTTPException(400, "Tipo de evento no permitido")
-    try:
-        n = events.record(
-            conn,
-            [
-                events.Event(user_id=body.user_id, **{**e.model_dump(), "vertical": backend_vertical(e.vertical)})
-                for e in body.events
-            ],
-            source="prototype",
-        )
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    conn.commit()
+    with connect() as conn:
+        try:
+            n = events.record(
+                conn,
+                [
+                    events.Event(user_id=body.user_id, **{**e.model_dump(), "vertical": backend_vertical(e.vertical)})
+                    for e in body.events
+                ],
+                source="prototype",
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        conn.commit()
     return n
 
 
-@app.post("/orders")
+@app.post("/orders", dependencies=[Depends(ORDERS_CAP)])
 def post_order(
     body: OrderIn,
     background: BackgroundTasks,
@@ -466,7 +507,7 @@ ANALYTICS = {
 
 
 # El panel: solo si API_ENABLE_ANALYTICS (apagado en producción, donde estas rutas responden 404). Se incluye al final.
-analytics_router = APIRouter(prefix="/analytics")
+analytics_router = APIRouter(prefix="/analytics", dependencies=[Depends(ANALYTICS_CAP)])
 
 
 @analytics_router.get("/catalog")

@@ -8,8 +8,17 @@ from fastapi.testclient import TestClient
 from rappi_ia import config
 from rappi_ia.api import app as api
 from rappi_ia.api.deps import get_conn
+from rappi_ia.api.limits import RateLimit
 
-ENV_VARS = ("API_ENV", "API_ENABLE_ANALYTICS", "API_DOCS", "API_ALLOW_LAN", "API_CORS_ORIGINS")
+ENV_VARS = (
+    "API_ENV",
+    "API_ENABLE_ANALYTICS",
+    "API_DOCS",
+    "API_ALLOW_LAN",
+    "API_CORS_ORIGINS",
+    "API_RATE_PER_MIN",
+    "API_RATE_WRITE_PER_MIN",
+)
 PUBLIC_ORIGIN = "https://demo.example.cl"
 
 
@@ -151,3 +160,24 @@ def test_docs_can_be_turned_on_in_production(load_api):
     module = load_api(API_ENV="production", API_DOCS="1")
 
     assert TestClient(module.app).get("/openapi.json").status_code == 200
+
+
+def rate_limit(module) -> dict:
+    return next(m for m in module.app.user_middleware if m.cls is RateLimit).kwargs
+
+
+def test_local_limits_by_ip_except_this_mac(load_api):
+    """120 por minuto y 60 escrituras por IP. En local este Mac no tiene tope: la demo y `make mvp-check` piden mucho
+    desde 127.0.0.1 (los tests de la suite tampoco: conftest lo apaga)."""
+    limits = rate_limit(load_api())
+
+    assert (limits["per_minute"], limits["writes_per_minute"]) == (120, 60)
+    assert limits["exempt"] == ("127.0.0.1", "::1")
+
+
+def test_production_limits_every_ip(load_api):
+    """En producción, sin excepciones: tras un proxy sin --proxy-headers todos llegarían como su IP."""
+    limits = rate_limit(load_api(API_ENV="production", API_RATE_PER_MIN="30", API_RATE_WRITE_PER_MIN="10"))
+
+    assert (limits["per_minute"], limits["writes_per_minute"]) == (30, 10)
+    assert limits["exempt"] == ()

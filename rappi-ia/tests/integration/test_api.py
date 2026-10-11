@@ -9,9 +9,11 @@ from fastapi.testclient import TestClient
 from rappi_scraper.storage.search import build_search_documents
 
 from conftest import add_price, add_product, add_store
+from rappi_ia import config
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
+from rappi_ia.api import deps
 from rappi_ia.api.services import Services
 from rappi_ia.concepts.pipeline import build_concepts
 from rappi_ia.embeddings.base import HashEmbedder
@@ -270,10 +272,17 @@ def test_beacon_rejects_huge_or_broken_bodies(client):
 
 
 def test_database_down_is_a_clear_503_not_a_500(monkeypatch):
-    """Con Postgres caído la API responde enseguida y claro; la app muestra «Sin conexión»."""
-    monkeypatch.setenv("DATABASE_URL", "postgresql://127.0.0.1:1/rappi")  # nadie escucha en el puerto 1
+    """Con Postgres caído la API responde claro, tras esperar una conexión del pool (API_POOL_TIMEOUT_S); la app muestra
+    «Sin conexión». Nadie tiene una conexión ocupada: no es «Hay mucha gente ahora»."""
+    monkeypatch.setattr(config, "API_POOL_TIMEOUT_S", 0.2)
+    pool = deps.make_pool("postgresql://127.0.0.1:1/rappi")  # nadie escucha en el puerto 1
+    pool.open()
+    monkeypatch.setattr(deps, "_pool", pool)
     api.app.dependency_overrides.clear()
-    response = TestClient(api.app, raise_server_exceptions=False).get("/profile/u1")
+    try:
+        response = TestClient(api.app, raise_server_exceptions=False).get("/profile/u1")
+    finally:
+        pool.close(timeout=1)
     assert response.status_code == 503
     assert response.json() == {"detail": "Base de datos no disponible"}
 

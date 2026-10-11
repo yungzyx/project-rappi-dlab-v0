@@ -104,7 +104,7 @@ FRASES ?=
 probar-agente:  ## Prueba al agente con las frases de usuarios (con la API corriendo; ver docs/pruebas-de-usuario.md)
 	@$(PY) scripts/probar_agente.py $(FRASES)
 
-purge:  ## Borra el texto de consultas con más de 90 días (retención de docs/diseno-ia.md §2)
+purge:  ## Borra el texto de consultas con más de 90 días (docs/diseno-ia.md §2) y a las personas del prototipo sin actividad en 180
 	$(PY) -m rappi_ia purge
 
 layers:  ## Capa de perfiles: medidas, marcas, atributos y grafo (crece con las etapas del plan)

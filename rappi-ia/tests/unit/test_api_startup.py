@@ -2,11 +2,13 @@ import logging
 import subprocess
 import sys
 
+import anyio
 import pytest
 from fastapi.testclient import TestClient
 
+from rappi_ia import config
 from rappi_ia.api import app as api
-from rappi_ia.api import services
+from rappi_ia.api import deps, services
 from rappi_ia.db import database_url
 
 
@@ -32,23 +34,39 @@ def test_each_api_module_imports_on_its_own(module):
 
 
 def test_api_connections_fail_fast(monkeypatch):
-    """Postgres caído o una consulta atascada no dejan a la API (ni al presentador) esperando minutos."""
+    """Postgres caído o una consulta atascada no dejan a la API (ni al presentador) esperando minutos. Las conexiones
+    salen del pool con su nombre y cortan una transacción olvidada abierta."""
     try:
         url = database_url("DATABASE_URL_TEST")
     except RuntimeError:
         pytest.skip("DATABASE_URL_TEST no configurada")
-    monkeypatch.setenv("DATABASE_URL", url)
+    monkeypatch.setattr(config, "API_POOL_MIN", 1)
+    monkeypatch.setattr(config, "API_POOL_MAX", 1)
+    pool = deps.make_pool(url)
+    pool.open(wait=True)
+    monkeypatch.setattr(deps, "_pool", pool)
 
-    connections = api.get_conn()
-    conn = next(connections)
+    async def check():
+        connections = api.get_conn()
+        conn = await anext(connections)
+        try:
+            assert conn.execute("SHOW statement_timeout").fetchone()[0] == "5s"  # lo que espera una pantalla
+            assert "connect_timeout=3" in conn.info.dsn
+            assert conn.execute("SHOW application_name").fetchone()[0] == "rappi-ia-api"
+            assert conn.execute("SHOW idle_in_transaction_session_timeout").fetchone()[0] == "10s"
+            conn.rollback()  # un endpoint que deshace a mitad no pierde el tope
+            assert conn.execute("SHOW statement_timeout").fetchone()[0] == "5s"
+            assert api.get_analytics_conn(conn).execute("SHOW statement_timeout").fetchone()[0] == "30s"  # el panel
+        finally:
+            await connections.aclose()
+        connections = api.get_conn()  # la misma conexión del pool vuelve con el tope de una pantalla
+        assert (await anext(connections)).execute("SHOW statement_timeout").fetchone()[0] == "5s"
+        await connections.aclose()
+
     try:
-        assert conn.execute("SHOW statement_timeout").fetchone()[0] == "5s"  # lo que espera una pantalla
-        assert "connect_timeout=3" in conn.info.dsn
-        conn.rollback()  # un endpoint que deshace a mitad no pierde el tope
-        assert conn.execute("SHOW statement_timeout").fetchone()[0] == "5s"
-        assert api.get_analytics_conn(conn).execute("SHOW statement_timeout").fetchone()[0] == "30s"  # el panel
+        anyio.run(check)
     finally:
-        connections.close()
+        pool.close(timeout=1)
 
 
 class _FakeModel:

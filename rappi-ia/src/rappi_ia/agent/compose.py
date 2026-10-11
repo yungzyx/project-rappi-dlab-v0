@@ -9,7 +9,10 @@
 import json
 import logging
 import re
+import threading
 from dataclasses import dataclass, field
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from .. import config
 
@@ -42,6 +45,7 @@ class Draft:
 
 class TemplateComposer:
     name = "plantillas"
+    remote = False  # no sale a la red: el agente no suelta la transacción antes de redactar
 
     def compose(self, d: Draft) -> str:
         # La sugerencia cruzada va en su propio bloque ("De otra tienda"), no en el texto principal.
@@ -112,6 +116,38 @@ def notices(d: Draft) -> list[str]:
     return [AGE_NOTICE] if d.age_notice else []
 
 
+SANTIAGO = ZoneInfo("America/Santiago")
+
+
+def _santiago_today() -> str:
+    return datetime.now(SANTIAGO).date().isoformat()
+
+
+class DailyCallCap:
+    """Cuántas veces se llamó a Claude hoy (día de Santiago) en este proceso. Con LLM_DAILY_CALL_CAP alcanzado no se
+    llama más hasta mañana, y el log lo dice una sola vez. Un reintento del SDK no cuenta aparte."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._day: str | None = None
+        self._used = 0
+        self._warned = False
+
+    def take(self) -> bool:
+        limit = config.LLM_DAILY_CALL_CAP
+        with self._lock:
+            today = _santiago_today()
+            if today != self._day:
+                self._day, self._used, self._warned = today, 0, False
+            if self._used >= limit:
+                if not self._warned:
+                    self._warned = True
+                    log.warning("Tope diario de redacción con Claude alcanzado (%d): se usan plantillas.", limit)
+                return False
+            self._used += 1
+            return True
+
+
 class ClaudeComposer:
     """Requiere `ANTHROPIC_API_KEY` y el extra `llm`. Cualquier fallo vuelve a la plantilla.
 
@@ -120,6 +156,8 @@ class ClaudeComposer:
     """
 
     name = "claude"
+    remote = True  # tarda segundos: el agente confirma la transacción antes de redactar
+    calls = DailyCallCap()  # compartido por todo el proceso
     SYSTEM_TEMPLATE = (
         "Eres {name}, la mochila Rappi con bigote que asiste en las compras en Rappi Chile: "
         "cercano, breve, chileno sin exagerar. "
@@ -146,6 +184,8 @@ class ClaudeComposer:
     def compose(self, d: Draft) -> str:
         template = self._fallback.compose(d)
         if d.kind not in ("resultados", "sin_resultado"):  # lo demás son frases fijas cortas
+            return template
+        if not self.calls.take():
             return template
         refs = {f"p{i + 1}": name for i, name in enumerate(d.product_names)}
         try:

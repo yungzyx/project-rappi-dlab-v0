@@ -1,17 +1,25 @@
+import os
 import zlib
 
-import pytest
+# La suite hace miles de requests desde la misma IP («testclient»): sin tope por IP (se lee al importar la config).
+# test_api_env y test_limits prueban el límite con sus propios valores.
+os.environ["API_RATE_PER_MIN"] = "0"
+os.environ["API_RATE_WRITE_PER_MIN"] = "0"
 
-from rappi_ia.catalog import cache
-from rappi_ia.db import connect, database_url
-from rappi_ia.demo.seed import reset_test_database
-from rappi_ia.layers.segments import forget_source_spend
+import pytest  # noqa: E402
+
+from rappi_ia.catalog import cache  # noqa: E402
+from rappi_ia.db import connect, database_url  # noqa: E402
+from rappi_ia.demo.seed import reset_test_database  # noqa: E402
+from rappi_ia.layers.segments import forget_source_spend  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def real_db_guard(monkeypatch):
     """Ningún test abre la base real por el connector de la API (el recálculo de segmentos después de un pedido):
     sin un `get_connector` propio, la tarea falla con este error (queda en el log) y la lista anota cada intento.
+    Tampoco abre el pool de la API, que se conecta a DATABASE_URL: el `lifespan` de un `with TestClient(app)` lo
+    intenta y aquí no hace nada (test_pool instala uno propio sobre rappi_ia_test). Sin pool, `get_conn` se niega.
     Va en el módulo, no en `dependency_overrides`, que los fixtures vacían con `clear()`."""
     from rappi_ia.api import deps
 
@@ -22,6 +30,7 @@ def real_db_guard(monkeypatch):
         raise RuntimeError("Los tests no abren la base real: reemplaza get_connector con la conexión del test")
 
     monkeypatch.setattr(deps, "_own_connection", refuse)
+    monkeypatch.setattr(deps, "open_pool", lambda: attempts.append("pool"))
     return attempts
 
 

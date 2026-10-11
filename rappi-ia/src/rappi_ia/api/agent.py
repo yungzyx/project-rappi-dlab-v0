@@ -10,14 +10,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from psycopg import Connection
 from pydantic import Field
 
+from .. import config
 from ..offers.engine import OfferError, home_occasions, make_offer
 from ..offers.personal import user_interests
 from .deps import Clean, backend_vertical, get_conn, get_services
+from .limits import concurrency_cap
 from .services import Services
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
 MAX_LINES = 100  # como un pedido (OrderIn)
+OFFER_CAP = concurrency_cap("offer", config.API_MAX_CONCURRENT_OFFER)
 
 
 class EntityIn(Clean):
@@ -88,7 +91,11 @@ class ToTryIn(OfferBase):
 OfferIn = Annotated[PlanIn | CartIn | CheckoutIn | NoResultIn | NextOrderIn | ToTryIn, Field(discriminator="moment")]
 
 
-@router.post("/offer", responses={204: {"description": "Sin una buena oferta para este momento"}})
+@router.post(
+    "/offer",
+    responses={204: {"description": "Sin una buena oferta para este momento"}},
+    dependencies=[Depends(OFFER_CAP)],
+)
 def offer(body: OfferIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)):
     """La oferta de un momento: `{ moment, text, products, vertical, prototype_vertical, reason, actions }`, o 204.
     Una ocasión que no existe, o que el agente no arma (guagua, enfermo), es un 422."""

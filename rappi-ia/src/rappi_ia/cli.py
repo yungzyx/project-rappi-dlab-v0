@@ -441,11 +441,14 @@ def cmd_jev_piloto(conn, args) -> None:
 
 
 def cmd_purge(conn, args) -> None:
-    from .events.store import QUERY_RETENTION_DAYS, purge_old_queries
+    from .events.store import QUERY_RETENTION_DAYS, purge_inactive_users, purge_old_queries
 
     n = purge_old_queries(conn, args.dias or QUERY_RETENTION_DAYS)
+    days = config.PROTOTYPE_USER_RETENTION_DAYS
+    users = purge_inactive_users(conn, days)
     conn.commit()
     print(f"Consultas de más de {args.dias or QUERY_RETENTION_DAYS} días borradas: {n}")
+    print(f"Usuarios del prototipo sin actividad en {days} días borrados: {users}")
 
 
 def cmd_synth(conn, args) -> None:
@@ -633,7 +636,11 @@ def build_parser() -> argparse.ArgumentParser:
     synth.add_argument("--semanas", type=int, default=26)
     synth.add_argument("--semilla", type=int, default=7)
     synth.add_argument("--hasta", help="fecha final AAAA-MM-DD (por defecto hoy)")
-    purge = sub.add_parser("purge", help="borra el texto de consultas más antiguas que la retención (90 días)")
+    purge = sub.add_parser(
+        "purge",
+        help="borra el texto de consultas más antiguas que la retención (90 días) y a las personas del prototipo sin "
+        "actividad en PROTOTYPE_USER_RETENTION_DAYS (180)",
+    )
     purge.add_argument("--dias", type=int)
     mv = sub.add_parser(
         "multivertical", help="mapa de productos y conceptos compartidos entre verticales (presentación)"
