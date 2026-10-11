@@ -11,6 +11,7 @@ import { routeForScreen } from '../../data/verticals'
 import { trackOrder } from '../../api/orders'
 import { fixture, stubApi } from '../../api/testing'
 import { askAbout } from '../../assistant/agentAsk'
+import { reloadToHome } from '../../state/reloadApp'
 
 const api = vi.hoisted(() => ({
   health: vi.fn(),
@@ -139,6 +140,7 @@ afterAll(() => {
   delete Element.prototype.scrollTo
 })
 beforeEach(() => {
+  vi.mocked(reloadToHome).mockClear()
   vi.useFakeTimers()
   stubCatalog()
   window.history.replaceState(null, '', '/') // cada test parte sin una entrada del asistente debajo
@@ -513,6 +515,7 @@ describe('lo aprendido y Olvidar', () => {
     await runUntilIdle()
     expect(game.resume).toHaveBeenCalledTimes(1)
     expect(game.forget).not.toHaveBeenCalled()
+    expect(reloadToHome).not.toHaveBeenCalled() // no se borró nada: la app sigue como estaba
   })
 
   test('Olvidar waits for an order in flight', async () => {
@@ -537,6 +540,7 @@ describe('lo aprendido y Olvidar', () => {
     expect(api.forget).toHaveBeenCalledTimes(1)
     expect(game.forget).toHaveBeenCalledTimes(1)
     expect(api.forget.mock.invocationCallOrder[0]).toBeLessThan(game.forget.mock.invocationCallOrder[0])
+    expect(reloadToHome).toHaveBeenCalledTimes(1) // borrado todo, la app arranca de cero en la Home
 
     cleanup()
     game.forget.mockClear()

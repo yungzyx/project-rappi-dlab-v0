@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
-import { fixture, stubApi } from '../../../api/testing'
+import { fixture, gameCards, stubApi } from '../../../api/testing'
 import { gameReady, seed, stored } from '../../../game/testSeed.js'
 import { today } from '../../../game/progress.js'
 import { PASSPORT_ORDER } from '../../../game/verticals.js'
@@ -686,6 +686,44 @@ describe('Home del prototipo final', () => {
       await renderHome()
       expect(passport().getByRole('button', { name: /^Licores \(con sello/ })).toBeTruthy()
       expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('3')
+    })
+
+    test('mientras el juego carga, el pasaporte es un marcador quieto: sin «te faltan», sin barra, sin sellos', async () => {
+      stubAgent({ 'GET /game/state/*': { slow: 3000, body: {} } })
+      render(homeTree())
+      await advance(200)
+      const block = document.querySelector('.live-passport')
+      expect(block.classList.contains('is-pending')).toBe(true)
+      expect(block.getAttribute('aria-busy')).toBe('true')
+      expect(screen.queryByRole('progressbar', { name: 'Sellos para el envío gratis' })).toBeNull()
+      expect(block.textContent).not.toMatch(/faltan|falta 1|sellos/)
+      expect(stampsShown()).toHaveLength(0)
+      await advance(3500)
+      expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' })).toBeTruthy()
+      expect(document.querySelector('.live-passport.is-pending')).toBeNull()
+    })
+
+    test('sin conexión con el juego, el pasaporte dice «Sin conexión» con «Reintentar» y se recupera', async () => {
+      let online = false
+      stubAgent({ 'GET /game/cards': () => (online ? { cards: gameCards() } : 500) })
+      await renderHome()
+      expect(passport().getByText(/Sin conexión/)).toBeTruthy()
+      expect(screen.queryByRole('progressbar', { name: 'Sellos para el envío gratis' })).toBeNull()
+      expect(document.querySelector('.live-passport').textContent).not.toMatch(/faltan/)
+      online = true
+      fireEvent.click(passport().getByRole('button', { name: 'Reintentar' }))
+      await gameReady()
+      await advance(100)
+      expect(screen.getByRole('progressbar', { name: 'Sellos para el envío gratis' }).getAttribute('aria-valuenow')).toBe('2')
+    })
+
+    test('sin el juego, tocar a Mochi no manda «stamped: []» a la API', async () => {
+      stubAgent({ 'GET /game/cards': 500 })
+      await renderHome()
+      await advance(900 + 3400)
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(3000)
+      expect(offerRequests().filter((request) => request.moment === 'vertical_por_probar')).toEqual([])
     })
 
     test('«Jugar» y el título abren el juego; un sello abre su hoja', async () => {

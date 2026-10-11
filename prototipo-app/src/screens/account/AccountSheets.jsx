@@ -37,9 +37,8 @@ export default function AccountSheets({ sheet, onClose }) {
     setForgetting(true)
     setForgetFailed(false)
     try {
-      await forgetAll({ profile })
+      await forgetAll({ profile }) // si salió bien, la app se recarga en la Home
       onClose()
-      toast('Listo, borré tus datos')
     } catch {
       setForgetFailed(true) // el servidor sigue con sus datos y el navegador no se tocó: se puede reintentar
     } finally {

@@ -28,6 +28,14 @@
   font-weight: 700;
 }
 
+.error-screen-reload {
+  padding: 10px 24px;
+  background: none;
+  color: var(--ink-2);
+  font-size: 16px;
+  font-weight: 600;
+}
+
 /* El de la raíz no vive dentro del teléfono: ocupa la ventana */
 .error-screen--root {
   min-height: 100dvh;

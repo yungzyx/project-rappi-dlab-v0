@@ -3,7 +3,7 @@ import { ordersSettled } from '../api/orders'
 import { resetUserId, userId } from '../api/user'
 import { clearShownTopics, useEvents } from './EventsContext'
 import { useGame } from './GameContext'
-import { FORGET_EVENT } from './storage'
+import { reloadToHome } from './reloadApp'
 
 // Todo lo que el prototipo guarda en este navegador lleva este prefijo (localStorage y sessionStorage).
 const PREFIX = 'rappi-proto-'
@@ -24,10 +24,10 @@ function wipe(storage) {
  *    que queda en pausa; pedidos) y recién ahí llama `DELETE /profile/{id}`. Si falla, el juego retoma su guardado y
  *    el error sube a quien llamó: no se toca nada local.
  * 3. Si salió bien: borra las claves `rappi-proto-*`, genera un id nuevo, deja el juego en cero (sin subirlo, subirlo
- *    recrearía al usuario) y avisa a la ventana (`FORGET_EVENT`).
+ *    recrearía al usuario) y recarga la app en la Home (`reload`; solo si salió bien) para que nada quede en memoria.
  * `events` y `game` son los de sus contextos; `profile` (opcional) sube la «generación» del perfil.
  */
-export async function forgetAll({ events, game, profile, settle } = {}) {
+export async function forgetAll({ events, game, profile, settle, reload = reloadToHome } = {}) {
   events?.clear()
   clearShownTopics()
   await settle?.()
@@ -49,7 +49,7 @@ export async function forgetAll({ events, game, profile, settle } = {}) {
   events?.clear()
   profile?.reset()
   game?.forget()
-  window.dispatchEvent(new Event(FORGET_EVENT))
+  reload()
 }
 
 /** `forgetAll` con los contextos de eventos y del juego ya puestos. */

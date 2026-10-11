@@ -4,7 +4,7 @@
   left: var(--gutter);
   right: var(--gutter);
   bottom: calc(var(--gutter) + env(safe-area-inset-bottom, 0px));
-  z-index: 60;
+  z-index: var(--z-privacy);
   display: grid;
   gap: 10px;
   padding: 14px 16px;

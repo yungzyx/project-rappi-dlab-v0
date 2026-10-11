@@ -7,6 +7,7 @@ import { gameReady, seed } from '../../game/testSeed.js'
 import { AddressProvider } from '../../state/AddressContext'
 import { DemoProvider } from '../../state/DemoContext'
 import { forgetAll } from '../../state/forgetAll'
+import { reloadToHome } from '../../state/reloadApp'
 import { GameProvider } from '../../state/GameContext'
 import { OrdersProvider, useOrders } from '../../state/OrdersContext'
 import { ProfileProvider } from '../../state/ProfileContext'
@@ -17,6 +18,7 @@ const order = { id: 'order-1', placedAt: 1, stores: ['Súper'], items: [], total
 beforeEach(() => {
   localStorage.clear()
   sessionStorage.clear()
+  vi.mocked(reloadToHome).mockClear()
   seed()
 })
 afterEach(() => {
@@ -70,8 +72,8 @@ describe('Borrar mis datos (Cuenta)', () => {
     expect(left).toEqual(['rappi-proto-user'])
     expect(localStorage.getItem('rappi-proto-user')).toBe(userId())
     expect(sessionStorage.getItem('rappi-proto-session')).toBeNull()
-    // Los pedidos guardados con la dirección ya no se ven en pantalla.
-    await waitFor(() => expect(screen.getByTestId('orders').textContent).toBe('0'))
+    // Con todo borrado, la app se recarga en la Home: ni el carro ni los pedidos en memoria sobreviven.
+    await waitFor(() => expect(reloadToHome).toHaveBeenCalledTimes(1))
   })
 
   test('si el servidor no borra, no se toca nada y se avisa', async () => {
@@ -86,6 +88,7 @@ describe('Borrar mis datos (Cuenta)', () => {
     expect(userId()).toBe(before)
     expect(localStorage.getItem('rappi-proto-orders')).not.toBeNull()
     expect(screen.getByTestId('orders').textContent).toBe('1')
+    expect(reloadToHome).not.toHaveBeenCalled()
   })
 })
 
@@ -98,12 +101,28 @@ describe('forgetAll', () => {
     expect(events.settled).not.toHaveBeenCalled()
   })
 
-  test('si el DELETE falla, devuelve el guardado al juego y no cambia el id', async () => {
+  test('recarga solo si el servidor borró, y después de borrar lo local', async () => {
+    stubApi({ 'DELETE /profile/*': {} })
+    localStorage.setItem('rappi-proto-cart', '{}')
+    const before = userId()
+    const reload = vi.fn(() => {
+      expect(localStorage.getItem('rappi-proto-cart')).toBeNull() // ya se borró lo local
+      expect(userId()).not.toBe(before)
+    })
+    const game = { settle: vi.fn().mockResolvedValue(undefined), forget: vi.fn(), resume: vi.fn() }
+    await forgetAll({ events: { clear: vi.fn(), settled: vi.fn().mockResolvedValue(undefined) }, game, reload })
+    expect(reload).toHaveBeenCalledTimes(1)
+    expect(game.resume).not.toHaveBeenCalled()
+  })
+
+  test('si el DELETE falla, devuelve el guardado al juego, no recarga y no cambia el id', async () => {
     stubApi({ 'DELETE /profile/*': 500 })
     const before = userId()
     const game = { settle: vi.fn().mockResolvedValue(undefined), forget: vi.fn(), resume: vi.fn() }
     const events = { clear: vi.fn(), settled: vi.fn().mockResolvedValue(undefined) }
-    await expect(forgetAll({ events, game })).rejects.toThrow()
+    const reload = vi.fn()
+    await expect(forgetAll({ events, game, reload })).rejects.toThrow()
+    expect(reload).not.toHaveBeenCalled()
     expect(game.resume).toHaveBeenCalledTimes(1)
     expect(game.forget).not.toHaveBeenCalled()
     expect(userId()).toBe(before)

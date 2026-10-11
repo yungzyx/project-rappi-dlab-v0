@@ -160,6 +160,14 @@ describe('Mochi flotante', () => {
     expect(probe.assistant.session.query).toBe('Muéstrame algo nuevo para probar')
   })
 
+  test('sin el progreso del juego no ofrece «¿Qué puedo probar?» (no manda sellos que no son los de la persona)', async () => {
+    stubApi({ 'GET /game/cards': 500 })
+    await mountTree()
+    fireEvent.click(agentButton())
+    expect(screen.getByRole('button', { name: 'Buscar con Mochi' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '¿Qué puedo probar?' })).toBeNull()
+  })
+
   test('con carro, la segunda opción es revisarlo con el total', async () => {
     await mountTree()
     act(() => probe.cart.add(BEER))

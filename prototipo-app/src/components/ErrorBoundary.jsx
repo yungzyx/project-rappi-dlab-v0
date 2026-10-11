@@ -25,8 +25,8 @@ export default class ErrorBoundary extends Component {
 
   render() {
     if (!this.state.error) return this.props.children
+    const reload = this.props.onReload ?? (() => window.location.reload())
     if (this.props.variant === 'root') {
-      const reload = this.props.onReload ?? (() => window.location.reload())
       return (
         <div className="error-screen error-screen--root" role="alert">
           <h1>Algo salió mal</h1>
@@ -43,6 +43,10 @@ export default class ErrorBoundary extends Component {
         <p>Esta pantalla no se pudo mostrar.</p>
         <button type="button" className="error-screen-home tap" onClick={this.reset}>
           Volver al inicio
+        </button>
+        {/* Si el fallo es de un archivo viejo tras un despliegue, solo recargar lo arregla. */}
+        <button type="button" className="error-screen-reload tap" onClick={reload}>
+          Recargar
         </button>
       </div>
     )

@@ -35,6 +35,20 @@ describe('ErrorBoundary', () => {
     silence.mockRestore()
   })
 
+  test('una pantalla rota también ofrece «Recargar»', () => {
+    const silence = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onReload = vi.fn()
+    render(
+      <ErrorBoundary onReload={onReload}>
+        <Broken fail />
+      </ErrorBoundary>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Recargar' }))
+    expect(onReload).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Volver al inicio' })).toBeTruthy()
+    silence.mockRestore()
+  })
+
   test('un error de render fuera de una pantalla muestra «Recargar» (variante raíz)', () => {
     const silence = vi.spyOn(console, 'error').mockImplementation(() => {})
     const onReload = vi.fn()

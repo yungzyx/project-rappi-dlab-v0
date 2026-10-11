@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { FORGET_EVENT, loadStored, saveStored } from './storage'
+import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { loadStored, saveStored } from './storage'
 
 // Pedidos hechos en la demo. Se guardan en el navegador para que el seguimiento sobreviva a una recarga.
 const STORAGE_KEY = 'rappi-proto-orders'
@@ -32,13 +32,6 @@ export function OrdersProvider({ children }) {
       return next
     })
     return created.id
-  }, [])
-
-  // «Borrar mis datos» ya limpió el navegador: los pedidos (con su dirección) tampoco quedan a la vista en esta sesión.
-  useEffect(() => {
-    const clear = () => setOrders([])
-    window.addEventListener(FORGET_EVENT, clear)
-    return () => window.removeEventListener(FORGET_EVENT, clear)
   }, [])
 
   const value = useMemo(
