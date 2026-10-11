@@ -9,6 +9,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia embed-text              # embeddings e5 de search_documents (incremental) + HNSW por vertical
     rappi-ia search "algo para el carrete" --vertical licores
     rappi-ia eval-search             # léxico vs vectorial vs híbrido + calibración de τ ("sin resultado")
+    rappi-ia jev-planillas           # planillas CSV (data/eval/) para juzgar a mano; luego `eval-human` da el κ
     rappi-ia synth                   # usuarios y eventos SIMULADOS para el panel (reemplaza los anteriores)
     rappi-ia analytics               # resumen de métricas del panel (frecuencia, abandono, oportunidades…)
     rappi-ia multivertical           # mapa multivertical (docs/mapas/)
@@ -21,6 +22,7 @@ import argparse
 import logging
 import os
 import sys
+from collections import Counter
 
 from . import config
 from .concepts.pipeline import build_concepts
@@ -215,8 +217,28 @@ def cmd_eval_sample(conn, args) -> None:
 def cmd_eval_human(conn, args) -> None:
     import json
 
-    from .eval import judgments
+    from .eval import judgments, sheets
 
+    sheet = sheets.sheet_dir() / sheets.SEARCH_SHEET
+    if sheet.exists() and sheets.SEARCH_IDS_FILE.exists():
+        counts: Counter = Counter()
+        human = sheets.read_search_sheet(sheet, counts)
+        if human:
+            pairs = json.loads(sheets.SEARCH_IDS_FILE.read_text(encoding="utf-8"))["pares"]
+            report = judgments.sheet_report(pairs, human)
+            print(
+                f"Planilla de búsqueda: {report['juzgados']} de {len(pairs)} pares juzgados"
+                f" ({report['sin_juicio']} sin juicio, {counts['invalidas']} inválidos,"
+                f" {report['a_medias']} «a medias»)"
+            )
+            print(
+                f"Personas vs juez por concepto: acuerdo {report['acuerdo']} · κ {report['kappa']}"
+                f" («sirve» contra el resto) · κ ponderado {report['kappa_ponderado']} (tres valores)"
+            )
+            for stratum, row in report["por_estrato"].items():
+                print(f"  {stratum}: {row['n']} pares, acuerdo {row['acuerdo']}")
+            if not judgments.JUDGMENTS_FILE.exists():
+                return
     if not judgments.JUDGMENTS_FILE.exists():
         raise SystemExit(f"Todavía no hay juicios a mano ({judgments.JUDGMENTS_FILE} no existe).")
     sample = json.loads(judgments.SAMPLE_FILE.read_text(encoding="utf-8"))["pares"]
@@ -230,6 +252,24 @@ def cmd_eval_human(conn, args) -> None:
     )
     for side, label in (("solo_con_refuerzo", "solo con refuerzo"), ("solo_sin_refuerzo", "solo sin refuerzo")):
         print(f"Ítems que aparecen {label}: {bonus[side]['n']}, relevantes {bonus[side]['relevantes']}")
+
+
+def cmd_jev_planillas(conn, args) -> None:
+    from .embeddings.models import text_embedder
+    from .eval import search_eval, sheets
+
+    runs = search_eval.run_queries(conn, text_embedder(), search_eval.load_queries(), modes=(search_eval.SHOWN,))
+    try:
+        summary = sheets.build_sheets(conn, runs, force=args.forzar)
+    except sheets.SheetInUse as exc:
+        log.error("%s", exc)
+        sys.exit(1)
+    groups = ", ".join(f"{n} {group.replace('_', ' ')}" for group, n in summary["categorias"].items())
+    print(
+        f"{summary['pares']} pares de búsqueda ({summary['pares_discrepantes']} donde el juez por concepto y la"
+        f" posición discrepan) y {sum(summary['categorias'].values())} categorías ({groups}) en {sheets.sheet_dir()}"
+    )
+    print(f"Cómo llenarlas: {sheets.sheet_dir() / sheets.README_FILE}")
 
 
 def cmd_purge(conn, args) -> None:
@@ -344,6 +384,7 @@ COMMANDS = {
     "eval-search": cmd_eval_search,
     "eval-sample": cmd_eval_sample,
     "eval-human": cmd_eval_human,
+    "jev-planillas": cmd_jev_planillas,
 }
 
 
@@ -392,7 +433,9 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--solo-lexico", action="store_true", help="sin modelo de embeddings")
     ev.add_argument("--guardar-tau", action="store_true", help="guarda los τ calibrados en eval/thresholds.json")
     sub.add_parser("eval-sample", help="muestra de ~200 pares (consulta, producto) para juzgar a mano")
-    sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano")
+    sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano, y κ")
+    sheets_cmd = sub.add_parser("jev-planillas", help="planillas CSV para juzgar a mano la búsqueda y las categorías")
+    sheets_cmd.add_argument("--forzar", action="store_true", help="reemplaza planillas que ya tienen juicios")
     synth = sub.add_parser("synth", help="genera usuarios y eventos SIMULADOS (source = synthetic)")
     synth.add_argument("--usuarios", type=int, default=1500)
     synth.add_argument("--semanas", type=int, default=26)

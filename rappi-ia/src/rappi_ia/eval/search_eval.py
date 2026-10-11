@@ -54,7 +54,7 @@ class QueryRun:
     max_cosine: float | None
     concept_in_vertical: bool
     names_concept: bool = False
-    items: list[dict] = field(default_factory=list)  # los resultados (tipo, id, texto, concepto): muestra de juicio
+    items: list[dict] = field(default_factory=list)  # los resultados (tipo, id, texto, concepto, tienda si se muestra)
     shown_unmet: bool | None = None  # solo en SHOWN: «sin resultado» como lo registra el agente (y nada a la vista)
     has_words: bool = True  # le queda alguna palabra sin las stopwords («té» no): sin ellas no hay «sin resultado»
 
@@ -63,11 +63,13 @@ def load_queries(path: Path = QUERIES_FILE) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))["queries"]
 
 
-def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[dict]) -> list[QueryRun]:
+def run_queries(
+    conn: Connection, embedder: TextEmbedder | None, queries: list[dict], modes: tuple[str, ...] = EVAL_MODES
+) -> list[QueryRun]:
     runs = []
     understander = Understander()
     for q in queries:
-        for mode in EVAL_MODES:
+        for mode in modes:
             if mode != "lexico" and embedder is None:
                 continue
             shown_unmet = None
@@ -77,7 +79,7 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                 # surtido.
                 outcome = search_products(conn, q["vertical"], q["query"], None, embedder, k=K)
                 result = outcome.result
-                items = [(p.entity_type, p.entity_id, p.name, p.concept) for p in outcome.products]
+                items = [(p.entity_type, p.entity_id, p.name, p.concept, p.store) for p in outcome.products]
                 symptom = understander.understand(conn, q["query"], q["vertical"]).symptom
                 shown_unmet = result.unmet and not outcome.products and not symptom
             else:
@@ -85,9 +87,9 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                     result = retrieve(conn, q["vertical"], q["query"], embedder, k=K, mode="hibrido", concepts=[])
                 else:
                     result = retrieve(conn, q["vertical"], q["query"], embedder, k=K, mode=mode)
-                items = [(h.entity_type, h.entity_id, h.content, h.concept_id) for h in result.hits]
+                items = [(h.entity_type, h.entity_id, h.content, h.concept_id, None) for h in result.hits]
             expected = set(q["concepts"])
-            relevance = [1 if concept in expected else 0 for *_, concept in items]
+            relevance = [1 if item[3] in expected else 0 for item in items]
             runs.append(
                 QueryRun(
                     q["vertical"],
@@ -100,8 +102,8 @@ def run_queries(conn: Connection, embedder: TextEmbedder | None, queries: list[d
                     result.concept_in_vertical,
                     bool(result.query_concepts),
                     [
-                        {"entity_type": etype, "entity_id": eid, "texto": text, "concepto": concept}
-                        for etype, eid, text, concept in items
+                        {"entity_type": etype, "entity_id": eid, "texto": text, "concepto": concept, "tienda": store}
+                        for etype, eid, text, concept, store in items
                     ],
                     shown_unmet,
                     result.has_words,

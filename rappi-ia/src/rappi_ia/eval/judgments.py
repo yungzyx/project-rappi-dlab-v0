@@ -90,3 +90,31 @@ def save_sample(sample: list[dict], path: Path = SAMPLE_FILE) -> None:
         "pares": sample,
     }
     path.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def sheet_report(pairs: list[dict], human: dict[str, int]) -> dict:
+    """Los juicios de las personas en la planilla de búsqueda (2 «sirve», 1 «a medias», 0 «no sirve», por id de par)
+    contra el juez por concepto de esos mismos pares (`relevante_auto`, de `planilla-busqueda-ids.json`).
+    κ binario: «sirve» contra el resto, comparable con el juez por concepto, que también es binario. El ponderado
+    pone al juez por concepto en 0 o 2 y deja a las personas en sus tres niveles."""
+    from .sheets import cohen_kappa, weighted_kappa
+
+    judged = [(p, human[p["id"]]) for p in pairs if p["id"] in human]
+    auto = [int(p["relevante_auto"]) for p, _ in judged]
+    people = [int(level == 2) for _, level in judged]
+    by_stratum: dict[str, dict] = {}
+    for stratum in sorted({p["estrato"] for p, _ in judged}, reverse=True):
+        rows = [(a, h) for (p, _), a, h in zip(judged, auto, people, strict=True) if p["estrato"] == stratum]
+        by_stratum[stratum] = {"n": len(rows), "acuerdo": round(sum(a == h for a, h in rows) / len(rows), 3)}
+    return {
+        "juzgados": len(judged),
+        "sin_juicio": len(pairs) - len(judged),
+        "desconocidos": len(human.keys() - {p["id"] for p in pairs}),
+        "a_medias": sum(level == 1 for _, level in judged),
+        "acuerdo": round(sum(a == h for a, h in zip(auto, people, strict=True)) / len(judged), 3) if judged else None,
+        "kappa": round(cohen_kappa(people, auto), 3) if judged else None,
+        "kappa_ponderado": round(weighted_kappa([level for _, level in judged], [2 * a for a in auto]), 3)
+        if judged
+        else None,
+        "por_estrato": by_stratum,
+    }
