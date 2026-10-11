@@ -304,13 +304,23 @@ COMMANDS = {
 
 
 def prune_old_logs(logs_dir: Path) -> list[Path]:
-    """Borra los `<comando>_<fecha>.log` con más de LOG_RETENTION_WEEKS semanas. Los de launchd (`launchd.*.log`, los
-    rota refresh-semanal.sh) y ultimo-estado.txt no son de un comando y quedan."""
-    weeks = int(os.environ.get("LOG_RETENTION_WEEKS") or LOG_RETENTION_WEEKS)
+    """Borra los `<comando>_<fecha>.log` con más de LOG_RETENTION_WEEKS semanas (mínimo 1). Los de launchd
+    (`launchd.*.log`, los rota refresh-semanal.sh) y ultimo-estado.txt no son de un comando y quedan. Nunca hace fallar
+    el comando: un valor mal escrito usa el de siempre y un log que otro proceso borró en el camino se salta."""
+    try:
+        weeks = max(1, int(os.environ.get("LOG_RETENTION_WEEKS") or LOG_RETENTION_WEEKS))
+    except ValueError:
+        log.warning("LOG_RETENTION_WEEKS no es un número de semanas: uso %d.", LOG_RETENTION_WEEKS)
+        weeks = LOG_RETENTION_WEEKS
     cutoff = time.time() - weeks * 7 * 86400
-    removed = [path for path in logs_dir.glob("*_*.log") if path.stat().st_mtime < cutoff]
-    for path in removed:
-        path.unlink(missing_ok=True)
+    removed = []
+    for path in logs_dir.glob("*_*.log"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed.append(path)
+        except OSError as exc:
+            log.warning("No pude borrar el log antiguo %s (%s): sigo.", path.name, type(exc).__name__)
     return removed
 
 
@@ -318,7 +328,6 @@ def _setup_logging(command: str) -> None:
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     if command in LONG_COMMANDS:
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
-        prune_old_logs(LOGS_DIR)
         log_path = LOGS_DIR / f"{command}_{datetime.now():%Y%m%d-%H%M%S}.log"
         handlers.append(logging.FileHandler(log_path, encoding="utf-8"))
     logging.basicConfig(
@@ -326,6 +335,7 @@ def _setup_logging(command: str) -> None:
     )
     if command in LONG_COMMANDS:
         log.info("Log en %s", log_path)
+        prune_old_logs(LOGS_DIR)  # después de configurar el log: sus avisos quedan en el archivo
 
 
 def main(argv: list[str] | None = None) -> None:

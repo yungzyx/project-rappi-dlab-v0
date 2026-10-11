@@ -53,7 +53,8 @@ jobs:
       - name: Instalar
         run: python -m pip install -c ../rappi-ia/requirements.lock.txt -e ".[dev]"  # mismas versiones que rappi-ia
 
-      # La tarea semanal es un script de zsh: sin zsh sus 9 tests se saltaban en silencio.
+      # Los tests de la tarea semanal la corren también con zsh (así la llama la tarea de launchd ya instalada en el Mac
+      # mini y el script se vuelve a lanzar con bash): sin zsh esos casos se saltan.
       - name: Instalar zsh
         working-directory: .
         run: sudo apt-get update -q && sudo apt-get install -y -q zsh

@@ -55,7 +55,7 @@ COPY rappi-scraper/Makefile rappi-scraper/Makefile
 COPY rappi-scraper/scripts rappi-scraper/scripts
 # Los permisos del rol de la API que aplica deploy-migrate (rappi-ia busca ../deploy/db/grants.sql).
 COPY deploy/db/grants.sql deploy/db/grants.sql
-# El respaldo nocturno y la prueba de restauración (deploy/systemd/rappi-daily.service).
+# El respaldo nocturno y la prueba de restauración (deploy/systemd/rappi-backup.service).
 COPY deploy/scripts deploy/scripts
 
 # Los volúmenes nuevos heredan este dueño: el usuario rappi escribe en /data (y /data/backups) sin ser root.
@@ -77,9 +77,10 @@ CMD ["sh", "-c", "exec uvicorn rappi_ia.api.app:app --host 0.0.0.0 --port 8000 -
 FROM base AS jobs
 
 # pg_dump y pg_restore 17 (los de Debian son de otra versión; los de PGDG, la misma que la base), make para los pasos
-# del Makefile, restic para los respaldos fuera del equipo. bash ya viene en la imagen.
+# del Makefile, restic para los respaldos fuera del equipo y tzdata para la hora de Chile (TZ en docker-compose.yml).
+# bash ya viene en la imagen.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates make restic \
+    && apt-get install -y --no-install-recommends ca-certificates make restic tzdata \
     && install -d /usr/share/postgresql-common/pgdg \
     && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && . /etc/os-release \

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # La tarea de launchd instalada antes en el Mac mini lo llama con /bin/zsh: se vuelve a lanzar con bash.
-if [ -n "${ZSH_VERSION:-}" ]; then exec /bin/bash "$0" "$@"; fi
+if [ -n "${ZSH_VERSION:-}" ] && [ -z "${BASH_VERSION:-}" ]; then exec /bin/bash "$0" "$@"; fi
 # Tarea semanal (domingos 03:00): descarga y capa de IA, en orden. En macOS la programa launchd (`make schedule`); en
 # un servidor Linux, el timer de systemd deploy/systemd/rappi-refresh.timer, dentro del contenedor jobs.
 #   1. rappi migrate (migraciones pendientes, p. ej. tras un git pull) y rappi refresh: tiendas, restaurantes,
@@ -20,17 +20,34 @@ mkdir -p "$LOGS"
 AWAKE=()
 if command -v caffeinate >/dev/null; then AWAKE=(caffeinate -i); fi
 
-# launchd escribe siempre en los mismos dos archivos: pasados 10 MB quedan como .1 (pisando el .1 anterior).
+# launchd escribe siempre en los mismos dos archivos: pasados 10 MB se copian a .1 (pisando el .1 anterior) y se
+# vacían. Copiar y vaciar, no mover: launchd ya los abrió para esta ejecución y su salida debe quedar en el archivo vivo.
 for launchd_log in "$LOGS"/launchd.*.log; do
   if [ -f "$launchd_log" ] && [ "$(wc -c < "$launchd_log")" -gt 10485760 ]; then
-    mv -f "$launchd_log" "$launchd_log.1"
+    cp "$launchd_log" "$launchd_log.1" && : > "$launchd_log"
   fi
 done
 
-# ¿El PID es una tarea semanal viva? (No el de esta misma: en un contenedor nuevo el script vuelve a ser el PID 1.)
+# ¿El PID es una tarea semanal viva? (No el de esta misma: en un contenedor nuevo el script vuelve a ser el mismo PID.)
+# Sin ps (el contenedor jobs no lo trae) basta con que el PID esté vivo; como no se puede comprobar que sea la tarea
+# semanal, la ejecución se omite pero lo anota en ultimo-estado.txt (already_running), para que no pase inadvertido.
+unverified_pid=""
 weekly_running() {
   [ -n "$1" ] && [ "$1" != "$$" ] && kill -0 "$1" 2>/dev/null || return 1
-  if command -v ps >/dev/null; then ps -p "$1" -o command= 2>/dev/null | grep -q refresh-semanal; fi
+  if command -v ps >/dev/null; then
+    ps -p "$1" -o command= 2>/dev/null | grep -q refresh-semanal
+  else
+    unverified_pid=$1
+  fi
+}
+# Creado o cambiado hace menos de 1 o 2 minutos (find redondea los minutos distinto en macOS y en Linux).
+young() { [ -n "$(find "$1" -maxdepth 0 -mmin -2 2>/dev/null)" ]; }
+# El candado existe y es de una ejecución viva, o de una que acaba de crearlo y todavía no escribe su PID.
+lock_held() {
+  local pid
+  [ -d "$LOCK" ] || return 1
+  pid=$(cat "$LOCK/pid" 2>/dev/null || true)
+  if [ -z "$pid" ]; then young "$LOCK"; else weekly_running "$pid"; fi
 }
 interrupted() {  # candado de una ejecución que murió sin su trap (apagado, corte de luz)
   echo "$(date '+%F %T') interrumpida: la ejecución anterior no terminó (apagado o corte de luz)" \
@@ -38,6 +55,10 @@ interrupted() {  # candado de una ejecución que murió sin su trap (apagado, co
 }
 already_running() {
   echo "$(date '+%F %T') ya hay una actualización semanal en curso; se omite"
+  if [ -n "$unverified_pid" ]; then
+    echo "$(date '+%F %T') se omite: el candado es del PID $unverified_pid, que está vivo, y sin ps no se puede" \
+      "comprobar que sea la tarea semanal" >> "$LOGS/ultimo-estado.txt"
+  fi
   exit 0
 }
 
@@ -49,14 +70,29 @@ if [ -f "$OLD_LOCK" ]; then
   interrupted
   rm -f "$OLD_LOCK"
 fi
-# El candado es un directorio (mkdir es atómico) con el PID adentro: si ese proceso ya no existe o es otro programa con
-# el mismo PID, quedó de una ejecución que murió y no cuenta.
+# El candado es un directorio (mkdir es atómico) con el PID adentro. Si ese proceso ya no existe o es otro programa con
+# el mismo PID, quedó de una ejecución que murió: lo recupera una sola de las que partan a la vez, la que tome
+# RECOVERING (otro mkdir). Esa vuelve a revisar el candado antes de borrarlo, porque otra pudo recuperarlo recién. Un
+# RECOVERING de más de 2 minutos quedó de una ejecución que murió justo ahí y se borra.
 LOCK=$DATA/refresh-semanal.lock
+RECOVERING=$LOCK.recuperando
 if ! mkdir "$LOCK" 2>/dev/null; then
-  if weekly_running "$(cat "$LOCK/pid" 2>/dev/null || true)"; then already_running; fi
-  interrupted
-  rm -rf "$LOCK"
-  mkdir "$LOCK" 2>/dev/null || already_running  # otra ejecución lo tomó en este mismo instante
+  if lock_held; then already_running; fi
+  if ! mkdir "$RECOVERING" 2>/dev/null; then
+    if young "$RECOVERING"; then already_running; fi
+    rm -rf "$RECOVERING"
+    mkdir "$RECOVERING" 2>/dev/null || already_running
+  fi
+  if lock_held; then
+    rmdir "$RECOVERING"
+    already_running
+  fi
+  if [ -d "$LOCK" ]; then
+    interrupted
+    rm -rf "$LOCK"
+  fi
+  mkdir "$LOCK" 2>/dev/null || { rmdir "$RECOVERING"; already_running; }
+  rmdir "$RECOVERING"
 fi
 echo $$ > "$LOCK/pid"
 # Una línea por ejecución en ultimo-estado.txt (la muestra `make schedule-status`): un fallo del domingo no queda
@@ -64,7 +100,8 @@ echo $$ > "$LOCK/pid"
 nota=""
 finish() {
   local rc=$?
-  rm -rf "$LOCK"
+  # Solo el candado propio: si otra ejecución lo recuperó (este proceso quedó colgado), es de ella.
+  if [ "$(cat "$LOCK/pid" 2>/dev/null || true)" = "$$" ]; then rm -rf "$LOCK"; fi
   echo "$(date '+%F %T') exit=$rc${nota:+ ($nota)}" >> "$LOGS/ultimo-estado.txt"
 }
 trap finish EXIT

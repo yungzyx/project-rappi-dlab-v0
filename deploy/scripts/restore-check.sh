@@ -37,6 +37,12 @@ export DATABASE_URL="${DATABASE_URL%/*}/rappi_restore_check"
 list=$(mktemp)
 trap 'rm -f "${PGPASSFILE:-}" "$list"' EXIT
 pgpass_from_database_url
+# Antes de restaurar: la URL derivada tiene que llevar a la base de prueba y nunca a la de la app.
+current=$(psql --dbname="$PG_URL" --no-psqlrc -Atc 'SELECT current_database()')
+if [ "$current" != rappi_restore_check ]; then
+  echo "La conexión derivada de DATABASE_URL lleva a «$current», no a rappi_restore_check: no restauro." >&2
+  exit 1
+fi
 dump=$(ls -t "${RAPPI_DATA_DIR:-/data}"/backups/*.dump | head -n 1)
 echo "$(date '+%F %T') restaurando $dump en rappi_restore_check"
 pg_restore --list "$dump" | grep -v "COMMENT - EXTENSION" > "$list"

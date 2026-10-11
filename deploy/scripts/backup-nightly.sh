@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Respaldo nocturno del servidor (deploy/systemd/rappi-daily.timer, todos los días 04:00), dentro del contenedor jobs:
+# Respaldo nocturno del servidor (deploy/systemd/rappi-backup.timer, todos los días 04:15), dentro del contenedor jobs:
 #   docker compose -f deploy/docker-compose.yml --profile jobs run --rm jobs bash deploy/scripts/backup-nightly.sh
 # 1. pg_dump de la base de DATABASE_URL a nocturno_<fecha>.dump en el volumen de respaldos, revisado con
 #    `pg_restore --list` antes de contarlo. Quedan los 3 nocturnos más nuevos; los semanales de `rappi refresh`
@@ -26,6 +26,9 @@ trap 'rm -f "${PGPASSFILE:-}" ${partial:+"$partial"}' EXIT
 pgpass_from_database_url
 
 mkdir -p "$BACKUPS"
+# Un volcado cortado de golpe (SIGKILL, apagado) no corre el trap y deja su .part. Los de más de 6 horas (el límite de
+# rappi-backup.service) son de esos; uno más nuevo puede ser de otro respaldo en curso.
+find "$BACKUPS" -maxdepth 1 -name 'nocturno_*.dump.part' -mmin +360 -exec rm -f {} +
 target=$BACKUPS/nocturno_$(date +%Y%m%d-%H%M%S).dump
 partial=$target.part
 # Primero a .part: un volcado cortado (disco lleno, corte) nunca pasa por bueno ni expulsa a uno sano.
@@ -35,13 +38,15 @@ mv "$partial" "$target"
 partial=""
 echo "$(date '+%F %T') respaldo en $target"
 
-# Rotación: quedan los KEEP más nuevos. El glob los da en orden de nombre, que es el de la fecha (nocturno_<fecha>.dump).
-dumps=("$BACKUPS"/nocturno_*.dump)
-excess=$((${#dumps[@]} - KEEP))
-i=0
-while [ "$i" -lt "$excess" ]; do
-  rm -f "${dumps[$i]}"
-  i=$((i + 1))
+# Rotación: quedan los KEEP más nuevos por fecha de modificación (no por nombre: con otra zona horaria o un reloj
+# corregido, el nombre de uno nuevo puede quedar «antes» que los anteriores). El recién hecho nunca se borra.
+for dump in "$BACKUPS"/nocturno_*.dump; do
+  [ "$dump" != "$target" ] || continue
+  newer=0
+  for other in "$BACKUPS"/nocturno_*.dump; do
+    if [ "$other" -nt "$dump" ]; then newer=$((newer + 1)); fi
+  done
+  if [ "$newer" -ge "$KEEP" ]; then rm -f "$dump"; fi
 done
 
 if [ -z "${RESTIC_REPOSITORY:-}" ]; then

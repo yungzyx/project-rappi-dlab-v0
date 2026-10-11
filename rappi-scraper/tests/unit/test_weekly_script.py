@@ -22,7 +22,23 @@ SHELLS = [
     pytest.param("zsh", marks=pytest.mark.skipif(shutil.which("zsh") is None, reason="sin zsh")),
 ]
 # Lo que usan los scripts, sin caffeinate (no existe en Linux): para probar que no hace falta también en macOS.
-TOOLS = ["bash", "cat", "date", "dirname", "grep", "mkdir", "mv", "ps", "rm", "sleep", "tee", "wc"]
+TOOLS = [
+    "bash",
+    "cat",
+    "cp",
+    "date",
+    "dirname",
+    "find",
+    "grep",
+    "mkdir",
+    "mv",
+    "ps",
+    "rm",
+    "rmdir",
+    "sleep",
+    "tee",
+    "wc",
+]
 
 
 @pytest.fixture(params=SHELLS)
@@ -73,19 +89,36 @@ def _calls(project: Path) -> list[str]:
     return (project / "calls.txt").read_text().splitlines()
 
 
+def _tools(tmp_path: Path, without: tuple[str, ...] = ()) -> str:
+    """Un PATH solo con las herramientas que usa el script (sin caffeinate, y sin lo que diga `without`)."""
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    for tool in [*TOOLS, "zsh"]:
+        if tool not in without and (found := shutil.which(tool)):
+            (tools / tool).symlink_to(found)
+    return str(tools)
+
+
+def _age(path: Path, seconds: float) -> None:
+    then = time.time() - seconds
+    os.utime(path, (then, then))
+
+
+# `migrate` se anota; `refresh` espera a que el test cree `release`.
+BLOCKING_REFRESH = (
+    '[ "$1" = migrate ] && echo migrate >> calls.txt; '
+    '[ "$1" = refresh ] && while [ ! -f release ]; do sleep 0.05; done; exit 0'
+)
+
+
 POST_REFRESH = "make -C ../rappi-ia post-refresh PY=.venv/bin/python EVAL_ARGS="
 
 
 def test_runs_without_caffeinate_exit0(tmp_path, shell):
     """En Linux (y en el contenedor) no hay caffeinate: el script corre igual, sin él."""
     project = _project(tmp_path, 'echo "$*" >> calls.txt', ai_layer=True)
-    tools = tmp_path / "tools"
-    tools.mkdir()
-    for tool in [*TOOLS, "zsh"]:
-        if found := shutil.which(tool):
-            (tools / tool).symlink_to(found)
 
-    result = _run(project, shell, path=str(tools))
+    result = _run(project, shell, path=_tools(tmp_path))
 
     assert result.returncode == 0, result.stderr
     assert _calls(project) == ["migrate", "refresh", POST_REFRESH]
@@ -140,6 +173,7 @@ def test_stale_lock_is_recovered(tmp_path, shell, pid):
     lock.mkdir(parents=True)
     if pid is not None:
         (lock / "pid").write_text(pid)
+    _age(lock, 600)  # de hace 10 minutos
 
     result = _run(project, shell)
 
@@ -148,6 +182,103 @@ def test_stale_lock_is_recovered(tmp_path, shell, pid):
     assert interrupted.endswith("interrumpida: la ejecución anterior no terminó (apagado o corte de luz)")
     assert finished.endswith("exit=0")
     assert not lock.exists()
+
+
+@pytest.mark.parametrize("pid", ["", None], ids=["pid-vacio", "sin-pid"])
+def test_fresh_lock_without_pid_counts_as_running(tmp_path, shell, pid):
+    """Entre el mkdir del candado y escribir su PID pasa un instante: un candado recién creado sin PID es de una
+    ejecución que está partiendo, no uno abandonado."""
+    project = _project(tmp_path, 'echo "$*" >> calls.txt')
+    lock = project / "data" / "refresh-semanal.lock"
+    lock.mkdir(parents=True)
+    if pid is not None:
+        (lock / "pid").write_text(pid)
+
+    result = _run(project, shell)
+
+    assert result.returncode == 0, result.stderr
+    assert "ya hay una actualización semanal en curso; se omite" in result.stdout
+    assert not (project / "calls.txt").exists()
+    assert lock.exists()
+
+
+def test_simultaneous_starts_over_a_stale_lock_let_one_through(tmp_path, shell):
+    """Varias ejecuciones a la vez frente a un candado abandonado: una sola lo recupera y corre; las demás se omiten."""
+    project = _project(tmp_path, BLOCKING_REFRESH)
+    lock = project / "data" / "refresh-semanal.lock"
+    lock.mkdir(parents=True)
+    (lock / "pid").write_text("999999\n")
+    _age(lock, 600)
+    runs = [
+        subprocess.Popen(
+            [shell, project / "scripts" / SCRIPT.name],
+            env=_env(project),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        for _ in range(12)
+    ]
+    try:
+        deadline = time.monotonic() + 30
+        while sum(run.poll() is not None for run in runs) < len(runs) - 1 and time.monotonic() < deadline:
+            time.sleep(0.05)
+    finally:
+        (project / "release").touch()
+        for run in runs:
+            run.wait(timeout=30)
+
+    assert [run.returncode for run in runs] == [0] * len(runs)
+    assert _calls(project) == ["migrate"]  # solo una llegó a descargar
+    lines = _status_lines(project)
+    assert sum("interrumpida" in line for line in lines) == 1
+    assert sum("exit=" in line for line in lines) == 1
+    assert not lock.exists()
+
+
+def test_finish_keeps_a_lock_it_does_not_own(tmp_path, shell):
+    """Al terminar, una ejecución suelta solo su propio candado (con su PID), nunca el de otra."""
+    project = _project(tmp_path, BLOCKING_REFRESH)
+    lock = project / "data" / "refresh-semanal.lock"
+    run = subprocess.Popen(
+        [shell, project / "scripts" / SCRIPT.name], env=_env(project), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    try:
+        deadline = time.monotonic() + 10
+        while not (project / "calls.txt").exists():
+            assert time.monotonic() < deadline, "la ejecución no llegó a la descarga"
+            time.sleep(0.05)
+        (lock / "pid").write_text("424242\n")  # otra ejecución tomó el candado
+    finally:
+        (project / "release").touch()
+        run.wait(timeout=10)
+
+    assert run.returncode == 0
+    assert (lock / "pid").read_text() == "424242\n"
+
+
+def test_live_foreign_pid_without_ps_is_skipped_and_noted(tmp_path, shell):
+    """Sin ps (el contenedor) no se puede ver si un PID vivo es la tarea semanal: se omite, pero queda anotado."""
+    project = _project(tmp_path, 'echo "$*" >> calls.txt')
+    lock = project / "data" / "refresh-semanal.lock"
+    lock.mkdir(parents=True)
+    other = subprocess.Popen(["sleep", "30"])
+    try:
+        (lock / "pid").write_text(f"{other.pid}\n")
+        _age(lock, 600)
+
+        without_ps = _run(project, shell, path=_tools(tmp_path, without=("ps",)))
+        with_ps = _run(project, shell)
+    finally:
+        other.kill()
+        other.wait()
+
+    assert without_ps.returncode == 0, without_ps.stderr
+    skipped, interrupted, finished = _status_lines(project)
+    assert "se omite" in skipped and str(other.pid) in skipped
+    # Con ps se ve que ese PID es otro programa: el candado estaba abandonado.
+    assert with_ps.returncode == 0, with_ps.stderr
+    assert interrupted.endswith("interrumpida: la ejecución anterior no terminó (apagado o corte de luz)")
+    assert finished.endswith("exit=0")
 
 
 def test_old_pid_lock_of_a_dead_run_is_removed(tmp_path, shell):
@@ -272,8 +403,9 @@ def test_exit_codes_3_4_5_noted(tmp_path, shell, code, exit_code, ai_layer_runs,
 
 
 def test_big_launchd_log_rotated(tmp_path, shell):
-    """launchd escribe siempre en el mismo archivo: pasados 10 MB, el script lo deja como .1 (y pisa el .1 anterior)."""
-    project = _project(tmp_path, "exit 0")
+    """launchd escribe siempre en el mismo archivo: pasados 10 MB, el script lo copia a .1 (y pisa el .1 anterior) y lo
+    vacía. Lo de esta misma ejecución, que launchd sigue escribiendo ahí, queda en el archivo vivo."""
+    project = _project(tmp_path, 'echo "salida de esta ejecución" >&2; exit 0')
     logs = project / "data" / "logs"
     logs.mkdir(parents=True)
     with (logs / "launchd.err.log").open("wb") as big:
@@ -281,11 +413,15 @@ def test_big_launchd_log_rotated(tmp_path, shell):
     (logs / "launchd.err.log.1").write_text("la anterior\n")
     (logs / "launchd.out.log").write_text("poco\n")
 
-    result = _run(project, shell)
+    with (logs / "launchd.err.log").open("ab") as launchd_err:  # como launchd: abierto antes de lanzar el script
+        result = subprocess.run(
+            [shell, project / "scripts" / SCRIPT.name], env=_env(project), stdout=subprocess.PIPE, stderr=launchd_err
+        )
 
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 0
     assert (logs / "launchd.err.log.1").stat().st_size == 11 * 1024 * 1024
-    assert not (logs / "launchd.err.log").exists()
+    assert "salida de esta ejecución" in (logs / "launchd.err.log").read_text()
+    assert (logs / "launchd.err.log").stat().st_size < 1024
     assert (logs / "launchd.out.log").read_text() == "poco\n"
     assert not (logs / "launchd.out.log.1").exists()
 
@@ -332,6 +468,38 @@ def test_log_retention_weeks_from_environment(tmp_path, monkeypatch):
     cli.prune_old_logs(logs)
 
     assert not (logs / "refresh_20260920-030000.log").exists()
+
+
+@pytest.mark.parametrize("value", ["muchas", "0"])
+def test_bad_log_retention_does_not_break_the_command(tmp_path, monkeypatch, caplog, value):
+    """Un LOG_RETENTION_WEEKS mal escrito usa las 8 semanas (y lo avisa); 0 no borra los logs recientes (mínimo 1)."""
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "refresh_de-ayer.log").write_text("x\n")
+    _age(logs / "refresh_de-ayer.log", 86400)
+    (logs / "refresh_de-hace-diez-semanas.log").write_text("x\n")
+    _age(logs / "refresh_de-hace-diez-semanas.log", 10 * 7 * 86400)
+    monkeypatch.setenv("LOG_RETENTION_WEEKS", value)
+
+    cli.prune_old_logs(logs)
+
+    assert {p.name for p in logs.iterdir()} == {"refresh_de-ayer.log"}
+    if value == "muchas":
+        assert "LOG_RETENTION_WEEKS" in caplog.text
+
+
+def test_a_log_that_vanishes_while_pruning_is_skipped(tmp_path, monkeypatch, caplog):
+    """Otro proceso puede borrar un log mientras se poda: el comando sigue."""
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "refresh_viejo.log").write_text("x\n")
+    _age(logs / "refresh_viejo.log", 10 * 7 * 86400)
+    real_glob = Path.glob
+    monkeypatch.setattr(Path, "glob", lambda self, pattern: [logs / "backup_ya-no-esta.log", *real_glob(self, pattern)])
+
+    cli.prune_old_logs(logs)
+
+    assert not (logs / "refresh_viejo.log").exists()
 
 
 def test_after_refresh_script_runs_post_refresh(tmp_path, shell):

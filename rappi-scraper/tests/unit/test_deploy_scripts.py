@@ -130,3 +130,63 @@ def test_passfile_decodes_and_escapes_the_password(tmp_path):
     assert result.returncode == 0, result.stderr
     assert (tmp_path / "rec" / "passfile.txt").read_text() == "*:*:*:*:a\\:b\\\\c\n"
     assert "--dbname=postgresql://rappi_owner@db:5432/rappi" in (tmp_path / "rec" / "argv.txt").read_text()
+
+
+def test_leftover_partial_dumps_are_removed(tmp_path):
+    """Un volcado cortado de golpe (SIGKILL, apagado) no corre el trap y deja su .part: el siguiente lo borra. Uno
+    reciente puede ser de otro respaldo en curso y queda."""
+    backups = _backups(tmp_path)
+    backups.mkdir(parents=True)
+    (backups / "nocturno_20261001-040000.dump.part").write_text("cortado\n")
+    os.utime(backups / "nocturno_20261001-040000.dump.part", (1_700_000_000, 1_700_000_000))
+    (backups / "nocturno_20261011-040000.dump.part").write_text("en curso\n")
+
+    result = _run(tmp_path, _fakes(tmp_path))
+
+    assert result.returncode == 0, result.stderr
+    assert not (backups / "nocturno_20261001-040000.dump.part").exists()
+    assert (backups / "nocturno_20261011-040000.dump.part").exists()
+
+
+SYSTEMD = BACKUP.parents[1] / "systemd"
+
+
+def _directives(unit: str) -> list[str]:
+    return [line for line in (SYSTEMD / unit).read_text().splitlines() if line and not line.startswith("#")]
+
+
+def _exec_starts(unit: str) -> list[str]:
+    return [line for line in _directives(unit) if line.startswith("ExecStart")]
+
+
+def test_backup_and_purge_are_independent_units():
+    """Un fallo de la purga nunca deja sin respaldo esa noche: cada uno es su propio servicio, con su propio timer."""
+    [purge] = _exec_starts("rappi-purge.service")
+    [backup] = _exec_starts("rappi-backup.service")
+    assert purge.endswith("run --rm jobs rappi-ia purge")
+    assert backup.endswith("run --rm jobs bash deploy/scripts/backup-nightly.sh")
+    assert not any("rappi-purge" in line for line in _directives("rappi-backup.service"))  # sin Requires ni After
+    assert not any("rappi-backup" in line for line in _directives("rappi-purge.service"))
+    assert "OnCalendar=*-*-* 04:00 America/Santiago" in (SYSTEMD / "rappi-purge.timer").read_text()
+    assert "OnCalendar=*-*-* 04:15 America/Santiago" in (SYSTEMD / "rappi-backup.timer").read_text()
+    assert not list(SYSTEMD.glob("rappi-daily.*"))
+
+
+def test_rotation_keeps_the_newest_by_date_not_by_name(tmp_path):
+    """Con otra zona horaria (o un reloj corregido) un respaldo nuevo puede tener un nombre «anterior» a los de antes:
+    la rotación va por fecha de modificación y el recién hecho nunca se borra."""
+    backups = _backups(tmp_path)
+    backups.mkdir(parents=True)
+    later_names = [f"nocturno_2099010{day}-040000.dump" for day in range(1, 5)]
+    for age, name in enumerate(reversed(later_names)):
+        (backups / name).write_text("antiguo\n")
+        os.utime(backups / name, (1_700_000_000 - age * 86400, 1_700_000_000 - age * 86400))
+
+    result = _run(tmp_path, _fakes(tmp_path))
+
+    assert result.returncode == 0, result.stderr
+    remaining = sorted(p.name for p in backups.glob("nocturno_*.dump"))
+    assert len(remaining) == 3
+    assert later_names[-2:] == [name for name in remaining if name.startswith("nocturno_2099")]
+    [new] = [name for name in remaining if not name.startswith("nocturno_2099")]
+    assert (tmp_path / "rec" / "restic.txt").read_text().splitlines()[0].endswith(new)

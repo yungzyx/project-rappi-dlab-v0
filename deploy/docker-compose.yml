@@ -81,6 +81,7 @@ services:
       <<: [*sin-claves-de-base, *sin-claves-de-la-app, *sin-claves-de-respaldo]
       DATABASE_URL: ${DATABASE_URL_OWNER:?Falta DATABASE_URL_OWNER en el archivo de entorno}
       DB_API_ROLE: rappi_api
+      TZ: America/Santiago  # el nombre del respaldo de antes de migrar, en la hora de los timers
     volumes:
       - rappi-data:/data
       - backups:/data/backups
@@ -161,6 +162,11 @@ services:
     environment:
       <<: *sin-claves-de-base
       DATABASE_URL: ${DATABASE_URL_OWNER:?Falta DATABASE_URL_OWNER en el archivo de entorno}
+      # Los registros, ultimo-estado.txt y los nombres de los respaldos en la hora de Chile, la de los timers de systemd.
+      TZ: America/Santiago
+    # Un init (tini) como PID 1: reenvía las señales (systemctl stop, docker stop) y recoge procesos, así bash corre sus
+    # traps como en cualquier equipo.
+    init: true
     volumes:
       - rappi-data:/data
       - backups:/data/backups
