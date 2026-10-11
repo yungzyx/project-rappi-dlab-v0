@@ -283,7 +283,9 @@ def test_cap_holds_under_concurrency(monkeypatch):
 
 def test_without_adoption_file_nothing_is_adopted(tmp_path):
     adoption = jev.load_adoption(tmp_path / "no-hay.json")
-    assert adoption == jev.Adoption(categorias=False, juez=False, t_auto=jev.DEFAULT_T_AUTO, model_version=None)
+    assert adoption == jev.Adoption(
+        categorias=False, juez=False, t_auto=jev.DEFAULT_T_AUTO, model_version=None, variante="es"
+    )
     assert jev.DEFAULT_T_AUTO == 0.85
 
 
@@ -293,10 +295,25 @@ def test_adoption_file_is_read(tmp_path):
         json.dumps({"categorias": True, "juez": False, "t_auto": 0.9, "model_version": "jev-1.13.0", "fecha": "x"}),
         encoding="utf-8",
     )
-    assert jev.load_adoption(path) == jev.Adoption(True, False, 0.9, "jev-1.13.0")
+    assert jev.load_adoption(path) == jev.Adoption(True, False, 0.9, "jev-1.13.0", "es")
 
 
-@pytest.mark.parametrize("content", ["no es json", "[]", '{"categorias": "sí"}', '{"categorias": true, "t_auto": 2}'])
+def test_adoption_keeps_the_instruction_variant_the_pilot_chose(tmp_path):
+    path = tmp_path / "jev-adopcion.json"
+    path.write_text(json.dumps({"categorias": True, "t_auto": 0.8, "variante": "en"}), encoding="utf-8")
+    assert jev.load_adoption(path).variante == "en"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "no es json",
+        "[]",
+        '{"categorias": "sí"}',
+        '{"categorias": true, "t_auto": 2}',
+        '{"categorias": true, "variante": "fr"}',
+    ],
+)
 def test_a_broken_adoption_file_adopts_nothing(tmp_path, content, caplog):
     path = tmp_path / "jev-adopcion.json"
     path.write_text(content, encoding="utf-8")

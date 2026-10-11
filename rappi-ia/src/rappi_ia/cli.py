@@ -5,12 +5,14 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia concepts                # capa 2: taxonomía, complementos, mapeos y conceptos por ítem
     rappi-ia concepts --solo-reporte # cobertura sin recalcular
     rappi-ia knowledge               # tarjetas del juego y sus ligas a conceptos (después de `concepts`)
+    rappi-ia knowledge --jev-propuestas  # Jev propone un concepto por tarjeta en un CSV para revisar (no liga nada)
     rappi-ia map-categories          # categorías sin mapeo revisado, con concepto sugerido, a un CSV para revisar
     rappi-ia map-categories --jev    # Jev propone su concepto (solo con clave y adopción); --exportar para revisarlas
     rappi-ia embed-text              # embeddings e5 de search_documents (incremental) + HNSW por vertical
     rappi-ia search "algo para el carrete" --vertical licores
     rappi-ia eval-search             # léxico vs vectorial vs híbrido + calibración de τ ("sin resultado")
     rappi-ia jev-planillas           # planillas CSV (data/eval/) para juzgar a mano; luego `eval-human` da el κ
+    rappi-ia jev-piloto              # con clave y planillas juzgadas: mide a Jev y propone adoptarlo (o no)
     rappi-ia synth                   # usuarios y eventos SIMULADOS para el panel (reemplaza los anteriores)
     rappi-ia analytics               # resumen de métricas del panel (frecuencia, abandono, oportunidades…)
     rappi-ia multivertical           # mapa multivertical (docs/mapas/)
@@ -65,11 +67,34 @@ def cmd_concepts(conn, args) -> None:
 
 
 def cmd_knowledge(conn, args) -> None:
+    if getattr(args, "jev_propuestas", False):
+        _card_proposals_with_jev()
+        return
     try:
         counts = load_knowledge(conn)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     print(f"Tarjetas del juego: {counts['tarjetas']}, ligas a conceptos: {counts['ligas']}")
+
+
+def _card_proposals_with_jev() -> None:
+    from . import jev
+    from .game import cards
+
+    client = jev.client_or_none()
+    if client is None:
+        print("Sin TYPESAFE_API_KEY: Jev no propone conceptos para las tarjetas.")
+        return
+    rows = cards.propose_card_concepts(client, cards.read_cards(), cards.read_links(), load_taxonomy())
+    out = cards.write_card_proposals(rows)
+    differ = sum(
+        r["concepto_propuesto"] not in ("", "ninguno") and r["concepto_propuesto"] not in r["ligas_revisadas"].split()
+        for r in rows
+    )
+    print(f"{len(rows)} tarjetas en {out}; Jev propone {differ} conceptos que hoy no están ligados.")
+    print("Son propuestas: revisarlas y, si corresponde, agregarlas a mano en src/rappi_ia/game/card_concepts.toml.")
+    if client.stats.stopped_by_cap:
+        print(f"⚠ Se llegó al tope de {config.JEV_MAX_REQUESTS} llamadas (JEV_MAX_REQUESTS): faltaron tarjetas.")
 
 
 def cmd_attributes(conn, args) -> None:
@@ -178,7 +203,9 @@ def _map_categories_with_jev(conn, args) -> None:
             " repetir el piloto con ese modelo."
         )
         return
-    summary = jev_map.map_categories(conn, client, load_taxonomy(), adoption.t_auto, only_new=args.solo_nuevas)
+    summary = jev_map.map_categories(
+        conn, client, load_taxonomy(), adoption.t_auto, only_new=args.solo_nuevas, variant=adoption.variante
+    )
     conn.commit()
     print(
         f"Jev: {summary['consultadas']} categorías consultadas; mapeó {summary['mapear']},"
@@ -345,6 +372,31 @@ def cmd_jev_planillas(conn, args) -> None:
     print(f"Cómo llenarlas: {sheets.sheet_dir() / sheets.README_FILE}")
 
 
+def cmd_jev_piloto(conn, args) -> None:
+    from . import jev
+    from .eval import jev_pilot
+
+    client = jev.client_or_none()
+    missing = jev_pilot.requirements(client is not None)
+    if missing:
+        print("Falta para correr el piloto de Jev (no se llamó a Jev):")
+        for item in missing:
+            print(f"  - {item}")
+        return
+    result = jev_pilot.run_pilot(conn, client, load_taxonomy())
+    conn.commit()  # los juicios nuevos quedan en caché para eval-search
+    categories, judge, usage = result["categorias"], result["juez"], result["uso"]
+    if categories["pasa"]:
+        print(f"Categorías: pasa con la variante «{categories['variante']}» y T_auto {categories['t_auto']}")
+    else:
+        print("Categorías: no pasa")
+    verdict = "pasa" if judge["pasa"] else "no pasa"
+    print(f"Juez: {verdict} (κ Jev {judge['kappa_jev']}, κ juez por concepto {judge['kappa_concepto']})")
+    print(f"{usage['llamadas']} llamadas, {usage['tokens']} tokens de entrada, ~US$ {usage['costo']:.4f}")
+    print(f"Reporte en {result['reporte']}")
+    print(f"Propuesta en {result['archivo_propuesta']}: para adoptar, renómbrala a jev-adopcion.json y súbela a git.")
+
+
 def cmd_purge(conn, args) -> None:
     from .events.store import QUERY_RETENTION_DAYS, purge_old_queries
 
@@ -458,6 +510,7 @@ COMMANDS = {
     "eval-sample": cmd_eval_sample,
     "eval-human": cmd_eval_human,
     "jev-planillas": cmd_jev_planillas,
+    "jev-piloto": cmd_jev_piloto,
 }
 
 
@@ -471,7 +524,12 @@ def build_parser() -> argparse.ArgumentParser:
     concepts = sub.add_parser("concepts", help="capa 2: conceptos, complementos y mapeo de productos y platos")
     concepts.add_argument("--solo-reporte", action="store_true", help="solo muestra la cobertura actual")
     concepts.add_argument("--sin-knn", action="store_true", help="sin refinar con vecinos cercanos (embeddings)")
-    sub.add_parser("knowledge", help="tarjetas del juego en la base, con sus ligas revisadas a conceptos")
+    kn = sub.add_parser("knowledge", help="tarjetas del juego en la base, con sus ligas revisadas a conceptos")
+    kn.add_argument(
+        "--jev-propuestas",
+        action="store_true",
+        help="Jev propone un concepto por tarjeta en data/eval/tarjetas-jev.csv (no toca la base ni las ligas)",
+    )
     sub.add_parser("attributes", help="capa de perfiles: atributos de cada ítem (sin gluten, vegano, familiar…)")
     lr = sub.add_parser("layer-report", help="reporte de calidad de las capas de perfiles (data/eval/capas.md)")
     lr.add_argument("--muestra", type=int, default=20, help="ítems de muestra por atributo")
@@ -521,6 +579,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano, y κ")
     sheets_cmd = sub.add_parser("jev-planillas", help="planillas CSV para juzgar a mano la búsqueda y las categorías")
     sheets_cmd.add_argument("--forzar", action="store_true", help="reemplaza planillas que ya tienen juicios")
+    sub.add_parser("jev-piloto", help="mide a Jev contra las planillas juzgadas y escribe la propuesta de adopción")
     synth = sub.add_parser("synth", help="genera usuarios y eventos SIMULADOS (source = synthetic)")
     synth.add_argument("--usuarios", type=int, default=1500)
     synth.add_argument("--semanas", type=int, default=26)

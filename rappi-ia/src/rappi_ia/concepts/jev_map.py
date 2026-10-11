@@ -18,7 +18,7 @@ from psycopg import Connection
 
 from .. import config
 from ..eval.sheets import category_details
-from ..jev import Choice, Noul
+from ..jev import VARIANTS, Choice, Noul
 from .report import CATEGORY_MAP_COLUMNS, jev_review_path
 from .store import NO_CONCEPT, categories_reviewed_without_concept
 from .taxonomy import Concept, Taxonomy
@@ -48,27 +48,42 @@ class Decision:
     reason: str
 
 
-def build_questions(taxonomy: Taxonomy) -> dict:
+# Las instrucciones de cada pregunta, en dos idiomas con el mismo sentido (la doc de Jev advierte que el español puede
+# rendir menos). Las opciones (`criteria`) son las mismas en las dos: solo cambia cómo se pregunta.
+INSTRUCTIONS = {
+    "es": {
+        "concepto": "¿Qué concepto describe los productos de `categoria`? Usa `ejemplos` como evidencia. "
+        "Si ninguno calza con la mayoría de los ejemplos, elige «ninguno».",
+        "mezcla": "¿`ejemplos` mezcla productos de tipos muy distintos, de modo que un solo concepto no describe la"
+        " categoría?",
+        "salud_sensible": "¿Los productos son medicamentos, anticonceptivos, pruebas de embarazo o productos de salud o"
+        " bienestar sexual?",
+        "solo_adultos": "¿Los productos se venden solo a mayores de 18 (alcohol, cigarrillos, vapeo, accesorios para"
+        " fumar o juguetes sexuales)?",
+    },
+    "en": {
+        "concepto": "Which concept describes the products in `categoria`? Use `ejemplos` as evidence. "
+        "If none fits most of the examples, choose «ninguno».",
+        "mezcla": "Does `ejemplos` mix very different kinds of products, so that a single concept does not describe the"
+        " category?",
+        "salud_sensible": "Are the products medicines, contraceptives, pregnancy tests, or sexual health or wellness"
+        " products?",
+        "solo_adultos": "Are the products sold only to people over 18 (alcohol, cigarettes, vaping, smoking accessories"
+        " or sex toys)?",
+    },
+}
+
+
+def build_questions(taxonomy: Taxonomy, variant: str = VARIANTS[0]) -> dict:
+    """Las 4 preguntas con las instrucciones en `variant` («es» o «en»)."""
+    text = INSTRUCTIONS[variant]
     options = {c.id: {"what": c.name, "examples": list(c.keywords[:5])} for c in taxonomy.concepts.values()}
     options[NO_CONCEPT] = "Ningún concepto describe la mayoría de los ejemplos"
     return {
-        "concepto": Choice(
-            "¿Qué concepto describe los productos de `categoria`? Usa `ejemplos` como evidencia. "
-            "Si ninguno calza con la mayoría de los ejemplos, elige «ninguno».",
-            options,
-        ),
-        "mezcla": Noul(
-            "¿`ejemplos` mezcla productos de tipos muy distintos, de modo que un solo concepto no describe la"
-            " categoría?"
-        ),
-        "salud_sensible": Noul(
-            "¿Los productos son medicamentos, anticonceptivos, pruebas de embarazo o productos de salud o bienestar"
-            " sexual?"
-        ),
-        "solo_adultos": Noul(
-            "¿Los productos se venden solo a mayores de 18 (alcohol, cigarrillos, vapeo, accesorios para fumar o"
-            " juguetes sexuales)?"
-        ),
+        "concepto": Choice(text["concepto"], options),
+        "mezcla": Noul(text["mezcla"]),
+        "salud_sensible": Noul(text["salud_sensible"]),
+        "solo_adultos": Noul(text["solo_adultos"]),
     }
 
 
@@ -125,18 +140,20 @@ def map_categories(
     t_auto: float,
     only_new: bool = False,
     review_path: Path | None = None,
+    variant: str = VARIANTS[0],
 ) -> dict:
     """Pregunta a Jev por cada categoría sin mapeo revisado, aplica `decide` y deja la cola de revisión.
 
     Sin `only_new` también se vuelven a preguntar las que Jev ya mapeó, y una que ya no pasa deja de estar mapeada.
-    Una categoría sin respuesta (falla o tope de llamadas) queda como estaba, también en la cola. No hace commit."""
+    Una categoría sin respuesta (falla o tope de llamadas) queda como estaba, también en la cola. `variant` es el
+    idioma de las instrucciones con que pasó el piloto. No hace commit."""
     review_path = review_path or jev_review_path()
     targets = dict(
         conn.execute(TARGETS, {"reviewed": categories_reviewed_without_concept(), "only_new": only_new}).fetchall()
     )
     details = category_details(conn, list(targets))
     keys = [key for key in targets if key in details]
-    questions = build_questions(taxonomy)
+    questions = build_questions(taxonomy, variant)
     answers = client.ask_many([(_state(details[key]), questions) for key in keys])
     known = {row[0] for row in conn.execute("SELECT concept_id FROM concepts")}
 

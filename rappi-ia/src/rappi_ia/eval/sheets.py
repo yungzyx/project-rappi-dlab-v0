@@ -48,7 +48,19 @@ EXAMPLES = 8
 VERDICTS = {"sirve": 2, "a medias": 1, "no sirve": 0}  # lo que escribe la persona → nivel (0, 1, 2)
 SEARCH_COLUMNS = ["id", "consulta", "vertical", "posicion", "nombre", "categoria", "tienda", "juicio"]
 CATEGORY_COLUMNS = ["vertical", "categoria", "ejemplos", "concepto_propuesto", "concepto_correcto"]
-_IDS_KEYS = ("id", "vertical", "consulta", "tipo", "posicion", "estrato", "relevante_auto", "discrepa")
+# entity_type y entity_id son ids, no texto del catálogo: con ellos el piloto le pide a Jev los mismos pares.
+_IDS_KEYS = (
+    "id",
+    "vertical",
+    "consulta",
+    "tipo",
+    "posicion",
+    "estrato",
+    "relevante_auto",
+    "discrepa",
+    "entity_type",
+    "entity_id",
+)
 
 
 class SheetInUse(Exception):

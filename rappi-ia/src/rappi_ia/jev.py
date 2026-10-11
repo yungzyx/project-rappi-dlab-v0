@@ -33,6 +33,7 @@ _sleep = time.sleep  # los tests lo reemplazan para no esperar
 # Jev queda apagado hasta que el piloto pasa y la persona sube este archivo (el piloto escribe una propuesta).
 ADOPTION_FILE = Path(__file__).resolve().parent / "eval" / "jev-adopcion.json"
 DEFAULT_T_AUTO = 0.85  # confianza mínima para mapear una categoría sin revisión, mientras el piloto no fije otra
+VARIANTS = ("es", "en")  # idioma de las instrucciones al etiquetar categorías; el piloto mide los dos y elige
 
 
 def Noul(instructions: str, criteria: dict | None = None) -> dict:  # noqa: N802 (constructor de pregunta)
@@ -187,6 +188,7 @@ class Adoption:
     juez: bool = False
     t_auto: float = DEFAULT_T_AUTO
     model_version: str | None = None
+    variante: str = VARIANTS[0]  # idioma de las instrucciones con que pasó el piloto de categorías
 
 
 def load_adoption(path: Path | None = None) -> Adoption:
@@ -201,12 +203,14 @@ def load_adoption(path: Path | None = None) -> Adoption:
             juez=raw.get("juez", False),
             t_auto=float(raw.get("t_auto", DEFAULT_T_AUTO)),
             model_version=raw.get("model_version"),
+            variante=raw.get("variante", VARIANTS[0]),
         )
         valid = (
             isinstance(adoption.categorias, bool)
             and isinstance(adoption.juez, bool)
             and 0 < adoption.t_auto <= 1
             and (adoption.model_version is None or isinstance(adoption.model_version, str))
+            and adoption.variante in VARIANTS
         )
     except (ValueError, TypeError, AttributeError):
         valid = False

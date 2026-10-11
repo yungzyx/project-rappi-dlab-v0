@@ -45,6 +45,18 @@ def test_build_questions_offers_every_leaf_and_none():
     assert all(questions[name]["type"] == "noul" for name in ("mezcla", "salud_sensible", "solo_adultos"))
 
 
+def test_english_variant_translates_instructions_and_keeps_criteria():
+    spanish, english = build_questions(TAXONOMY), build_questions(TAXONOMY, "en")
+
+    assert spanish == build_questions(TAXONOMY, "es")
+    assert set(english) == set(spanish)
+    for name in spanish:
+        assert english[name]["type"] == spanish[name]["type"]
+        assert english[name].get("criteria") == spanish[name].get("criteria")
+        assert english[name]["instructions"] != spanish[name]["instructions"]
+    assert english["concepto"]["instructions"].startswith("Which concept")
+
+
 # --- tabla de decisión -------------------------------------------------------------------------------------------
 
 
@@ -325,6 +337,15 @@ def test_with_key_and_adoption_jev_maps_and_writes_the_review_queue(cli_env, cap
     assert len(read_csv(cli_env.review)) == 2
     cli_env.db.rollback()  # el comando confirmó su transacción
     assert [row[0] for row in jev_rows(cli_env.db)] == ["peluches y muñecas"]
+
+
+def test_map_categories_uses_the_adopted_instruction_variant(cli_env):
+    adopt(cli_env, variante="en")
+
+    cli.cmd_map_categories(cli_env.db, args())
+
+    english = build_questions(TAXONOMY, "en")
+    assert cli_env.fake.calls and all(questions == english for _, questions in cli_env.fake.calls)
 
 
 def test_export_lists_jev_mappings_and_the_review_queue_without_calling_jev(cli_env, capsys):

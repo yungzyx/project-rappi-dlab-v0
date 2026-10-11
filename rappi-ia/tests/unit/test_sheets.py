@@ -215,7 +215,9 @@ def test_versioned_ids_document_has_no_catalog_text():
 
     document = search_ids_document(sample, seed=7)
 
+    # entity_type y entity_id son ids (no texto): el piloto los necesita para que Jev juzgue los mismos pares.
     allowed = {"id", "vertical", "consulta", "tipo", "posicion", "estrato", "relevante_auto", "discrepa"}
+    allowed |= {"entity_type", "entity_id"}
     assert document["semilla"] == 7
     assert {key for pair in document["pares"] for key in pair} == allowed
     assert "Pisco Alto" not in json.dumps(document, ensure_ascii=False)
