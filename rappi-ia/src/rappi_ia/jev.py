@@ -9,6 +9,7 @@ llamadas cuenta cada intento HTTP, reintentos incluidos, para que una corrida no
 """
 
 import logging
+import math
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -76,40 +77,41 @@ class JevClient:
         self._lock = threading.Lock()
 
     def ask(self, state, questions: dict[str, dict]) -> dict[str, JevAnswer] | None:
-        body = {"state": state, "model": self.model, "questions": questions}
-        response = self._post(body)
-        if response is None:
-            return None
+        """Nunca lanza: cualquier fallo se cuenta, se anota (solo la clase del error) y da None."""
         try:
-            payload = response.json()
-            answers = {name: _parse_answer(questions[name], payload["answers"][name]) for name in questions}
-        except (ValueError, KeyError, TypeError, AttributeError):
-            log.warning("Jev respondió algo que no se entiende; se ignora esta pregunta")
+            body = {"state": state, "model": self.model, "questions": questions}
+            response = self._post(body)  # cuenta sus propios fallos
+            if response is None:
+                return None
+            try:
+                payload = response.json()
+                answers = {name: _parse_answer(questions[name], payload["answers"][name]) for name in questions}
+                input_tokens = int((payload.get("usage") or {}).get("input_tokens") or 0)
+            except (ValueError, KeyError, TypeError, AttributeError):
+                log.warning("Jev respondió algo que no se entiende; se ignora esta pregunta")
+                self._count_failure()
+                return None
+            with self._lock:
+                self.stats.input_tokens += input_tokens
+            return answers
+        except Exception as exc:  # noqa: BLE001 - una pregunta mala no debe cortar la corrida
+            log.warning("Fallo inesperado al preguntarle a Jev (%s)", type(exc).__name__)
             self._count_failure()
             return None
-        with self._lock:
-            self.stats.input_tokens += int((payload.get("usage") or {}).get("input_tokens") or 0)
-        return answers
 
     def ask_many(self, items: list[tuple]) -> list[dict[str, JevAnswer] | None]:
         """Varias preguntas en paralelo, en el mismo orden; las que fallan dan None."""
         if not items:
             return []
         with ThreadPoolExecutor(max_workers=self.parallel) as pool:
-            return list(pool.map(lambda item: self._safe_ask(*item), items))
-
-    def _safe_ask(self, state, questions):
-        try:
-            return self.ask(state, questions)
-        except Exception:  # noqa: BLE001 - una pregunta mala no debe cortar la corrida
-            log.exception("Fallo inesperado al preguntarle a Jev")
-            self._count_failure()
-            return None
+            return list(pool.map(lambda item: self.ask(*item), items))
 
     def _post(self, body: dict) -> requests.Response | None:
         headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
         for attempt in range(_RETRIES + 1):
             if not self._reserve():
+                if attempt > 0:  # ya había fallado una vez: esta pregunta se queda sin respuesta
+                    self._count_failure()
                 return None
             wait = _BACKOFF * 2**attempt
             try:
@@ -147,10 +149,14 @@ class JevClient:
 
 
 def _retry_after(response, default: float) -> float:
+    """Segundos de Retry-After entre 0 y _MAX_WAIT; si no sirve (NaN, negativo, texto), la espera por defecto."""
     try:
-        return min(float(response.headers.get("Retry-After")), _MAX_WAIT)
+        seconds = float(response.headers.get("Retry-After"))
     except (TypeError, ValueError):
         return default
+    if not math.isfinite(seconds) or seconds < 0:
+        return default
+    return max(0.0, min(seconds, _MAX_WAIT))
 
 
 def _parse_answer(question: dict, raw: dict) -> JevAnswer:

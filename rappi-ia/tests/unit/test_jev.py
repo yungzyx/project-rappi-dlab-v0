@@ -209,3 +209,70 @@ def test_key_never_logged(monkeypatch, caplog):
     with caplog.at_level("DEBUG"):
         client.ask("x", QUESTIONS)
     assert "sk-test" not in caplog.text
+
+
+def test_key_never_logged_on_connection_error(monkeypatch, caplog):
+    script = Script(requests.ConnectionError("fallo con Bearer sk-test"))
+    client = make_client(monkeypatch, script)
+    with caplog.at_level("DEBUG"):
+        assert client.ask("x", QUESTIONS) is None
+    assert "sk-test" not in caplog.text
+
+
+@pytest.mark.parametrize("value", ["nan", "-5", "abc", "inf"])
+def test_bad_retry_after_falls_back_to_backoff(monkeypatch, no_sleep, value):
+    script = Script(FakeResponse(429, headers={"Retry-After": value}), ok(NOUL_ANSWER))
+    client = make_client(monkeypatch, script)
+    assert client.ask("x", QUESTIONS) is not None
+    assert no_sleep == [0.5]
+
+
+def test_huge_retry_after_is_clamped(monkeypatch, no_sleep):
+    script = Script(FakeResponse(429, headers={"Retry-After": "9999"}), ok(NOUL_ANSWER))
+    make_client(monkeypatch, script).ask("x", QUESTIONS)
+    assert no_sleep == [jev._MAX_WAIT]
+
+
+def test_ask_never_raises(monkeypatch):
+    script = Script(ok(NOUL_ANSWER))
+    client = make_client(monkeypatch, script)
+
+    def unserializable(url, headers=None, json=None, timeout=None):
+        raise TypeError("Object of type object is not JSON serializable")
+
+    monkeypatch.setattr(jev.requests, "post", unserializable)
+    assert client.ask(object(), QUESTIONS) is None
+    assert client.stats.failures == 1
+
+
+def test_weird_usage_value_does_not_raise(monkeypatch):
+    weird = FakeResponse(200, {"usage": "mucho", "answers": NOUL_ANSWER})
+    client = make_client(monkeypatch, Script(weird))
+    assert client.ask("x", QUESTIONS) is None
+    assert client.stats.failures == 1
+
+
+def test_failure_logs_class_only(monkeypatch, caplog):
+    def boom(url, headers=None, json=None, timeout=None):
+        raise TypeError("detalle con Bearer sk-test")
+
+    monkeypatch.setattr(jev.requests, "post", boom)
+    client = JevClient("sk-test", "jev-1.13.0", 100, 4)
+    with caplog.at_level("DEBUG"):
+        client.ask("x", QUESTIONS)
+    assert "TypeError" in caplog.text and "sk-test" not in caplog.text
+
+
+def test_cap_blocking_a_retry_counts_as_failure(monkeypatch):
+    client = make_client(monkeypatch, Script(FakeResponse(500)), max_requests=1)
+    assert client.ask("a", QUESTIONS) is None
+    assert client.stats.failures == 1 and client.stats.stopped_by_cap is True
+
+
+def test_cap_holds_under_concurrency(monkeypatch):
+    script = Script(ok(NOUL_ANSWER))
+    client = make_client(monkeypatch, script, max_requests=5, parallel=8)
+    results = client.ask_many([(f"s{i}", QUESTIONS) for i in range(20)])
+    assert len(script.calls) == 5 and client.stats.requests == 5
+    assert sum(r is not None for r in results) == 5
+    assert client.stats.stopped_by_cap is True
