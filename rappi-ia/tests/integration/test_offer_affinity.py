@@ -11,6 +11,7 @@ from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
 from rappi_ia.api.services import Services
+from rappi_ia.concepts.taxonomy import load_taxonomy
 from rappi_ia.demo.seed import seed_demo
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
@@ -119,17 +120,35 @@ def test_vertical_to_try_never_offers_farmacia_or_licores_even_with_affinity(cli
 
 
 def test_vertical_to_try_basis_has_the_three_concepts_that_contribute_most(client, db):
-    _like(db, "u1", "chocolates", "helados", "golosinas", "galletas")
-    events.record(
-        db, [events.Event("u1", "s1", "cart_add", ts=NOW, concept_id="chocolates", cart_id="c-x")], source="prototype"
-    )  # chocolate pesa más
+    # De la chocolatería (su vertical típica): chocolates 6, galletas, helados y pastelería 3.
+    # Golosinas es de Express (sellado) y no cuenta. La base lleva solo tres: los de más puntaje y, en empate, por id.
+    _like(db, "u1", "chocolates", "helados", "golosinas", "galletas", "pasteleria")
+    _like(db, "u1", "chocolates")  # otra vez: chocolate pesa más
 
     body = to_try(client, "u1", stamped=["supermercado", "conveniencia", "turbo"])
 
     assert body["vertical"] == "chocolateria"
-    assert body["reason"]["text"].startswith("Porque te gusta 🍫 chocolates,")
-    ids = [s["id"] for s in body["reason"]["basis"]]
-    assert len(set(ids)) <= 3 and ids[0] == "chocolates"
+    assert body["reason"]["text"] == "Porque te gusta 🍫 chocolates, y en chocolaterías hay más."
+    assert [s["id"] for s in body["reason"]["basis"]] == ["chocolates", "galletas", "helados"]
+    # NOW se toma al importar el módulo: con unos minutos de tests encima el decaimiento resta milésimas
+    assert [s["score"] for s in body["reason"]["basis"]] == pytest.approx([6.0, 3.0, 3.0], abs=0.05)
+
+
+def test_vertical_to_try_reason_names_the_concept_of_the_offered_vertical_not_the_global_top(client, db):
+    # Lo que más le gusta (chocolate) es de la chocolatería, que ya tiene sello: se ofrece el súper, y el porqué nombra
+    # lo que le gusta del súper (pastas, y después café), no el chocolate.
+    _like(db, "u1", "chocolates")
+    _like(db, "u1", "chocolates", "pastas")
+    events.record(
+        db, [events.Event("u1", "s1", "search", ts=NOW, concept_id="cafe", query="cafe")], source="prototype"
+    )  # café pesa menos que pastas
+
+    body = to_try(client, "u1", stamped=["chocolateria"])
+
+    pastas = load_taxonomy().concepts["pastas"]
+    assert body["vertical"] == "supermercado"
+    assert body["reason"]["text"] == f"Porque te gusta {pastas.emoji} {pastas.name.lower()}, y en el súper hay más."
+    assert [s["id"] for s in body["reason"]["basis"]] == ["pastas", "cafe"]
 
 
 def test_plans_order_by_interest(client, db):
