@@ -8,6 +8,7 @@ import { VERTICAL_NAMES } from '../../data/verticals'
 import { useEvents } from '../../state/EventsContext'
 import { useProfile } from '../../state/ProfileContext'
 import Mascot from '../assistant/Mascot'
+import OfferWhy from '../assistant/OfferWhy'
 import OfflineNotice from '../OfflineNotice'
 import ProductRow from '../ProductRow'
 import StoreList from '../StoreList'
@@ -129,6 +130,7 @@ function AgentEmpty({ query, onOpenVertical, onTryAnother }) {
       <Mascot size={56} mood="listen" />
       <div>
         <p>{verticalName ? found.text : `No encontré «${query}». ¿Lo buscamos con otras palabras?`}</p>
+        {verticalName && <OfferWhy reason={found.reason} />}
         <button
           type="button"
           className="search-agent-action tap"

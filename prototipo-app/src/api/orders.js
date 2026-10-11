@@ -1,6 +1,26 @@
 // Pedidos del prototipo → rappi-ia: un pedido por vertical (como en Rappi, un pedido es de una tienda).
 import { parsePrice } from '../state/CartContext'
 
+// Los pedidos que van en camino al servidor (`POST /orders` y lo que lo precede): «Olvidar» los espera antes de borrar el
+// perfil, porque uno que llegue después lo recrearía.
+const inFlight = new Set()
+
+/** Registra un pedido en camino (la promesa de todo su envío) y devuelve la misma promesa; su fallo no afecta a quien espera. */
+export function trackOrder(sending) {
+  const tracked = Promise.resolve(sending).then(
+    () => {},
+    () => {},
+  )
+  inFlight.add(tracked)
+  tracked.then(() => inFlight.delete(tracked))
+  return sending
+}
+
+/** Termina cuando ya no hay pedidos en camino (también los que se registren mientras espera). */
+export async function ordersSettled() {
+  while (inFlight.size) await Promise.all([...inFlight])
+}
+
 /** Concepto de un producto: el que trae de la API (`concept`); sin él, el evento y el pedido van sin concepto. */
 export const conceptOf = (product) => product.concept
 

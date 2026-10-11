@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { offer, plans } from './agent'
 import { fixture, stubApi } from './testing'
+import { userId } from './user'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -59,6 +60,14 @@ describe('agent', () => {
       { label: 'Más ideas', query: 'cerveza' },
       { label: 'Sin pantalla' },
     ])
+  })
+
+  test('plans sends the user and keeps the reason of the personalized occasions', async () => {
+    const api = stubApi({ '/agent/plans': fixture('agent-plans-afin') })
+    const list = await plans()
+    expect(new URL(api.mock.calls[0][0], 'http://localhost').searchParams.get('user_id')).toBe(userId())
+    expect(list[0].reason.text).toMatch(/^Porque te gusta/)
+    expect(list.at(-1).reason).toBeUndefined()
   })
 
   test('plans devuelve las ocasiones', async () => {

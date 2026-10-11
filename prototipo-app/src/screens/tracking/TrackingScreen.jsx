@@ -8,6 +8,7 @@ import { HeadsetIcon } from '../../components/LineIcons'
 import { offer } from '../../api/agent'
 import { noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
+import OfferWhy from '../../components/assistant/OfferWhy'
 import { useAssistant } from '../../state/AssistantContext'
 import { formatPrice } from '../../state/CartContext'
 import { useDemo } from '../../state/DemoContext'
@@ -179,7 +180,11 @@ function Delivered({ order }) {
           concept: made.reason?.concept,
           generation: profile.resets,
         })
-        setNext({ context: { items }, label: made.actions.find((action) => action.query)?.query ?? 'algo más' })
+        setNext({
+          context: { items },
+          label: made.actions.find((action) => action.query)?.query ?? 'algo más',
+          reason: made.reason,
+        })
       },
       () => {},
     )
@@ -230,6 +235,7 @@ function Delivered({ order }) {
           <small>{AGENT_NAME} te arma el próximo pedido</small>
         </button>
       )}
+      {demo.isFinal && next && <OfferWhy reason={next.reason} />}
     </>
   )
 }

@@ -8,6 +8,7 @@ import ProductSheet from '../ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
 import { routeForScreen } from '../../data/verticals'
+import { trackOrder } from '../../api/orders'
 import { fixture, stubApi } from '../../api/testing'
 import { askAbout } from '../../assistant/agentAsk'
 
@@ -24,7 +25,7 @@ vi.mock('../../state/EventsContext', async (importOriginal) => ({
   useEvents: () => events,
 }))
 // El juego, con su acción «forget»: que vuelva a cero sin subir nada se prueba en state/GameContext.test.jsx.
-const game = vi.hoisted(() => ({ forget: vi.fn() }))
+const game = vi.hoisted(() => ({ forget: vi.fn(), settle: vi.fn() }))
 vi.mock('../../state/GameContext', async (importOriginal) => ({
   ...(await importOriginal()),
   useGame: () => game,
@@ -145,6 +146,7 @@ beforeEach(() => {
   api.profile.mockResolvedValue({ interests: [] })
   api.forget.mockResolvedValue({})
   events.settled.mockResolvedValue(undefined)
+  game.settle.mockResolvedValue(undefined)
 })
 afterEach(() => {
   cleanup()
@@ -478,6 +480,39 @@ describe('lo aprendido y Olvidar', () => {
     expect(api.forget).toHaveBeenCalledTimes(1)
   })
 
+  test('Olvidar waits for a game save in flight and sends nothing after DELETE', async () => {
+    api.profile.mockResolvedValue({ interests: [VINO] })
+    const saving = deferred()
+    game.settle.mockReturnValueOnce(saving.promise)
+    const puts = []
+    stubCatalog({ 'PUT /game/state/*': (req) => puts.push(req.body) && {} })
+    await renderPanel()
+    fireEvent.click(screen.getByText('Olvidar'))
+    await advance(100)
+    expect(game.settle).toHaveBeenCalledTimes(1)
+    expect(api.forget).not.toHaveBeenCalled() // el guardado en vuelo todavía no termina
+
+    saving.resolve()
+    await runUntilIdle()
+    expect(api.forget).toHaveBeenCalledTimes(1)
+    expect(game.settle.mock.invocationCallOrder[0]).toBeLessThan(api.forget.mock.invocationCallOrder[0])
+    expect(puts).toEqual([]) // olvidar el juego en memoria no sube nada
+  })
+
+  test('Olvidar waits for an order in flight', async () => {
+    api.profile.mockResolvedValue({ interests: [VINO] })
+    const sending = deferred()
+    trackOrder(sending.promise)
+    await renderPanel()
+    fireEvent.click(screen.getByText('Olvidar'))
+    await advance(100)
+    expect(api.forget).not.toHaveBeenCalled() // el pedido todavía va en camino
+
+    sending.resolve()
+    await runUntilIdle()
+    expect(api.forget).toHaveBeenCalledTimes(1)
+  })
+
   test('Olvidar también deja el juego en cero (su progreso se borró con el perfil), solo si el servidor borró', async () => {
     api.profile.mockResolvedValue({ interests: [VINO] })
     await renderPanel()
@@ -699,6 +734,15 @@ describe('¿Con qué acompaño…?', () => {
     expect(tracked('suggestion_accepted')).toContainEqual(
       expect.objectContaining({ concept_id: 'snacks-salados', payload: { origen: 'agent-carrito' } }),
     )
+  })
+
+  test('the offer has ¿Por qué?', async () => {
+    stubCatalog({ 'POST /agent/offer': fixture('agent-offer-carrito') })
+    await renderPanel()
+    await dropBeer()
+    await runUntilIdle()
+    fireEvent.click(screen.getByRole('button', { name: '¿Por qué?' }))
+    expect(screen.getByText(fixture('agent-offer-carrito').reason.text)).toBeTruthy()
   })
 
   test('sin una oferta (204), Mochi dice que no se le ocurre nada', async () => {

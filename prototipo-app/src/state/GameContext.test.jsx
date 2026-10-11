@@ -296,6 +296,37 @@ describe('guardado en el servidor', () => {
     expect(requests(api, 'PUT')).toEqual([`/game/state/${userId()}`])
   })
 
+  test('settle waits for the save in flight and drops the queued one; the next action saves again', async () => {
+    const [a, b, c] = datosOf('turbo')
+    const api = stubApi({ 'PUT /game/state/*': { slow: 40, body: { state: initialState() } } })
+    const ids = [a.id, b.id, c.id]
+    let step = 0
+    let game
+    renderProbe((current) => {
+      game = current
+      return current.discover('turbo', ids[step++])
+    })
+    await gameReady()
+    fireEvent.click(screen.getByText('actuar')) // sale el primero (en vuelo)
+    fireEvent.click(screen.getByText('actuar')) // el segundo queda en cola
+    expect(requests(api, 'PUT')).toHaveLength(1)
+
+    let settled = false
+    const settling = game.settle().then(() => (settled = true))
+    await act(async () => {})
+    expect(settled).toBe(false) // el PUT en vuelo no ha terminado
+    await act(async () => {
+      await settling
+    })
+    act(() => game.forget())
+    await act(async () => {})
+    expect(requests(api, 'PUT')).toHaveLength(1) // el segundo nunca sale, ni después de olvidar
+
+    fireEvent.click(screen.getByText('actuar')) // una acción real después guarda como siempre
+    await act(async () => {})
+    expect(requests(api, 'PUT')).toHaveLength(2)
+  })
+
   test('«Repetir escena» mientras carga no hace nada', async () => {
     seed({ xp: 130 })
     const api = stubApi({ 'GET /game/state/*': { slow: 30, body: { state: { ...initialState(), xp: 130 } } } })

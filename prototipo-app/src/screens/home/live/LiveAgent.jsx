@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import { AGENT_NAME } from '../../../agent/name'
 import Mascot from '../../../components/assistant/Mascot'
+import OfferWhy from '../../../components/assistant/OfferWhy'
 import { rectInPhone } from '../../../state/AssistantContext'
 
 const SIZE = 84 // ancho de la mascota de cuerpo entero (alto = 1,2 × ancho)
@@ -157,6 +158,7 @@ const LiveAgent = forwardRef(function LiveAgent(
         {say && !away && (
           <div className="live-bubble">
             <p aria-hidden="true">{shown}</p>
+            {say.why && done && <OfferWhy reason={say.why} />}
             {say.actions?.length > 0 && done && (
               <div className="live-bubble-actions">
                 {say.actions.map((action, i) => (

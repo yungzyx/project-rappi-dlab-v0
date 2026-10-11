@@ -212,6 +212,62 @@ describe('Home del prototipo final', () => {
       expect(screen.getByRole('button', { name: /En tu carro · Ir a pagar/ })).toBeTruthy()
     })
 
+    test('plans sends the user and shows Para ti for occasions with a reason', async () => {
+      let asked
+      stubAgent({
+        '/agent/plans': (req) => {
+          asked = req.query.get('user_id')
+          return fixture('agent-plans-afin')
+        },
+      })
+      await renderHome()
+      await advance(100)
+      expect(asked).toEqual(expect.any(String))
+      expect(asked).not.toBe('')
+      const chips = screen.getAllByRole('radio')
+      expect(chips).toHaveLength(5)
+      for (const chip of chips) expect(within(chip).getByText('Para ti')).toBeTruthy()
+
+      // Sin perfil (las ocasiones de siempre) no hay etiqueta.
+      cleanup()
+      stubAgent()
+      await renderHome()
+      await advance(100)
+      expect(screen.queryByText('Para ti')).toBeNull()
+    })
+
+    test('the offer has ¿Por qué?: el kit, el comentario del carrito y la vertical por probar', async () => {
+      // El kit de la ocasión.
+      await renderHome()
+      await advance(100)
+      fireEvent.click(screen.getByRole('radio', { name: 'Carrete' }))
+      await advance(100)
+      const kit = document.querySelector('.live-kit')
+      fireEvent.click(within(kit).getByRole('button', { name: '¿Por qué?' }))
+      expect(within(kit).getByText(fixture('agent-offer-plan').reason.text)).toBeTruthy()
+
+      // El comentario del carrito, en el globo de Mochi.
+      cleanup()
+      memory.session.played = true
+      memory.session.lastAdded = LOOSE_CART
+      const home = await renderHome()
+      await advance(4000)
+      const bubble = home.container.querySelector('.live-bubble')
+      fireEvent.click(within(bubble).getByRole('button', { name: '¿Por qué?' }))
+      expect(within(bubble).getByText(fixture('agent-offer-carrito').reason.text)).toBeTruthy()
+
+      // La vertical por probar, con el texto que arma la Home.
+      cleanup()
+      memory.session.lastAdded = null
+      const poked = await renderHome()
+      await advance(900 + 3400)
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(3000)
+      const talk = poked.container.querySelector('.live-bubble')
+      fireEvent.click(within(talk).getByRole('button', { name: '¿Por qué?' }))
+      expect(within(talk).getByText(fixture('agent-offer-vertical-por-probar').reason.text)).toBeTruthy()
+    })
+
     test('la Home muestra solo los 5 primeros planes, en el orden del servidor', async () => {
       await renderHome()
       await advance(100)

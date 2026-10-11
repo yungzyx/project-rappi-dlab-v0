@@ -111,6 +111,10 @@ export function GameProvider({ children }) {
     setGeneration((n) => n + 1)
   }, [])
 
+  // «Olvidar» espera aquí antes del DELETE: el guardado en vuelo termina y el que estaba en cola no sale, así ninguno
+  // llega después y recrea al usuario. Una acción posterior guarda como siempre.
+  const settle = useCallback(() => saver.current.cancel(), [])
+
   const reset = useCallback(() => {
     forget()
     saver.current.save(latest.current)
@@ -170,8 +174,9 @@ export function GameProvider({ children }) {
       clearEvents,
       reset,
       forget,
+      settle,
     }),
-    [state, date, events, generation, run, commit, dismissEvent, clearEvents, reset, forget],
+    [state, date, events, generation, run, commit, dismissEvent, clearEvents, reset, forget, settle],
   )
 
   if (loaded !== 'ready') {

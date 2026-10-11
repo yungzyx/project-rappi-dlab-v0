@@ -60,6 +60,21 @@ describe('SearchResults sin resultados', () => {
     expect(tracked('suggestion_shown')).toHaveLength(1)
   })
 
+  test('the offer has ¿Por qué?', async () => {
+    stubApi({ 'POST /agent/offer': fixture('agent-offer-sin-resultado') })
+    render(<SearchResults query="pizza hawaiana" data={{ ...EMPTY, query: 'pizza hawaiana' }} onOpenVertical={() => {}} />)
+    await flush()
+    fireEvent.click(screen.getByRole('button', { name: '¿Por qué?' }))
+    expect(screen.getByText(fixture('agent-offer-sin-resultado').reason.text)).toBeTruthy()
+  })
+
+  test('sin una oferta (204) no hay ¿Por qué?', async () => {
+    stubApi({ 'POST /agent/offer': 204 })
+    render(<SearchResults query="xyzzy" data={{ ...EMPTY, query: 'xyzzy' }} onOpenVertical={() => {}} />)
+    await flush()
+    expect(screen.queryByRole('button', { name: '¿Por qué?' })).toBeNull()
+  })
+
   test('sin resultados muestra Ver en la vertical que sí lo tiene', async () => {
     const fetchMock = stubApi({ 'POST /agent/offer': fixture('agent-offer-sin-resultado') })
     const onOpenVertical = vi.fn()

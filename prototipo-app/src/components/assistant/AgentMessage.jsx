@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import AddButton from '../AddButton'
 import HScroll from '../HScroll'
 import Img from '../Img'
+import OfferWhy from './OfferWhy'
 import { useGame } from '../../state/GameContext'
 import { useProductSheet } from '../../state/ProductSheetContext'
 
@@ -185,6 +186,7 @@ export default function AgentMessage({ message, onStreamDone, onOpenProduct, onO
           <div className="agent-msg-extras">
             {message.reason && <p className="agent-msg-reason">{message.reason}</p>}
             {message.products?.length > 0 && <ProductCards products={message.products} onOpenProduct={onOpenProduct} />}
+            {message.offerReason && <OfferWhy reason={message.offerReason} />}
             {message.suggestion?.products?.length > 0 && (
               <div className="agent-msg-suggestion">
                 <p className="agent-msg-reason">

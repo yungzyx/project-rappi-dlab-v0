@@ -3,6 +3,7 @@ import { AGENT_NAME } from '../../agent/name'
 import { storeOfProduct } from '../../api/catalog'
 import { ask as askAgent, forget, profile as remoteProfile, recommendations, toMessage } from '../../api/client'
 import { offer } from '../../api/agent'
+import { ordersSettled } from '../../api/orders'
 import { firstShowing, noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
 import { askAbout } from '../../assistant/agentAsk'
@@ -187,7 +188,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
         concept: made.reason?.concept,
         generation: profile.resets,
       })
-      return { text: made.text, products: made.products, actions: made.actions }
+      return { text: made.text, products: made.products, actions: made.actions, offerReason: made.reason }
     } catch {
       return offline(() => offered(moment, context, nothing))
     }
@@ -347,8 +348,10 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     profile.reset()
     setLearnedRemote(null)
     setDiscoverRows([])
-    // Lo que ya salió (preguntas pendientes, un lote de eventos) podría recrear lo olvidado en el servidor: se
-    // espera antes del DELETE, y lo que haya dejado en cola se descarta.
+    // Lo que ya salió (un guardado del juego, un pedido, preguntas pendientes, un lote de eventos) podría recrear lo
+    // olvidado en el servidor: se espera antes del DELETE, y lo que haya dejado en cola se descarta.
+    await Promise.allSettled([game.settle()])
+    await ordersSettled()
     await Promise.allSettled([askQueue.current])
     events.clear()
     clearShownTopics()
