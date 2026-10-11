@@ -318,6 +318,20 @@ describe('Home del prototipo final', () => {
       expect(screen.queryByRole('radio')).toBeNull()
     })
 
+    test('una oferta que llega con la Home inactiva no muestra globo, ni al volver', async () => {
+      stubAgent({ 'POST /agent/offer': { slow: 2000, body: fixture('agent-offer-carrito') } })
+      memory.session.played = true
+      memory.session.lastAdded = LOOSE_CART
+      const { container, rerender } = await renderHome()
+      await advance(100) // la oferta ya se pidió
+      rerender(homeTree({ active: false })) // se abrió una tienda encima
+      await advance(3000) // la oferta llega con la Home tapada
+      expect(container.querySelector('.live-bubble')).toBeNull()
+      rerender(homeTree({ active: true }))
+      await advance(1000)
+      expect(container.querySelector('.live-bubble')).toBeNull()
+    })
+
     test('el comentario del carrito usa la oferta de la API y calla en un 204', async () => {
       const push = vi.fn()
       const carrito = fixture('agent-offer-carrito')

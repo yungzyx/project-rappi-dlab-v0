@@ -1,7 +1,7 @@
 import { storeOfProduct } from '../../api/catalog'
 import { SearchIcon } from '../../components/Icons'
 import BackButton from '../../components/BackButton'
-import { PopularStores, RecentSearches, SearchResults } from '../../components/search/SearchSections'
+import { PopularStores, SearchIdeas, SearchResults } from '../../components/search/SearchSections'
 import { useSearch } from '../../components/search/useSearch'
 import '../../components/search/search.css'
 
@@ -41,7 +41,7 @@ export default function SearchScreen({ back, push, params }) {
 
       {!hasQuery && (
         <>
-          <RecentSearches onPick={pick} />
+          <SearchIdeas onPick={pick} />
           <PopularStores onOpen={openStore} />
         </>
       )}

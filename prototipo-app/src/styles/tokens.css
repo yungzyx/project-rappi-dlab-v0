@@ -21,7 +21,7 @@
   --accent-text: #b3461f;
   --accent-deep: #8f2c16;
   --price-yellow: #fadc24; /* precio y descuento de los productos */
-  --green-add: #34c859; /* botón «+» y «Place order» del carro */
+  --green-add: #34c859; /* botón «+» y «Go to checkout» del carro: texto --ink (8,2:1), no blanco (2,2:1) */
   --green-deep: #1f8a3b; /* texto verde y contador del carro (4,9:1 con blanco) */
   --green-status: #34c759; /* verde del sistema: batería, «en línea», pasos listos */
   --surface-soft: #f7f7f8; /* fondo de pantallas con tarjetas blancas */
@@ -40,7 +40,7 @@
   --turbo-green: #478d66;
   --turbo-search: rgba(255, 255, 255, 0.4);
   --fee-bg: #fdfbe5;
-  --fee-ink: #9d8a36;
+  --fee-ink: #806f1f; /* 4,8:1 sobre --fee-bg (AA) */
 
   /* Capas, de abajo hacia arriba (las menores de 10 son locales a cada pantalla) */
   --z-header: 20; /* encabezados pegados y compacto de la Home */

@@ -305,13 +305,17 @@ function PlayRound({ vertical, back, orderId, challenge, turn }) {
   // Lo que se logra en la ronda lo celebra su pantalla final: al salir no se repite como aviso.
   useEffect(() => clearEvents, [clearEvents])
 
-  // Teclado para la demo en computador: 1 a 4 responden, Enter o espacio dan vuelta la carta o siguen.
+  // Teclado para la demo en computador: 1 a 4 responden, Enter o espacio dan vuelta la carta o siguen, Escape pide salir.
   useEffect(() => {
     if (!steps || finished || confirmExit) return undefined
     const onKey = (e) => {
       if (e.repeat) return
-      // Enter sobre un enlace (la fuente) lo abre: no sigue la ronda.
-      const go = (e.key === 'Enter' || e.key === ' ') && !e.target.closest?.('a')
+      if (e.key === 'Escape') {
+        setConfirmExit(true)
+        return
+      }
+      // Enter o espacio sobre un control (la X, la fuente, una opción) hacen lo suyo: no siguen la ronda.
+      const go = (e.key === 'Enter' || e.key === ' ') && !e.target.closest?.('button, a, input, textarea, [role=button]')
       if (outcome && go) {
         e.preventDefault()
         next()

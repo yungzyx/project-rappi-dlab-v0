@@ -9,6 +9,10 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ')
 
+// Los diálogos abiertos, el último arriba: con dos a la vez (el panel de Mochi y una hoja encima) solo el de arriba
+// atrapa Tab y atiende Escape; si no, cada uno le deshace al otro el foco y Escape cierra los dos.
+const stack = []
+
 /**
  * Diálogo modal usable con teclado y VoiceOver (WCAG 2.1.2 y 2.4.3): al abrir, el foco entra (a `[data-autofocus]`
  * o al primer control); Escape cierra; Tab no sale del diálogo; al cerrar, el foco vuelve a quien lo abrió.
@@ -26,7 +30,9 @@ export function useDialog(ref, open, onClose) {
     const target = root?.querySelector('[data-autofocus]') ?? root?.querySelector(FOCUSABLE) ?? root
     target?.focus({ preventScroll: true })
 
+    stack.push(root)
     const onKeyDown = (event) => {
+      if (stack.at(-1) !== root) return
       if (event.key === 'Escape') {
         event.stopPropagation()
         onCloseRef.current()
@@ -48,6 +54,7 @@ export function useDialog(ref, open, onClose) {
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
+      stack.splice(stack.indexOf(root), 1)
       if (opener?.isConnected) opener.focus({ preventScroll: true })
     }
   }, [open, ref])

@@ -14,18 +14,18 @@ import ProductRow from '../ProductRow'
 import StoreList from '../StoreList'
 
 // Sugerencias sacadas de los textos que rota el buscador de la Home, en español: la búsqueda es del catálogo chileno.
-const RECENT = ['Plátano', 'Agua', 'Chocolate', 'Hamburguesa', 'Cerveza', 'Pizza']
+const IDEAS = ['Plátano', 'Agua', 'Chocolate', 'Hamburguesa', 'Cerveza', 'Pizza']
 const POPULAR_COUNT = 6
 // Productos que se ven de cada vertical; «Ver más» muestra el resto de lo que trajo la API.
 const GROUP_PREVIEW = 3
 const NO_RESULT_ORIGIN = 'agent-sin_resultado'
 
-export function RecentSearches({ onPick }) {
+export function SearchIdeas({ onPick }) {
   return (
     <>
-      <h2 className="search-heading">Recent searches</h2>
+      <h2 className="search-heading">Search ideas</h2>
       <div className="search-chips">
-        {RECENT.map((term) => (
+        {IDEAS.map((term) => (
           <button key={term} type="button" className="search-chip tap" onClick={() => onPick(term)}>
             {term}
           </button>

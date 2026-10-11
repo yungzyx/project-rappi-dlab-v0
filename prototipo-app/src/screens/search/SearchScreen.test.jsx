@@ -69,6 +69,12 @@ describe('SearchScreen', () => {
     expect(screen.getByText('Cerveza negra botella 330 cc (prueba)')).toBeTruthy()
   })
 
+  test('el título de sugerencias no dice recientes: son ideas fijas, no un historial', () => {
+    setup()
+    expect(screen.getByRole('heading', { name: 'Search ideas' })).toBeTruthy()
+    expect(screen.queryByText(/recent/i)).toBeNull()
+  })
+
   test('la búsqueda manda la vertical de la pantalla de origen como «current»', async () => {
     const { input, fetchMock } = setup({ vertical: 'liquor' })
     await type(input, 'cerveza')

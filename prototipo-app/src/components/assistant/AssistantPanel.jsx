@@ -7,7 +7,7 @@ import { firstShowing, noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
 import { askAbout } from '../../assistant/agentAsk'
 import { routeForScreen } from '../../data/verticals'
-import { PopularStores, RecentSearches, SearchResults } from '../search/SearchSections'
+import { PopularStores, SearchIdeas, SearchResults } from '../search/SearchSections'
 import { useSearch } from '../search/useSearch'
 import { useDemo } from '../../state/DemoContext'
 import { noteShownTopic, sessionId, shownTopics, useEvents } from '../../state/EventsContext'
@@ -488,7 +488,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
             </section>
 
             <section className="agent-block">
-              <RecentSearches onPick={search.pick} />
+              <SearchIdeas onPick={search.pick} />
             </section>
 
             {discoverRows.length > 0 && (

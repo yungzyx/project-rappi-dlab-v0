@@ -3,15 +3,18 @@ import AddButton from '../AddButton'
 import HScroll from '../HScroll'
 import Img from '../Img'
 import OfferWhy from './OfferWhy'
+import { useReducedMotion } from '../../hooks/useReducedMotion'
 import { useGame } from '../../state/GameContext'
 import { useProductSheet } from '../../state/ProductSheetContext'
 
 const CHARS_PER_SECOND = 70
 const TICK_MS = 30
 
-/** Texto que aparece letra por letra, como si el asistente lo estuviera escribiendo. */
+/** Texto que aparece letra por letra, como si el asistente lo estuviera escribiendo (entero con «reducir movimiento»). */
 function StreamText({ text, animate, onDone }) {
-  const [count, setCount] = useState(animate ? 0 : text.length)
+  const reduce = useReducedMotion()
+  const [typed, setCount] = useState(animate ? 0 : text.length)
+  const count = reduce ? text.length : typed
   const finished = useRef(!animate)
   const startedAt = useRef(null)
   // En una ref para que un render del padre no reinicie el temporizador.

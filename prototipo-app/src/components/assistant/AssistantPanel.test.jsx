@@ -342,6 +342,27 @@ describe('teclado y lector de pantalla', () => {
     expect(document.activeElement).toBe(focusable[0])
   })
 
+  test('con el panel y la hoja de producto abiertos, Tab llega al segundo control de la hoja y Escape cierra solo la hoja', async () => {
+    await renderPanel()
+    fireEvent.change(screen.getByLabelText('Buscar en Rappi'), { target: { value: 'cerveza' } })
+    await runUntilIdle()
+    fireEvent.click(screen.getByText('Cerveza negra botella 330 cc (prueba)')) // la hoja del producto, sobre el panel
+    await runUntilIdle()
+    const sheet = document.querySelector('.product-sheet')
+    const inSheet = [...sheet.querySelectorAll('button:not([disabled]), [href], input:not([disabled])')]
+    expect(inSheet.length).toBeGreaterThan(1)
+    expect(document.activeElement).toBe(inSheet[0])
+    // Tab desde el primer control no se cancela ni lo recoge el panel: el navegador sigue al segundo.
+    expect(fireEvent.keyDown(inSheet[0], { key: 'Tab' })).toBe(true)
+    inSheet[1].focus()
+    expect(sheet.contains(document.activeElement)).toBe(true)
+
+    fireEvent.keyDown(document.activeElement, { key: 'Escape' })
+    await runUntilIdle()
+    expect(document.querySelector('.product-sheet')).toBeNull()
+    expect(screen.getByRole('dialog')).toBeTruthy() // el panel de Mochi sigue abierto
+  })
+
   test('cada respuesta completa se anuncia una vez al lector de pantalla', async () => {
     api.ask.mockResolvedValueOnce(apiAnswer('Mira estas cervezas'))
     await renderPanel()

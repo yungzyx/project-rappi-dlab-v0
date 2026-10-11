@@ -6,6 +6,7 @@ import SmartBar from '../../../components/assistant/SmartBar'
 import { useToast } from '../../../components/Toast'
 import { ChevronDown } from '../../../components/Icons'
 import { VERTICAL_NAMES, routeForScreen } from '../../../data/verticals'
+import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { useScrollState } from '../../../hooks/useScrollState'
 import { useAddress } from '../../../state/AddressContext'
 import { useAddToCart } from '../../../hooks/useAddToCart'
@@ -54,18 +55,6 @@ const ACTIONS_HOLD = 12000 // un globo con botones se va solo después de esto (
 /** Un toque de vibración en los momentos clave (solo donde el navegador lo permite, como Android). */
 const buzz = () => navigator.vibrate?.(12)
 
-function usePrefersReducedMotion() {
-  const query = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')
-  const [reduce, setReduce] = useState(Boolean(query?.matches))
-  useEffect(() => {
-    if (!query) return undefined
-    const change = () => setReduce(query.matches)
-    query.addEventListener?.('change', change)
-    return () => query.removeEventListener?.('change', change)
-  }, [query])
-  return reduce
-}
-
 /**
  * Home del prototipo final: la barra abre el buscador con el agente. El agente de cuerpo entero vive en
  * la Home sin reordenarla: saluda, acompaña el pasaporte y el plan del día, y al tocarlo invita a una vertical nueva.
@@ -77,7 +66,7 @@ export default function LiveHomeFeed({ push, active = true }) {
   const { add: addToCart } = useAddToCart()
   const profile = useProfile()
   const events = useEvents()
-  const reduceMotion = usePrefersReducedMotion()
+  const reduceMotion = useReducedMotion()
   const [replays, setReplays] = useState(0)
 
   const game = useGame()
@@ -309,6 +298,14 @@ export default function LiveHomeFeed({ push, active = true }) {
       commentOn(added)
     }
   }
+  // Con otra pantalla encima, lo que Mochi esperaba (una oferta, un kit) ya no corresponde: se calla y no habla después.
+  // La guía no: sigue donde quedó cuando la Home vuelve a estar arriba.
+  useEffect(() => {
+    if (active) return
+    run.current += 1
+    if (!touring.current) speak(null)
+  }, [active, speak])
+
   useEffect(() => {
     if (!active || !session.played || touring.current) return
     welcomeBack()
@@ -550,7 +547,7 @@ export default function LiveHomeFeed({ push, active = true }) {
         target={target}
         getBlock={getBlock}
         entering={entering}
-        away={!present}
+        away={!present || !active}
         reduceMotion={reduceMotion}
         onPoke={poke}
         onWhyToggle={onWhyToggle}
