@@ -51,10 +51,11 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `make embed` | Embeddings de texto (incrementales) + índices HNSW por vertical. No corre si hay una descarga del scraper en curso |
 | `make eval` | Evalúa la búsqueda (léxico, vectorial, híbrido y ablación sin refuerzo), guarda τ en `src/rappi_ia/eval/thresholds.json` (solo en verticales con negativas que dependen de τ; los demás conservan el suyo; `make eval EVAL_ARGS=` no guarda) y deja el reporte en `data/eval/busqueda.md`. Con `--jev-auto` (lo que usa `make eval`) suma a Jev como tercer juez solo si hay clave y adopción |
 | `make synth` | Usuarios y eventos **simulados** para métricas y segmentos (1.500 usuarios × 26 semanas, semilla 7; reemplaza los anteriores) |
-| `make purge` | Borra el texto de las consultas con más de 90 días |
+| `make purge` | Borra el texto de las consultas con más de 90 días y a las personas del prototipo sin actividad en 180 (`PROTOTYPE_USER_RETENTION_DAYS`) |
 | `make knowledge` | Carga las 108 tarjetas del juego y sus ligas a conceptos (idempotente; también al levantar la API con make) |
 | `make layers` / `make layer-report` | Capa de datos (medidas, marcas, canónicos, atributos, grafo y segmentos) / su reporte de calidad |
 | `make migrate` / `make db-test` | Aplica las migraciones pendientes / crea la base de tests `rappi_ia_test` |
+| `make deploy-migrate` | El paso de migrar de un despliegue: respalda si hay pendientes (`pre-migracion_<fecha>.dump`), migra, carga las tarjetas y, con `DB_API_ROLE`, aplica los permisos de la API ([docs/despliegue.md](../docs/despliegue.md)) |
 | `make analytics` | Resumen de las métricas de negocio en la terminal |
 | `make contract` | Reescribe las respuestas de ejemplo de la API para la app y el panel (el CI falla si quedan desactualizadas) |
 | `make warm` | Calienta la API antes de una demo |
@@ -80,7 +81,8 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 
 | Endpoint | Para qué |
 |---|---|
-| `GET /health` | Capacidades disponibles (búsqueda semántica, redacción) y documentos indexados |
+| `GET /live` · `GET /health` | El proceso responde (sin mirar la base) · lista para atender: 200 con capacidades y documentos, o 503 con `motivos` (`base`, `saturada`, `sin_documentos`, `migraciones_pendientes`, `busqueda_semantica`) |
+| `POST /session` | Sesión anónima: `{legacy_user_id?}` → `{user_id, token}`. El token va en la cabecera `X-User-Token` de toda ruta con datos de una persona (401 sin él, 403 con el de otra) |
 | `POST /agent/ask` | El agente (Mochi): `{message, vertical?, user_id?, session_id?, profile?, shown_topics?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
 | `POST /agent/offer` · `GET /agent/plans` | Lo que el agente propone en cada momento de la app (204 si no hay una buena oferta) · las ocasiones de la Home con su kit |
 | `GET /catalog/home` · `/catalog/verticals/{vertical}/stores` · `/catalog/stores/{store_id}` · `/catalog/products/{entity_type}/{entity_id}` · `/catalog/restaurants` · `/catalog/restaurants/{store_id}/menu` · `/catalog/deals` | Las pantallas de catálogo del prototipo (Home, verticales, tienda, producto, restaurantes, menú, ofertas), con el precio vigente |
@@ -93,15 +95,35 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `GET /analytics/{kpis, weekly, opportunities, trends, funnel, cohorts, rhythm, at-risk, suggestions, multi-vertical, affinity, assortment, services, catalog, offers, game, unmet}` | Métricas de negocio (las muestra el [panel](../dashboard-empresa/), parte del MVP). `offers`, `game` y `unmet` son las de «Uso del MVP» |
 | `GET /concepts` | Taxonomía de conceptos (id, nombre, emoji, grupo y si es sensible) con su versión |
 
-**Seguridad.** Es una demo local y **no tiene autenticación**:
+**Seguridad.** En local (`API_ENV=local`, por defecto) es una demo sin puerta de acceso:
 - **Por defecto:** `make serve` escucha solo en el equipo local (`127.0.0.1`).
 - **Para el iPhone:** `make serve-lan` abre la API a la red local. Solo en una red de confianza.
 - **CORS:** por defecto solo acepta `localhost` y `127.0.0.1` en los puertos 51xx; con `serve-lan`, también 192.168/16, 10/8, 172.16/12 (el hotspot del iPhone) y nombres `.local`.
+- **Identidad:** los datos de cada persona piden su token (`POST /session`, `X-User-Token`), también en local; sin `API_SECRET`, la API crea una vez `data/api-secret` (fuera de git).
+- **Límites:** cupos por ruta cara (503), cuerpo máximo (413) y requests por IP (429; este Mac no tiene tope en local).
 - **Tiempos:** Claude tiene 6 s (si no, responde la plantilla); la conexión a Postgres, 3 s, y cada consulta, 5 s (30 s en `/analytics/*`; `API_TIMEOUT_INTERACTIVE_MS` y `API_TIMEOUT_ANALYTICS_MS`). Con la base caída, la API responde 503, y con una consulta que pasa su tope, 504.
+- **En un servidor** (`API_ENV=production`): detrás de Caddy con TLS y puerta de acceso, CORS exacto, sin `/docs` ni `/analytics` salvo que se enciendan, `API_SECRET` obligatorio y la API nunca migra. Ver [docs/despliegue.md](../docs/despliegue.md).
+
+**Variables principales** (todas en `.env.example`; la lista completa, con servicio y si es secreta, en [docs/despliegue.md §2](../docs/despliegue.md#2-variables-de-entorno)):
+
+| Variable | Local | Producción |
+|---|---|---|
+| `API_ENV` | `local` | `production` |
+| `API_SECRET` | se crea en `data/api-secret` | obligatoria (`openssl rand -hex 32`) |
+| `API_CORS_ORIGINS` | `localhost` y `127.0.0.1` en los puertos 51xx | exactamente estos orígenes (el stack pone `https://<dominio>`) |
+| `API_ENABLE_ANALYTICS` / `API_DOCS` | `1` / `1` | `0` / `0` |
+| `API_POOL_MAX` · `API_POOL_TIMEOUT_S` | `10` · `3` | igual |
+| `API_RATE_PER_MIN` · `API_RATE_WRITE_PER_MIN` · `API_NEW_USERS_PER_IP_DAY` | `120` · `60` · `20` (este Mac sin tope) | igual, para todas las IP |
+| `API_REQUIRE_SEMANTIC` | `0` | `1` en el stack |
+| `LLM_DAILY_CALL_CAP` | `300` | igual |
+| `LOG_LEVEL` | `INFO` | igual |
+| `PROTOTYPE_USER_RETENTION_DAYS` | `180` | igual |
+| `RAPPI_ENV_FILE` · `RAPPI_IA_DATA_DIR` | `.env` · `data/` | `/etc/rappi/rappi.env` · `/data/ia` |
 
 **Privacidad:**
 - **Datos personales en consultas:** se redactan antes de guardarlas (RUT con dígito verificador, teléfonos, correos, direcciones y tarjetas) y el texto se borra a los 90 días (`make purge`).
 - **«Olvidar» / «Borrar mis datos»** (`DELETE /profile/{id}`): borra a la persona entera, con su perfil, sus eventos, sus pedidos y el progreso del juego (en cascada).
+- **Personas inactivas:** las del prototipo sin eventos, pedidos ni juego en 180 días se borran (`make purge`, `PROTOTYPE_USER_RETENTION_DAYS`).
 - **Sensibles:** los conceptos sensibles no entran al perfil ni a las métricas de negocio.
 - **Claude:** si hay clave, recibe solo hechos estructurados, nunca la consulta del usuario.
 
@@ -191,5 +213,6 @@ rappi-ia/
 | `028_game.sql` · `029_game_events.sql` | Tarjetas del juego y su progreso; eventos `game_round_finished` y `game_card_discovered` |
 | `030_jev.sql` | Caché de juicios de Jev (`eval_judgments`) y método `jev` en el mapa de categorías |
 | `031_order_mode.sql` | El modo de la app en que se hizo cada pedido (los de «Rappi hoy» no entran al perfil) |
+| `033_user_tokens.sql` | `app_users.token_issued_at`: cuándo recibió la persona su token firmado (un id ya firmado no se puede reclamar con `legacy_user_id`) |
 
 `014`–`015` (limpieza del HTML de los documentos de búsqueda), `017`–`019` y `021` (formatos de tienda, Turbo, vigencia y platos por local) y `032` (`latest_prices` y `latest_menu_prices`, el último precio mantenido por triggers, y la vista `v_latest_offers`, la definición única de oferta vigente, que esta capa también lee) son del scraper.

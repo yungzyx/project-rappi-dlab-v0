@@ -66,6 +66,7 @@ El efecto real (frecuencia, venta cruzada, verticales nuevas por persona) solo s
 | Flujo de datos | Del catálogo a la respuesta de Mochi | [PNG](docs/diagramas/rag-datos.png) · [interactivo](docs/diagramas/rag-datos.html) |
 | Arquitectura por carriles | Qué hace cada pieza de la IA | [PNG](docs/diagramas/arquitectura-ia.png) · [interactivo](docs/diagramas/arquitectura-ia.html) |
 | Scraper | Cómo se descarga el catálogo | [PNG](docs/diagramas/scraper-flujo.png) · [interactivo](docs/diagramas/scraper-flujo.html) |
+| Despliegue | El MVP en un servidor: Caddy con la puerta, la API, Postgres y los respaldos | [PNG](docs/diagramas/despliegue.png) · [interactivo](docs/diagramas/despliegue.html) |
 
 <img src="docs/mapas/mapa-conceptos.jpg" width="520" alt="Mapa de conceptos: cada concepto junto a la vertical donde es más típico">
 
@@ -82,7 +83,7 @@ Cada cifra dice qué tipo de dato es: real, evaluación automática, estimación
 | Capa de datos | Atributos, marcas y grafo | 83 atributos sobre 79.617 ítems · 6.359 marcas · 23.534 productos canónicos · 32.105 aristas en 12 relaciones | Real, con reglas propias; atributos 92 % y marcas 97 a 99 % de precisión estimada | `make layers`, 06-10-2026 |
 | Búsqueda | nDCG@10 | híbrido 0,917 · sin refuerzo por concepto 0,860 · vectorial 0,849 · léxico 0,776 | Evaluación automática | [reporte del 06-10](docs/resultados/busqueda-2026-10-06.md) |
 | Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,73 (30 de 41) | Evaluación automática | [reporte del 06-10](docs/resultados/busqueda-2026-10-06.md) |
-| Calidad | Tests (11-10-2026) | scraper 190 · rappi-ia 1531 · prototipo 701 · panel 111 | Verificación local y CI | `make test` · `npm test` (conteo con `pytest --collect-only -q` y `npm test`) |
+| Calidad | Tests (11-10-2026) | scraper 262 · rappi-ia 1638 · prototipo 732 · panel 114 | Verificación local y CI | `make test` · `npm test` (conteo con `pytest --collect-only -q` y `npm test`) |
 
 ### Catálogo por vertical
 
@@ -136,7 +137,11 @@ La tecla **D** (o Account → Settings → Modo demo en el celular) alterna «Pr
 
 ### Con el catálogo real
 
-La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y se deja al día con la capa de IA: ver [docs/instalacion.md](docs/instalacion.md), secciones 3 y 4. Con ella, Mochi busca en el catálogo real con precios vigentes. La API no tiene autenticación y por defecto escucha solo en el equipo local (`make mvp LAN=1` y `make serve-lan` la abren a la red, solo en una red de confianza). `make schedule` en `rappi-scraper/` programa la actualización semanal (domingos 03:00) seguida de `make post-refresh` en rappi-ia.
+La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y se deja al día con la capa de IA: ver [docs/instalacion.md](docs/instalacion.md), secciones 3 y 4. Con ella, Mochi busca en el catálogo real con precios vigentes. En local la API no tiene puerta de acceso (los datos de cada persona sí piden su token de sesión) y por defecto escucha solo en el equipo local (`make mvp LAN=1` y `make serve-lan` la abren a la red, solo en una red de confianza). `make schedule` en `rappi-scraper/` programa la actualización semanal (domingos 03:00) seguida de `make post-refresh` en rappi-ia.
+
+### En un servidor
+
+Una demo cerrada en un servidor Linux con Docker Compose: Caddy con TLS y una puerta de usuario y clave sobre todo el sitio, la API con identidad firmada y la base con roles separados, migraciones con respaldo y respaldos fuera del equipo. Paso a paso, en [docs/despliegue.md](docs/despliegue.md).
 
 ## Qué es real y qué es simulado
 
@@ -151,7 +156,7 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 - **Turbo sin actualizar:** sus tiendas ya no aparecen como Turbo en los listados públicos que recorre el scraper; sus precios son del 27-09.
 - **Evaluación automática:** no hay juicio humano, y el refuerzo por concepto favorece al híbrido.
 - **«Sin resultado»:** detecta 30 de 41 negativas; el reporte explica las demás.
-- **Demo local:** la API no tiene autenticación; la instalación está pensada para macOS (Homebrew, launchd).
+- **Demo cerrada:** sin cuentas ni lanzamiento abierto. En local la API no tiene puerta de acceso y la instalación está pensada para macOS (Homebrew, launchd); en un servidor, todo el sitio va detrás de usuario y clave.
 - **Cambios del sitio:** si rappi.cl cambia su frontend, hay que ajustar los parsers; el reporte de cada corrida marca las respuestas anómalas.
 
 ## Estructura del repositorio
@@ -166,8 +171,9 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 │   ├── diagramas/          diagramas (PNG e interactivos) y sus fuentes en diagramas-fuente/
 │   ├── mapas/              mapa multivertical y mapa de conceptos
 │   └── resultados/         reportes de evaluación versionados (fuente de las cifras)
+├── deploy/                 despliegue en un servidor: compose, Caddy, Dockerfiles, roles de la base, respaldos y timers
 ├── Makefile, scripts/      `make mvp` y `make mvp-check`: levantan y recorren el MVP
-├── .github/workflows/      CI (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build; `make mvp-check` y los scripts)
+├── .github/workflows/      CI (scraper y rappi-ia contra Postgres + pgvector; prototipo y panel con lint, tests y build; `make mvp-check`, los scripts y el stack de Docker)
 └── CLAUDE.md               convenciones para asistentes de código
 ```
 
