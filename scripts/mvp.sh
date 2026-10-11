@@ -46,8 +46,9 @@ start app npm --prefix prototipo-app run dev -- --port 5174 --strictPort $HOST_F
 start panel npm --prefix dashboard-empresa run dev -- --port 5175 --strictPort $HOST_FLAG
 
 # Con los modelos locales la API tarda en arrancar (la primera vez descarga el modelo e5, ~1 GB): sin límite de tiempo mientras siga
-# viva, avisando cada 15 s. La app y el panel responden en un par de segundos.
-wait_for_url "La API" http://localhost:8000/health 0 api "cargando modelos"
+# viva, avisando cada 15 s. Espera /live y no /health: con la base vacía o sin preparar /health da 503 y la espera no terminaría.
+# La app y el panel responden en un par de segundos.
+wait_for_url "La API" http://localhost:8000/live 0 api "cargando modelos"
 wait_for_url "La app" http://localhost:5174 30 app
 wait_for_url "El panel" http://localhost:5175 30 panel
 echo "MVP listo: app http://localhost:5174 · panel http://localhost:5175 · API http://localhost:8000/docs"
