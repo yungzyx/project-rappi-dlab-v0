@@ -8,6 +8,7 @@ vence a los `ttl_s` segundos: una corrida nueva lo invalida y lo que cambia sin 
 segundos: una búsqueda pide los conteos de 8 verticales y no hace 8 consultas para eso.
 
 Los valores son compartidos entre requests: quien los recibe no los modifica.
+Las claves no llevan la base: un proceso de la API sirve una sola base (los tests vacían la caché en cada uno).
 """
 
 import threading

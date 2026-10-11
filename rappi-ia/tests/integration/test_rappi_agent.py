@@ -1233,6 +1233,24 @@ def test_a_flavor_missing_here_is_shown_where_it_is(ice_creams):
     assert "Turbo" in r["text"] and "lúcuma" in r["text"]
 
 
+def test_a_detail_said_in_plural_or_english_finds_its_vertical(ice_creams):
+    """«helado kids»: el singular a mano es «kid», pero el índice guarda «kids» (no es español). La búsqueda de la
+    vertical que lo tiene mira el singular y sus plurales, como la expresión regular del nombre."""
+    agent, db = ice_creams
+    for pid, name in ((308, "Helado Kids frutilla 1 L"), (309, "Helado Kids chocolate 1 L")):
+        add_product(db, pid, name, 4, "Helados")
+        add_price(db, 4, pid, 3990)
+    db.commit()
+    build_search_documents(db)
+    build_concepts(db)
+    embed_search_documents(db, agent.embedder)
+
+    r = agent.reply(db, "helado kids", Context(vertical="supermercado"))
+
+    assert r["vertical"] == "turbo"
+    assert sorted(p["name"] for p in r["products"]) == ["Helado Kids chocolate 1 L", "Helado Kids frutilla 1 L"]
+
+
 def test_a_missing_without_x_is_said_as_such(ice_creams):
     agent, db = ice_creams
     for pid in (303, 306):

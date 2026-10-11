@@ -457,18 +457,24 @@ class RappiAgent:
 
         Esas verticales se buscan entre los productos con documento de búsqueda (los que tienen una oferta vigente)
         cuyo texto tiene la palabra, por el índice de `tsv_unaccent`; la expresión regular sobre el nombre, que no
-        tiene índice, solo revisa esos."""
+        tiene índice, solo revisa esos. La palabra se busca en las formas que acepta la expresión (la raíz y sus
+        plurales): el índice guarda la raíz de cada forma («kids» no es «kid»). Una palabra vacía de sentido
+        («mucho», una stopword) no tiene raíz en el índice y no lleva a otra vertical."""
         stem, _, free_from = detail
         candidates = [vertical]
         if not intent.explicit_vertical:
             candidates += [
                 v
                 for (v,) in conn.execute(
-                    """WITH said AS MATERIALIZED (
+                    """WITH forms AS (  -- con to_tsvector, una stopword no deja aviso: queda NULL y no calza nada
+                           SELECT string_agg(quote_literal(lexeme), ' | ')::tsquery AS q
+                           FROM unnest(to_tsvector('spanish', es_unaccent(%(forms)s)))
+                       ),
+                       said AS MATERIALIZED (
                            SELECT DISTINCT ic.entity_id FROM search_documents sd
                            JOIN item_concepts ic USING (entity_type, entity_id)
                            WHERE sd.entity_type = 'catalog_item' AND ic.concept_id = %(concept)s
-                             AND sd.tsv_unaccent @@ plainto_tsquery('spanish', es_unaccent(%(stem)s))
+                             AND sd.tsv_unaccent @@ (SELECT q FROM forms)
                        )
                        SELECT sv.vertical FROM said
                        JOIN catalog_items ci ON ci.master_product_id = said.entity_id::bigint
@@ -477,7 +483,7 @@ class RappiAgent:
                        GROUP BY 1 ORDER BY count(DISTINCT ci.master_product_id) DESC LIMIT 2""",
                     {
                         "concept": intent.concepts[0],
-                        "stem": stem,
+                        "forms": f"{stem} {stem}s {stem}es",  # lo que acepta `_name_pattern`
                         "pattern": _name_pattern(stem, free_from, sql=True),
                         "vertical": vertical,
                     },

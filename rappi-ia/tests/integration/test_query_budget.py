@@ -11,11 +11,13 @@ from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import RappiAgent
 from rappi_ia.api import app as api
 from rappi_ia.api.services import Services
+from rappi_ia.catalog import cache
 from rappi_ia.demo.seed import seed_demo
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
 
-GROUPED_SEARCH_BUDGET = 40
+GROUPED_SEARCH_BUDGET = 40  # con la caché del catálogo caliente (la versión y los conteos por vertical ya leídos)
+COLD_GROUPED_SEARCH_BUDGET = 45  # con la caché vacía: + la versión del catálogo y un conteo por vertical (42 medidas)
 # `count(*)` de una vertical entera: sin otro filtro que la vertical.
 PARTITION_COUNT = re.compile(
     r"count\(\*\)(?:::\w+)?(?:\s+AS\s+\w+)?\s+FROM\s+search_documents(?:\s+\w+)?\s+WHERE\s+(?:\w+\.)?vertical\s*=\s*"
@@ -66,12 +68,22 @@ def _search(client, counting, q: str) -> list[str]:
 
 
 def test_grouped_search_query_count_under_budget(counted):
+    """Mide la caché caliente: la primera búsqueda la llena y se cuenta la segunda."""
     client, counting = counted
-    _search(client, counting, "xyz")  # la primera llena la caché del catálogo
+    _search(client, counting, "xyz")
 
     statements = _search(client, counting, "xyz")
 
     assert len(statements) <= GROUPED_SEARCH_BUDGET, f"{len(statements)} consultas"
+
+
+def test_grouped_search_query_count_with_a_cold_cache(counted):
+    client, counting = counted
+    cache.clear()
+
+    statements = _search(client, counting, "xyz")
+
+    assert len(statements) <= COLD_GROUPED_SEARCH_BUDGET, f"{len(statements)} consultas"
 
 
 def test_no_partition_count_per_search(counted):
