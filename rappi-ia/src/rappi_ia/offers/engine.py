@@ -8,6 +8,11 @@ nada.
 
 Los textos son plantillas en español. Una oferta nunca nombra un concepto que el agente no puede proponer (el origen
 de un complemento puede ser cerveza o pañales, y el texto no lo repite).
+
+Cada oferta dice por qué (`Offer.reason`): las claves de siempre (`occasion`, `concept`, `from_concept`), el `text`
+(«Porque…») y la `basis`: las señales del contexto que la motivan (`kind` carrito, pedido, busqueda, ocasion o sello, e
+`id`; `source` «contexto» y sin `score`, que es de las señales de una persona en `offers/personal.py`). Lo que el agente
+no propone no entra a la base.
 """
 
 from dataclasses import dataclass, field
@@ -69,6 +74,14 @@ NO_RESULT_TEXT = "No encontré «{query}», pero {destino} sí hay en {vertical}
 TO_TRY_TEXT = "Aún no pruebas {vertical}: mira {what}."
 TO_TRY_DEALS = "estas ofertas"
 TO_TRY_DISHES = "lo que más piden"
+# Por qué se ofrece (`reason.text`). {emoji} {name} es el concepto de lo que ya hay en el carrito o en el pedido.
+REASON_PLAN = "Porque elegiste «{occasion}»."
+REASON_CART = "Porque llevas {emoji} {name}."
+REASON_CART_ANONYMOUS = "Porque combina con lo que llevas."
+REASON_NEXT = "Porque pediste {emoji} {name}."
+REASON_NEXT_ANONYMOUS = "Porque combina con lo que pediste."
+REASON_NO_RESULT = "Porque buscaste «{query}» y aquí sí hay."
+REASON_TO_TRY = "Porque aún no tienes el sello de {vertical}."
 SEE_ACTION = "Ver {destino}"
 OPEN_ACTION = "Abrir {vertical}"
 
@@ -83,7 +96,7 @@ class Offer:
     text: str
     products: list[dict]  # `Product.to_dict()`
     vertical: str | None  # en el kit, la de su primer producto; cada producto trae la suya
-    reason: dict = field(default_factory=dict)  # concept, from_concept u occasion
+    reason: dict = field(default_factory=dict)  # concept, from_concept u occasion, más text y basis
     actions: list[dict] = field(default_factory=list)  # label y, según el caso, route (pantalla) o query (búsqueda)
 
     def to_dict(self) -> dict:
@@ -188,7 +201,11 @@ def plan(conn: Connection, embedder: TextEmbedder | None, occasion_id: str) -> O
         text,
         [p.to_dict() for _, p in kit],
         verticals[0],
-        {"occasion": occasion.id},
+        _reason(
+            REASON_PLAN.format(occasion=occasion.name),
+            [_context_signal("ocasion", occasion.id)],
+            occasion=occasion.id,
+        ),
         [{"label": PLAN_ACTION, "query": query}],
     )
 
@@ -245,8 +262,21 @@ def complement(conn: Connection, embedder: TextEmbedder | None, moment: str, ent
     else:
         template = CHECKOUT_TEXT if moment == "checkout" else NEXT_ORDER_TEXT
     text = template.format(origen=origin.name.lower(), destino=target.name.lower(), vertical=vertical)
-    reason = {"concept": target.id, "from_concept": origin.id}
+    reason = complement_reason(moment, origin, target)
     return Offer(moment, text, products, suggestion.vertical, reason, [_see_action(target, suggestion.vertical)])
+
+
+def complement_reason(moment: str, origin: Concept, target: Concept) -> dict:
+    """Por qué se ofrece `target` en `carrito`, `checkout` o `proximo_pedido`. Si el agente no propone el origen
+    (cerveza, pañales), ni el texto ni la base lo nombran."""
+    ordered = moment == "proximo_pedido"
+    if is_offerable(origin):
+        template = REASON_NEXT if ordered else REASON_CART
+        text = template.format(emoji=origin.emoji, name=origin.name.lower())
+        basis = [_context_signal("pedido" if ordered else "carrito", origin.id)]
+    else:
+        text, basis = REASON_NEXT_ANONYMOUS if ordered else REASON_CART_ANONYMOUS, []
+    return _reason(text, basis, concept=target.id, from_concept=origin.id)
 
 
 # ── sin resultado ────────────────────────────────────────────────────────────
@@ -266,9 +296,12 @@ def where_is_it(conn: Connection, embedder: TextEmbedder | None, query: str) -> 
                 text = NO_RESULT_TEXT.format(
                     query=query.strip(), destino=concept.name.lower(), vertical=VERTICAL_LABELS.get(vertical, vertical)
                 )
-                return Offer(
-                    "sin_resultado", text, products, vertical, {"concept": concept_id}, [_see_action(concept, vertical)]
+                reason = _reason(
+                    REASON_NO_RESULT.format(query=query.strip()),
+                    [_context_signal("busqueda", query.strip())],
+                    concept=concept_id,
                 )
+                return Offer("sin_resultado", text, products, vertical, reason, [_see_action(concept, vertical)])
     return None
 
 
@@ -285,7 +318,8 @@ def vertical_to_try(conn: Connection, stamped: list[str]) -> Offer | None:
             what = TO_TRY_DISHES if vertical == "restaurantes" else TO_TRY_DEALS
             action = {"label": OPEN_ACTION.format(vertical=label), "route": [SCREEN_VERTICALS[vertical]]}
             text = TO_TRY_TEXT.format(vertical=label, what=what)
-            return Offer("vertical_por_probar", text, products, vertical, {}, [action])
+            reason = _reason(REASON_TO_TRY.format(vertical=label), [_context_signal("sello", vertical)])
+            return Offer("vertical_por_probar", text, products, vertical, reason, [action])
     return None
 
 
@@ -344,6 +378,14 @@ def _popular_dishes(conn: Connection) -> list[dict]:
         if len(products) >= SHOWN_PRODUCTS:
             break
     return products
+
+
+def _context_signal(kind: str, signal_id: str) -> dict:
+    return {"kind": kind, "id": signal_id, "source": "contexto"}
+
+
+def _reason(text: str, basis: list[dict], **ids: str) -> dict:
+    return {**ids, "text": text, "basis": basis}
 
 
 def _see_action(concept: Concept, vertical: str) -> dict:

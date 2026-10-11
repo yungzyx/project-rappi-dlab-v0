@@ -45,7 +45,16 @@
     }
   ],
   "prototype_vertical": "express",
-  "reason": {},
+  "reason": {
+    "basis": [
+      {
+        "id": "conveniencia",
+        "kind": "sello",
+        "source": "contexto"
+      }
+    ],
+    "text": "Porque aún no tienes el sello de Express."
+  },
   "text": "Aún no pruebas Express: mira estas ofertas.",
   "vertical": "conveniencia"
 }
