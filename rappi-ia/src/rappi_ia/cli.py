@@ -258,6 +258,8 @@ def cmd_eval_search(conn, args) -> None:
         jev_client = jev.client_or_none()
         if jev_client is None:
             raise SystemExit("--juez-jev necesita TYPESAFE_API_KEY (en rappi-ia/.env): sin ella no hay juez Jev.")
+    elif getattr(args, "jev_auto", False):
+        jev_client = _adopted_jev_judge()
     embedder = None
     if not args.solo_lexico:
         from .embeddings.models import text_embedder
@@ -281,6 +283,30 @@ def cmd_eval_search(conn, args) -> None:
     out.write_text(report, encoding="utf-8")
     print(report)
     print(f"Reporte en {out}")
+
+
+def _adopted_jev_judge():
+    """El juez de Jev para la evaluación semanal: solo con clave y con la adopción del piloto. Si falta algo, dice
+    en una línea por qué la evaluación sigue sin Jev; nunca falla."""
+    from . import jev
+
+    adoption = jev.load_adoption()
+    if not adoption.juez:
+        print(
+            "Jev no está adoptado como juez (falta eval/jev-adopcion.json o dice que no): la evaluación sigue sin Jev."
+        )
+        return None
+    client = jev.client_or_none()
+    if client is None:
+        print("Sin TYPESAFE_API_KEY: la evaluación sigue sin Jev.")
+        return None
+    if adoption.model_version and adoption.model_version != client.model:
+        print(
+            f"La adopción es para {adoption.model_version} y JEV_MODEL dice {client.model}: la evaluación sigue sin"
+            " Jev hasta repetir el piloto con ese modelo."
+        )
+        return None
+    return client
 
 
 def _jev_judgment(conn, client, runs) -> dict:
@@ -592,6 +618,11 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--solo-lexico", action="store_true", help="sin modelo de embeddings")
     ev.add_argument("--guardar-tau", action="store_true", help="guarda los τ calibrados en eval/thresholds.json")
     ev.add_argument("--juez-jev", action="store_true", help="agrega a Jev como juez (necesita TYPESAFE_API_KEY)")
+    ev.add_argument(
+        "--jev-auto",
+        action="store_true",
+        help="agrega a Jev como juez solo si hay clave y eval/jev-adopcion.json lo adoptó; si no, sigue sin él",
+    )
     sub.add_parser("eval-sample", help="muestra de ~200 pares (consulta, producto) para juzgar a mano")
     sub.add_parser("eval-human", help="juez automático y refuerzo por concepto contra los juicios a mano, y κ")
     sheets_cmd = sub.add_parser("jev-planillas", help="planillas CSV para juzgar a mano la búsqueda y las categorías")

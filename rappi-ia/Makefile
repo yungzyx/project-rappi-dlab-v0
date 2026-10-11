@@ -1,4 +1,4 @@
-.PHONY: help install install-ml db-test migrate check-migrations test lint format concepts knowledge embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
+.PHONY: help install install-ml db-test migrate check-migrations test lint format jev-categorias concepts knowledge embed eval synth analytics serve serve-lan warm probar-agente purge post-refresh layers layer-report contract
 
 PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
@@ -43,6 +43,9 @@ contract:  ## Reescribe las respuestas de ejemplo de la API que usan la app (pro
 	@$(PY) -c 'import os, sys, rappi_ia; os.environ.get("DATABASE_URL_TEST") or sys.exit("Falta DATABASE_URL_TEST: `make contract` no puede escribir los ejemplos")'
 	RAPPI_CONTRACT_WRITE=1 $(PY) -m pytest tests/integration/test_contract.py
 
+jev-categorias:  ## Jev etiqueta las categorías nuevas (opcional: sin clave o sin adopción no hace nada; ver docs/jev.md)
+	$(PY) -m rappi_ia map-categories --jev --solo-nuevas
+
 concepts:  ## Capa 2: conceptos por producto y plato (con kNN si hay extra ml)
 	$(PY) -m rappi_ia concepts
 
@@ -55,8 +58,9 @@ embed:  ## Embeddings de texto (incrementales) + índices HNSW por vertical
 # La tarea semanal (rappi-scraper/scripts/refresh-semanal.sh) pasa EVAL_ARGS= para no tocar eval/thresholds.json
 EVAL_ARGS ?= --guardar-tau
 
+# --jev-auto suma a Jev como tercer juez solo con clave y adopción (docs/jev.md); si no, evalúa igual que siempre
 eval:  ## Evalúa la búsqueda (léxico vs vectorial vs híbrido) y calibra τ
-	$(PY) -m rappi_ia eval-search $(EVAL_ARGS)
+	$(PY) -m rappi_ia eval-search $(EVAL_ARGS) --jev-auto
 
 synth:  ## Usuarios y eventos SIMULADOS para el panel (reemplaza los anteriores)
 	$(PY) -m rappi_ia synth
@@ -118,6 +122,6 @@ layer-report:  ## Reporte de calidad de las capas de perfiles (data/eval/capas.m
 	$(PY) -m rappi_ia layer-report
 
 post-refresh: migrate purge  ## Todo lo que sigue a un `rappi refresh` (sin imágenes)
-	$(MAKE) concepts knowledge embed eval synth layers
+	$(MAKE) jev-categorias concepts knowledge embed eval synth layers
 	$(MAKE) purge
 	@echo "Listo: conceptos, tarjetas del juego, embeddings, evaluación y datos simulados al día."
