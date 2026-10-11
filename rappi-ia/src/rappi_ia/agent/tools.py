@@ -85,6 +85,7 @@ class Suggestion:
     vertical: str
     reason: str
     products: list[Product] = field(default_factory=list)
+    brand: str | None = None  # brand_key del primer producto, si es una marca que la persona compra
 
 
 def clp(value: float | None) -> str | None:
@@ -183,9 +184,13 @@ def suggest_complement(
     current_vertical: str | None,
     embedder: TextEmbedder | None,
     exclude: set[str] = frozenset(),
+    prefer_brands: dict[str, int] | None = None,
 ) -> Suggestion | None:
     """Mejor complemento que el agente pueda proponer (offers/guards.py: ni alcohol, farmacia, bebé, salud ni
-    sensibles), preferentemente de OTRO vertical, con productos reales."""
+    sensibles), preferentemente de OTRO vertical, con productos reales.
+
+    Con `prefer_brands` (brand_key → pedidos de la persona), se miran más candidatos del concepto y el de la marca
+    comprada con más pedidos va primero. Si ninguno es de sus marcas, el resultado es el de siempre."""
     taxonomy = load_taxonomy()
     sources = [c for c in source_concepts if c in taxonomy.concepts and not taxonomy.concepts[c].sensitive]
     if not sources:
@@ -205,13 +210,38 @@ def suggest_complement(
         for vertical in _verticals_for(conn, target, current_vertical):
             if not offerable_vertical(vertical):
                 continue
-            outcome = search_products(conn, vertical, concept.name, [target], embedder, k=4, offer=True)
-            products = _dedupe([p for p in outcome.products if p.concept == target])
+            brand = None
+            if prefer_brands:
+                pool = search_products(conn, vertical, concept.name, [target], embedder, k=BRAND_CANDIDATES, offer=True)
+                products, brand = _brand_first(conn, [p for p in pool.products if p.concept == target], prefer_brands)
+            if brand is None:
+                outcome = search_products(conn, vertical, concept.name, [target], embedder, k=4, offer=True)
+                products = [p for p in outcome.products if p.concept == target]
+            products = _dedupe(products)
             if products:
                 origin = taxonomy.concepts[source]
                 reason = f"Porque llevas {origin.emoji} {origin.name.lower()}"
-                return Suggestion(target, source, vertical, reason, products[:3])
+                return Suggestion(target, source, vertical, reason, products[:3], brand)
     return None
+
+
+BRAND_CANDIDATES = 12  # productos del concepto que se miran para encontrar una marca que la persona compra
+
+
+def _brand_first(conn: Connection, products: list[Product], brands: dict[str, int]) -> tuple[list[Product], str | None]:
+    """El producto de la marca comprada con más pedidos, primero (con empate, el mejor de la búsqueda); el resto en
+    su orden. Sin ninguno de sus marcas: (products, None)."""
+    rows = conn.execute(
+        """SELECT entity_type, entity_id, brand_key FROM item_brands
+           WHERE (entity_type, entity_id) IN (SELECT * FROM unnest(%s::text[], %s::text[]))""",
+        ([p.entity_type for p in products], [p.entity_id for p in products]),
+    )
+    found = {(kind, entity): brand for kind, entity, brand in rows}
+    owned = [(i, brand) for i, p in enumerate(products) if (brand := found.get((p.entity_type, p.entity_id))) in brands]
+    if not owned:
+        return products, None
+    best, brand = min(owned, key=lambda pair: (-brands[pair[1]], pair[0]))
+    return [products[best], *products[:best], *products[best + 1 :]], brand
 
 
 def _within_budget(products: list[Product], price_max: float | None) -> list[Product]:

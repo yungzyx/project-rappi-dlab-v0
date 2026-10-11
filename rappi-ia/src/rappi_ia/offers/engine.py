@@ -13,7 +13,9 @@ Cada oferta dice por qué (`Offer.reason`): las claves de siempre (`occasion`, `
 («Porque…») y la `basis`: las señales del contexto que la motivan (`kind` carrito, pedido, busqueda, ocasion o sello, e
 `id`; `source` «contexto» y sin `score`, que es de las señales de una persona en `offers/personal.py`). Lo que el agente
 no propone no entra a la base. Cuando la oferta se ordena por lo que le gusta a la persona (`vertical_por_probar` y las
-ocasiones de la Home), la `basis` son sus señales (con `score` y `source`) de los conceptos que más aportan.
+ocasiones de la Home), la `basis` son sus señales (con `score` y `source`) de los conceptos que más aportan. Un
+complemento cuyo primer producto es de una marca que la persona compra lo dice en el `text` y suma esa señal (`marca`,
+con los pedidos como `score`).
 """
 
 from dataclasses import dataclass, field
@@ -37,7 +39,7 @@ from .guards import (
     plannable_vertical,
     unofferable_subverticals,
 )
-from .personal import Interests, user_interests
+from .personal import Interests, Signal, bought_brands, user_interests
 
 KIT_SIZE = 4  # productos del kit de una ocasión
 # El concepto ya está elegido: la búsqueda léxica de su nombre (miles de platos «pizza») costaba ~140 ms por búsqueda en
@@ -88,6 +90,7 @@ SEE_ACTION = "Ver {destino}"
 OPEN_ACTION = "Abrir {vertical}"
 REASON_LIKES_VERTICAL = "Porque te gusta {emoji} {name}, y en {vertical} hay más."
 REASON_LIKES_OCCASION = "Porque te gusta {emoji} {name}."
+REASON_BRAND = " Es {brand}, la marca que compras."  # se suma al porqué de un complemento de su marca
 BASIS_CONCEPTS = 3  # conceptos que más aportan, de los que la `basis` de una oferta lleva las señales
 
 
@@ -146,15 +149,16 @@ def make_offer(
     conn: Connection, embedder: TextEmbedder | None, moment: str, context: dict, user_id: str | None = None
 ) -> Offer | None:
     """La oferta de un momento, o None si no hay una buena. Con `user_id` de alguien del prototipo, los momentos que
-    personalizan (hoy `vertical_por_probar`) se ordenan por lo que le gusta; sus intereses se calculan una sola vez."""
+    personalizan se ordenan por lo que le gusta (`vertical_por_probar`; sus intereses se calculan una sola vez) o
+    prefieren las marcas que compra (el complemento de `carrito`, `checkout` y `proximo_pedido`)."""
     if moment == "plan":
         return plan(conn, embedder, context["occasion"])
     if moment == "carrito":
-        return complement(conn, embedder, "carrito", [context["product"]])
+        return complement(conn, embedder, "carrito", [context["product"]], bought_brands(conn, user_id))
     if moment == "checkout":
-        return complement(conn, embedder, "checkout", context["cart"])
+        return complement(conn, embedder, "checkout", context["cart"], bought_brands(conn, user_id))
     if moment == "proximo_pedido":
-        return complement(conn, embedder, "proximo_pedido", context["items"])
+        return complement(conn, embedder, "proximo_pedido", context["items"], bought_brands(conn, user_id))
     if moment == "sin_resultado":
         return where_is_it(conn, embedder, context["query"])
     if moment == "vertical_por_probar":
@@ -261,17 +265,24 @@ def _kit_product(conn: Connection, embedder: TextEmbedder | None, concept: Conce
 
 
 # ── carrito, checkout y próximo pedido ───────────────────────────────────────
-def complement(conn: Connection, embedder: TextEmbedder | None, moment: str, entities: list[dict]) -> Offer | None:
+def complement(
+    conn: Connection,
+    embedder: TextEmbedder | None,
+    moment: str,
+    entities: list[dict],
+    brands: dict[str, int] | None = None,
+) -> Offer | None:
     """Un complemento ofrecible (arista «complementa») de lo que hay en el carrito, el pedido o el producto, de otra
     vertical si la hay, y que no esté ya ahí. Lo que ya está puede ser cualquier cosa: solo se ofrece lo que el agente
-    puede proponer."""
+    puede proponer. Con `brands` (las que la persona compra: brand_key → pedidos), si el primer producto es de una de
+    ellas, el porqué la nombra."""
     keys = [(e["entity_type"], e["entity_id"]) for e in entities]
     known = _concepts_of(conn, keys)
     sources = list(dict.fromkeys(known[key] for key in keys if key in known))
     if not sources:
         return None
     current = (ranked_verticals(conn, [sources[0]]) or [None])[0]  # de dónde es lo primero que lleva
-    suggestion = suggest_complement(conn, sources, current, embedder, set(sources))
+    suggestion = suggest_complement(conn, sources, current, embedder, set(sources), brands)
     if suggestion is None:
         return None
     products = [p.to_dict() for p in suggestion.products if (p.entity_type, p.entity_id) not in set(keys)]
@@ -286,6 +297,10 @@ def complement(conn: Connection, embedder: TextEmbedder | None, moment: str, ent
         template = CHECKOUT_TEXT if moment == "checkout" else NEXT_ORDER_TEXT
     text = template.format(origen=origin.name.lower(), destino=target.name.lower(), vertical=vertical)
     reason = complement_reason(moment, origin, target)
+    if suggestion.brand and products[0]["id"] == suggestion.products[0].id:  # su marca sigue encabezando la oferta
+        name = conn.execute("SELECT name FROM product_brands WHERE brand_key = %s", (suggestion.brand,)).fetchone()[0]
+        reason["text"] += REASON_BRAND.format(brand=name)
+        reason["basis"].append(Signal("marca", suggestion.brand, brands[suggestion.brand], "pedidos").to_dict())
     return Offer(moment, text, products, suggestion.vertical, reason, [_see_action(target, suggestion.vertical)])
 
 

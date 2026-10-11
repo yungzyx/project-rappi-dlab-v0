@@ -2,7 +2,8 @@
 de las entradas): viven aparte para que `app.py` incluya los routers (`catalog.py`, `agent.py`) sin que ellos tengan
 que importar `app`."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager
 
 from psycopg import Connection
 from pydantic import BaseModel, model_validator
@@ -19,6 +20,16 @@ def get_conn() -> Iterator[Connection]:
     """Falla rápido si Postgres no responde o una consulta se atasca (la app muestra «Sin conexión»)."""
     with connect(connect_timeout=3, options="-c statement_timeout=20s") as conn:
         yield conn
+
+
+def _own_connection() -> AbstractContextManager[Connection]:
+    return connect(connect_timeout=3, options="-c statement_timeout=20s")
+
+
+def get_connector() -> Callable[[], AbstractContextManager[Connection]]:
+    """Abre conexiones fuera del request (una tarea en segundo plano corre después de cerrar la de `get_conn`). Los
+    tests lo reemplazan para usar la conexión del test."""
+    return _own_connection
 
 
 def backend_vertical(vertical: str | None) -> str | None:
