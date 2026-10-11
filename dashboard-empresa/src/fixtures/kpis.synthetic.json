@@ -13,5 +13,9 @@
     "busquedas_sin_resultado_pct": 22.7,
     "conversion_sesiones_pct": 54.3,
     "source": "synthetic"
+  },
+  "guardado": {
+    "origen": "npm run fixtures · simulación de 1.500 usuarios × 26 semanas (semilla 7)",
+    "fecha": "2026-10-09"
   }
 }

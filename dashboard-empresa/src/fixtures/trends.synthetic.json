@@ -85,5 +85,9 @@
       "anteriores": 31,
       "crecimiento_pct": -35
     }
-  ]
+  ],
+  "guardado": {
+    "origen": "npm run fixtures · simulación de 1.500 usuarios × 26 semanas (semilla 7)",
+    "fecha": "2026-10-09"
+  }
 }

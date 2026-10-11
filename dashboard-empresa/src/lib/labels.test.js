@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { demandLabel, describeFallbacks, plural, verticalLabel } from './labels.js'
+import { demandLabel, describeFallbacks, describeOrigins, plural, verticalLabel } from './labels.js'
 
 describe('describeFallbacks', () => {
   test('nombra la consulta y el motivo', () => {
@@ -53,5 +53,22 @@ describe('etiquetas', () => {
   test('plural', () => {
     expect(`1 ${plural(1, 'tienda')}`).toBe('1 tienda')
     expect(`8 ${plural(8, 'tienda')}`).toBe('8 tiendas')
+  })
+})
+
+describe('describeOrigins', () => {
+  test('lists each saved origin once, with its date', () => {
+    const simulated = { origen: 'simulación', fecha: '2026-10-09' }
+    expect(
+      describeOrigins([
+        { guardado: simulated },
+        { guardado: simulated },
+        { guardado: { origen: 'muestra pública', fecha: '2026-10-09' } },
+      ]),
+    ).toBe('simulación (2026-10-09) y muestra pública (2026-10-09)')
+  })
+
+  test('says so when a saved response has no origin', () => {
+    expect(describeOrigins([{ guardado: null }])).toBe('origen sin registrar')
   })
 })

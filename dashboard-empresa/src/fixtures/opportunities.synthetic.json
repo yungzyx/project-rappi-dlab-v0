@@ -108,5 +108,9 @@
       "existe_en": "supermercado, conveniencia",
       "accion": "Existe en otro vertical: que el agente lo ofrezca ahí"
     }
-  ]
+  ],
+  "guardado": {
+    "origen": "npm run fixtures · simulación de 1.500 usuarios × 26 semanas (semilla 7)",
+    "fecha": "2026-10-10"
+  }
 }

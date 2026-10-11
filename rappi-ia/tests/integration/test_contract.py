@@ -6,8 +6,11 @@ tests de la app leen esos mismos archivos: si la API cambia una respuesta, este 
 `make contract`, y el cambio queda a la vista en el diff de la app. Un archivo sin su `Example` también falla.
 
 Las métricas del uso del MVP en el panel (`PANEL_METRICS`) siguen la misma regla en `dashboard-empresa/src/fixtures/`:
-`prototype` sale de un recorrido por la API y `synthetic` de una simulación chica con semilla fija. Las demás respuestas
-del panel las guarda `npm run fixtures` desde una API en marcha.
+`prototype` sale de un recorrido por la API y `synthetic` de una simulación chica con semilla fija. Cada archivo lleva
+su `guardado` ({origen, fecha}), que el panel muestra cuando usa la respuesta guardada; la fecha es la de la última vez
+que se escribió y no cuenta en la comparación. Las demás respuestas del panel (los fixtures de 1.500 usuarios,
+`PANEL_SHAPE`) las guarda `npm run fixtures` desde una API en marcha, y aquí solo se revisa su forma: las mismas claves
+y tipos que la API sobre el catálogo de prueba.
 """
 
 import json
@@ -32,6 +35,26 @@ from rappi_ia.events.synth import generate
 FIXTURES = Path(__file__).resolve().parents[3] / "prototipo-app" / "src" / "api" / "fixtures"
 PANEL_FIXTURES = Path(__file__).resolve().parents[3] / "dashboard-empresa" / "src" / "fixtures"
 PANEL_METRICS = ("offers", "game", "unmet")
+# Las métricas de /analytics que guarda `npm run fixtures` (dashboard-empresa/scripts/update-fixtures.mjs).
+PANEL_SHAPE = (
+    "kpis",
+    "weekly",
+    "opportunities",
+    "trends",
+    "funnel",
+    "cohorts",
+    "rhythm",
+    "at-risk",
+    "suggestions",
+    "services",
+    "multi-vertical",
+    "affinity",
+    "assortment",
+)
+PANEL_ORIGINS = {
+    "prototype": "make contract · recorrido corto sobre el catálogo de prueba inventado",
+    "synthetic": "make contract · simulación chica con semilla fija (40 personas, 8 semanas)",
+}
 
 
 @dataclass(frozen=True)
@@ -217,20 +240,35 @@ def render(body: dict) -> str:
     return json.dumps(body, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
 
 
-def check_example(example: Example, reply, directory: Path, *, write: bool) -> None:
-    """Compara el estado y el cuerpo de `reply` con el ejemplo de `directory`; con `write`, reescribe el cuerpo."""
+def check_example(example: Example, reply, directory: Path, *, write: bool, origin: str | None = None) -> None:
+    """Compara el estado y el cuerpo de `reply` con el ejemplo de `directory`; con `write`, reescribe el cuerpo.
+
+    Con `origin`, el ejemplo lleva además `guardado` = {origen, fecha}: el origen se compara y la fecha (la de la
+    última escritura) no, para que el test no falle con el solo paso de los días.
+    """
     assert reply.status_code == example.status, reply.text
     if example.status == 204:
         return
-    rendered = render(reply.json())
+    body = reply.json()
     file = directory / f"{example.name}.json"
 
     if write:
+        if origin:
+            body = {**body, "guardado": {"origen": origin, "fecha": date.today().isoformat()}}
         file.parent.mkdir(parents=True, exist_ok=True)
-        file.write_text(rendered, encoding="utf-8")
+        file.write_text(render(body), encoding="utf-8")
         return
 
+    rendered = render({**body, "guardado": {"origen": origin}} if origin else body)
     current = file.read_text(encoding="utf-8") if file.exists() else None
+    if origin and current:
+        saved = json.loads(current)
+        stamp = saved.get("guardado", {}).pop("fecha", None)
+        try:
+            date.fromisoformat(stamp)
+        except (TypeError, ValueError):
+            pytest.fail(f"{file.name} no trae la fecha de `guardado`: corre `make contract` en rappi-ia")
+        current = render(saved)
     if current != rendered:
         pytest.fail(
             f"La respuesta de {example.path} cambió: corre `make contract` en rappi-ia y revisa el cambio en la app"
@@ -313,7 +351,65 @@ def test_panel_examples_are_up_to_date(client, db, name, source):
         generate(db, users=40, weeks=8, seed=11, until=date(2026, 10, 4))
     example = Example(f"{name}.{source}", "GET", f"/analytics/{name}?source={source}")
     reply = client.request(example.method, example.path)
-    check_example(example, reply, PANEL_FIXTURES, write=os.environ.get("RAPPI_CONTRACT_WRITE") == "1")
+    write = os.environ.get("RAPPI_CONTRACT_WRITE") == "1"
+    check_example(example, reply, PANEL_FIXTURES, write=write, origin=PANEL_ORIGINS[source])
+
+
+def shape_differences(live, saved, path="data") -> list[str]:
+    """Dónde difieren las claves o los tipos de `live` y `saved`. Un None o una lista vacía no dicen nada."""
+    if live is None or saved is None:
+        return []
+    numbers = (int, float)
+    if isinstance(live, bool) or isinstance(saved, bool):
+        return (
+            []
+            if isinstance(live, bool) and isinstance(saved, bool)
+            else [f"{path}: {type(live).__name__} y {type(saved).__name__}"]
+        )
+    if isinstance(live, numbers) and isinstance(saved, numbers):
+        return []
+    if isinstance(live, dict) and isinstance(saved, dict):
+        if live.keys() != saved.keys():
+            only_live, only_saved = sorted(live.keys() - saved.keys()), sorted(saved.keys() - live.keys())
+            return [f"{path}: claves distintas (solo en la API: {only_live}; solo en lo guardado: {only_saved})"]
+        return [d for key in live for d in shape_differences(live[key], saved[key], f"{path}.{key}")]
+    if isinstance(live, list) and isinstance(saved, list):
+        return [d for row in live for guarded in saved for d in shape_differences(row, guarded, f"{path}[]")][:5]
+    if type(live) is not type(saved):
+        return [f"{path}: {type(live).__name__} y {type(saved).__name__}"]
+    return []
+
+
+@pytest.mark.parametrize("source", ["prototype", "synthetic"])
+@pytest.mark.parametrize("name", PANEL_SHAPE)
+def test_panel_saved_responses_keep_the_api_shape(client, db, name, source):
+    """Los fixtures de 1.500 usuarios del panel (modo sin conexión y tests) tienen las claves y tipos de la API."""
+    if source == "prototype":
+        prototype_journey(client)
+    else:
+        generate(db, users=40, weeks=8, seed=11, until=date(2026, 10, 4))
+    live = client.get(f"/analytics/{name}?source={source}")
+    saved = json.loads((PANEL_FIXTURES / f"{name}.{source}.json").read_text(encoding="utf-8"))
+
+    assert live.status_code == 200, live.text
+    assert shape_differences(live.json()["data"], saved["data"]) == []
+
+
+def test_panel_saved_catalog_keeps_the_api_shape(client):
+    live = client.get("/analytics/catalog")
+    saved = json.loads((PANEL_FIXTURES / "catalog.json").read_text(encoding="utf-8"))
+
+    assert live.status_code == 200, live.text
+    assert shape_differences(live.json()["data"], saved["data"]) == []
+
+
+def test_the_shape_check_sees_a_renamed_key_or_a_changed_type():
+    saved = {"filas": [{"a": 1, "b": "x"}], "n": 3}
+
+    assert shape_differences({"filas": [{"a": 2.5, "b": "y"}], "n": 7}, saved) == []
+    assert shape_differences({"filas": [], "n": None}, saved) == []
+    assert "claves distintas" in shape_differences({"filas": [{"a": 1, "c": "x"}], "n": 3}, saved)[0]
+    assert shape_differences({"filas": [{"a": "1", "b": "x"}], "n": 3}, saved) == ["data.filas[].a: str y int"]
 
 
 def test_a_changed_body_fails_pointing_to_make_contract(tmp_path):

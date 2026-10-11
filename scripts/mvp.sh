@@ -12,12 +12,13 @@ source scripts/mvp-lib.sh
 IA=rappi-ia/.venv/bin/rappi-ia
 
 need_command npm "instala Node (la versión de .nvmrc) o revisa tu PATH, y vuelve a correr \`make mvp\`."
-need_command curl "viene con macOS; revisa tu PATH."
-need_command lsof "viene con macOS; revisa tu PATH."
-need_dir rappi-ia/.venv "corre \`make install\` en rappi-ia."
+need_command curl "instálalo o revisa tu PATH."
+need_dir rappi-ia/.venv "corre \`make install install-ml\` en rappi-ia."
 need_dir prototipo-app/node_modules "corre \`npm ci\` en prototipo-app."
 need_dir dashboard-empresa/node_modules "corre \`npm ci\` en dashboard-empresa."
 exit_if_missing
+# Una carpeta .venv que existe pero no arranca: se movió el proyecto (los .venv guardan rutas absolutas).
+"$IA" --help >/dev/null 2>&1 || fail "El .venv de rappi-ia no funciona (¿se movió la carpeta?): corre \`make install install-ml\` en rappi-ia."
 require_free_ports 8000 5174 5175
 
 echo "Revisando la base…"
@@ -44,7 +45,7 @@ start api make --no-print-directory -C rappi-ia "$SERVE"
 start app npm --prefix prototipo-app run dev -- --port 5174 --strictPort $HOST_FLAG
 start panel npm --prefix dashboard-empresa run dev -- --port 5175 --strictPort $HOST_FLAG
 
-# Con los modelos locales la API tarda en arrancar (la primera vez descarga ~2,5 GB): sin límite de tiempo mientras siga
+# Con los modelos locales la API tarda en arrancar (la primera vez descarga el modelo e5, ~1 GB): sin límite de tiempo mientras siga
 # viva, avisando cada 15 s. La app y el panel responden en un par de segundos.
 wait_for_url "La API" http://localhost:8000/health 0 api "cargando modelos"
 wait_for_url "La app" http://localhost:5174 30 app

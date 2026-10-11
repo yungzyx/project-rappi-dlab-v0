@@ -3,6 +3,7 @@ import { getFallbacks, loadAnalytics, refreshSource, retryConnection, subscribeC
 import savedKpis from '../fixtures/kpis.synthetic.json'
 import savedWeekly from '../fixtures/weekly.synthetic.json'
 import savedCatalog from '../fixtures/catalog.json'
+import savedOffers from '../fixtures/offers.synthetic.json'
 
 const jsonResponse = (body, status = 200) => ({ ok: status < 400, status, json: async () => body })
 
@@ -24,7 +25,7 @@ describe('loadAnalytics', () => {
 
     const result = await loadAnalytics('kpis', 'synthetic')
 
-    expect(result).toEqual({ data: { usuarios_activos: 7 }, offline: false })
+    expect(result).toEqual({ data: { usuarios_activos: 7 }, offline: false, saved: null })
     expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:8000/analytics/kpis?source=synthetic')
     expect(getFallbacks()).toEqual([])
   })
@@ -36,8 +37,10 @@ describe('loadAnalytics', () => {
 
     const result = await loadAnalytics('kpis', 'synthetic')
 
-    expect(result).toEqual({ data: savedKpis.data, offline: true })
-    expect(getFallbacks()).toEqual([{ key: 'kpis.synthetic', name: 'kpis', reason: 'no responde' }])
+    expect(result).toEqual({ data: savedKpis.data, offline: true, saved: savedKpis.guardado })
+    expect(getFallbacks()).toEqual([
+      { key: 'kpis.synthetic', name: 'kpis', reason: 'no responde', guardado: savedKpis.guardado },
+    ])
     expect(listener).toHaveBeenCalledTimes(1)
     unsubscribe()
   })
@@ -57,18 +60,61 @@ describe('loadAnalytics', () => {
 
     const result = await loadAnalytics('catalog')
 
-    expect(result).toEqual({ data: savedCatalog.data, offline: true })
+    expect(result).toEqual({ data: savedCatalog.data, offline: true, saved: savedCatalog.guardado })
     expect(getFallbacks()[0]).toMatchObject({ name: 'catalog', reason: 'respondió 500' })
   })
 
   test('descarta una respuesta de otra fuente (nunca mezcla simulados con prototipo)', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ source: 'synthetic', data: [{ x: 1 }] })))
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ source: 'prototype', data: [{ x: 1 }] })))
 
-    const result = await loadAnalytics('funnel', 'prototype')
+    const result = await loadAnalytics('funnel', 'synthetic')
 
     expect(result.offline).toBe(true)
     expect(result.data).not.toEqual([{ x: 1 }])
     expect(getFallbacks()[0].reason).toBe('respuesta no válida')
+  })
+
+  test('la fuente prototipo nunca cae a datos guardados: sin la API dice que no responde', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))))
+
+    await expect(loadAnalytics('offers', 'prototype')).rejects.toThrow(
+      'La API no responde: el uso del MVP solo se ve con la base viva.',
+    )
+    expect(getFallbacks()).toEqual([])
+  })
+
+  test('una respuesta de otra fuente tampoco cae a datos guardados en el prototipo', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ source: 'synthetic', data: [{ x: 1 }] })))
+
+    await expect(loadAnalytics('funnel', 'prototype')).rejects.toThrow('La API no responde')
+  })
+
+  test('lo guardado trae su origen y su fecha, y quedan en el aviso', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))))
+
+    const result = await loadAnalytics('offers', 'synthetic')
+
+    expect(result.saved).toEqual(savedOffers.guardado)
+    expect(result.saved.origen).toMatch(/\S/)
+    expect(getFallbacks()[0]).toMatchObject({ key: 'offers.synthetic', guardado: savedOffers.guardado })
+  })
+
+  test('una petición vieja que falla tarde no deja «sin conexión» si ya hay otra en curso', async () => {
+    let rejectOld
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise((_, reject) => (rejectOld = reject)))
+      .mockImplementation(async () => jsonResponse({ source: 'synthetic', data: { usuarios_activos: 9 } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const old = loadAnalytics('kpis', 'synthetic')
+    refreshSource('synthetic')
+    const fresh = await loadAnalytics('kpis', 'synthetic')
+    rejectOld(new TypeError('Failed to fetch'))
+    await old
+
+    expect(fresh.offline).toBe(false)
+    expect(getFallbacks()).toEqual([])
   })
 
   test('guarda en caché por métrica y fuente, y retryConnection la limpia', async () => {
@@ -104,14 +150,14 @@ describe('loadAnalytics', () => {
 
   test('refreshSource olvida el aviso sin conexión de esa fuente y avisa', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))))
-    await loadAnalytics('suggestions', 'prototype')
-    await loadAnalytics('kpis', 'synthetic')
+    await loadAnalytics('suggestions', 'synthetic')
+    await loadAnalytics('catalog')
     const listener = vi.fn()
     const unsubscribe = subscribeConnection(listener)
 
-    refreshSource('prototype')
+    refreshSource('synthetic')
 
-    expect(getFallbacks().map((fallback) => fallback.key)).toEqual(['kpis.synthetic'])
+    expect(getFallbacks().map((fallback) => fallback.key)).toEqual(['catalog'])
     expect(listener).toHaveBeenCalledTimes(1)
     unsubscribe()
   })

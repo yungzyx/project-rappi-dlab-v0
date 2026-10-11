@@ -1,5 +1,5 @@
 node_modules/
-dist/
+dist*/
 # Capturas: en git solo las que usa el README (npm run screenshots genera todas, sin comprimir)
 docs/screenshots/*
 !docs/screenshots/1-resumen-escritorio-claro.jpg

@@ -6,6 +6,12 @@ export function useAnalytics(name, source) {
   return use(loadAnalytics(name, source)).data
 }
 
+/** Como useAnalytics, pero con el origen de lo guardado: `{ data, saved }` (`saved` es null con la API en vivo). */
+export function useAnalyticsWithOrigin(name, source) {
+  const { data, saved } = use(loadAnalytics(name, source))
+  return { data, saved }
+}
+
 /** Varias métricas a la vez: pide todas antes de esperar la primera (sin cascada de requests). */
 export function useAnalyticsMany(names, source) {
   const pending = names.map((name) => loadAnalytics(name, source))

@@ -1,5 +1,6 @@
 // Genera las capturas de docs/screenshots (npm run screenshots): cada vista en escritorio y móvil, tema claro y oscuro.
-// Usa el Chrome instalado (playwright-core, sin descargar navegadores) y un servidor Vite propio en el 5198.
+// Usa el Chrome instalado (playwright-core, sin descargar navegadores; CHROME_PATH apunta a otro ejecutable y
+// PLAYWRIGHT_CHANNEL a otro canal, p. ej. chrome-beta) y un servidor Vite propio en el 5198.
 // Con la API de rappi-ia arriba usa datos en vivo; si no, el panel cae a los datos guardados (y lo avisa).
 import { mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -8,7 +9,8 @@ import { createServer } from 'vite'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const OUT = `${ROOT}docs/screenshots`
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const CHROME_PATH = process.env.CHROME_PATH
+const CHROME_CHANNEL = process.env.PLAYWRIGHT_CHANNEL || 'chrome'
 const PORT = 5198
 const BASE = `http://localhost:${PORT}/`
 const LOAD_TIMEOUT_MS = 45_000 // /analytics/weekly tarda ~8 s
@@ -82,7 +84,7 @@ async function main() {
   let browser
   try {
     await server.listen()
-    browser = await chromium.launch({ executablePath: CHROME })
+    browser = await chromium.launch(CHROME_PATH ? { executablePath: CHROME_PATH } : { channel: CHROME_CHANNEL })
     console.log(`Capturas en ${OUT}`)
     await run(browser)
   } finally {

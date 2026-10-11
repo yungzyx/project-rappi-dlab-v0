@@ -78,5 +78,9 @@
       "items_en_catalogo": 11155,
       "usuarios_por_item": 0
     }
-  ]
+  ],
+  "guardado": {
+    "origen": "npm run fixtures · uso del prototipo en la base local (no es evidencia)",
+    "fecha": "2026-10-09"
+  }
 }

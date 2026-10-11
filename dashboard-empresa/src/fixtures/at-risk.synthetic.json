@@ -1001,5 +1001,9 @@
       "consiente_avisos": false,
       "accion": "Sin consentimiento: solo en la app (el agente)"
     }
-  ]
+  ],
+  "guardado": {
+    "origen": "npm run fixtures · simulación de 1.500 usuarios × 26 semanas (semilla 7)",
+    "fecha": "2026-10-10"
+  }
 }

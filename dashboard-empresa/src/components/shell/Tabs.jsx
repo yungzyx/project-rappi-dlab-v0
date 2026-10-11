@@ -33,7 +33,7 @@ export function Tabs({ views, active, onSelect }) {
           id={`tab-${view.id}`}
           className="tab"
           aria-selected={view.id === active}
-          aria-controls={`panel-${view.id}`}
+          aria-controls={view.id === active ? `panel-${view.id}` : undefined}
           tabIndex={view.id === active ? 0 : -1}
           onClick={() => onSelect(view.id)}
         >

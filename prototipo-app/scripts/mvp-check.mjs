@@ -20,8 +20,10 @@
 //     «uso del MVP, pocas personas: no es evidencia» y sin el aviso de datos guardados (que taparía una API que no responde).
 // Con la API en marcha (sin --expect-offline) también falla ante un error de la página o de la consola, o una respuesta
 // 4xx/5xx, desde la primera carga; solo se ignoran las imágenes del catálogo de prueba, que no existen.
-// Sale con 0 si la revisión pasa y con 1 si no. Usa el Chrome instalado (playwright-core, sin descargar navegadores).
-import { writeFileSync } from 'node:fs'
+// Sale con 0 si la revisión pasa y con 1 si no. Usa el Chrome instalado (playwright-core, sin descargar navegadores);
+// CHROME_PATH apunta a otro ejecutable y PLAYWRIGHT_CHANNEL a otro canal (p. ej. chrome-beta); MVP_CHECK_ARTIFACTS=<carpeta>
+// guarda ahí una captura cuando una revisión falla.
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { chromium } from 'playwright-core'
 import { AGENT_NAME } from '../src/agent/name.js'
@@ -400,13 +402,26 @@ const label = values.panel
             ? 'dato'
             : 'en línea'
 
+/** Con MVP_CHECK_ARTIFACTS=<carpeta> (lo usa el CI), una revisión que falla deja la captura de lo que se veía. */
+async function saveFailureScreenshot(page) {
+  const dir = process.env.MVP_CHECK_ARTIFACTS
+  if (!dir || !page) return
+  mkdirSync(dir, { recursive: true })
+  const name = label.replace(/[^a-z0-9]+/gi, '-')
+  await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true }).catch(() => {})
+}
+
 async function main() {
   if (!values.app && !values.panel) throw new Error('falta --app <url> (por ejemplo --app http://localhost:5184)')
-  const browser = await chromium.launch({ channel: 'chrome' }).catch((error) => {
+  const launchOptions = process.env.CHROME_PATH
+    ? { executablePath: process.env.CHROME_PATH }
+    : { channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome' }
+  const browser = await chromium.launch(launchOptions).catch((error) => {
     throw new Error(`no pude abrir Chrome (${error.message.split('\n')[0]})`)
   })
+  let page
   try {
-    const page = await browser.newPage({
+    page = await browser.newPage({
       viewport: values.panel ? { width: 1280, height: 900 } : { width: 560, height: 960 },
     })
     page.setDefaultTimeout(TIMEOUT_MS)
@@ -428,6 +443,9 @@ async function main() {
     // Sin API es lo esperado que fallen sus llamadas: ahí no se miran.
     if (!offline && problems.length > 0) throw new Error(`fallos en la página o en la API: ${problems[0]}`)
     console.log(`  ✓ ${label}: ${done}`)
+  } catch (error) {
+    await saveFailureScreenshot(page)
+    throw error
   } finally {
     await browser.close()
   }

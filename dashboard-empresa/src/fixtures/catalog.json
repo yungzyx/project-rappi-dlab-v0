@@ -118,5 +118,9 @@
         "productos": 14
       }
     ]
+  },
+  "guardado": {
+    "origen": "npm run fixtures · muestra pública de rappi.cl",
+    "fecha": "2026-10-09"
   }
 }

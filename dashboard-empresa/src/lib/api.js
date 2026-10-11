@@ -1,5 +1,7 @@
-// Cliente de la API de rappi-ia para el panel. Si una consulta falla o tarda demasiado, usa la respuesta guardada
-// en src/fixtures (npm run fixtures) y la anota para avisar que el panel está en modo sin conexión.
+// Cliente de la API de rappi-ia para el panel. Si una consulta de datos simulados o del catálogo falla o tarda
+// demasiado, usa la respuesta guardada en src/fixtures (npm run fixtures, make contract) y la anota, con el origen y la
+// fecha que trae el archivo, para avisar que el panel está en modo sin conexión. El uso del MVP (fuente prototipo) no
+// tiene respaldo: sin la base viva no hay nada honesto que mostrar.
 export const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 // /analytics/weekly tardó entre 7 y 28 s en las pruebas (según la carga de la máquina); el resto, menos de 1 s.
 export const TIMEOUT_MS = 30_000
@@ -42,7 +44,8 @@ async function fetchLive({ path, expected }) {
 async function fetchSaved({ key, expected }) {
   const load = savedResponses[`../fixtures/${key}.json`]
   if (!load) throw new Error(`Sin conexión y sin datos guardados para "${key}"`)
-  return dataFrom(await load(), expected)
+  const body = await load()
+  return { data: dataFrom(body, expected), saved: body.guardado ?? null }
 }
 
 /** Motivo legible de por qué no se usó la respuesta en vivo. */
@@ -53,21 +56,33 @@ function reasonFor(error) {
   return 'respuesta no válida'
 }
 
-async function loadWithFallback(request) {
+const PROTOTYPE_OFFLINE_MESSAGE = 'La API no responde: el uso del MVP solo se ve con la base viva.'
+
+/** `isCurrent` dice si esta petición sigue siendo la de la caché: una vieja que falla tarde no ensucia el aviso. */
+async function loadWithFallback(request, isCurrent) {
   try {
-    return { data: await fetchLive(request), offline: false }
+    return { data: await fetchLive(request), offline: false, saved: null }
   } catch (error) {
+    if (request.expected === 'prototype') throw new Error(PROTOTYPE_OFFLINE_MESSAGE, { cause: error })
     console.warn(`rappi-ia: ${request.path} falló (${error.message}); se usan los datos guardados.`)
-    const data = await fetchSaved(request)
-    addFallback({ key: request.key, name: request.name, reason: reasonFor(error) })
-    return { data, offline: true }
+    const { data, saved } = await fetchSaved(request)
+    if (isCurrent()) addFallback({ key: request.key, name: request.name, reason: reasonFor(error), guardado: saved })
+    return { data, offline: true, saved }
   }
 }
 
-/** Promesa (en caché por métrica y fuente) con `{ data, offline }`. `name` es una métrica de /analytics o 'catalog'. */
+/**
+ * Promesa (en caché por métrica y fuente) con `{ data, offline, saved }`; `saved` es el `guardado` del archivo
+ * (`{ origen, fecha }`) cuando se usó una respuesta guardada. `name` es una métrica de /analytics o 'catalog'.
+ * Con la fuente prototipo, si la API falla la promesa se rechaza.
+ */
 export function loadAnalytics(name, source) {
   const request = describeRequest(name, source)
-  if (!cache.has(request.key)) cache.set(request.key, loadWithFallback(request))
+  if (!cache.has(request.key)) {
+    const promise = loadWithFallback(request, () => cache.get(request.key) === promise)
+    promise.catch(() => {}) // quien la lea la ve rechazada; las que nadie alcanza a leer no son un error sin atender
+    cache.set(request.key, promise)
+  }
   return cache.get(request.key)
 }
 

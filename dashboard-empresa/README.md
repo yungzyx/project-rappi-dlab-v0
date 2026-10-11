@@ -46,7 +46,7 @@ Desde la raíz del repositorio:
 
 La URL de la API se cambia con `VITE_API_URL`, por ejemplo `VITE_API_URL=http://localhost:8001 npm run dev` o en `.env.local`. La API ya acepta peticiones desde `localhost:51xx` (CORS). Para abrir el panel desde el iPhone hace falta `VITE_API_URL` con la dirección del Mac, porque por defecto busca la API en `localhost`.
 
-**Sin la API** el panel igual funciona. Cada consulta que falla, o que tarda más de 30 s, cae a la respuesta guardada en `src/fixtures/`. En ese caso aparece el aviso «Modo sin conexión (datos guardados)», que dice qué consultas fallaron y por qué, y trae un botón *Reintentar*.
+**Sin la API** el panel funciona con datos **simulados** y con el catálogo: cada consulta que falla, o que tarda más de 30 s, cae a la respuesta guardada en `src/fixtures/`. Cada archivo trae su `guardado` (`origen` y `fecha`), y el aviso «Modo sin conexión (datos guardados)» lo cita, además de decir qué consultas fallaron y por qué; en «Uso del MVP» cada bloque lo repite. Con la fuente **Prototipo** no hay respaldo: el uso del MVP solo se ve con la base viva, y sin la API cada bloque dice «La API no responde» (las cifras guardadas serían de un recorrido de prueba, no de nadie). Trae un botón *Reintentar*.
 
 **Datos nuevos.** Cada consulta se pide una vez por fuente y queda en memoria mientras la página esté abierta (`/analytics/weekly` tarda varios segundos). El botón *Actualizar*, junto a la fecha de corte, vuelve a pedir solo la fuente elegida: así se ve lo que se acaba de hacer en el prototipo sin recargar la página.
 

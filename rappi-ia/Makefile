@@ -29,7 +29,7 @@ check-migrations:
 	$(PY) -m rappi_ia check-migrations
 
 test:  ## Tests (unitarios + integración contra rappi_ia_test)
-	$(PY) -m pytest
+	scripts/with-test-db-lock.sh $(PY) -m pytest
 
 lint:  ## Revisa estilo y errores comunes
 	$(PY) -m ruff check src tests
@@ -41,7 +41,7 @@ format:  ## Formatea el código
 
 contract:  ## Reescribe las respuestas de ejemplo de la API que usan la app (prototipo-app/src/api/fixtures) y el panel (uso del MVP)
 	@$(PY) -c 'import os, sys, rappi_ia; os.environ.get("DATABASE_URL_TEST") or sys.exit("Falta DATABASE_URL_TEST: `make contract` no puede escribir los ejemplos")'
-	RAPPI_CONTRACT_WRITE=1 $(PY) -m pytest tests/integration/test_contract.py
+	RAPPI_CONTRACT_WRITE=1 scripts/with-test-db-lock.sh $(PY) -m pytest tests/integration/test_contract.py
 
 jev-categorias:  ## Jev etiqueta las categorías nuevas (opcional: sin clave o sin adopción no hace nada; ver docs/jev.md)
 	$(PY) -m rappi_ia map-categories --jev --solo-nuevas

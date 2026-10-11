@@ -66,3 +66,11 @@ export const RISK_STATUS = {
   perdido: { label: 'Perdido', tone: 'bad' },
   en_riesgo: { label: 'En riesgo', tone: 'warn' },
 }
+
+/** "simulación (2026-10-09) y muestra pública (2026-10-09)": de dónde salen las respuestas guardadas, sin repetir. */
+export function describeOrigins(fallbacks) {
+  const origins = fallbacks.map((fallback) =>
+    fallback.guardado ? `${fallback.guardado.origen} (${fallback.guardado.fecha})` : 'origen sin registrar',
+  )
+  return joinList([...new Set(origins)])
+}

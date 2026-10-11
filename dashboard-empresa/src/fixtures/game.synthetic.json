@@ -6,5 +6,9 @@
     "rondas": 0,
     "tarjetas": 0
   },
+  "guardado": {
+    "fecha": "2026-10-11",
+    "origen": "make contract · simulación chica con semilla fija (40 personas, 8 semanas)"
+  },
   "source": "synthetic"
 }

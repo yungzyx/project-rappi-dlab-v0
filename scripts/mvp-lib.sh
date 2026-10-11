@@ -10,6 +10,7 @@ STARTED="" # "etiqueta:pid" de lo lanzado con start, separado por espacios
 LAST_PID=""
 DEAD=""
 MISSING=0
+TEMP_FILE="" # archivo temporal que stop_all borra al salir
 
 fail() {
   echo "$*" >&2
@@ -31,8 +32,8 @@ exit_if_missing() {
   if [ "$MISSING" != 0 ]; then exit 1; fi
 }
 
-port_busy() {
-  lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
+port_busy() { # port_busy <puerto>: algo escucha en localhost (IPv4 o IPv6); bash puro, sin lsof, sirve en macOS y Linux
+  (exec 3<>"/dev/tcp/localhost/$1") 2>/dev/null
 }
 
 require_free_ports() { # require_free_ports <puerto>...: sale con 1 si alguno está ocupado
@@ -102,6 +103,7 @@ stop_one() { # stop_one <etiqueta>: detiene un solo proceso (el resto sigue)
 stop_all() { # va en el trap de EXIT: seguro de llamar varias veces y con Ctrl-C repetido
   trap '' INT TERM HUP
   local entry pids=""
+  if [ -n "$TEMP_FILE" ]; then rm -f "$TEMP_FILE"; fi
   for entry in $STARTED; do pids="$pids ${entry#*:}"; done
   STARTED=""
   if [ -z "$pids" ]; then return 0; fi
@@ -118,6 +120,7 @@ install_traps() {
   trap stop_all EXIT
 }
 
+# shellcheck disable=SC2034 # DEAD lo leen los scripts que cargan esta biblioteca
 all_alive() { # 0 mientras sigan vivos todos los procesos de start; si uno murió, deja su etiqueta en DEAD
   local entry
   for entry in $STARTED; do
