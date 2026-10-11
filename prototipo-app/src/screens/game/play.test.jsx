@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { fixture, gameChallenge, gameServer, stubApi } from '../../api/testing'
+import { fixture, gameCards, gameChallenge, gameServer, stubApi } from '../../api/testing'
 import { GameApp as App, mount } from './GameApp.testkit.jsx'
 import { cardsOf } from '../../game/knowledge.js'
 import { initialState } from '../../game/progress.js'
@@ -81,6 +81,18 @@ describe('ronda', () => {
     await screen.findByRole('heading', { name: /^Sin conexión/ })
     fireEvent.click(screen.getByRole('button', { name: 'Salir' }))
     expect(screen.getByRole('region', { name: 'Camino de verticales' })).toBeTruthy()
+  })
+
+  test('a vertical without cards shows a notice with Salir instead of crashing the round', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    stubApi({ 'GET /game/cards': { cards: gameCards().filter((c) => c.vertical !== 'licores') } })
+    await openRound('licores')
+    expect(await screen.findByRole('heading', { name: 'Aún no hay tarjetas de Licores' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Dar vuelta' })).toBeNull()
+    expect(errors).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Salir' }))
+    expect(screen.getByRole('region', { name: 'Camino de verticales' })).toBeTruthy()
+    errors.mockRestore()
   })
 
   test('the round shows Sin conexión with Reintentar when the challenge fails, and retries', async () => {

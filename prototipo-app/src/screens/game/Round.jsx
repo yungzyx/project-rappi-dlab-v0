@@ -195,6 +195,23 @@ function Confetti() {
   )
 }
 
+/** La vertical sin las tarjetas que la ronda necesita (la base sin `rappi-ia knowledge`): un aviso con «Salir». */
+function NoCards({ vertical, back }) {
+  return (
+    <div className="game-screen no-nav round-end" style={{ '--v': `var(--v-${vertical})` }}>
+      <Mascot size={86} mood="listen" />
+      <h1>Aún no hay tarjetas de {LABELS[vertical]}</h1>
+      <p className="muted">
+        La API no tiene las tarjetas del juego. Cárgalas con <code>make knowledge</code> en rappi-ia (<code>make mvp</code>{' '}
+        lo hace solo) y vuelve a intentar.
+      </p>
+      <button type="button" className="btn-game end-done" onClick={back}>
+        Salir
+      </button>
+    </div>
+  )
+}
+
 /**
  * Una ronda de 5 pasos en una vertical: dar vuelta datos «¿Sabías que…?» y responder preguntas y un desafío.
  * `orderId`: se juega mientras llega un pedido; al final se vuelve a él.
@@ -222,8 +239,9 @@ function PlayRound({ vertical, back, orderId, challenge, turn }) {
   const [confirmExit, setConfirmExit] = useState(false)
   const [tally, setTally] = useState({ xp: 0, bonus: 0, correct: 0, challenges: 0, cards: [] })
 
-  const finished = index >= steps.length
-  const step = steps[index]
+  // Sin tarjetas para armar la ronda no hay pasos: se avisa (abajo, después de los hooks) en vez de romperse.
+  const finished = steps !== null && index >= steps.length
+  const step = steps?.[index]
 
   const record = (result, extra) =>
     setTally((t) => ({
@@ -272,7 +290,7 @@ function PlayRound({ vertical, back, orderId, challenge, turn }) {
 
   // Teclado para la demo en computador: 1 a 4 responden, Enter o espacio dan vuelta la carta o siguen.
   useEffect(() => {
-    if (finished || confirmExit) return undefined
+    if (!steps || finished || confirmExit) return undefined
     const onKey = (e) => {
       if (e.repeat) return
       // Enter sobre un enlace (la fuente) lo abre: no sigue la ronda.
@@ -291,6 +309,8 @@ function PlayRound({ vertical, back, orderId, challenge, turn }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+
+  if (!steps) return <NoCards vertical={vertical} back={back} />
 
   if (finished) {
     return (

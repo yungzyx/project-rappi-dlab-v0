@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { gameChallenge } from '../api/testing'
-import { cardsOf, datosOf, preguntasOf } from './knowledge.js'
+import { gameCards, gameChallenge } from '../api/testing'
+import { cardsOf, datosOf, preguntasOf, setKnowledge } from './knowledge.js'
 import { initialState } from './progress.js'
 import { ROUND_SIZE, makeRound, roundStars } from './round.js'
 import { PASSPORT_ORDER } from './verticals.js'
@@ -87,6 +87,21 @@ describe('ronda', () => {
         expect(new Set(ids(round)).size, `${v} ${answered}`).toBe(ROUND_SIZE)
         expect(roundOf(state, v)).toEqual(round)
       }
+    }
+  })
+
+  test('a vertical without enough cards gives no round instead of steps without a card', () => {
+    const cards = gameCards()
+    try {
+      setKnowledge(cards.filter((c) => c.vertical !== 'turbo'))
+      expect(makeRound(initialState(), 'turbo', gameChallenge('turbo', '0'))).toBeNull()
+      expect(makeRound(initialState(), 'turbo', null)).toBeNull()
+      // Con un solo dato tampoco alcanza para los 2 de la ronda.
+      const firstDato = cards.find((c) => c.vertical === 'turbo' && c.kind === 'dato')
+      setKnowledge(cards.filter((c) => c.vertical !== 'turbo' || c.kind === 'pregunta' || c === firstDato))
+      expect(makeRound(initialState(), 'turbo', gameChallenge('turbo', '0'))).toBeNull()
+    } finally {
+      setKnowledge(cards)
     }
   })
 
