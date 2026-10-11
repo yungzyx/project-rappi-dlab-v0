@@ -101,7 +101,7 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 
 **Privacidad:**
 - **Datos personales en consultas:** se redactan antes de guardarlas (RUT con dígito verificador, teléfonos, correos, direcciones y tarjetas) y el texto se borra a los 90 días (`make purge`).
-- **"Olvidar":** borra eventos y pedidos.
+- **«Olvidar» / «Borrar mis datos»** (`DELETE /profile/{id}`): borra a la persona entera, con su perfil, sus eventos, sus pedidos y el progreso del juego (en cascada).
 - **Sensibles:** los conceptos sensibles no entran al perfil ni a las métricas de negocio.
 - **Claude:** si hay clave, recibe solo hechos estructurados, nunca la consulta del usuario.
 
@@ -191,6 +191,5 @@ rappi-ia/
 | `028_game.sql` · `029_game_events.sql` | Tarjetas del juego y su progreso; eventos `game_round_finished` y `game_card_discovered` |
 | `030_jev.sql` | Caché de juicios de Jev (`eval_judgments`) y método `jev` en el mapa de categorías |
 | `031_order_mode.sql` | El modo de la app en que se hizo cada pedido (los de «Rappi hoy» no entran al perfil) |
-| `032_latest_prices.sql` | `latest_prices` y `latest_menu_prices` (el último precio, mantenido por triggers) y la vista `v_latest_offers`, la definición única de oferta vigente |
 
-`014`–`015` (limpieza del HTML de los documentos de búsqueda), `017`–`019` y `021` (formatos de tienda, Turbo, vigencia y platos por local) son del scraper.
+`014`–`015` (limpieza del HTML de los documentos de búsqueda), `017`–`019` y `021` (formatos de tienda, Turbo, vigencia y platos por local) y `032` (`latest_prices` y `latest_menu_prices`, el último precio mantenido por triggers, y la vista `v_latest_offers`, la definición única de oferta vigente, que esta capa también lee) son del scraper.

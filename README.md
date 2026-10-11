@@ -81,8 +81,8 @@ Cada cifra dice qué tipo de dato es: real, evaluación automática, estimación
 | Capa 2 | Precisión de la asignación | 86 % por regla de nombre, 88 % por mapeo y 88 % por vecinos, en una muestra nueva tras corregir las reglas (antes: 81, 82 y 57 %) | **Estimación** con jueces LLM | [antes](docs/resultados/capas-precision-2026-10-06.md) · [después](docs/resultados/capas-precision-2026-10-06-nueva-muestra.md) |
 | Capa de datos | Atributos, marcas y grafo | 83 atributos sobre 79.617 ítems · 6.359 marcas · 23.534 productos canónicos · 32.105 aristas en 12 relaciones | Real, con reglas propias; atributos 92 % y marcas 97 a 99 % de precisión estimada | `make layers`, 06-10-2026 |
 | Búsqueda | nDCG@10 | híbrido 0,917 · sin refuerzo por concepto 0,860 · vectorial 0,849 · léxico 0,776 | Evaluación automática | [reporte del 06-10](docs/resultados/busqueda-2026-10-06.md) |
-| Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,71 (29 de 41) | Evaluación automática | [reporte del 30-09](docs/resultados/busqueda-2026-09-30.md) |
-| Calidad | Tests (11-10-2026) | scraper 188 · rappi-ia 1526 · prototipo 701 · panel 111 | Verificación local y CI | `make test` · `npm test` (conteo con `pytest --collect-only -q` y `npm test`) |
+| Búsqueda | «Sin resultado» | precisión 1,00 (0 falsas alarmas) · recall 0,73 (30 de 41) | Evaluación automática | [reporte del 06-10](docs/resultados/busqueda-2026-10-06.md) |
+| Calidad | Tests (11-10-2026) | scraper 190 · rappi-ia 1531 · prototipo 701 · panel 111 | Verificación local y CI | `make test` · `npm test` (conteo con `pytest --collect-only -q` y `npm test`) |
 
 ### Catálogo por vertical
 
@@ -101,7 +101,7 @@ Documentos al 04-10-2026 (segunda descarga semanal automática); «Con concepto�
 
 ### Búsqueda
 
-124 consultas positivas en las 8 verticales y 41 negativas, con relevancia juzgada automáticamente por concepto ([`queries.json`](rappi-ia/src/rappi_ia/eval/queries.json)). Por tipo de consulta, el híbrido logra 0,979 en las exactas, 0,965 sin tildes y 0,711 en necesidades en lenguaje natural («algo para el carrete»), frente a 0,570 del léxico. Detalle, por vertical y con la historia de cada reevaluación: [docs/resultados/](docs/resultados/).
+124 consultas positivas en las 8 verticales y 41 negativas, con relevancia juzgada automáticamente por concepto ([`queries.json`](rappi-ia/src/rappi_ia/eval/queries.json)). Por tipo de consulta, el híbrido logra 0,988 en las exactas, 0,973 sin tildes y 0,712 en necesidades en lenguaje natural («algo para el carrete»), frente a 0,563 del léxico. Detalle, por vertical y con la historia de cada reevaluación: [docs/resultados/](docs/resultados/).
 
 > [!IMPORTANT]
 > **Qué no es evidencia**
@@ -150,7 +150,7 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 - **Mochi no ofrece por su cuenta alcohol, farmacia, bebé ni salud:** solo el kit de una ocasión que la persona elige puede traer alcohol, con +18. Consecuencia aceptada: hay menos complementos (por ejemplo, «playa» ya no sugiere protector solar). Ver [docs/decisiones.md](docs/decisiones.md).
 - **Turbo sin actualizar:** sus tiendas ya no aparecen como Turbo en los listados públicos que recorre el scraper; sus precios son del 27-09.
 - **Evaluación automática:** no hay juicio humano, y el refuerzo por concepto favorece al híbrido.
-- **«Sin resultado»:** detecta 29 de 41 negativas; el reporte explica las demás.
+- **«Sin resultado»:** detecta 30 de 41 negativas; el reporte explica las demás.
 - **Demo local:** la API no tiene autenticación; la instalación está pensada para macOS (Homebrew, launchd).
 - **Cambios del sitio:** si rappi.cl cambia su frontend, hay que ajustar los parsers; el reporte de cada corrida marca las respuestas anómalas.
 
@@ -181,7 +181,7 @@ La API lee la base `rappi`, que se restaura desde un respaldo (o se descarga) y 
 - **Prototipo**: lo que la gente hizo en la app del MVP, con la vista **Uso del MVP**: las ofertas del agente por momento (plan, carro, antes de pagar, próximo pedido, sin resultado, vertical por probar, pregunta y «Para ti»), el juego (rondas, tarjetas descubiertas y estrellas) y las búsquedas sin resultado por vertical y concepto. Es uso de pocas personas y el panel lo rotula «uso del MVP, pocas personas: no es evidencia». Sin nombres ni textos: personas contadas, nunca nombradas.
 
 ```bash
-make mvp   # panel en http://localhost:5175/?vista=mvp&fuente=prototipo (sin la API, «Uso del MVP» no muestra cifras: dice que falta la conexión)
+make mvp   # panel en http://localhost:5175/?vista=mvp&fuente=prototipo (sin la API, «Uso del MVP» no muestra cifras: dice «La API no responde»)
 ```
 
 ## Historial del proyecto
