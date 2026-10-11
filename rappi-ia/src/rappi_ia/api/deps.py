@@ -3,11 +3,14 @@ de las entradas): viven aparte para que `app.py` incluya los routers (`catalog.p
 que importar `app`."""
 
 import threading
+import time
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 
+import anyio
+import anyio.from_thread
+import anyio.to_thread
 from fastapi import Depends
-from fastapi.concurrency import contextmanager_in_threadpool
 from psycopg import Connection
 from psycopg_pool import ConnectionPool, PoolTimeout
 from pydantic import BaseModel, model_validator
@@ -24,11 +27,17 @@ FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 APPLICATION_NAME = "rappi-ia-api"  # así se ven sus conexiones en pg_stat_activity
 BACKGROUND_TIMEOUT_MS = 20_000  # las tareas después de responder (recalcular segmentos) y el beacon
 
+
+def gate_for(pool) -> ConcurrencyCap:
+    """El turno para sacar una conexión: tantos como caben en el pool, con la misma espera. Los demás esperan en el
+    event loop, en orden de llegada, no en un hilo: si los 40 hilos del threadpool quedaran esperando una conexión,
+    los requests que ya tienen una no tendrían hilo para correr su endpoint ni devolverla (todo se trababa hasta el
+    timeout del pool). Todo lo que saca una conexión pasa por aquí: requests, tareas en segundo plano y el beacon."""
+    return ConcurrencyCap("conexiones", pool.max_size, wait_s=pool.timeout)
+
+
 _pool: ConnectionPool | None = None
-# Cuántos requests pueden ir a buscar una conexión a la vez: los mismos que caben en el pool. Los demás esperan su turno
-# en el event loop, no en un hilo: si los 40 hilos del threadpool quedaran esperando una conexión, los requests que ya
-# tienen una no tendrían hilo para correr su endpoint ni devolverla (todo se trababa hasta el timeout del pool).
-_gate = ConcurrencyCap("conexiones", config.API_POOL_MAX, wait_s=config.API_POOL_TIMEOUT_S)
+_gate = ConcurrencyCap("conexiones", config.API_POOL_MAX, wait_s=config.API_POOL_TIMEOUT_S)  # open_pool lo rehace
 _in_use = 0  # conexiones del pool que tiene algún request o tarea: sin ninguna, un PoolTimeout es Postgres caído
 _in_use_lock = threading.Lock()
 
@@ -41,7 +50,8 @@ def _configure(conn: Connection) -> None:
 
 
 def make_pool(conninfo: str) -> ConnectionPool:
-    """El pool de la API, sin abrir. `connect_timeout`: Postgres caído no deja a un request esperando minutos."""
+    """El pool de la API, sin abrir. `connect_timeout`: Postgres caído no deja a un request esperando minutos. `check`:
+    una conexión que Postgres cortó (reinicio, idle timeout) se cambia antes de entregarla."""
     return ConnectionPool(
         conninfo,
         min_size=config.API_POOL_MIN,
@@ -49,6 +59,7 @@ def make_pool(conninfo: str) -> ConnectionPool:
         timeout=config.API_POOL_TIMEOUT_S,
         kwargs={"application_name": APPLICATION_NAME, "connect_timeout": 3},
         configure=_configure,
+        check=ConnectionPool.check_connection,
         open=False,
         name=APPLICATION_NAME,
     )
@@ -58,7 +69,7 @@ def open_pool() -> None:
     """Lo llama el `lifespan` de la API. No espera las conexiones: sin Postgres la API arranca igual y responde 503."""
     global _pool, _gate
     _pool = make_pool(database_url())
-    _gate = ConcurrencyCap("conexiones", config.API_POOL_MAX, wait_s=config.API_POOL_TIMEOUT_S)
+    _gate = gate_for(_pool)
     _pool.open()
 
 
@@ -80,12 +91,12 @@ def _count(delta: int) -> None:
 
 
 @contextmanager
-def _checkout(timeout_ms: int) -> Iterator[Connection]:
-    """Una conexión del pool con su statement_timeout. Al salir confirma (o deshace, si hubo un error) y vuelve al
-    pool. Sin una libre en API_POOL_TIMEOUT_S, PoolTimeout (503)."""
+def _checkout(timeout_ms: int, wait_s: float | None = None) -> Iterator[Connection]:
+    """Una conexión del pool con su statement_timeout, esperando a lo más `wait_s` (por defecto, el del pool). Al salir
+    confirma (o deshace, si hubo un error) y vuelve al pool. Sin una libre a tiempo, PoolTimeout (503)."""
     if _pool is None:
         raise RuntimeError("El pool de conexiones de la API no está abierto (lo abre el lifespan de la app)")
-    with _pool.connection() as conn:
+    with _pool.connection(timeout=wait_s) as conn:
         _count(1)
         try:
             _statement_timeout(conn, timeout_ms)
@@ -94,17 +105,35 @@ def _checkout(timeout_ms: int) -> Iterator[Connection]:
             _count(-1)
 
 
+def _no_turn(gate: ConcurrencyCap) -> PoolTimeout:
+    return PoolTimeout(f"sin turno para una conexión en {gate.wait_s:g} s")
+
+
 async def get_conn() -> AsyncIterator[Connection]:
     """Falla rápido si Postgres no responde (503, la app muestra «Sin conexión») o una consulta se atasca (504). Espera
-    su turno en el event loop y recién entonces toma un hilo para sacar la conexión del pool; sin turno a tiempo,
-    PoolTimeout (503, como un pool sin conexiones libres)."""
-    if not await _gate.acquire():
-        raise PoolTimeout(f"sin turno para una conexión en {_gate.wait_s:g} s")
+    su turno en el event loop y recién entonces toma un hilo para sacar la conexión del pool; la espera total (turno
+    más pool) no pasa de API_POOL_TIMEOUT_S. Sin turno a tiempo, PoolTimeout (503, como un pool sin conexiones libres).
+    Un request cancelado (el cliente se fue) devuelve igual su conexión y su turno."""
+    gate = _gate
+    deadline = time.monotonic() + gate.wait_s
+    if not await gate.acquire():
+        raise _no_turn(gate)
     try:
-        async with contextmanager_in_threadpool(_checkout(config.API_TIMEOUT_INTERACTIVE_MS)) as conn:
+        checkout = _checkout(config.API_TIMEOUT_INTERACTIVE_MS, max(deadline - time.monotonic(), 0.0))
+        with anyio.CancelScope(shield=True):  # una conexión ya sacada del pool no se pierde por una cancelación
+            conn = await anyio.to_thread.run_sync(checkout.__enter__)
+        try:
             yield conn
+        except BaseException as exc:
+            with anyio.CancelScope(shield=True):
+                await anyio.to_thread.run_sync(
+                    checkout.__exit__, type(exc), exc, exc.__traceback__, limiter=anyio.CapacityLimiter(1)
+                )
+            raise
+        with anyio.CancelScope(shield=True):  # devolverla no espera un hilo libre del threadpool
+            await anyio.to_thread.run_sync(checkout.__exit__, None, None, None, limiter=anyio.CapacityLimiter(1))
     finally:
-        _gate.slots.release()
+        gate.release()
 
 
 def get_analytics_conn(conn: Connection = Depends(get_conn)) -> Connection:
@@ -121,13 +150,29 @@ def _statement_timeout(conn: Connection, ms: int) -> None:
     conn.commit()
 
 
+@contextmanager
+def pooled_connection() -> Iterator[Connection]:
+    """Una conexión del pool para lo que corre en un hilo del threadpool fuera de `get_conn` (las tareas en segundo
+    plano y el beacon): pasa por el mismo turno, pedido al event loop."""
+    gate = _gate
+    deadline = time.monotonic() + gate.wait_s
+    if not anyio.from_thread.run(gate.acquire):
+        raise _no_turn(gate)
+    try:
+        with _checkout(BACKGROUND_TIMEOUT_MS, max(deadline - time.monotonic(), 0.0)) as conn:
+            yield conn
+    finally:
+        anyio.from_thread.run_sync(gate.release)
+
+
 def _own_connection() -> AbstractContextManager[Connection]:
-    return _checkout(BACKGROUND_TIMEOUT_MS)
+    return pooled_connection()
 
 
 def get_connector() -> Callable[[], AbstractContextManager[Connection]]:
-    """Abre conexiones del pool fuera de `get_conn`: una tarea en segundo plano corre después de devolver la del
-    request, y el beacon la pide solo después de validar. Los tests lo reemplazan para usar la conexión del test."""
+    """Abre conexiones del pool (con turno) fuera de `get_conn`: el recálculo de segmentos corre en segundo plano
+    después de la respuesta, cuando `/orders` ya devolvió la suya (su `get_conn` es de alcance `function`), y el beacon
+    la pide solo después de validar. Los tests lo reemplazan para usar la conexión del test."""
     return _own_connection
 
 

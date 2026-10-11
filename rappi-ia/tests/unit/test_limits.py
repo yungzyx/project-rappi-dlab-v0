@@ -7,6 +7,7 @@ import types
 from contextlib import contextmanager
 from types import SimpleNamespace
 
+import anyio
 import pytest
 from fastapi import Depends, FastAPI, Request
 from fastapi.testclient import TestClient
@@ -15,7 +16,7 @@ from rappi_ia import config
 from rappi_ia.agent import compose
 from rappi_ia.agent.compose import ClaudeComposer, DailyCallCap, Draft, TemplateComposer
 from rappi_ia.api import app as api
-from rappi_ia.api import limits
+from rappi_ia.api import limits, services
 
 ANSWER = {"kind": "resultados", "text": "Mira estas opciones.", "products": [], "intent": {"kind": "buscar"}}
 
@@ -27,7 +28,11 @@ def opened():
 
 
 @pytest.fixture
-def client(opened):
+def client(opened, monkeypatch):
+    """Un solo event loop (`with TestClient`, como uvicorn): los cupos son de anyio y se llenan desde ese loop."""
+    monkeypatch.setenv("RAPPI_IA_LIGHT", "1")
+    services._load_services.cache_clear()
+
     def conn_override():
         opened.append("get_conn")
         yield SimpleNamespace(commit=lambda: None, execute=lambda *_: None)  # solo el statement_timeout del panel
@@ -41,25 +46,41 @@ def client(opened):
     api.app.dependency_overrides[api.get_conn] = conn_override
     api.app.dependency_overrides[api.get_connector] = lambda: connection
     api.app.dependency_overrides[api.get_services] = lambda: types.SimpleNamespace(agent=agent, embedder=None)
-    yield TestClient(api.app)
-    api.app.dependency_overrides.clear()
+    try:
+        with TestClient(api.app) as test_client:
+            yield test_client
+    finally:
+        api.app.dependency_overrides.clear()
+        services._load_services.cache_clear()
+
+
+def _take_all(cap) -> int:
+    taken = 0
+    while True:
+        try:
+            cap.slots.acquire_nowait()
+        except anyio.WouldBlock:
+            return taken
+        taken += 1
+
+
+def _give_back(cap, n: int) -> None:
+    for _ in range(n):
+        cap.slots.release()
 
 
 @contextmanager
-def full(cap):
-    """Ocupa todos los cupos de una ruta, como si otros requests estuvieran adentro."""
-    taken = 0
-    while cap.slots.acquire(blocking=False):
-        taken += 1
+def full(client, cap):
+    """Ocupa todos los cupos de una ruta, como si otros requests estuvieran adentro (desde el loop de la app)."""
+    taken = client.portal.call(_take_all, cap)
     try:
         yield
     finally:
-        for _ in range(taken):
-            cap.slots.release()
+        client.portal.call(_give_back, cap, taken)
 
 
 def test_cap_full_returns_503_with_retry_after(client):
-    with full(api.SEARCH_CAP):
+    with full(client, api.SEARCH_CAP):
         reply = client.get("/search", params={"q": "vino", "vertical": "licores"})
 
     assert reply.status_code == 503
@@ -69,7 +90,7 @@ def test_cap_full_returns_503_with_retry_after(client):
 
 def test_cap_resolves_before_connection(client, opened):
     """Un request que no tiene cupo no ocupa una conexión del pool mientras espera: ni la pide."""
-    with full(api.ASK_CAP):
+    with full(client, api.ASK_CAP):
         assert client.post("/agent/ask", json={"message": "una hamburguesa"}).status_code == 503
     assert opened == []
 
@@ -92,7 +113,7 @@ def test_each_expensive_route_has_its_cap(client, opened):
         (api.ORDERS_CAP, lambda: client.post("/orders", json=order)),
     ]
     for cap, send in requests:
-        with full(cap):
+        with full(client, cap):
             assert send().status_code == 503, cap.name
     assert opened == []
 
@@ -104,13 +125,28 @@ def test_the_panel_waits_its_turn_instead_of_failing(client, opened, monkeypatch
     assert api.ASK_CAP.wait_s == 0  # las rutas de la app sí rechazan al tiro
 
     monkeypatch.setitem(api.ANALYTICS, "kpis", lambda conn, source: {"usuarios": 0})
+    in_line = threading.Event()
+    slots = api.ANALYTICS_CAP.slots
+
+    class Watched:  # avisa cuando un request se pone en la fila
+        def __getattr__(self, name):
+            return getattr(slots, name)
+
+        async def acquire(self):
+            in_line.set()
+            await slots.acquire()  # sin ceder el loop entre el aviso y quedar en la fila
+
+    monkeypatch.setattr(api.ANALYTICS_CAP, "slots", Watched())
     replies = []
-    with full(api.ANALYTICS_CAP):
+    with full(client, api.ANALYTICS_CAP):
         waiting = threading.Thread(target=lambda: replies.append(client.get("/analytics/kpis").status_code))
         waiting.start()
+        assert in_line.wait(timeout=5)  # está esperando su turno, no rechazado
+        assert replies == []
     waiting.join()  # se liberó un cupo: el que esperaba entra
 
     assert replies == [200]
+    assert opened == ["get_conn"]
 
 
 def test_a_waiting_cap_gives_up_after_its_wait(monkeypatch):
@@ -121,11 +157,12 @@ def test_a_waiting_cap_gives_up_after_its_wait(monkeypatch):
     def slow() -> dict:
         return {"ok": True}
 
-    with full(cap):
-        reply = TestClient(app).get("/lento")
+    with TestClient(app) as client:
+        with full(client, cap):
+            reply = client.get("/lento")
 
-    assert reply.status_code == 503 and reply.headers["retry-after"] == "2"
-    assert TestClient(app).get("/lento").status_code == 200
+        assert reply.status_code == 503 and reply.headers["retry-after"] == "2"
+        assert client.get("/lento").status_code == 200
 
 
 def test_caps_take_their_size_from_config():

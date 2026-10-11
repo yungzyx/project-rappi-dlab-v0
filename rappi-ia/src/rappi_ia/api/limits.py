@@ -4,7 +4,6 @@ Todo vive en la memoria del proceso: con varios workers, cada uno cuenta lo suyo
 """
 
 import math
-import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
@@ -18,7 +17,6 @@ TOO_MANY = "Demasiadas solicitudes; espera un momento."
 TOO_LARGE = "Solicitud demasiado grande"
 BUSY_RETRY_S = 2
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-POLL_S = 0.05  # cada cuánto mira un request en fila si se liberó un cupo
 
 
 def busy() -> HTTPException:
@@ -27,15 +25,16 @@ def busy() -> HTTPException:
 
 class ConcurrencyCap:
     """Dependencia de una ruta: a lo más `limit` requests adentro a la vez. Sin `wait_s`, el siguiente recibe 503 al
-    tiro; con `wait_s`, hace fila hasta esos segundos (el panel pide muchas métricas juntas). Se declara en
-    `dependencies=[…]` de la ruta, que FastAPI resuelve antes que los parámetros: un request sin cupo no pide conexión.
-    Es async: se resuelve en el event loop, sin ocupar un hilo del threadpool, también mientras hace fila."""
+    tiro; con `wait_s`, hace fila (en orden de llegada) hasta esos segundos: el panel pide muchas métricas juntas. Se
+    declara en `dependencies=[…]` de la ruta, que FastAPI resuelve antes que los parámetros: un request sin cupo no
+    pide conexión. Es async: vive en el event loop (un semáforo de anyio), sin ocupar un hilo, también mientras espera;
+    un request cancelado en la fila no se queda con un cupo."""
 
     def __init__(self, name: str, limit: int, wait_s: float = 0):
         self.name = name
         self.limit = limit
         self.wait_s = wait_s
-        self.slots = threading.BoundedSemaphore(limit)
+        self.slots = anyio.Semaphore(limit, max_value=limit)
 
     async def __call__(self):
         if not await self.acquire():
@@ -45,14 +44,22 @@ class ConcurrencyCap:
         finally:
             self.slots.release()
 
-    async def acquire(self) -> bool:
-        """Sin bloquear el event loop: un request cancelado mientras espera no se queda con un cupo."""
-        deadline = time.monotonic() + self.wait_s
-        while not self.slots.acquire(blocking=False):
-            if time.monotonic() >= deadline:
+    async def acquire(self, wait_s: float | None = None) -> bool:
+        """¿Consiguió un cupo? Espera a lo más `wait_s` (por defecto, el de este cupo)."""
+        wait_s = self.wait_s if wait_s is None else wait_s
+        if wait_s <= 0:
+            try:
+                self.slots.acquire_nowait()
+            except anyio.WouldBlock:
                 return False
-            await anyio.sleep(POLL_S)
-        return True
+            return True
+        with anyio.move_on_after(wait_s):
+            await self.slots.acquire()
+            return True
+        return False
+
+    def release(self) -> None:
+        self.slots.release()
 
 
 def concurrency_cap(name: str, limit: int, wait_s: float = 0) -> ConcurrencyCap:

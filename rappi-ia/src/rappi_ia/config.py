@@ -82,9 +82,9 @@ API_MAX_CONCURRENT_ANALYTICS = int(os.environ.get("API_MAX_CONCURRENT_ANALYTICS"
 # Cuerpo máximo de un request (413 si se pasa): el mismo orden que el beacon de eventos (512 KB).
 API_MAX_BODY_BYTES = int(os.environ.get("API_MAX_BODY_BYTES", "524288"))
 
-# Requests por minuto de cada IP (429 si se pasa), y de esos, cuántos pueden escribir (POST, PUT, DELETE). 0 = sin
-# tope. Se cuenta en memoria del proceso: vale con un solo worker. La IP es la del cliente que ve uvicorn (tras un
-# proxy, con --proxy-headers). En local, este Mac (127.0.0.1) no tiene tope.
+# Requests por minuto de cada IP (429 si se pasa), y de esos, cuántos pueden escribir (POST, PUT, PATCH, DELETE).
+# 0 = sin tope. Se cuenta en memoria del proceso: vale con un solo worker. La IP es la del cliente que ve uvicorn (tras
+# un proxy, con --proxy-headers). En local, este Mac (127.0.0.1) no tiene tope.
 API_RATE_PER_MIN = int(os.environ.get("API_RATE_PER_MIN", "120"))
 API_RATE_WRITE_PER_MIN = int(os.environ.get("API_RATE_WRITE_PER_MIN", "60"))
 

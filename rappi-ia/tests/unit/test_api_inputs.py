@@ -185,7 +185,7 @@ def test_each_request_class_has_its_own_statement_timeout(monkeypatch):
 
     class Pool:
         @contextmanager
-        def connection(self):
+        def connection(self, timeout=None):
             yield Recorder()
 
     monkeypatch.setattr(deps, "_pool", Pool())

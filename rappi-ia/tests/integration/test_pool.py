@@ -2,11 +2,15 @@
 otro, 503 cuando no queda una libre, y las escrituras anónimas acotadas (un `ensure_user` por lote, purga de
 inactivos)."""
 
+import logging
 import threading
 from argparse import Namespace
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
+import anyio
 import pytest
 from fastapi.testclient import TestClient
 from psycopg.pq import TransactionStatus
@@ -42,6 +46,7 @@ def make_pool(monkeypatch):
         pool.open(wait=wait)
         pools.append(pool)
         monkeypatch.setattr(deps, "_pool", pool)
+        monkeypatch.setattr(deps, "_gate", deps.gate_for(pool))  # el turno, del tamaño del pool (como open_pool)
         return pool
 
     yield make
@@ -59,6 +64,24 @@ def client():
     api.app.dependency_overrides.clear()
 
 
+@pytest.fixture
+def live_client(monkeypatch):
+    """Un solo event loop para todos los requests, como uvicorn (`with TestClient`): los turnos y cupos son de anyio
+    y sus esperas viven en el loop. Corre el lifespan (sin modelos; el pool real no se abre en los tests)."""
+    monkeypatch.setenv("RAPPI_IA_LIGHT", "1")
+    services._load_services.cache_clear()
+    embedder = HashEmbedder()
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
+    try:
+        with TestClient(api.app) as client:
+            yield client
+    finally:
+        api.app.dependency_overrides.clear()
+        services._load_services.cache_clear()
+
+
 def _catalog(db) -> None:
     add_store(db, 1, "supermercado", "Súper")
     for pid, name, price in [(100, "Papas fritas Lays Clásicas 180 g", 1990), (101, "Papas Kryzpo Original", 2290)]:
@@ -71,7 +94,7 @@ def _catalog(db) -> None:
     db.commit()
 
 
-def test_fifty_requests_stay_within_pool(db, test_url, make_pool, client):
+def test_fifty_requests_stay_within_pool(db, test_url, make_pool, live_client):
     pool = make_pool(test_url)
     barrier = threading.Barrier(50)
     done = threading.Event()
@@ -89,7 +112,7 @@ def test_fifty_requests_stay_within_pool(db, test_url, make_pool, client):
 
     def call(_):
         barrier.wait()  # los 50 a la vez
-        return client.get("/health").status_code
+        return live_client.get("/health").status_code
 
     watcher = threading.Thread(target=sample)
     watcher.start()
@@ -105,24 +128,20 @@ def test_fifty_requests_stay_within_pool(db, test_url, make_pool, client):
     assert pool.get_stats()["connections_num"] <= POOL_MAX  # nunca abrió más de las que caben
 
 
-def test_a_burst_does_not_starve_the_threadpool(test_url, make_pool, monkeypatch):
-    """100 requests a la vez en un solo event loop (como uvicorn) con 3 conexiones: los que esperan conexión no ocupan
-    los 40 hilos del threadpool, así los que ya tienen una pueden correr su endpoint. Antes, todos los hilos quedaban
-    esperando en el pool, nadie devolvía su conexión y la mitad salía con 503 a los 3 s."""
-    monkeypatch.setenv("RAPPI_IA_LIGHT", "1")
-    services._load_services.cache_clear()
-    make_pool(test_url)
+def test_a_burst_does_not_starve_the_threadpool(test_url, make_pool, live_client):
+    """100 requests a la vez en un solo event loop (como uvicorn) con 3 conexiones y 3 turnos: los que esperan conexión
+    no ocupan los 40 hilos del threadpool, así los que ya tienen una pueden correr su endpoint. Antes, todos los hilos
+    quedaban esperando en el pool, nadie devolvía su conexión y la mitad salía con 503 a los 3 s."""
+    pool = make_pool(test_url)
+    assert deps._gate.limit == pool.max_size == POOL_MAX
     barrier = threading.Barrier(100)
 
-    def call(client):
+    def call(_):
         barrier.wait()
-        return client.get("/health").status_code
+        return live_client.get("/health").status_code
 
-    try:
-        with TestClient(api.app) as client, ThreadPoolExecutor(100) as executor:  # con `with`: un solo event loop
-            statuses = list(executor.map(lambda _: call(client), range(100)))
-    finally:
-        services._load_services.cache_clear()
+    with ThreadPoolExecutor(100) as executor:
+        statuses = list(executor.map(call, range(100)))
 
     assert statuses == [200] * 100
 
@@ -151,6 +170,87 @@ def test_pool_timeout_is_503(test_url, make_pool, client):
     assert reply.json()["detail"] == "Hay mucha gente ahora; intenta en unos segundos."
     assert reply.headers["retry-after"] == "2"
     assert client.get("/health").status_code == 200  # se liberó
+
+
+def test_an_order_releases_its_connection_before_recalculating_segments(db, test_url, make_pool, live_client, caplog):
+    """Con una sola conexión: el pedido devuelve la suya (y su turno) antes de la tarea en segundo plano, que toma
+    otra del pool por el mismo turno. Antes, la del pedido seguía tomada hasta que terminaba la tarea, y la tarea
+    esperaba hasta el timeout."""
+    _catalog(db)
+    make_pool(test_url, max_size=1, timeout=1)
+    api.app.dependency_overrides[api.get_connector] = lambda: deps.pooled_connection
+    order = {
+        "user_id": "p-pedido",
+        "session_id": "s",
+        "cart_id": "c",
+        "vertical": "supermercado",
+        "lines": [{"entity_type": "catalog_item", "entity_id": "100", "store_id": 1}],
+    }
+
+    with caplog.at_level(logging.INFO, logger="rappi_ia.layers.segments"):
+        reply = live_client.post("/orders", json=order)
+
+    assert reply.status_code == 200, reply.text
+    assert "Segmentos recalculados de p-pedido" in caplog.text
+    assert "No se pudieron recalcular" not in caplog.text
+    assert deps.connections_in_use() == 0
+
+
+def test_a_cancelled_request_returns_its_connection(test_url, make_pool):
+    """Un request cancelado (el cliente se fue) devuelve su conexión y su turno igual."""
+    pool = make_pool(test_url, max_size=1)
+
+    async def cancel_while_holding():
+        connections = deps.get_conn()
+        await anext(connections)
+        assert deps.connections_in_use() == 1
+        with pytest.raises(anyio.get_cancelled_exc_class()):
+            await connections.athrow(anyio.get_cancelled_exc_class()())
+
+    anyio.run(cancel_while_holding)
+
+    assert deps.connections_in_use() == 0
+    assert pool.get_stats()["pool_available"] == 1
+    assert deps._gate.slots.value == 1
+
+
+def test_a_broken_connection_is_replaced_before_use(db, test_url, make_pool, live_client):
+    """Una conexión que Postgres cortó (reinicio, idle timeout) no le llega a un request: el pool la revisa."""
+    make_pool(test_url, max_size=1)
+    assert live_client.get("/health").status_code == 200
+    db.execute(
+        """SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+           WHERE application_name = 'rappi-ia-api' AND datname = current_database()"""
+    )
+    db.commit()
+
+    assert live_client.get("/health").status_code == 200
+
+
+def test_waiting_for_a_turn_counts_against_the_pool_timeout(monkeypatch):
+    """La espera total (turno más pool) no pasa de API_POOL_TIMEOUT_S: el pool recibe lo que queda."""
+    asked = []
+
+    class Pool:
+        max_size, timeout = 1, 3.0
+
+        @contextmanager
+        def connection(self, timeout=None):
+            asked.append(timeout)
+            yield SimpleNamespace(execute=lambda *_: None, commit=lambda: None)
+
+    pool = Pool()
+    monkeypatch.setattr(deps, "_pool", pool)
+    monkeypatch.setattr(deps, "_gate", deps.gate_for(pool))
+
+    async def once():
+        connections = deps.get_conn()
+        await anext(connections)
+        await connections.aclose()
+
+    anyio.run(once)
+
+    assert len(asked) == 1 and 0 < asked[0] <= 3.0
 
 
 def test_api_without_pool_refuses_to_connect(client):

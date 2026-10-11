@@ -444,16 +444,19 @@ def _save_events(connect, body: EventsIn) -> int:
     return n
 
 
-@app.post("/orders", dependencies=[Depends(ORDERS_CAP)])
+# Alcance `function`: la conexión, su turno y el cupo se sueltan al terminar el endpoint. Con el de siempre (`request`)
+# FastAPI los suelta después de las tareas en segundo plano, y el recálculo pediría una segunda conexión con la primera
+# todavía tomada.
+@app.post("/orders", dependencies=[Depends(ORDERS_CAP, scope="function")])
 def post_order(
     body: OrderIn,
     background: BackgroundTasks,
-    conn: Connection = Depends(get_conn),
+    conn: Connection = Depends(get_conn, scope="function"),
     connector=Depends(get_connector),
 ) -> dict:
     """Guarda el pedido con el precio del catálogo en la tienda de cada línea (las que no tienen precio vigente quedan
     fuera y se cuentan en `lineas_omitidas`) y, ya respondido, recalcula los segmentos de esa persona (solo los suyos,
-    con otra conexión)."""
+    con otra conexión del pool, ya devuelta la del pedido)."""
     vertical = backend_vertical(body.vertical)
     if vertical is None:  # un pedido es de una tienda: sin vertical del catálogo no se puede guardar
         raise HTTPException(400, f"Vertical desconocido: {body.vertical}")
