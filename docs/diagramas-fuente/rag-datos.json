@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "dataflow",
   "meta": {
-    "title": "RAG de Rappi: de rappi.cl a Mochi y el prototipo",
+    "title": "RAG de Rappi: de rappi.cl a Mochi",
     "quality_profile": "showcase",
     "views": [
       {
@@ -22,11 +22,12 @@
         "focus": [
           "catalogo",
           "busqueda",
+          "jev",
           "conceptos",
           "embed",
           "eval"
         ],
-        "note": "Tras la descarga: conceptos, embeddings e5, evaluación de la búsqueda y la capa de datos (atributos, marcas, grafo, segmentos)."
+        "note": "Tras la descarga: Jev (opcional), conceptos, embeddings e5, evaluación con 3 jueces y la capa de datos (atributos, marcas, grafo)."
       },
       {
         "id": "consulta",
@@ -66,7 +67,7 @@
     ],
     "viewBox": [
       1080,
-      560
+      602
     ],
     "legend": {
       "entries": {
@@ -149,10 +150,19 @@
       "tag": "purga 90 días"
     },
     {
+      "id": "jev",
+      "type": "external",
+      "label": "Jev (TypeSafe)",
+      "sublabel": "etiqueta y juzga",
+      "stage": 2,
+      "row": 1,
+      "tag": "opcional"
+    },
+    {
       "id": "conceptos",
       "type": "backend",
       "label": "Conceptos (capa 2)",
-      "sublabel": "taxonomía + kNN",
+      "sublabel": "reglas + kNN + Jev",
       "stage": 2,
       "row": 0,
       "tag": "item_concepts"
@@ -163,14 +173,14 @@
       "label": "Embeddings e5",
       "sublabel": "768 dimensiones",
       "stage": 2,
-      "row": 1,
+      "row": 3,
       "tag": "caché por hash"
     },
     {
       "id": "eval",
       "type": "backend",
       "label": "Evaluación",
-      "sublabel": "165 consultas",
+      "sublabel": "165 consultas · 3 jueces",
       "stage": 2,
       "row": 2,
       "tag": "nDCG · τ"
@@ -181,7 +191,7 @@
       "label": "Búsqueda híbrida",
       "sublabel": "léxico + vector",
       "stage": 3,
-      "row": 1,
+      "row": 2,
       "tag": "concepto · τ"
     },
     {
@@ -247,9 +257,37 @@
       "from": "catalogo",
       "to": "conceptos",
       "label": "categorías y nombres",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left",
       "labelAt": [
         423,
-        200
+        124
+      ]
+    },
+    {
+      "id": "nuevas",
+      "from": "catalogo",
+      "to": "jev",
+      "label": "categorías nuevas",
+      "variant": "dashed"
+    },
+    {
+      "id": "etiqueta",
+      "from": "jev",
+      "to": "conceptos",
+      "label": "etiqueta",
+      "variant": "dashed"
+    },
+    {
+      "id": "juicio",
+      "from": "jev",
+      "to": "eval",
+      "label": "juicio",
+      "variant": "dashed",
+      "labelAt": [
+        530,
+        314
       ]
     },
     {
@@ -257,7 +295,15 @@
       "from": "busqueda",
       "to": "embed",
       "label": "textos sin vector",
-      "variant": "emphasis"
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          315,
+          499
+        ]
+      ]
     },
     {
       "id": "vectores",
@@ -265,9 +311,14 @@
       "to": "retrieve",
       "label": "índice HNSW",
       "variant": "emphasis",
-      "route": "straight",
       "fromSide": "right",
-      "toSide": "left"
+      "toSide": "bottom",
+      "via": [
+        [
+          745,
+          499
+        ]
+      ]
     },
     {
       "id": "tau",
@@ -276,13 +327,8 @@
       "label": "τ por vertical",
       "variant": "dashed",
       "fromSide": "right",
-      "toSide": "bottom",
-      "via": [
-        [
-          745,
-          385
-        ]
-      ]
+      "toSide": "left",
+      "route": "straight"
     },
     {
       "id": "complementos",
@@ -350,8 +396,8 @@
       "dot": "emerald",
       "title": "Offline, cada domingo",
       "items": [
-        "refresh-semanal.sh: rappi refresh y luego make post-refresh",
-        "Conceptos, embeddings, evaluación, capa de datos, datos simulados y purga",
+        "refresh-semanal.sh: rappi refresh y make post-refresh",
+        "Jev (opcional), conceptos, embeddings, evaluación, capas y purga",
         "Candado propio: nunca corren dos descargas a la vez"
       ]
     },
@@ -360,8 +406,8 @@
       "title": "Online, en cada consulta",
       "items": [
         "Siempre dentro de un vertical: léxico por IDF y vectorial e5",
-        "RRF y refuerzo por concepto; sin resultado si nada calza y el coseno queda bajo τ",
-        "El agente arma la respuesta con plantillas o, con clave, con Claude"
+        "RRF, refuerzo por concepto y sin resultado bajo τ",
+        "El agente responde con plantillas o con Claude"
       ]
     },
     {
@@ -370,7 +416,7 @@
       "items": [
         "Catálogo = muestra pública: hasta 24 productos por sub-pasillo",
         "Usuarios y eventos: simulados",
-        "Claude es opcional: sin clave, el agente responde con plantillas"
+        "Claude y Jev son opcionales: sin claves todo sigue igual"
       ]
     }
   ]

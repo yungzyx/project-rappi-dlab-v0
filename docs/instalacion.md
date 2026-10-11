@@ -73,12 +73,13 @@ No cambia la configuración de Postgres. Si el equipo tiene poca memoria, usa un
 cd rappi-ia
 make install install-ml db-test migrate   # .venv, paquetes de los modelos (~1 GB), base de tests
 make test
-caffeinate -i make post-refresh           # purga, conceptos, tarjetas del juego, embeddings, evaluación y datos simulados al día con la base
+caffeinate -i make post-refresh           # purga, categorías nuevas con Jev (si está adoptado), conceptos, tarjetas del juego, embeddings, evaluación y datos simulados al día con la base
 ```
 
 - **Tarjetas del juego:** `rappi-ia knowledge` (`make knowledge`; corre en `post-refresh`, después de `concepts`, y en `make mvp`, `make serve` y `make serve-lan`, después de migrar) carga las 108 tarjetas de `src/rappi_ia/game/knowledge.json` en `knowledge_cards` y sus ligas a conceptos (`card_concepts.toml`, revisadas una por una) en `knowledge_card_concepts`; las tarjetas que salen del archivo se borran. Sin ellas una ronda solo muestra «Aún no hay tarjetas»; como la API las carga al levantarse, eso pasa únicamente si se la arranca sin `make` (uvicorn directo). El progreso de cada persona (`game_state`) lo guarda la API.
 - **τ:** `make post-refresh` también recalibra τ en `src/rappi_ia/eval/thresholds.json` (solo en verticales con negativas que dependen de τ; los demás conservan el suyo). Si cambia, revisar y hacer commit.
 - **Evaluación:** el reporte queda en `data/eval/busqueda.md` (dentro de `rappi-ia/`).
+- **Jev (opcional):** `post-refresh` corre primero `make jev-categorias` (Jev etiqueta las categorías nuevas) y `make eval` suma a Jev como juez, **solo** si `rappi-ia/.env` tiene `TYPESAFE_API_KEY` y el repositorio tiene `src/rappi_ia/eval/jev-adopcion.json` (lo crea el usuario tras el piloto). Sin la clave o sin ese archivo ambos pasos no hacen nada, lo dicen en una línea y terminan bien, así que no hace falta instalar ni configurar nada para el flujo de siempre. Cómo ponerlo en marcha: [jev.md](jev.md).
 - **Memoria de los índices:** `make embed` (parte de `post-refresh`) construye un índice HNSW por vertical con 1 GB de `maintenance_work_mem`, solo durante esa transacción. Se ajusta con `HNSW_MAINTENANCE_WORK_MEM` en `rappi-ia/.env` (ver `.env.example`); bájalo si el equipo tiene poca memoria.
 
 ## 5. El MVP
@@ -129,7 +130,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 
 - **Qué corre:** `rappi-scraper/scripts/refresh-semanal.sh`.
   - Primero `rappi migrate` (las migraciones que haya traído un `git pull`) y `rappi refresh`: tiendas, restaurantes, búsqueda, reportes y respaldo en `data/backups/` (quedan los últimos 4).
-  - Si termina bien (o solo falló el respaldo), `make post-refresh` de rappi-ia: purga (primero, para cumplir la retención aunque falle otro paso), conceptos, tarjetas del juego, embeddings, evaluación, datos simulados y otra purga.
+  - Si termina bien (o solo falló el respaldo), `make post-refresh` de rappi-ia: purga (primero, para cumplir la retención aunque falle otro paso), categorías nuevas con Jev (solo con clave y adopción), conceptos, tarjetas del juego, embeddings, evaluación (con Jev como juez si está adoptado), datos simulados y otra purga.
   - Nunca corren dos descargas a la vez: los comandos que descargan comparten el candado `rappi-scraper/data/scraper.lock`, que el sistema suelta aunque el proceso muera. Además, la tarea semanal tiene su propio candado, que se borra aunque la corten con una señal (Ctrl-C, cerrar la terminal).
 - **τ:** la evaluación semanal no guarda τ, porque `thresholds.json` está en el repositorio. Para recalibrar: `make eval` a mano en `rappi-ia/` y commit.
 - **Dormido o apagado:** si a esa hora el equipo estaba **dormido**, la tarea corre al despertar; si estaba **apagado**, esa semana se salta. Por eso conviene:

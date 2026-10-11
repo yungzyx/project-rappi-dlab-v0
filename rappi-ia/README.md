@@ -11,6 +11,7 @@ Versión interactiva: [rag-datos.html](../docs/diagramas/rag-datos.html). Vista 
 | Pieza | Qué hace | Dónde |
 |---|---|---|
 | Conceptos (capa 2) | Cada producto y plato → un concepto, con procedencia: categoría (mapa de 757 categorías revisadas, generado con LLM: dos etiquetadores trabajan por separado y un juez decide cuando no coinciden; 21 ajustes a mano; versionado en `category_map.csv`), reglas por palabra o vecinos cercanos (kNN) | `concepts/` |
+| Jev (opcional) | Etiqueta categorías nuevas y juzga la búsqueda, solo fuera de línea y solo con clave, adopción y piloto aprobado; sin ellos nada cambia | `jev.py`, `concepts/jev_map.py`, `eval/judge.py`, `eval/jev_pilot.py` |
 | Embeddings | Texto con `intfloat/multilingual-e5-base` (768 dim, caché por contenido, índice HNSW por vertical) | `embeddings/` |
 | Búsqueda híbrida | Léxico (sin tildes ni ñ, IDF) + vectorial → RRF → refuerzo por concepto, con filtros dentro de cada lista y regla de "sin resultado" | `retrieval/hybrid.py` |
 | Mochi | Entender → buscar → sugerir un complemento de otro vertical → redactar (plantillas o Claude) → verificar | `agent/` |
@@ -35,7 +36,7 @@ Las versiones de las librerías están fijadas en `requirements.lock.txt` (las d
 Después de cada `rappi refresh` del scraper:
 
 ```bash
-make post-refresh                 # migrate + purge + concepts + embed + eval + synth + purge
+make post-refresh                 # migrate + purge + jev-categorias + concepts + knowledge + embed + eval + synth + layers + purge
 ./scripts/despues-del-refresh.sh  # lo mismo, pero espera a que termine un `rappi refresh` lanzado a mano
 ```
 
@@ -43,9 +44,10 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 
 | Objetivo | Qué hace |
 |---|---|
+| `make jev-categorias` | Jev etiqueta las categorías nuevas (`map-categories --jev --solo-nuevas`). Opcional: sin `TYPESAFE_API_KEY` o sin `eval/jev-adopcion.json` no hace nada y termina bien. Va antes de `concepts` en `post-refresh` (guía en [docs/jev.md](../docs/jev.md)) |
 | `make concepts` | Capa 2: conceptos por producto y plato (con kNN si está el extra `ml`) |
 | `make embed` | Embeddings de texto (incrementales) + índices HNSW por vertical. No corre si hay una descarga del scraper en curso |
-| `make eval` | Evalúa la búsqueda (léxico, vectorial, híbrido y ablación sin refuerzo), guarda τ en `src/rappi_ia/eval/thresholds.json` (solo en verticales con negativas que dependen de τ; los demás conservan el suyo; `make eval EVAL_ARGS=` no guarda) y deja el reporte en `data/eval/busqueda.md` |
+| `make eval` | Evalúa la búsqueda (léxico, vectorial, híbrido y ablación sin refuerzo), guarda τ en `src/rappi_ia/eval/thresholds.json` (solo en verticales con negativas que dependen de τ; los demás conservan el suyo; `make eval EVAL_ARGS=` no guarda) y deja el reporte en `data/eval/busqueda.md` Con `--jev-auto` (lo que usa `make eval`) suma a Jev como tercer juez solo si hay clave y adopción |
 | `make synth` | Usuarios y eventos **simulados** para métricas y segmentos (1.500 usuarios × 26 semanas, semilla 7; reemplaza los anteriores) |
 | `make purge` | Borra el texto de las consultas con más de 90 días |
 | `make analytics` | Resumen de las métricas de negocio en la terminal |
@@ -58,6 +60,11 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 - `rappi-ia concepts --solo-reporte`: cobertura sin recalcular; también lista las categorías sin mapeo revisado (las nuevas de cada semana). Las revisadas sin concepto (filas «ninguno» de `category_map.csv`) no vuelven a aparecer.
 - `rappi-ia map-categories`: exporta las categorías sin mapeo revisado a `data/concepts/categorias-sin-mapear.csv`, con el formato de `category_map.csv` y un concepto sugerido cuando al menos la mitad de sus productos ya lo tiene (reglas o kNN). Se revisa cada fila, se cambia el método a «curado» y se copia al mapa versionado.
 - `rappi-ia eval-sample`: arma la muestra de 200 pares (consulta, producto) para juzgar a mano (`src/rappi_ia/eval/judgments-sample.json`, con semilla fija): 120 donde el híbrido con y sin refuerzo por concepto difieren en el top 10 y 80 al azar. Se juzga a ciegas en una página privada del autor (sin mostrar el juez automático ni el modo); los juicios se copian a `src/rappi_ia/eval/judgments.json`, que todavía no existe.
+- `rappi-ia jev-planillas`: deja en `data/eval/` dos planillas CSV para juzgar a mano (200 pares de búsqueda y 100 categorías) con su `LEEME-planillas.md`; los textos no van a git, solo los ids. `--forzar` pisa planillas ya llenas.
+- `rappi-ia jev-piloto`: con `TYPESAFE_API_KEY` y las planillas juzgadas, mide a Jev como etiquetador de categorías y como juez, escribe `data/eval/jev-piloto.md` y, si pasa, la propuesta `eval/jev-adopcion.propuesta.json` (se adopta renombrándola a `jev-adopcion.json` y subiéndola a git).
+- `rappi-ia map-categories --jev [--solo-nuevas] [--exportar]`: Jev propone el concepto de las categorías sin mapeo revisado (solo con clave y adopción); `--exportar` lista sus mapeos y su cola de revisión en un CSV para pasarlos a `category_map.csv`.
+- `rappi-ia eval-search --juez-jev`: suma a Jev como juez (exige la clave). `--jev-auto` lo suma solo si hay clave y adopción, y si no sigue sin él.
+- `rappi-ia knowledge --jev-propuestas`: Jev propone un concepto por tarjeta del juego en `data/eval/tarjetas-jev.csv`, para revisar; no liga nada.
 - `rappi-ia eval-human`: con esos juicios, cuánto acierta el juez automático (precisión, recall, acuerdo) y si los ítems que solo trae el refuerzo son relevantes más o menos seguido que los que solo trae sin él.
 - `rappi-ia multivertical`: regenera el mapa multivertical (`docs/mapas/mapa-multivertical.html`): productos compartidos entre verticales, conceptos junto a la vertical donde son más típicos (la regla de Mochi) y los productos y cadenas en más verticales. Página autocontenida, sin internet. La imagen `mapa-conceptos.jpg` se captura de esa página con `#figura` al final de la URL.
 
