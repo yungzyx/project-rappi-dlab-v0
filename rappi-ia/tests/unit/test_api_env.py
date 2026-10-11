@@ -95,6 +95,29 @@ def test_beacon_accepts_configured_https_origin(load_api):
     assert beacon(module, None) == 422  # sin Origin: un cliente que no es un navegador
 
 
+def test_beacon_accepts_its_own_origin_without_configuration(load_api):
+    """Sitio y API en el mismo origen (proxy en /api): el navegador manda Origin igual a la página, o sea al Host."""
+    module = load_api(API_ENV="production")
+
+    assert config.API_CORS_ORIGINS == []
+    assert beacon(module, "https://testserver") == 422  # el TestClient llama a «testserver»
+    assert beacon(module, "http://testserver") == 422  # tras un proxy TLS la API ve http y el navegador manda https
+
+
+def test_beacon_rejects_origins_that_only_resemble_its_host(load_api):
+    module = load_api(API_ENV="production")
+
+    for origin in (
+        "https://evil.example.com",
+        "https://testserver.evil.example.com",
+        "https://evil-testserver",
+        "https://testserver:8443",
+        "https://testserver@evil.example.com",
+        "null",
+    ):
+        assert beacon(module, origin) == 403, origin
+
+
 def test_analytics_off_is_404(load_api):
     module = load_api(API_ENV="production")
 

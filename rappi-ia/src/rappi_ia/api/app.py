@@ -10,6 +10,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.concurrency import run_in_threadpool
@@ -84,6 +85,15 @@ def origin_allowed(origin: str) -> bool:
     return origin in config.API_CORS_ORIGINS or (
         CORS_ORIGIN_REGEX is not None and re.fullmatch(CORS_ORIGIN_REGEX, origin) is not None
     )
+
+
+def is_same_origin(origin: str, host: str | None) -> bool:
+    """¿El Origin es el propio sitio? Con la API detrás del mismo dominio (proxy en /api), el navegador manda Origin
+    igual a la página, o sea al Host de la petición. Se compara solo el host y el puerto (tras un proxy con TLS la API
+    ve http y el navegador manda https). Un navegador no deja a una página ajena fingir el Host; un cliente que no es
+    un navegador puede mandar lo que quiera, pero también puede omitir el Origin."""
+    parts = urlsplit(origin)
+    return bool(host) and parts.scheme in ("http", "https") and parts.netloc.lower() == host.lower()
 
 
 app.add_middleware(
@@ -363,7 +373,7 @@ async def post_events_beacon(request: Request, conn: Connection = Depends(get_co
     preflight de CORS; el contenido es el mismo JSON de /events."""
     origin = request.headers.get("origin")
     # text/plain no tiene preflight: sin esta revisión, cualquier página abierta podía escribir eventos
-    if origin and not origin_allowed(origin):
+    if origin and not origin_allowed(origin) and not is_same_origin(origin, request.headers.get("host")):
         raise HTTPException(403, "Origen no permitido")
     raw = await request.body()
     if len(raw) > MAX_BEACON_BYTES:
