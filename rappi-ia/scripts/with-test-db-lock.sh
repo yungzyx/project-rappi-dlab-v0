@@ -3,7 +3,8 @@
 # `make test`, `make contract` y `make mvp-check` borran y vuelven a sembrar rappi_ia_test; si dos coinciden, fallan al
 # azar. El candado es el directorio rappi-ia/.test-db.lock (mkdir es atómico en macOS y en Linux) con el pid de quien lo
 # tiene. Si ese proceso ya no existe (se mató con kill -9, se apagó el equipo), el candado se toma: se mueve a un nombre
-# propio (mv es atómico: si dos lo intentan, el que pierde falla y sigue esperando), se borra y se vuelve a crear.
+# propio (mv es atómico: si dos lo intentan, el que pierde avisa que está ocupado y sale con 1), se borra y se vuelve a
+# crear.
 # Correr pytest directamente no pasa por aquí.
 set -euo pipefail
 
