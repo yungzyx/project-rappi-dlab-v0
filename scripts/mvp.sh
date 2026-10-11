@@ -26,6 +26,10 @@ echo "Revisando la base…"
 # `rappi-ia check-migrations`); si se niega, termina con 1 y el script se detiene antes de migrar.
 "$IA" check-migrations
 make -s --no-print-directory -C rappi-ia migrate
+# Las tarjetas del juego en la base (idempotente: lee knowledge.json y card_concepts.toml del repo, no descarga nada), para
+# que el juego no abra vacío aunque no haya corrido `post-refresh`. Va después de migrate (necesita la migración 028) y de
+# la revisión de arriba: si check-migrations se negó, el script ya terminó y no escribe en la base.
+make -s --no-print-directory -C rappi-ia knowledge
 
 if [ "${LAN:-}" = 1 ]; then
   SERVE=serve-lan

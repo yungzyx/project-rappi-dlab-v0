@@ -1,5 +1,5 @@
 // Revisa en un Chrome real que la app del MVP responda como debe (lo corre scripts/mvp-check.sh con `make mvp-check`).
-// Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--api http://localhost:8010] [--shop | --kit | --game | --dato | --expect-offline]
+// Uso: node scripts/mvp-check.mjs --app http://localhost:5184 [--api http://localhost:8010] [--shop | --kit | --game [--user-file ruta] | --dato | --expect-offline]
 //   sin banderas: la app abre en la Home conectada, con la barra «Busca o pídele ideas a <agente>»;
 //   con --shop: Home → vertical Grocery → primera tienda → agregar un producto → carrito → pagar, y la API recibe el
 //     pedido (que después verifica scripts/mvp-check.sh en la base de prueba);
@@ -8,12 +8,14 @@
 //     de prueba que el pedido tiene líneas sembradas y al menos una aceptación `agent-plan`;
 //   con --game: abre el juego desde el pasaporte de la Home, empieza una ronda en el Súper, ve como primer paso el primer
 //     dato de `GET /game/cards?vertical=supermercado` (de --api), lo da vuelta y sigue; scripts/mvp-check.sh verifica
-//     después en la base de prueba que el progreso de la persona quedó guardado con esa tarjeta en `discovered`;
+//     después en la base de prueba que el progreso de esa persona quedó guardado con esa tarjeta en `discovered`; el id de la
+//     persona (el `rappi-proto-user` del navegador) se deja en el archivo de `--user-file`;
 //   con --dato: en el buscador con Mochi toca «Algo dulce» y ve el bloque «¿Sabías que…?» con su fuente en la respuesta;
 //   con --expect-offline: la API está detenida y la app muestra «Sin conexión con <agente>».
 // Con la API en marcha (sin --expect-offline) también falla ante un error de la página o de la consola, o una respuesta
 // 4xx/5xx, desde la primera carga; solo se ignoran las imágenes del catálogo de prueba, que no existen.
 // Sale con 0 si la revisión pasa y con 1 si no. Usa el Chrome instalado (playwright-core, sin descargar navegadores).
+import { writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { chromium } from 'playwright-core'
 import { AGENT_NAME } from '../src/agent/name.js'
@@ -160,7 +162,7 @@ async function checkKit(page) {
  * Abre el juego con «Jugar» del pasaporte de la Home, empieza una ronda en el Súper y comprueba que el primer paso es el
  * primer dato que sirve la API; al darlo vuelta y seguir, la app guarda el progreso (lo verifica scripts/mvp-check.sh).
  */
-async function checkGame(page, api) {
+async function checkGame(page, api, userFile) {
   await checkOnline(page)
   const first = await step(page, 'pedir las tarjetas del Súper a la API', async () => {
     const reply = await fetch(`${api}/game/cards?vertical=supermercado`)
@@ -190,6 +192,13 @@ async function checkGame(page, api) {
   })
   await step(page, 'seguir al próximo paso', () => page.getByRole('button', { name: 'Continuar' }).click())
   await step(page, 'ver la pregunta que sigue', () => page.getByRole('group', { name: 'Opciones' }).waitFor())
+  if (userFile) {
+    const user = await step(page, 'leer el id de la persona del navegador', () =>
+      page.evaluate(() => localStorage.getItem('rappi-proto-user')),
+    )
+    if (!user) throw new Error('el navegador no tiene id de persona (rappi-proto-user)')
+    writeFileSync(userFile, user)
+  }
   return `la ronda del Súper abre con «${title}» (el primer dato de la API) y avanza un paso`
 }
 
@@ -238,6 +247,7 @@ const { values } = parseArgs({
     game: { type: 'boolean', default: false },
     dato: { type: 'boolean', default: false },
     api: { type: 'string', default: API_DEFAULT },
+    'user-file': { type: 'string' },
     'expect-offline': { type: 'boolean', default: false },
   },
 })
@@ -267,7 +277,7 @@ async function main() {
     const checks = {
       kit: checkKit,
       shop: checkShop,
-      game: (p) => checkGame(p, values.api),
+      game: (p) => checkGame(p, values.api, values['user-file']),
       dato: checkDato,
     }
     const picked = Object.keys(checks).find((name) => values[name])

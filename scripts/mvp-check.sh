@@ -8,7 +8,7 @@
 #      kit → pagar, y en rappi_ia_test (solo lectura) el pedido tiene líneas sembradas y la persona dejó al menos una
 #      `suggestion_accepted` con origen `agent-plan` (o el viejo `mochi-plan`);
 #   4. juego: Home → Jugar → una ronda en el Súper abre con el primer dato que sirve la API, y en rappi_ia_test (solo
-#      lectura) `game_state` guarda a esa persona con ese dato en `discovered`;
+#      lectura) `game_state` guarda a la persona del navegador de la prueba con ese dato en `discovered`;
 #   5. dato: el chip «Algo dulce» del buscador con Mochi trae en la respuesta del agente un «¿Sabías que…?» con su fuente;
 #   6. sin API: se detiene la API y la app muestra «Sin conexión con Mochi».
 set -euo pipefail
@@ -97,8 +97,9 @@ if kit:
     print(f"  ✓ eventos: {accepted} suggestion_accepted con origen agent-plan")
 PY
 
-# El progreso del juego: la persona que más recientemente guardó (`game_state`) tiene en `discovered` del Súper el primer
-# dato de esa vertical en `knowledge_cards`. Reintenta 5 s: la app guarda el progreso poco después de cada paso. Solo lee.
+# El progreso del juego: la persona del navegador de la prueba (su id, el primer argumento) tiene en `game_state`, en
+# `discovered` del Súper, el primer dato de esa vertical en `knowledge_cards`. Reintenta 5 s: la app guarda el progreso
+# poco después de cada paso. Solo lee.
 read -r -d '' CHECK_GAME <<'PY' || true
 import sys
 import time
@@ -107,7 +108,8 @@ import psycopg
 from rappi_ia.db import database_url
 
 FIRST = "SELECT card_id FROM knowledge_cards WHERE vertical = 'supermercado' AND kind = 'dato' ORDER BY position LIMIT 1"
-LAST = "SELECT user_id, state FROM game_state ORDER BY updated_at DESC LIMIT 1"
+USER = sys.argv[1]
+STATE = "SELECT state FROM game_state WHERE user_id = %s"
 
 with psycopg.connect(database_url("DATABASE_URL_TEST"), autocommit=True) as conn:
     conn.read_only = True
@@ -115,16 +117,16 @@ with psycopg.connect(database_url("DATABASE_URL_TEST"), autocommit=True) as conn
     if first is None:
         sys.exit("  ✗ juego: la base de prueba no tiene datos del Súper en knowledge_cards")
     for _ in range(10):
-        row = conn.execute(LAST).fetchone()
-        if row and first[0] in row[1].get("discovered", {}).get("supermercado", []):
+        row = conn.execute(STATE, (USER,)).fetchone()
+        if row and first[0] in row[0].get("discovered", {}).get("supermercado", []):
             break
         time.sleep(0.5)
 
 if row is None:
-    sys.exit("  ✗ juego: la base de prueba no tiene ningún progreso guardado (game_state)")
-if first[0] not in row[1].get("discovered", {}).get("supermercado", []):
-    sys.exit(f"  ✗ juego: el progreso de {row[0]} no tiene {first[0]} en discovered del Súper")
-print(f"  ✓ progreso: {row[0]} guardó {first[0]} en discovered del Súper")
+    sys.exit(f"  ✗ juego: la base de prueba no tiene progreso guardado de {USER} (game_state)")
+if first[0] not in row[0].get("discovered", {}).get("supermercado", []):
+    sys.exit(f"  ✗ juego: el progreso de {USER} no tiene {first[0]} en discovered del Súper")
+print(f"  ✓ progreso: {USER} guardó {first[0]} en discovered del Súper")
 PY
 
 echo "Sembrando el catálogo de prueba…"
@@ -141,7 +143,9 @@ total=6
 if node "$CHECK" --app "$APP"; then passed=$((passed + 1)); fi
 if node "$CHECK" --app "$APP" --shop && "$IA_PY" -c "$CHECK_ORDER"; then passed=$((passed + 1)); fi
 if node "$CHECK" --app "$APP" --kit && "$IA_PY" -c "$CHECK_ORDER" kit; then passed=$((passed + 1)); fi
-if node "$CHECK" --app "$APP" --game && "$IA_PY" -c "$CHECK_GAME"; then passed=$((passed + 1)); fi
+USER_FILE=$(mktemp)
+if node "$CHECK" --app "$APP" --game --user-file "$USER_FILE" && "$IA_PY" -c "$CHECK_GAME" "$(cat "$USER_FILE")"; then passed=$((passed + 1)); fi
+rm -f "$USER_FILE"
 if node "$CHECK" --app "$APP" --dato; then passed=$((passed + 1)); fi
 stop_one api
 if node "$CHECK" --app "$APP" --expect-offline; then passed=$((passed + 1)); fi
