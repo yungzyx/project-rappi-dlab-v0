@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import OfferWhy from './OfferWhy'
 
 afterEach(cleanup)
@@ -17,6 +17,15 @@ describe('¿Por qué? de una oferta', () => {
 
     fireEvent.click(toggle)
     expect(screen.queryByText('Porque combina con lo que llevas.')).toBeNull()
+  })
+
+  test('tells its owner when it opens and closes', () => {
+    const onToggle = vi.fn()
+    render(<OfferWhy reason={{ text: 'Porque sí.' }} onToggle={onToggle} />)
+    const toggle = screen.getByRole('button', { name: '¿Por qué?' })
+    fireEvent.click(toggle)
+    fireEvent.click(toggle)
+    expect(onToggle.mock.calls).toEqual([[true], [false]])
   })
 
   test('renders nothing without text', () => {

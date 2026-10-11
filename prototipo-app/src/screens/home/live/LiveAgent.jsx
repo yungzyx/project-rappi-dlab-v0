@@ -42,7 +42,7 @@ function useTypewriter(text, reduceMotion) {
  * convierte en su elemento) o descansa sobre la barra inferior. Habla con un globo y, a veces, ofrece botones. Tocarlo dispara `onPoke`.
  */
 const LiveAgent = forwardRef(function LiveAgent(
-  { say, target, getBlock, entering, away, reduceMotion, onPoke },
+  { say, target, getBlock, entering, away, reduceMotion, onPoke, onWhyToggle },
   ref,
 ) {
   const layerRef = useRef(null)
@@ -158,7 +158,7 @@ const LiveAgent = forwardRef(function LiveAgent(
         {say && !away && (
           <div className="live-bubble">
             <p aria-hidden="true">{shown}</p>
-            {say.why && done && <OfferWhy reason={say.why} />}
+            {say.why && done && <OfferWhy reason={say.why} onToggle={onWhyToggle} />}
             {say.actions?.length > 0 && done && (
               <div className="live-bubble-actions">
                 {say.actions.map((action, i) => (

@@ -5,11 +5,11 @@ import { parsePrice } from '../state/CartContext'
 // perfil, porque uno que llegue después lo recrearía.
 const inFlight = new Set()
 
-/** Registra un pedido en camino (la promesa de todo su envío) y devuelve la misma promesa; su fallo no afecta a quien espera. */
+/** Registra un pedido en camino (la promesa de todo su envío) y devuelve la misma promesa; su fallo no afecta a quien espera (queda en la consola). */
 export function trackOrder(sending) {
   const tracked = Promise.resolve(sending).then(
     () => {},
-    () => {},
+    (error) => console.warn('No se pudo enviar el pedido al servidor; el pedido de la demo sigue igual.', error),
   )
   inFlight.add(tracked)
   tracked.then(() => inFlight.delete(tracked))

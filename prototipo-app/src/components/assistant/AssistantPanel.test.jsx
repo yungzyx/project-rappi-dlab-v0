@@ -25,7 +25,7 @@ vi.mock('../../state/EventsContext', async (importOriginal) => ({
   useEvents: () => events,
 }))
 // El juego, con su acción «forget»: que vuelva a cero sin subir nada se prueba en state/GameContext.test.jsx.
-const game = vi.hoisted(() => ({ forget: vi.fn(), settle: vi.fn() }))
+const game = vi.hoisted(() => ({ forget: vi.fn(), settle: vi.fn(), resume: vi.fn() }))
 vi.mock('../../state/GameContext', async (importOriginal) => ({
   ...(await importOriginal()),
   useGame: () => game,
@@ -474,13 +474,16 @@ describe('lo aprendido y Olvidar', () => {
     await runUntilIdle()
     expect(events.clear).toHaveBeenCalled() // lo que dejó en cola la respuesta no se envía
     expect(api.forget).not.toHaveBeenCalled() // falta que termine el lote en camino
+    expect(game.settle).not.toHaveBeenCalled() // el juego se pausa al final, pegado al DELETE
 
     pendingFlush.resolve()
     await advance(0)
     expect(api.forget).toHaveBeenCalledTimes(1)
+    expect(events.settled.mock.invocationCallOrder[0]).toBeLessThan(game.settle.mock.invocationCallOrder[0])
+    expect(game.settle.mock.invocationCallOrder[0]).toBeLessThan(api.forget.mock.invocationCallOrder[0])
   })
 
-  test('Olvidar waits for a game save in flight and sends nothing after DELETE', async () => {
+  test('Olvidar waits for game.settle() before the DELETE (the game is a mock here; the real pause is in AssistantPanel.forget.test.jsx)', async () => {
     api.profile.mockResolvedValue({ interests: [VINO] })
     const saving = deferred()
     game.settle.mockReturnValueOnce(saving.promise)
@@ -497,6 +500,17 @@ describe('lo aprendido y Olvidar', () => {
     expect(api.forget).toHaveBeenCalledTimes(1)
     expect(game.settle.mock.invocationCallOrder[0]).toBeLessThan(api.forget.mock.invocationCallOrder[0])
     expect(puts).toEqual([]) // olvidar el juego en memoria no sube nada
+    expect(game.resume).not.toHaveBeenCalled()
+  })
+
+  test('si el DELETE falla, Olvidar le devuelve el guardado al juego', async () => {
+    api.profile.mockResolvedValue({ interests: [VINO] })
+    api.forget.mockRejectedValueOnce(new Error('API caída'))
+    await renderPanel()
+    fireEvent.click(screen.getByText('Olvidar'))
+    await runUntilIdle()
+    expect(game.resume).toHaveBeenCalledTimes(1)
+    expect(game.forget).not.toHaveBeenCalled()
   })
 
   test('Olvidar waits for an order in flight', async () => {

@@ -147,6 +147,7 @@ describe('pedidos para el panel', () => {
 
 describe('pedidos en vuelo', () => {
   test('ordersSettled waits for every tracked order, failed or not', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     await ordersSettled() // sin pedidos, termina al tiro
 
     let finish
@@ -164,9 +165,12 @@ describe('pedidos en vuelo', () => {
     finish()
     await waiting
     expect(settled).toBe(true)
+    expect(warn).toHaveBeenCalledTimes(1) // el pedido que falló no se traga en silencio
+    expect(warn.mock.calls[0][0]).toMatch(/^No se pudo enviar el pedido/)
   })
 
   test('a failed order does not break the caller: trackOrder hands the promise back', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
     const failed = Promise.reject(new Error('sin red'))
     expect(trackOrder(failed)).toBe(failed)
     await expect(failed).rejects.toThrow('sin red')

@@ -268,6 +268,24 @@ describe('Home del prototipo final', () => {
       expect(within(talk).getByText(fixture('agent-offer-vertical-por-probar').reason.text)).toBeTruthy()
     })
 
+    test('the bubble stays while ¿Por qué? is open and goes away 12 s after it closes', async () => {
+      memory.session.played = true
+      memory.session.lastAdded = LOOSE_CART
+      const { container } = await renderHome()
+      await advance(4000)
+      const why = () => within(container.querySelector('.live-bubble')).getByRole('button', { name: '¿Por qué?' })
+      fireEvent.click(why())
+      await advance(30_000) // mucho más que lo que dura un globo con botones
+      expect(container.querySelector('.live-bubble')).not.toBeNull()
+      expect(screen.getByText(fixture('agent-offer-carrito').reason.text)).toBeTruthy()
+
+      fireEvent.click(why())
+      await advance(11_000)
+      expect(container.querySelector('.live-bubble')).not.toBeNull()
+      await advance(1_500)
+      expect(container.querySelector('.live-bubble')).toBeNull()
+    })
+
     test('la Home muestra solo los 5 primeros planes, en el orden del servidor', async () => {
       await renderHome()
       await advance(100)
