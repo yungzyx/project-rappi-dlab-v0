@@ -66,6 +66,13 @@ def _no_network(monkeypatch):
     monkeypatch.setattr(requests.Session, "get", refuse)
 
 
+@pytest.fixture(autouse=True)
+def _no_real_database(monkeypatch):
+    """Sin DATABASE_URL (la base real, del .env): el candado de descargas no se conecta a ella y un comando que la
+    pidiera falla en vez de tocarla. Los tests usan DATABASE_URL_TEST."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+
 @pytest.fixture
 def page():
     return load_page

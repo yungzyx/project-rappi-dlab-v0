@@ -215,3 +215,29 @@ def test_production_start_does_not_migrate(target, tmp_path):
 
     local = _dry_run(target, API_ENV="local", DOTENV=str(tmp_path / "sin-env"))  # en local siguen migrando
     assert local.index("rappi_ia check-migrations") < local.index("rappi_ia migrate") < local.index("uvicorn")
+
+
+def test_grants_file_lets_the_api_role_write_only_its_tables(ready):
+    """El `deploy/db/grants.sql` de verdad, sobre el esquema de verdad: el rol de la API lee todo, escribe solo los
+    datos de las personas y no puede borrar tablas. Todo en una transacción que se deshace (los roles también)."""
+    from psycopg import errors, sql
+
+    conn = ready
+    role = "rappi_api_prueba"
+    for name in ("rappi_owner", role):  # rappi_owner: el dueño de ALTER DEFAULT PRIVILEGES (en el servidor ya existe)
+        if conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (name,)).fetchone() is None:
+            conn.execute(sql.SQL("CREATE ROLE {}").format(sql.Identifier(name)))
+    conn.execute(sql.SQL(cli.GRANTS_FILE.read_text(encoding="utf-8")).format(api_role=sql.Identifier(role)))
+    conn.execute(sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(role)))
+
+    conn.execute("SELECT count(*) FROM search_documents")
+    conn.execute("SELECT count(*) FROM capa.item_attributes")
+    conn.execute("INSERT INTO app_users (user_id, source) VALUES ('proto-permisos', 'prototype')")
+    conn.execute(  # usa la secuencia de app_events
+        "INSERT INTO app_events (user_id, session_id, type, source)"
+        " VALUES ('proto-permisos', 's', 'search', 'prototype')"
+    )
+    for forbidden in ("DROP TABLE app_events", "DELETE FROM stores", "TRUNCATE app_users", "CREATE TABLE intrusa ()"):
+        with pytest.raises(errors.InsufficientPrivilege), conn.transaction():
+            conn.execute(forbidden)
+    conn.rollback()

@@ -1,0 +1,35 @@
+# Lo que nunca entra a una imagen: datos descargados, respaldos, claves, entornos y builds locales.
+# (Las imágenes se construyen con la raíz del repo como contexto: deploy/Dockerfile.api y deploy/Dockerfile.web.)
+.git
+.github
+.superpowers
+.claude
+Proyecto
+docs
+
+# Datos y respaldos (el catálogo llega a la base por un dump que copia el usuario, nunca por la imagen)
+data
+rappi-scraper/data
+rappi-ia/data
+**/*.dump
+**/*.sql.gz
+**/*.backup
+
+# Variables de entorno y claves: solo los ejemplos
+**/.env*
+!**/.env.example
+
+# Entornos y cachés locales
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/*.egg-info
+**/node_modules
+**/dist
+**/dist-desktop
+**/.DS_Store
+
+# Tests: no corren en la imagen
+rappi-scraper/tests
+rappi-ia/tests

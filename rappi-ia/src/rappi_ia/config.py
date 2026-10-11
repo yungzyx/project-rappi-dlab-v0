@@ -6,12 +6,23 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data"  # cachés y reportes locales (fuera de git)
 
-load_dotenv(PROJECT_ROOT / ".env")
+# El .env de siempre (rappi-ia/.env) o el que diga RAPPI_ENV_FILE (en un servidor, /etc/rappi/rappi.env).
+load_dotenv(os.environ.get("RAPPI_ENV_FILE") or PROJECT_ROOT / ".env")
+
+# Cachés y reportes locales (fuera de git): por defecto rappi-ia/data; en un contenedor, RAPPI_IA_DATA_DIR (un volumen).
+DATA_DIR = Path(os.environ.get("RAPPI_IA_DATA_DIR") or PROJECT_ROOT / "data")
 
 # Modelo local de texto. Cambiar el modelo no rompe nada: cada vector guarda `embedding_model`.
-TEXT_EMBEDDING_MODEL = os.environ.get("TEXT_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
+DEFAULT_TEXT_EMBEDDING_MODEL = "intfloat/multilingual-e5-base"
+TEXT_EMBEDDING_MODEL = os.environ.get("TEXT_EMBEDDING_MODEL", DEFAULT_TEXT_EMBEDDING_MODEL)
+# Commit de Hugging Face con que se carga (fijado el 11-10-2026, el `main` de ese día): un cambio en el repositorio del
+# modelo no cambia los vectores ni la imagen horneada sin que nadie lo decida. Otro modelo (TEXT_EMBEDDING_MODEL) se
+# carga en su `main`, salvo que TEXT_EMBEDDING_REVISION diga otro commit.
+_DEFAULT_TEXT_EMBEDDING_REVISION = "d128750597153bb5987e10b1c3493a34e5a4502a"
+TEXT_EMBEDDING_REVISION = os.environ.get("TEXT_EMBEDDING_REVISION") or (
+    _DEFAULT_TEXT_EMBEDDING_REVISION if TEXT_EMBEDDING_MODEL == DEFAULT_TEXT_EMBEDDING_MODEL else None
+)
 
 # Memoria para construir los índices HNSW (SET LOCAL, solo esa transacción). Con los 64 MB por defecto de Postgres
 # el grafo de la partición restaurantes (~151k × 768) no cabe y pgvector lo construye mucho más lento.

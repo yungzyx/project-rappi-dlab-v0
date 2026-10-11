@@ -14,8 +14,8 @@ from rappi_ia.embeddings import models
 
 
 class FakeSentenceTransformer:
-    def __init__(self, name: str, device: str):
-        self.name, self.device = name, device
+    def __init__(self, name: str, device: str, revision: str | None = None):
+        self.name, self.device, self.revision = name, device, revision
 
     def get_sentence_embedding_dimension(self) -> int:
         return 768
@@ -32,6 +32,20 @@ def test_models_log_the_device_they_load_on(monkeypatch, caplog):
     assert e5._model.device == "mps"
     messages = [r.getMessage() for r in caplog.records]
     assert "Cargando e5-test en mps" in messages
+
+
+def test_model_loaded_with_pinned_revision(monkeypatch):
+    """El modelo por defecto se carga en un commit fijo de Hugging Face: un cambio en el repositorio del modelo no
+    cambia los vectores (ni la imagen horneada) sin que nadie lo decida."""
+    fake = types.SimpleNamespace(SentenceTransformer=FakeSentenceTransformer)
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake)
+    monkeypatch.setattr(models, "_device", lambda: "cpu")
+
+    e5 = models.E5Embedder()
+
+    assert e5._model.name == "intfloat/multilingual-e5-base"
+    assert e5._model.revision == models.config.TEXT_EMBEDDING_REVISION
+    assert len(e5._model.revision) == 40 and int(e5._model.revision, 16) >= 0  # un commit, no «main»
 
 
 class CountingCall:

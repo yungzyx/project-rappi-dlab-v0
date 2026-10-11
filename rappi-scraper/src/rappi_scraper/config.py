@@ -11,10 +11,14 @@ from dotenv import load_dotenv
 
 # Rutas absolutas desde la raíz del proyecto: funcionan sin importar desde dónde se ejecute.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data"
-EXPORT_DIR = DATA_DIR / "exports"
 
-load_dotenv(PROJECT_ROOT / ".env")
+# El .env de siempre (rappi-scraper/.env) o el que diga RAPPI_ENV_FILE (en un servidor, /etc/rappi/rappi.env).
+load_dotenv(os.environ.get("RAPPI_ENV_FILE") or PROJECT_ROOT / ".env")
+
+# Datos descargados, registros y respaldos: por defecto rappi-scraper/data; en un contenedor, RAPPI_DATA_DIR (un
+# volumen, fuera del código).
+DATA_DIR = Path(os.environ.get("RAPPI_DATA_DIR") or PROJECT_ROOT / "data")
+EXPORT_DIR = DATA_DIR / "exports"
 
 
 def _env_float(name: str, default: float) -> float:

@@ -4,7 +4,9 @@ PY := .venv/bin/python
 # Python ≥ 3.12 para crear el .venv. En un Mac nuevo `python3` es el 3.9 de macOS: se prefiere python3.13
 # (Homebrew: `brew install python@3.13`, que solo instala `python3.13`).
 PYTHON ?= $(shell command -v python3.13 || command -v python3)
-PG_BIN := $(shell brew --prefix 2>/dev/null)/opt/postgresql@17/bin
+# Los comandos de Postgres: en macOS, los de postgresql@17 de Homebrew (no quedan en el PATH); sin brew (Linux, el
+# contenedor jobs), los del PATH.
+PG_BIN := $(if $(shell command -v brew),$(shell brew --prefix)/opt/postgresql@17/bin,$(patsubst %/,%,$(dir $(shell command -v createdb))))
 
 help:  ## Muestra esta ayuda
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-14s %s\n", $$1, $$2}'
