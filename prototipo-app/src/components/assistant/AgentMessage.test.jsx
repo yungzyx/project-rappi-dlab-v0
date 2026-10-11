@@ -67,6 +67,35 @@ describe('«¿Sabías que…?»', () => {
     expect(gameServer.state.xp).toBe(10)
   })
 
+  test('the fact comes after the product cards and is a quiet note, not a landmark', async () => {
+    await mount(fixture('agent-ask-dato'))
+    const products = document.querySelector('.agent-msg-products')
+    const note = screen.getByRole('note')
+    expect(products).not.toBeNull()
+    expect(products.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(note.textContent).toContain('¿Sabías que…?')
+    expect(screen.queryByRole('complementary')).toBeNull()
+  })
+
+  test('a card already in the album is not discovered again', async () => {
+    seed({ discovered: { restaurantes: ['restaurantes-01'] }, cards: ['restaurantes-01'] })
+    await mount(fixture('agent-ask-dato'))
+    expect(screen.getByText('¿Sabías que…?')).toBeTruthy()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(stored()).toBeNull()
+  })
+
+  test.each(['http://ich.unesco.org/x', 'javascript:alert(1)', 'ftp://x.org'])(
+    'a source that is not https (%s) shows its title as plain text',
+    async (url) => {
+      const response = fixture('agent-ask-dato')
+      response.did_you_know.source.url = url
+      await mount(response)
+      expect(screen.queryByRole('link')).toBeNull()
+      expect(screen.getByText(/Fuente:/).textContent).toContain(response.did_you_know.source.title)
+    },
+  )
+
   test('no fact, no block', async () => {
     await mount(fixture('agent-ask'))
     expect(screen.queryByText('¿Sabías que…?')).toBeNull()

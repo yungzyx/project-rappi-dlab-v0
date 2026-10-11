@@ -551,9 +551,9 @@
   letter-spacing: 0.01em;
 }
 
-/* «¿Sabías que…?»: dato del juego con su fuente, bajo el texto de la respuesta. */
+/* «¿Sabías que…?»: dato del juego con su fuente, después de los productos, la sugerencia y «También en». */
 .agent-msg-fact {
-  margin: 0 0 10px;
+  margin: 12px 0 8px;
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--accent-soft);
