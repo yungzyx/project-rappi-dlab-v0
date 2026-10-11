@@ -50,20 +50,21 @@ const TOKEN_HEADER = 'X-User-Token'
 
 /**
  * Una petición a la API, con el token de la sesión en X-User-Token. Un 401 (el token no es de esta API, o se perdió)
- * pide una sesión nueva y repite la petición una sola vez, como la persona de esa sesión: el id viejo de la ruta o del
- * `user_id` del cuerpo pasa a ser el nuevo.
+ * pide una sesión nueva y repite la petición una sola vez, como la persona de esa sesión: el id con que salió, en la
+ * ruta o en el `user_id` del cuerpo, pasa a ser el de la sesión. Si la sesión ya cambió mientras esta iba en camino
+ * (otra petición la renovó), no se pide otra: se repite con la actual.
  */
 export async function request(path, options = {}) {
+  const sent = { id: storedUserId(), token: userToken() }
   try {
     return await send(path, options)
   } catch (error) {
     if (error.status !== 401 || path === SESSION_PATH) throw error
-    const before = storedUserId()
-    await renewSession()
+    if (userToken() === sent.token) await renewSession()
     const after = storedUserId()
-    if (!before || before === after) return send(path, options)
-    const body = options.body?.user_id === before ? { ...options.body, user_id: after } : options.body
-    return send(path.split(encodeURIComponent(before)).join(encodeURIComponent(after)), { ...options, body })
+    if (!sent.id || sent.id === after) return send(path, options)
+    const body = options.body?.user_id === sent.id ? { ...options.body, user_id: after } : options.body
+    return send(path.split(encodeURIComponent(sent.id)).join(encodeURIComponent(after)), { ...options, body })
   }
 }
 

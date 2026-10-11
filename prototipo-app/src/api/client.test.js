@@ -444,6 +444,25 @@ describe('sesión firmada', () => {
     expect(retried.map(([, init]) => init.headers['X-User-Token'])).toEqual([`${NEW}.firma`, `${NEW}.firma`])
   })
 
+  test('un 401 que llega después de renovar no pide otra sesión y se repite desde el id con que salió', async () => {
+    signIn(OLD, `${OLD}.vencido`)
+    let oldCalls = 0
+    const api = stubApi({
+      'POST /session': { user_id: NEW, token: `${NEW}.firma` },
+      'GET /profile/*': (req) => {
+        if (req.path === `/profile/${NEW}`) return { user_id: NEW, interests: [] }
+        oldCalls += 1
+        return oldCalls === 1 ? 401 : { slow: 30, body: 401 } // el segundo, con el token viejo, contesta tarde
+      },
+    })
+    const first = profile(OLD)
+    const late = profile(OLD)
+    expect((await first).user_id).toBe(NEW)
+    expect((await late).user_id).toBe(NEW)
+    expect(paths(api).filter((p) => p === 'POST /session')).toHaveLength(1)
+    expect(userId()).toBe(NEW)
+  })
+
   test('si el reintento también da 401, falla sin pedir otra sesión', async () => {
     signIn(OLD, `${OLD}.vencido`)
     const api = stubApi({ 'POST /session': { user_id: NEW, token: `${NEW}.firma` }, 'GET /profile/*': 401 })
@@ -470,6 +489,13 @@ describe('usuario compartido', () => {
   test('el usuario guardado conserva su id', () => {
     localStorage.setItem('rappi-proto-user', 'proto-0123456789abcdef')
     expect(userId()).toBe('proto-0123456789abcdef')
+  })
+
+  test('un id que se inventa de nuevo no hereda el token de otro (sin token, la API pide sesión con un 401)', () => {
+    localStorage.setItem('rappi-proto-token', 'proto-0123456789abcdef.firma') // se perdió el id, quedó el token
+    const id = userId()
+    expect(id).not.toBe('proto-0123456789abcdef')
+    expect(userToken()).toBeNull()
   })
 })
 

@@ -3,7 +3,9 @@
 `POST /session` da a cada navegador un id del prototipo y su token, `<id>.<HMAC-SHA256 del id, en base64url>`, firmado
 con API_SECRET. Las rutas con datos de una persona (`/profile/{user_id}`, `/game/state/{user_id}`, el `user_id` de una
 query o de un cuerpo) exigen la cabecera X-User-Token de ese mismo id: sin token, 401; con el de otro, 403. Sin
-`user_id`, una ruta sigue anónima. No es una cuenta: el token solo prueba que este navegador recibió ese id.
+`user_id`, una ruta sigue anónima. Se decide siempre sobre el id ya validado, el mismo que usa la ruta: no sobre el
+JSON crudo (la limpieza de `Clean` puede cambiar sus claves) ni sobre otro lugar del request. No es una cuenta: el
+token solo prueba que este navegador recibió ese id.
 """
 
 import base64
@@ -14,8 +16,10 @@ import os
 import re
 import secrets
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import HTTPException, Request
+import fastapi
+from fastapi import HTTPException, Query, Request
 from psycopg import Connection
 
 from .. import config
@@ -33,7 +37,10 @@ def load_secret(value: str | None, production: bool, path: Path) -> bytes:
     if value is None:
         if production:
             raise RuntimeError("Falta API_SECRET (ver docs/despliegue.md).")
-        value = _local_secret(path)
+        key = _local_secret(path).encode()
+        if len(key) < MIN_SECRET_BYTES:
+            raise RuntimeError(f"{path} está vacío o es muy corto: bórralo y la API crea otro al arrancar.")
+        return key
     key = value.encode()
     if len(key) < MIN_SECRET_BYTES:
         raise RuntimeError(f"API_SECRET debe tener al menos {MIN_SECRET_BYTES} bytes (`openssl rand -hex 32`).")
@@ -46,6 +53,7 @@ def _local_secret(path: Path) -> str:
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         draft = path.with_name(f".{path.name}.{os.getpid()}")
+        draft.unlink(missing_ok=True)  # uno que quedó de otro arranque con el mismo pid (en un contenedor se repite)
         fd = os.open(draft, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
             with os.fdopen(fd, "w") as file:
@@ -97,21 +105,22 @@ def require_user(user_id: str, current: str | None) -> None:
         raise HTTPException(403, NOT_ALLOWED)
 
 
-async def require_owner(request: Request) -> None:
-    """Dependencia de las rutas con datos de una persona: el `user_id` de la ruta, de la query o del cuerpo JSON debe
-    ser el del token. Va en `dependencies=[…]` de la ruta, antes que el cupo y la conexión: un request ajeno no ocupa
-    ninguno. Sin `user_id` (o uno que no es texto, que la validación rechaza después con 422), no revisa nada."""
-    claimed = request.path_params.get("user_id")
-    if claimed is None:
-        claimed = request.query_params.get("user_id")
-    if claimed is None and request.method in ("POST", "PUT"):
-        try:
-            body = await request.json()  # FastAPI ya lo leyó: Starlette lo guarda en el request
-        except ValueError:
-            body = None
-        claimed = body.get("user_id") if isinstance(body, dict) else None
-    if isinstance(claimed, str):
-        require_user(claimed, current_user(request))
+async def owner_in_path(request: Request, user_id: Annotated[str, fastapi.Path()]) -> None:
+    """Dependencia de las rutas `…/{user_id}`: el id de la ruta, ya leído como lo lee la ruta, debe ser el del token.
+    Va en `dependencies=[…]`, antes que la conexión: un request ajeno no ocupa ninguna."""
+    require_user(user_id, current_user(request))
+
+
+async def owner_in_query(request: Request, user_id: Annotated[str | None, Query()] = None) -> None:
+    """Lo mismo para `?user_id=`; sin él, la ruta sigue anónima."""
+    if user_id is not None:
+        require_user(user_id, current_user(request))
+
+
+def owner_of_body(request: Request, user_id: str | None) -> None:
+    """Las rutas con `user_id` en el cuerpo lo revisan al empezar, sobre el modelo ya validado (y limpio)."""
+    if user_id is not None:
+        require_user(user_id, current_user(request))
 
 
 # ── Sesiones ─────────────────────────────────────────────────────────────────

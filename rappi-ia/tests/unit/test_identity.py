@@ -54,6 +54,27 @@ def test_local_secret_file_is_0600_and_stable(tmp_path):
     assert identity.load_secret("y" * 32, production=False, path=path) == b"y" * 32  # la variable manda
 
 
+def test_a_stale_draft_of_the_secret_does_not_stop_the_api(tmp_path, monkeypatch):
+    """Un borrador que quedó de otro arranque con el mismo pid (en un contenedor el pid se repite) no impide crearlo."""
+    path = tmp_path / "data" / "api-secret"
+    path.parent.mkdir()
+    monkeypatch.setattr(identity.os, "getpid", lambda: 1)
+    (path.parent / ".api-secret.1").write_text("a medio escribir")
+
+    key = identity.load_secret(None, production=False, path=path)
+
+    assert len(key) >= 32 and stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert not (path.parent / ".api-secret.1").exists()
+
+
+def test_a_short_secret_file_is_named_in_the_error(tmp_path):
+    path = tmp_path / "api-secret"
+    path.write_text("")
+
+    with pytest.raises(RuntimeError, match=f"{path}"):
+        identity.load_secret(None, production=False, path=path)
+
+
 def test_require_user_says_401_without_session_and_403_for_someone_else():
     from fastapi import HTTPException
 

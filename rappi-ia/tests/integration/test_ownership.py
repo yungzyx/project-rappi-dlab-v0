@@ -129,6 +129,55 @@ def test_events_body_user_mismatch_is_403(client, db):
     assert db.execute("SELECT count(*) FROM app_orders").fetchone()[0] == 0
 
 
+def test_owner_is_decided_on_the_validated_body_not_on_the_query(client, db):
+    """`?user_id=<mío>` con mi token y el cuerpo a nombre de otra persona: manda el `user_id` del cuerpo validado."""
+    alice, _ = session(client)
+    mallory, as_mallory = session(client)
+    order = {
+        "user_id": alice,
+        "session_id": "s1",
+        "cart_id": "c1",
+        "vertical": "supermercado",
+        "lines": [{"entity_type": "catalog_item", "entity_id": "91001"}],
+    }
+    mine = {"user_id": mallory}
+
+    events = {"user_id": alice, "events": APP_OPEN}
+    assert client.post("/events", params=mine, json=events, headers=as_mallory).status_code == 403
+    assert client.post("/orders", params=mine, json=order, headers=as_mallory).status_code == 403
+    ask = {"message": "cerveza", "user_id": alice, "session_id": "s1"}
+    assert client.post("/agent/ask", params=mine, json=ask, headers=as_mallory).status_code == 403
+    offer = {"moment": "plan", "user_id": alice, "context": {"occasion": "carrete"}}
+    assert client.post("/agent/offer", params=mine, json=offer, headers=as_mallory).status_code == 403
+    assert events_of(db, alice) == 0
+    assert db.execute("SELECT count(*) FROM app_orders").fetchone()[0] == 0
+
+
+def test_owner_is_decided_after_cleaning_the_body(client, db):
+    """`{"user_id": <mío>, "user_id\\u0000": <otra>}`: la limpieza de \\x00 deja la segunda clave como `user_id`."""
+    alice, _ = session(client)
+    mallory, as_mallory = session(client)
+    headers = {**as_mallory, "content-type": "application/json"}
+
+    def smuggled(**fields) -> str:
+        return json.dumps(fields)[:-1] + f', "user_id\\u0000": "{alice}"}}'
+
+    events = smuggled(user_id=mallory, events=APP_OPEN)
+    assert client.post("/events", content=events, headers=headers).status_code == 403
+    order = smuggled(
+        user_id=mallory,
+        session_id="s1",
+        cart_id="c1",
+        vertical="supermercado",
+        lines=[{"entity_type": "catalog_item", "entity_id": "91001"}],
+    )
+    assert client.post("/orders", content=order, headers=headers).status_code == 403
+    ask = smuggled(message="cerveza", user_id=mallory, session_id="s1")
+    assert client.post("/agent/ask", content=ask, headers=headers).status_code == 403
+    assert events_of(db, alice) == 0
+    assert db.execute("SELECT count(*) FROM app_orders").fetchone()[0] == 0
+
+
 def test_missing_token_is_401(client, caplog):
     alice, as_alice = session(client)
     token = as_alice["X-User-Token"]

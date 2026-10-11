@@ -56,10 +56,14 @@ function drop(key) {
   }
 }
 
-/** Id seudónimo de este navegador (no es una cuenta ni un dato personal). Lo da la API con la sesión. */
+/**
+ * Id seudónimo de este navegador (no es una cuenta ni un dato personal). Lo da la API con la sesión. Si se perdió, se
+ * inventa uno sin token (un token que quedó es de otro id: con él todo daría 403); el primer 401 pide la sesión.
+ */
 export function userId() {
   let id = load(USER_KEY)
   if (!id) {
+    drop(TOKEN_KEY)
     id = randomId('proto')
     save(USER_KEY, id)
   }

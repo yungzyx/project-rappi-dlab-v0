@@ -40,7 +40,7 @@ from .agent import router as agent_router
 from .catalog import router as catalog_router
 from .deps import Clean, backend_vertical, get_analytics_conn, get_conn, get_connector, get_services
 from .game import router as game_router
-from .identity import require_owner
+from .identity import owner_in_path, owner_in_query, owner_of_body
 from .limits import TOO_MANY, MaxBodySize, RateLimit, busy, concurrency_cap
 from .logs import AccessLog, configure_logging, rejected, route_template
 from .services import Services, services
@@ -337,8 +337,11 @@ def health(conn: Connection = Depends(get_conn), svc: Services = Depends(get_ser
     return {"ok": True, "documentos": documents, "capacidades": svc.capabilities}
 
 
-@app.post("/agent/ask", dependencies=[Depends(require_owner), Depends(ASK_CAP)])
-def ask(body: AskIn, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)) -> dict:
+@app.post("/agent/ask", dependencies=[Depends(ASK_CAP)])
+def ask(
+    body: AskIn, request: Request, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)
+) -> dict:
+    owner_of_body(request, body.user_id)
     ctx = _context(conn, body.vertical, body.user_id, body.profile, body.shown_topics, body.mode)
     if body.previous and body.previous.concepts:
         previous = body.previous.model_dump()
@@ -401,7 +404,7 @@ def search(
     }
 
 
-@app.get("/recommendations", dependencies=[Depends(require_owner)])
+@app.get("/recommendations", dependencies=[Depends(owner_in_query)])
 def recommendations(
     user_id: ShortQuery,
     vertical: ShortQuery | None = None,
@@ -456,7 +459,7 @@ def new_session(body: SessionIn, request: Request, conn: Connection = Depends(ge
     return {"user_id": user_id, "token": identity.sign(user_id)}
 
 
-@app.get("/profile/{user_id}", dependencies=[Depends(require_owner)])
+@app.get("/profile/{user_id}", dependencies=[Depends(owner_in_path)])
 def get_profile(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dict:
     taxonomy = load_taxonomy()
     scores = events.profile(conn, user_id)
@@ -470,15 +473,16 @@ def get_profile(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dic
     }
 
 
-@app.delete("/profile/{user_id}", dependencies=[Depends(require_owner)])
+@app.delete("/profile/{user_id}", dependencies=[Depends(owner_in_path)])
 def forget(user_id: ShortPath, concept: ShortQuery | None = None, conn: Connection = Depends(get_conn)) -> dict:
     deleted = events.forget(conn, user_id, concept)
     conn.commit()
     return {"user_id": user_id, "concept": concept, "eventos_borrados": deleted}
 
 
-@app.post("/events", dependencies=[Depends(require_owner)])
-def post_events(body: EventsIn, conn: Connection = Depends(get_conn)) -> dict:
+@app.post("/events")
+def post_events(body: EventsIn, request: Request, conn: Connection = Depends(get_conn)) -> dict:
+    owner_of_body(request, body.user_id)
     return {"guardados": _save_events(lambda: nullcontext(conn), body)}
 
 
@@ -527,9 +531,10 @@ def _save_events(connect, body: EventsIn) -> int:
 # Alcance `function`: la conexión, su turno y el cupo se sueltan al terminar el endpoint. Con el de siempre (`request`)
 # FastAPI los suelta después de las tareas en segundo plano, y el recálculo pediría una segunda conexión con la primera
 # todavía tomada.
-@app.post("/orders", dependencies=[Depends(require_owner), Depends(ORDERS_CAP, scope="function")])
+@app.post("/orders", dependencies=[Depends(ORDERS_CAP, scope="function")])
 def post_order(
     body: OrderIn,
+    request: Request,
     background: BackgroundTasks,
     conn: Connection = Depends(get_conn, scope="function"),
     connector=Depends(get_connector),
@@ -537,6 +542,7 @@ def post_order(
     """Guarda el pedido con el precio del catálogo en la tienda de cada línea (las que no tienen precio vigente quedan
     fuera y se cuentan en `lineas_omitidas`) y, ya respondido, recalcula los segmentos de esa persona (solo los suyos,
     con otra conexión del pool, ya devuelta la del pedido)."""
+    owner_of_body(request, body.user_id)
     vertical = backend_vertical(body.vertical)
     if vertical is None:  # un pedido es de una tienda: sin vertical del catálogo no se puede guardar
         raise HTTPException(400, f"Vertical desconocido: {body.vertical}")
