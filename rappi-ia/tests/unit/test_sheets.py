@@ -264,3 +264,111 @@ def test_eval_human_without_any_judgment_says_so(tmp_path, monkeypatch):
 
     with pytest.raises(SystemExit, match="Todavía no hay juicios"):
         cli.cmd_eval_human(None, None)
+
+
+SEARCH_TEXT = (
+    "id;consulta;vertical;posicion;nombre;categoria;tienda;juicio\n"
+    "a;pañales;supermercado;1;Pañales Talla G;Pañales;Líder;sirve\n"
+    "b;café;supermercado;2;Café molido;Café;Líder;no sirve\n"
+)
+
+
+@pytest.mark.parametrize(
+    "encoding",
+    ["utf-8", "utf-8-sig", "cp1252", "utf-16", "utf-16-le", "latin-1"],
+)
+def test_search_sheet_is_read_in_any_encoding_excel_or_numbers_may_save(tmp_path, encoding):
+    path = tmp_path / "s.csv"
+    data = SEARCH_TEXT.encode(encoding)
+    if encoding == "utf-16-le":
+        data = b"\xff\xfe" + data  # con BOM, como lo guarda Excel («Texto Unicode»)
+    path.write_bytes(data)
+
+    assert read_search_sheet(path) == {"a": 2, "b": 0}
+
+
+def test_macroman_bytes_do_not_crash_the_reader(tmp_path):
+    """«CSV (Macintosh)»: bytes que cp1252 no define (0x81, 0x8d, 0x8f, 0x90, 0x9d). Los textos pueden salir mal,
+    pero el id y el juicio (ASCII) se leen y no se cae."""
+    path = tmp_path / "s.csv"
+    path.write_bytes(SEARCH_TEXT.replace(";", ",").encode("mac_roman") + "x,\x81\x8d\x8f\x90\x9d".encode("latin-1"))
+
+    assert read_search_sheet(path) == {"a": 2, "b": 0}
+
+
+def test_a_header_only_or_empty_file_reads_as_no_judgments(tmp_path):
+    header_only = _write(tmp_path / "h.csv", SEARCH_HEADER)
+    empty = _write(tmp_path / "e.csv", "")
+    counts: Counter = Counter()
+
+    assert read_search_sheet(header_only, counts) == {} and read_search_sheet(empty, counts) == {}
+    assert counts["leidas"] == 0
+
+
+@pytest.mark.parametrize("form", ["NFC", "NFD"])
+@pytest.mark.parametrize("encoding", ["utf-8", "cp1252", "utf-16"])
+def test_category_sheet_with_semicolons_accents_and_decomposed_accents(tmp_path, encoding, form):
+    import unicodedata
+
+    if form == "NFD" and encoding == "cp1252":
+        pytest.skip("cp1252 no puede guardar tildes descompuestas")
+    text = unicodedata.normalize(
+        form,
+        "vertical;categoria;ejemplos;concepto_propuesto;concepto_correcto\n"
+        "supermercado;Pañales y Toallitas;x | y;panales;Panales\n"
+        "licores;Café;x;;cafe\n",
+    )
+    path = tmp_path / "c.csv"
+    path.write_bytes(text.encode(encoding))
+
+    judgments = read_category_sheet(path)
+
+    assert judgments == {"pañales y toallitas": "panales", "café": "cafe"}  # la clave siempre en NFC
+
+
+def test_shortfalls_warn_when_a_sheet_has_fewer_rows_than_the_target():
+    full = {"pares": 200, "categorias": {"sin_mapear": 40, "juez": 30, "acuerdo": 30}}
+    short = {"pares": 150, "categorias": {"sin_mapear": 12, "juez": 30}}
+
+    assert sheets.shortfalls(full) == []
+    assert sheets.shortfalls(short) == ["búsqueda: 150 de 200 pares", "sin mapear: 12 de 40", "acuerdo: 0 de 30"]
+
+
+def test_readme_says_how_to_save_as_utf8():
+    text = sheets.readme_text()
+
+    assert "Guarda como CSV UTF-8" in text and "Exportar a" in text and "Desde texto/CSV" in text
+
+
+def test_eval_human_explains_a_sheet_whose_filled_rows_are_all_invalid(tmp_path, monkeypatch, capsys):
+    from rappi_ia import cli
+
+    sample = sample_search_pairs(_pool(), n=4, seed=7)
+    ids_file = tmp_path / "ids.json"
+    ids_file.write_text(json.dumps(search_ids_document(sample)), encoding="utf-8")
+    rows = [{"id": p["id"], "juicio": "quizá"} for p in sample[:3]] + [{"id": sample[3]["id"], "juicio": ""}]
+    sheets.write_csv(tmp_path / sheets.SEARCH_SHEET, ["id", "juicio"], rows)
+    monkeypatch.setattr(sheets, "SEARCH_IDS_FILE", ids_file)
+    monkeypatch.setattr(sheets, "sheet_dir", lambda: tmp_path)
+    monkeypatch.setattr("rappi_ia.eval.judgments.JUDGMENTS_FILE", tmp_path / "no-hay.json")
+
+    cli.cmd_eval_human(None, None)  # no se cae ni dice «todavía no hay juicios»
+
+    out = capsys.readouterr().out
+    assert "3 inválidas" in out and "1 vacías" in out and "valores permitidos" in out
+
+
+def test_eval_human_counts_judgments_whose_ids_are_not_in_the_sample(tmp_path, monkeypatch, capsys):
+    from rappi_ia import cli
+
+    sample = sample_search_pairs(_pool(), n=4, seed=7)
+    ids_file = tmp_path / "ids.json"
+    ids_file.write_text(json.dumps(search_ids_document(sample)), encoding="utf-8")
+    sheets.write_csv(tmp_path / sheets.SEARCH_SHEET, ["id", "juicio"], [{"id": "otro", "juicio": "sirve"}])
+    monkeypatch.setattr(sheets, "SEARCH_IDS_FILE", ids_file)
+    monkeypatch.setattr(sheets, "sheet_dir", lambda: tmp_path)
+    monkeypatch.setattr("rappi_ia.eval.judgments.JUDGMENTS_FILE", tmp_path / "no-hay.json")
+
+    cli.cmd_eval_human(None, None)
+
+    assert "1 desconocidos" in capsys.readouterr().out

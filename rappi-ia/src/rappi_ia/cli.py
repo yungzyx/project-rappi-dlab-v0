@@ -223,18 +223,24 @@ def cmd_eval_human(conn, args) -> None:
     if sheet.exists() and sheets.SEARCH_IDS_FILE.exists():
         counts: Counter = Counter()
         human = sheets.read_search_sheet(sheet, counts)
-        if human:
+        if human or counts["invalidas"]:
             pairs = json.loads(sheets.SEARCH_IDS_FILE.read_text(encoding="utf-8"))["pares"]
             report = judgments.sheet_report(pairs, human)
             print(
                 f"Planilla de búsqueda: {report['juzgados']} de {len(pairs)} pares juzgados"
-                f" ({report['sin_juicio']} sin juicio, {counts['invalidas']} inválidos,"
-                f" {report['a_medias']} «a medias»)"
+                f" ({report['sin_juicio']} sin juicio, {counts['invalidas']} inválidas, {counts['vacias']} vacías,"
+                f" {report['desconocidos']} desconocidos, {report['a_medias']} «a medias»)"
             )
-            print(
-                f"Personas vs juez por concepto: acuerdo {report['acuerdo']} · κ {report['kappa']}"
-                f" («sirve» contra el resto) · κ ponderado {report['kappa_ponderado']} (tres valores)"
-            )
+            if report["juzgados"]:
+                print(
+                    f"Personas vs juez por concepto: acuerdo {report['acuerdo']} · κ {report['kappa']}"
+                    f" («sirve» contra el resto) · κ ponderado {report['kappa_ponderado']} (tres valores)"
+                )
+            else:
+                print(
+                    "Ningún juicio coincide con un par de la muestra: revisa que `juicio` use solo los valores"
+                    " permitidos (sirve, a medias, no sirve) y que no hayas cambiado la columna `id`."
+                )
             for stratum, row in report["por_estrato"].items():
                 print(f"  {stratum}: {row['n']} pares, acuerdo {row['acuerdo']}")
             if not judgments.JUDGMENTS_FILE.exists():
@@ -269,6 +275,8 @@ def cmd_jev_planillas(conn, args) -> None:
         f"{summary['pares']} pares de búsqueda ({summary['pares_discrepantes']} donde el juez por concepto y la"
         f" posición discrepan) y {sum(summary['categorias'].values())} categorías ({groups}) en {sheets.sheet_dir()}"
     )
+    if short := sheets.shortfalls(summary):
+        log.warning("Bajo la meta (el catálogo no alcanza): %s", "; ".join(short))
     print(f"Cómo llenarlas: {sheets.sheet_dir() / sheets.README_FILE}")
 
 

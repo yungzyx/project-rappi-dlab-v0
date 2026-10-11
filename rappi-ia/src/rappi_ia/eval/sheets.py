@@ -11,11 +11,13 @@ Las planillas llevan textos del catálogo y quedan en `data/eval/` (fuera de git
 (`planilla-*-ids.json`), con semilla fija, como en `layers/quality.py`.
 """
 
+import codecs
 import csv
 import hashlib
 import io
 import json
 import random
+import unicodedata
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
@@ -144,13 +146,23 @@ def _read_sheet(
     return result
 
 
+def _decode(raw: bytes) -> str:
+    """Nunca falla: UTF-16 por su BOM («Texto Unicode» de Excel), UTF-8, «CSV» a secas de Excel en Windows (cp1252) y,
+    si ni eso (bytes que cp1252 no define, como los de «CSV (Macintosh)»), latin-1, que acepta cualquier byte. El id y
+    el juicio son ASCII, así que sobreviven aunque un nombre salga con letras cambiadas."""
+    if raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        return raw.decode("utf-16")
+    for encoding in ("utf-8-sig", "cp1252"):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
+
+
 def _read_table(path: Path) -> list[dict[str, str]]:
     """Filas de un CSV como lo guardan Numbers (coma) o Excel en español (punto y coma), con o sin BOM."""
-    raw = path.read_bytes()
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError:  # «CSV» a secas de Excel en Windows
-        text = raw.decode("cp1252")
+    text = unicodedata.normalize("NFC", _decode(path.read_bytes()))  # Numbers puede guardar las tildes descompuestas
     header = text.splitlines()[0] if text.strip() else ""
     delimiter = max(",;\t", key=header.count)
     reader = csv.reader(io.StringIO(text), delimiter=delimiter)
@@ -435,8 +447,9 @@ def readme_text() -> str:
     return f"""# Planillas para juzgar a mano
 
 Dos planillas CSV. Se abren en Numbers o Excel, se llena **una sola columna** y se guarda como CSV (UTF-8) con el
-mismo nombre, en esta misma carpeta. No cambies las demás columnas ni el orden de las filas. Lo que quede en blanco
-se ignora, así que puedes juzgar de a ratos y guardar.
+mismo nombre, en esta misma carpeta. **Guarda como CSV UTF-8** (en Numbers: Archivo › Exportar a › CSV, codificación
+Unicode UTF-8; en Excel: Datos › Desde texto/CSV para abrir, y Guardar como › CSV UTF-8). No cambies las demás
+columnas ni el orden de las filas. Lo que quede en blanco se ignora, así que puedes juzgar de a ratos y guardar.
 
 ## `{SEARCH_SHEET}`: ¿sirve este resultado para la búsqueda?
 
@@ -464,6 +477,18 @@ Con las planillas llenas, `rappi-ia eval-human` calcula cuánto coincide el juez
 Cohen contra «sirve» y κ ponderado con los tres valores). Si vuelves a correr `rappi-ia jev-planillas` con una
 planilla ya llena, se niega a pisarla (`--forzar` la reemplaza).
 """
+
+
+def shortfalls(summary: dict) -> list[str]:
+    """Lo que quedó bajo la meta (200 pares; 40 / 30 / 30 categorías) de lo que devolvió `build_sheets`."""
+    missing = []
+    if summary["pares"] < SEARCH_PAIRS:
+        missing.append(f"búsqueda: {summary['pares']} de {SEARCH_PAIRS} pares")
+    for group, target in CATEGORY_SIZES.items():
+        got = summary["categorias"].get(group, 0)
+        if got < target:
+            missing.append(f"{group.replace('_', ' ')}: {got} de {target}")
+    return missing
 
 
 def build_sheets(
