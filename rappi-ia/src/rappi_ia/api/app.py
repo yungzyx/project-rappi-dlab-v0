@@ -16,7 +16,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from psycopg import Connection, DataError, OperationalError
+from psycopg import Connection, DataError, Error, OperationalError
 from pydantic import Field, ValidationError, field_validator
 
 from .. import config
@@ -201,7 +201,12 @@ def ask(body: AskIn, conn: Connection = Depends(get_conn), svc: Services = Depen
     _log_ask(conn, body.user_id, body.session_id, body.message, response, "texto", body.mode)
     concepts = (response.get("intent") or {}).get("concepts")
     if body.mode == "propuesta" and concepts:  # «¿Sabías que…?»: una oferta, así que no en «Rappi hoy»
-        fact = did_you_know(conn, concepts, body.user_id)
+        try:
+            with conn.transaction():  # un error de la base no deja la conexión abortada ni rompe la respuesta
+                fact = did_you_know(conn, concepts, body.user_id)
+        except Error:
+            log.warning("No se pudo buscar el dato «¿Sabías que…?»; la respuesta sale sin él", exc_info=True)
+            fact = None
         if fact:
             response["did_you_know"] = fact
     return response

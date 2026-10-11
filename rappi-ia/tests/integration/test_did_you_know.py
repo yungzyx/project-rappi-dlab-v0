@@ -83,6 +83,12 @@ def test_fact_already_discovered_is_not_repeated(client):
     assert "did_you_know" not in ask(client, user_id="u-dato", session_id="s-dato")
 
 
+def test_fact_only_in_discovered_is_not_repeated(client):
+    save_state(client, "u-dato", discovered={"restaurantes": [CARD_ID]}, cards=[])
+
+    assert "did_you_know" not in ask(client, user_id="u-dato", session_id="s-dato")
+
+
 def test_fact_in_the_collection_is_not_repeated(client):
     save_state(client, "u-dato", cards=[CARD_ID])
 
@@ -140,12 +146,14 @@ def test_no_fact_from_farmacia_or_licores(client, db):
     assert "did_you_know" not in body
 
 
-def test_blocked_vertical_card_is_skipped_even_if_nothing_else_flags_it(db):
+@pytest.mark.parametrize("blocked_card", ["licores-01", "farmacia-01"])
+def test_blocked_vertical_card_is_skipped_even_if_nothing_else_flags_it(db, blocked_card):
     seed_demo(db)
-    # licores-01 sin su liga a «vino» (+18): solo la vertical la deja fuera.
-    db.execute("DELETE FROM knowledge_card_concepts WHERE card_id IN ('licores-01', 'restaurantes-01')")
+    # Sin sus ligas propias (licores-01 va a «vino», +18): solo la vertical la deja fuera.
+    db.execute("DELETE FROM knowledge_card_concepts WHERE card_id IN (%s, 'restaurantes-01')", (blocked_card,))
     db.execute(
-        "INSERT INTO knowledge_card_concepts (card_id, concept_id, method) VALUES ('licores-01', 'pizza', 'manual')"
+        "INSERT INTO knowledge_card_concepts (card_id, concept_id, method) VALUES (%s, 'pizza', 'manual')",
+        (blocked_card,),
     )
 
     assert did_you_know(db, ["pizza"], None) is None
@@ -164,6 +172,24 @@ def test_no_fact_linked_to_a_sensitive_or_age_restricted_concept(db, concept):
 
     assert did_you_know(db, ["pizza"], None) is None
     assert did_you_know(db, [concept], None) is None
+
+
+# ── Aislamiento ──────────────────────────────────────────────────────────────
+def test_database_error_in_the_fact_does_not_break_the_answer(client, db, monkeypatch, caplog):
+    def broken(conn, concept_ids, user_id):
+        conn.execute("SELECT * FROM tabla_que_no_existe")  # deja la transacción abortada, como un error real
+
+    monkeypatch.setattr(api, "did_you_know", broken)
+
+    with caplog.at_level("WARNING", logger=api.log.name):
+        body = ask(client)
+
+    assert body["products"]
+    assert "did_you_know" not in body
+    assert "¿Sabías que…?" in caplog.text
+    monkeypatch.setattr(api, "did_you_know", did_you_know)
+    assert db.execute("SELECT 1").fetchone() == (1,)  # la conexión quedó usable
+    assert ask(client)["did_you_know"]["id"] == CARD_ID
 
 
 # ── Sin dato ─────────────────────────────────────────────────────────────────

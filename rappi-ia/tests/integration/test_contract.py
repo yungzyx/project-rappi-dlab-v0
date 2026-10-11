@@ -141,6 +141,21 @@ CONTRACT: tuple[Example, ...] = (
 )
 
 
+GAME_STATE = {
+    "version": 1,
+    "xp": 0,
+    "discovered": {},
+    "correct": {},
+    "answered": {},
+    "cards": [],
+    "opened": [],
+    "daily": {"date": "2026-10-10", "discovered": 0, "correct": 0, "opened": 0, "done": False},
+    "streak": {"count": 0, "lastDate": None},
+    "seenIntro": True,
+    "visited": [],
+}
+
+
 @pytest.fixture
 def client(db, monkeypatch):
     seed_demo(db)
@@ -168,6 +183,10 @@ def client(db, monkeypatch):
         "query": "pizza",
     }
     assert test_client.post("/events", json={"user_id": "u-contrato", "events": [interest]}).status_code == 200
+    # Ya descubrió el dato de la pizza: `agent-ask` (pizza) es la respuesta sin «¿Sabías que…?», y `agent-ask-dato`
+    # (otro usuario, sin progreso) la que lo trae. `game-state-put` reemplaza este estado, así que no lo afecta.
+    discovered = {**GAME_STATE, "discovered": {"restaurantes": ["restaurantes-01"]}, "cards": ["restaurantes-01"]}
+    assert test_client.put("/game/state/u-contrato", json={"state": discovered}).status_code == 200
     yield test_client
     api.app.dependency_overrides.clear()
 

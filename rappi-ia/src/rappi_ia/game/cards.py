@@ -18,7 +18,6 @@ from ..concepts.assign import concept_matcher
 from ..concepts.taxonomy import load_taxonomy
 from ..offers.guards import OFFER_BLOCKED_VERTICALS
 from . import GAME_VERTICALS
-from .state import get_state
 
 DATA_DIR = Path(__file__).resolve().parent
 CARDS_FILE = DATA_DIR / "knowledge.json"
@@ -195,10 +194,11 @@ def did_you_know(conn: Connection, concept_ids: list[str], user_id: str | None) 
     """El primer dato del juego ligado a lo que la persona buscó, o `None`. Va en el orden de `concept_ids` y después
     en el del archivo. Es una oferta (nadie lo pidió): por eso no sale de una vertical que las ofertas bloquean, ni
     de una tarjeta ligada a algún concepto sensible o +18, ni uno que la persona ya descubrió o guardó."""
-    state = get_state(conn, user_id) if user_id else None
+    # Se lee el documento tal cual: un id que ya no existe es inofensivo en la exclusión.
+    row = conn.execute("SELECT state FROM game_state WHERE user_id = %s", (user_id,)).fetchone() if user_id else None
     seen = []
-    if state:
-        seen = [*state["cards"], *(card for cards in state["discovered"].values() for card in cards)]
+    if row:
+        seen = [*row[0]["cards"], *(card for cards in row[0]["discovered"].values() for card in cards)]
     row = conn.execute(
         """SELECT c.card_id, c.vertical, c.title, c.text, c.source_title, c.source_url
            FROM unnest(%(concepts)s::text[]) WITH ORDINALITY AS wanted (concept_id, ord)

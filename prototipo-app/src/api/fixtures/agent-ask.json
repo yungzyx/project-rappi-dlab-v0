@@ -1,16 +1,6 @@
 {
   "actions": [],
   "age_notice": false,
-  "did_you_know": {
-    "id": "restaurantes-01",
-    "source": {
-      "title": "UNESCO – Art of Neapolitan 'Pizzaiuolo'",
-      "url": "https://ich.unesco.org/en/RL/art-of-neapolitan-pizzaiuolo-00722"
-    },
-    "text": "Desde 2017, el oficio del pizzaiuolo napolitano es Patrimonio Cultural Inmaterial de la UNESCO. Al inscribirlo, se contaban cerca de 3.000 de estos maestros pizzeros viviendo y trabajando en Nápoles.",
-    "title": "La pizza napolitana es patrimonio",
-    "vertical": "restaurantes"
-  },
   "intent": {
     "concepts": [
       "pizza"
