@@ -116,6 +116,13 @@ describe('TrackingScreen', () => {
     })
   })
 
+  test('the offer has ¿Por qué?', async () => {
+    await renderTracking()
+    await deliver()
+    fireEvent.click(screen.getByRole('button', { name: '¿Por qué?' }))
+    expect(screen.getByText(fixture('agent-offer-proximo-pedido').reason.text)).toBeTruthy()
+  })
+
   test('al entregar aparece «Volver al inicio», que reinicia la pila', async () => {
     const reset = vi.fn()
     await renderTracking(reset)

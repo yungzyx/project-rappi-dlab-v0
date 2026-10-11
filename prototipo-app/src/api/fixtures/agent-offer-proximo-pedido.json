@@ -30,8 +30,16 @@
   ],
   "prototype_vertical": "express",
   "reason": {
+    "basis": [
+      {
+        "id": "pizza",
+        "kind": "pedido",
+        "source": "contexto"
+      }
+    ],
     "concept": "gaseosas",
-    "from_concept": "pizza"
+    "from_concept": "pizza",
+    "text": "Porque pediste 🍕 pizza."
   },
   "text": "Para tu próximo pedido: bebidas gaseosas, en Express. Combina con lo que pediste.",
   "vertical": "conveniencia"

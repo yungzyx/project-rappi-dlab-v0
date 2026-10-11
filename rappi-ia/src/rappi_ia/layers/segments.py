@@ -7,11 +7,14 @@ servicio, palabra de consulta; si la regla no tiene ninguna, basta el contexto) 
 
 import logging
 import re
+import time
 import tomllib
 from collections import defaultdict
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
-from functools import cache
+from functools import cache, lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -92,7 +95,17 @@ class SegmentRule:
 
 
 def load_segment_rules(path: Path | None = None) -> tuple[str, list[SegmentRule]]:
-    raw = tomllib.loads((path or RULES_FILE).read_text(encoding="utf-8"))
+    """Las reglas leídas y validadas. Quedan en caché por ruta, fecha y tamaño del archivo (leerlas y validarlas
+    toma ~0,7 s, y cada pedido recalcula los segmentos de su persona): si el archivo cambia, se vuelven a leer. La
+    lista es compartida: no se modifica."""
+    path = path or RULES_FILE
+    stat = path.stat()
+    return _load_segment_rules(path, stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=8)
+def _load_segment_rules(path: Path, _mtime_ns: int, _size: int) -> tuple[str, list[SegmentRule]]:
+    raw = tomllib.loads(path.read_text(encoding="utf-8"))
     defaults = raw.get("defaults", {})
     rules, seen = [], set()
     for entry in raw["segment"]:
@@ -506,12 +519,13 @@ _METRIC_SQL = {
                                  HAVING count(*) FILTER (WHERE type = 'suggestion_shown') >= %(min_shown)s""",
     "gasto_90d_percentil": f"""SELECT user_id, percent_rank() OVER (ORDER BY spent) FROM (
                                   SELECT o.user_id, sum(o.total) AS spent {_ORDERS_90} GROUP BY 1) t""",
+    # Dos pedidos con la misma hora se ordenan por order_id: sin eso, cuál es el último dependía del plan.
     "reactivado": """SELECT user_id, CASE WHEN ts >= %(now)s - interval '30 days' AND gap >= interval '60 days'
                                           THEN 1 ELSE 0 END
-                     FROM (SELECT user_id, ts, ts - lag(ts) OVER w AS gap, row_number() OVER (PARTITION BY user_id
-                                                                                         ORDER BY ts DESC) AS rn
+                     FROM (SELECT user_id, ts, ts - lag(ts) OVER w AS gap,
+                                  row_number() OVER (PARTITION BY user_id ORDER BY ts DESC, order_id DESC) AS rn
                            FROM app_orders WHERE source = %(source)s AND ts <= %(now)s
-                           WINDOW w AS (PARTITION BY user_id ORDER BY ts)) t
+                           WINDOW w AS (PARTITION BY user_id ORDER BY ts, order_id)) t
                      WHERE rn = 1 AND gap IS NOT NULL""",
     "concentracion_marca": """SELECT user_id, max(n)::float / sum(n) FROM (
                                  SELECT o.user_id, ib.brand_key, sum(l.qty) AS n
@@ -541,8 +555,10 @@ def user_metrics(
     conn: Connection, source: str, user_id: str | None = None, now: datetime | None = None
 ) -> dict[str, dict[str, float]]:
     """Métricas por persona que no son una suma de eventos que calzan (días sin pedido, verticales distintas, tasa de
-    abandono…). Sin datos suficientes la métrica falta, y sin la métrica no hay segmento."""
+    abandono…). Sin datos suficientes la métrica falta, y sin la métrica no hay segmento. Con `user_id`, cada consulta
+    se filtra por esa persona en SQL, por fuera: el percentil de gasto se sigue midiendo contra toda la fuente."""
     params = {
+        "user": user_id,
         "source": source,
         "now": now or datetime.now(LOCAL_TZ),
         "min_carts": MIN_CARTS_FOR_ABANDONMENT,
@@ -551,8 +567,10 @@ def user_metrics(
     }
     metrics: dict[str, dict[str, float]] = defaultdict(dict)
     for name, sql in _METRIC_SQL.items():
+        if user_id is not None:
+            sql = f"SELECT * FROM ({sql}) m WHERE m.user_id = %(user)s"
         for user, value in conn.execute(sql, params).fetchall():
-            if value is not None and (user_id is None or user == user_id):
+            if value is not None:
                 metrics[user][name] = float(value)
     return dict(metrics)
 
@@ -573,8 +591,10 @@ def build_segments(
     las filas `regla` de ese alcance; lo `curado` no se toca y las otras fuentes tampoco."""
     now = now or datetime.now(LOCAL_TZ)
     version, rules = load_segment_rules()
-    run = start_layer_run(conn, "segments", rules_version(version, RULES_FILE, Path(__file__)))
-    _seed_definitions(conn, version, rules)
+    version = rules_version(version, RULES_FILE, Path(__file__))
+    run = start_layer_run(conn, "segments", version)
+    if user_id is None or not _definitions_current(conn, version, rules):
+        _seed_definitions(conn, version, rules)
     signals = load_signals(conn, source, user_id)
     metrics = user_metrics(conn, source, user_id, now)
     users = sorted(set(signals) | set(metrics))
@@ -618,6 +638,46 @@ def build_segments(
         conn.execute("ANALYZE user_segments")
     log.info("Segmentos (%s): %s", source, counts)
     return counts
+
+
+def lock_user_segments(conn: Connection, user_id: str) -> None:
+    """El candado por persona (advisory, hasta el fin de la transacción) que comparten el recálculo después de un
+    pedido y «Olvidar»: nunca recalculan sus segmentos a la vez."""
+    conn.execute("SELECT pg_advisory_xact_lock(hashtext('segments:' || %s))", (user_id,))
+
+
+def recalculate_user_segments(connector: Callable[[], AbstractContextManager[Connection]], user_id: str) -> None:
+    """Los segmentos de una persona del prototipo después de un pedido, en segundo plano y con su propia conexión.
+
+    Un candado por persona (advisory, de la transacción) pone en fila dos recálculos seguidos: el segundo espera al
+    primero y ve todo lo guardado. Si la persona ya no está (la olvidaron antes de que esto corriera), no hace nada.
+    Un error queda en el log y no llega a quien hizo el pedido, que ya tiene su respuesta."""
+    start = time.perf_counter()
+    try:
+        with connector() as conn:
+            lock_user_segments(conn, user_id)
+            known = conn.execute(
+                "SELECT 1 FROM app_users WHERE user_id = %s AND source = 'prototype'", (user_id,)
+            ).fetchone()
+            if known is None:
+                conn.rollback()
+                return
+            build_segments(conn, "prototype", user_id, commit=False)
+            conn.commit()  # suelta el candado; sin ANALYZE por pedido
+    except Exception:
+        log.warning("No se pudieron recalcular los segmentos de %s después del pedido", user_id, exc_info=True)
+        return
+    log.info("Segmentos recalculados de %s en %.0f ms", user_id, (time.perf_counter() - start) * 1000)
+
+
+def _definitions_current(conn: Connection, version: str, rules: list[SegmentRule]) -> bool:
+    """`segment_defs` tiene justo estas reglas, sembradas con esta versión (fecha y huella): el recálculo de una
+    persona, que corre después de cada pedido, no las vuelve a escribir."""
+    current, total = conn.execute(
+        "SELECT count(*) FILTER (WHERE rules_version = %s AND segment_id = ANY(%s)), count(*) FROM segment_defs",
+        (version, [r.id for r in rules]),
+    ).fetchone()
+    return current == total == len(rules)
 
 
 def _seed_definitions(conn: Connection, version: str, rules: list[SegmentRule]) -> None:

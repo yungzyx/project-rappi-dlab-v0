@@ -8,8 +8,10 @@ export function createSaver(send) {
   let latest
   let queued = false
   let running = null
+  let epoch = 0 // sube con cada `cancel`: un fallo de un envío anterior no deja nada en cola
 
   async function drain() {
+    const mine = epoch
     try {
       while (queued) {
         const state = latest
@@ -17,7 +19,7 @@ export function createSaver(send) {
         try {
           await (async () => send(state))() // un `send` que lance en seco también cuenta como fallo, y siempre cede un turno
         } catch {
-          queued = true // el próximo save lo reenvía junto con su estado más nuevo
+          queued = mine === epoch // el próximo save lo reenvía junto con su estado más nuevo (salvo tras un `cancel`)
           return
         }
       }
@@ -32,6 +34,15 @@ export function createSaver(send) {
       queued = true
       running ??= drain()
       return running
+    },
+    /**
+     * «Olvidar»: descarta lo que está en cola (y un reenvío pendiente) y termina cuando acaba el envío en vuelo, si lo
+     * hay. Después ya no sale nada del progreso anterior; un `save` posterior guarda como siempre.
+     */
+    async cancel() {
+      epoch++
+      queued = false
+      await running
     },
     /** ¿Hay algo sin confirmar por el servidor (en vuelo o pendiente tras un fallo)? */
     pending: () => queued || running !== null,

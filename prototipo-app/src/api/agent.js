@@ -1,6 +1,7 @@
 // Ofertas del agente de rappi-ia: `POST /agent/offer` (un momento de la app) y `GET /agent/plans` (ocasiones).
 import { routeForScreen } from '../data/verticals'
 import { request, toPrototypeProduct } from './client'
+import { userId } from './user'
 
 const OFFER_TIMEOUT_MS = 5_000
 
@@ -39,5 +40,8 @@ export async function offer(moment, context = {}, { userId } = {}) {
   }
 }
 
-/** Las ocasiones que el agente sabe armar: `[{ id, name, emoji }]`. */
-export const plans = () => request('/agent/plans', { timeout: OFFER_TIMEOUT_MS })
+/**
+ * Las ocasiones que el agente sabe armar para esta persona: `[{ id, name, emoji, reason? }]`. Las que su historia
+ * pone primero traen `reason: { text, basis }` («Para ti»); sin historia, la lista de siempre y sin `reason`.
+ */
+export const plans = () => request(`/agent/plans?user_id=${encodeURIComponent(userId())}`, { timeout: OFFER_TIMEOUT_MS })

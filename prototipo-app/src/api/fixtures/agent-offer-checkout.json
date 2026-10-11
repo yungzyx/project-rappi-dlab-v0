@@ -30,8 +30,10 @@
   ],
   "prototype_vertical": "turbo",
   "reason": {
+    "basis": [],
     "concept": "hielo",
-    "from_concept": "pisco"
+    "from_concept": "pisco",
+    "text": "Porque combina con lo que llevas."
   },
   "text": "Antes de pagar: hielo, en Turbo. Combina con lo que llevas.",
   "vertical": "turbo"

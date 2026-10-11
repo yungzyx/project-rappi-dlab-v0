@@ -1,3 +1,4 @@
+import OfferWhy from '../../../components/assistant/OfferWhy'
 import HScroll from '../../../components/HScroll'
 import { ProductCard } from '../../../components/ProductCard'
 import { storeOfProduct } from '../../../api/catalog'
@@ -18,7 +19,7 @@ export function openItem(product, push) {
 }
 
 /** «¿Qué plan tienes hoy?»: las ocasiones salen de la API y el agente arma, también con la API, un kit de varias verticales. */
-export function PlanBlock({ plans, plan, kit, added, onPick, onOpen, onAddKit, onCheckout }) {
+export function PlanBlock({ plans, plan, kit, kitReason, added, onPick, onOpen, onAddKit, onCheckout }) {
   const total = (kit ?? []).reduce((sum, product) => sum + parsePrice(product.price), 0)
   const verticals = [...new Set((kit ?? []).map((product) => VERTICAL_NAMES[product.vertical] ?? product.vertical))]
   return (
@@ -36,6 +37,7 @@ export function PlanBlock({ plans, plan, kit, added, onPick, onOpen, onAddKit, o
           >
             <span aria-hidden="true">{option.emoji}</span>
             {option.name}
+            {option.reason && <small className="live-plan-chip-tag">Para ti</small>}
           </button>
         ))}
       </div>
@@ -44,6 +46,7 @@ export function PlanBlock({ plans, plan, kit, added, onPick, onOpen, onAddKit, o
           <p className="live-kit-meta">
             Tu kit en {verticals.length} {verticals.length === 1 ? 'vertical' : 'verticales'}: {verticals.join(', ')}
           </p>
+          <OfferWhy reason={kitReason} />
           <HScroll className="live-items">
             {kit.map((product, i) => (
               <div key={product.id} className="live-item" style={{ '--i': i }}>

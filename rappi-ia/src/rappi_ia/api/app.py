@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,11 +27,12 @@ from ..analytics import queries
 from ..concepts.taxonomy import load_taxonomy
 from ..events import store as events
 from ..game.cards import did_you_know
+from ..layers.segments import recalculate_user_segments
 from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
 from .agent import router as agent_router
 from .catalog import router as catalog_router
-from .deps import Clean, backend_vertical, get_conn, get_services
+from .deps import Clean, backend_vertical, get_conn, get_connector, get_services
 from .game import router as game_router
 from .services import Services, services
 
@@ -353,7 +354,13 @@ def _save_events(conn: Connection, body: EventsIn) -> int:
 
 
 @app.post("/orders")
-def post_order(body: OrderIn, conn: Connection = Depends(get_conn)) -> dict:
+def post_order(
+    body: OrderIn,
+    background: BackgroundTasks,
+    conn: Connection = Depends(get_conn),
+    connector=Depends(get_connector),
+) -> dict:
+    """Guarda el pedido y, ya respondido, recalcula los segmentos de esa persona (solo los suyos, con otra conexión)."""
     vertical = backend_vertical(body.vertical)
     if vertical is None:  # un pedido es de una tienda: sin vertical del catálogo no se puede guardar
         raise HTTPException(400, f"Vertical desconocido: {body.vertical}")
@@ -370,6 +377,7 @@ def post_order(body: OrderIn, conn: Connection = Depends(get_conn)) -> dict:
     except ValueError as exc:  # un usuario de otra fuente (simulado)
         raise HTTPException(400, str(exc)) from exc
     conn.commit()
+    background.add_task(recalculate_user_segments, connector, body.user_id)
     return {"order_id": order_id}
 
 

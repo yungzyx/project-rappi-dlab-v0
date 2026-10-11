@@ -49,6 +49,11 @@ def offer(client, moment: str, context: dict):
     return client.post("/agent/offer", json={"moment": moment, "context": context})
 
 
+def without_why(reason: dict) -> dict:
+    """Las claves de siempre del `reason` (lo que lee la app), sin `text` ni `basis`."""
+    return {k: v for k, v in reason.items() if k not in ("text", "basis")}
+
+
 def assert_offerable(body: dict) -> None:
     """Lo que el agente propone sola: nada de alcohol, farmacia, bebé, salud, sensibles, +18 ni tiendas bloqueadas."""
     concepts = load_taxonomy().concepts
@@ -67,7 +72,7 @@ def test_plan_kit_spreads_across_verticals_and_includes_chosen_alcohol_with_age_
     assert reply.status_code == 200, reply.text
     body = reply.json()
     products = body["products"]
-    assert body["moment"] == "plan" and body["reason"] == {"occasion": "carrete"}
+    assert body["moment"] == "plan" and without_why(body["reason"]) == {"occasion": "carrete"}
     assert len(products) == 4 and len({p["entity_id"] for p in products}) == 4  # un producto por concepto
     assert len({p["concept"] for p in products}) == 4
     assert len({p["vertical"] for p in products}) >= 3  # repartido entre verticales
@@ -140,7 +145,10 @@ def test_cart_offer_never_returns_alcohol_or_pharmacy_even_if_cart_has_them(clie
             assert_offerable(reply.json())
 
     beer = offer(client, "carrito", {"product": item(BEER)}).json()
-    assert beer["moment"] == "carrito" and beer["reason"] == {"concept": "snacks-salados", "from_concept": "cerveza"}
+    assert beer["moment"] == "carrito" and without_why(beer["reason"]) == {
+        "concept": "snacks-salados",
+        "from_concept": "cerveza",
+    }
     assert beer["vertical"] == "conveniencia" and beer["prototype_vertical"] == "express"
     assert "cerveza" not in beer["text"].lower()  # el origen no se nombra: el agente no habla de alcohol sola
     assert beer["text"] == "Para completar tu pedido: snacks salados, en Express."
@@ -161,7 +169,7 @@ def test_checkout_offer_skips_items_already_in_cart(client):
 
     assert both.status_code == 200, both.text
     body = both.json()
-    assert body["moment"] == "checkout" and body["reason"] == {"concept": "hielo", "from_concept": "pisco"}
+    assert body["moment"] == "checkout" and without_why(body["reason"]) == {"concept": "hielo", "from_concept": "pisco"}
     assert {p["entity_id"] for p in body["products"]}.isdisjoint({PISCO, COLA})
     assert body["text"].startswith("Antes de pagar") and "pisco" not in body["text"].lower()
     assert_offerable(body)
@@ -236,7 +244,7 @@ def test_no_result_points_to_the_offerable_vertical_that_has_the_concept(client)
 
     assert reply.status_code == 200, reply.text
     body = reply.json()
-    assert body["vertical"] == "restaurantes" and body["reason"] == {"concept": "pizza"}
+    assert body["vertical"] == "restaurantes" and without_why(body["reason"]) == {"concept": "pizza"}
     assert body["text"] == "No encontré «pizza hawaiana», pero pizza sí hay en restaurantes."
     assert {p["concept"] for p in body["products"]} == {"pizza"} and len(body["products"]) <= 3
     assert_offerable(body)
@@ -247,7 +255,10 @@ def test_next_order_offers_a_complement_of_what_was_ordered(client):
 
     assert reply.status_code == 200, reply.text
     body = reply.json()
-    assert body["reason"] == {"concept": "gaseosas", "from_concept": "pizza"}  # la cerveza de la pizza no se ofrece
+    assert without_why(body["reason"]) == {
+        "concept": "gaseosas",
+        "from_concept": "pizza",
+    }  # la cerveza de la pizza no se ofrece
     assert body["text"].startswith("Para tu próximo pedido: bebidas gaseosas")
     assert_offerable(body)
 
@@ -314,3 +325,40 @@ def test_a_kit_is_still_built_without_an_embedding_model(db):
         api.app.dependency_overrides.clear()
 
     assert reply.status_code == 200 and len(reply.json()["products"]) >= 3
+
+
+def test_every_moment_has_reason_text_and_basis(client):
+    replies = {
+        "plan": offer(client, "plan", {"occasion": "carrete"}),
+        "carrito": offer(client, "carrito", {"product": item(CHIPS)}),
+        "checkout": offer(client, "checkout", {"cart": [item(PISCO)]}),
+        "proximo_pedido": offer(client, "proximo_pedido", {"items": [item(PIZZA_DISH, "menu_item")]}),
+        "sin_resultado": offer(client, "sin_resultado", {"query": "pizza hawaiana"}),
+        "vertical_por_probar": offer(client, "vertical_por_probar", {"stamped": ["supermercado"]}),
+    }
+
+    for moment, reply in replies.items():
+        assert reply.status_code == 200, (moment, reply.text)
+        reason = reply.json()["reason"]
+        assert reason["text"].startswith("Porque "), moment
+        assert isinstance(reason["basis"], list), moment
+
+    assert replies["plan"].json()["reason"]["text"] == "Porque elegiste «Carrete»."
+    assert replies["plan"].json()["reason"]["basis"] == [{"kind": "ocasion", "id": "carrete", "source": "contexto"}]
+    assert replies["carrito"].json()["reason"]["text"] == "Porque llevas 🥨 snacks salados."
+    assert replies["sin_resultado"].json()["reason"]["text"] == "Porque buscaste «pizza hawaiana» y aquí sí hay."
+    assert replies["sin_resultado"].json()["reason"]["basis"] == [
+        {"kind": "busqueda", "id": "pizza hawaiana", "source": "contexto"}
+    ]
+    to_try = replies["vertical_por_probar"].json()
+    assert to_try["reason"]["text"] == "Porque aún no tienes el sello de Express."
+    assert to_try["reason"]["basis"] == [{"kind": "sello", "id": to_try["vertical"], "source": "contexto"}]
+    assert "text" in to_try["reason"] and "basis" in to_try["reason"]
+
+
+def test_a_non_offerable_origin_is_not_named_in_the_reason(client):
+    beer = offer(client, "carrito", {"product": item(BEER)}).json()["reason"]
+
+    assert beer["text"] == "Porque combina con lo que llevas." and beer["basis"] == []
+    pisco = offer(client, "checkout", {"cart": [item(PISCO)]}).json()["reason"]
+    assert pisco["text"] == "Porque combina con lo que llevas." and pisco["basis"] == []

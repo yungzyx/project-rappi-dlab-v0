@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { toPrototypeProduct } from './client'
-import { buildOrders, conceptOf } from './orders'
+import { buildOrders, conceptOf, ordersSettled, trackOrder } from './orders'
 import { fixture } from './testing'
 
 const ctx = { userId: 'proto-1', sessionId: 's-1', cartId: 'c-1' }
@@ -142,5 +142,38 @@ describe('pedidos para el panel', () => {
   test('from_suggestion sale de la línea del carrito', () => {
     const [order] = buildOrders([{ product: beer(), qty: 1, fromSuggestion: true }], ctx)
     expect(order.lines[0].from_suggestion).toBe(true)
+  })
+})
+
+describe('pedidos en vuelo', () => {
+  test('ordersSettled waits for every tracked order, failed or not', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await ordersSettled() // sin pedidos, termina al tiro
+
+    let finish
+    let fail
+    trackOrder(new Promise((resolve) => (finish = resolve)))
+    trackOrder(new Promise((_, reject) => (fail = reject)))
+    let settled = false
+    const waiting = ordersSettled().then(() => (settled = true))
+
+    fail(new Error('sin red'))
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(settled).toBe(false) // falta el otro pedido
+
+    finish()
+    await waiting
+    expect(settled).toBe(true)
+    expect(warn).toHaveBeenCalledTimes(1) // el pedido que falló no se traga en silencio
+    expect(warn.mock.calls[0][0]).toMatch(/^No se pudo enviar el pedido/)
+  })
+
+  test('a failed order does not break the caller: trackOrder hands the promise back', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const failed = Promise.reject(new Error('sin red'))
+    expect(trackOrder(failed)).toBe(failed)
+    await expect(failed).rejects.toThrow('sin red')
+    await ordersSettled()
   })
 })

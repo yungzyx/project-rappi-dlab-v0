@@ -86,6 +86,7 @@ export default function LiveHomeFeed({ push, active = true }) {
   const [plans, setPlans] = useState([]) // las ocasiones que el agente sabe armar (GET /agent/plans)
   const [plan, setPlan] = useState(() => session.plan?.id ?? null) // la ocasión elegida
   const [kit, setKit] = useState(() => session.plan?.kit ?? null) // sus productos (la oferta `plan`); null mientras llega
+  const [kitReason, setKitReason] = useState(() => session.plan?.reason ?? null) // por qué ese kit (`reason` de la oferta)
   const [kitAdded, setKitAdded] = useState(null) // plan cuyo kit ya está en el carro
   const [say, setSay] = useState(null)
   const [target, setTarget] = useState(null) // id del bloque donde se para el agente
@@ -119,6 +120,16 @@ export default function LiveHomeFeed({ push, active = true }) {
   // El globo a la vista y si es de la guía de la primera vez (se leen en timers y efectos, no en el render).
   const said = useRef(null)
   const touring = useRef(false)
+  const holdFor = useRef(0) // cuánto dura el globo actual (0: se queda hasta que algo lo reemplace)
+
+  /** Esconde el globo en `ms`. */
+  const armHide = useCallback((ms) => {
+    hideTimer.current = setTimeout(() => {
+      said.current = null
+      setSay(null)
+      setTarget(null)
+    }, ms)
+  }, [])
 
   /** El agente dice algo (o se calla con `null`); con `holdMs` el globo se va solo. Cada frase reemplaza a la anterior. */
   const speak = useCallback((next, at = null, holdMs = 0) => {
@@ -129,16 +140,18 @@ export default function LiveHomeFeed({ push, active = true }) {
     }
     if (next?.tour) touring.current = true
     said.current = next
+    holdFor.current = next && holdMs ? holdMs : 0
     clearTimeout(hideTimer.current)
     setSay(next)
     setTarget(at)
-    if (next && holdMs)
-      hideTimer.current = setTimeout(() => {
-        said.current = null
-        setSay(null)
-        setTarget(null)
-      }, holdMs)
-  }, [])
+    if (holdFor.current) armHide(holdFor.current)
+  }, [armHide])
+
+  /** Mientras se lee el «¿Por qué?» del globo no se va solo; al cerrarlo vuelve a contar desde cero. */
+  const onWhyToggle = useCallback((open) => {
+    clearTimeout(hideTimer.current)
+    if (!open && said.current && holdFor.current) armHide(holdFor.current)
+  }, [armHide])
 
   const getBlock = useCallback((id) => blockRefs.current.get(id) ?? null, [])
   const setRef = (id) => (element) => {
@@ -233,6 +246,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     speak(
       {
         text: made.text,
+        why: made.reason,
         mood: 'wave',
         actions: [
           ...(see ? [{ label: see.label, onClick: () => visit(made.vertical, see.route) }] : []),
@@ -339,6 +353,7 @@ export default function LiveHomeFeed({ push, active = true }) {
       setFreshStamp(null)
       setPlan(null)
       setKit(null)
+      setKitReason(null)
       setKitAdded(null)
       setPresent(false)
       speak(null)
@@ -356,6 +371,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     session.plan = null
     setPlan(id)
     setKit(null)
+    setKitReason(null)
     setKitAdded(null)
     let made = null
     try {
@@ -371,8 +387,9 @@ export default function LiveHomeFeed({ push, active = true }) {
     // Cada producto del kit es una sugerencia mostrada, con su propio concepto.
     for (const product of made.products)
       noteShown(events.track, [product], { origin: `agent-${made.moment}`, generation: profile.resets })
-    session.plan = { id, kit: made.products } // la Home vuelve a montarse al cambiar de pestaña: el kit sigue ahí
+    session.plan = { id, kit: made.products, reason: made.reason } // la Home vuelve a montarse al cambiar de pestaña: el kit sigue ahí
     setKit(made.products)
+    setKitReason(made.reason)
     speak({ text: `${chosen.emoji} ${made.text}`, mood: 'wave', gesture: 'hop' }, 'plan', 4500)
   }
 
@@ -416,6 +433,7 @@ export default function LiveHomeFeed({ push, active = true }) {
     speak(
       {
         text: `¿Y si pruebas ${name} ${STAMP_EMOJI[made.backendVertical] ?? ''}? Juega una ronda y te llevas su sello.${left > 0 ? ` Te ${left === 1 ? 'falta 1' : `faltan ${left}`} para el envío gratis.` : ''}`,
+        why: made.reason,
         mood: 'wave',
         gesture: 'hop',
         actions: [
@@ -457,6 +475,7 @@ export default function LiveHomeFeed({ push, active = true }) {
         plans={plans}
         plan={plan}
         kit={kit}
+        kitReason={kitReason}
         added={kitAdded === plan}
         onPick={pickPlan}
         onOpen={openFromBlock}
@@ -511,6 +530,7 @@ export default function LiveHomeFeed({ push, active = true }) {
         away={!present}
         reduceMotion={reduceMotion}
         onPoke={poke}
+        onWhyToggle={onWhyToggle}
       />
     </>
   )

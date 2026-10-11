@@ -6,6 +6,23 @@ from rappi_ia.db import connect, database_url
 from rappi_ia.demo.seed import reset_test_database
 
 
+@pytest.fixture(autouse=True)
+def real_db_guard(monkeypatch):
+    """Ningún test abre la base real por el connector de la API (el recálculo de segmentos después de un pedido):
+    sin un `get_connector` propio, la tarea falla con este error (queda en el log) y la lista anota cada intento.
+    Va en el módulo, no en `dependency_overrides`, que los fixtures vacían con `clear()`."""
+    from rappi_ia.api import deps
+
+    attempts: list[str] = []
+
+    def refuse():
+        attempts.append("connector")
+        raise RuntimeError("Los tests no abren la base real: reemplaza get_connector con la conexión del test")
+
+    monkeypatch.setattr(deps, "_own_connection", refuse)
+    return attempts
+
+
 @pytest.fixture
 def test_url():
     """URL de `rappi_ia_test`, la única base que los tests pueden borrar."""

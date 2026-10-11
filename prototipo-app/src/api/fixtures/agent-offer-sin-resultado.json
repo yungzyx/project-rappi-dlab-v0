@@ -47,7 +47,15 @@
   ],
   "prototype_vertical": "restaurants",
   "reason": {
-    "concept": "pizza"
+    "basis": [
+      {
+        "id": "pizza hawaiana",
+        "kind": "busqueda",
+        "source": "contexto"
+      }
+    ],
+    "concept": "pizza",
+    "text": "Porque buscaste «pizza hawaiana» y aquí sí hay."
   },
   "text": "No encontré «pizza hawaiana», pero pizza sí hay en restaurantes.",
   "vertical": "restaurantes"

@@ -3,6 +3,7 @@ import { AGENT_NAME } from '../../agent/name'
 import { storeOfProduct } from '../../api/catalog'
 import { ask as askAgent, forget, profile as remoteProfile, recommendations, toMessage } from '../../api/client'
 import { offer } from '../../api/agent'
+import { ordersSettled } from '../../api/orders'
 import { firstShowing, noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
 import { askAbout } from '../../assistant/agentAsk'
@@ -187,7 +188,7 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
         concept: made.reason?.concept,
         generation: profile.resets,
       })
-      return { text: made.text, products: made.products, actions: made.actions }
+      return { text: made.text, products: made.products, actions: made.actions, offerReason: made.reason }
     } catch {
       return offline(() => offered(moment, context, nothing))
     }
@@ -347,19 +348,24 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     profile.reset()
     setLearnedRemote(null)
     setDiscoverRows([])
-    // Lo que ya salió (preguntas pendientes, un lote de eventos) podría recrear lo olvidado en el servidor: se
-    // espera antes del DELETE, y lo que haya dejado en cola se descarta.
+    // Lo que ya salió (preguntas pendientes, un lote de eventos, un pedido, un guardado del juego) podría recrear lo
+    // olvidado en el servidor: se espera antes del DELETE, y lo que haya dejado en cola se descarta.
     await Promise.allSettled([askQueue.current])
     events.clear()
     clearShownTopics()
     await events.settled()
     try {
+      // Lo último, pegado al DELETE: el juego pausa su guardado (sigue en pantalla, no sube nada) y se espera lo que
+      // ya iba en vuelo, para que nada llegue después y recree al usuario.
+      await Promise.allSettled([game.settle()])
+      await ordersSettled()
       await forget(userId())
       // Borrar el perfil borró también el progreso del juego: queda en cero sin subirlo (subirlo lo recrearía).
       game.forget()
       // La conversación hablaba de lo aprendido («Vi que te gusta…»): se reemplaza para que se vea que ya no está.
       setMessages([{ id: nextId++, from: 'bot', text: 'Listo, olvidé lo que aprendí de ti 🧹 ¿Qué se te antoja hoy?' }])
     } catch {
+      game.resume() // el servidor sigue con su perfil: el juego vuelve a guardar (su estado actual, una vez)
       botSays({ text: 'No pude borrar lo aprendido en el servidor 😿 Inténtalo de nuevo en un rato.' })
     } finally {
       setForgetting(false)

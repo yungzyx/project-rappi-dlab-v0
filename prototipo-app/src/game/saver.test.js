@@ -71,6 +71,58 @@ describe('guardado de a una petición', () => {
   })
 })
 
+describe('guardado: cancelar (Olvidar)', () => {
+  test('saver.cancel drops the queued state and waits for the one in flight', async () => {
+    const calls = []
+    const send = vi.fn((state) => {
+      const call = { state, ...deferred() }
+      calls.push(call)
+      return call.promise
+    })
+    const saver = createSaver(send)
+    saver.save({ xp: 10 }) // en vuelo
+    saver.save({ xp: 20 }) // en cola
+
+    let cancelled = false
+    const cancelling = saver.cancel().then(() => (cancelled = true))
+    await Promise.resolve()
+    expect(cancelled).toBe(false) // el envío en vuelo todavía no termina
+
+    calls[0].resolve()
+    await cancelling
+    expect(send).toHaveBeenCalledTimes(1) // el 20 nunca sale
+    expect(saver.pending()).toBe(false)
+  })
+
+  test('cancel resolves right away with nothing in flight, and a failure while cancelling does not leave a retry queued', async () => {
+    const idle = createSaver(vi.fn())
+    await idle.cancel()
+
+    const first = deferred()
+    const send = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined)
+    const saver = createSaver(send)
+    saver.save({ xp: 10 })
+    const cancelling = saver.cancel()
+    first.reject(new Error('sin red'))
+    await cancelling
+    expect(saver.pending()).toBe(false) // el fallo no deja un reenvío pendiente: el estado olvidado no vuelve
+
+    await saver.save({ xp: 30 }) // una acción real después guarda normal
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send).toHaveBeenLastCalledWith({ xp: 30 })
+  })
+
+  test('after cancel a new save goes out normally', async () => {
+    const send = vi.fn().mockResolvedValue(undefined)
+    const saver = createSaver(send)
+    saver.save({ xp: 10 })
+    await saver.cancel()
+    await saver.save({ xp: 5 })
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send).toHaveBeenLastCalledWith({ xp: 5 })
+  })
+})
+
 describe('guardado: bordes', () => {
   test('a send that throws right away counts as a failure and the next save still goes out', async () => {
     const send = vi

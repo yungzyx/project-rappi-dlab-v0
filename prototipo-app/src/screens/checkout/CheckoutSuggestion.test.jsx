@@ -115,6 +115,13 @@ describe('«¿Me falta algo?» en el checkout (solo si se pide)', () => {
     expect(screen.queryByLabelText('Solo mayores de 18')).toBeNull()
   })
 
+  test('the offer has ¿Por qué?', async () => {
+    renderCheckout()
+    await ask()
+    fireEvent.click(screen.getByRole('button', { name: '¿Por qué?' }))
+    expect(screen.getByText(fixture('agent-offer-checkout').reason.text)).toBeTruthy()
+  })
+
   test('agregarla la suma al carro como sugerencia aceptada, con «Deshacer» que la quita', async () => {
     renderCheckout()
     await ask()

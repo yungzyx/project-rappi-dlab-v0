@@ -2,6 +2,7 @@ import { StrictMode, useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { toPrototypeProduct } from '../../api/client'
+import { ordersSettled } from '../../api/orders'
 import { fixture } from '../../api/testing'
 import { ToastProvider } from '../../components/Toast'
 import { AddressProvider } from '../../state/AddressContext'
@@ -138,6 +139,32 @@ describe('inicio de pago', () => {
 
     inFlight.resolve()
     await vi.waitFor(() => expect(api.sendOrder).toHaveBeenCalledTimes(2))
+  })
+})
+
+describe('pedidos en vuelo', () => {
+  test('placing the order is tracked from the first wait until the last send ends', async () => {
+    const inFlight = deferred() // un lote de eventos que ya había salido
+    const sending = deferred() // el POST del pedido
+    events.settled.mockReturnValueOnce(inFlight.promise)
+    api.sendOrder.mockReturnValue(sending.promise)
+    renderCheckout()
+    fireEvent.click(screen.getByText(/Place order/))
+
+    let settled = false
+    const waiting = ordersSettled().then(() => (settled = true))
+    await tick()
+    expect(api.sendOrder).not.toHaveBeenCalled() // todavía espera los eventos: ya cuenta como en vuelo
+    expect(settled).toBe(false)
+
+    inFlight.resolve()
+    await vi.waitFor(() => expect(api.sendOrder).toHaveBeenCalledTimes(2))
+    await tick()
+    expect(settled).toBe(false) // los POST siguen en camino
+
+    sending.resolve({})
+    await waiting
+    expect(settled).toBe(true)
   })
 })
 

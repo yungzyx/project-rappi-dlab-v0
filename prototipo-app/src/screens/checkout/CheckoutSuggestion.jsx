@@ -4,6 +4,7 @@ import { offer } from '../../api/agent'
 import { noteShown } from '../../api/suggestions'
 import { userId } from '../../api/user'
 import Mascot from '../../components/assistant/Mascot'
+import OfferWhy from '../../components/assistant/OfferWhy'
 import { useAddToCart } from '../../hooks/useAddToCart'
 import { VERTICAL_NAMES } from '../../data/verticals'
 import { useCart } from '../../state/CartContext'
@@ -52,7 +53,7 @@ export default function CheckoutSuggestion() {
           concept: made.reason?.concept,
           generation: profile.resets,
         })
-        setPicked({ text: made.text, product })
+        setPicked({ text: made.text, product, reason: made.reason })
       } catch {
         // Sin respuesta, el agente no dice nada: el botón sigue ahí para volver a pedir.
       } finally {
@@ -67,12 +68,13 @@ export default function CheckoutSuggestion() {
     )
   }
 
-  const { text, product } = picked
+  const { text, product, reason } = picked
   return (
     <section className="checkout-suggestion" aria-label={`Sugerencia de ${AGENT_NAME}`}>
       <Mascot size={40} badge mood="wave" />
       <div className="checkout-suggestion-body">
         <p className="checkout-suggestion-reason">{text}</p>
+        <OfferWhy reason={reason} />
         <p className="checkout-suggestion-product">
           {product.name} · {product.price} · {VERTICAL_NAMES[product.vertical] ?? product.vertical}
           {product.ageRestricted && (

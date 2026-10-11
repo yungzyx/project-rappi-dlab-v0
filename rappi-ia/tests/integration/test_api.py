@@ -2,6 +2,7 @@
 
 import json
 import math
+from contextlib import contextmanager
 
 import pytest
 from fastapi.testclient import TestClient
@@ -41,7 +42,12 @@ def client(db):
     def conn_override():
         yield db
 
+    @contextmanager
+    def shared_connection():  # el recálculo de segmentos después de un pedido: en la base de tests, sin cerrarla
+        yield db
+
     api.app.dependency_overrides[api.get_conn] = conn_override
+    api.app.dependency_overrides[api.get_connector] = lambda: shared_connection
     api.app.dependency_overrides[api.get_services] = lambda: Services(
         RappiAgent(embedder, TemplateComposer()), embedder
     )

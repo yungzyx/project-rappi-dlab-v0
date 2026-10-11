@@ -6,11 +6,12 @@
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from psycopg import Connection
 from pydantic import Field
 
 from ..offers.engine import OfferError, home_occasions, make_offer
+from ..offers.personal import user_interests
 from .deps import Clean, backend_vertical, get_conn, get_services
 from .services import Services
 
@@ -102,6 +103,9 @@ def offer(body: OfferIn, conn: Connection = Depends(get_conn), svc: Services = D
 
 
 @router.get("/plans")
-def plans() -> list[dict]:
-    """Las ocasiones que el agente arma como kit, para la Home: `[{ id, name, emoji }]`."""
-    return home_occasions()
+def plans(
+    user_id: Annotated[str | None, Query(max_length=64)] = None, conn: Connection = Depends(get_conn)
+) -> list[dict]:
+    """Las ocasiones que el agente arma como kit, para la Home: `[{ id, name, emoji }]`. Con `user_id` de alguien del
+    prototipo, las que coinciden con lo que le gusta van primero y traen su `reason` (`text` y `basis`)."""
+    return home_occasions(conn, user_interests(conn, user_id))

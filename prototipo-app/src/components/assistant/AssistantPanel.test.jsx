@@ -8,6 +8,7 @@ import ProductSheet from '../ProductSheet'
 import { ProfileProvider } from '../../state/ProfileContext'
 import AssistantPanel from './AssistantPanel'
 import { routeForScreen } from '../../data/verticals'
+import { trackOrder } from '../../api/orders'
 import { fixture, stubApi } from '../../api/testing'
 import { askAbout } from '../../assistant/agentAsk'
 
@@ -24,7 +25,7 @@ vi.mock('../../state/EventsContext', async (importOriginal) => ({
   useEvents: () => events,
 }))
 // El juego, con su acción «forget»: que vuelva a cero sin subir nada se prueba en state/GameContext.test.jsx.
-const game = vi.hoisted(() => ({ forget: vi.fn() }))
+const game = vi.hoisted(() => ({ forget: vi.fn(), settle: vi.fn(), resume: vi.fn() }))
 vi.mock('../../state/GameContext', async (importOriginal) => ({
   ...(await importOriginal()),
   useGame: () => game,
@@ -145,6 +146,7 @@ beforeEach(() => {
   api.profile.mockResolvedValue({ interests: [] })
   api.forget.mockResolvedValue({})
   events.settled.mockResolvedValue(undefined)
+  game.settle.mockResolvedValue(undefined)
 })
 afterEach(() => {
   cleanup()
@@ -472,9 +474,56 @@ describe('lo aprendido y Olvidar', () => {
     await runUntilIdle()
     expect(events.clear).toHaveBeenCalled() // lo que dejó en cola la respuesta no se envía
     expect(api.forget).not.toHaveBeenCalled() // falta que termine el lote en camino
+    expect(game.settle).not.toHaveBeenCalled() // el juego se pausa al final, pegado al DELETE
 
     pendingFlush.resolve()
     await advance(0)
+    expect(api.forget).toHaveBeenCalledTimes(1)
+    expect(events.settled.mock.invocationCallOrder[0]).toBeLessThan(game.settle.mock.invocationCallOrder[0])
+    expect(game.settle.mock.invocationCallOrder[0]).toBeLessThan(api.forget.mock.invocationCallOrder[0])
+  })
+
+  test('Olvidar waits for game.settle() before the DELETE (the game is a mock here; the real pause is in AssistantPanel.forget.test.jsx)', async () => {
+    api.profile.mockResolvedValue({ interests: [VINO] })
+    const saving = deferred()
+    game.settle.mockReturnValueOnce(saving.promise)
+    const puts = []
+    stubCatalog({ 'PUT /game/state/*': (req) => puts.push(req.body) && {} })
+    await renderPanel()
+    fireEvent.click(screen.getByText('Olvidar'))
+    await advance(100)
+    expect(game.settle).toHaveBeenCalledTimes(1)
+    expect(api.forget).not.toHaveBeenCalled() // el guardado en vuelo todavía no termina
+
+    saving.resolve()
+    await runUntilIdle()
+    expect(api.forget).toHaveBeenCalledTimes(1)
+    expect(game.settle.mock.invocationCallOrder[0]).toBeLessThan(api.forget.mock.invocationCallOrder[0])
+    expect(puts).toEqual([]) // olvidar el juego en memoria no sube nada
+    expect(game.resume).not.toHaveBeenCalled()
+  })
+
+  test('si el DELETE falla, Olvidar le devuelve el guardado al juego', async () => {
+    api.profile.mockResolvedValue({ interests: [VINO] })
+    api.forget.mockRejectedValueOnce(new Error('API caída'))
+    await renderPanel()
+    fireEvent.click(screen.getByText('Olvidar'))
+    await runUntilIdle()
+    expect(game.resume).toHaveBeenCalledTimes(1)
+    expect(game.forget).not.toHaveBeenCalled()
+  })
+
+  test('Olvidar waits for an order in flight', async () => {
+    api.profile.mockResolvedValue({ interests: [VINO] })
+    const sending = deferred()
+    trackOrder(sending.promise)
+    await renderPanel()
+    fireEvent.click(screen.getByText('Olvidar'))
+    await advance(100)
+    expect(api.forget).not.toHaveBeenCalled() // el pedido todavía va en camino
+
+    sending.resolve()
+    await runUntilIdle()
     expect(api.forget).toHaveBeenCalledTimes(1)
   })
 
@@ -699,6 +748,15 @@ describe('¿Con qué acompaño…?', () => {
     expect(tracked('suggestion_accepted')).toContainEqual(
       expect.objectContaining({ concept_id: 'snacks-salados', payload: { origen: 'agent-carrito' } }),
     )
+  })
+
+  test('the offer has ¿Por qué?', async () => {
+    stubCatalog({ 'POST /agent/offer': fixture('agent-offer-carrito') })
+    await renderPanel()
+    await dropBeer()
+    await runUntilIdle()
+    fireEvent.click(screen.getByRole('button', { name: '¿Por qué?' }))
+    expect(screen.getByText(fixture('agent-offer-carrito').reason.text)).toBeTruthy()
   })
 
   test('sin una oferta (204), Mochi dice que no se le ocurre nada', async () => {

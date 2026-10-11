@@ -30,8 +30,10 @@
   ],
   "prototype_vertical": "express",
   "reason": {
+    "basis": [],
     "concept": "snacks-salados",
-    "from_concept": "cerveza"
+    "from_concept": "cerveza",
+    "text": "Porque combina con lo que llevas."
   },
   "text": "Para completar tu pedido: snacks salados, en Express.",
   "vertical": "conveniencia"

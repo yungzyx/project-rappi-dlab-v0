@@ -78,7 +78,15 @@
   ],
   "prototype_vertical": "liquor",
   "reason": {
-    "occasion": "carrete"
+    "basis": [
+      {
+        "id": "carrete",
+        "kind": "ocasion",
+        "source": "contexto"
+      }
+    ],
+    "occasion": "carrete",
+    "text": "Porque elegiste «Carrete»."
   },
   "text": "Tu kit «Carrete»: cerveza, bebidas gaseosas, hielo y pisco, de Licores, Express y Turbo.",
   "vertical": "licores"

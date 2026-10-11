@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import BackButton from '../../components/BackButton'
 import { health, sendOrder } from '../../api/client'
-import { buildOrders } from '../../api/orders'
+import { buildOrders, trackOrder } from '../../api/orders'
 import { userId } from '../../api/user'
 import ProductRow from '../../components/ProductRow'
 import { useToast } from '../../components/Toast'
@@ -49,11 +49,14 @@ export default function CheckoutScreen({ back, push }) {
     const pending = buildOrders(cart.items, { userId: userId(), sessionId: sessionId(), cartId: cart.id })
     // Registro para el panel (si la API está arriba). No bloquea el pedido de la demo. Antes salen los eventos en cola
     // (y se esperan los lotes en camino): el servidor les pone la hora al recibirlos, y checkout_start va primero.
-    events
-      .flush()
-      .then(() => events.settled())
-      .then(() => health())
-      .then((online) => online && pending.forEach((order) => sendOrder(order).catch(() => {})))
+    // Todo el camino cuenta como pedido en vuelo: «Olvidar» lo espera antes de borrar el perfil.
+    trackOrder(
+      events
+        .flush()
+        .then(() => events.settled())
+        .then(() => health())
+        .then((online) => online && Promise.all(pending.map((order) => sendOrder(order).catch(() => {})))),
+    )
     const id = orders.place({
       stores,
       items: cart.items.map(({ product, qty }) => ({

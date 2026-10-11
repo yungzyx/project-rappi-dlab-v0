@@ -122,6 +122,16 @@
   transform: scale(1.04);
 }
 
+/* «Para ti»: la ocasión viene de lo que a la persona le gusta (la razón trae el detalle) */
+.live-plan-chip-tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink); /* 5,5:1 sobre var(--accent-soft) */
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .live-plan-empty {
   padding: 14px 18px 0;
   color: var(--ink-3);
@@ -130,6 +140,10 @@
 
 .live-kit {
   animation: live-item-in 380ms var(--live-glide);
+}
+
+.live-kit .offer-why {
+  padding: 0 18px;
 }
 
 .live-kit-meta {

@@ -64,6 +64,7 @@ function loadOnce(local) {
 export function GameProvider({ children }) {
   const [state, setState] = useState(progress.initialState)
   const latest = useRef(state)
+  const paused = useRef(false) // «Olvidar» pausó el guardado (ver `settle`)
   const [loaded, setLoaded] = useState('loading') // 'loading' | 'ready' | 'offline'
   const [attempt, setAttempt] = useState(0)
   const saver = useRef(null)
@@ -105,10 +106,24 @@ export function GameProvider({ children }) {
   // «Olvidar» del asistente ya borró el perfil en el servidor, y con él este progreso: el juego vuelve a cero solo en
   // memoria, sin subir nada (subirlo lo recrearía). La próxima acción lo guarda como el de un usuario nuevo.
   const forget = useCallback(() => {
+    paused.current = false
     latest.current = progress.initialState()
     setState(latest.current)
     setEvents([])
     setGeneration((n) => n + 1)
+  }, [])
+
+  // «Olvidar» llama a `settle` justo antes del DELETE: el guardado en vuelo termina, el que estaba en cola no sale y el
+  // juego queda en pausa (el progreso se sigue viendo en pantalla, pero no se guarda), así nada llega al servidor
+  // después y recrea al usuario. Sale de la pausa con `forget` (el DELETE salió bien: el juego vuelve a cero) o con
+  // `resume` (falló: guarda el estado actual una vez).
+  const settle = useCallback(() => {
+    paused.current = true
+    return saver.current.cancel()
+  }, [])
+  const resume = useCallback(() => {
+    paused.current = false
+    saver.current.save(latest.current)
   }, [])
 
   const reset = useCallback(() => {
@@ -129,7 +144,7 @@ export function GameProvider({ children }) {
     if (next === latest.current) return
     latest.current = next
     setState(next)
-    saver.current.save(next)
+    if (!paused.current) saver.current.save(next)
   }, [])
 
   const run = useCallback(
@@ -170,8 +185,10 @@ export function GameProvider({ children }) {
       clearEvents,
       reset,
       forget,
+      settle,
+      resume,
     }),
-    [state, date, events, generation, run, commit, dismissEvent, clearEvents, reset, forget],
+    [state, date, events, generation, run, commit, dismissEvent, clearEvents, reset, forget, settle, resume],
   )
 
   if (loaded !== 'ready') {
