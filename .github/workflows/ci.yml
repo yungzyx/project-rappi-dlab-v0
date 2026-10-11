@@ -9,10 +9,10 @@ on:
 permissions:
   contents: read
 
-# Un push nuevo al mismo PR o rama cancela la corrida anterior.
+# Un push nuevo al mismo PR cancela la corrida anterior; las de main terminan todas.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rappi-scraper:

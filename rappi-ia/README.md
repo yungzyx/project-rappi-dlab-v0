@@ -178,6 +178,7 @@ Corrida del 30-09-2026: 132 conceptos, 101 complementos curados, 757 categorías
 
 - **Revisión:** 3 rondas de revisión adversarial automatizada (agentes de IA especializados en lógica, seguridad y privacidad, frontend, rendimiento y contratos entre piezas) el 27-09-2026: 66 hallazgos confirmados y corregidos, con tests de regresión. El 28-09 hubo una auditoría, cuyos 4 bloques de mejoras se aplicaron el 29 y 30-09 (ver [docs/decisiones.md](../docs/decisiones.md)).
 - **Tests:** 189 (pytest, 30-09-2026), contra la base `rappi_ia_test`. CI en GitHub Actions (`.github/workflows/ci.yml`) con Postgres + pgvector y las versiones de `requirements.lock.txt`; un job semanal (`modelos-semanal.yml`) instala los modelos.
+- **Candado de la base de prueba:** `make test`, `make contract` y `make mvp-check` (raíz) toman `rappi-ia/.test-db.lock` para no pisarse en `rappi_ia_test`; correr `pytest` directamente se salta el candado, así que no lo lances mientras corre alguno de ellos.
 - **Optimizaciones del 28-09-2026:** textos por embeber ordenados por largo, índices HNSW con `maintenance_work_mem` de 1 GB (`HNSW_MAINTENANCE_WORK_MEM`) y kNN de conceptos que lee los vectores del caché en binario y por bloques.
 
 ## Límites
