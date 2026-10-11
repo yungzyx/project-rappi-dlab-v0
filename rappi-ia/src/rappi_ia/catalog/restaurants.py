@@ -31,11 +31,6 @@ _ORDER = {
     "fee": "d.delivery_cost ASC NULLS LAST, d.rating DESC NULLS LAST, s.store_id",
 }
 
-# El último precio de un plato `mi`: uno solo, el de la corrida más reciente.
-_LATEST_DISH_PRICE = """(
-    SELECT mp.price, mp.real_price FROM menu_price_snapshots mp WHERE mp.item_id = mi.item_id
-    ORDER BY mp.scraped_at DESC LIMIT 1)"""
-
 # Las tarjetas de los restaurantes con algún plato con precio, en un orden, de una cocina o de un local (los filtros
 # que no se piden son NULL). El orden y el corte se hacen antes de buscar la portada y las cocinas, que solo se buscan
 # para los que quedan. El EXISTS se detiene en el primer plato con precio.
@@ -49,7 +44,7 @@ WITH ranked AS (
     WHERE (%(store_id)s::bigint IS NULL OR s.store_id = %(store_id)s)
       AND (%(cuisine)s::text IS NULL
            OR EXISTS (SELECT 1 FROM restaurant_cuisines rc WHERE rc.store_id = s.store_id AND rc.cuisine = %(cuisine)s))
-      AND EXISTS (SELECT 1 FROM menu_items mi CROSS JOIN LATERAL {latest} p
+      AND EXISTS (SELECT 1 FROM menu_items mi JOIN latest_menu_prices p ON p.item_id = mi.item_id
                   WHERE mi.store_id = s.store_id AND p.price >= %(min_price)s)
     ORDER BY pos
     LIMIT %(limit)s
@@ -69,12 +64,12 @@ ORDER BY r.pos"""
 
 # Los platos con precio de un restaurante, por la posición de su sección y, dentro de ella, por el id que les dio Rappi
 # (que no guarda el orden de los platos).
-_MENU = f"""
+_MENU = """
 SELECT ms.section_id, ms.name, mi.item_id::text, mi.name, p.price, p.real_price, NULLIF(mi.image_url, ''),
        mi.is_popular, ic.concept_id
 FROM menu_items mi
 JOIN menu_sections ms ON ms.store_id = mi.store_id AND ms.section_id = mi.section_id
-CROSS JOIN LATERAL {_LATEST_DISH_PRICE} p
+JOIN latest_menu_prices p ON p.item_id = mi.item_id  -- su último precio, desempatado por corrida
 LEFT JOIN item_concepts ic ON ic.entity_type = 'menu_item' AND ic.entity_id = mi.item_id::text
 WHERE mi.store_id = %(store_id)s AND p.price >= %(min_price)s
 ORDER BY ms.position, ms.section_id, mi.rappi_item_id, mi.item_id"""
@@ -121,7 +116,7 @@ def _card_rows(
     conn: Connection, sort: Sort, cuisine: str | None = None, store_id: int | None = None, limit: int = 30
 ) -> list[tuple]:
     params = {"store_id": store_id, "cuisine": cuisine, "limit": limit, "min_price": MIN_PRICE}
-    return conn.execute(_CARDS.format(order=_ORDER[sort], latest=_LATEST_DISH_PRICE), params).fetchall()
+    return conn.execute(_CARDS.format(order=_ORDER[sort]), params).fetchall()
 
 
 def _card(store_id: int, full_name: str, rating, eta: str | None, fee, cover: str | None, cuisines: list[str]) -> dict:

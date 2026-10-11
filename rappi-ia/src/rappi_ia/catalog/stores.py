@@ -192,14 +192,12 @@ JOIN stores s ON s.store_id = c.store_id
 LEFT JOIN brands b ON b.brand_id = s.brand_id
 LEFT JOIN item_concepts ic ON ic.entity_type = 'catalog_item' AND ic.entity_id = ci.master_product_id::text"""
 
-# Un plato con su último precio (como lo muestra el agente).
+# Un plato con su último precio (`latest_menu_prices`, desempatado por corrida; como lo muestra el agente).
 _MENU_DETAIL = """
 SELECT mi.item_id::text, mi.name, mp.price, mp.real_price, s.name, s.store_id, NULLIF(mi.image_url, ''), ic.concept_id
 FROM menu_items mi
 JOIN stores s ON s.store_id = mi.store_id
-LEFT JOIN LATERAL (
-    SELECT price, real_price FROM menu_price_snapshots WHERE item_id = mi.item_id ORDER BY scraped_at DESC LIMIT 1
-) mp ON true
+LEFT JOIN latest_menu_prices mp ON mp.item_id = mi.item_id
 LEFT JOIN item_concepts ic ON ic.entity_type = 'menu_item' AND ic.entity_id = mi.item_id::text
 WHERE mi.item_id = %(id)s"""
 

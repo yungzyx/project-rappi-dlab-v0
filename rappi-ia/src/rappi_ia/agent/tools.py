@@ -344,12 +344,11 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adu
             prices[("catalog_item", pid)] = (name, price, real, store, age, store_id, presentation)
     if menu_ids:
         for iid, name, price, real, store, store_id in conn.execute(
-            """SELECT DISTINCT ON (mi.item_id) mi.item_id::text, mi.name, mp.price, mp.real_price, s.name, mi.store_id
+            """SELECT mi.item_id::text, mi.name, mp.price, mp.real_price, s.name, mi.store_id
                FROM menu_items mi
                JOIN stores s USING (store_id)
-               LEFT JOIN menu_price_snapshots mp ON mp.item_id = mi.item_id
-               WHERE mi.item_id = ANY(%s::bigint[])
-               ORDER BY mi.item_id, mp.scraped_at DESC NULLS LAST""",
+               LEFT JOIN latest_menu_prices mp ON mp.item_id = mi.item_id
+               WHERE mi.item_id = ANY(%s::bigint[])""",
             (menu_ids,),
         ):
             prices[("menu_item", iid)] = (name, price, real, store, False, store_id, None)
