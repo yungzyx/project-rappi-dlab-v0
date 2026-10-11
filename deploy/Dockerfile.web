@@ -31,6 +31,15 @@ RUN VITE_API_URL=/api VITE_DEMO="$VITE_DEMO" npm --prefix prototipo-app run buil
 
 FROM caddy:2
 
+# Caddy sin root: el binario de la imagen oficial ya trae la capacidad de abrir los puertos 80 y 443
+# (cap_net_bind_service); los volúmenes nuevos de /data (certificados) y /config heredan este dueño.
+RUN addgroup -S -g 10002 caddy \
+    && adduser -S -D -H -u 10002 -G caddy caddy \
+    && mkdir -p /data/caddy /config/caddy \
+    && chown -R caddy:caddy /data /config
+
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /src/prototipo-app/dist /srv/app
 COPY --from=build /src/dashboard-empresa/dist /srv/panel
+
+USER caddy

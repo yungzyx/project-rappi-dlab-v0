@@ -26,15 +26,17 @@ RUN apt-get update \
 WORKDIR /app
 
 # Primero las dependencias, con paquetes vacíos: cambiar el código no vuelve a instalar torch. La instalación editable
-# apunta a src/, así que el código que se copia después es el que corre. torch, en su versión del lock, desde el índice
-# de CPU (sin CUDA: la imagen pesa ~2 GB menos).
+# apunta a src/, así que el código que se copia después es el que corre. torch va primero, solo él (--no-deps) y en su
+# versión del lock, desde el índice de CPU (sin CUDA: la imagen pesa ~2 GB menos); todo lo demás, sus dependencias
+# incluidas, sale de PyPI con las versiones del lock.
 COPY rappi-ia/requirements.lock.txt rappi-ia/pyproject.toml rappi-ia/README.md rappi-ia/
 COPY rappi-scraper/pyproject.toml rappi-scraper/README.md rappi-scraper/
 COPY rappi-ia/src/rappi_ia/config.py rappi-ia/src/rappi_ia/config.py
 RUN mkdir -p rappi-scraper/src/rappi_scraper \
     && touch rappi-scraper/src/rappi_scraper/__init__.py rappi-ia/src/rappi_ia/__init__.py \
-    && pip install --extra-index-url https://download.pytorch.org/whl/cpu \
-        -c rappi-ia/requirements.lock.txt -e rappi-scraper -e "rappi-ia[api,ml]"
+    && pip install --no-deps --index-url https://download.pytorch.org/whl/cpu \
+        "$(grep -E '^torch==' rappi-ia/requirements.lock.txt)" \
+    && pip install -c rappi-ia/requirements.lock.txt -e rappi-scraper -e "rappi-ia[api,ml]"
 
 # El modelo de texto en el commit fijado en config.py (TEXT_EMBEDDING_REVISION), en HF_HOME. Va antes del código: un
 # cambio del código no lo vuelve a descargar (sí uno de config.py).

@@ -9,6 +9,8 @@
 #     ConnectionGate), «Tecla D» y «Modo de la demo» (interruptor). No se revisan «Modo demo» ni «Rappi hoy»: siguen en
 #     el bundle porque la fila de Cuenta y las etiquetas se filtran en tiempo de ejecución.
 #  Con VITE_DEMO=1 el grupo 2 se omite: ese build deja esos textos a propósito (la demo desplegada, ver docs/despliegue.md).
+#  3. Siempre: ningún <script> en línea (sin src) en los HTML. La CSP del servidor (deploy/Caddyfile) los bloquea. Se
+#     exceptúa presentacion/mapa-multivertical.html del panel, que Caddy sirve con su propia CSP.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -35,9 +37,15 @@ for dir in prototipo-app/dist dashboard-empresa/dist; do
       status=1
     fi
   done
+  while IFS= read -r html; do
+    if grep -oE '<script[^>]*>' "$html" | grep -qv 'src='; then
+      echo "check-dist: $html trae un <script> en línea (la CSP del servidor lo bloquea)." >&2
+      status=1
+    fi
+  done < <(find "$dir" -name '*.html' ! -path '*/presentacion/mapa-multivertical.html')
 done
 
 if [ "$status" = 0 ]; then
-  echo "check-dist: prototipo-app/dist y dashboard-empresa/dist sin rastros de desarrollo."
+  echo "check-dist: prototipo-app/dist y dashboard-empresa/dist sin rastros de desarrollo ni scripts en línea."
 fi
 exit "$status"

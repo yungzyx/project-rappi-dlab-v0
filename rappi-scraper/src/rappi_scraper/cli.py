@@ -24,7 +24,7 @@ from . import config
 from .keep_awake import keep_awake
 from .legacy.csv_format import OUTPUT_DIR as LEGACY_CSV_DIR
 from .legacy.csv_io import export_catalog_csv, import_legacy_csv
-from .lock import DownloadInProgress, download_lock
+from .lock import DownloadInProgress, database_lock, file_lock
 from .pipeline.discover import (
     VERTICAL_LISTINGS,
     city_locations,
@@ -315,10 +315,10 @@ def _setup_logging(command: str) -> None:
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     try:
-        if args.command in LONG_COMMANDS:  # una a la vez (sin candado, ni log)
-            with download_lock():
-                _setup_logging(args.command)
-                with keep_awake(), connect() as conn:
+        if args.command in LONG_COMMANDS:  # una a la vez (sin el candado de archivo, ni log)
+            with file_lock():
+                _setup_logging(args.command)  # antes del candado de la base: su aviso queda en el log
+                with database_lock(), keep_awake(), connect() as conn:
                     COMMANDS[args.command](conn, args)
         else:
             _setup_logging(args.command)

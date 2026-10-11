@@ -84,9 +84,9 @@ HF_OFFLINE := $(shell for m in $(HF_MODELS); do test -d "$(HF_CACHE)/models--$$m
 # lo que muestra productos respondía 500). Antes de migrar, check-migrations se niega a aplicar a la base real las
 # migraciones de una rama sin fusionar (se registran por nombre de archivo: una editada después no se vuelve a aplicar).
 # Después de migrar cargan las tarjetas del juego (knowledge, idempotente): sin ellas una ronda no tiene datos.
-# Con API_ENV=production (en el entorno o en .env, como lo lee la API) no hacen nada de eso: migrar es un paso del
-# despliegue (`make deploy-migrate`, que respalda antes) y, mientras falte, /health da 503.
-DOTENV ?= .env
+# Con API_ENV=production (en el entorno o en el archivo que lee la API: RAPPI_ENV_FILE o .env) no hacen nada de eso:
+# migrar es un paso del despliegue (`make deploy-migrate`, que respalda antes) y, mientras falte, /health da 503.
+DOTENV ?= $(or $(RAPPI_ENV_FILE),.env)
 API_ENV ?= $(shell sed -n 's/^API_ENV=//p' $(DOTENV) 2>/dev/null | tr -d "\"'" | tail -n 1)
 SERVE_PREP := $(if $(filter production,$(API_ENV)),,check-migrations migrate knowledge)
 

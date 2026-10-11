@@ -34,7 +34,7 @@ authed() { printf 'user = "%s:%s"\n' "$user" "$BASIC_AUTH_PASSWORD" | curl -sS $
 anon() { curl -sS ${insecure[@]+"${insecure[@]}"} "$@"; }
 
 echo "Puerta de acceso"
-for path in / /api/health /panel/; do
+for path in / /api/health /panel /panel/; do
   code=$(anon -o /dev/null -w '%{http_code}' "$url$path")
   if [ "$code" = 401 ]; then pass "$path sin credenciales: 401"; else fail "$path sin credenciales dio $code (se esperaba 401)"; fi
 done
@@ -70,7 +70,7 @@ if [ -z "$assets" ]; then
 else
   first=$(head -n 1 <<<"$assets")
   cache=$(authed -o /dev/null -D - "$url$first")
-  if grep -qi 'cache-control: public, max-age=31536000, immutable' <<<"$cache"; then
+  if grep -qi 'cache-control: private, max-age=31536000, immutable' <<<"$cache"; then
     pass "/assets/ se guarda un año"
   else
     fail "$first sin Cache-Control inmutable"
@@ -92,15 +92,39 @@ else
 fi
 
 echo "Base"
-# Como rappi_api, con su clave (dentro del contenedor de la base: no pasa por este equipo).
+# Como rappi_api, con su clave (dentro del contenedor de la base: no pasa por este equipo). El DROP va dentro de una
+# transacción que siempre se deshace: si el rol pudiera borrar la tabla (eso es lo que falla), no la borra.
 # shellcheck disable=SC2016 # las variables se expanden adentro del contenedor, no aquí
 drop=$("${compose[@]}" exec -T db sh -c \
-  'PGPASSWORD="$RAPPI_API_PASSWORD" psql -h 127.0.0.1 -U rappi_api -d "${POSTGRES_DB:-rappi}" -v ON_ERROR_STOP=1 -c "DROP TABLE app_events"' 2>&1)
+  'PGPASSWORD="$RAPPI_API_PASSWORD" psql -h 127.0.0.1 -U rappi_api -d "${POSTGRES_DB:-rappi}" -v ON_ERROR_STOP=1 \
+     -c BEGIN -c "DROP TABLE app_events" -c ROLLBACK' 2>&1)
 if grep -q 'must be owner' <<<"$drop"; then
   pass "rappi_api no puede borrar app_events"
 else
   fail "rappi_api y DROP TABLE app_events: $drop"
 fi
+# Como superusuario (socket local del contenedor): ninguna tabla es de rappi_api ni de un rol suyo, y no puede crear
+# objetos en public ni en capa.
+# shellcheck disable=SC2016 # la variable se expande adentro del contenedor, no aquí
+roles=$("${compose[@]}" exec -T db sh -c 'psql -U postgres -d "${POSTGRES_DB:-rappi}" -At' 2>&1 <<'SQL'
+SELECT count(*) FROM pg_tables
+ WHERE schemaname IN ('public', 'capa') AND pg_has_role('rappi_api', tableowner, 'MEMBER');
+SELECT has_schema_privilege('rappi_api', 'public', 'CREATE') OR has_schema_privilege('rappi_api', 'capa', 'CREATE');
+SQL
+)
+if [ "$roles" = $'0\nf' ]; then
+  pass "ninguna tabla es de rappi_api y no puede crear en public ni capa"
+else
+  fail "rappi_api es dueño de tablas o puede crear en public o capa: $roles"
+fi
+
+echo "Entorno"
+# Ningún contenedor quedó con un valor de ejemplo (deploy/.env.example). Se muestran los nombres, nunca los valores.
+while read -r service; do
+  # shellcheck disable=SC2016 # se expande adentro del contenedor
+  left=$("${compose[@]}" exec -T "$service" sh -c 'env | grep -F cambiar-esto | cut -d= -f1' </dev/null 2>/dev/null | tr '\n' ' ')
+  if [ -n "$left" ]; then fail "$service tiene «cambiar-esto» en: $left"; else pass "$service sin «cambiar-esto»"; fi
+done < <("${compose[@]}" ps --format '{{.Service}}')
 
 echo "Stack"
 ps=$("${compose[@]}" ps --format '{{.Service}} {{.Status}}')

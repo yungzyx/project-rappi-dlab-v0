@@ -219,7 +219,8 @@ def test_production_start_does_not_migrate(target, tmp_path):
 
 def test_grants_file_lets_the_api_role_write_only_its_tables(ready):
     """El `deploy/db/grants.sql` de verdad, sobre el esquema de verdad: el rol de la API lee todo, escribe solo los
-    datos de las personas y no puede borrar tablas. Todo en una transacción que se deshace (los roles también)."""
+    datos de las personas y no puede borrar tablas ni crearlas. Todo en una transacción que se deshace (los roles
+    también)."""
     from psycopg import errors, sql
 
     conn = ready
@@ -227,7 +228,11 @@ def test_grants_file_lets_the_api_role_write_only_its_tables(ready):
     for name in ("rappi_owner", role):  # rappi_owner: el dueño de ALTER DEFAULT PRIVILEGES (en el servidor ya existe)
         if conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (name,)).fetchone() is None:
             conn.execute(sql.SQL("CREATE ROLE {}").format(sql.Identifier(name)))
-    conn.execute(sql.SQL(cli.GRANTS_FILE.read_text(encoding="utf-8")).format(api_role=sql.Identifier(role)))
+    # Un permiso de más (de antes, o puesto a mano) desaparece; aplicarlo dos veces da lo mismo (cada despliegue).
+    conn.execute(sql.SQL("GRANT INSERT, UPDATE, DELETE ON stores TO {}").format(sql.Identifier(role)))
+    grants = sql.SQL(cli.GRANTS_FILE.read_text(encoding="utf-8")).format(api_role=sql.Identifier(role))
+    conn.execute(grants)
+    conn.execute(grants)
     conn.execute(sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(role)))
 
     conn.execute("SELECT count(*) FROM search_documents")

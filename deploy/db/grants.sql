@@ -3,6 +3,11 @@
 -- a las tablas que trajo la migración nueva.
 -- {api_role} es el rol (lo pone deploy-migrate como identificador); una llave literal en este archivo va doble.
 
+-- Primero se quita lo que sobre (de un despliegue anterior o puesto a mano): el rol queda con justo lo de abajo. Nadie
+-- más que el dueño crea objetos en public (PostgreSQL 15+ ya lo trae así; se repite por si la base viene de antes).
+REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM {api_role};
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+
 -- Leer: todo el catálogo, los conceptos, el juego y las vistas estables de la capa de datos.
 GRANT USAGE ON SCHEMA public, capa TO {api_role};
 GRANT SELECT ON ALL TABLES IN SCHEMA public, capa TO {api_role};

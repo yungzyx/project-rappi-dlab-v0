@@ -20,7 +20,8 @@ CREATE ROLE rappi_api LOGIN PASSWORD :'api_password';
 -- rappi_owner es dueño de la base y, con ella, del esquema public (pg_database_owner).
 ALTER DATABASE :"db" OWNER TO rappi_owner;
 REVOKE ALL ON DATABASE :"db" FROM PUBLIC;
-GRANT CONNECT, TEMPORARY ON DATABASE :"db" TO rappi_api;
+-- Solo CONNECT: la API no crea tablas temporales (las usan los trabajos, como rappi_owner).
+GRANT CONNECT ON DATABASE :"db" TO rappi_api;
 
 -- pgvector no es una extensión «trusted»: solo un superusuario la crea. Las migraciones y los dumps la piden con
 -- IF NOT EXISTS, así que con esto rappi_owner migra y restaura sin ser superusuario.
