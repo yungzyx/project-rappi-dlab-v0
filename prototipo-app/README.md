@@ -17,7 +17,7 @@ Requiere Node 22.22+ o 24.15+ (ver `.nvmrc` en la raíz). Como la app no abre si
 ```bash
 make mvp              # API :8000, app http://localhost:5174 y panel :5175; Ctrl-C detiene los tres
 make mvp LAN=1        # abre la API y la app a la red local, para el iPhone (misma red wifi o su hotspot)
-make mvp-check        # recorre la app con Chrome (Home, una compra en el Súper de prueba, el kit de Mochi, API caída) contra un catálogo inventado, sin tocar la base real
+make mvp-check        # recorre la app con Chrome (Home, una compra en el Súper de prueba, el kit de Mochi, una ronda del juego, el «¿Sabías que…?» del agente, API caída) contra un catálogo inventado, sin tocar la base real
 ```
 
 Requisitos y qué hacer si falla algo: [docs/instalacion.md](../docs/instalacion.md#5-el-mvp). Para correr solo la app, con la API ya levantada por su cuenta (`cd rappi-ia && make serve`):
@@ -78,10 +78,11 @@ En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de vert
 
 - **Desde la Home:** el título del pasaporte abre el pasaporte del juego; «Jugar», su camino de verticales; cada sello, su hoja con «Jugar» y «Abrir {vertical}». Mochi, al tocarlo, propone jugar la primera vertical sin sello.
 - **Mientras llega el pedido:** el seguimiento ofrece «Juega mientras llega tu pedido», una ronda de 5 pasos en una vertical sin sello. Arriba, una franja con el tiempo que falta; si el pedido llega a mitad de ronda, avisa con «Ver pedido».
-- **El juego:** cada vertical enseña su mundo (el cacao en Chocolatería, el vino y el pisco en Licores, aviones y destinos en Viajes; Súper, Express y Turbo traen temas variados). Una ronda tiene 5 pasos: 2 datos «¿Sabías que…?» que se dan vuelta, 2 preguntas curiosas y 1 desafío del catálogo (Viajes, sin catálogo: 3 preguntas). Los datos van al álbum con su fuente, que se abre en otra pestaña. Además, XP y nivel (Conocedor: 6 de las 12 tarjetas y 3 aciertos; Experto: las 12 y 8), misión del día y racha.
-- **Contenido:** 108 tarjetas (6 datos y 6 preguntas por vertical) que sirve la API (`GET /game/cards`, desde `rappi-ia/src/rappi_ia/game/knowledge.json`), escritas con palabras propias y verificadas una por una contra su fuente ([informe](../docs/resultados/juego-verificacion-2026-10-09.md)). Los desafíos del catálogo los arma la API con la base de la vertical (`GET /game/challenge`, sin conceptos sensibles; la misma semilla da el mismo desafío): la app no lleva datos del catálogo.
-- **Farmacia** se puede jugar desde el pasaporte, pero ni Mochi ni el seguimiento la proponen (la salud no se empuja). Licores lleva la marca «+18».
-- El progreso es de demo: se guarda en el servidor, bajo el id seudónimo de este navegador (`PUT /game/state/{user_id}`); el que este navegador guardó antes se sube una sola vez. «Repetir escena» lo deja como al empezar.
+- **El juego:** cada vertical enseña su mundo (el cacao en Chocolatería, el vino y el pisco en Licores, aviones y destinos en Viajes; Súper, Express y Turbo traen temas variados). Una ronda tiene 5 pasos: 2 datos «¿Sabías que…?» que se dan vuelta, 2 preguntas curiosas y 1 desafío del catálogo (Viajes, sin catálogo: 3 preguntas). El desafío es de uno de cuatro tipos: lo típico (qué se vende en esa vertical), arma el combo (qué complementa), si no hay (qué sustituye) y la pareja imposible (qué nunca va junto). Los datos van al álbum con su fuente, que se abre en otra pestaña. Además, XP y nivel (Conocedor: 6 de las 12 tarjetas y 3 aciertos; Experto: las 12 y 8), misión del día y racha.
+- **Contenido:** 108 tarjetas (6 datos y 6 preguntas por vertical) que sirve la API (`GET /game/cards`, desde `rappi-ia/src/rappi_ia/game/knowledge.json`), escritas con palabras propias y verificadas una por una contra su fuente ([informe](../docs/resultados/juego-verificacion-2026-10-09.md)). Las tarjetas y su revisión viven en `rappi-ia` y se cargan en la base con `rappi-ia knowledge` (corre en `make post-refresh`); con `make mvp` sobre una base nueva, correr `make knowledge` en `rappi-ia/` antes. La ronda pide su desafío a la API al abrirse (`GET /game/challenge`, armado con los conceptos y relaciones de la base, sin conceptos sensibles; la misma semilla da el mismo desafío): la app no lleva datos del catálogo. En la base de prueba chica del `make mvp-check` la API se levanta con `GAME_MIN_ITEMS=1` (en la real, un concepto debe tener al menos 20 productos en la vertical para entrar en un desafío).
+- **Farmacia y Licores** se pueden jugar desde el pasaporte, pero ni Mochi ni el seguimiento las proponen (la salud y el alcohol no se empujan). Licores lleva la marca «+18».
+- **El dato del agente:** cuando lo que buscas está ligado a una tarjeta que aún no tienes, la respuesta del agente (`POST /agent/ask`) trae un bloque «¿Sabías que…?» con su fuente y lo suma al álbum. Nunca sale de Farmacia ni de Licores ni de una tarjeta ligada a un concepto sensible o +18.
+- El progreso es de demo: se guarda en el servidor, bajo el id seudónimo de este navegador (`PUT /game/state/{user_id}`; el juego no abre sin la API: «Sin conexión» con «Reintentar»). Lo que este navegador guardó antes se sube una sola vez, si el servidor aún no tiene progreso. «Repetir escena» lo deja como al empezar.
 
 | El juego | Mientras llega el pedido |
 |:---:|:---:|
@@ -207,5 +208,5 @@ src/
 └── styles/         Tokens de diseño y estilos globales
 docs/screenshots/   Capturas de este README
 public/             Íconos y manifiesto para "Agregar a pantalla de inicio"
-scripts/            Íconos, capturas y el recorrido de `make mvp-check` (Home, compra, kit de Mochi y API caída)
+scripts/            Íconos, capturas y el recorrido de `make mvp-check` (Home, compra, kit de Mochi, juego, dato del agente y API caída)
 ```

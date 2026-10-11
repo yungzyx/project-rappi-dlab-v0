@@ -52,9 +52,10 @@ El pasaporte y su envío gratis son una idea para probar con usuarios, no una pr
 
 ### Juego de verticales (2 minutos, opcional)
 
-1. En el pasaporte de la Home, toca **Jugar**: el camino de las 9 verticales con la misión del día. Juega una ronda de Chocolatería (5 pasos: datos «¿Sabías que…?» que se dan vuelta, preguntas curiosas y un desafío del catálogo) y abre el **Álbum**: cada dato trae su fuente. **Qué decir:** cada vertical enseña su mundo con datos verificados, para que la persona conozca verticales que no usa, jugando y sin que se le pida comprar.
+1. En el pasaporte de la Home, toca **Jugar**: el camino de las 9 verticales con la misión del día. Juega una ronda de Chocolatería (5 pasos: datos «¿Sabías que…?» que se dan vuelta, preguntas curiosas y un desafío que la API arma con el catálogo) y abre el **Álbum**: cada dato trae su fuente. Si recargas la página, el progreso sigue: vive en el servidor. **Qué decir:** cada vertical enseña su mundo con datos verificados, para que la persona conozca verticales que no usa, jugando y sin que se le pida comprar.
 2. Haz un pedido y, en el seguimiento, toca **«Juega mientras llega tu pedido»**: la ronda muestra arriba cuánto falta y avisa cuando llega (en la demo, a los 20 s). **Qué decir:** la espera se aprovecha para descubrir otra vertical y suma un sello.
 3. Vuelve a la Home: el sello nuevo está en el pasaporte.
+4. Abre el buscador con Mochi y toca **Algo dulce**: la respuesta trae un **«¿Sabías que…?»** con su fuente, ligado a lo que se buscó, y lo suma al álbum. **Qué decir:** el juego y el buscador comparten una sola base de conocimiento; Mochi nunca trae un dato de alcohol o salud por su cuenta.
 
 ## Qué aclarar si preguntan
 

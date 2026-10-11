@@ -25,7 +25,7 @@ La señal existe: cada búsqueda y cada pedido dice algo de quien lo hace. Pero 
 |---|---|
 | **Mochi en la Home** | Mochi de cuerpo entero vive en la Home, sin canal aparte para escribirle. Saluda, acompaña el pasaporte y el plan del día («¿Qué plan tienes hoy?», un kit de varias verticales) y, al tocarlo, propone una vertical por probar. |
 | **Buscador con Mochi** | La barra de la Home abre el buscador de siempre con lo que Mochi sabe de ti: lo aprendido (con «Olvidar»), ideas para tocar («Arma un carrete»), búsqueda de tiendas y productos y «Descubre con Mochi». Se toca; no se escribe. |
-| **Pasaporte Rappi y juego de verticales** | Un sello por vertical (8). Se gana abriendo la vertical o jugando: rondas cortas con conceptos y desafíos sobre el catálogo real, niveles, misión del día y cartas «¿Sabías que…?». Con 4 sellos, envío gratis (idea para probar, no una promoción). |
+| **Pasaporte Rappi y juego de verticales** | Un sello por vertical (8). Se gana abriendo la vertical o jugando: rondas cortas de 5 pasos con datos «¿Sabías que…?» verificados (con su fuente) y un desafío armado por la API con el catálogo real, niveles, misión del día y álbum. Mochi también suma al álbum el dato ligado a lo que buscas. Con 4 sellos, envío gratis (idea para probar, no una promoción). |
 | **Mientras llega el pedido** | El seguimiento ofrece «Juega mientras llega tu pedido»: una ronda de una vertical sin sello, con el tiempo que falta arriba. La espera se aprovecha para descubrir otra vertical. |
 
 | La Home | El buscador con Mochi | El juego | Mientras llega el pedido |
@@ -53,7 +53,7 @@ El efecto real (frecuencia, venta cruzada, verticales nuevas por persona) solo s
 2. **Postgres + pgvector.** El catálogo (capa 1) y `search_documents`, una partición por vertical.
 3. **IA offline.** Cada producto y plato recibe un concepto (capa 2), y los conceptos se enlazan con sus complementos. Una capa de datos suma atributos, medidas, marcas, un grafo de conocimiento y segmentos, y los expone en el esquema `capa` ([docs/capa-de-datos.md](docs/capa-de-datos.md)). Cada documento recibe un embedding de un modelo local multilingüe (e5), con un índice vectorial por vertical.
 4. **Consulta.** Búsqueda híbrida por vertical (la app consulta las verticales de la consulta, las de su concepto o su ocasión, o todas si no detecta ninguno, y muestra un grupo por vertical): por palabras y por significado, combinadas por posición (RRF) y reforzadas por el concepto pedido. Mochi arma la respuesta y la sugerencia cruzada.
-5. **Prototipo.** La API (FastAPI, puerto 8000) atiende al prototipo (5174). El prototipo no abre sin la API: muestra «Sin conexión con Mochi» (se levantan juntos con `make mvp`). Las verticales, las tiendas con sus pasillos, los restaurantes con su menú, Turbo, Ofertas, Favoritos y la Home leen el catálogo real de la API (`/catalog`); el buscador y Mochi (preguntas, kits, comentarios, «Para ti» y lo aprendido) también salen de la API, sin datos ni respuestas locales.
+5. **Prototipo.** La API (FastAPI, puerto 8000) atiende al prototipo (5174). El prototipo no abre sin la API: muestra «Sin conexión con Mochi» (se levantan juntos con `make mvp`). Las verticales, las tiendas con sus pasillos, los restaurantes con su menú, Turbo, Ofertas, Favoritos y la Home leen el catálogo real de la API (`/catalog`); el buscador y Mochi (preguntas, kits, comentarios, «Para ti» y lo aprendido) también salen de la API, sin datos ni respuestas locales. Lo mismo el juego: las tarjetas (`rappi-ia knowledge`, parte de `make post-refresh`), los desafíos y el progreso de cada persona (`/game`) viven en la base y en la API, no en la app.
 
 **Mochi** en la API responde solo por texto (`POST /agent/ask`); el prototipo lo usa como buscador. Su nombre visible sale de `AGENT_NAME` (rappi-ia) y de `prototipo-app/src/agent/name.js`. Reconoce servicios sin catálogo (un viaje lleva a **RappiTravel**, un envío o trámite a **RappiFavor**). Sin clave de API responde con plantillas; con clave, Claude solo redacta sobre lo que el código ya recuperó y verificó. Diseño completo: [docs/diseno-ia.md](docs/diseno-ia.md).
 
@@ -109,7 +109,7 @@ Documentos al 04-10-2026 (segunda descarga semanal automática); «Con concepto�
 > - **Usuarios y eventos simulados.** Los segmentos y las métricas de negocio usan personas simuladas (`source = 'synthetic'`): muestran la mecánica, no un resultado.
 > - **La ventaja del híbrido.** La relevancia se juzga por concepto y el híbrido recibe un refuerzo por ese mismo concepto; sin él, no se distingue del vectorial (0,860 frente a 0,849). Falta un juicio humano.
 > - **Las precisiones de la capa 2 y de la capa de datos** son estimaciones con jueces LLM.
-> - **El progreso del juego y el pasaporte** son de demo: se guardan solo en el navegador.
+> - **El progreso del juego y el pasaporte** son de demo: se guardan en el servidor bajo un id seudónimo del navegador, sin cuenta.
 > - **«No está en el catálogo»** no significa «Rappi no lo vende»: en tiendas el catálogo es una muestra.
 
 ## Probarlo
@@ -127,7 +127,7 @@ Requisitos (el detalle, en [docs/instalacion.md](docs/instalacion.md)):
 ```bash
 make mvp          # desde la raíz del repositorio; Ctrl-C detiene los tres
 make mvp LAN=1    # abre la API y la app a la red local, para el iPhone (solo en una red de confianza)
-make mvp-check    # recorre la app con Chrome (la Home, una compra en el Súper de prueba, el kit de Mochi y la caída de la API) contra un catálogo inventado, sin tocar la base real
+make mvp-check    # recorre la app con Chrome (la Home, una compra en el Súper de prueba, el kit de Mochi, una ronda del juego, el «¿Sabías que…?» del agente y la caída de la API) contra un catálogo inventado, sin tocar la base real
 ```
 
 `make mvp` revisa las dependencias, los puertos y la base (`rappi-ia doctor`, solo lectura), aplica las migraciones pendientes (no las de una rama sin fusionar: `MIGRATE=1` lo fuerza, ver [docs/instalacion.md](docs/instalacion.md#5-el-mvp)), arranca los tres con sus registros prefijados y avisa cuando responden. La API tarda en estar lista porque carga los modelos. No descarga nada de rappi.cl.

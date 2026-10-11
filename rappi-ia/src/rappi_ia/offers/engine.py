@@ -44,9 +44,8 @@ DEAL_POOL = 12  # ofertas que se piden por vertical antes de quitar las que el a
 # El orden de la Home: lo que ya muestra hoy (la app tiene «Película» para panorama); después, el resto de la taxonomía.
 HOME_OCCASIONS = ("once", "carrete", "asado", "panorama", "regalo")
 
-# El pasaporte del juego (prototipo-app/src/game/verticals.js, PASSPORT_ORDER): las verticales del catálogo en el orden
-# de DATA.order (prototipo-app/src/data/verticales.json) y Viajes, que no tiene catálogo y aquí no cuenta. Si cambia
-# allá, cambia aquí.
+# El pasaporte del juego (prototipo-app/src/game/verticals.js, PASSPORT_ORDER): las verticales del catálogo en ese
+# orden y Viajes, que no tiene catálogo y aquí no cuenta. Si cambia allá, cambia aquí.
 PASSPORT_ORDER = (
     "supermercado",
     "conveniencia",
