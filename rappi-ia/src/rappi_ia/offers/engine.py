@@ -3,8 +3,8 @@ con su precio vigente) y pasando por las guardias de `offers/guards.py`.
 
 Momentos (`POST /agent/offer`): `plan` (el kit de una ocasión que la persona eligió), `carrito` (un complemento de
 otra tienda), `checkout`, `proximo_pedido`, `sin_resultado` (dónde sí está lo que buscó) y `vertical_por_probar` (la
-primera vertical del pasaporte sin sello). Si no hay una buena oferta, no hay oferta (`None`: 204): el agente no dice
-nada.
+vertical del pasaporte sin sello donde más le gusta a la persona; sin historia, la primera). Si no hay una buena
+oferta, no hay oferta (`None`: 204): el agente no dice nada.
 
 Los textos son plantillas en español. Una oferta nunca nombra un concepto que el agente no puede proponer (el origen
 de un complemento puede ser cerveza o pañales, y el texto no lo repite).
@@ -12,7 +12,8 @@ de un complemento puede ser cerveza o pañales, y el texto no lo repite).
 Cada oferta dice por qué (`Offer.reason`): las claves de siempre (`occasion`, `concept`, `from_concept`), el `text`
 («Porque…») y la `basis`: las señales del contexto que la motivan (`kind` carrito, pedido, busqueda, ocasion o sello, e
 `id`; `source` «contexto» y sin `score`, que es de las señales de una persona en `offers/personal.py`). Lo que el agente
-no propone no entra a la base.
+no propone no entra a la base. Cuando la oferta se ordena por lo que le gusta a la persona (`vertical_por_probar` y las
+ocasiones de la Home), la `basis` son sus señales (con `score` y `source`) de los conceptos que más aportan.
 """
 
 from dataclasses import dataclass, field
@@ -22,7 +23,7 @@ from psycopg import Connection
 from .. import config
 from ..agent.grouped_search import SCREEN_VERTICALS
 from ..agent.tools import VERTICAL_LABELS, Product, search_products, suggest_complement
-from ..agent.verticals import contending_verticals, ranked_verticals
+from ..agent.verticals import contending_verticals, ranked_verticals, typical_verticals
 from ..catalog.deals import deals
 from ..catalog.stores import product_detail
 from ..concepts.taxonomy import Concept, load_taxonomy
@@ -36,6 +37,7 @@ from .guards import (
     plannable_vertical,
     unofferable_subverticals,
 )
+from .personal import Interests, user_interests
 
 KIT_SIZE = 4  # productos del kit de una ocasión
 # El concepto ya está elegido: la búsqueda léxica de su nombre (miles de platos «pizza») costaba ~140 ms por búsqueda en
@@ -84,6 +86,9 @@ REASON_NO_RESULT = "Porque buscaste «{query}» y aquí sí hay."
 REASON_TO_TRY = "Porque aún no tienes el sello de {vertical}."
 SEE_ACTION = "Ver {destino}"
 OPEN_ACTION = "Abrir {vertical}"
+REASON_LIKES_VERTICAL = "Porque te gusta {emoji} {name}, y en {vertical} hay más."
+REASON_LIKES_OCCASION = "Porque te gusta {emoji} {name}."
+BASIS_CONCEPTS = 3  # conceptos que más aportan, de los que la `basis` de una oferta lleva las señales
 
 
 class OfferError(ValueError):
@@ -111,19 +116,37 @@ class Offer:
         }
 
 
-def home_occasions() -> list[dict]:
-    """Las ocasiones que el agente arma como kit, en el orden de la Home (guagua y enfermo no)."""
+def home_occasions(conn: Connection, interests: Interests) -> list[dict]:
+    """Las ocasiones que el agente arma como kit (guagua y enfermo no). Primero las que suman puntaje con lo que le
+    gusta a la persona (la suma de sus conceptos ofrecibles), de más a menos y con su `reason`; el resto, en el orden de
+    la Home (`HOME_OCCASIONS` y después la taxonomía), que también desempata."""
     occasions = load_taxonomy().occasions
     ids = [i for i in HOME_OCCASIONS if i in occasions] + [i for i in occasions if i not in HOME_OCCASIONS]
-    return [
+    home = [
         {"id": o.id, "name": o.name, "emoji": o.emoji} for o in (occasions[i] for i in ids) if plannable_occasion(o)
     ]
+    scores: dict[str, float] = {}
+    for item in home:
+        contributions = {c: interests.concepts[c] for c in occasions[item["id"]].concepts if c in interests.concepts}
+        scores[item["id"]] = sum(contributions.values())
+        if contributions:
+            item["reason"] = _likes_reason(REASON_LIKES_OCCASION, contributions, interests)
+    return sorted(home, key=lambda o: -scores[o["id"]])  # estable: puntaje 0 y empates siguen el orden de la Home
+
+
+def _likes_reason(template: str, contributions: dict[str, float], interests: Interests, **format_args: str) -> dict:
+    """«Porque te gusta…»: el concepto que más aporta da el texto y la `basis`, las señales de los que más aportan."""
+    top = sorted(contributions, key=lambda c: (-contributions[c], c))[:BASIS_CONCEPTS]
+    concept = load_taxonomy().concepts[top[0]]
+    text = template.format(emoji=concept.emoji, name=concept.name.lower(), **format_args)
+    return _reason(text, [s.to_dict() for c in top for s in interests.basis[c]])
 
 
 def make_offer(
     conn: Connection, embedder: TextEmbedder | None, moment: str, context: dict, user_id: str | None = None
 ) -> Offer | None:
-    """La oferta de un momento, o None si no hay una buena. `user_id` no cambia la oferta: viaja para los eventos."""
+    """La oferta de un momento, o None si no hay una buena. Con `user_id` de alguien del prototipo, los momentos que
+    personalizan (hoy `vertical_por_probar`) se ordenan por lo que le gusta; sus intereses se calculan una sola vez."""
     if moment == "plan":
         return plan(conn, embedder, context["occasion"])
     if moment == "carrito":
@@ -135,7 +158,7 @@ def make_offer(
     if moment == "sin_resultado":
         return where_is_it(conn, embedder, context["query"])
     if moment == "vertical_por_probar":
-        return vertical_to_try(conn, context["stamped"])
+        return vertical_to_try(conn, context["stamped"], user_interests(conn, user_id))
     raise OfferError(f"Momento desconocido: {moment}")
 
 
@@ -306,21 +329,35 @@ def where_is_it(conn: Connection, embedder: TextEmbedder | None, query: str) -> 
 
 
 # ── vertical por probar ──────────────────────────────────────────────────────
-def vertical_to_try(conn: Connection, stamped: list[str]) -> Offer | None:
-    """La primera vertical del pasaporte sin sello que el agente puede proponer (nunca farmacia ni Licores), con hasta
-    tres de sus ofertas o, en restaurantes (que no tiene ofertas), sus platos más pedidos. Una vertical sin nada que
-    mostrar se salta. `stamped`: códigos del backend."""
-    for vertical in PASSPORT_ORDER:
-        if vertical in stamped or not offerable_vertical(vertical):
-            continue
+def vertical_to_try(conn: Connection, stamped: list[str], interests: Interests) -> Offer | None:
+    """La vertical del pasaporte sin sello que el agente puede proponer (nunca farmacia ni Licores) donde más le
+    gusta a la persona, o la primera del pasaporte si no hay afinidad (el orden de `PASSPORT_ORDER` desempata). Muestra
+    hasta tres de sus ofertas o, en restaurantes (que no tiene ofertas), sus platos más pedidos; una vertical sin nada
+    que mostrar se salta. `stamped`: códigos del backend."""
+    candidates = [v for v in PASSPORT_ORDER if v not in stamped and offerable_vertical(v)]
+    affinity = _vertical_affinity(conn, interests) if interests.concepts else {}
+    for vertical in sorted(candidates, key=lambda v: -sum(affinity.get(v, {}).values())):
         if products := _popular_dishes(conn) if vertical == "restaurantes" else _offerable_deals(conn, vertical):
             label = VERTICAL_LABELS.get(vertical, vertical)
             what = TO_TRY_DISHES if vertical == "restaurantes" else TO_TRY_DEALS
             action = {"label": OPEN_ACTION.format(vertical=label), "route": [SCREEN_VERTICALS[vertical]]}
             text = TO_TRY_TEXT.format(vertical=label, what=what)
-            reason = _reason(REASON_TO_TRY.format(vertical=label), [_context_signal("sello", vertical)])
+            if likes := affinity.get(vertical):
+                reason = _likes_reason(REASON_LIKES_VERTICAL, likes, interests, vertical=label)
+            else:
+                reason = _reason(REASON_TO_TRY.format(vertical=label), [_context_signal("sello", vertical)])
             return Offer("vertical_por_probar", text, products, vertical, reason, [action])
     return None
+
+
+def _vertical_affinity(conn: Connection, interests: Interests) -> dict[str, dict[str, float]]:
+    """vertical → {concepto: puntaje} de los conceptos que le gustan a la persona y cuya vertical típica es esa."""
+    typical = typical_verticals(conn)
+    affinity: dict[str, dict[str, float]] = {}
+    for concept_id, score in interests.concepts.items():
+        if vertical := typical.get(concept_id):
+            affinity.setdefault(vertical, {})[concept_id] = score
+    return affinity
 
 
 def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:

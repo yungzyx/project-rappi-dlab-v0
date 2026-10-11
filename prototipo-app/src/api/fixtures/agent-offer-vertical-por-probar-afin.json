@@ -1,0 +1,44 @@
+{
+  "actions": [
+    {
+      "label": "Abrir chocolaterías",
+      "route": [
+        "chocolates"
+      ]
+    }
+  ],
+  "moment": "vertical_por_probar",
+  "products": [
+    {
+      "age_restricted": false,
+      "before": "$2.990",
+      "concept": "chocolates",
+      "discount": "-17%",
+      "entity_id": "97001",
+      "entity_type": "catalog_item",
+      "id": "cat-97001",
+      "img": "https://imagenes.prueba.invalid/productos/97001.png",
+      "name": "Chocolate amargo 70 % 100 g (prueba)",
+      "presentation": "100 g",
+      "price": "$2.490",
+      "price_value": 2490.0,
+      "store": "Chocolatería de prueba Centro",
+      "store_id": 9701,
+      "vertical": "chocolateria"
+    }
+  ],
+  "prototype_vertical": "chocolates",
+  "reason": {
+    "basis": [
+      {
+        "id": "chocolates",
+        "kind": "concepto",
+        "score": 3.0,
+        "source": "eventos"
+      }
+    ],
+    "text": "Porque te gusta 🍫 chocolates, y en chocolaterías hay más."
+  },
+  "text": "Aún no pruebas chocolaterías: mira estas ofertas.",
+  "vertical": "chocolateria"
+}

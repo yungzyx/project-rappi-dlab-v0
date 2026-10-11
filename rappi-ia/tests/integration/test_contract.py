@@ -69,6 +69,7 @@ CONTRACT: tuple[Example, ...] = (
     ),
     Example("recommendations", "GET", "/recommendations?user_id=u-contrato&vertical=restaurants"),
     Example("agent-plans", "GET", "/agent/plans"),
+    Example("agent-plans-afin", "GET", "/agent/plans?user_id=u-afin"),
     Example("agent-offer-plan", "POST", "/agent/offer", {"moment": "plan", "context": {"occasion": "carrete"}}),
     Example(
         "agent-offer-carrito",
@@ -114,6 +115,12 @@ CONTRACT: tuple[Example, ...] = (
         "POST",
         "/agent/offer",
         {"moment": "vertical_por_probar", "context": {"stamped": ["supermercado"]}},
+    ),
+    Example(
+        "agent-offer-vertical-por-probar-afin",
+        "POST",
+        "/agent/offer",
+        {"moment": "vertical_por_probar", "user_id": "u-afin", "context": {"stamped": []}},
     ),
     Example("game-cards", "GET", "/game/cards?vertical=supermercado"),
     Example("game-challenge", "GET", "/game/challenge?vertical=supermercado&seed=0"),
@@ -183,6 +190,13 @@ def client(db, monkeypatch):
         "query": "pizza",
     }
     assert test_client.post("/events", json={"user_id": "u-contrato", "events": [interest]}).status_code == 200
+    # Una persona con gustos (chocolate y carne) para los ejemplos que se ordenan por afinidad. Los eventos de
+    # `/events` no traen hora: se guardan con la de ahora, y su puntaje (sin decaimiento) es el mismo cada vez.
+    liked = [
+        {"type": "cart_add", "session_id": "s-afin", "concept_id": c, "cart_id": f"c-afin-{c}"}
+        for c in ("chocolates", "carnes")
+    ]
+    assert test_client.post("/events", json={"user_id": "u-afin", "events": liked}).status_code == 200
     # Ya descubrió el dato de la pizza: `agent-ask` (pizza) es la respuesta sin «¿Sabías que…?», y `agent-ask-dato`
     # (otro usuario, sin progreso) la que lo trae. `game-state-put` reemplaza este estado, así que no lo afecta.
     discovered = {**GAME_STATE, "discovered": {"restaurantes": ["restaurantes-01"]}, "cards": ["restaurantes-01"]}
