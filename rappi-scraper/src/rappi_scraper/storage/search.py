@@ -54,7 +54,8 @@ WHERE NOT EXISTS (SELECT 1 FROM staged_documents s
 # local o su cadena en Rappi (el motivo que anota pipeline/restaurants.py). Lo que no tiene ningún precio guardado
 # no se descarta (no hay con qué compararlo). La corrida de cada formato sale de v_store_format_runs (migración 019),
 # la misma que usa el precio que muestra Bigotes. Una oferta de un pasillo o sub-pasillo que esa corrida no pudo leer
-# (`pasillos_omitidos` del job que bajó la tienda) sigue vigente con su último precio: una página caída no la esconde.
+# (`pasillos_omitidos` del job que bajó la tienda) sigue vigente si su último precio es de la corrida anterior de esa
+# misma tienda: una página caída no la esconde, pero tampoco revive lo que esa corrida anterior ya no encontró.
 _OFFER_PRICES = """
 CREATE TEMP TABLE offer_prices ON COMMIT DROP AS
 WITH latest AS (
@@ -68,13 +69,21 @@ skipped AS (
     CROSS JOIN LATERAL jsonb_array_elements_text(j.result->'pasillos_omitidos') a(aisle_id)
     WHERE j.job_type = 'store_group' AND j.status = 'done' AND jsonb_typeof(j.result->'pasillos_omitidos') = 'array'
     GROUP BY 1, 2
+),
+-- Solo para las tiendas con pasillos omitidos: su corrida anterior con precios.
+rescue AS (
+    SELECT sk.run_id, sk.store_id, sk.aisles,
+           (SELECT max(ps.run_id) FROM price_snapshots ps
+            WHERE ps.store_id = sk.store_id AND ps.run_id < sk.run_id) AS previous_run
+    FROM skipped sk
 )
 SELECT l.store_id, l.sku, l.price,
        l.run_id = f.format_run_id
-       OR COALESCE(sp.aisle_id = ANY(sk.aisles) OR sp.sub_aisle_id = ANY(sk.aisles), false) AS current
+       OR COALESCE(l.run_id = r.previous_run
+                   AND (sp.aisle_id = ANY(r.aisles) OR sp.sub_aisle_id = ANY(r.aisles)), false) AS current
 FROM latest l
 JOIN v_store_format_runs f USING (store_id)
-LEFT JOIN skipped sk ON sk.run_id = f.format_run_id AND sk.store_id = l.store_id
+LEFT JOIN rescue r ON r.run_id = f.format_run_id AND r.store_id = l.store_id
 LEFT JOIN store_products sp ON sp.store_id = l.store_id AND sp.sku = l.sku
 """
 

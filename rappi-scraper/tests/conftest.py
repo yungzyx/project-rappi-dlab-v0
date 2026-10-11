@@ -55,6 +55,17 @@ class FakeClient:
         return load_page({2: "store", 3: "aisle", 4: "subaisle"}[depth])
 
 
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """Ningún test sale a la red: un cliente real que se colara fallaría en vez de descargar de rappi.cl."""
+
+    def refuse(*args, **kwargs):
+        pytest.fail("los tests corren sin red: usa FakeClient o un `_session.get` falso")
+
+    monkeypatch.setattr(requests.Session, "request", refuse)
+    monkeypatch.setattr(requests.Session, "get", refuse)
+
+
 @pytest.fixture
 def page():
     return load_page

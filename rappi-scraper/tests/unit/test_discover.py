@@ -75,3 +75,20 @@ def test_reads_all_sitemap_shards():
 
     assert discover._sitemap_urls(client, template) == ["https://x/a", "https://x/b", "https://x/c"]
     assert client.requested[-1] == template.format(2)  # hasta el primer 404
+
+
+class _EndlessSitemapClient(_SitemapClient):
+    """Responde 200 con el mismo sitemap a cualquier número (sin 404 nunca)."""
+
+    def get_content(self, url):
+        self.requested.append(url)
+        return gzip.compress(b"<url><loc>https://x/a</loc></url>")
+
+
+def test_sitemap_shards_are_capped():
+    client = _EndlessSitemapClient({})
+
+    urls = discover._sitemap_urls(client, discover.PARTNER_SITEMAP)
+
+    assert len(client.requested) == discover.MAX_SITEMAP_SHARDS
+    assert len(urls) == discover.MAX_SITEMAP_SHARDS

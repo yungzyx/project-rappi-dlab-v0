@@ -38,8 +38,13 @@ def finish_and_report(
     return report, path
 
 
-def ensure_run(conn: Connection, kind: str, discover: Discoverer) -> int:
-    """Retoma la corrida abierta de ese tipo o crea una nueva y descubre qué descargar."""
+def ensure_run(
+    conn: Connection, kind: str, discover: Discoverer, on_failure: Callable[[int, Exception], None] | None = None
+) -> int | None:
+    """Retoma la corrida abierta de ese tipo o crea una nueva y descubre qué descargar.
+
+    Si el descubrimiento falla, la corrida queda cerrada como fallida y el error sube; con `on_failure`, un error que no
+    sea un posible bloqueo se le pasa (con la corrida) y devuelve None."""
     run_id = repository.open_run(conn, kind)
     if run_id is not None:
         log.info("Retomando corrida %d (%s)", run_id, kind)
@@ -48,12 +53,17 @@ def ensure_run(conn: Connection, kind: str, discover: Discoverer) -> int:
     log.info("Corrida nueva %d (%s): descubriendo…", run_id, kind)
     try:
         discover(conn, run_id)
-    except BaseException:
+    except BaseException as exc:
         # Sin esto quedaría "en curso" con la cola a medias: la próxima vez se retomaría sin descubrir de nuevo
         # (y mientras tanto rappi-ia no embebe, porque cree que hay una descarga en curso).
         conn.rollback()
         repository.finish_run(conn, run_id, "failed")
-        raise
+        if isinstance(exc, PossibleBlock):
+            exc.run_left_open = False
+        if on_failure is None or not isinstance(exc, Exception) or isinstance(exc, PossibleBlock):
+            raise
+        on_failure(run_id, exc)
+        return None
     return run_id
 
 
@@ -89,18 +99,16 @@ def refresh(
         reports.append(finish_and_report(conn, run_id, "stores", reports_dir)[0])
 
     if not resume_only or repository.open_run(conn, "restaurants") is not None:
-        try:
-            run_id = ensure_run(conn, "restaurants", discover_restaurants)
-        except PossibleBlock:
-            raise
-        except Exception as exc:
+
+        def discovery_failed(failed_run: int, exc: Exception) -> None:
             # Un sitemap caído al final de días de tiendas no debe dejar esas tiendas fuera de la búsqueda una semana
             # más: la corrida queda cerrada como fallida (con el error en su reporte) y se sigue con búsqueda y
             # respaldo.
             log.exception("Descubrimiento de restaurantes fallido: no se actualizan esta vez")
-            failed_run = repository.latest_run(conn, "restaurants")
             reports.append(write_run_report(conn, failed_run, reports_dir, f"{type(exc).__name__}: {exc}")[0])
-        else:
+
+        run_id = ensure_run(conn, "restaurants", discover_restaurants, on_failure=discovery_failed)
+        if run_id is not None:
             _scrape(conn, run_id, "restaurants", lambda: process_restaurant_jobs(conn, client, run_id), reports_dir)
             reports.append(finish_and_report(conn, run_id, "restaurants", reports_dir)[0])
 

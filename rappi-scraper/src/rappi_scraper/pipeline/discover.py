@@ -6,7 +6,6 @@ por cadena de restaurantes; los restaurantes independientes van uno por uno.
 """
 
 import gzip
-import itertools
 import logging
 import re
 from collections import defaultdict
@@ -36,6 +35,7 @@ SITEMAP_BASE = "https://www.rappi.cl/sitemaps/country/cl/"
 # Plantillas: los sitemaps vienen numerados (-0, -1, …; cada uno con hasta 50.000 URLs) y se leen todos.
 CHAIN_SITEMAP = SITEMAP_BASE + "sitemap-restaurant-brand-chain-country-cl-{}.xml.gz"
 PARTNER_SITEMAP = SITEMAP_BASE + "sitemap-restaurant-partner-cl-{}.xml.gz"
+MAX_SITEMAP_SHARDS = 200  # tope por si rappi.cl respondiera 200 a cualquier número en vez de 404
 _RESTAURANT_ID_RE = re.compile(r"/restaurantes/(\d+)")
 
 
@@ -158,7 +158,7 @@ def _sitemap_urls(client: RappiClient, template: str) -> list[str]:
     """URLs de todos los sitemaps numerados de la plantilla (-0, -1, …), hasta el primero que no existe. El -0 tiene que
     existir: sin él, el error sube (no es lo mismo que no haya restaurantes)."""
     urls = []
-    for shard in itertools.count():
+    for shard in range(MAX_SITEMAP_SHARDS):
         try:
             content = client.get_content(template.format(shard))
             xml = gzip.decompress(content).decode("utf-8")
@@ -167,6 +167,8 @@ def _sitemap_urls(client: RappiClient, template: str) -> list[str]:
                 raise
             return urls
         urls += re.findall(r"<loc>([^<]+)</loc>", xml)
+    log.warning("Sitemap %s: se leyeron %d partes sin llegar al final (tope)", template, MAX_SITEMAP_SHARDS)
+    return urls
 
 
 def _add_chain_job(conn: Connection, run_id: int, chain: dict, jobs: list, chain_store_ids: set) -> None:

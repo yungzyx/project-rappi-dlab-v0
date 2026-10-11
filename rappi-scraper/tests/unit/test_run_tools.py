@@ -118,6 +118,21 @@ def test_refresh_command_exits_with_its_own_code_when_only_the_backup_failed(mon
     assert "reporte de stores" in capsys.readouterr().out  # los reportes salen igual
 
 
+@pytest.mark.parametrize(
+    ("restaurants", "backup_failed", "code"), [("failed", False, 5), ("failed", True, 6), ("done", True, 3)]
+)
+def test_refresh_command_reports_restaurants_and_backup_failures(monkeypatch, restaurants, backup_failed, code):
+    """Si fallan los restaurantes y el respaldo, la tarea semanal tiene que poder anotar los dos."""
+    reports = [{"kind": "stores", "status": "done"}, {"kind": "restaurants", "status": restaurants}]
+    monkeypatch.setattr(cli, "refresh", lambda *args, **kwargs: (reports, backup_failed))
+    monkeypatch.setattr(cli, "render_markdown", lambda report: "")
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.cmd_refresh(None, Namespace(no_backup=False, resume_only=False))
+
+    assert exit_info.value.code == code
+
+
 def test_refresh_command_can_resume_without_starting_new_runs(monkeypatch):
     """Tras `retry-failed`: `rappi refresh --resume-only` (o `refresh-semanal.sh --resume-only`)."""
     calls = []

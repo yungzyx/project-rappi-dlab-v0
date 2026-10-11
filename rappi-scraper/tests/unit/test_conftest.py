@@ -1,6 +1,7 @@
 """El fixture `db` borra el esquema entero de la base de tests: nunca debe tocar otra que no sea `rappi_test`."""
 
 import pytest
+import requests
 
 import conftest
 
@@ -18,3 +19,10 @@ def test_the_db_fixture_refuses_any_database_but_rappi_test(monkeypatch, url):
 
     with pytest.raises(pytest.fail.Exception, match="solo borran la base rappi_test"):
         next(db())
+
+
+def test_no_test_can_reach_the_network():
+    """Un test que se olvidó del cliente falso falla en vez de descargar de rappi.cl. (Aquí se prueba con un puerto
+    local cerrado: sin el bloqueo sería un error de conexión, nunca una descarga real.)"""
+    with pytest.raises(pytest.fail.Exception, match="sin red"):
+        requests.Session().get("http://127.0.0.1:9/")

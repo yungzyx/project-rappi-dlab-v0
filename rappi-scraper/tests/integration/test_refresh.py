@@ -293,6 +293,8 @@ def test_restaurant_discovery_error_still_builds_search_and_backup(db, tmp_path)
     assert db.execute("SELECT count(*) FROM search_documents").fetchone()[0] > 0
     assert backups == ["ok"] and not backup_failed
     assert repository.open_run(db, "restaurants") is None  # la próxima actualización descubre de nuevo
+    failed_run = db.execute("SELECT run_id FROM scrape_runs WHERE kind = 'restaurants'").fetchone()[0]
+    assert reports[1]["run_id"] == failed_run
     restaurants_md = next(tmp_path.glob("run_*_restaurants.md")).read_text(encoding="utf-8")
     assert "sin red" in restaurants_md and "Quedó abierta" not in restaurants_md
 
@@ -317,10 +319,15 @@ def test_refresh_exits_5_when_restaurants_were_not_updated(db, monkeypatch, tmp_
     assert _cmd_refresh(db, monkeypatch, tmp_path, _offline) == cli.RESTAURANTS_FAILED_EXIT == 5
 
 
-def test_refresh_exits_4_on_a_possible_block(db, monkeypatch, tmp_path):
-    """El código 1 de cualquier caída no dejaba distinguir un bloqueo en la línea de estado de la tarea semanal."""
+def test_refresh_exits_4_on_a_possible_block(db, monkeypatch, tmp_path, capsys):
+    """El código 1 de cualquier caída no dejaba distinguir un bloqueo en la línea de estado de la tarea semanal. Un
+    bloqueo al descubrir cierra la corrida como fallida: el mensaje no puede decir que quedó abierta."""
 
     def blocked(conn, run_id):
         raise PossibleBlock("posible bloqueo: 20 respuestas seguidas de rechazo")
 
     assert _cmd_refresh(db, monkeypatch, tmp_path, blocked) == cli.POSSIBLE_BLOCK_EXIT == 4
+    message = capsys.readouterr().err
+    assert "quedó abierta" not in message
+    assert "cerró como fallida" in message
+    assert repository.open_run(db, "restaurants") is None

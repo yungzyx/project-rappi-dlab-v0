@@ -38,14 +38,16 @@ fi
 # `migrate` de post-refresh nunca llegaría a correr.
 .venv/bin/rappi migrate
 # Código 3: todo terminó salvo el respaldo (quedan los anteriores). Código 5: los restaurantes no se actualizaron
-# (tiendas, búsqueda y respaldo sí). En los dos la capa de IA corre igual, pero queda anotado. Código 4: posible
-# bloqueo de rappi.cl; la corrida quedó abierta y aquí se detiene.
+# (tiendas, búsqueda y respaldo sí). Código 6: las dos cosas. En los tres la capa de IA corre igual, pero queda
+# anotado. Código 4: posible bloqueo de rappi.cl; aquí se detiene.
 refresh_rc=0
 caffeinate -i .venv/bin/rappi refresh "$@" || refresh_rc=$?
 if (( refresh_rc == 3 )); then
   nota="respaldo fallido: se conservan los anteriores"
 elif (( refresh_rc == 5 )); then
   nota="restaurantes sin actualizar"
+elif (( refresh_rc == 6 )); then
+  nota="restaurantes sin actualizar; respaldo fallido: se conservan los anteriores"
 elif (( refresh_rc == 4 )); then
   nota="detenida: posible bloqueo"
   exit $refresh_rc

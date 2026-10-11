@@ -136,6 +136,18 @@ def test_weekly_script_exit5_runs_post_refresh(tmp_path):
     assert line.endswith("exit=0 (restaurantes sin actualizar)")
 
 
+def test_weekly_script_exit6_notes_both_failures(tmp_path):
+    """Código 6: sin restaurantes nuevos y sin respaldo nuevo; la línea de estado dice las dos cosas."""
+    project = _project(tmp_path, "[[ $1 == refresh ]] && exit 6; exit 0", ai_layer=True)
+
+    result = _run(project)
+
+    assert result.returncode == 0
+    assert (project / "calls.txt").read_text().splitlines() == ["make -C ../rappi-ia post-refresh EVAL_ARGS="]
+    [line] = _status_lines(project)
+    assert line.endswith("exit=0 (restaurantes sin actualizar; respaldo fallido: se conservan los anteriores)")
+
+
 def test_any_other_refresh_failure_still_stops_the_run(tmp_path):
     project = _project(tmp_path, "[[ $1 == refresh ]] && exit 7; exit 0", ai_layer=True)
 

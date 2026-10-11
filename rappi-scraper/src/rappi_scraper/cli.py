@@ -57,6 +57,8 @@ POSSIBLE_BLOCK_EXIT = 4
 # 5: los restaurantes no se actualizaron (falló su descubrimiento), y tiendas, búsqueda y respaldo sí: sigue la capa
 # de IA.
 RESTAURANTS_FAILED_EXIT = 5
+# 6: las dos cosas, restaurantes sin actualizar y respaldo fallido: la tarea semanal anota ambas y sigue.
+RESTAURANTS_AND_BACKUP_FAILED_EXIT = 6
 
 
 def _run_id(conn, kind: str, args) -> int:
@@ -151,16 +153,18 @@ def cmd_refresh(conn, args) -> None:
             resume_only=args.resume_only,
         )
     except PossibleBlock as exc:
-        print(
-            f"Descarga detenida: {exc}. El reporte está en data/reports/; la corrida quedó abierta y la próxima"
-            " actualización la retoma.",
-            file=sys.stderr,
-        )
+        if exc.run_left_open:
+            state = "El reporte está en data/reports/; la corrida quedó abierta y la próxima actualización la retoma."
+        else:  # al descubrir: la corrida se cerró y no hay qué retomar
+            state = "Fue al descubrir: la corrida se cerró como fallida y la próxima actualización empieza otra."
+        print(f"Descarga detenida: {exc}. {state}", file=sys.stderr)
         raise SystemExit(POSSIBLE_BLOCK_EXIT) from exc
     for report in reports:
         print(render_markdown(report))
-    # Si fallaron los dos, el código es el de los restaurantes; el respaldo fallido queda en el log.
-    if any(r["status"] == "failed" for r in reports):
+    restaurants_failed = any(r["status"] == "failed" for r in reports)
+    if restaurants_failed and backup_failed:
+        raise SystemExit(RESTAURANTS_AND_BACKUP_FAILED_EXIT)
+    if restaurants_failed:
         raise SystemExit(RESTAURANTS_FAILED_EXIT)
     if backup_failed:
         raise SystemExit(BACKUP_FAILED_EXIT)

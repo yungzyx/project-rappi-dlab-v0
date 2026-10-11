@@ -36,7 +36,10 @@ class PossibleBlock(Exception):
     """rappi.cl podría estar bloqueando la descarga: demasiados requests (o jobs) seguidos rechazados.
 
     No es un error de página (no está en PAGE_ERRORS): ningún pasillo, sucursal ni job lo atrapa, y la corrida se
-    detiene abierta para retomarla más tarde."""
+    detiene abierta para retomarla más tarde. Si pasa al descubrir, la corrida se cierra como fallida
+    (`run_left_open = False`)."""
+
+    run_left_open = True
 
 
 # Errores esperables al bajar y leer una página: se registran y se sigue con la siguiente.

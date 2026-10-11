@@ -208,6 +208,36 @@ def test_skipped_aisle_keeps_its_offers_current(db):
     assert in_read not in ids
 
 
+def _seed_run(db, products: dict[str, int]) -> None:
+    """Una corrida terminada de Lider con esos productos {sku: pasillo}, ninguno en las páginas guardadas."""
+    run = repository.start_run(db, "stores", {})
+    repository.upsert_store(db, {"store_id": 900025946, "name": "Lider", "store_type": "lider", "path": LIDER})
+    repository.upsert_store_vertical(db, 900025946, "supermercado")
+    rows = [
+        {"product_id": sku, "master_product_id": int(sku[1:]), "name": sku, "price": 990, "in_stock": True,
+         "_aisle_id": aisle}
+        for sku, aisle in products.items()
+    ]  # fmt: skip
+    repository.save_products(db, run, 900025946, rows)
+    repository.finish_run(db, run)
+
+
+def test_skipped_aisle_only_rescues_offers_from_the_previous_run(db):
+    """Un producto que la corrida 2 ya no encontró (con su pasillo leído sin problemas) no vuelve con el precio de hace
+    meses porque la corrida 3 se saltó ese pasillo; uno que sí estaba en la corrida 2 se mantiene."""
+    _seed_run(db, {"x7001": 14406, "x7003": 14411})  # corrida 1: x7001 en Lácteos
+    _seed_run(db, {"x7002": 14406, "x7003": 14411})  # corrida 2: x7001 ya no está; x7002 sí
+    run = repository.start_run(db, "stores", {})
+    repository.add_jobs(db, run, [_store_job("type:lider", LIDER)])
+
+    process_store_jobs(db, FakeClient(failing={LACTEOS}), run)  # corrida 3: Lácteos omitido
+    build_search_documents(db)
+
+    ids = {r[0] for r in db.execute("SELECT entity_id FROM search_documents WHERE entity_type = 'catalog_item'")}
+    assert "7002" in ids
+    assert "7001" not in ids
+
+
 def test_too_many_skipped_pages_fails_job(db):
     """Con más del 5 % de las páginas omitidas el job falla (y pasa por el reintento): no se guarda un catálogo a
     medias, y la corrida anterior sigue siendo la que vale para el formato."""
