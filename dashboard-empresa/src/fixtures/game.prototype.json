@@ -1,0 +1,16 @@
+{
+  "data": {
+    "estrellas_promedio": null,
+    "personas": 1,
+    "por_vertical": [
+      {
+        "rondas": 1,
+        "tarjetas": 2,
+        "vertical_juego": "supermercado"
+      }
+    ],
+    "rondas": 1,
+    "tarjetas": 2
+  },
+  "source": "prototype"
+}

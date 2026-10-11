@@ -4,11 +4,16 @@ Cada `Example` de `CONTRACT` se pide con servicios livianos (embeddings falsos y
 catálogo de `seed_demo`; su estado y su cuerpo se comparan con `prototipo-app/src/api/fixtures/<nombre>.json`. Los
 tests de la app leen esos mismos archivos: si la API cambia una respuesta, este test falla en el CI hasta que se corra
 `make contract`, y el cambio queda a la vista en el diff de la app. Un archivo sin su `Example` también falla.
+
+Las métricas del uso del MVP en el panel (`PANEL_METRICS`) siguen la misma regla en `dashboard-empresa/src/fixtures/`:
+`prototype` sale de un recorrido por la API y `synthetic` de una simulación chica con semilla fija. Las demás respuestas
+del panel las guarda `npm run fixtures` desde una API en marcha.
 """
 
 import json
 import os
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,8 +27,11 @@ from rappi_ia.api import app as api
 from rappi_ia.api.services import Services
 from rappi_ia.demo.seed import seed_demo
 from rappi_ia.embeddings.base import HashEmbedder
+from rappi_ia.events.synth import generate
 
 FIXTURES = Path(__file__).resolve().parents[3] / "prototipo-app" / "src" / "api" / "fixtures"
+PANEL_FIXTURES = Path(__file__).resolve().parents[3] / "dashboard-empresa" / "src" / "fixtures"
+PANEL_METRICS = ("offers", "game", "unmet")
 
 
 @dataclass(frozen=True)
@@ -248,6 +256,63 @@ def test_contract_examples_are_up_to_date(client, example):
         assert client.request(before.method, before.path, json=before.body).status_code == before.status
     reply = client.request(example.method, example.path, json=example.body)
     check_example(example, reply, FIXTURES, write=os.environ.get("RAPPI_CONTRACT_WRITE") == "1")
+
+
+def prototype_journey(client) -> None:
+    """Lo que manda la app en un recorrido corto: acepta un plan, ve una oferta en el carro, termina una ronda del
+    juego con dos tarjetas nuevas y busca algo que no hay."""
+    plan = client.post("/agent/offer", json={"moment": "plan", "context": {"occasion": "carrete"}}).json()
+    cart = client.post(
+        "/agent/offer",
+        json={"moment": "carrito", "context": {"product": {"entity_type": "catalog_item", "entity_id": "94001"}}},
+    ).json()
+    cards = [card["id"] for card in client.get("/game/cards?vertical=supermercado").json()["cards"][:2]]
+    search = client.get("/search?q=xyzzy&current=supermercado").json()
+    assert len(cards) == 2 and search["unmet"]
+
+    def offered(kind, offer):
+        product = offer["products"][0]
+        return {
+            "type": kind,
+            "session_id": "s-panel",
+            "vertical": offer["prototype_vertical"],
+            "concept_id": product["concept"],
+            "payload": {"origen": f"agent-{offer['moment']}"},
+        }
+
+    game = {"vertical_juego": "supermercado"}
+    sent = [
+        offered("suggestion_shown", plan),
+        offered("suggestion_accepted", plan),
+        offered("suggestion_shown", cart),
+        {
+            "type": "game_round_finished",
+            "session_id": "s-panel",
+            "payload": {**game, "estrellas": 2, "aciertos": 4, "preguntas": 5},
+        },
+        *({"type": "game_card_discovered", "session_id": "s-panel", "payload": {**game, "tarjeta": c}} for c in cards),
+        {
+            "type": "search",
+            "session_id": "s-panel",
+            "vertical": "grocery",
+            "query": "xyzzy",
+            "results": 0,
+            "unmet": search["unmet"],
+        },
+    ]
+    assert client.post("/events", json={"user_id": "u-panel", "events": sent}).json() == {"guardados": len(sent)}
+
+
+@pytest.mark.parametrize("source", ["prototype", "synthetic"])
+@pytest.mark.parametrize("name", PANEL_METRICS)
+def test_panel_examples_are_up_to_date(client, db, name, source):
+    if source == "prototype":
+        prototype_journey(client)
+    else:
+        generate(db, users=40, weeks=8, seed=11, until=date(2026, 10, 4))
+    example = Example(f"{name}.{source}", "GET", f"/analytics/{name}?source={source}")
+    reply = client.request(example.method, example.path)
+    check_example(example, reply, PANEL_FIXTURES, write=os.environ.get("RAPPI_CONTRACT_WRITE") == "1")
 
 
 def test_a_changed_body_fails_pointing_to_make_contract(tmp_path):
