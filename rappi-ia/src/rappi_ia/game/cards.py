@@ -16,7 +16,9 @@ from psycopg.types.json import Jsonb
 
 from ..concepts.assign import concept_matcher
 from ..concepts.taxonomy import load_taxonomy
+from ..offers.guards import OFFER_BLOCKED_VERTICALS
 from . import GAME_VERTICALS
+from .state import get_state
 
 DATA_DIR = Path(__file__).resolve().parent
 CARDS_FILE = DATA_DIR / "knowledge.json"
@@ -187,3 +189,37 @@ def list_cards(conn: Connection, vertical: str | None = None) -> list[dict]:
             card |= {"question": question, "options": options, "answer": answer, "explanation": explanation}
         result.append(card | {"source": {"title": s_title, "url": s_url}, "concepts": list(concepts)})
     return result
+
+
+def did_you_know(conn: Connection, concept_ids: list[str], user_id: str | None) -> dict | None:
+    """El primer dato del juego ligado a lo que la persona buscó, o `None`. Va en el orden de `concept_ids` y después
+    en el del archivo. Es una oferta (nadie lo pidió): por eso no sale de una vertical que las ofertas bloquean, ni
+    de una tarjeta ligada a algún concepto sensible o +18, ni uno que la persona ya descubrió o guardó."""
+    state = get_state(conn, user_id) if user_id else None
+    seen = []
+    if state:
+        seen = [*state["cards"], *(card for cards in state["discovered"].values() for card in cards)]
+    row = conn.execute(
+        """SELECT c.card_id, c.vertical, c.title, c.text, c.source_title, c.source_url
+           FROM unnest(%(concepts)s::text[]) WITH ORDINALITY AS wanted (concept_id, ord)
+           JOIN knowledge_card_concepts l ON l.concept_id = wanted.concept_id
+           JOIN knowledge_cards c ON c.card_id = l.card_id
+           WHERE c.kind = 'dato'
+             AND c.vertical <> ALL(%(blocked)s::text[])
+             AND c.card_id <> ALL(%(seen)s::text[])
+             AND NOT EXISTS (SELECT 1 FROM knowledge_card_concepts other
+                             JOIN concepts k ON k.concept_id = other.concept_id
+                             WHERE other.card_id = c.card_id AND (k.sensitive OR k.age_restricted))
+           ORDER BY wanted.ord, c.position LIMIT 1""",
+        {"concepts": concept_ids, "blocked": list(OFFER_BLOCKED_VERTICALS), "seen": seen},
+    ).fetchone()
+    if row is None:
+        return None
+    card_id, vertical, title, text, source_title, source_url = row
+    return {
+        "id": card_id,
+        "vertical": vertical,
+        "title": title,
+        "text": text,
+        "source": {"title": source_title, "url": source_url},
+    }

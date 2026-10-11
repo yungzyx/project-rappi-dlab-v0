@@ -26,6 +26,7 @@ from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
 from ..concepts.taxonomy import load_taxonomy
 from ..events import store as events
+from ..game.cards import did_you_know
 from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
 from .agent import router as agent_router
@@ -198,6 +199,11 @@ def ask(body: AskIn, conn: Connection = Depends(get_conn), svc: Services = Depen
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     _log_ask(conn, body.user_id, body.session_id, body.message, response, "texto", body.mode)
+    concepts = (response.get("intent") or {}).get("concepts")
+    if body.mode == "propuesta" and concepts:  # «¿Sabías que…?»: una oferta, así que no en «Rappi hoy»
+        fact = did_you_know(conn, concepts, body.user_id)
+        if fact:
+            response["did_you_know"] = fact
     return response
 
 

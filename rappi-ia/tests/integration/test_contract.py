@@ -61,6 +61,12 @@ CONTRACT: tuple[Example, ...] = (
         "/agent/ask",
         {"message": "pizza", "vertical": "restaurants", "user_id": "u-contrato", "session_id": "s-contrato"},
     ),
+    Example(
+        "agent-ask-dato",
+        "POST",
+        "/agent/ask",
+        {"message": "pizza", "vertical": "restaurants", "user_id": "u-contrato-dato", "session_id": "s-contrato-dato"},
+    ),
     Example("recommendations", "GET", "/recommendations?user_id=u-contrato&vertical=restaurants"),
     Example("agent-plans", "GET", "/agent/plans"),
     Example("agent-offer-plan", "POST", "/agent/offer", {"moment": "plan", "context": {"occasion": "carrete"}}),
