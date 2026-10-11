@@ -111,7 +111,7 @@ describe('MvpUsageView', () => {
     expect(screen.queryByRole('table', { name: 'Ofertas del agente por momento' })).toBeNull()
     // unmet has data and is labelled as simulated, never as MVP use.
     const unmet = await screen.findByRole('table', { name: 'Búsquedas sin resultado por vertical y concepto' })
-    expect(within(unmet).getByText('Leche y yogur')).toBeTruthy()
+    expect(within(unmet).getByText('🥛 Leche y yogur')).toBeTruthy()
     expect(screen.getByText('92 de 156 búsquedas sin resultado')).toBeTruthy()
     expect(screen.getAllByText(/Datos simulados/)).toHaveLength(3)
     expect(screen.queryByText(NOT_EVIDENCE)).toBeNull()
@@ -148,14 +148,14 @@ describe('MvpUsageView', () => {
     window.history.replaceState(null, '', '/?vista=mvp')
     serveFixtures()
     await renderWithData(<App />)
-    expect(await screen.findByText('Leche y yogur')).toBeTruthy()
+    expect(await screen.findByText('🥛 Leche y yogur')).toBeTruthy()
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('/analytics/unmet?source=synthetic'), expect.anything())
 
     await act(async () => fireEvent.click(screen.getByRole('radio', { name: 'Prototipo' })))
 
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('/analytics/unmet?source=prototype'), expect.anything())
     expect(await screen.findByText('1 de 1 búsqueda sin resultado')).toBeTruthy()
-    expect(screen.queryByText('Leche y yogur')).toBeNull()
+    expect(screen.queryByText('🥛 Leche y yogur')).toBeNull()
     expect(screen.queryByText('92 de 156 búsquedas sin resultado')).toBeNull()
   })
 
@@ -165,6 +165,6 @@ describe('MvpUsageView', () => {
     await renderWithData(<MvpUsageView source="prototype" />)
 
     expect(await screen.findByText('1 de 1 búsqueda sin resultado')).toBeTruthy() // cae a lo guardado del prototipo
-    expect(screen.queryByText('Leche y yogur')).toBeNull()
+    expect(screen.queryByText('🥛 Leche y yogur')).toBeNull()
   })
 })

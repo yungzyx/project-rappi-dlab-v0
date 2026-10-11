@@ -504,6 +504,8 @@ def game(conn: Connection, source: str = "synthetic") -> dict:
     _check(source)
     params = {"source": source}
     played = """FROM app_events WHERE source = %(source)s AND type IN ('game_round_finished', 'game_card_discovered')"""
+    # Una tarjeta cuenta una vez por persona: «Repetir escena» conserva el id y no debe sumarla otra vez.
+    cards = "count(DISTINCT (user_id, payload ->> 'tarjeta')) FILTER (WHERE type = 'game_card_discovered')"
     [row] = _rows(
         conn,
         f"""SELECT count(DISTINCT user_id) AS personas,
@@ -511,7 +513,7 @@ def game(conn: Connection, source: str = "synthetic") -> dict:
                    round(avg(CASE WHEN type = 'game_round_finished' AND jsonb_typeof(payload -> 'estrellas') = 'number'
                                   THEN least(greatest((payload ->> 'estrellas')::numeric, 0), 3) END), 1)
                        AS estrellas_promedio,  -- de 0 a 3, como en la app
-                   count(*) FILTER (WHERE type = 'game_card_discovered') AS tarjetas
+                   {cards} AS tarjetas
             {played}""",
         params,
     )
@@ -521,7 +523,7 @@ def game(conn: Connection, source: str = "synthetic") -> dict:
         conn,
         f"""SELECT payload ->> 'vertical_juego' AS vertical_juego,
                    count(*) FILTER (WHERE type = 'game_round_finished') AS rondas,
-                   count(*) FILTER (WHERE type = 'game_card_discovered') AS tarjetas
+                   {cards} AS tarjetas
             {played} AND payload ->> 'vertical_juego' IS NOT NULL
             GROUP BY payload ->> 'vertical_juego'
             ORDER BY count(*) DESC, (payload ->> 'vertical_juego') COLLATE "C"  -- el mismo orden en cualquier base
@@ -539,23 +541,22 @@ def unmet(conn: Connection, source: str = "synthetic") -> dict:
     por vertical y concepto. Nunca el texto buscado (`concepto` es NULL si no se reconoció) ni conceptos sensibles."""
     _check(source)
     params = {"source": source, "limit": MAX_UNMET_ROWS}
-    searched = (
-        """FROM app_events WHERE source = %(source)s AND type IN ('search', 'chat', 'ask') AND unmet IS NOT NULL"""
-    )
+    # Los conceptos sensibles no entran en ninguna cifra, ni en los totales: no se deducen de la resta.
+    searched = """FROM app_events e LEFT JOIN concepts c ON c.concept_id = e.concept_id
+                  WHERE e.source = %(source)s AND e.type IN ('search', 'chat', 'ask') AND e.unmet IS NOT NULL
+                    AND c.sensitive IS NOT TRUE"""
     [row] = _rows(
         conn,
-        f"""SELECT count(DISTINCT user_id) AS personas, count(*) AS busquedas,
-                   count(*) FILTER (WHERE unmet) AS sin_resultado
+        f"""SELECT count(DISTINCT e.user_id) AS personas, count(*) AS busquedas,
+                   count(*) FILTER (WHERE e.unmet) AS sin_resultado
             {searched}""",
         params,
     )
     row["por_vertical"] = _rows(
         conn,
-        f"""SELECT e.vertical, c.name AS concepto, count(*) AS sin_resultado
-            FROM (SELECT vertical, concept_id {searched} AND unmet) e
-            LEFT JOIN concepts c ON c.concept_id = e.concept_id
-            WHERE c.sensitive IS NOT TRUE
-            GROUP BY e.vertical, e.concept_id, c.name
+        f"""SELECT e.vertical, c.emoji || ' ' || c.name AS concepto, count(*) AS sin_resultado
+            {searched} AND e.unmet
+            GROUP BY e.vertical, e.concept_id, c.emoji, c.name
             -- empates por códigos en "C": el mismo orden en cualquier base (las respuestas de ejemplo se comparan)
             ORDER BY 3 DESC, e.vertical COLLATE "C" NULLS LAST, e.concept_id COLLATE "C" NULLS LAST
             LIMIT %(limit)s""",

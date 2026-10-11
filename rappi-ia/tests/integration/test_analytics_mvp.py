@@ -148,6 +148,45 @@ def test_game_counts_rounds_cards_and_people(db):
     assert queries.game(db, "prototype")["estrellas_promedio"] == 2.3  # (11 + 3) / 6
 
 
+def test_game_counts_a_card_once_per_person_even_after_repeating_the_scene(db):
+    # «Repetir escena» deja el mismo id de persona: la misma tarjeta no suma dos veces (una vez por tarjeta y persona).
+    events.record(
+        db,
+        [
+            _card("u1", "licores", "licores-01"),
+            _card("u1", "licores", "licores-01"),
+            _card("u2", "licores", "licores-01"),
+            _card("u1", "viajes", "viajes-01"),
+        ],
+    )
+
+    data = queries.game(db, "prototype")
+
+    assert data["tarjetas"] == 3
+    assert data["por_vertical"] == [
+        {"vertical_juego": "licores", "rondas": 0, "tarjetas": 2},
+        {"vertical_juego": "viajes", "rondas": 0, "tarjetas": 1},
+    ]
+
+
+def test_unmet_totals_ignore_sensitive_concepts_too(concepts):
+    db = concepts
+    sensitive = next(c.id for c in load_taxonomy().concepts.values() if c.sensitive)
+    events.record(db, [_search("u1", True, "pizza"), _search("u2", False, "cerveza", vertical="licores")])
+    before = queries.unmet(db, "prototype")
+
+    events.record(
+        db,
+        [
+            _search("u3", True, sensitive, vertical="farmacia", query="remedio privado"),
+            _search("u3", False, sensitive, vertical="farmacia", query="otro remedio", kind="chat"),
+        ],
+    )
+
+    assert queries.unmet(db, "prototype") == before
+    assert (before["personas"], before["busquedas"], before["sin_resultado"]) == (2, 2, 1)
+
+
 def test_unmet_never_returns_query_text_or_sensitive_concepts(concepts):
     db = concepts
     sensitive = next(c.id for c in load_taxonomy().concepts.values() if c.sensitive)
@@ -166,11 +205,11 @@ def test_unmet_never_returns_query_text_or_sensitive_concepts(concepts):
     data = queries.unmet(db, "prototype")
 
     assert data == {
-        "personas": 3,
-        "busquedas": 5,
-        "sin_resultado": 4,
+        "personas": 3,  # la búsqueda sensible no cuenta en ninguna cifra, ni en los totales
+        "busquedas": 4,
+        "sin_resultado": 3,
         "por_vertical": [
-            {"vertical": "restaurantes", "concepto": "Pizza", "sin_resultado": 2},
+            {"vertical": "restaurantes", "concepto": "🍕 Pizza", "sin_resultado": 2},
             {"vertical": "restaurantes", "concepto": None, "sin_resultado": 1},
         ],
     }
