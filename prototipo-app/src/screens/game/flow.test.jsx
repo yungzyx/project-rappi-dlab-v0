@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { stubApi } from '../../api/testing'
+import { gameChallenge, stubApi } from '../../api/testing'
 import { GameApp as App, mount } from './GameApp.testkit.jsx'
 import { cardsOf, datosOf } from '../../game/knowledge.js'
 import { initialState, today } from '../../game/progress.js'
@@ -19,6 +19,11 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** La ronda como la arma la app con el desafío que responde la API. */
+const roundOf = (state, vertical) =>
+  makeRound(state, vertical, gameChallenge(vertical, String(state.answered[vertical] ?? 0)))
+const roundLoaded = () => screen.findByRole('progressbar', { name: 'Avance de la ronda' })
+
 const nav = () => screen.getByRole('navigation')
 // Misión de hoy casi lista: 2 datos y 1 acierto; falta abrir una tarjeta (una ya ganada).
 const CARD = datosOf('supermercado')[0]
@@ -30,7 +35,7 @@ describe('bienvenida', () => {
     await mount(<App />)
     const intro = screen.getByRole('dialog', { name: 'Bienvenida' })
     fireEvent.click(within(intro).getByRole('button', { name: 'Empezar' }))
-    expect(screen.getByText('¿Sabías que…?')).toBeTruthy()
+    expect(await screen.findByText('¿Sabías que…?')).toBeTruthy()
     await waitFor(() => expect(stored().seenIntro).toBe(true))
   })
 
@@ -49,7 +54,7 @@ describe('misión del día', () => {
     const sheet = screen.getByRole('dialog', { name: 'Misión del día' })
     expect(within(sheet).getAllByRole('listitem')).toHaveLength(3)
     fireEvent.click(within(sheet).getByRole('button', { name: 'Jugar ahora' }))
-    expect(screen.getByRole('progressbar', { name: 'Avance de la ronda' })).toBeTruthy()
+    expect(await roundLoaded()).toBeTruthy()
   })
 
   test('completarla fuera de una ronda muestra un aviso con la racha', async () => {
@@ -74,6 +79,7 @@ describe('ronda', () => {
       }),
     )
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
+    await roundLoaded()
     fireEvent.click(screen.getByRole('button', { name: 'Salir' }))
     expect(screen.getByRole('dialog', { name: '¿Salir de la ronda?' })).toBeTruthy()
   })
@@ -81,7 +87,7 @@ describe('ronda', () => {
   test('se juega con el teclado: Enter da vuelta y sigue, 1 a 4 responden', async () => {
     const all = cardsOf('chocolateria').map((c) => c.id)
     seed({ discovered: { chocolateria: all } })
-    const round = makeRound({ ...initialState(), discovered: { chocolateria: all } }, 'chocolateria')
+    const round = roundOf({ ...initialState(), discovered: { chocolateria: all } }, 'chocolateria')
     await mount(<App />)
     fireEvent.click(
       within(screen.getByRole('region', { name: 'Camino de verticales' })).getByRole('button', {
@@ -89,6 +95,7 @@ describe('ronda', () => {
       }),
     )
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
+    await roundLoaded()
     fireEvent.keyDown(window, { key: 'Enter' }) // da vuelta el dato
     expect(screen.getByText(round[0].card.text)).toBeTruthy()
     fireEvent.keyDown(window, { key: 'Enter' }) // sigue
@@ -102,7 +109,7 @@ describe('ronda', () => {
 
   test('al subir de nivel de explorador, el final de la ronda lo celebra', async () => {
     seed({ xp: 70 })
-    const round = makeRound({ ...initialState(), xp: 70 }, 'supermercado')
+    const round = roundOf({ ...initialState(), xp: 70 }, 'supermercado')
     await mount(<App />)
     fireEvent.click(
       within(screen.getByRole('region', { name: 'Camino de verticales' })).getByRole('button', {
@@ -110,6 +117,7 @@ describe('ronda', () => {
       }),
     )
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Jugar' }))
+    await roundLoaded()
     for (const step of round) {
       if (step.type === 'dato') fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
       else {
@@ -214,9 +222,11 @@ describe('dentro del prototipo', () => {
     seed()
     await mount(<App params={{ round: 'turbo' }} />)
     const bar = () => screen.getByRole('progressbar', { name: 'Avance de la ronda' })
+    await roundLoaded()
     fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))
     expect(bar().getAttribute('aria-valuenow')).toBe('1')
     act(() => window.dispatchEvent(new Event(REPLAY_EVENT)))
+    await roundLoaded() // la ronda nueva vuelve a pedir su desafío
     expect(bar().getAttribute('aria-valuenow')).toBe('0')
     await waitFor(() => expect(stored()?.xp).toBe(0)) // lo último que guardó es el estado inicial
   })

@@ -4,6 +4,9 @@ import FactCard, { Source } from './FactCard.jsx'
 import Mascot from '../../components/assistant/Mascot'
 import Sheet from './GameSheet.jsx'
 import Stamp, { LEVEL_NAMES } from './Stamp.jsx'
+import { challenge as fetchChallenge } from '../../api/game'
+import { useApi } from '../../api/useApi'
+import { ConnectionNotice } from '../../components/ConnectionGate'
 import { cardById } from '../../game/knowledge.js'
 import { LABELS } from '../../game/verticals.js'
 import { LEVELS, explorerLevel, verticalLevel } from '../../game/progress.js'
@@ -16,8 +19,6 @@ const KIND_TITLES = {
   combo: 'Arma el combo',
   sustituto: 'Si no hay',
   imposible: 'La pareja imposible',
-  puente: 'Producto puente',
-  trivia: 'Trivia',
   conocimiento: 'Pregunta curiosa',
 }
 
@@ -194,12 +195,26 @@ function Confetti() {
   )
 }
 
-/** Una ronda de 5 pasos en una vertical: dar vuelta datos «¿Sabías que…?» y responder preguntas y un desafío. */
-/** `orderId`: se juega mientras llega un pedido; al final se vuelve a él. */
+/**
+ * Una ronda de 5 pasos en una vertical: dar vuelta datos «¿Sabías que…?» y responder preguntas y un desafío.
+ * `orderId`: se juega mientras llega un pedido; al final se vuelve a él.
+ * El desafío del catálogo lo arma la API: se pide al abrir la ronda (con la semilla de las respuestas de hoy en la
+ * vertical, fija mientras dura la ronda) y, si falla, la ronda no parte: «Sin conexión» con «Reintentar».
+ */
 export default function Round({ vertical, back, orderId }) {
+  const { state } = useGame()
+  const [seed] = useState(() => String(state.answered[vertical] ?? 0))
+  const { data: challenge, error, loading, retry } = useApi(() => fetchChallenge(vertical, seed), [vertical, seed])
+
+  if (error || loading) return <ConnectionNotice status={error ? 'offline' : 'checking'} onRetry={retry} />
+  return <PlayRound vertical={vertical} back={back} orderId={orderId} challenge={challenge} />
+}
+
+/** La ronda ya armada; `challenge` es el desafío de la API, o null si la vertical no tiene (Viajes). */
+function PlayRound({ vertical, back, orderId, challenge }) {
   const game = useGame()
   const { clearEvents } = game
-  const [steps] = useState(() => makeRound(game.state, vertical))
+  const [steps] = useState(() => makeRound(game.state, vertical, challenge))
   const [levelBefore] = useState(() => verticalLevel(game.state, vertical))
   const [xpBefore] = useState(() => game.state.xp)
   const [index, setIndex] = useState(0)

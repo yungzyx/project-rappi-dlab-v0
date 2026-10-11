@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { stubApi } from '../../api/testing'
+import { gameChallenge, stubApi } from '../../api/testing'
 import { initialState } from '../../game/progress.js'
 import { makeRound } from '../../game/round.js'
 import { gameReady, seed } from '../../game/testSeed.js'
@@ -33,6 +33,10 @@ const renderRound = async ({ back = vi.fn(), orderId } = {}) => {
   )
   await gameReady()
   fireEvent.click(screen.getByText('pedir'))
+  // La ronda parte cuando llega su desafío de la API (sin adelantar el reloj fingido).
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0)
+  })
   return back
 }
 
@@ -71,7 +75,7 @@ describe('ronda mientras llega el pedido', () => {
   })
 
   test('al terminar la ronda, el botón lleva de vuelta al pedido', async () => {
-    const round = makeRound({ ...initialState(), visited: [] }, 'turbo')
+    const round = makeRound({ ...initialState(), visited: [] }, 'turbo', gameChallenge('turbo', '0'))
     const back = await renderRound()
     for (const step of round) {
       if (step.type === 'dato') fireEvent.click(screen.getByRole('button', { name: 'Dar vuelta' }))

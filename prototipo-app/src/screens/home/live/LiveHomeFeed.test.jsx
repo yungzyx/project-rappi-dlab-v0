@@ -2,9 +2,9 @@ import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { fixture, stubApi } from '../../../api/testing'
-import { DATA } from '../../../game/data.js'
 import { gameReady, seed, stored } from '../../../game/testSeed.js'
 import { today } from '../../../game/progress.js'
+import { PASSPORT_ORDER } from '../../../game/verticals.js'
 
 const events = vi.hoisted(() => ({ track: vi.fn(), flush: async () => {}, clear: () => {}, settled: async () => {} }))
 vi.mock('../../../state/EventsContext', async (importOriginal) => ({
@@ -297,7 +297,7 @@ describe('Home del prototipo final', () => {
       await advance(3000)
       expect(status(container)).toBe('') // faltan sellos, pero la API no propone nada
       cleanup()
-      seed({ visited: DATA.order.filter((v) => v !== 'farmacia').concat('viajes') })
+      seed({ visited: PASSPORT_ORDER.filter((v) => v !== 'farmacia') })
       memory.session.played = true
       const done = await renderHome()
       await advance(500)
@@ -627,7 +627,17 @@ describe('Home del prototipo final', () => {
 
     test('Mochi nunca propone Farmacia, aunque sea la única sin sello', async () => {
       stubAgent({ 'POST /agent/offer': 204 }) // el servidor tampoco la ofrece
-      seed({ visited: [...DATA.order, 'viajes'].filter((v) => v !== 'farmacia') })
+      seed({ visited: PASSPORT_ORDER.filter((v) => v !== 'farmacia') })
+      const { container } = await renderHome()
+      await advance(900 + 3400)
+      fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))
+      await advance(3000)
+      expect(container.querySelector('.live-bubble p').textContent).toMatch(/^¡Ya probaste de todo!/)
+    })
+
+    test('Licores is never offered as the vertical to try', async () => {
+      stubAgent({ 'POST /agent/offer': 204 }) // el servidor tampoco la ofrece
+      seed({ visited: PASSPORT_ORDER.filter((v) => v !== 'licores' && v !== 'farmacia') })
       const { container } = await renderHome()
       await advance(900 + 3400)
       fireEvent.click(screen.getByRole('button', { name: /^Mochi:/ }))

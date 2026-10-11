@@ -79,7 +79,7 @@ En el prototipo final, el **pasaporte Rappi** de la Home es el del juego de vert
 - **Desde la Home:** el título del pasaporte abre el pasaporte del juego; «Jugar», su camino de verticales; cada sello, su hoja con «Jugar» y «Abrir {vertical}». Mochi, al tocarlo, propone jugar la primera vertical sin sello.
 - **Mientras llega el pedido:** el seguimiento ofrece «Juega mientras llega tu pedido», una ronda de 5 pasos en una vertical sin sello. Arriba, una franja con el tiempo que falta; si el pedido llega a mitad de ronda, avisa con «Ver pedido».
 - **El juego:** cada vertical enseña su mundo (el cacao en Chocolatería, el vino y el pisco en Licores, aviones y destinos en Viajes; Súper, Express y Turbo traen temas variados). Una ronda tiene 5 pasos: 2 datos «¿Sabías que…?» que se dan vuelta, 2 preguntas curiosas y 1 desafío del catálogo (Viajes, sin catálogo: 3 preguntas). Los datos van al álbum con su fuente, que se abre en otra pestaña. Además, XP y nivel (Conocedor: 6 de las 12 tarjetas y 3 aciertos; Experto: las 12 y 8), misión del día y racha.
-- **Contenido:** 108 tarjetas (6 datos y 6 preguntas por vertical) que sirve la API (`GET /game/cards`, desde `rappi-ia/src/rappi_ia/game/knowledge.json`), escritas con palabras propias y verificadas una por una contra su fuente ([informe](../docs/resultados/juego-verificacion-2026-10-09.md)). Los desafíos del catálogo usan agregados del catálogo del 05-10-2026 (`src/data/verticales.json`, sin conceptos sensibles; `npm run datos -- "<04 Mapa multivertical.html>"` los regenera).
+- **Contenido:** 108 tarjetas (6 datos y 6 preguntas por vertical) que sirve la API (`GET /game/cards`, desde `rappi-ia/src/rappi_ia/game/knowledge.json`), escritas con palabras propias y verificadas una por una contra su fuente ([informe](../docs/resultados/juego-verificacion-2026-10-09.md)). Los desafíos del catálogo los arma la API con la base de la vertical (`GET /game/challenge`, sin conceptos sensibles; la misma semilla da el mismo desafío): la app no lleva datos del catálogo.
 - **Farmacia** se puede jugar desde el pasaporte, pero ni Mochi ni el seguimiento la proponen (la salud no se empuja). Licores lleva la marca «+18».
 - El progreso es de demo: se guarda en el servidor, bajo el id seudónimo de este navegador (`PUT /game/state/{user_id}`); el que este navegador guardó antes se sube una sola vez. «Repetir escena» lo deja como al empezar.
 
@@ -200,7 +200,7 @@ src/
 ├── assets/         Recortes de las capturas
 ├── game/           Lógica del juego de verticales: tarjetas de conocimiento, desafíos, XP, niveles, pasaporte (lógica pura, con tests)
 ├── components/     Piezas compartidas; assistant/ tiene la mascota, la barra de la Home, el buscador con Mochi y Descubre
-├── data/           Accesos y verticales de la Home; verticales.json del juego
+├── data/           Accesos y verticales de la Home
 ├── hooks/          Navegación con historial, scroll
 ├── screens/        Una carpeta por pantalla (home, deals, vertical, checkout, tracking, game…)
 ├── state/          Carrito, perfil, pedidos, hoja de producto, modo demo, dirección… (varios persisten en localStorage)

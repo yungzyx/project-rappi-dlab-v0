@@ -13,8 +13,7 @@
     "test": "vitest run",
     "lint": "eslint .",
     "format": "prettier --write src",
-    "screenshots": "node scripts/screenshots.mjs",
-    "datos": "node scripts/extraer-datos.mjs"
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",

@@ -36,6 +36,15 @@ export function gameCards() {
 }
 
 /**
+ * El desafío del catálogo que responde el servidor simulado: el de `game-challenge` con la vertical y la semilla de la
+ * petición en su id, o null para Viajes (que no tiene catálogo: el servidor responde 204).
+ */
+export function gameChallenge(vertical, seed) {
+  if (vertical === 'viajes') return null
+  return { ...fixture('game-challenge'), vertical, id: `${vertical}:combo:galletas:${seed}` }
+}
+
+/**
  * El servidor del juego simulado: lo que `GET /game/state/…` responde (`state`; null es 204) y lo que recibió cada
  * `PUT` (`puts`, el estado enviado). `seed()` y `stored()` de game/testSeed.js lo leen y escriben.
  */
@@ -44,6 +53,7 @@ export const resetGameServer = () => Object.assign(gameServer, { state: null, pu
 
 const GAME_ROUTES = {
   'GET /game/cards': () => ({ cards: gameCards() }),
+  'GET /game/challenge': (req) => gameChallenge(req.query.get('vertical'), req.query.get('seed')) ?? 204,
   'GET /game/state/*': () => (gameServer.state ? { state: gameServer.state } : 204),
   'PUT /game/state/*': (req) => {
     gameServer.puts.push(req.body.state)
@@ -139,7 +149,7 @@ function parseBody(body) {
  * - { slow: ms, body }: responde `body` (cualquiera de estos valores) pasados esos ms;
  * - (req) => valor: decide según `req = { method, path, query: URLSearchParams, body }` (el cuerpo, ya leído como JSON).
  * Una clave puede terminar en `/*` para calzar cualquier ruta que empiece así (`'PUT /game/state/*'`). El juego ya trae sus
- * rutas (tarjetas y progreso, ver `gameServer`); las de `routes` las reemplazan.
+ * rutas (tarjetas, desafíos y progreso, ver `gameChallenge` y `gameServer`); las de `routes` las reemplazan.
  * Lo que no está en `routes` responde 404. Devuelve el mock de `fetch` para revisar las llamadas.
  */
 export function stubApi(routes) {

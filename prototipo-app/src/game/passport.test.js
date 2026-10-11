@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { DATA } from './data.js'
 import { initialState, stampedVerticals, verticalLevel, visit, waitingRoundVertical } from './progress.js'
 import { clearLegacy, legacyProgress } from './storage.js'
 import { PASSPORT_ORDER, SCREEN_TO_GAME } from './verticals.js'
+
+const CATALOG = ['supermercado', 'conveniencia', 'turbo', 'licores', 'chocolateria', 'restaurantes', 'farmacia', 'mall']
 
 /** Almacenamiento de mentira con lo que ya había guardado. */
 const memoryStorage = (items = {}) => ({
@@ -34,6 +35,17 @@ describe('un solo pasaporte', () => {
     expect(waitingRoundVertical(allButPharmacy).vertical).not.toBe('farmacia')
   })
 
+  test('the waiting round never picks Licores or Farmacia', () => {
+    const rest = PASSPORT_ORDER.filter((v) => v !== 'licores' && v !== 'farmacia').reduce((s, v) => visit(s, v).state, initialState())
+    expect(waitingRoundVertical(rest).vertical).not.toMatch(/^(licores|farmacia)$/)
+    const onlyLicores = { ...initialState(), visited: PASSPORT_ORDER.filter((v) => v !== 'licores') }
+    expect(waitingRoundVertical(onlyLicores).vertical).not.toBe('licores')
+    // Entre las demás sin sello, Licores no es «la primera sin sello»: se salta.
+    expect(waitingRoundVertical(initialState()).vertical).toBe('conveniencia')
+    const skip = { ...initialState(), visited: ['supermercado', 'restaurantes', 'conveniencia', 'turbo'] }
+    expect(waitingRoundVertical(skip).vertical).toBe('chocolateria')
+  })
+
   test('traspasa el pasaporte viejo una vez y tolera basura', () => {
     const storage = memoryStorage({ 'rappi-proto-pasaporte': '["grocery","liquor","pet","x"]' })
     expect(legacyProgress(storage).visited.sort()).toEqual(['licores', 'supermercado'])
@@ -61,7 +73,7 @@ describe('un solo pasaporte', () => {
 
 describe('Viajes en el pasaporte', () => {
   test('el pasaporte tiene 9 sellos: las 8 del catálogo y, al final, Viajes', () => {
-    expect(PASSPORT_ORDER).toEqual([...DATA.order, 'viajes'])
+    expect(PASSPORT_ORDER).toEqual([...CATALOG, 'viajes'])
   })
 
   test('abrir RappiTravel en la app sella Viajes', () => {
@@ -72,7 +84,7 @@ describe('Viajes en el pasaporte', () => {
   })
 
   test('Viajes puede ser la ronda mientras llega el pedido', () => {
-    const allButTravel = { ...initialState(), visited: [...DATA.order] }
+    const allButTravel = { ...initialState(), visited: [...CATALOG] }
     expect(waitingRoundVertical(allButTravel)).toEqual({ vertical: 'viajes', isNew: true })
   })
 })
