@@ -1,23 +1,43 @@
-# Actualizaciones semanales de dependencias: cada una llega como un PR que pasa por el mismo CI.
+# Actualizaciones semanales de dependencias, agrupadas: un PR por ecosistema y carpeta (no uno por paquete), que pasa
+# por el mismo CI. Las actualizaciones mayores llegan aparte, porque suelen pedir cambios de código.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      acciones:
+        patterns: ["*"]
   - package-ecosystem: npm
     directory: /prototipo-app
     schedule:
       interval: weekly
+    groups:
+      app-menores:
+        patterns: ["*"]
+        update-types: [minor, patch]
   - package-ecosystem: npm
     directory: /dashboard-empresa
     schedule:
       interval: weekly
+    groups:
+      panel-menores:
+        patterns: ["*"]
+        update-types: [minor, patch]
   - package-ecosystem: pip
     directory: /rappi-ia
     schedule:
       interval: weekly
+    groups:
+      rappi-ia-menores:
+        patterns: ["*"]
+        update-types: [minor, patch]
   - package-ecosystem: pip
     directory: /rappi-scraper
     schedule:
       interval: weekly
+    groups:
+      scraper-menores:
+        patterns: ["*"]
+        update-types: [minor, patch]
