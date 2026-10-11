@@ -199,6 +199,16 @@ export function toMessage(response) {
     // La razón visible va con la sugerencia cruzada; aquí no se repite.
     reason: suggestion ? null : response.reason,
     suggestion,
+    // El dato «¿Sabías que…?» del juego, con su fuente; null si la respuesta no trae uno.
+    didYouKnow: response.did_you_know
+      ? {
+          id: response.did_you_know.id,
+          vertical: response.did_you_know.vertical,
+          title: response.did_you_know.title,
+          text: response.did_you_know.text,
+          source: response.did_you_know.source,
+        }
+      : null,
     // Acciones de aclaración ("¿para pedir ya o para el súper?"): vuelven a preguntar con ese vertical.
     actions: (response.actions ?? []).map((a) =>
       a.query ? { label: a.label, ask: { text: a.query, vertical: a.vertical } } : a,

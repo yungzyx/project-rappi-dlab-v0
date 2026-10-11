@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import AddButton from '../AddButton'
 import HScroll from '../HScroll'
 import Img from '../Img'
+import { useGame } from '../../state/GameContext'
 import { useProductSheet } from '../../state/ProductSheetContext'
 
 const CHARS_PER_SECOND = 70
@@ -111,6 +112,36 @@ function AlsoIn({ alsoIn, onAction }) {
   )
 }
 
+/** «¿Sabías que…?»: un dato con su fuente. Mostrarlo lo suma al álbum (una vez por mensaje). */
+function DidYouKnow({ fact }) {
+  const { discover } = useGame()
+  const discoverRef = useRef(discover)
+  const counted = useRef(false)
+  useEffect(() => {
+    discoverRef.current = discover
+  }, [discover])
+  useEffect(() => {
+    // Con StrictMode el efecto corre dos veces: la marca en la ref evita contarlo dos veces.
+    if (counted.current) return
+    counted.current = true
+    discoverRef.current(fact.vertical, fact.id)
+  }, [fact.vertical, fact.id])
+
+  return (
+    <aside className="agent-msg-fact" aria-label="¿Sabías que…?">
+      <span className="agent-msg-suggestion-tag">¿Sabías que…?</span>
+      <strong className="agent-msg-fact-title">{fact.title}</strong>
+      <p className="agent-msg-fact-text">{fact.text}</p>
+      <p className="agent-msg-fact-source">
+        Fuente:{' '}
+        <a href={fact.source.url} target="_blank" rel="noopener noreferrer">
+          {fact.source.title}
+        </a>
+      </p>
+    </aside>
+  )
+}
+
 /** Una respuesta del agente con tarjetas (lo elegido se muestra aparte, sin burbuja). */
 export default function AgentMessage({ message, onStreamDone, onOpenProduct, onOpenStore, onAction, onRetry }) {
   const [revealed, setRevealed] = useState(!message.animate)
@@ -141,6 +172,7 @@ export default function AgentMessage({ message, onStreamDone, onOpenProduct, onO
         {revealed && (
           <div className="agent-msg-extras">
             {message.reason && <p className="agent-msg-reason">{message.reason}</p>}
+            {message.didYouKnow && <DidYouKnow fact={message.didYouKnow} />}
             {message.products?.length > 0 && <ProductCards products={message.products} onOpenProduct={onOpenProduct} />}
             {message.suggestion?.products?.length > 0 && (
               <div className="agent-msg-suggestion">

@@ -125,6 +125,18 @@ describe('de la API al prototipo', () => {
     expect(message.suggestion.vertical).toBe('turbo')
   })
 
+  test('toMessage maps did_you_know', () => {
+    const response = fixture('agent-ask-dato')
+    expect(toMessage(response).didYouKnow).toEqual({
+      id: 'restaurantes-01',
+      vertical: 'restaurantes',
+      title: response.did_you_know.title,
+      text: response.did_you_know.text,
+      source: response.did_you_know.source,
+    })
+    expect(toMessage(fixture('agent-ask')).didYouKnow).toBeNull()
+  })
+
   test('el aviso +18 viaja al mensaje y a cada tarjeta', () => {
     const message = toMessage({ text: 'Mira', products: [API_PRODUCT], age_notice: true })
     expect(message.ageNotice).toBe(true)
