@@ -234,6 +234,7 @@ def check_example(example: Example, reply, directory: Path, *, write: bool) -> N
     if current != rendered:
         pytest.fail(
             f"La respuesta de {example.path} cambió: corre `make contract` en rappi-ia y revisa el cambio en la app"
+            " o en el panel"
         )
 
 
@@ -320,7 +321,11 @@ def test_a_changed_body_fails_pointing_to_make_contract(tmp_path):
     example = Example("ruta", "GET", "/ruta")
 
     check_example(example, response(200, {"a": 1}), tmp_path, write=False)
-    with pytest.raises(pytest.fail.Exception, match="La respuesta de /ruta cambió: corre `make contract`"):
+    with pytest.raises(
+        pytest.fail.Exception,
+        match="La respuesta de /ruta cambió: corre `make contract` en rappi-ia y revisa el cambio en la app"
+        " o en el panel",
+    ):
         check_example(example, response(200, {"a": 2}), tmp_path, write=False)
 
 

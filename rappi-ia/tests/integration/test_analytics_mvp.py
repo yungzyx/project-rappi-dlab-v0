@@ -63,6 +63,8 @@ def test_offers_group_old_and_new_origins_by_moment(concepts):
             _offer("u2", "chat"),  # la pregunta al agente, con su nombre viejo
             _offer("u2", "agent-ask"),
             _offer("u2", "para-ti"),
+            _offer("u2", "para-ti-local"),  # nombres viejos de «Para ti»
+            _offer("u2", "vertical-para-ti"),
             # Los servicios tienen su propia vista y el aviso no es una oferta: no entran, ni su persona.
             _offer("u3", "rappitravel"),
             _offer("u3", "rappifavor"),
@@ -79,7 +81,7 @@ def test_offers_group_old_and_new_origins_by_moment(concepts):
         ("carrito", 1, 0, None),
         ("proximo_pedido", 1, 0, None),
         ("pregunta", 2, 0, None),
-        ("para_ti", 1, 0, None),
+        ("para_ti", 3, 0, None),
     ]
 
 

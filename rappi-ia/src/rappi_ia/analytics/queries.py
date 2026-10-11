@@ -469,7 +469,8 @@ def offers(conn: Connection, source: str = "synthetic") -> dict:
     shown = """WITH e AS (
                    SELECT user_id, type,
                           CASE WHEN origen IN ('agent-ask', 'chat') THEN 'pregunta'  -- 'chat': nombre histórico
-                               WHEN origen = 'para-ti' THEN 'para_ti'
+                               -- 'para-ti-local' y 'vertical-para-ti': nombres históricos de «Para ti»
+                               WHEN origen IN ('para-ti', 'para-ti-local', 'vertical-para-ti') THEN 'para_ti'
                                -- 'mochi-<momento>': nombre histórico de 'agent-<momento>'
                                WHEN left(origen, 6) IN ('agent-', 'mochi-') AND substr(origen, 7) = ANY(%(moments)s)
                                     THEN substr(origen, 7)
