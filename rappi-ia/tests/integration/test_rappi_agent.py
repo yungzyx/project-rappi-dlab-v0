@@ -1408,3 +1408,31 @@ def test_a_remedy_treats_the_symptom_not_just_mentions_it(remedies_rappi_agent):
     embed_search_documents(db, agent.embedder)
     shown = {p["entity_id"] for p in agent.reply(db, "tengo fiebre", Context())["products"]}
     assert "807" not in shown and {"800", "801", "808"} <= shown
+
+
+class TextCountingEmbedder(HashEmbedder):
+    """Anota cada texto que se embebe como consulta."""
+
+    def __init__(self):
+        super().__init__()
+        self.texts: list[str] = []
+
+    def embed_queries(self, texts: list[str]):
+        self.texts.extend(texts)
+        return super().embed_queries(texts)
+
+
+def test_ask_embeds_each_text_once(ice_creams):
+    """«helado de lúcuma bajo 5000»: la búsqueda con tope, la del más barato sin tope, el reintento por el concepto y la
+    del detalle repiten consultas; cada texto se embebe una vez por turno (el modelo tiene un solo candado)."""
+    agent, db = ice_creams
+    counting = TextCountingEmbedder()
+    agent.embedder = counting
+
+    r = agent.reply(db, "helado de lúcuma bajo 5000", Context(vertical="supermercado"))
+
+    assert r["products"]
+    assert counting.texts and len(counting.texts) == len(set(counting.texts)), counting.texts
+    counting.texts.clear()
+    agent.reply(db, "helado de lúcuma bajo 5000", Context(vertical="supermercado"))
+    assert counting.texts  # la memoria es del turno: el siguiente vuelve a embeber

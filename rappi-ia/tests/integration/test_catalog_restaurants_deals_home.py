@@ -27,6 +27,7 @@ from fastapi.testclient import TestClient
 from rappi_ia import config
 from rappi_ia.agent.tools import clp
 from rappi_ia.api import app as api
+from rappi_ia.catalog import cache
 from rappi_ia.catalog.deals import deals
 from rappi_ia.catalog.home import home
 from rappi_ia.catalog.restaurants import restaurant_menu, restaurants
@@ -432,12 +433,14 @@ def test_a_store_rebate_is_a_deal_even_without_earlier_prices(seeded):
 
 
 def list_price(conn, store_id: int, product_id: int, real_price: int) -> None:
-    """La tienda marca un precio de lista para una oferta del catálogo de prueba."""
+    """La tienda marca un precio de lista para una oferta del catálogo de prueba (sin corrida nueva: se olvida la
+    caché del catálogo, como si hubiera vencido)."""
     conn.execute(
         """UPDATE price_snapshots SET real_price = %s, discount_pct = 100 * (1 - price / %s)
            WHERE store_id = %s AND sku = %s AND run_id = (SELECT max(run_id) FROM price_snapshots)""",
         (real_price, real_price, store_id, f"sku-{product_id}"),
     )
+    cache.clear()
 
 
 def test_deals_leave_out_discounts_above_sixty_percent(seeded):
@@ -602,6 +605,7 @@ def test_home_never_calls_a_restaurant_with_an_unknown_eta_fast(seeded):
     assert ids(home(seeded)["fast_restaurants"]) == [PIZZERIA]
 
     seeded.execute("UPDATE restaurant_details SET eta = ''")
+    cache.clear()  # sin corrida nueva: como si la caché del catálogo hubiera vencido
 
     assert home(seeded)["fast_restaurants"] == []
 

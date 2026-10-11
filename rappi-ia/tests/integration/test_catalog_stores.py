@@ -248,6 +248,8 @@ def test_store_page_for_another_aisle_and_for_an_aisle_the_store_does_not_have(s
     nothing = store_page(seeded, CENTRO, aisle_id=999_999)
     assert (nothing["aisle"], nothing["products"], nothing["has_more"]) == (None, [], False)
     assert len(nothing["aisles"]) == 5
+    for aisle in (-1, 2**70):  # ni uno negativo ni uno fuera de bigint rompen la consulta
+        assert store_page(seeded, CENTRO, aisle_id=aisle)["aisle"] is None
 
 
 def test_unknown_or_empty_store_is_404_with_spanish_detail(seeded, client):

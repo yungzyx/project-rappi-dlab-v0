@@ -210,6 +210,82 @@ def test_one_users_metrics_match_the_whole_source(db):
         assert segments.user_metrics(db, "prototype", user, now=now) == {user: whole[user]}
 
 
+class SpyConnection:
+    """Anota el SQL de cada consulta."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.statements: list[str] = []
+
+    def execute(self, query, *args, **kwargs):
+        self.statements.append(str(query))
+        return self._conn.execute(query, *args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+def _orders_for_metrics(db, now):
+    seed_taxonomy(db, load_taxonomy())
+    for n in range(12):  # 12 personas con gastos distintos: el percentil tiene dónde caer
+        user = f"u{n}"
+        for i in range(n % 3 + 1):
+            line = {**_line(), "unit_price": 500 * (n + 1)}
+            ts = now - timedelta(days=5 + 20 * i)
+            events.record_order(db, user, f"s-{user}-{i}", f"c-{user}-{i}", "supermercado", [line], ts=ts)
+    db.commit()
+
+
+def test_user_metrics_filters_inside_subqueries(db):
+    """Con una persona, cada métrica filtra por ella dentro de su consulta (antes se calculaba para toda la fuente y se
+    filtraba por fuera): da lo mismo que calcular toda la fuente y quedarse con ella."""
+    now = datetime(2026, 10, 7, 15, 0, tzinfo=UTC)
+    _orders_for_metrics(db, now)
+    whole = segments.user_metrics(db, "prototype", now=now)
+    spy = SpyConnection(db)
+
+    for user in whole:
+        assert segments.user_metrics(spy, "prototype", user, now=now) == {user: whole[user]}
+
+    assert spy.statements and not [s for s in spy.statements if "m.user_id" in s]
+    unfiltered = [s for s in spy.statements if "%(user)s" not in s]
+    assert len(unfiltered) == 1  # solo el gasto de toda la fuente, para el percentil (una vez: queda del día)
+
+
+def test_spend_percentile_reads_the_whole_source_once_a_day(db):
+    now = datetime(2026, 10, 7, 15, 0, tzinfo=UTC)
+    _orders_for_metrics(db, now)
+    spy = SpyConnection(db)
+
+    def whole_source_reads():
+        return len([s for s in spy.statements if "%(user)s" not in s])
+
+    before = segments.user_metrics(spy, "prototype", "u1", now=now)["u1"]["gasto_90d_percentil"]
+    line = {**_line(), "unit_price": 99_000}
+    events.record_order(db, "u1", "s-big", "c-big", "supermercado", [line], ts=now - timedelta(days=1))
+    after = segments.user_metrics(spy, "prototype", "u1", now=now)["u1"]["gasto_90d_percentil"]
+
+    assert (before, after) == (pytest.approx(1 / 11), 1.0)  # su gasto se lee siempre: ahora es quien más gasta
+    assert whole_source_reads() == 1
+    segments.user_metrics(spy, "prototype", "u2", now=now + timedelta(days=1))
+    assert whole_source_reads() == 2  # otro día: se vuelve a leer
+
+
+def test_three_orders_add_no_layer_runs(client, db):
+    """El recálculo de una persona después de un pedido no deja una corrida en `layer_runs` (sumaba una por pedido);
+    la corrida de toda la fuente sí."""
+    _order_direct(db, "u1", 2)
+    runs = _segment_runs(db)
+
+    for cart in ("c-api-1", "c-api-2", "c-api-3"):
+        post_order(client, "u1", cart)
+
+    assert _segment_runs(db) == runs
+    assert _segments(db, "u1")["snacks-salados"] == 5
+    segments.build_segments(db, "prototype")
+    assert _segment_runs(db) == runs + 1
+
+
 def test_a_client_without_its_own_connector_never_opens_the_real_db(db, real_db_guard, caplog):
     """Un cliente de test que solo reemplaza `get_conn`: el recálculo choca con la guarda de `conftest.py` (nunca
     con la base real), queda un aviso y el pedido sale igual."""

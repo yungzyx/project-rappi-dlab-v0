@@ -17,6 +17,7 @@ from rappi_scraper.storage.search import MIN_PRICE
 from ..agent.tools import Product
 from ..agent.verticals import LOGO_BASE_URL
 from ..concepts.taxonomy import load_taxonomy
+from .cache import cached
 
 BIGINT_MAX = 2**63 - 1
 
@@ -37,7 +38,7 @@ def not_pushed_params() -> dict[str, list[str]]:
 
 
 # Las ofertas vigentes de UNA tienda con su pasillo, una por producto del catálogo (la más barata, si la tienda lo tiene
-# en dos SKU): `offers` es un CTE que usan la tarjeta, los pasillos y la página de productos.
+# en dos SKU): `offers` es el CTE de la página de la tienda (`_STORE_PAGE`).
 _STORE_OFFERS = """
 latest AS (
     SELECT DISTINCT ON (ps.sku) ps.sku, ps.price, ps.real_price, ps.in_stock, ps.run_id
@@ -62,34 +63,46 @@ _OWN_VERTICAL = """(
              v.vertical
     LIMIT 1)"""
 
-# Tarjeta de una tienda.
-_STORE_CARD = f"""
-WITH {_STORE_OFFERS}
+# La página de una tienda en una sola consulta (`offers` se calcula una vez): su tarjeta, sus pasillos con ofertas
+# vigentes, el pasillo elegido y una página de sus productos.
+# - Un producto de un subpasillo trae también el id de su pasillo, así que los subpasillos no aparecen aparte. Rappi no
+#   guarda la posición de los pasillos y su id no es un orden (en la base real Turbo abría en «Autopartes», con un
+#   puñado de productos): primero el de más ofertas vigentes, y con las mismas, el id.
+# - El pasillo elegido es el pedido (`%(aisle_id)s`, si la tienda lo tiene) o, sin pedir uno (`%(first)s`), el primero.
+# - Los productos van por nombre (y por id, que desempata nombres repetidos: sin eso, una página podría repetir o
+#   saltarse productos).
+_STORE_PAGE = f"""
+WITH {_STORE_OFFERS},
+aisle_list AS (
+    SELECT aisle_id, btrim(aisle) AS name, count(*) AS products FROM offers GROUP BY aisle_id, aisle
+),
+chosen AS (
+    SELECT aisle_id FROM aisle_list
+    WHERE %(first)s OR aisle_id = %(aisle_id)s
+    ORDER BY products DESC, aisle_id
+    LIMIT 1
+),
+page AS (
+    SELECT ci.master_product_id AS mid, ci.master_product_id::text AS id, ci.name, o.price, o.real_price,
+           NULLIF(ci.image_url, '') AS image, ci.presentation, ci.is_alcoholic OR ci.age_restricted AS adult,
+           ic.concept_id
+    FROM offers o
+    JOIN chosen USING (aisle_id)
+    JOIN catalog_items ci ON ci.master_product_id = o.master_product_id
+    LEFT JOIN item_concepts ic ON ic.entity_type = 'catalog_item' AND ic.entity_id = ci.master_product_id::text
+    ORDER BY ci.name, ci.master_product_id
+    LIMIT %(limit)s OFFSET %(offset)s
+)
 SELECT s.store_id, btrim(coalesce(b.name, s.name)), s.raw->>'image', s.raw->>'eta_value',
-       (SELECT count(*) FROM offers), {_OWN_VERTICAL}
+       (SELECT count(*) FROM offers), {_OWN_VERTICAL},
+       (SELECT json_agg(json_build_array(aisle_id, name, products) ORDER BY products DESC, aisle_id) FROM aisle_list),
+       (SELECT aisle_id FROM chosen),
+       (SELECT json_agg(json_build_array(id, name, price, real_price, image, presentation, adult, concept_id)
+                        ORDER BY name, mid)
+        FROM page)
 FROM stores s
 LEFT JOIN brands b ON b.brand_id = s.brand_id
 WHERE s.store_id = %(store_id)s"""
-
-# Los pasillos con ofertas vigentes. Un producto de un subpasillo trae también el id de su pasillo, así que los
-# subpasillos no aparecen aparte. Rappi no guarda la posición de los pasillos y su id no es un orden (en la base real
-# Turbo abría en «Autopartes», con un puñado de productos): primero el de más ofertas vigentes, y con las mismas, el id.
-_STORE_AISLES = f"""
-WITH {_STORE_OFFERS}
-SELECT aisle_id, btrim(aisle), count(*) FROM offers GROUP BY aisle_id, aisle ORDER BY count(*) DESC, aisle_id"""
-
-# Una página de productos de un pasillo, por nombre (y por id, que desempata nombres repetidos: sin eso, una página
-# podría repetir o saltarse productos).
-_STORE_PRODUCTS = f"""
-WITH {_STORE_OFFERS}
-SELECT ci.master_product_id::text, ci.name, o.price, o.real_price, NULLIF(ci.image_url, ''), ci.presentation,
-       ci.is_alcoholic OR ci.age_restricted, ic.concept_id
-FROM offers o
-JOIN catalog_items ci ON ci.master_product_id = o.master_product_id
-LEFT JOIN item_concepts ic ON ic.entity_type = 'catalog_item' AND ic.entity_id = ci.master_product_id::text
-WHERE o.aisle_id = %(aisle_id)s
-ORDER BY ci.name, ci.master_product_id
-LIMIT %(limit)s OFFSET %(offset)s"""
 
 # Las ofertas vigentes de la tienda `d` (una fila con `store_id` y `format_run_id` de v_store_format_runs), por su
 # último precio `ps`, con su producto `sp` y su pasillo `a`. Solo se leen los precios de la corrida de su formato (por
@@ -244,11 +257,15 @@ def offer_price(conn: Connection, entity_type: str, entity_id: str, store_id: in
 
 def vertical_stores(conn: Connection, vertical: str, limit: int = 30) -> list[dict]:
     """Una tarjeta por formato de tienda del vertical, de más a menos ofertas vigentes. Restaurantes no entra: sus
-    locales no venden productos del catálogo (tienen menú)."""
+    locales no venden productos del catálogo (tienen menú). Sale de la caché del catálogo (catalog/cache.py)."""
     if vertical == "restaurantes":
         return []
-    rows = conn.execute(_VERTICAL_STORES, {"vertical": vertical, "min_price": MIN_PRICE, "limit": limit})
-    return [_card(store_id, name, image, eta, count, vertical) for store_id, name, image, eta, count in rows]
+
+    def compute() -> list[dict]:
+        rows = conn.execute(_VERTICAL_STORES, {"vertical": vertical, "min_price": MIN_PRICE, "limit": limit})
+        return [_card(store_id, name, image, eta, count, vertical) for store_id, name, image, eta, count in rows]
+
+    return cached(f"vertical_stores:{vertical}:{limit}", conn, compute)
 
 
 def store_page(
@@ -259,22 +276,22 @@ def store_page(
     `None` y no hay productos."""
     if not 0 <= store_id <= BIGINT_MAX:
         return None
-    params = {"store_id": store_id, "min_price": MIN_PRICE}
-    row = conn.execute(_STORE_CARD, params).fetchone()
+    params = {
+        "store_id": store_id,
+        "min_price": MIN_PRICE,
+        "first": aisle_id is None,
+        "aisle_id": aisle_id,
+        "limit": page_size + 1,  # una más de las que se piden: así se sabe si hay otra página sin contar
+        "offset": (page - 1) * page_size,
+    }
+    row = conn.execute(_STORE_PAGE, params).fetchone()
     if row is None or row[4] == 0:
         return None
-    store = _card(*row)
-    aisles = [{"id": id_, "name": name, "products": count} for id_, name, count in conn.execute(_STORE_AISLES, params)]
-    chosen = aisles[0] if aisle_id is None and aisles else next((a for a in aisles if a["id"] == aisle_id), None)
-    products: list[Product] = []
-    if chosen is not None:
-        # Una más de las que se piden: así se sabe si hay otra página sin contar.
-        paging = {**params, "aisle_id": chosen["id"], "limit": page_size + 1, "offset": (page - 1) * page_size}
-        taxonomy = load_taxonomy()
-        products = [
-            _product(row, store["vertical"], store["name"], store_id, taxonomy)
-            for row in conn.execute(_STORE_PRODUCTS, paging)
-        ]
+    store = _card(*row[:6])
+    aisles = [{"id": id_, "name": name, "products": count} for id_, name, count in row[6] or []]
+    chosen = next((a for a in aisles if a["id"] == row[7]), None)
+    taxonomy = load_taxonomy()
+    products = [_product(p, store["vertical"], store["name"], store_id, taxonomy) for p in row[8] or []]
     return {
         "store": store,
         "aisles": aisles,

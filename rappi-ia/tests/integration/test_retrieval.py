@@ -167,7 +167,9 @@ def test_hyphenated_words_keep_their_weight(db):
     db.commit()
     build_search_documents(db)
 
-    scores = dict(hybrid._lexical(db, "conveniencia", "coca-cola", Filters()))
+    scores = dict(
+        hybrid._lexical(db, "conveniencia", "coca-cola", Filters(), hybrid.vertical_doc_count(db, "conveniencia"))
+    )
 
     assert scores[("catalog_item", "300")] > scores[("catalog_item", "301")]
 

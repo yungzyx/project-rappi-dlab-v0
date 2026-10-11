@@ -15,6 +15,7 @@ from psycopg import Connection
 
 from .. import config
 from ..agent.verticals import typical_verticals
+from ..catalog.cache import cached
 from ..concepts.taxonomy import Concept
 from ..offers.guards import ALCOHOL_VERTICALS, is_offerable, is_plannable
 
@@ -51,7 +52,7 @@ class ConceptInfo:
 
 @dataclass
 class ChallengeData:
-    """Lo que los desafíos necesitan de la base, leído una vez por llamada. Las relaciones son simétricas."""
+    """Lo que los desafíos necesitan de la base (guardado en la caché del catálogo). Las relaciones son simétricas."""
 
     concepts: dict[str, ConceptInfo]
     complements: dict[str, set[str]] = field(default_factory=dict)
@@ -77,7 +78,12 @@ _CONFLICTS = """
 
 
 def read_challenge_data(conn: Connection) -> ChallengeData:
-    """Conceptos no sensibles con producto en alguna vertical, y sus relaciones curadas entre ellos."""
+    """Conceptos no sensibles con producto en alguna vertical, y sus relaciones curadas entre ellos. Sale de la caché
+    del catálogo (catalog/cache.py): cambia con `make post-refresh`, no con cada desafío."""
+    return cached("challenge_data", conn, lambda: _read_challenge_data(conn))
+
+
+def _read_challenge_data(conn: Connection) -> ChallengeData:
     items: dict[str, dict[str, int]] = {}
     names: dict[str, tuple[str, str, str, bool]] = {}
     for concept_id, name, emoji, parent_id, age_restricted, vertical, count in conn.execute(_CONCEPTS):

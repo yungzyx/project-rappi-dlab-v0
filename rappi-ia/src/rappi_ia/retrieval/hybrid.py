@@ -8,11 +8,13 @@
 
 import json
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 from psycopg import Connection
 from rappi_scraper.storage.search import VERTICALS
 
+from ..catalog.cache import cached
 from ..concepts.assign import concept_matcher
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder, to_pgvector
@@ -62,10 +64,28 @@ class RetrievalResult:
 
 
 def thresholds() -> dict[str, float]:
+    """El τ de cada vertical (eval/thresholds.json). Queda en caché por fecha y tamaño del archivo, como las reglas de
+    segmentos: cada búsqueda sin resultado lo consulta, y `make eval` lo puede reescribir."""
     try:
-        return json.loads(THRESHOLDS_FILE.read_text(encoding="utf-8"))
+        stat = THRESHOLDS_FILE.stat()
     except FileNotFoundError:
         return {}
+    return dict(_read_thresholds(THRESHOLDS_FILE, stat.st_mtime_ns, stat.st_size))
+
+
+@lru_cache(maxsize=4)
+def _read_thresholds(path: Path, _mtime_ns: int, _size: int) -> dict[str, float]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def vertical_doc_count(conn: Connection, vertical: str) -> int:
+    """Los documentos de la vertical (el N del IDF léxico y de la cuota mínima de un concepto), de la caché del
+    catálogo (catalog/cache.py): contar la partición entera en cada búsqueda leía cientos de MB (restaurantes)."""
+    return cached(
+        f"docs:{vertical}",
+        conn,
+        lambda: conn.execute("SELECT count(*) FROM search_documents WHERE vertical = %s", (vertical,)).fetchone()[0],
+    )
 
 
 def retrieve(
@@ -77,15 +97,19 @@ def retrieve(
     filters: Filters | None = None,
     mode: str = "hibrido",
     concepts: list[str] | None = None,
+    words: bool | None = None,
 ) -> RetrievalResult:
+    """`words`: lo que da `has_words(conn, query)`, si quien llama ya lo sabe (la búsqueda en varias verticales lo
+    calcula una vez)."""
     if vertical not in VERTICALS:
         raise ValueError(f"Vertical desconocido: {vertical}")
     if mode not in MODES:
         raise ValueError(f"Modo desconocido: {mode}")
     filters = filters or Filters()
     query_concepts = concepts if concepts is not None else _query_concepts(query)
+    doc_count = vertical_doc_count(conn, vertical)
 
-    lexical = _lexical(conn, vertical, query, filters) if mode != "vector" else []
+    lexical = _lexical(conn, vertical, query, filters, doc_count) if mode != "vector" else []
     vector: list[tuple[tuple[str, str], float]] = []
     query_vector = None
     if mode != "lexico" and embedder is not None:
@@ -99,25 +123,31 @@ def retrieve(
             scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + position)
             ranks.setdefault(key, {})[name] = position
 
-    item_concepts = _concepts_of(conn, list(scores))
-    if query_concepts and mode == "hibrido":
+    if query_concepts and mode == "hibrido":  # sin refuerzo, el concepto de cada ítem lo trae `_hydrate`
+        item_concepts = _concepts_of(conn, list(scores))
         for key in scores:
             if item_concepts.get(key) in query_concepts:
                 scores[key] += CONCEPT_BONUS
 
     top = sorted(scores, key=scores.get, reverse=True)[:k]
     cosines = dict(vector)
-    hits = _hydrate(conn, vertical, top, scores, item_concepts, cosines, ranks)
+    hits = _hydrate(conn, vertical, top, scores, cosines, ranks)
 
-    strict = _strict_lexical_count(conn, vertical, query, filters)
+    # Si ningún documento calza alguna palabra (sin tope de precio, el mismo universo), ninguno las calza todas: la
+    # búsqueda sin coincidencias («xyz») no pregunta lo que ya sabe en cada una de las 8 verticales.
+    if mode != "vector" and filters.price_max is None and not lexical:
+        strict = 0
+    else:
+        strict = _strict_lexical_count(conn, vertical, query, filters)
     max_cosine = max(cosines.values()) if cosines else None
     if filters.price_max is not None and query_vector is not None:
         # Como la coincidencia estricta, el coseno de "sin resultado" se mide sin el tope: lo que el vertical tiene a
         # otro precio no es demanda no satisfecha (el agente dice cuánto cuesta lo más barato).
         unfiltered = _vector(conn, vertical, query_vector, embedder, Filters(entity_types=filters.entity_types))
         max_cosine = max((cosine for _, cosine in unfiltered), default=None)
-    concept_here = _concept_in_vertical(conn, vertical, query_concepts)
-    words = _has_words(conn, query)
+    concept_here = _concept_in_vertical(conn, vertical, query_concepts, doc_count)
+    if words is None:
+        words = has_words(conn, query)
     unmet, reason = _unmet(
         vertical,
         strict,
@@ -157,7 +187,9 @@ _PRICE = "price_min"  # columna generada desde metadata (migración 013), con í
 EXACT_SEARCH_MAX = 5000
 
 
-def _lexical(conn: Connection, vertical: str, query: str, filters: Filters) -> list[tuple[tuple[str, str], float]]:
+def _lexical(
+    conn: Connection, vertical: str, query: str, filters: Filters, doc_count: int
+) -> list[tuple[tuple[str, str], float]]:
     """Cualquier palabra de la consulta (OR), puntuada por IDF dentro del vertical: las palabras raras pesan más.
 
     Sin IDF, una unidad como "g" (presente en miles de productos) tapaba a "pañales" en "pañales talla g".
@@ -169,14 +201,13 @@ def _lexical(conn: Connection, vertical: str, query: str, filters: Filters) -> l
         f"""WITH lexemes AS (
                 SELECT DISTINCT lexeme FROM unnest(to_tsvector('spanish', es_unaccent(%(query)s)))
             ),
-            docs AS MATERIALIZED (SELECT count(*)::float AS n FROM search_documents WHERE vertical = %(vertical)s),
             weights AS MATERIALIZED (
                 SELECT l.lexeme, quote_literal(l.lexeme)::tsquery AS q,
-                       ln(1 + docs.n / (1 + (SELECT count(*) FROM search_documents d
-                                             WHERE d.vertical = %(vertical)s
-                                               AND d.tsv_unaccent @@ quote_literal(l.lexeme)::tsquery)))
+                       ln(1 + %(n)s::float / (1 + (SELECT count(*) FROM search_documents d
+                                                   WHERE d.vertical = %(vertical)s
+                                                     AND d.tsv_unaccent @@ quote_literal(l.lexeme)::tsquery)))
                        AS idf
-                FROM lexemes l, docs
+                FROM lexemes l
             ),
             any_q AS (SELECT string_agg(quote_literal(lexeme), ' | ')::tsquery AS q FROM lexemes)
             SELECT d.entity_type, d.entity_id,
@@ -193,6 +224,7 @@ def _lexical(conn: Connection, vertical: str, query: str, filters: Filters) -> l
         {
             "query": query,
             "vertical": vertical,
+            "n": doc_count,
             "types": list(filters.entity_types),
             "price_max": filters.price_max,
             "k": CANDIDATES,
@@ -213,7 +245,7 @@ def _strict_lexical_count(conn: Connection, vertical: str, query: str, filters: 
     ).fetchone()[0]
 
 
-def _has_words(conn: Connection, query: str) -> bool:
+def has_words(conn: Connection, query: str) -> bool:
     """¿Le queda alguna palabra a la consulta sin las stopwords? «té» es stopword: no hay nada que calzar. Tampoco
     cuentan las de saludo, cortesía o pedido en cualquier lugar: el agente solo las limpia al inicio («té porfa»)."""
     words = " ".join(word for word in tokens(query) if word not in FILLER_WORDS)
@@ -245,8 +277,10 @@ def _vector(
             params,
         ).fetchall()
         return [((t, i), float(c)) for t, i, c in rows]
-    conn.execute(f"SET hnsw.ef_search = {CANDIDATES}")
-    conn.execute("SET hnsw.iterative_scan = relaxed_order")
+    conn.execute(  # los dos SET de la sesión en una sola consulta
+        f"SELECT set_config('hnsw.ef_search', '{CANDIDATES}', false), "
+        "set_config('hnsw.iterative_scan', 'relaxed_order', false)"
+    )
     rows = conn.execute(
         f"""SELECT entity_type, entity_id, 1 - ({distance}) AS cosine
             FROM search_documents
@@ -280,32 +314,33 @@ def _concepts_of(conn: Connection, keys: list[tuple[str, str]]) -> dict[tuple[st
     return {(t, i): c for t, i, c in rows}
 
 
-def _concept_in_vertical(conn: Connection, vertical: str, concepts: list[str]) -> bool:
+def _concept_in_vertical(conn: Connection, vertical: str, concepts: list[str], doc_count: int) -> bool:
     if not concepts:
         return False
     return bool(
         conn.execute(
             """SELECT 1 FROM concept_assortment a
                WHERE a.vertical = %(v)s AND a.concept_id = ANY(%(c)s)
-                 AND a.items >= greatest(%(min)s, round(%(share)s * (SELECT count(*) FROM search_documents
-                                                                      WHERE vertical = %(v)s)))
+                 AND a.items >= greatest(%(min)s, round(%(share)s * %(n)s))
                LIMIT 1""",
-            {"v": vertical, "c": concepts, "min": MIN_CONCEPT_ITEMS, "share": MIN_CONCEPT_SHARE},
+            {"v": vertical, "c": concepts, "min": MIN_CONCEPT_ITEMS, "share": MIN_CONCEPT_SHARE, "n": doc_count},
         ).fetchone()
     )
 
 
-def _hydrate(conn, vertical, keys, scores, item_concepts, cosines, ranks) -> list[Hit]:
+def _hydrate(conn, vertical, keys, scores, cosines, ranks) -> list[Hit]:
+    """Los hits de `keys`, en ese orden, con su texto y su concepto."""
     if not keys:
         return []
     rows = conn.execute(
-        """SELECT d.entity_type, d.entity_id, d.content, d.metadata
+        """SELECT d.entity_type, d.entity_id, d.content, d.metadata, ic.concept_id
            FROM search_documents d
            JOIN unnest(%s::text[], %s::text[]) AS k(entity_type, entity_id) USING (entity_type, entity_id)
+           LEFT JOIN item_concepts ic USING (entity_type, entity_id)
            WHERE d.vertical = %s""",
         ([t for t, _ in keys], [i for _, i in keys], vertical),
     ).fetchall()
-    by_key = {(t, i): (content, metadata) for t, i, content, metadata in rows}
+    by_key = {(t, i): (content, metadata, concept) for t, i, content, metadata, concept in rows}
     return [
         Hit(
             vertical,
@@ -314,7 +349,7 @@ def _hydrate(conn, vertical, keys, scores, item_concepts, cosines, ranks) -> lis
             by_key[key][0],
             by_key[key][1],
             round(scores[key], 6),
-            item_concepts.get(key),
+            by_key[key][2],
             cosines.get(key),
             ranks.get(key, {}),
         )
