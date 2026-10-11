@@ -25,7 +25,7 @@ Decisiones pendientes del usuario:
 - **`VITE_DEMO`:** con `VITE_DEMO=1` la app desplegada trae el interruptor «Prototipo final / Rappi hoy» (tecla D); vacío, no. Se aplica al construir `web`.
 - **El panel:** `WITH_PANEL=1` lo construye en `/panel/` y `API_ENABLE_ANALYTICS=1` enciende `/analytics/*`, que el panel lee. Van juntos: con los dos en 0 se despliega solo la app.
 - **La descarga semanal en el servidor** (`rappi-refresh.timer`, que viene apagado): solo después de decidir la política de User-Agent y robots.txt y de aceptar que rappi.cl pueda frenar una IP de datacenter ([§9](#9-riesgos)). Hasta entonces la descarga sigue en el Mac mini.
-- **Retención:** las personas del prototipo sin actividad se borran a los 180 días (`PROTOTYPE_USER_RETENTION_DAYS`) y el texto de las búsquedas, a los 90 ([§7](#qué-se-guarda-y-cuánto-tiempo)). Confirmar los dos plazos.
+- **Retención:** las personas del prototipo sin actividad se borran a los 180 días (`PROTOTYPE_USER_RETENTION_DAYS`) y el texto de las búsquedas, a los 90 ([§7](#qué-se-guarda-y-cuánto-tiempo)). Los 90 días no son una variable sino una constante del código (`QUERY_RETENTION_DAYS`); otro plazo exige `rappi-ia purge --dias N` en `rappi-purge.service`. Confirmar los dos plazos.
 
 ## 1. Arquitectura
 
@@ -88,7 +88,7 @@ Todas van en `/etc/rappi/rappi.env`, salvo las que fija `docker-compose.yml` o l
 
 | Nombre | Servicio | Defecto | Ejemplo | ¿Secreto? |
 |---|---|---|---|---|
-| `API_ENV` | api (lo fija compose) | `production` (fuera del stack, `local`) | — | no |
+| `API_ENV` | api y jobs (lo fija compose) | `production` (fuera del stack, `local`) | — | no |
 | `API_SECRET` | api; jobs (`rappi-ia token`) | obligatoria en producción (mínimo 32 bytes) | `openssl rand -hex 32` | sí |
 | `API_CORS_ORIGINS` | api (lo fija compose) | `https://$DOMAIN` | — | no |
 | `API_REQUIRE_SEMANTIC` | api (lo fija compose) | `1`: sin el modelo, `/health` da 503 | — | no |
@@ -124,6 +124,7 @@ Todas van en `/etc/rappi/rappi.env`, salvo las que fija `docker-compose.yml` o l
 | `TYPESAFE_API_KEY` | jobs ([jev.md](jev.md)) | vacía: Jev no se llama | — | sí |
 | `JEV_MODEL`, `JEV_MAX_REQUESTS`, `JEV_PARALLEL`, `JEV_PRICE_PER_MTOK_INPUT` | jobs | `jev-1.13.0`, `3000`, `16`, `0.042` | — | no |
 | `PROTOTYPE_USER_RETENTION_DAYS` | jobs (`rappi-ia purge`) | `180` | `180` | no |
+| — (texto de las búsquedas) | jobs (`rappi-ia purge`) | 90 días: constante `QUERY_RETENTION_DAYS`, no variable; `rappi-ia purge --dias N` lo cambia | — | no |
 | `LOG_RETENTION_WEEKS` | jobs (registros de cada comando del scraper) | `8` | `8` | no |
 | `PG_DUMP`, `RAPPI_BIN`, `RAPPI_IA_PY` | jobs (los fija la imagen) | `/usr/lib/postgresql/17/bin/pg_dump`, `rappi`, `python` | — | no |
 | `RAPPI_DELAY_MIN`, `RAPPI_DELAY_MAX`, `RAPPI_TIMEOUT`, `RAPPI_MAX_RETRIES`, `RAPPI_RETRY_BACKOFF` | jobs (solo la descarga) | `1.5`, `3.0`, `30`, `3`, `10` | — | no |
@@ -221,7 +222,7 @@ read -rs BASIC_AUTH_PASSWORD && export BASIC_AUTH_PASSWORD   # la clave de la pu
 deploy/smoke.sh https://<dominio>                             # el valor de DOMAIN, p. ej. https://demo.ejemplo.cl
 ```
 
-[`deploy/smoke.sh`](../deploy/smoke.sh) usa `$COMPOSE` y revisa: la puerta (401 sin credenciales en `/`, `/api/health`, `/panel` y `/panel/`), `/api/health` 200 con la búsqueda semántica, las cabeceras de seguridad y de caché, que lo servido no apunte a `:8000` ni traiga scripts en línea o de otro origen, que `rappi_api` no pueda borrar tablas ni crear objetos, que ningún contenedor tenga un `cambiar-esto` y que todo esté sano. Termina con «smoke: todo bien.» (código 0) o lista lo que falló. Con `DOMAIN=localhost` acepta la CA interna de Caddy.
+[`deploy/smoke.sh`](../deploy/smoke.sh) usa `$COMPOSE` y revisa: la puerta (401 sin credenciales en `/`, `/api/health`, `/panel` y `/panel/`), `/api/health` 200 con la búsqueda semántica, las cabeceras de seguridad y de caché, que lo servido no apunte a `:8000` ni traiga scripts en línea o de otro origen, que la app lleve el aviso «Demo no oficial», que `rappi_api` no pueda borrar tablas ni crear objetos, que ningún servicio tenga un `cambiar-esto` (`jobs` también, en un contenedor desechable; si un entorno no se puede leer, falla) y que todo esté sano. Termina con «smoke: todo bien.» (código 0) o lista lo que falló. Con `DOMAIN=localhost` acepta la CA interna de Caddy.
 
 ### 3.9 Respaldos y timers
 
@@ -262,7 +263,7 @@ $COMPOSE up -d --wait
 deploy/smoke.sh https://<dominio>    # con BASIC_AUTH_PASSWORD exportada (§3.8)
 ```
 
-- **En producción la API nunca migra.** Solo `migrate` lo hace, con respaldo antes. Si la API arranca con migraciones pendientes, `/health` responde 503 `migraciones_pendientes` hasta que corre `migrate`.
+- **En producción ni la API ni la tarea semanal migran.** Solo `migrate` lo hace, con respaldo antes. Si la API arranca con migraciones pendientes, `/health` responde 503 `migraciones_pendientes` hasta que corre `migrate`.
 - `up -d` recrea solo los servicios cuya imagen o configuración cambió. Durante el cambio de la API hay unos segundos sin servicio (1 worker, sin réplica).
 - Un cambio de `VITE_DEMO` o `WITH_PANEL` exige `$COMPOSE build web` y `up -d`.
 
@@ -276,17 +277,19 @@ git checkout <commit anterior>       # el compose y los scripts de esa versión
 $COMPOSE up -d --wait                # sin build: usa las imágenes recién etiquetadas
 ```
 
+Con el commit anterior puesto, git queda fuera de la rama: antes de la próxima actualización ([§4](#4-actualizar)), `git checkout main` y recién después `git pull`.
+
 **Con migración nueva:** además, restaurar el respaldo que `migrate` hizo antes de aplicarla (el `pre-migracion_<fecha>.dump` más nuevo). Se pierde lo que la gente haya hecho desde entonces. Con las imágenes y el commit anteriores ya puestos (bloque de arriba, sin el `up`):
 
 ```bash
 $COMPOSE stop api
 $COMPOSE --profile jobs run --rm jobs ls -lt /data/backups          # el pre-migracion_ más nuevo es el de antes de migrar
-$COMPOSE exec -T db psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
-DROP DATABASE rappi WITH (FORCE);
-CREATE DATABASE rappi OWNER rappi_owner;
-REVOKE ALL ON DATABASE rappi FROM PUBLIC;
-GRANT CONNECT ON DATABASE rappi TO rappi_api;
-\connect rappi
+$COMPOSE exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U postgres -d postgres -v db="$POSTGRES_DB"' <<'SQL'
+DROP DATABASE :"db" WITH (FORCE);
+CREATE DATABASE :"db" OWNER rappi_owner;
+REVOKE ALL ON DATABASE :"db" FROM PUBLIC;
+GRANT CONNECT ON DATABASE :"db" TO rappi_api;
+\connect :"db"
 CREATE EXTENSION vector;
 CREATE EXTENSION unaccent;
 SQL
@@ -304,15 +307,15 @@ $COMPOSE run --rm migrate
 $COMPOSE up -d --wait
 ```
 
-La base se vuelve a crear vacía como la deja `init-roles.sh` (dueño, `CONNECT` de la API y extensiones), se restaura como `rappi_owner` igual que en [§3.5](#35-restaurar-el-catálogo), pero desde el volumen de respaldos, y `migrate` vuelve a dar los permisos.
+La base (la de `POSTGRES_DB`, que el contenedor `db` ya conoce) se vuelve a crear vacía como la deja `init-roles.sh` (dueño, `CONNECT` de la API y extensiones), se restaura como `rappi_owner` igual que en [§3.5](#35-restaurar-el-catálogo), pero desde el volumen de respaldos, y `migrate` vuelve a dar los permisos.
 
 Los respaldos del volumen `backups`, por prefijo:
 
 | Prefijo | Quién lo hace | Cuántos quedan |
 |---|---|---|
-| `pre-migracion_*.dump` | `migrate`, solo si hay migraciones pendientes | 4 (por nombre) |
+| `pre-migracion_*.dump` | `migrate`, solo si hay migraciones pendientes | 4 (por fecha de modificación) |
 | `nocturno_*.dump` | `rappi-backup.timer`, cada noche a las 04:15 | 3 en el volumen (por fecha de modificación); en restic, 7 diarios y 4 semanales |
-| `rappi_*.dump` | la descarga semanal (`rappi refresh`), si se activa en el servidor | 4 (por nombre) |
+| `rappi_*.dump` | la descarga semanal (`rappi refresh`), si se activa en el servidor | 4 (por fecha de modificación) |
 
 Cada prefijo rota aparte: un despliegue no expulsa un respaldo semanal ni uno nocturno.
 
@@ -336,13 +339,16 @@ Detrás de la puerta: desde afuera, `https://<dominio>/api/live` y `/api/health`
 
 El healthcheck de `api` usa `/health`. Una alerta externa (opcional) puede mirar `/api/health` con las credenciales de la puerta.
 
+- `/health` usa el mismo pool de conexiones que las demás rutas: con la API saturada responde 503 `saturada` y Docker la marca `unhealthy`. Nada la reinicia por eso (`restart` solo actúa si el proceso termina), pero un `$COMPOSE up -d --wait` en plena carga puede fallar: reintentar cuando baje.
+- Una consulta que pasa su tope (`API_TIMEOUT_INTERACTIVE_MS`, 5 s) responde 504 «La consulta tardó demasiado», también en `/agent/ask`. Es distinto de 429 (cupo por IP) y 503 (sin conexiones libres).
+
 ### Timers
 
 | Timer | Cuándo | Qué corre (en `jobs`) |
 |---|---|---|
 | `rappi-purge.timer` | todos los días 04:00 (America/Santiago) | `rappi-ia purge`: texto de búsquedas de más de 90 días y personas del prototipo sin actividad en 180 |
 | `rappi-backup.timer` | todos los días 04:15 | [`deploy/scripts/backup-nightly.sh`](../deploy/scripts/backup-nightly.sh): `pg_dump` revisado, 3 en el volumen y restic (`forget --keep-daily 7 --keep-weekly 4 --prune`) |
-| `rappi-refresh.timer` | domingos 03:00 | la descarga y la capa de IA ([`refresh-semanal.sh`](../rappi-scraper/scripts/refresh-semanal.sh)). **Viene apagado** |
+| `rappi-refresh.timer` | domingos 03:00 | la descarga y la capa de IA ([`refresh-semanal.sh`](../rappi-scraper/scripts/refresh-semanal.sh)). **Viene apagado.** No migra: si falta una migración se detiene (`exit=1`) y pide `$COMPOSE run --rm migrate` |
 
 Los dos diarios son independientes: si la purga falla, el respaldo corre igual. Se activan con `systemctl enable --now` ([§3.9](#39-respaldos-y-timers)) y se revisan con `systemctl list-timers 'rappi-*'`, `systemctl status rappi-backup` y `journalctl -u rappi-backup`. Sin `RESTIC_REPOSITORY`, el respaldo deja el dump en el volumen y sale con 2: el servicio queda en rojo hasta que haya copia afuera.
 
@@ -361,13 +367,13 @@ Corre **en el servidor**, no en un contenedor: crear y borrar una base exige al 
 Nunca dos descargas, dos migraciones ni dos armados de la búsqueda a la vez:
 
 - **Archivo:** `flock` sobre `scraper.lock` en el volumen `rappi-data`, para todos los comandos que descargan. La tarea semanal tiene además su propio candado (`refresh-semanal.lock`).
-- **Postgres** (candados de sesión, valen entre contenedores y equipos con la misma base): 72000 lo toma `migrate` y `deploy-migrate` mientras respalda y migra; 72001, el armado de `search_documents`; 72002, cualquier descarga («Ya hay una descarga en curso (en otro proceso o equipo).»).
+- **Postgres** (candados advisory, valen entre contenedores y equipos con la misma base): 72000, de sesión, lo toma `migrate` y `deploy-migrate` mientras respalda y migra; 72001, de transacción (`pg_advisory_xact_lock`), el armado de `search_documents`; 72002, de sesión y en una conexión propia, cualquier descarga («Ya hay una descarga en curso (en otro proceso o equipo).»).
 
 ## 7. Seguridad y datos
 
 ### La puerta
 
-Caddy pide usuario y clave (`basic_auth`) en **todo** el sitio: la app, `/api/*` y `/panel/*`, también en los errores. No hay rutas abiertas. Antes de llegar a la API, Caddy corta los cuerpos de más de 1 MB (la API corta en 512 KB).
+Caddy pide usuario y clave (`basic_auth`) en **todo** el sitio: la app, `/api/*` y `/panel/*`, también en los errores. No hay rutas abiertas: el manifiesto y los íconos también pasan por la puerta (la app pide el manifiesto con credenciales, `crossorigin="use-credentials"`; sin eso el navegador lo pide sin ellas y recibe 401). Antes de llegar a la API, Caddy corta los cuerpos de más de 1 MB (la API corta en 512 KB).
 
 ### Cabeceras
 
@@ -418,7 +424,7 @@ Una clave nueva en el archivo va también en la lista `x-sin-claves-…` que cor
 | Eventos de uso, con el texto de búsquedas y preguntas (datos personales redactados antes de guardar: RUT, teléfonos, correos, direcciones, tarjetas) | `app_events` | el texto, 90 días; el evento, lo que dure la persona |
 | Pedidos (líneas, tienda, vertical; sin dirección), progreso del juego, segmentos | `app_orders`, `app_order_lines`, `game_state`, `user_segments` | lo que dure la persona (se borran en cascada) |
 | Registros de la API (sin ids, sin IP, sin query) | Docker | 5 × 10 MB por contenedor |
-| Respaldos (traen todo lo anterior) | volumen `backups` y restic | hasta 4 semanas en restic y 4 `pre-migracion` sin plazo: lo borrado sigue en ellos hasta que rotan |
+| Respaldos (traen todo lo anterior) | volumen `backups`: 3 `nocturno_*`, 4 `pre-migracion_*` y 4 `rappi_*` (si la descarga corre en el servidor); restic | en restic, unas 5 semanas (7 diarios y 4 semanales); en el volumen, 3 días los nocturnos, unas 4 semanas los `rappi_*` y los `pre-migracion_*` hasta 4 despliegues con migración, sin plazo. Lo borrado sigue en ellos hasta que rotan |
 
 Ni IPs ni cuentas en la base: la cuenta de personas nuevas por IP vive solo en memoria. Claude, si hay clave, recibe hechos estructurados, nunca la consulta. Jev nunca recibe datos de personas.
 
@@ -426,9 +432,11 @@ Ni IPs ni cuentas en la base: la cuenta de personas nuevas por IP vive solo en m
 
 - **Postgres:** `shared_buffers=1GB` y `max_connections=50` (en `command` de `db`). Conexiones: `API_WORKERS × API_POOL_MAX` + 1 (`migrate`) + ~3 (un trabajo de `jobs`) + 3 (reservadas al superusuario) = 1 × 10 + 1 + 3 + 3 = 17. Con más workers, bajar `API_POOL_MAX` para quedar bajo 50 (3 × 10 = 30, total 37).
 - **`shm_size: 2g`** en `db`, para los índices HNSW al restaurar y en `embed`.
-- **1 worker:** cada worker carga el modelo (~2 GB de RAM) y la inferencia ya va en serie. Con 8 GB, 1 worker; 2 solo con 16 GB, y entonces los límites por IP son por worker ([§7](#identidad-firmada)).
+- **1 worker:** cada worker carga el modelo (la API con él usa ~0,9 GB de RAM, medido con `docker stats` tras unas búsquedas) y la inferencia ya va en serie. Con 8 GB, 1 worker; 2 solo con 16 GB, y entonces los límites por IP son por worker ([§7](#identidad-firmada)).
 - **Modelo:** `intfloat/multilingual-e5-base` en la revisión `d128750597153bb5987e10b1c3493a34e5a4502a`, horneado en la imagen (`BAKE_MODEL=1`, en `/opt/hf`) y cargado sin red (`HF_HUB_OFFLINE=1`).
 - **Imágenes:** `rappi-api` ~3,7 GB, `rappi-jobs` ~3,9 GB y `rappi-web` ~0,1 GB. La base con el catálogo, ~6 GB; cada respaldo, ~2 GB.
+- **Por qué 8 GB de RAM:** Postgres ~1 GB (`shared_buffers`) más hasta 1 GB al armar un índice HNSW (`maintenance_work_mem`, en el `shm_size` de `db`), la API ~0,9 GB, Caddy ~0,1 GB y un trabajo de `jobs` que carga el modelo (`embed`, la tarea semanal) otros ~0,9 GB: unos 4 GB en el peor momento, más el sistema y el caché de disco de Postgres.
+- **Por qué 60 GB de disco:** imágenes ~7,7 GB; la base ~6 GB; los respaldos del volumen, ~2 GB cada uno, hasta 11 (3 nocturnos, 4 `pre-migracion_*` y 4 `rappi_*` si la descarga corre aquí): ~22 GB; la prueba de restauración crea una copia de la base mientras corre (~6 GB). Suman ~42 GB; el resto queda para el sistema, los registros y el caché de `docker build` (puede pasar de 10 GB: `docker builder prune` lo libera).
 
 ## 9. Riesgos
 

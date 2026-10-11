@@ -1,6 +1,6 @@
 # Instalación y operación
 
-Cómo montar el proyecto completo en un Mac (Apple Silicon, macOS con [Homebrew](https://brew.sh)) y dejarlo actualizándose solo cada semana. Para un servidor Linux con Docker, ver [despliegue.md](despliegue.md) (§7).
+Cómo montar el proyecto completo en un Mac (Apple Silicon, macOS con [Homebrew](https://brew.sh)) y dejarlo actualizándose solo cada semana. Para un servidor Linux con Docker, ver [despliegue.md](despliegue.md).
 
 Después de clonar (paso 2), **todos los comandos parten de la raíz del repositorio**.
 
@@ -90,7 +90,7 @@ caffeinate -i make post-refresh           # purga, categorías nuevas con Jev (s
 make mvp                  # desde la raíz del repositorio
 ```
 
-`make mvp` es la **demo local**: levanta la API (:8000), la app (:5174) y el panel (:5175) sobre la base `rappi`, con el registro de cada uno prefijado (`[api]`, `[app]`, `[panel]`). No es para un servidor: migra la base sin respaldo (en un servidor, ver §7):
+`make mvp` es la **demo local**: levanta la API (:8000), la app (:5174) y el panel (:5175) sobre la base `rappi`, con el registro de cada uno prefijado (`[api]`, `[app]`, `[panel]`). No es para un servidor: migra la base sin respaldo (en un servidor, ver [despliegue.md](despliegue.md)):
 
 1. Revisa que estén instalados `rappi-ia/.venv` y los `node_modules` de la app y del panel, y que los puertos 8000, 5174 y 5175 estén libres. Si falta algo, dice qué comando correr.
 2. Revisa la base con `rappi-ia doctor` (solo lectura): si Postgres no responde, si la base `rappi` no existe o si no tiene catálogo, explica qué falta (sección 3) y termina.
@@ -160,7 +160,7 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 - **Reportes:** la salida completa queda en `rappi-scraper/data/logs/launchd.*.log` y el reporte de calidad en `rappi-scraper/data/reports/`.
 - **`rappi refresh` lanzado a mano:** `./scripts/despues-del-refresh.sh` en `rappi-ia/` espera a que termine y corre `make post-refresh`. A diferencia de la tarea semanal, recalibra τ en `thresholds.json`: si cambia, revisar y hacer commit.
 
-## Operación
+## 7. Operación
 
 - **Jobs fallidos en una corrida** (el reporte los lista; a veces Rappi entrega páginas incompletas por un rato):
 
@@ -182,6 +182,6 @@ make schedule-status   # ¿está activa? ¿cómo terminó la última vez?
 
   Consultas de ejemplo: [sql/](sql/).
 
-## 7. Despliegue
+## 8. Despliegue
 
 En un servidor Linux (Docker Compose, Caddy con TLS y puerta de acceso, roles de base separados, respaldos fuera del equipo): [despliegue.md](despliegue.md).
