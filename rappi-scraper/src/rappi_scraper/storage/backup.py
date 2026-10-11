@@ -30,9 +30,9 @@ def find_pg_dump() -> str:
     raise RuntimeError("No se encontró pg_dump (instala postgresql@17 o define PG_DUMP en .env)")
 
 
-def rotate_backups(backups_dir: Path, keep: int) -> list[Path]:
-    """Borra los respaldos `rappi_*.dump` más antiguos, dejando los `keep` más nuevos. Devuelve los borrados."""
-    dumps = sorted(backups_dir.glob("rappi_*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
+def rotate_backups(backups_dir: Path, keep: int, prefix: str = "rappi") -> list[Path]:
+    """Borra los respaldos `<prefix>_*.dump` más antiguos, dejando los `keep` más nuevos. Devuelve los borrados."""
+    dumps = sorted(backups_dir.glob(f"{prefix}_*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
     removed = dumps[keep:]
     for path in removed:
         path.unlink()
@@ -52,11 +52,14 @@ def _connection_args(database_url: str) -> tuple[list[str], dict[str, str]]:
     return args, env
 
 
-def backup_database(database_url: str, backups_dir: Path = BACKUPS_DIR, keep: int = KEEP_BACKUPS) -> Path:
+def backup_database(
+    database_url: str, backups_dir: Path = BACKUPS_DIR, keep: int = KEEP_BACKUPS, prefix: str = "rappi"
+) -> Path:
     """Vuelca a `.part`, lo valida con `pg_restore --list` y recién entonces lo renombra y rota: un volcado cortado
-    (disco lleno, corte de luz) nunca pasa por el respaldo más nuevo ni expulsa uno sano."""
+    (disco lleno, corte de luz) nunca pasa por el respaldo más nuevo ni expulsa uno sano. Cada `prefix` rota aparte (el
+    de antes de migrar, `pre-migracion`, no expulsa a los semanales)."""
     backups_dir.mkdir(parents=True, exist_ok=True)
-    target = backups_dir / f"rappi_{datetime.now():%Y%m%d-%H%M%S}.dump"
+    target = backups_dir / f"{prefix}_{datetime.now():%Y%m%d-%H%M%S}.dump"
     partial = target.with_name(target.name + ".part")
     pg_dump = find_pg_dump()
     connection_args, env = _connection_args(database_url)
@@ -68,7 +71,7 @@ def backup_database(database_url: str, backups_dir: Path = BACKUPS_DIR, keep: in
         partial.unlink(missing_ok=True)
         raise
     partial.rename(target)
-    removed = rotate_backups(backups_dir, keep)
+    removed = rotate_backups(backups_dir, keep, prefix)
     log.info("Respaldo en %s (%d antiguos borrados)", target, len(removed))
     return target
 

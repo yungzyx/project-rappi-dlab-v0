@@ -9,7 +9,7 @@ import psycopg
 from rappi_scraper.storage.db import MIGRATIONS_DIR
 
 from ..config import PROJECT_ROOT
-from ..db import connect
+from ..db import changed_migrations, connect
 
 # La base con los datos descargados: no se le aplican migraciones desde una rama sin fusionar.
 PROTECTED_DATABASE = "rappi"
@@ -91,7 +91,8 @@ def check_pending_migrations(
 
     Se niega (False y un mensaje que las lista y dice cómo seguir) si hay pendientes en la base protegida (`rappi`) y el
     código no está en origin/main. `force` (la variable MIGRATE=1) y cualquier otra base (p. ej. una copia
-    `rappi_staging`) las dejan pasar; sin pendientes, el mensaje queda vacío."""
+    `rappi_staging`) las dejan pasar; sin pendientes, el mensaje queda vacío. Antes avisa (sin frenar) de cada migración
+    aplicada cuyo archivo cambió después."""
     try:
         conn = connect(url, connect_timeout=3)
     except psycopg.Error as exc:
@@ -99,9 +100,11 @@ def check_pending_migrations(
     with conn:
         conn.read_only = True
         pending = pending_migrations(conn)
+        changed = changed_migrations(conn)
         database = conn.info.dbname
+    notes = [f"La migración {name} cambió después de aplicarse" for name in changed]
     if not pending:
-        return True, ""
+        return True, "\n".join(notes)
     if database == PROTECTED_DATABASE and not force and (merged or head_is_merged)() is False:
-        return False, _refusal(database, pending)
-    return True, f"Migraciones pendientes en {database} (se aplican ahora): {', '.join(pending)}"
+        return False, "\n".join([*notes, _refusal(database, pending)])
+    return True, "\n".join([*notes, f"Migraciones pendientes en {database} (se aplican ahora): {', '.join(pending)}"])

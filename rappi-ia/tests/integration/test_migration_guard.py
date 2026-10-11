@@ -120,6 +120,19 @@ def test_command_is_silent_when_there_is_nothing_to_migrate(db, test_url, protec
     assert capsys.readouterr().out == ""
 
 
+def test_command_warns_about_a_migration_edited_after_applying(db, test_url, protected, monkeypatch, capsys):
+    """Se registran por nombre: una editada después de aplicarse no se vuelve a correr. El md5 lo deja a la vista."""
+    first = db.execute("SELECT min(name) FROM schema_migrations").fetchone()[0]
+    db.execute("UPDATE schema_migrations SET checksum = 'otro' WHERE name = %s", (first,))
+    db.commit()
+    monkeypatch.setenv("DATABASE_URL", test_url)
+    monkeypatch.setattr(doctor, "head_is_merged", UNMERGED)
+
+    cli.main(["check-migrations"])  # avisa, pero no frena
+
+    assert f"La migración {first} cambió después de aplicarse" in capsys.readouterr().out
+
+
 def test_command_explains_unreachable_postgres(monkeypatch, capsys):
     monkeypatch.setenv("DATABASE_URL", "postgresql://localhost:1/nada")
 

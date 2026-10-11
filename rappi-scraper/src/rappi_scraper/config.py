@@ -61,3 +61,7 @@ MAX_BLOCKED_JOB_ATTEMPTS = MAX_JOB_ATTEMPTS + 2
 UNAVAILABLE_PATH_PREFIX = "/tiendas/tipo/"
 # Rappi redirige a /restaurantes?restaurantNotFound=true cuando el restaurante ya no existe (cerró o se dio de baja).
 RESTAURANT_NOT_FOUND_QUERY = "restaurantNotFound=true"
+
+# Cuánto espera cada sentencia de una migración por un candado de tabla antes de fallar (lock_timeout de Postgres): un
+# ALTER detrás de una transacción larga dejaba en fila a todas las consultas de esa tabla mientras esperaba.
+MIGRATE_LOCK_TIMEOUT = os.environ.get("MIGRATE_LOCK_TIMEOUT", "10s")

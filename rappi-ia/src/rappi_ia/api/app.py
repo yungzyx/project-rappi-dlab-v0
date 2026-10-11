@@ -51,7 +51,9 @@ log = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Carga los modelos antes de «startup complete»: si no, los paga la primera petición (el /health del prototipo,
-    que se rinde a los 1,5 s y la app muestra «Sin conexión»). El pool de conexiones vive lo mismo que la app."""
+    que se rinde a los 1,5 s y la app muestra «Sin conexión»). El pool de conexiones vive lo mismo que la app.
+    Nunca migra: en local lo hacen `make serve` y `make mvp` antes de arrancarla; en producción, `rappi-ia
+    deploy-migrate` (con respaldo antes). Mientras falten migraciones, /health da 503 `migraciones_pendientes`."""
     configure_logging(config.LOG_LEVEL)
     identity.secret()  # sin API_SECRET en producción, la API no arranca
     deps.open_pool()

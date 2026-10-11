@@ -1,16 +1,27 @@
-"""Conexión a Postgres y runner de migraciones (`storage/migrations/*.sql`, en orden)."""
+"""Conexión a Postgres y runner de migraciones (`storage/migrations/*.sql`, en orden).
 
+Cada migración corre en su propia transacción, con `lock_timeout` (MIGRATE_LOCK_TIMEOUT, 10 s): si una tabla está
+tomada, falla en vez de dejar en fila a todas sus consultas. Un `CHECK` nuevo sobre una tabla grande va en dos pasos,
+`ADD CONSTRAINT … NOT VALID` y después `VALIDATE CONSTRAINT`: en uno solo, la tabla queda tomada (ni lecturas ni
+escrituras) mientras se revisa entera; así, el primero no la lee y el segundo la lee sin bloquear las escrituras.
+"""
+
+import hashlib
 import logging
 import os
 from pathlib import Path
 
 import psycopg
+from psycopg.pq import TransactionStatus
 
-from .. import config  # noqa: F401  (carga .env antes de leer DATABASE_URL)
+from .. import config  # carga .env antes de leer DATABASE_URL
 
 log = logging.getLogger(__name__)
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
+# Clave de pg_advisory_lock (de sesión) que pone en fila a dos `migrate` a la vez (p. ej. dos despliegues, o un
+# despliegue y la tarea semanal). No es la de search_documents (72_001).
+MIGRATE_LOCK = 72_000
 
 
 class PendingMigrations(RuntimeError):
@@ -30,32 +41,74 @@ def connect(url: str | None = None) -> psycopg.Connection:
     return psycopg.connect(url or database_url(), connect_timeout=10, keepalives=1, keepalives_idle=60)
 
 
+def _checksum(path: Path) -> str:
+    return hashlib.md5(path.read_bytes()).hexdigest()
+
+
+def _applied(conn: psycopg.Connection) -> dict[str, str | None]:
+    """Nombre → md5 de las migraciones registradas. `to_jsonb(m)` lee el checksum aunque la columna todavía no exista
+    (una base que no ha pasado por el `migrate` que la agrega)."""
+    if conn.execute("SELECT to_regclass('schema_migrations')").fetchone()[0] is None:
+        return {}
+    return dict(conn.execute("SELECT name, to_jsonb(m) ->> 'checksum' FROM schema_migrations m").fetchall())
+
+
 def migrate(conn: psycopg.Connection) -> list[str]:
-    """Aplica las migraciones pendientes. Devuelve los nombres aplicados."""
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS schema_migrations "
-        "(name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"
-    )
-    applied = {row[0] for row in conn.execute("SELECT name FROM schema_migrations")}
-    newly_applied = []
-    for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
-        if path.name in applied:
-            continue
-        with conn.transaction():
-            conn.execute(path.read_text(encoding="utf-8"))
-            conn.execute("INSERT INTO schema_migrations (name) VALUES (%s)", (path.name,))
-        log.info("Migración aplicada: %s", path.name)
-        newly_applied.append(path.name)
-    conn.commit()
-    return newly_applied
+    """Aplica las migraciones pendientes, cada una en su transacción. Devuelve los nombres aplicados.
+
+    Toma el candado MIGRATE_LOCK durante toda la pasada: un segundo `migrate` espera al primero (sin límite) y después
+    no encuentra nada pendiente. Registra el md5 de cada archivo; a las filas anteriores sin md5 se lo completa."""
+    previous_timeout = conn.execute("SELECT current_setting('lock_timeout')").fetchone()[0]
+    conn.execute("SELECT pg_advisory_lock(%s)", (MIGRATE_LOCK,))
+    try:
+        conn.execute("SELECT set_config('lock_timeout', %s, false)", (config.MIGRATE_LOCK_TIMEOUT,))
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_migrations "
+            "(name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"
+        )
+        conn.execute("ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum text")
+        applied = _applied(conn)
+        conn.commit()  # así cada `conn.transaction()` de abajo es una transacción propia, no un savepoint
+        newly_applied = []
+        for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            checksum = _checksum(path)
+            if path.name in applied:
+                if applied[path.name] is None:
+                    conn.execute("UPDATE schema_migrations SET checksum = %s WHERE name = %s", (checksum, path.name))
+                continue
+            with conn.transaction():
+                conn.execute(path.read_text(encoding="utf-8"))
+                conn.execute("INSERT INTO schema_migrations (name, checksum) VALUES (%s, %s)", (path.name, checksum))
+            log.info("Migración aplicada: %s", path.name)
+            newly_applied.append(path.name)
+        conn.commit()
+        return newly_applied
+    finally:
+        # Lo aplicado ya está confirmado: el candado se suelta después, y la sesión vuelve con su lock_timeout.
+        if conn.info.transaction_status == TransactionStatus.INERROR:
+            conn.rollback()
+        conn.execute("SELECT set_config('lock_timeout', %s, false)", (previous_timeout,))
+        conn.execute("SELECT pg_advisory_unlock(%s)", (MIGRATE_LOCK,))
+        conn.commit()
 
 
 def check_migrations(conn: psycopg.Connection) -> None:
     """Falla si la base no tiene todas las migraciones del repositorio: el código puede depender de ellas (la vista de
     vigencia de la 019) y `refresh` descargaba todo antes de caerse al armar la búsqueda."""
-    applied = set()
-    if conn.execute("SELECT to_regclass('schema_migrations')").fetchone()[0] is not None:
-        applied = {row[0] for row in conn.execute("SELECT name FROM schema_migrations")}
+    applied = _applied(conn)
+    for name in changed_migrations(conn, applied):
+        log.warning("La migración %s cambió después de aplicarse", name)
     pending = [path.name for path in sorted(MIGRATIONS_DIR.glob("*.sql")) if path.name not in applied]
     if pending:
         raise PendingMigrations(f"Hay migraciones pendientes ({', '.join(pending)}): corre `rappi migrate` antes.")
+
+
+def changed_migrations(conn: psycopg.Connection, applied: dict[str, str | None] | None = None) -> list[str]:
+    """Migraciones aplicadas cuyo archivo ya no tiene el md5 registrado: se editaron después de aplicarse, y `migrate`
+    no las vuelve a correr (se registran por nombre). Las filas sin md5 todavía no cuentan."""
+    applied = _applied(conn) if applied is None else applied
+    return [
+        path.name
+        for path in sorted(MIGRATIONS_DIR.glob("*.sql"))
+        if applied.get(path.name) is not None and applied[path.name] != _checksum(path)
+    ]

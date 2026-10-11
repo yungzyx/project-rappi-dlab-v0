@@ -19,6 +19,7 @@ Flujo típico (después de cada `rappi refresh` del scraper):
     rappi-ia seed-demo               # catálogo de prueba inventado, SOLO en la base DATABASE_URL_TEST (_test)
     rappi-ia doctor                  # revisa (solo lectura) que DATABASE_URL tenga catálogo; sale 1 si no
     rappi-ia check-migrations        # se niega a migrar la base real desde una rama sin fusionar (MIGRATE=1 lo fuerza)
+    rappi-ia deploy-migrate          # paso del despliegue: respalda si hay pendientes, migra, tarjetas y permisos
     rappi-ia token proto-…           # token (X-User-Token) de una persona, firmado con el secreto de la API
 """
 
@@ -27,13 +28,18 @@ import logging
 import os
 import sys
 from collections import Counter
+from collections.abc import Callable
+from pathlib import Path
+
+from psycopg import sql
+from rappi_scraper.storage.backup import backup_database
 
 from . import config
 from .concepts.pipeline import build_concepts
 from .concepts.report import coverage_report, jev_review_path, render_text, write_category_proposals
 from .concepts.taxonomy import load_taxonomy
-from .db import connect, database_url, migrate
-from .demo.doctor import check_database, check_pending_migrations
+from .db import changed_migrations, connect, database_url, migrate
+from .demo.doctor import check_database, check_pending_migrations, pending_migrations
 from .demo.seed import ensure_test_database, reset_test_database, seed_demo
 from .game.cards import load_knowledge
 from .layers.attributes import build_attributes
@@ -527,6 +533,54 @@ def cmd_check_migrations(conn, args) -> None:
         print(message)
 
 
+# Permisos del rol de la API (lo escribe el despliegue, deploy/db/): nombra el rol como `{api_role}`.
+GRANTS_FILE = config.PROJECT_ROOT.parent / "deploy" / "db" / "grants.sql"
+# Los respaldos de antes de migrar rotan aparte de los semanales de `rappi refresh` (`rappi_*.dump`).
+PRE_MIGRATION_BACKUP = "pre-migracion"
+
+
+def deploy_migrate(conn, backup: Callable[[], Path] | None, grants_file: Path = GRANTS_FILE) -> None:
+    """Migrar como paso del despliegue (el servicio `migrate`): si hay migraciones pendientes, primero `backup` (si
+    falla, no migra; `None` es --sin-respaldo); después `migrate`, las tarjetas del juego y, con DB_API_ROLE, los
+    permisos de ese rol (`grants_file`, idempotente). Dice qué hizo; sale con error si algo falla."""
+    role = os.environ.get("DB_API_ROLE")
+    if role and not grants_file.is_file():
+        raise SystemExit(f"DB_API_ROLE={role} pide aplicar {grants_file}, pero ese archivo no existe: no migro.")
+    for name in changed_migrations(conn):
+        log.warning("La migración %s cambió después de aplicarse", name)
+    pending = pending_migrations(conn)
+    if not pending:
+        print("Sin migraciones pendientes: no hace falta respaldo.")
+    elif backup is None:
+        print(f"Migraciones pendientes ({', '.join(pending)}): sigo sin respaldo (--sin-respaldo).")
+    else:
+        print(f"Migraciones pendientes ({', '.join(pending)}): respaldo antes de aplicarlas…")
+        try:
+            path = backup()
+        except Exception as exc:
+            raise SystemExit(f"No se pudo respaldar la base ({exc}): no migro.") from exc
+        print(f"Respaldo listo: {path}")
+    applied = migrate(conn)
+    print("Migraciones aplicadas: " + (", ".join(applied) if applied else "ninguna (al día)"))
+    try:
+        counts = load_knowledge(conn)
+    except ValueError as exc:
+        raise SystemExit(f"Tarjetas del juego: {exc}") from exc
+    conn.commit()
+    print(f"Tarjetas del juego: {counts['tarjetas']}, ligas a conceptos: {counts['ligas']}")
+    if role:
+        conn.execute(sql.SQL(grants_file.read_text(encoding="utf-8")).format(api_role=sql.Identifier(role)))
+        conn.commit()
+        print(f"Permisos del rol de la API ({role}) aplicados desde {grants_file}")
+
+
+def cmd_deploy_migrate(conn, args) -> None:
+    def backup() -> Path:
+        return backup_database(database_url(), prefix=PRE_MIGRATION_BACKUP)
+
+    deploy_migrate(conn, None if args.sin_respaldo else backup)
+
+
 def cmd_token(conn, args) -> None:
     """Para herramientas del operador que leen rutas de una persona (su perfil, su juego): no toca la base."""
     from .api.identity import sign
@@ -543,6 +597,7 @@ OWN_CONNECTION = {"seed-demo", "doctor", "check-migrations", "token"}
 COMMANDS = {
     "token": cmd_token,
     "check-migrations": cmd_check_migrations,
+    "deploy-migrate": cmd_deploy_migrate,
     "doctor": cmd_doctor,
     "seed-demo": cmd_seed_demo,
     "measures": cmd_measures,
@@ -668,6 +723,12 @@ def build_parser() -> argparse.ArgumentParser:
         "check-migrations",
         help="se niega si la base rappi tiene migraciones pendientes y el código no está en origin/main (MIGRATE=1)",
     )
+    dm = sub.add_parser(
+        "deploy-migrate",
+        help="paso del despliegue: si hay migraciones pendientes respalda la base y las aplica; después las tarjetas "
+        "del juego y, con DB_API_ROLE, los permisos de la API (deploy/db/grants.sql)",
+    )
+    dm.add_argument("--sin-respaldo", action="store_true", help="migra sin respaldar antes")
     token = sub.add_parser(
         "token", help="token (X-User-Token) de una persona para las herramientas del operador; no toca la base"
     )
