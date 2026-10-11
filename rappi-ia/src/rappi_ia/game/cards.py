@@ -1,8 +1,8 @@
 """Las tarjetas de conocimiento del juego (`knowledge.json`) y sus ligas a conceptos (`card_concepts.toml`).
 
 Las ligas salen de una regla (el mismo reconocedor de palabras clave que asigna conceptos a los productos) y se
-revisan a mano: cada propuesta de la regla queda aceptada (`concepts`) o rechazada (`rejected`), y a mano se agrega
-el concepto evidente que la regla no vio. Solo esa revisión llega a la base.
+revisan una por una: cada propuesta de la regla queda aceptada (`concepts`) o rechazada (`rejected`), y en la revisión
+se agrega el concepto evidente que la regla no vio. Solo esa revisión llega a la base.
 """
 
 import json
