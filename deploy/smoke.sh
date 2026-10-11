@@ -93,6 +93,7 @@ fi
 
 echo "Base"
 # Como rappi_api, con su clave (dentro del contenedor de la base: no pasa por este equipo).
+# shellcheck disable=SC2016 # las variables se expanden adentro del contenedor, no aquí
 drop=$("${compose[@]}" exec -T db sh -c \
   'PGPASSWORD="$RAPPI_API_PASSWORD" psql -h 127.0.0.1 -U rappi_api -d "${POSTGRES_DB:-rappi}" -v ON_ERROR_STOP=1 -c "DROP TABLE app_events"' 2>&1)
 if grep -q 'must be owner' <<<"$drop"; then
