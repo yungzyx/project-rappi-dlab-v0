@@ -102,13 +102,19 @@ export function GameProvider({ children }) {
     }
   }, [])
 
-  const reset = useCallback(() => {
+  // «Olvidar» del asistente ya borró el perfil en el servidor, y con él este progreso: el juego vuelve a cero solo en
+  // memoria, sin subir nada (subirlo lo recrearía). La próxima acción lo guarda como el de un usuario nuevo.
+  const forget = useCallback(() => {
     latest.current = progress.initialState()
     setState(latest.current)
-    saver.current.save(latest.current)
     setEvents([])
     setGeneration((n) => n + 1)
   }, [])
+
+  const reset = useCallback(() => {
+    forget()
+    saver.current.save(latest.current)
+  }, [forget])
 
   // «Repetir escena» (junto al teléfono o en Account) deja también el juego como al empezar. Mientras carga no hay nada
   // que reiniciar, y reiniciar entonces pisaría el progreso del servidor.
@@ -118,7 +124,9 @@ export function GameProvider({ children }) {
     return () => window.removeEventListener(REPLAY_EVENT, reset)
   }, [reset, loaded])
 
+  // Una acción que no cambia nada (abrir una vertical ya sellada) devuelve el mismo estado: no hay nada que guardar.
   const commit = useCallback((next) => {
+    if (next === latest.current) return
     latest.current = next
     setState(next)
     saver.current.save(next)
@@ -161,8 +169,9 @@ export function GameProvider({ children }) {
       dismissEvent,
       clearEvents,
       reset,
+      forget,
     }),
-    [state, date, events, generation, run, commit, dismissEvent, clearEvents, reset],
+    [state, date, events, generation, run, commit, dismissEvent, clearEvents, reset, forget],
   )
 
   if (loaded !== 'ready') {

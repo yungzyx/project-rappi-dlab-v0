@@ -264,6 +264,38 @@ describe('guardado en el servidor', () => {
     expect(gameServer.state).toEqual(initialState())
   })
 
+  test('an action that leaves the state as it was saves nothing (opening an already-stamped vertical)', async () => {
+    seed({ visited: ['supermercado'] })
+    const api = stubApi({})
+    renderProbe((game) => game.visit('grocery'))
+    await gameReady()
+    fireEvent.click(screen.getByText('actuar'))
+    await act(async () => {})
+    expect(requests(api, 'PUT')).toEqual([])
+  })
+
+  test('forget goes back to the initial state without saving; the next action saves the fresh state', async () => {
+    const [a] = datosOf('turbo')
+    seed({ xp: 130, visited: ['farmacia'] })
+    const api = stubApi({})
+    let forgotten = false
+    renderProbe((game) => {
+      if (forgotten) return game.discover('turbo', a.id)
+      forgotten = true
+      return game.forget()
+    })
+    await gameReady()
+    expect(screen.getByTestId('xp').textContent).toBe('130')
+    fireEvent.click(screen.getByText('actuar'))
+    expect(screen.getByTestId('xp').textContent).toBe('0')
+    await act(async () => {})
+    expect(requests(api, 'PUT')).toEqual([])
+
+    fireEvent.click(screen.getByText('actuar'))
+    await savedAs((s) => expect(s).toMatchObject({ xp: 10, visited: initialState().visited, discovered: { turbo: [a.id] } }))
+    expect(requests(api, 'PUT')).toEqual([`/game/state/${userId()}`])
+  })
+
   test('«Repetir escena» mientras carga no hace nada', async () => {
     seed({ xp: 130 })
     const api = stubApi({ 'GET /game/state/*': { slow: 30, body: { state: { ...initialState(), xp: 130 } } } })

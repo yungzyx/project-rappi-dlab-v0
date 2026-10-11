@@ -14,6 +14,7 @@ import { clearShownTopics, noteShownTopic, sessionId, shownTopics, useEvents } f
 import { useAssistant } from '../../state/AssistantContext'
 import { useCart } from '../../state/CartContext'
 import { useDialog } from '../../hooks/useDialog'
+import { useGame } from '../../state/GameContext'
 import { useProfile } from '../../state/ProfileContext'
 import BackButton from '../BackButton'
 import AgentMessage from './AgentMessage'
@@ -50,6 +51,7 @@ const asForYou = (product) => ({ ...product, fromSuggestion: true, suggestionOri
 export default function AssistantPanel({ push, vertical, depth = 1 }) {
   const assistant = useAssistant()
   const profile = useProfile()
+  const game = useGame()
   const demo = useDemo()
   const events = useEvents()
   const cart = useCart()
@@ -353,6 +355,8 @@ export default function AssistantPanel({ push, vertical, depth = 1 }) {
     await events.settled()
     try {
       await forget(userId())
+      // Borrar el perfil borró también el progreso del juego: queda en cero sin subirlo (subirlo lo recrearía).
+      game.forget()
       // La conversación hablaba de lo aprendido («Vi que te gusta…»): se reemplaza para que se vea que ya no está.
       setMessages([{ id: nextId++, from: 'bot', text: 'Listo, olvidé lo que aprendí de ti 🧹 ¿Qué se te antoja hoy?' }])
     } catch {
