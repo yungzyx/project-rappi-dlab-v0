@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff==0.16.9"]
+dev = ["pytest>=8", "ruff==0.16.10"]
 
 [project.scripts]
 rappi = "rappi_scraper.cli:main"
