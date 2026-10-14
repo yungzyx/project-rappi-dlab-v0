@@ -23,8 +23,10 @@ MIN_BRAND_ORDERS = 2  # pedidos distintos con una marca para que cuente como «s
 class Signal:
     kind: str  # "concepto" o "marca"
     id: str
+    # Un peso (los eventos con decaimiento; el nivel de un segmento, `LEVEL_WEIGHT`) o una cuenta (los pedidos con una
+    # marca; los pedidos o las búsquedas de un concepto en el «por qué» de un perfil, `offers/profiles.py`).
     score: float
-    source: str  # "eventos", "segmento:<segment_id>" o "pedidos"
+    source: str  # "eventos", "segmento:<segment_id>", "pedidos" o "busquedas"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -44,7 +46,8 @@ class Interests:
         return list(self.concepts)[:n]
 
 
-def _is_prototype_user(conn: Connection, user_id: str | None) -> bool:
+def is_prototype_user(conn: Connection, user_id: str | None) -> bool:
+    """Si es una persona del prototipo: la única a quien se personaliza (un visitante sin id o alguien simulado, no)."""
     if user_id is None:
         return False
     row = conn.execute("SELECT 1 FROM app_users WHERE user_id = %s AND source = 'prototype'", (user_id,)).fetchone()
@@ -54,7 +57,7 @@ def _is_prototype_user(conn: Connection, user_id: str | None) -> bool:
 def user_interests(conn: Connection, user_id: str | None) -> Interests:
     """Los intereses de la persona: eventos con decaimiento más los conceptos de la evidencia de sus segmentos no
     sensibles (pesados por nivel), y las marcas que repite. Vacío si no es un usuario del prototipo."""
-    if not _is_prototype_user(conn, user_id):
+    if not is_prototype_user(conn, user_id):
         return Interests.empty()
     concepts = load_taxonomy().concepts
     signals: list[Signal] = [Signal("concepto", c, s, "eventos") for c, s in events.profile(conn, user_id).items()]
@@ -82,7 +85,7 @@ def bought_brands(conn: Connection, user_id: str | None) -> dict[str, int]:
     """Marcas que la persona compró en `MIN_BRAND_ORDERS` pedidos distintos o más: brand_key → pedidos. Sin cadenas de
     restaurantes ni marcas propias de una tienda (repetir ahí habla de la tienda o del precio, no de la marca). Vacío
     si no es un usuario del prototipo."""
-    return _brand_orders(conn, user_id) if _is_prototype_user(conn, user_id) else {}
+    return _brand_orders(conn, user_id) if is_prototype_user(conn, user_id) else {}
 
 
 def _brand_orders(conn: Connection, user_id: str) -> dict[str, int]:

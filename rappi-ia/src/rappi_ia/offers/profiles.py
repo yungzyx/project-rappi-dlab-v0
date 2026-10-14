@@ -9,8 +9,9 @@ El motor:
   `personal.py`), con su «por qué» contado en sus pedidos y búsquedas. «Olvidar» borra o recalcula sus segmentos, así
   que el perfil se va con ellos.
 - `ladder`: la escalera de un perfil, con productos de verdad: una búsqueda de oferta por peldaño
-  (`search_products(..., offer=True)`), así que pasan todas las guardias (nada +18, ni un nombre que dice alcohol, ni
-  tiendas Farmacia, Sex shop o Smoking shop).
+  (`search_products(..., offer=True)`), así que pasan todas las guardias (nada +18, ni un nombre o una sección de menú
+  que dice alcohol, ni tiendas Farmacia, Sex shop o Smoking shop). Además, una escalera no muestra tiendas que se
+  llaman «Licores» o «Botillería» (venden hielo y bebidas, pero el perfil no lleva ahí).
 """
 
 import tomllib
@@ -27,17 +28,24 @@ from ..agent.tools import Product, search_products
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
 from ..layers.segments import LEVELS, load_segment_rules
-from ..text import normalize
+from ..text import normalize, tokens
 from .guards import is_offerable, offerable_vertical
-from .personal import Signal, _is_prototype_user
+from .personal import LEVEL_WEIGHT, Signal, is_prototype_user
 
 DATA_DIR = Path(__file__).resolve().parent
 MIN_STEPS = 2  # con menos peldaños no hay escalera que ofrecer
 FACTS = 2  # hechos por destino: los que muestra la tarjeta del viaje
 STEP_PRODUCTS = 4  # lo más que muestra un peldaño; basta uno («Lindor Matcha» es el único matcha de chocolaterías)
 # Productos que se piden por peldaño, antes de quedarse con los de sus conceptos, con sus palabras y, en restaurantes,
-# uno por local que la persona no conoce.
+# uno por cadena que la persona no conoce. En restaurantes, más: los primeros platos suelen ser de un mismo local (en la
+# base real, 10 de 12).
 STEP_CANDIDATES = 12
+RESTAURANT_CANDIDATES = 40
+# Palabras clave de cada concepto en la consulta de un peldaño sin palabras, después del nombre del concepto. En
+# restaurantes, sin el nombre: sus palabras genéricas («comida», «tablas») contra 165 mil platos costaban 150 ms más por
+# peldaño en la base real, y los platos se llaman por sus palabras clave (sushi, roll, wok, chorrillana).
+STEP_QUERY_KEYWORDS = 2
+LIQUOR_STORE_WORDS = ("licor", "botiller")  # tiendas (nombre o marca) que una escalera no muestra: «Turbo Licores»
 REASON_CONCEPTS = 3  # conceptos que nombra el «por qué»
 QUERY_EVENTS = ("search", "chat", "ask")  # lo que cuenta como «buscaste»
 # El «por qué» sin nada que contar: un perfil que se armó con lo que el agente no nombra (los cócteles del carrete)
@@ -86,6 +94,7 @@ class Profile:
     min_level: str
     ladder: tuple[Step, ...]
     trip: str | None = None  # id de un destino
+    likes: str | None = None  # lo que sigue a «Como te gusta…» en el momento `perfil` («lo asiático»)
 
 
 @cache
@@ -119,8 +128,13 @@ def load_profiles(path: Path = DATA_DIR / "perfiles.toml") -> dict[str, Profile]
     for raw in tomllib.loads(path.read_text(encoding="utf-8")).get("perfil", ()):
         where = f"Perfil {raw.get('id', '?')}"
         _check_keys(
-            raw, {"id", "nombre", "emoji", "segmentos", "nivel_minimo", "escalera"}, {"principal", "viaje"}, where
+            raw,
+            {"id", "nombre", "emoji", "segmentos", "nivel_minimo", "escalera"},
+            {"principal", "viaje", "gusto"},
+            where,
         )
+        if "gusto" in raw and not (isinstance(raw["gusto"], str) and raw["gusto"].strip()):
+            raise ValueError(f"{where}: «gusto» va como un texto no vacío")
         if raw["id"] in profiles:
             raise ValueError(f"{where}: id repetido")
         for segment in raw["segmentos"]:
@@ -144,6 +158,7 @@ def load_profiles(path: Path = DATA_DIR / "perfiles.toml") -> dict[str, Profile]
             min_level=raw["nivel_minimo"],
             ladder=ladder,
             trip=raw.get("viaje"),
+            likes=raw.get("gusto"),
         )
     main = [p.id for p in profiles.values() if p.main]
     if len(main) > 1:
@@ -165,10 +180,22 @@ def _step(raw: dict, concepts: dict, where: str) -> Step:
             raise ValueError(f"{where}: concepto desconocido «{concept}»")
         if not is_offerable(concepts[concept]):
             raise ValueError(f"{where}: el agente no ofrece «{concept}» por su cuenta (offers/guards.py)")
-    # Como se comparan con el nombre normalizado: «café» calza «Bombones de Cafe» y «cotillón», «Cotillon».
-    words = tuple(normalize(word) for word in raw.get("palabras", ()))
-    avoid = tuple(normalize(word) for word in raw.get("evitar", ()))
+    words = _words(raw, "palabras", where)
+    avoid = _words(raw, "evitar", where)
     return Step(vertical, tuple(raw["conceptos"]), raw["texto"], words, avoid)
+
+
+def _words(raw: dict, key: str, where: str) -> tuple[str, ...]:
+    """Las `palabras` o `evitar` de un peldaño, normalizadas como el nombre con que se comparan: «café» calza «Bombones
+    de Cafe» y «cotillón», «Cotillon». Un texto suelto (`palabras = "vaso"`) o una palabra vacía se notan al cargar: si
+    no, calzaría letra por letra o con todo."""
+    found = raw.get(key, [])
+    if not isinstance(found, list):
+        raise ValueError(f"{where}: «{key}» va como lista, no como texto")
+    words = tuple(normalize(word) if isinstance(word, str) else "" for word in found)
+    if "" in words:
+        raise ValueError(f"{where}: «{key}» trae una palabra vacía o sin letras")
+    return words
 
 
 def _check_keys(raw: dict, required: set[str], optional: set[str], where: str) -> None:
@@ -207,47 +234,56 @@ class ActiveProfile:
 def active_profiles(conn: Connection, user_id: str | None) -> list[ActiveProfile]:
     """Los perfiles de la persona: los que tienen alguno de sus segmentos (no sensibles) en `nivel_minimo` o más. El
     nivel es el mayor de sus segmentos y el puntaje, la suma. El «por qué» cuenta sus pedidos y búsquedas en la ventana
-    de esos segmentos (la mayor: 120 días). El principal primero y después por puntaje (con empate, el orden del
-    archivo). Vacío si no es del prototipo."""
-    if not _is_prototype_user(conn, user_id):
+    de esos segmentos (la mayor de los que tiene; hoy, 120 días). La `basis` tiene la forma de las señales de
+    `personal.py`: la evidencia de sus segmentos (concepto, el peso de su nivel, `segmento:<id>`) y lo que cuenta el
+    «por qué» (concepto, cuántas veces, `pedidos` o `busquedas`), solo de conceptos que el agente puede nombrar. El
+    principal primero y después por puntaje (con empate, el orden del archivo). Vacío si no es del prototipo."""
+    if not is_prototype_user(conn, user_id):
         return []
     profiles = load_profiles()
     rows = conn.execute(
-        """SELECT s.segment_id, s.level, s.score
+        """SELECT s.segment_id, s.level, s.score, coalesce(s.evidence -> 'top', '[]'::jsonb)
            FROM user_segments s JOIN segment_defs d USING (segment_id)
            WHERE s.user_id = %s AND NOT d.sensitive AND s.segment_id = ANY(%s)""",
         (user_id, sorted({segment for p in profiles.values() for segment in p.segments})),
     ).fetchall()
-    held = {segment: (level, float(score)) for segment, level, score in rows}
-    found: list[tuple[Profile, str, float, list[Signal]]] = []
+    held = {segment: (level, float(score), top) for segment, level, score, top in rows}
+    rules = {rule.id: rule for rule in load_segment_rules()[1]}
+    active = []
     for profile in profiles.values():
-        mine = [(segment, *held[segment]) for segment in profile.segments if segment in held]
-        level = max((level for _, level, _ in mine), key=LEVELS.index, default=None)
+        mine = [segment for segment in profile.segments if segment in held]
+        level = max((held[segment][0] for segment in mine), key=LEVELS.index, default=None)
         if level is None or LEVELS.index(level) < LEVELS.index(profile.min_level):
             continue
-        signals = [Signal("segmento", segment, round(score, 3), "segmentos") for segment, _, score in mine]
-        found.append((profile, level, round(sum(score for *_, score in mine), 3), signals))
-    if not found:
-        return []
-    rules = {rule.id: rule for rule in load_segment_rules()[1]}
-    wanted = {profile.id: _counted_concepts(profile, rules) for profile, *_ in found}
-    days = max(rules[segment].window_days for profile, *_ in found for segment in profile.segments)
-    counts = _counts(conn, user_id, sorted({c for concepts in wanted.values() for c in concepts}), days)
-    active = []
-    for profile, level, score, signals in found:
-        own = {c: counts[c] for c in wanted[profile.id] if c in counts}
-        counted = [Signal("concepto", c, n, source) for c, by_source in own.items() for source, n in by_source.items()]
-        basis = tuple(s.to_dict() for s in signals + counted)
-        active.append(ActiveProfile(profile, level, score, _reason(wanted[profile.id], own), basis))
+        evidence = [
+            Signal("concepto", item["id"], LEVEL_WEIGHT[held[segment][0]], f"segmento:{segment}")
+            for segment in mine
+            for item in held[segment][2]
+            if item.get("kind") == "concepto" and _nameable(item["id"])
+        ]
+        wanted = _counted_concepts(profile, rules)
+        days = max(rules[segment].window_days for segment in mine)
+        counts = _counts(conn, user_id, wanted, days) if wanted else {}
+        counted = [
+            Signal("concepto", c, n, source) for c, by_source in counts.items() for source, n in by_source.items()
+        ]
+        score = round(sum(held[segment][1] for segment in mine), 3)
+        basis = tuple(s.to_dict() for s in evidence + counted)
+        active.append(ActiveProfile(profile, level, score, _reason(wanted, counts), basis))
     return sorted(active, key=lambda a: (not a.profile.main, -a.score))
+
+
+def _nameable(concept_id: str) -> bool:
+    """Si el agente puede nombrar el concepto en un «por qué» (ni +18, ni sensible, ni bebé, ni salud)."""
+    concept = load_taxonomy().concepts.get(concept_id)
+    return concept is not None and is_offerable(concept)
 
 
 def _counted_concepts(profile: Profile, rules: dict) -> list[str]:
     """Los conceptos que miran los segmentos del perfil y que el agente puede nombrar (el carrete se activa también con
     cócteles y espumante, que no se nombran), en el orden de sus segmentos."""
-    concepts = load_taxonomy().concepts
     named = [c for segment in profile.segments for c in rules[segment].signals.get("concepts", ())]
-    return [c for c in dict.fromkeys(named) if c in concepts and is_offerable(concepts[c])]
+    return [c for c in dict.fromkeys(named) if _nameable(c)]
 
 
 def _counts(conn: Connection, user_id: str, concepts: list[str], days: int) -> dict[str, dict[str, int]]:
@@ -302,7 +338,7 @@ def _join(items: list[str]) -> str:
 def ordered_restaurants(conn: Connection, user_id: str | None) -> set[int]:
     """Los locales donde la persona ya pidió (sin «Rappi hoy»): el peldaño de restaurantes ofrece los que no conoce.
     Vacío si no es del prototipo."""
-    if not _is_prototype_user(conn, user_id):
+    if not is_prototype_user(conn, user_id):
         return set()
     rows = conn.execute(
         """SELECT DISTINCT store_id FROM menu_items
@@ -337,45 +373,98 @@ def ladder(
     profile: Profile,
     exclude_stores: set[int] | None = None,
 ) -> list[LadderStep]:
-    """Los peldaños del perfil que tienen productos, en su orden: de 1 a `STEP_PRODUCTS` por peldaño. Una lista vacía
-    si quedan menos de `MIN_STEPS`: no hay escalera. `exclude_stores` (`ordered_restaurants`): los locales que el
-    peldaño de restaurantes deja fuera. Una búsqueda de oferta por peldaño; cada consulta se embebe una vez, en un
+    """Los peldaños del perfil que tienen productos, en su orden: de 1 a `STEP_PRODUCTS` por peldaño, sin repetir un
+    nombre entre peldaños. Una lista vacía si quedan menos de `MIN_STEPS`: no hay escalera. `exclude_stores`
+    (`ordered_restaurants`): los locales que el peldaño de restaurantes deja fuera, con las otras sucursales de su
+    cadena. Una búsqueda de oferta por peldaño (y una consulta por sus tiendas); cada consulta se embebe una vez, en un
     solo lote."""
     queries = [_step_query(step) for step in profile.ladder]
     if embedder is not None:
         if not isinstance(embedder, MemoizedQueryEmbedder):
             embedder = MemoizedQueryEmbedder(embedder)
         embedder.embed_queries(list(dict.fromkeys(queries)))
-    steps = []
+    steps: list[LadderStep] = []
+    shown: set[str] = set()
     for step, query in zip(profile.ladder, queries, strict=True):
         known = set(exclude_stores or ()) if step.vertical == "restaurantes" else set()
-        if products := _step_products(conn, embedder, step, query, known):
+        if products := _step_products(conn, embedder, step, query, known, shown):
             steps.append(LadderStep(step, products))
+            shown |= {_name_key(p.name) for p in products}
     return steps if len(steps) >= MIN_STEPS else []
 
 
 def _step_query(step: Step) -> str:
-    """Lo que busca un peldaño: sus palabras, si tiene (es lo que el nombre debe decir), y si no, los nombres de sus
-    conceptos."""
+    """Lo que busca un peldaño: sus palabras, si tiene (es lo que el nombre debe decir); si no, por cada concepto su
+    nombre (lo que mejor entiende la búsqueda vectorial) y sus primeras palabras clave que suman una palabra nueva (lo
+    que la léxica encuentra en los nombres: sin embeddings, «Despensa asiática» no calzaba ningún producto). En
+    restaurantes, solo las palabras clave (`STEP_QUERY_KEYWORDS`)."""
+    if step.words:
+        return " ".join(step.words)
     concepts = load_taxonomy().concepts
-    return " ".join(step.words) if step.words else " ".join(concepts[c].name for c in step.concepts)
+    chosen: list[str] = []
+    for concept_id in step.concepts:
+        concept = concepts[concept_id]
+        named = step.vertical != "restaurantes"
+        seen = {word.rstrip("s") for word in tokens(concept.name)} if named else set()
+        chosen += [concept.name] if named else []
+        kept = 0
+        for keyword in concept.keywords:
+            words = {word.rstrip("s") for word in tokens(keyword)}  # «rolls» no suma nada a «roll»
+            if words - seen:
+                chosen.append(keyword)
+                seen |= words
+                kept += 1
+            if kept == STEP_QUERY_KEYWORDS:
+                break
+    return " ".join(chosen)
 
 
 def _step_products(
-    conn: Connection, embedder: TextEmbedder | None, step: Step, query: str, known: set[int]
+    conn: Connection, embedder: TextEmbedder | None, step: Step, query: str, known: set[int], shown: set[str]
 ) -> list[Product]:
-    """Los productos de los conceptos del peldaño que calzan sus palabras, primero los con foto y alternando sus
-    conceptos (la despensa italiana no son cuatro pastas). Los platos, uno por local y no de los que ya conoce."""
-    outcome = search_products(conn, step.vertical, query, list(step.concepts), embedder, k=STEP_CANDIDATES, offer=True)
+    """Los productos de los conceptos del peldaño que calzan sus palabras y que otro peldaño no mostró, primero los con
+    foto y alternando sus conceptos (la despensa italiana no son cuatro pastas). Ninguno de una tienda de licores. Los
+    platos, uno por cadena (o local, si no tiene) y no de las que la persona ya conoce."""
+    k = RESTAURANT_CANDIDATES if step.vertical == "restaurantes" else STEP_CANDIDATES
+    outcome = search_products(conn, step.vertical, query, list(step.concepts), embedder, k=k, offer=True)
+    stores = _stores(conn, {p.store_id for p in outcome.products if p.store_id is not None} | known)
+    places = {stores[store_id][0] for store_id in known if store_id in stores}
     by_concept: dict[str, list[Product]] = {c: [] for c in step.concepts}
-    places = set(known)
     for product in sorted(outcome.products, key=lambda p: p.img is None):  # estable: sigue el orden de la búsqueda
-        if product.concept not in by_concept or not step.fits(product.name):
+        if product.concept not in by_concept or not step.fits(product.name) or _name_key(product.name) in shown:
+            continue
+        place, liquor = stores.get(product.store_id, (("local", product.store_id), False))
+        if liquor or _liquor_store(product.store):
             continue
         if product.entity_type == "menu_item":
-            if product.store_id in places:
+            if place in places:
                 continue
-            places.add(product.store_id)
+            places.add(place)
         by_concept[product.concept].append(product)
     mixed = [p for group in zip_longest(*by_concept.values()) for p in group if p is not None]
     return mixed[:STEP_PRODUCTS]
+
+
+def _stores(conn: Connection, store_ids: set[int]) -> dict[int, tuple[tuple[str, int], bool]]:
+    """store_id → (su cadena, o el local si no tiene; si su nombre o su marca dicen licores o botillería)."""
+    if not store_ids:
+        return {}
+    rows = conn.execute(
+        """SELECT s.store_id, s.brand_id, s.name, b.name
+           FROM stores s LEFT JOIN brands b USING (brand_id)
+           WHERE s.store_id = ANY(%s)""",
+        (sorted(store_ids),),
+    )
+    return {
+        store_id: (("cadena", brand_id) if brand_id is not None else ("local", store_id), _liquor_store(name, brand))
+        for store_id, brand_id, name, brand in rows
+    }
+
+
+def _liquor_store(*names: str | None) -> bool:
+    return any(word in normalize(name) for name in names if name for word in LIQUOR_STORE_WORDS)
+
+
+def _name_key(name: str) -> str:
+    """Un nombre como lo compara la búsqueda al quitar repetidos (`agent.tools._dedupe`)."""
+    return " ".join(name.lower().split())

@@ -1,4 +1,5 @@
-"""El texto del momento `perfil` (offers/engine.py): sale del nombre del perfil, sin una frase escrita para cada uno."""
+"""El texto del momento `perfil` (offers/engine.py): «Como te gusta {gusto}…», con el `gusto` de cada perfil
+(offers/perfiles.toml); sin él, el agente nombra el perfil."""
 
 from dataclasses import replace
 
@@ -12,17 +13,17 @@ from rappi_ia.offers.profiles import load_profiles
     ("profile_id", "text"),
     [
         ("asiatico", "Como te gusta lo asiático, mira esto en otras verticales."),
-        ("cafe", "Como te gusta el café, mira esto en otras verticales."),  # «Amante del café»
+        ("cafe", "Como te gusta el café, mira esto en otras verticales."),
         ("italiano", "Como te gusta lo italiano, mira esto en otras verticales."),
-        ("mascotas", "Para tu perfil 🐶 Mascotero: mira esto en otras verticales."),  # un nombre sin «Amante de»
-        ("carrete", "Para tu perfil 🎉 Carrete: mira esto en otras verticales."),
+        ("mascotas", "Como te gusta consentir a tu perro, mira esto en otras verticales."),
+        ("carrete", "Como te gusta armar carrete, mira esto en otras verticales."),
     ],
 )
-def test_the_profile_text_comes_from_its_name(profile_id, text):
+def test_the_profile_text_says_what_the_person_likes(profile_id, text):
     assert _profile_text(load_profiles()[profile_id]) == text
 
 
-def test_a_new_lover_profile_needs_no_new_text():
-    peruvian = replace(load_profiles()["asiatico"], name="Amante de la cocina peruana")
+def test_a_profile_without_likes_is_named():
+    plain = replace(load_profiles()["mascotas"], likes=None)
 
-    assert _profile_text(peruvian) == "Como te gusta la cocina peruana, mira esto en otras verticales."
+    assert _profile_text(plain) == "Para tu perfil 🐶 Mascotero: mira esto en otras verticales."

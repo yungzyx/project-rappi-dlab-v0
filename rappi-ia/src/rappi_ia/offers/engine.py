@@ -12,15 +12,16 @@ de un complemento puede ser cerveza o pañales, y el texto no lo repite).
 
 Cada oferta dice por qué (`Offer.reason`): las claves de siempre (`occasion`, `concept`, `from_concept`), el `text`
 («Porque…») y la `basis`: las señales del contexto que la motivan (`kind` carrito, pedido, busqueda, ocasion, sello o
-perfil, e `id`; `source` «contexto» y sin `score`, que es de las señales de una persona en `offers/personal.py`). Lo
-que el agente no propone no entra a la base. Cuando la oferta se ordena por lo que le gusta a la persona
-(`vertical_por_probar` y las ocasiones de la Home), la `basis` son sus señales (con `score` y `source`) de los conceptos
-que más aportan. Un complemento cuyo primer producto es de una marca que la persona compra lo dice en el `text` y suma
-esa señal (`marca`, con los pedidos como `score`). En el momento `perfil` de una persona, el porqué es el «por qué» de
-su perfil y la `basis`, la suya (`offers/profiles.py`: sus segmentos y lo que pidió y buscó).
+perfil, este último en el momento `perfil` sin persona; e `id`; `source` «contexto» y sin `score`, que es de las
+señales de una persona en `offers/personal.py`). Lo que el agente no propone no entra a la base. Cuando la oferta se
+ordena por lo que le gusta a la persona (`vertical_por_probar` y las ocasiones de la Home), la `basis` son sus señales
+(`kind` concepto, con `score` y `source`) de los conceptos que más aportan. Un complemento cuyo primer producto es de
+una marca que la persona compra lo dice en el `text` y suma esa señal (`marca`, con los pedidos como `score`). En el
+momento `perfil` de una persona, el porqué es el «por qué» de su perfil y la `basis`, la suya (`offers/profiles.py`):
+la evidencia de sus segmentos (`source` «segmento:<id>», el peso de su nivel como `score`) y lo que pidió y buscó
+(`source` «pedidos» o «busquedas», cuántas veces como `score`).
 """
 
-import re
 from dataclasses import dataclass, field
 
 from psycopg import Connection
@@ -112,11 +113,9 @@ OPEN_ACTION = "Abrir {vertical}"
 REASON_LIKES_VERTICAL = "Porque te gusta {emoji} {name}, y en {vertical} hay más."
 REASON_LIKES_OCCASION = "Porque te gusta {emoji} {name}."
 REASON_BRAND = " Es {brand}, la marca que compras."  # se suma al porqué de un complemento de su marca
-# El momento `perfil`. El texto sale del nombre del perfil: «Amante de lo asiático» → «Como te gusta lo asiático…»; un
-# nombre de otra forma («Mascotero») va entero.
+# El momento `perfil`: «Como te gusta» y el `gusto` del perfil (offers/perfiles.toml); sin él, el nombre del perfil.
 PROFILE_TEXT = "Como te gusta {likes}, mira esto en otras verticales."
 PROFILE_TEXT_NAMED = "Para tu perfil {emoji} {name}: mira esto en otras verticales."
-LOVER_NAME = re.compile(r"Amante de(l)? (.+)")  # «del café» es «el café»
 REASON_PROFILE = "Porque elegiste «{name}»."  # sin persona, o con un perfil que no es suyo
 TRIP_SERVICE = "rappitravel"  # el servicio de la taxonomía al que lleva el viaje (sin catálogo)
 TRIP_LABEL = "Idea para {service}"
@@ -491,10 +490,9 @@ def profile_offer(
 
 
 def _profile_text(profile: Profile) -> str:
-    """«Como te gusta lo asiático…» desde «Amante de lo asiático» (y «el café» desde «Amante del café»); un nombre de
-    otra forma va entero, con su emoji."""
-    if match := LOVER_NAME.fullmatch(profile.name):
-        return PROFILE_TEXT.format(likes=("el " if match[1] else "") + match[2])
+    """«Como te gusta lo asiático…», con el `gusto` del perfil; sin él, el nombre del perfil con su emoji."""
+    if profile.likes:
+        return PROFILE_TEXT.format(likes=profile.likes)
     return PROFILE_TEXT_NAMED.format(emoji=profile.emoji, name=profile.name)
 
 

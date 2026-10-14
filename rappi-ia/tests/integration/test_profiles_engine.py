@@ -2,6 +2,7 @@
 escalera de cada uno (`ladder`), sobre el catálogo de prueba (`seed_demo`) más unos productos de estas pruebas: lo que
 una escalera nunca debe mostrar."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -14,7 +15,8 @@ from rappi_ia.demo import seed
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
 from rappi_ia.events import store as events
-from rappi_ia.layers.segments import build_segments
+from rappi_ia.layers.segments import build_segments, load_segment_rules
+from rappi_ia.offers import profiles as profiles_module
 from rappi_ia.offers.guards import alcohol_in_name, unofferable_subverticals
 from rappi_ia.offers.profiles import (
     MIN_STEPS,
@@ -56,6 +58,18 @@ EXTRA_PRODUCTS = [
 ]
 # fmt: on
 BALLOONS = (SHOP_BALLOONS, "Globos de colores x 10 (prueba)", "Bombas y Globos", 2990, 2990)
+# Dos locales de sushi más: 9809, otro restaurante; 9810, una sucursal de la misma cadena que 9802 (`CHAIN`).
+OTHER_SUSHI, CHAIN_BRANCH, CHAIN = 9809, 9810, 9890
+EXTRA_RESTAURANTS = [
+    ((OTHER_SUSHI, "Sushi de prueba - Providencia"), (["Sushi"], {"Rolls": [(98901, "Roll tempura (prueba)", 7990)]})),
+    (
+        (CHAIN_BRANCH, "Sushi y hamburguesas de prueba - Ñuñoa"),
+        (["Sushi"], {"Rolls": [(98902, "Roll acevichado (prueba)", 8490)]}),
+    ),
+]
+# Una tienda de Turbo que se llama «Licores»: la única que vende este hielo.
+LIQUOR_ICE = "Hielo en bolsa 1 kg (prueba)"
+LIQUOR_STORE = (9311, "Turbo Licores de prueba", "turbo", None, [(93902, LIQUOR_ICE, "Hielo", 990, 990)])
 
 
 @pytest.fixture
@@ -63,11 +77,17 @@ def catalog(db, monkeypatch):
     """El catálogo de prueba con los productos de estas pruebas, sus embeddings y los conceptos asignados."""
     monkeypatch.setattr(seed, "_PRODUCTS", [*seed._PRODUCTS, *EXTRA_PRODUCTS])
     shops = [(*shop[:4], [*shop[4], BALLOONS]) if shop[3] == "Sex shop" else shop for shop in seed._NOT_PUSHED_STORES]
-    monkeypatch.setattr(seed, "_NOT_PUSHED_STORES", tuple(shops))
+    monkeypatch.setattr(seed, "_NOT_PUSHED_STORES", (*shops, LIQUOR_STORE))
+    restaurants = (*seed._STORES["restaurantes"], *(store for store, _ in EXTRA_RESTAURANTS))
+    monkeypatch.setitem(seed._STORES, "restaurantes", restaurants)
+    monkeypatch.setattr(seed, "_MENUS", [*seed._MENUS, *(menu for _, menu in EXTRA_RESTAURANTS)])
+    monkeypatch.setattr(seed, "_DETAILS", [*seed._DETAILS, *[(4.5, 40, "30 min", 990)] * len(EXTRA_RESTAURANTS)])
     for aisle_id, category in ((2100, PARTY), (2200, "Bombas y Globos")):  # pasillos propios, como los demás
         monkeypatch.setitem(seed._AISLE_OF_CATEGORY, category, (aisle_id, None))
         monkeypatch.setitem(seed._AISLE_NAMES, aisle_id, (category, None))
     seed.seed_demo(db)
+    db.execute("INSERT INTO brands (brand_id, name) VALUES (%s, 'Cadena de sushi de prueba')", (CHAIN,))
+    db.execute("UPDATE stores SET brand_id = %s WHERE store_id IN (%s, %s)", (CHAIN, SUSHI_STORE, CHAIN_BRANCH))
     embedder = HashEmbedder()
     embed_search_documents(db, embedder)
     db.commit()
@@ -144,7 +164,11 @@ def test_a_sushi_lover_has_the_asian_profile_and_its_reason_counts_what_they_did
     assert found.reason == "Pediste 🍣 sushi 2 veces, y buscaste 🥡 comida asiática 1 vez."
     assert {"kind": "concepto", "id": "sushi", "score": 2, "source": "pedidos"} in found.basis
     assert {"kind": "concepto", "id": "asiatica", "score": 1, "source": "busquedas"} in found.basis
-    assert {s["id"] for s in found.basis if s["kind"] == "segmento"} == set(levels) & set(found.profile.segments)
+    # La evidencia de sus segmentos, como en offers/personal.py: el concepto, el peso de su nivel y «segmento:<id>».
+    assert {"kind": "concepto", "id": "sushi", "score": 2.0, "source": "segmento:asiatica"} in found.basis
+    mine = set(levels) & set(found.profile.segments)
+    assert {s["source"] for s in found.basis} == {"pedidos", "busquedas"} | {f"segmento:{seg}" for seg in mine}
+    assert {s["kind"] for s in found.basis} == {"concepto"}
     assert found.to_dict() == {
         "id": "asiatico",
         "nombre": "Amante de lo asiático",
@@ -161,6 +185,44 @@ def test_the_reason_only_counts_the_profile_window(catalog, db):
     _order(db, user, "s0", "menu_item", ROLL_CALIFORNIA, "sushi", "restaurantes", days_ago=200)  # fuera de los 120 días
 
     assert active_profiles(db, user)[0].reason.startswith("Pediste 🍣 sushi 2 veces")
+
+
+def test_the_reason_counts_proposal_orders_and_searches_only(catalog, db):
+    """Ni los pedidos de «Rappi hoy», ni lo que no es una búsqueda (agregar al carro), ni una búsqueda de «Rappi hoy»
+    o de hace 200 días."""
+    user = _sushi_lover(db)
+    events.record_order(
+        db, user, "s4", "c-s4", "restaurantes",
+        [{"entity_type": "menu_item", "entity_id": ROLL_CALIFORNIA, "unit_price": 6990}], mode="actual",
+    )  # fmt: skip
+    db.execute(  # aunque la línea traiga concepto, un pedido de «Rappi hoy» no cuenta
+        """UPDATE app_order_lines l SET concept_id = 'sushi' FROM app_orders o
+           WHERE o.order_id = l.order_id AND o.user_id = %s AND o.mode = 'actual'""",
+        (user,),
+    )
+    later = [
+        events.Event(user, "s5", "cart_add", ts=NOW, concept_id="asiatica", cart_id="c5"),
+        events.Event(user, "s6", "search", ts=NOW, concept_id="asiatica", query="wok", payload={"mode": "actual"}),
+        events.Event(user, "s7", "search", ts=NOW - timedelta(days=200), concept_id="asiatica", query="wok"),
+    ]
+    events.record(db, later)
+
+    assert active_profiles(db, user)[0].reason == "Pediste 🍣 sushi 2 veces, y buscaste 🥡 comida asiática 1 vez."
+
+
+def test_each_profile_counts_its_reason_in_the_window_of_its_own_segments(catalog, db, monkeypatch):
+    version, rules = load_segment_rules()
+    short = [replace(rule, window_days=30) if rule.id == "cafetero" else rule for rule in rules]
+    monkeypatch.setattr(profiles_module, "load_segment_rules", lambda: (version, short))
+    _give_segment(db, "u1", "cafetero", "medio")
+    _give_segment(db, "u1", "sushi", "medio")
+    _order(db, "u1", "s1", "catalog_item", "91004", "cafe", "supermercado", days_ago=10)
+    _order(db, "u1", "s2", "catalog_item", "91004", "cafe", "supermercado", days_ago=60)  # fuera de sus 30 días
+    _order(db, "u1", "s3", "menu_item", ROLL_SALMON, "sushi", "restaurantes", days_ago=60)
+
+    reasons = {p.profile.id: p.reason for p in active_profiles(db, "u1")}
+
+    assert reasons == {"asiatico": "Pediste 🍣 sushi 1 vez.", "cafe": "Pediste ☕ café 1 vez."}
 
 
 def test_a_low_level_a_synthetic_person_or_no_segments_has_no_profile(catalog, db):
@@ -279,11 +341,14 @@ def test_the_restaurants_step_leaves_out_places_already_ordered_from(catalog, db
 
     with_sushi = ladder(db, catalog, asian)
     assert with_sushi[0].step.vertical == "restaurantes"
-    assert {p.store_id for p in with_sushi[0].products} == {SUSHI_STORE}
+    # Un plato por cadena: 9802 y 9810 son la misma.
+    stores = [p.store_id for p in with_sushi[0].products]
+    assert len(stores) == 2 and OTHER_SUSHI in stores and len({SUSHI_STORE, CHAIN_BRANCH} & set(stores)) == 1
 
     steps = ladder(db, catalog, asian, exclude_stores=ordered_restaurants(db, user))
-    assert "restaurantes" not in [s.step.vertical for s in steps]  # el único local con sushi ya lo conoce
-    assert SUSHI_STORE not in {p.store_id for s in steps for p in s.products}
+    # Sin el local donde pidió ni la otra sucursal de su cadena; el otro restaurante de sushi sigue.
+    assert steps[0].step.vertical == "restaurantes"
+    assert [p.store_id for p in steps[0].products] == [OTHER_SUSHI]
     assert len(steps) >= MIN_STEPS
 
 
@@ -294,6 +359,19 @@ def test_step_words_match_the_start_of_a_word_and_avoid_what_the_step_does_not_p
 
     assert [p.name for p in party["mall"].products] == ["Vasos de cartón para fiesta x 10 (prueba)"]
     assert [p.name for p in italian["mall"].products] == ["Cortador de pizza (prueba)"]
+
+
+def test_a_ladder_never_offers_from_a_liquor_store(catalog, db):
+    """«Turbo Licores» vende hielo, y una oferta común lo puede traer; una escalera de perfil no lo trae de ahí."""
+    assert LIQUOR_ICE in {
+        p.name for p in search_products(db, "turbo", "hielo", ["hielo"], catalog, offer=True).products
+    }
+
+    party = ladder(db, catalog, load_profiles()["carrete"])
+
+    assert party[0].step.vertical == "turbo"
+    assert LIQUOR_ICE not in {p.name for s in party for p in s.products}
+    assert not [p.store for s in party for p in s.products if "licor" in (p.store or "").lower()]
 
 
 def test_no_ladder_offers_adult_products_or_products_from_blocked_stores(catalog, db):
@@ -311,19 +389,25 @@ def test_no_ladder_offers_adult_products_or_products_from_blocked_stores(catalog
         p.name for p in search_products(db, "mall", "globos", ["decoracion"], catalog).products
     }
 
-    offered = [p for profile in load_profiles().values() for s in ladder(db, catalog, profile) for p in s.products]
+    ladders = {profile.id: ladder(db, catalog, profile) for profile in load_profiles().values()}
+    offered = [p for steps in ladders.values() for s in steps for p in s.products]
 
     assert offered
+    for profile_id, steps in ladders.items():
+        assert all(1 <= len(s.products) <= STEP_PRODUCTS for s in steps), profile_id
+        names = [p.name for s in steps for p in s.products]
+        assert len(set(names)) == len(names), profile_id  # ni repetido entre peldaños (las papas del súper y Express)
+    assert alcohol_in_name("menu_item", "Roll tempura (prueba)", "sushi") is False
     adult = {c.id for c in load_taxonomy().concepts.values() if c.age_restricted}
     assert not [p.name for p in offered if p.age_restricted or p.concept in adult]
-    assert not [p.name for p in offered if alcohol_in_name(p.entity_type, p.name)]
+    assert not [p.name for p in offered if alcohol_in_name(p.entity_type, p.name, p.concept)]
     assert not [p.name for p in offered if p.store_id in blocked]
     assert not {"Soju uva verde 360 ml (prueba)", "Globos de colores x 10 (prueba)"} & {p.name for p in offered}
 
 
-# Con la caché del catálogo caliente, una búsqueda de oferta por peldaño cuesta unas 9 consultas (43 en los cinco del
-# asiático); en la base real, de 36 a 45 por escalera.
-LADDER_QUERY_BUDGET = 9 * 5
+# Con la caché del catálogo caliente, un peldaño cuesta unas 10 consultas: su búsqueda de oferta y una por sus tiendas
+# (50 en los cinco del asiático).
+LADDER_QUERY_BUDGET = 10 * 5
 
 
 def test_a_ladder_costs_a_bounded_number_of_queries(catalog, db):

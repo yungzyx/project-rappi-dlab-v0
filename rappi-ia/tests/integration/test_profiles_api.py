@@ -6,7 +6,14 @@ from contextlib import contextmanager
 
 import pytest
 from fastapi.testclient import TestClient
-from test_profiles_engine import ROLL_CALIFORNIA, ROLL_SALMON, SUSHI_STORE, catalog  # noqa: F401 (el fixture)
+from test_profiles_engine import (  # noqa: F401 (el fixture)
+    CHAIN_BRANCH,
+    OTHER_SUSHI,
+    ROLL_CALIFORNIA,
+    ROLL_SALMON,
+    SUSHI_STORE,
+    catalog,
+)
 
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.grouped_search import SCREEN_VERTICALS
@@ -100,7 +107,7 @@ def test_tastes_list_the_active_profiles(client):
     assert asian == {**ASIAN, "nivel": "medio", "principal": True, "por_que": WHY, "basis": asian["basis"]}
     assert {"kind": "concepto", "id": "sushi", "score": 2, "source": "pedidos"} in asian["basis"]
     assert {"kind": "concepto", "id": "asiatica", "score": 1, "source": "busquedas"} in asian["basis"]
-    assert "asiatica" in {s["id"] for s in asian["basis"] if s["kind"] == "segmento"}
+    assert "segmento:asiatica" in {s["source"] for s in asian["basis"]}
 
 
 def test_tastes_are_an_empty_list_without_profiles(client):
@@ -131,9 +138,10 @@ def test_the_profile_moment_for_a_person_is_their_first_profile_with_its_why(cli
     assert body["perfil"] == {**ASIAN, "nivel": "medio", "por_que": WHY}
     assert body["reason"] == {"text": WHY, "basis": basis}
     assert body["text"] == "Como te gusta lo asiático, mira esto en otras verticales."
-    # Restaurantes deja fuera el local donde ya pidió, que es el único con sushi del catálogo de prueba
-    assert [s["vertical"] for s in body["escalera"]] == ALL_ASIAN_STEPS[1:]
-    assert SUSHI_STORE not in {p["store_id"] for s in body["escalera"] for p in s["products"]}
+    # Restaurantes deja fuera el local donde ya pidió y la otra sucursal de su cadena: queda el otro local de sushi
+    assert [s["vertical"] for s in body["escalera"]] == ALL_ASIAN_STEPS
+    assert [p["store_id"] for p in body["escalera"][0]["products"]] == [OTHER_SUSHI]
+    assert not {SUSHI_STORE, CHAIN_BRANCH} & {p["store_id"] for s in body["escalera"] for p in s["products"]}
     assert body["viaje"]["id"] == "japon"
 
 
@@ -155,7 +163,7 @@ def test_a_person_who_picks_a_profile_gets_their_why_only_if_it_is_theirs(client
 
     own = offer(client, {"perfil": "asiatico"}, SUSHI_LOVER).json()
     assert own["perfil"]["por_que"] == WHY and own["reason"]["text"] == WHY
-    assert "restaurantes" not in [s["vertical"] for s in own["escalera"]]
+    assert [p["store_id"] for p in own["escalera"][0]["products"]] == [OTHER_SUSHI]
 
     other = offer(client, {"perfil": "carrete"}, SUSHI_LOVER).json()
     assert other["perfil"] == {"id": "carrete", "nombre": "Carrete", "emoji": "🎉"}

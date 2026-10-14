@@ -3,16 +3,28 @@
     {
       "basis": [
         {
-          "id": "asiatica",
-          "kind": "segmento",
-          "score": 7.0,
-          "source": "segmentos"
+          "id": "sushi",
+          "kind": "concepto",
+          "score": 2.0,
+          "source": "segmento:asiatica"
         },
         {
-          "id": "japonesa",
-          "kind": "segmento",
-          "score": 7.0,
-          "source": "segmentos"
+          "id": "asiatica",
+          "kind": "concepto",
+          "score": 2.0,
+          "source": "segmento:asiatica"
+        },
+        {
+          "id": "sushi",
+          "kind": "concepto",
+          "score": 2.0,
+          "source": "segmento:japonesa"
+        },
+        {
+          "id": "asiatica",
+          "kind": "concepto",
+          "score": 2.0,
+          "source": "segmento:japonesa"
         },
         {
           "id": "sushi",

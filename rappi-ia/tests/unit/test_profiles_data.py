@@ -127,6 +127,12 @@ def test_the_party_profile_has_no_alcohol():
         ("mascotas", "mall", "Buddy Pet Pelota Con Cuerda Para Perros", True),
         ("mascotas", "mall", "Set Libros Para Colorear Casaideas", False),  # en «Otros accesorios mascotas»
         ("mascotas", "mall", "Puzzle Redondo 500 Piezas Perros Del Mundo", False),
+        ("mascotas", "mall", "Rascador Para Gatos Con Pelota", False),  # el perfil es de perro
+        ("mascotas", "mall", "Collar Para Gato Con Cascabel", False),
+        ("mascotas", "mall", "Arnés Para Gatito Ajustable", False),
+        # Marcado alimento-perro en la base real.
+        ("mascotas", "supermercado", "Royal Canin Alimento para Gato Gastrointestinal", False),
+        ("mascotas", "supermercado", "Pedigree Alimento para Perro Adulto", True),
         ("cafe", "chocolateria", "Bombones de Café", True),
         ("asiatico", "chocolateria", "Lindor Matcha", True),
         ("asiatico", "chocolateria", "Lindor Leche", False),
@@ -170,6 +176,7 @@ emoji = "🧪"
 segmentos = ["sushi"]
 nivel_minimo = "medio"
 viaje = "japon"
+gusto = "probar"
 
 [[perfil.escalera]]
 vertical = "turbo"
@@ -195,6 +202,21 @@ def test_a_valid_profile_file_loads(tmp_path):
     profile = load_profiles(_write(tmp_path, VALID_PROFILE))["prueba"]
     assert (profile.main, profile.ladder[1].words, profile.trip) == (False, ("cola", "te verde"), "japon")
     assert (profile.ladder[0].avoid, profile.ladder[1].avoid) == ((), ("limpia",))
+    assert profile.likes == "probar"
+    no_likes = VALID_PROFILE.replace('gusto = "probar"\n', "")
+    without = load_profiles(_write(tmp_path, no_likes, "sin-gusto.toml"))["prueba"]
+    assert without.likes is None  # `gusto` es opcional
+
+
+def test_each_profile_says_what_the_person_likes():
+    """La frase que sigue a «Como te gusta…» en el momento `perfil`."""
+    assert {p.id: p.likes for p in load_profiles().values()} == {
+        "asiatico": "lo asiático",
+        "cafe": "el café",
+        "italiano": "lo italiano",
+        "mascotas": "consentir a tu perro",
+        "carrete": "armar carrete",
+    }
 
 
 @pytest.mark.parametrize(
@@ -211,6 +233,11 @@ def test_a_valid_profile_file_loads(tmp_path):
         ('viaje = "japon"', 'viaje = "marte"', "prueba.*marte"),
         ('texto = "Uno"', 'texto = "Uno"\nconcepto = ["hielo"]', "prueba.*concepto"),  # una clave mal escrita
         ('nombre = "Prueba"\n', "", "prueba.*nombre"),
+        ('palabras = ["Colá", "Té Verde"]', 'palabras = "Colá"', "prueba.*palabras.*lista"),  # un texto, no una lista
+        ('palabras = ["Colá", "Té Verde"]', 'palabras = ["Colá", ""]', "prueba.*palabras.*vac"),
+        ('evitar = ["Limpiá"]', 'evitar = ["¿?"]', "prueba.*evitar.*vac"),  # sin letras, queda vacía
+        ('evitar = ["Limpiá"]', 'evitar = "Limpiá"', "prueba.*evitar.*lista"),
+        ('gusto = "probar"', 'gusto = ""', "prueba.*gusto"),
     ],
 )
 def test_a_bad_profile_names_its_id_and_the_bad_value(tmp_path, old, new, message):
@@ -285,3 +312,17 @@ def test_a_destination_has_exactly_two_facts(tmp_path, facts):
     text = header + "".join(["[[destino.hechos]]" + first_fact] * facts)
     with pytest.raises(ValueError, match="luna.*2 hechos"):
         load_destinations(_write(tmp_path, text, "destinos.toml"))
+
+
+def test_a_step_query_says_what_its_products_are_called():
+    """Sin embeddings la búsqueda es solo léxica: el nombre del concepto («Despensa asiática») no está en ningún
+    producto, sus palabras clave sí. Un peldaño con palabras busca sus palabras."""
+    from rappi_ia.offers.profiles import _step_query
+
+    steps = {(p.id, s.vertical): s for p in load_profiles().values() for s in p.ladder}
+    assert _step_query(steps["asiatico", "turbo"]) == "Despensa asiática salsa de soya salsa de soja"
+    assert _step_query(steps["cafe", "supermercado"]) == "Café espresso cappuccino"  # «cafe» es la misma palabra
+    # En restaurantes, sin el nombre del concepto; «rolls» no suma nada a «roll».
+    assert _step_query(steps["asiatico", "restaurantes"]) == "sushi roll wok chapsui"
+    assert _step_query(steps["asiatico", "chocolateria"]) == "matcha"
+    assert _step_query(steps["carrete", "mall"]) == "vaso guirnalda globo cotillon"

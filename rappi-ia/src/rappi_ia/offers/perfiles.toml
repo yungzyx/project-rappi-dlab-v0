@@ -10,6 +10,8 @@
 #   tenga una de esas (lo que dice la palabra sin ser lo que promete el peldaño: un limpiador «en pasta», un juguete
 #   que la tienda puso en cocina). `texto` es lo que dice el agente al ofrecerlo.
 # - `viaje`: id de un destino de destinos.toml (el último peldaño, «Idea para RappiTravel»), o nada.
+# - `gusto`: lo que sigue a «Como te gusta…» cuando el agente ofrece la escalera («lo asiático»). Sin él, el agente
+#   nombra el perfil.
 #
 # Las guardias de ofertas mandan (offers/guards.py): ningún peldaño nombra alcohol, farmacia, bebé, salud ni algo
 # sensible, ni las verticales Farmacia y Licores. Por eso el carrete va sin alcohol.
@@ -22,6 +24,7 @@ principal = true
 segmentos = ["sushi", "asiatica", "japonesa", "china"]
 nivel_minimo = "medio"
 viaje = "japon"
+gusto = "lo asiático"
 
 [[perfil.escalera]]
 vertical = "restaurantes"
@@ -56,6 +59,7 @@ emoji = "☕"
 segmentos = ["cafetero", "cafe-de-especialidad"]
 nivel_minimo = "medio"
 viaje = "colombia"
+gusto = "el café"
 
 [[perfil.escalera]]
 vertical = "supermercado"
@@ -93,6 +97,7 @@ emoji = "🍝"
 segmentos = ["italiana", "pastas", "pizzero"]
 nivel_minimo = "medio"
 viaje = "italia"
+gusto = "lo italiano"
 
 [[perfil.escalera]]
 vertical = "supermercado"
@@ -129,6 +134,7 @@ nombre = "Mascotero"
 emoji = "🐶"
 segmentos = ["tiene-perro"]  # la escalera es de perro: a quien solo tiene gato no se le ofrece comida de perro
 nivel_minimo = "medio"
+gusto = "consentir a tu perro"
 
 [[perfil.escalera]]
 vertical = "conveniencia"
@@ -145,12 +151,14 @@ vertical = "mall"
 conceptos = ["accesorios-mascota"]
 # Sin palabras, salían libros para colorear y frascos de Casaideas, que la tienda pone en «Otros accesorios mascotas».
 palabras = ["perro", "juguete", "pelota", "correa", "collar", "arnés"]
-evitar = ["puzzle"]  # «Puzzle Redondo 500 Piezas Perros Del Mundo», también ahí
+# «Puzzle Redondo 500 Piezas Perros Del Mundo», también ahí; y lo de gato (36 accesorios calzaban las palabras).
+evitar = ["puzzle", "gato", "gatito"]  # «gato» calza también «gatos», no «gatito»
 texto = "Juguetes y paseo"
 
 [[perfil.escalera]]
 vertical = "supermercado"
 conceptos = ["alimento-perro"]  # sin `alimento-gato`: el perfil es de perro (la tabla aprobada lo traía)
+evitar = ["gato"]  # «Royal Canin Alimento para Gato Gastrointestinal» viene marcado alimento-perro
 texto = "Su comida, en el súper"
 
 [[perfil]]
@@ -159,6 +167,7 @@ nombre = "Carrete"
 emoji = "🎉"
 segmentos = ["fiestero"]
 nivel_minimo = "medio"
+gusto = "armar carrete"
 
 [[perfil.escalera]]
 vertical = "turbo"
