@@ -39,7 +39,7 @@ LADDERS = {
         ("conveniencia", ("alimento-perro",), ()),
         ("turbo", ("alimento-perro",), ()),
         ("mall", ("accesorios-mascota",), ("perro", "juguete", "pelota", "correa", "collar", "arnes")),
-        ("supermercado", ("alimento-perro", "alimento-gato"), ()),
+        ("supermercado", ("alimento-perro",), ()),  # el perfil es de perro: sin comida de gato
     ],
     "carrete": [
         ("turbo", ("hielo", "gaseosas"), ()),

@@ -150,7 +150,7 @@ texto = "Juguetes y paseo"
 
 [[perfil.escalera]]
 vertical = "supermercado"
-conceptos = ["alimento-perro", "alimento-gato"]
+conceptos = ["alimento-perro"]  # sin `alimento-gato`: el perfil es de perro (la tabla aprobada lo traía)
 texto = "Su comida, en el súper"
 
 [[perfil]]
