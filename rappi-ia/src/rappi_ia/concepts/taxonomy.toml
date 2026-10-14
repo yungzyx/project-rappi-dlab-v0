@@ -14,7 +14,7 @@
 # - `prepared = true` (en el grupo o en el concepto): se pide hecho, así que también se busca en restaurantes.
 #   El resto nunca compite en restaurantes aunque sus locales lo tengan (gaseosas, papas fritas en combos).
 
-version = "2026-10-04"
+version = "2026-10-14"
 
 # ─── Grupos ───────────────────────────────────────────────────────────────────
 [[group]]
@@ -265,6 +265,17 @@ name = "Hielo"
 emoji = "🧊"
 keywords = ["hielo", "cubos de hielo"]
 
+# Lo asiático por nombre (la despensa, los snacks y las bebidas) afina la categoría de comida que Rappi le da
+# («Pepero» viene en «Galletas»): concepts/assign.py, NAME_REFINES_CONCEPTS. En los menús no cuenta. Palabras sacadas
+# del catálogo real. El matcha a secas sigue en té (los matcha latte de las cafeterías); aquí, el té matcha en polvo.
+[[concept]]
+id = "bebidas-asiaticas"
+parent = "bebidas"
+name = "Bebidas asiáticas"
+emoji = "🧋"
+keywords = ["té matcha", "té verde matcha", "matcha en polvo", "matcha latte", "bubble tea", "bubble milk tea", "milk tea", "té leche", "popping boba", "boba", "milkis", "pocari sweat", "okf", "bebida okf"]
+avoid = ["lindor", "lindt", "chocolate", "bombón", "trufa", "galleta", "vinagre", "snack", "bolitas", "cápsulas", "café", "caffe", "cappuccino", "macchiato", "mocha", "taza", "mug", "vaso", "bowl", "cuchara", "batidor", "difusor", "aromatizador", "ambientador", "vela", "collar", "shampoo", "jabón", "vape", "vaper", "puff", "pod", "soju", "sake", "licor", "cerveza", "highball"]
+
 # Snacks
 [[concept]]
 id = "snacks-salados"
@@ -295,6 +306,15 @@ parent = "snacks"
 name = "Barras de cereal"
 emoji = "🥣"
 keywords = ["barra de cereal", "barrita", "barra de proteína", "barra proteica", "granola bar", "costa barra"]
+
+# Con el ramen instantáneo, que deja «sopas»: es lo que se vende junto a Pepero y Pocky.
+[[concept]]
+id = "snacks-asiaticos"
+parent = "snacks"
+name = "Snacks asiáticos"
+emoji = "🍘"
+keywords = ["ramen instantáneo", "ramen sopa instantánea", "maruchan", "nissin", "buldak", "samyang", "nongshim", "ottogi", "ramyeon", "ramyun", "shin ramyun", "shin ramen", "jin ramen", "chapagetti", "kang shi fu", "cup noodles", "pepero", "pocky", "yan yan", "choco pie", "chocopie", "mochi", "dorayaki", "topokki", "tteokbokki", "yopokki"]
+avoid = ["vape", "vaper", "puff", "pod", "shampoo", "peluche", "llavero", "polera", "squishy"]
 
 # Dulces
 [[concept]]
@@ -370,7 +390,7 @@ id = "salsas"
 parent = "despensa"
 name = "Salsas y aderezos"
 emoji = "🥫"
-keywords = ["salsa", "ketchup", "kétchup", "mayonesa", "mostaza", "pesto", "salsa de tomate", "salsa de soya", "salsa de soja", "ají", "aji", "dip", "aderezo", "barbecue", "bbq", "sriracha", "chimichurri", "pebre"]
+keywords = ["salsa", "ketchup", "kétchup", "mayonesa", "mostaza", "pesto", "salsa de tomate", "ají", "aji", "dip", "aderezo", "barbecue", "bbq", "sriracha", "chimichurri", "pebre"]
 
 [[concept]]
 id = "conservas"
@@ -407,7 +427,16 @@ parent = "despensa"
 name = "Sopas y caldos"
 emoji = "🍜"
 keywords = ["sopa", "crema de", "caldo", "cubo de caldo", "sopa instantánea", "sopaipa", "consomé", "cazuela", "carbonada", "sopa de pollo"]
-avoid = ["manos", "corporal", "facial", "cuerpo", "pies", "labios", "peinar", "afeitar", "dental", "leche", "mani", "avellana", "chocolate"]
+avoid = ["manos", "corporal", "facial", "cuerpo", "pies", "labios", "peinar", "afeitar", "dental", "leche", "mani", "avellana", "chocolate", "maruchan", "nissin"]
+
+# La soya de la salsa de soya y del arroz para sushi: no la leche de soya ni el «Noris» de los lápices.
+[[concept]]
+id = "despensa-asiatica"
+parent = "despensa"
+name = "Despensa asiática"
+emoji = "🥢"
+keywords = ["salsa de soya", "salsa de soja", "salsa soya", "salsa soja", "sillao", "shoyu", "kikkoman", "salsa teriyaki", "salsa hoisin", "hoisin", "salsa de ostras", "salsa de ostra", "lee kum kee", "alga nori", "nori", "wakame", "aceite de sésamo", "aceite sésamo", "sesame oil", "mirin", "vinagre de arroz", "arroz para sushi", "arroz sushi", "arroz de sushi", "fideos de arroz", "fideo de arroz", "tallarines de arroz", "papel de arroz", "kimchi", "gochujang", "panko", "wasabi", "pasta de miso", "miso", "jengibre para sushi", "gengibre para sushi", "jengibre encurtido", "palitos para sushi", "palillos chinos", "palitos chinos"]
+avoid = ["shampoo", "acondicionador", "lush", "noris", "staedtler", "acuarela", "lápiz", "lápices", "vape", "vaper", "puff", "pod"]
 
 # Frescos
 [[concept]]

@@ -17,7 +17,7 @@ import numpy as np
 from psycopg import Connection
 
 from ..embeddings.base import TextEmbedder, to_pgvector
-from .assign import Assignment, dish_name_concepts
+from .assign import NAME_REFINES_CONCEPTS, Assignment, dish_name_concepts
 from .taxonomy import keeps_sensitive, sensitive_concepts
 
 log = logging.getLogger(__name__)
@@ -166,6 +166,15 @@ def _decide(
         and current.method == "regla"
         and item.entity_type == "menu_item"
         and current.concept_id in dish_name_concepts()
+    ):
+        return current
+    # Un concepto de especialidad que el nombre reconoció sobre su categoría no lo deshacen las vecinas, que son lo
+    # genérico de esa categoría («Kikkoman Salsa de Soya» entre las salsas). Un sensible sí puede llevárselo.
+    if (
+        current
+        and current.method == "regla"
+        and current.concept_id in NAME_REFINES_CONCEPTS
+        and best not in sensitive_concepts()
     ):
         return current
     knn = Assignment(

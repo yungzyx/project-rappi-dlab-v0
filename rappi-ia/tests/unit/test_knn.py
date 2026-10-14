@@ -106,3 +106,11 @@ def test_jev_assignments_do_not_vote_as_knn_labels():
     }
     label_idx, label_concepts = _labels(items, current)
     assert sorted(label_idx) == [0, 1] and label_concepts == ["cerveza", "cerveza"]
+
+
+def test_neighbors_do_not_undo_an_asian_name_that_refined_its_category():
+    """Las vecinas de «Kikkoman Salsa de Soya» son las salsas de su categoría: votarían salsas y deshacían la regla."""
+    item = ItemText("catalog_item", "1", "Kikkoman Salsa de Soya")
+    rule = Assignment("catalog_item", "1", "despensa-asiatica", "regla", 0.7, None, "nombre:salsa de soya")
+    assert _decide(rule, item, *_neighbors(["salsas"] * 15), MODEL) == rule
+    assert _decide(rule, item, *_neighbors(["vapeo"] * 15), MODEL).concept_id == "vapeo"  # un sensible sí se lo lleva

@@ -1,0 +1,178 @@
+# Perfiles de gusto: lo que la persona pide seguido (sus segmentos, concepts/segments.toml) arma un perfil, y cada
+# perfil tiene una escalera de verticales que el agente ofrece de a un peldaño, con su «¿Por qué?» y con «Olvidar».
+# Agregar un perfil es escribir datos aquí, no código. offers/profiles.py los valida al cargar.
+#
+# - `principal = true`: va primero entre los perfiles de la persona (solo uno; hoy, el asiático).
+# - `segmentos`: ids de segments.toml que lo activan, en un nivel igual o mayor a `nivel_minimo`. Nunca sensibles.
+# - `escalera`: peldaños en orden, de lo más cercano a lo más lejano. Cada uno busca en su `vertical` los productos de
+#   sus `conceptos`; con `palabras`, solo los que tienen alguna en el nombre (sin tildes ni mayúsculas; basta el
+#   comienzo: «tiramis» es tiramisú). `texto` es lo que dice el agente al ofrecerlo.
+# - `viaje`: id de un destino de destinos.toml (el último peldaño, «Idea para RappiTravel»), o nada.
+#
+# Las guardias de ofertas mandan (offers/guards.py): ningún peldaño nombra alcohol, farmacia, bebé, salud ni algo
+# sensible, ni las verticales Farmacia y Licores. Por eso el carrete va sin alcohol.
+
+[[perfil]]
+id = "asiatico"
+nombre = "Amante de lo asiático"
+emoji = "🥢"
+principal = true
+segmentos = ["sushi", "asiatica", "japonesa", "china"]
+nivel_minimo = "medio"
+viaje = "japon"
+
+[[perfil.escalera]]
+vertical = "restaurantes"
+conceptos = ["sushi", "asiatica"]
+texto = "Asiáticos que todavía no pruebas"
+
+[[perfil.escalera]]
+vertical = "turbo"
+conceptos = ["despensa-asiatica"]
+texto = "Para hacer sushi en casa, en minutos"
+
+[[perfil.escalera]]
+vertical = "conveniencia"
+conceptos = ["snacks-asiaticos", "bebidas-asiaticas"]
+texto = "Snacks asiáticos para el antojo"
+
+[[perfil.escalera]]
+vertical = "supermercado"
+conceptos = ["despensa-asiatica", "bebidas-asiaticas"]
+texto = "Tu despensa asiática"
+
+[[perfil.escalera]]
+vertical = "chocolateria"
+conceptos = ["chocolates"]
+palabras = ["matcha"]
+texto = "El matcha, pero en chocolate"
+
+[[perfil]]
+id = "cafe"
+nombre = "Amante del café"
+emoji = "☕"
+segmentos = ["cafetero", "cafe-de-especialidad"]
+nivel_minimo = "medio"
+viaje = "colombia"
+
+[[perfil.escalera]]
+vertical = "supermercado"
+conceptos = ["cafe"]
+texto = "Café para preparar en casa"
+
+[[perfil.escalera]]
+vertical = "turbo"
+conceptos = ["cafe"]
+texto = "Café en minutos, sin salir"
+
+[[perfil.escalera]]
+vertical = "conveniencia"
+conceptos = ["cafe"]
+texto = "Café para el día a día"
+
+[[perfil.escalera]]
+vertical = "mall"
+conceptos = ["electrohogar", "cocina-menaje"]
+palabras = ["cafetera", "molinillo", "prensa francesa"]
+texto = "Para prepararlo como en la cafetería"
+
+[[perfil.escalera]]
+vertical = "chocolateria"
+conceptos = ["chocolates"]
+palabras = ["café"]
+texto = "El café, pero en chocolate"
+
+[[perfil]]
+id = "italiano"
+nombre = "Amante de lo italiano"
+emoji = "🍝"
+segmentos = ["italiana", "pastas"]
+nivel_minimo = "medio"
+viaje = "italia"
+
+[[perfil.escalera]]
+vertical = "supermercado"
+conceptos = ["pastas", "quesos", "salsas", "aceites-condimentos"]
+texto = "Tu despensa italiana"
+
+[[perfil.escalera]]
+vertical = "conveniencia"
+conceptos = ["pastas", "salsas"]
+texto = "Pasta y salsa para hoy"
+
+[[perfil.escalera]]
+vertical = "turbo"
+conceptos = ["quesos", "pastas"]
+texto = "Queso y pasta en minutos"
+
+[[perfil.escalera]]
+vertical = "mall"
+conceptos = ["cocina-menaje"]
+palabras = ["pizza", "rallador", "pasta"]
+texto = "Para tu noche de pizza en casa"
+
+[[perfil.escalera]]
+vertical = "chocolateria"
+conceptos = ["postres", "pasteleria"]
+palabras = ["tiramis", "cannoli", "amaretti", "panettone"]
+texto = "Un postre italiano"
+
+[[perfil]]
+id = "mascotas"
+nombre = "Mascotero"
+emoji = "🐶"
+segmentos = ["tiene-perro"]  # la escalera es de perro: a quien solo tiene gato no se le ofrece comida de perro
+nivel_minimo = "medio"
+
+[[perfil.escalera]]
+vertical = "conveniencia"
+conceptos = ["alimento-perro"]
+texto = "Lo de tu perro, para el día a día"
+
+[[perfil.escalera]]
+vertical = "turbo"
+conceptos = ["alimento-perro"]
+texto = "Su comida y snacks, en minutos"
+
+[[perfil.escalera]]
+vertical = "mall"
+conceptos = ["accesorios-mascota"]
+texto = "Juguetes y paseo"
+
+[[perfil.escalera]]
+vertical = "supermercado"
+conceptos = ["alimento-perro", "alimento-gato"]
+texto = "Su comida, en el súper"
+
+[[perfil]]
+id = "carrete"
+nombre = "Carrete"
+emoji = "🎉"
+segmentos = ["fiestero"]
+nivel_minimo = "medio"
+
+[[perfil.escalera]]
+vertical = "turbo"
+conceptos = ["hielo", "gaseosas"]
+texto = "Hielo y bebidas, en minutos"
+
+[[perfil.escalera]]
+vertical = "conveniencia"
+conceptos = ["snacks-salados"]
+texto = "Papas y nachos para picar"
+
+[[perfil.escalera]]
+vertical = "supermercado"
+conceptos = ["frutos-secos", "snacks-salados", "salsas"]
+texto = "Maní, papas y salsas para picar"
+
+[[perfil.escalera]]
+vertical = "mall"
+conceptos = ["decoracion"]
+palabras = ["vaso", "guirnalda", "globo", "cotillón"]
+texto = "Deco para la fiesta"
+
+[[perfil.escalera]]
+vertical = "restaurantes"
+conceptos = ["pizza", "picoteo"]
+texto = "Pizza y picada para compartir"

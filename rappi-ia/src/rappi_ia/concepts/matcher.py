@@ -6,7 +6,7 @@ la que aparece primero en el texto ("Combo hamburguesa + bebida" → hamburguesa
 """
 
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 
 from ..text import tokens
@@ -34,13 +34,16 @@ class KeywordMatcher:
             if words:
                 self._by_first[words[0]].append((words, target, keyword))
 
-    def matches(self, text: str) -> list[Match]:
+    def matches(self, text: str, exclude: Collection[str] = ()) -> list[Match]:
+        """`exclude`: ids que no cuentan, como si no tuvieran palabras clave (otra regla puede calzar en su lugar)."""
         words = tokens(text)
         forms = {form for word in words for form in self._candidates(word)}
         found: dict[str, Match] = {}
         for i, word in enumerate(words):
             for candidate in self._candidates(word):
                 for kw_words, target, keyword in self._by_first.get(candidate, ()):
+                    if target in exclude:
+                        continue
                     if _matches_at(words, i, kw_words) and not self._avoided(target, words, forms):
                         match = Match(target, keyword, len(kw_words), i)
                         best = found.get(target)
@@ -57,8 +60,8 @@ class KeywordMatcher:
             result.append(match)
         return result
 
-    def best(self, text: str) -> Match | None:
-        found = self.matches(text)
+    def best(self, text: str, exclude: Collection[str] = ()) -> Match | None:
+        found = self.matches(text, exclude)
         return found[0] if found else None
 
     def _avoided(self, target: str, words: list[str], forms: set[str]) -> bool:

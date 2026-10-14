@@ -150,3 +150,88 @@ def test_roll_in_a_query_is_sushi_only_when_it_is_sushi(query, expected):
 def test_rolls_of_other_cuisines_and_pastry_are_not_sushi(matcher, text):
     """«Roll» solo es sushi si el plato no es un pastel, un wrap ni un pan de pizzería (otro concepto puede calzar)."""
     assert "sushi" not in [m.target for m in matcher.matches(text)]
+
+
+ASIAN = {"despensa-asiatica", "snacks-asiaticos", "bebidas-asiaticas"}
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # Nombres reales del catálogo (base real, 14-10-2026)
+        ("Kikkoman Salsa de Soya", "despensa-asiatica"),
+        ("Sakura Salsa Soya Premium Salsera", "despensa-asiatica"),
+        ("Tucapel Arroz Sushi Bolsa", "despensa-asiatica"),
+        ("Los Granos Arroz Para Sushi", "despensa-asiatica"),
+        ("Alga Nori Yumart 10 Uds", "despensa-asiatica"),
+        ("Aceite De Sesamo 227ml", "despensa-asiatica"),
+        ("Palitos Para Sushi 100 Pares", "despensa-asiatica"),
+        ("Gengibre Para Sushi", "despensa-asiatica"),
+        ("Buldak Fideo Ramyeon Rosé Bowl", "snacks-asiaticos"),
+        ("Chapagetti Fideo", "snacks-asiaticos"),
+        ("Pepero Crunchy", "snacks-asiaticos"),
+        ("Kai Mochi Helado Mochi Mango", "snacks-asiaticos"),
+        ("Maruchan Sopa Instantánea Sabor a Pollo", "snacks-asiaticos"),  # el ramen instantáneo ya no es «sopas»
+        ("Ramen Instantáneo Pollo Ajo Nissin 81 Gr", "snacks-asiaticos"),
+        ("Brota té Matcha en Polvo", "bebidas-asiaticas"),
+        ("Blendy té Verde Matcha Latte", "bebidas-asiaticas"),
+        ("Bebida Bubble Tea, Taro", "bebidas-asiaticas"),
+        ("Bebida Bubble Tea Milk Tea", "bebidas-asiaticas"),
+        ("Té Leche Helado Verano Kirin 500 Ml", "bebidas-asiaticas"),
+        ("OKF Bebida de Aloe Vera", "bebidas-asiaticas"),
+        ("Bebida Okf Aloe Vera Granada 500 Ml", "bebidas-asiaticas"),
+    ],
+)
+def test_asian_pantry_snacks_and_drinks_by_name(matcher, text, expected):
+    assert matcher.best(text).target == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Shampoo Líquido Wasabi Shan Kui",
+        "Wasabi Shan Kui Shampoo",
+        "Acuarela Noris 12 Colores",
+        "Staedtler Noris Lápiz Grafito HB",
+        "Relx Creator Silkmesh Pod Lychee Burst",
+        "Vozol Vapeador Gear Shisha 25000 Passion Fruit Lychee Orange",
+        "Vape Matcha Ice 5000 Puffs",
+        "Mochila de viaje 40 litros",
+        "Margarina Sin Sal 250 g",
+        "Lindor Matcha",  # «matcha» a secas sigue siendo té (los matcha latte de las cafeterías)
+        "Smart Snack Bolitas Pistacho Matcha",
+        "Manare Vinagre de Manzana Con Matcha y Limón Orgánico",
+        "Leche de Soya Sin Azúcar 1 L",
+        "Crema Corporal Aloe Vera Super Hidratante 240 g",
+        "Golden Bebida Aloe Vera Sabor Original",  # sin «okf» ni «bebida de aloe»: queda en su categoría
+        "Hubba Bubba Goma de Mascar Bubble Tape",
+    ],
+)
+def test_lookalikes_are_not_asian(matcher, text):
+    assert not ASIAN & {m.target for m in matcher.matches(text)}
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("salsa de soya", "despensa-asiatica"),
+        ("arroz para sushi", "despensa-asiatica"),
+        ("alga nori", "despensa-asiatica"),
+        ("buldak", "snacks-asiaticos"),
+        ("pepero", "snacks-asiaticos"),
+        ("ramen instantáneo", "snacks-asiaticos"),
+        ("té matcha", "bebidas-asiaticas"),
+        ("bubble tea", "bebidas-asiaticas"),
+        ("sushi", "sushi"),  # lo de siempre no cambia
+        ("ramen", "asiatica"),
+        ("salsa de tomate", "salsas"),
+    ],
+)
+def test_asian_concepts_in_a_query(query, expected):
+    assert concept_matcher(load_taxonomy(), for_queries=True).best(query).target == expected
+
+
+@pytest.mark.parametrize("query", ["shampoo wasabi", "mochila", "lápices noris", "vape lychee"])
+def test_lookalike_queries_are_not_asian(query):
+    found = concept_matcher(load_taxonomy(), for_queries=True).matches(query)
+    assert not ASIAN & {m.target for m in found}
