@@ -12,6 +12,7 @@ from rappi_ia.offers.guards import (
     OFFER_BLOCKED_VERTICALS,
     alcohol_in_name,
     alcohol_section,
+    baby_in_name,
     is_offerable,
     is_plannable,
     offerable_vertical,
@@ -140,6 +141,17 @@ def test_a_catalog_name_that_says_alcohol_is_never_offered(name):
         ("menu_item", "Merluza Austral"),  # «austral» no es la cerveza: 47 platos de merluza
         ("menu_item", "Iced Latte Cristal"),
         ("menu_item", "Negroni / Salame Milano Laminado 100 G"),
+        # Una piña colada sin alcohol: jugo, batido, té de burbujas o helado (en la base real, 10 de 27).
+        ("menu_item", "Jugo Piña Colada 500 ml"),
+        ("menu_item", "Piña colada sin alcohol"),
+        ("menu_item", "Piña Colada Virgin"),
+        ("menu_item", "Milkshake Piña Colada"),
+        ("menu_item", "Shakes de Piña Colada"),
+        ("menu_item", "Piña Colada Tea"),
+        ("menu_item", "Helado Piña Colada"),
+        # «mimosa» no está en la lista: en la base real solo hay dos y son sin alcohol (un jugo y «Sin Alcohol»).
+        ("menu_item", "Mimosa"),
+        ("menu_item", "Mimosa Sabores"),
     ],
 )
 def test_words_that_only_look_like_alcohol_are_not_blocked(entity_type, name):
@@ -153,6 +165,7 @@ def test_words_that_only_look_like_alcohol_are_not_blocked(entity_type, name):
         ("Tako Sour", "sushi"),  # un roll
         ("Ceviche Sour", "pescados-mariscos"),
         ("Sour", "salsas"),
+        ("Piña colada", "jugos"),  # en «Smoothies»
     ],
 )
 def test_a_drink_word_is_food_when_the_dish_concept_says_so(name, concept):
@@ -254,6 +267,13 @@ def test_other_sections_are_not_blocked(section):
         "Licor de café",
         "Sidra de manzana",
         "Umeshu",
+        # Lo que se escapaba en la base real (revisión final).
+        "Borgoña (1000ml)",
+        "Botella de Borgoña 1/2 Lt",
+        "CUSQUEÑA NEGRA",
+        "Cusqueña Dorada 330 ml",
+        "Piña Colada 1 Litro",
+        "PIÑA COLADA",
     ],
 )
 def test_a_dish_name_that_says_alcohol_is_never_offered(name):
@@ -303,3 +323,57 @@ def test_vertical_to_try_never_offers_a_deal_whose_name_says_alcohol(monkeypatch
     offered = engine._offerable_deals(NoBlockedStores(), "supermercado")
 
     assert [d["name"] for d in offered] == ["Uva Verde 1 kg"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Fisher-price Juguete Para Bebés Set De Cocina De Madera",  # el primero de «vertical por probar» en Mall
+        "Juguete Didáctico Bebé Mapache",
+        "Pack Bodie de Bebé Niña Pink/Rosado Talla 3/6M Colloky",
+        "Popeye Jabón para Ropa de Bebé",
+        "Peluche De Apego Juguete Tuto Amigo Para Bebe Guagua (pato)",
+        "Tuto Pañal De Algodón Bambino Para Bebes Guagua Set 3 Tutto (blanco)",
+        "Spak Guagua",
+    ],
+)
+def test_a_catalog_name_that_says_baby_is_never_offered(name):
+    """Bebé es un grupo que el agente no ofrece, pero en la base real la ropa, los juguetes y el detergente de bebé
+    vienen con conceptos corrientes (ropa, juguetes-infantiles, limpieza): el nombre lo dice."""
+    assert baby_in_name("catalog_item", name)
+
+
+@pytest.mark.parametrize(
+    ("entity_type", "name"),
+    [
+        ("catalog_item", "Bebida cola 500 cc"),  # palabra entera: ni «bebida» ni «bebestible»
+        ("catalog_item", "Bebestible de almendras 1 L"),
+        ("catalog_item", "Casco Infantil Globber Primo Lights Emerald Green"),  # «infantil» es de niños, no de bebé
+        ("catalog_item", "Enciclopedia Infantil de Los Dinosaurios"),
+        ("menu_item", "Papilla de bebé"),  # solo productos del catálogo
+    ],
+)
+def test_words_that_do_not_say_baby_are_not_blocked(entity_type, name):
+    assert not baby_in_name(entity_type, name)
+
+
+def test_vertical_to_try_never_offers_a_deal_whose_name_says_baby(monkeypatch):
+    """En la base real, «vertical por probar» en Mall partía con un juguete para bebés (de juguetes-infantiles)."""
+    from rappi_ia.offers import engine
+
+    found = [
+        {"name": "Fisher-price Juguete Para Bebés Set De Cocina De Madera", "concept": "juguetes-infantiles",
+         "age_restricted": False, "store_id": 1},
+        {"name": "Set De Cocina De Madera", "concept": "juguetes-infantiles", "age_restricted": False, "store_id": 1},
+    ]  # fmt: skip
+
+    class NoBlockedStores:
+        def execute(self, *args):
+            return []
+
+    monkeypatch.setattr(engine, "deals", lambda conn, vertical, limit: found)
+    monkeypatch.setattr(engine, "typical_verticals", lambda conn: {})
+
+    offered = engine._offerable_deals(NoBlockedStores(), "mall")
+
+    assert [d["name"] for d in offered] == ["Set De Cocina De Madera"]

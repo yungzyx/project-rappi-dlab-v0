@@ -4,7 +4,7 @@ Una oferta es todo lo que el agente muestra sin que se lo hayan pedido: la suger
 /recommendations (`suggest_complement`), los ganchos de servicios y los momentos de /agent/offer. Nunca es:
 - alcohol (Licores y todo concepto +18), ni tabaco, vapeo o bienestar sexual;
 - salud o farmacia: el grupo «Farmacia y cuidado personal» entero (medicamentos, vitaminas, higiene, dermocosmética);
-- bebé;
+- bebé (también un producto del catálogo cuyo nombre lo dice, aunque su concepto sea corriente);
 - un concepto sensible;
 - un producto de las verticales Farmacia y Licores, ni de una tienda que Rappi rotula Farmacia, Sex shop o Smoking
   shop (aunque esté en otra vertical).
@@ -42,28 +42,36 @@ _ALCOHOL_NAMES = KeywordMatcher(("alcohol", word) for word in ALCOHOL_NAME_WORDS
 # «Soju …» venían con concepto `asiatica` y dos «Sangría» con `gaseosas`. Lista propia porque en un menú «sake» es
 # salmón («Sake Roll», más de 2.400 platos de sushi) y los tragos tienen otros nombres (schop, chela, piscola,
 # terremoto, sour, las cervezas por su marca y los vinos por su cepa). También bloquea platos que solo nombran el
-# alcohol («bife al vino», «pasas al ron», «Churrasco Kunstmann»): en una oferta, sobran; la búsqueda y la pregunta no
-# cambian. «austral» no está: es sobre todo merluza austral (47 platos), y la cerveza sale por su sección.
+# alcohol («bife al vino», «pasas al ron», «Churrasco Kunstmann», un helado «Borgoña»): en una oferta, sobran; la
+# búsqueda y la pregunta no cambian. «austral» no está: es sobre todo merluza austral (47 platos), y la cerveza sale
+# por su sección. «mimosa» tampoco: en la base real del 14-10-2026 las dos que hay son sin alcohol (un jugo y una de
+# «Sin Alcohol»).
 MENU_ALCOHOL_NAME_WORDS = frozenset(
     {
         *("soju", "sangria", "michelada", "cerveza", "schop", "shop", "chela", "chelada", "vino", "pisco", "piscola"),
         *("vodka", "whisky", "whiskey", "tequila", "ron", "gin", "mojito", "margarita", "terremoto", "spritz"),
         *("makgeolli", "makgeoli", "umeshu", "licor", "espumante", "champagne", "champana", "sidra", "negroni"),
-        *("caipirinha", "caipirina", "daiquiri", "sour"),
-        *("corona", "escudo", "guinness", "kunstmann", "heineken", "cristal", "stella artois", "budweiser"),
+        *("caipirinha", "caipirina", "daiquiri", "sour", "borgona", "pina colada"),
+        *("corona", "escudo", "guinness", "kunstmann", "heineken", "cristal", "stella artois"),
+        *("budweiser", "cusquena"),
         *("cabernet", "carmenere", "merlot", "chardonnay", "sauvignon", "syrah", "malbec", "pinot", "cono sur"),
     }
 )
 # Palabras de trago que también nombran comida: (lo que en el nombre dice que es comida, conceptos de plato que lo
 # dicen). «Pizza Margarita» y la «Margarita Familiar» de una pizzería (concepto pizza) son pizzas; «Sour Cream», «Sweet
 # and Sour Roll», la «Sopa Hot Sour» y un roll «Tako Sour» no son un pisco sour; «Hamburguesa la Corona» y las
-# quesadillas «Corona Sacra» no son la cerveza; Negroni es también un salame y «cristal», un latte.
+# quesadillas «Corona Sacra» no son la cerveza; Negroni es también un salame y «cristal», un latte. Una piña colada es
+# también un jugo, un batido, un té de burbujas o un helado (10 de las 27 de la base real).
 _MENU_FOOD_SENSES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "margarita": (("pizza", "pizzeta"), ("pizza",)),
     "sour": (("cream", "sweet", "hot", "roll", "papas"), ("salsas", "sushi", "pescados-mariscos", "sopas")),
     "corona": (("la corona", "sacra"), ()),
     "negroni": (("salame",), ()),
     "cristal": (("latte", "fideo"), ()),
+    "pina colada": (
+        ("sin alcohol", "virgin", "jugo", "smoothie", "shake", "milkshake", "tea", "helado"),
+        ("jugos", "helados"),
+    ),
 }
 _MENU_ALCOHOL_NAMES = KeywordMatcher(
     ((word if word in _MENU_FOOD_SENSES else "alcohol", word) for word in MENU_ALCOHOL_NAME_WORDS),
@@ -87,6 +95,12 @@ _SOBER_SECTION = (
 _MENU_ALCOHOL_SECTIONS = KeywordMatcher(
     (("alcohol", word) for word in MENU_ALCOHOL_SECTION_WORDS), avoid=[("alcohol", p) for p in _SOBER_SECTION]
 )
+# Palabras de un nombre del catálogo que dicen bebé aunque el concepto no lo diga: en la base real del 14-10-2026 la
+# ropa, los juguetes, las colonias y el detergente de bebé venían como ropa, juguetes-infantiles, fragancias o limpieza,
+# y «vertical por probar» partía en Mall con un «Fisher-price Juguete Para Bebés». Palabra entera, con su plural.
+# «infantil» no está: es de niños (cascos, libros, medias de fútbol), no de bebé.
+BABY_NAME_WORDS = frozenset({"bebe", "guagua"})
+_BABY_NAMES = KeywordMatcher(("bebe", word) for word in BABY_NAME_WORDS)
 
 
 def is_plannable(concept: Concept) -> bool:
@@ -125,6 +139,11 @@ def alcohol_in_name(entity_type: str, name: str, concept_id: str | None = None) 
         m.target == "alcohol" or concept_id not in _MENU_FOOD_SENSES[m.target][1]
         for m in _MENU_ALCOHOL_NAMES.matches(name)
     )
+
+
+def baby_in_name(entity_type: str, name: str) -> bool:
+    """Si el nombre de un producto del catálogo dice bebé (`BABY_NAME_WORDS`). Los platos, no."""
+    return entity_type == "catalog_item" and _BABY_NAMES.best(name) is not None
 
 
 def alcohol_section(section: str | None) -> bool:

@@ -102,11 +102,14 @@ gusto = "lo italiano"
 [[perfil.escalera]]
 vertical = "supermercado"
 conceptos = ["pastas", "quesos", "salsas", "aceites-condimentos"]
+# Salsas y pastas que no son italianas: en la base real salían mayonesa Kraft, ketchup y un yakisoba Nissin.
+evitar = ["ketchup", "mayonesa", "mostaza", "aderezo", "nissin", "ramen", "yakisoba"]
 texto = "Tu despensa italiana"
 
 [[perfil.escalera]]
 vertical = "conveniencia"
 conceptos = ["pastas", "salsas"]
+evitar = ["ketchup", "mayonesa", "mostaza", "aderezo", "nissin", "ramen", "yakisoba"]  # como en el súper
 texto = "Pasta y salsa para hoy"
 
 [[perfil.escalera]]
@@ -118,8 +121,9 @@ texto = "Queso y pasta en minutos"
 vertical = "mall"
 conceptos = ["cocina-menaje"]
 palabras = ["pizza", "rallador", "pasta"]
-# En cocina-menaje: «Limpia Ollas En Pasta», «Juego De Pizza De Madera Melissa & Doug» y «Set De Pastas Hape».
-evitar = ["limpia", "melissa", "hape"]
+# En cocina-menaje: «Limpia Ollas En Pasta», «Juego De Pizza De Madera Melissa & Doug», «Set De Pastas Hape» y el
+# «Plato de Pizza Perruno» de Casaideas (un plato para perro).
+evitar = ["limpia", "melissa", "hape", "perruno"]
 texto = "Para tu noche de pizza en casa"
 
 [[perfil.escalera]]
@@ -188,8 +192,9 @@ texto = "Maní, papas y salsas para picar"
 vertical = "mall"
 conceptos = ["decoracion"]
 palabras = ["vaso", "guirnalda", "globo", "cotillón"]
-# Lo de despedida de soltera: «Guirnalda Globo Foil "un Pene Forever"» salía entre los cuatro primeros.
-evitar = ["pene", "despedida", "soltera", "soltero", "sexy"]
+# Lo de despedida de soltera: «Guirnalda Globo Foil "un Pene Forever"» salía entre los cuatro primeros. Y la corona
+# de «Feliz Navidad», que no es de fiesta.
+evitar = ["pene", "despedida", "soltera", "soltero", "sexy", "navidad"]
 texto = "Deco para la fiesta"
 
 [[perfil.escalera]]

@@ -39,6 +39,7 @@ from ..text import contract_articles, normalize, tokens
 from .guards import (
     alcohol_in_name,
     alcohol_section,
+    baby_in_name,
     is_offerable,
     is_plannable,
     offerable_vertical,
@@ -72,6 +73,10 @@ FALLBACK_VERTICALS = 3  # verticales que se prueban para decir dónde sí está 
 # vertical. Con 12, en la base real las más rebajadas del súper eran mantas y accesorios de auto, y ninguna típica; con
 # 60 había 4 típicas y con 200, 28. El costo de `deals()` no depende del tope.
 DEAL_POOL = 200
+# Las verticales donde se compra comida (el súper, Express y Turbo) y los grupos de la taxonomía que se comen o se
+# beben: en ellas, una oferta de otro grupo (cera para auto, papel higiénico) va después de la comida.
+FOOD_VERTICALS = ("supermercado", "conveniencia", "turbo")
+FOOD_GROUPS = ("bebidas", "snacks", "dulces", "despensa", "frescos", "comida")
 
 # El orden de la Home: lo que ya muestra hoy (la app tiene «Película» para panorama); después, el resto de la taxonomía.
 HOME_OCCASIONS = ("once", "carrete", "asado", "panorama", "regalo")
@@ -517,10 +522,10 @@ def _trip(destination: Destination, travel: Service) -> dict:
 
 
 def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
-    """Las ofertas de la vertical que el agente puede proponer: ni +18 (tampoco un nombre que dice alcohol), ni de un
-    concepto que no ofrece, ni de una tienda Farmacia, Sex shop o Smoking shop (`deals` ya quita lo sensible, pero con
-    vertical no quita esas tiendas). Un producto que está dos veces con otro id (el catálogo repite nombres) sale una
-    vez. Las de un concepto típico de la vertical van primero."""
+    """Las ofertas de la vertical que el agente puede proponer: ni +18 (tampoco un nombre que dice alcohol), ni un
+    nombre que dice bebé, ni de un concepto que no ofrece, ni de una tienda Farmacia, Sex shop o Smoking shop (`deals`
+    ya quita lo sensible, pero con vertical no quita esas tiendas). Un producto que está dos veces con otro id (el
+    catálogo repite nombres) sale una vez. Las de un concepto típico de la vertical van primero."""
     concepts = load_taxonomy().concepts
     found = deals(conn, vertical, DEAL_POOL)
     blocked = {
@@ -535,6 +540,7 @@ def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
         for d in found
         if not d["age_restricted"]
         and not alcohol_in_name("catalog_item", d["name"])  # las ofertas de `deals` son del catálogo
+        and not baby_in_name("catalog_item", d["name"])
         and d["store_id"] not in blocked
         and (d["concept"] not in concepts or is_offerable(concepts[d["concept"]]))
     ]
@@ -546,13 +552,19 @@ def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
 
 def _typical_first(found: list[dict], vertical: str, typical: dict[str, str]) -> list[dict]:
     """Primero las ofertas de un concepto típico de la vertical (el súper ofrecía mantas y silicona para auto con 60 %
-    de descuento), después las de cualquier otro concepto y al final las sin concepto. Dentro de cada grupo se mantiene
-    el orden de llegada (el mayor descuento primero); si las típicas no alcanzan, completan las demás."""
+    de descuento), después las de cualquier otro concepto y al final las sin concepto. En las verticales de comida
+    (`FOOD_VERTICALS`), lo que no es de un grupo de comida va después de la comida aunque sea típico (Express partía
+    con una cera para auto: `automotriz` es típico de las tiendas de las bencineras). Dentro de cada grupo se mantiene
+    el orden de llegada (el mayor descuento primero); si las primeras no alcanzan, completan las demás."""
+    concepts = load_taxonomy().concepts
 
     def group(deal: dict) -> int:
-        if typical.get(deal["concept"]) == vertical:
-            return 0
-        return 1 if deal["concept"] else 2
+        if not deal["concept"]:
+            return 3
+        concept = concepts.get(deal["concept"])
+        if vertical in FOOD_VERTICALS and concept and (concept.parent or concept.id) not in FOOD_GROUPS:
+            return 2
+        return 0 if typical.get(deal["concept"]) == vertical else 1
 
     return sorted(found, key=group)
 

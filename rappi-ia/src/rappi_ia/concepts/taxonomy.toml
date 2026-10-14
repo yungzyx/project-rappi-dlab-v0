@@ -442,9 +442,10 @@ id = "despensa-asiatica"
 parent = "despensa"
 name = "Despensa asiática"
 emoji = "🥢"
-keywords = ["salsa de soya", "salsa de soja", "salsa soya", "salsa soja", "sillao", "kikkoman", "salsa hoisin", "salsa de ostras", "salsa de ostra", "lee kum kee", "alga nori", "aceite de sésamo", "aceite sésamo", "sesame oil", "mirin", "vinagre de arroz", "arroz para sushi", "arroz sushi", "arroz de sushi", "papel de arroz", "gochujang", "pasta de miso", "jengibre para sushi", "gengibre para sushi", "palitos para sushi", "palillos chinos", "palitos chinos"]
-# Lo que también lleva un roll, un ramen o un salteado: en una consulta piden el plato.
-product_keywords = ["nori", "wakame", "wasabi", "miso", "kimchi", "shoyu", "hoisin", "panko", "salsa teriyaki", "fideos de arroz", "fideo de arroz", "tallarines de arroz", "jengibre encurtido"]
+keywords = ["salsa de soya", "salsa de soja", "salsa soya", "salsa soja", "sillao", "kikkoman", "salsa hoisin", "salsa de ostras", "salsa de ostra", "lee kum kee", "alga nori", "aceite de sésamo", "aceite sésamo", "sesame oil", "mirin", "vinagre de arroz", "arroz para sushi", "papel de arroz", "gochujang", "pasta de miso", "jengibre para sushi", "gengibre para sushi", "palitos para sushi", "palillos chinos", "palitos chinos"]
+# Lo que también lleva un roll, un ramen o un salteado: en una consulta piden el plato («bowl base arroz de sushi»,
+# «arroz sushi con cerdo»). «arroz para sushi» sí es el producto.
+product_keywords = ["nori", "wakame", "wasabi", "miso", "kimchi", "shoyu", "hoisin", "panko", "salsa teriyaki", "fideos de arroz", "fideo de arroz", "tallarines de arroz", "jengibre encurtido", "arroz sushi", "arroz de sushi"]
 # Un plato preparado con soya, nori o panko (en la categoría «Sushi» o «Platos listos») no es despensa.
 avoid = ["roll", "rolls", "piezas", "pzas", "ramen", "gyoza", "gyozas", "tempura", "ebi", "box", "combo", "gohan", "acevichado", "furai", "shampoo", "acondicionador", "lush", "noris", "staedtler", "acuarela", "lápiz", "lápices", "decoupage", "vape", "vaper", "puff", "pod"]
 

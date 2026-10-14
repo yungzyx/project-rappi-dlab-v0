@@ -285,6 +285,29 @@ def test_an_offer_never_brings_a_catalog_item_whose_name_says_alcohol(db):
     assert [p.entity_id for p in dish.products] == ["941"]
 
 
+def test_an_offer_never_brings_a_catalog_item_whose_name_says_baby(db):
+    """En la base real los juguetes y la ropa de bebé vienen con conceptos corrientes: quien los busca los encuentra,
+    pero el agente no los ofrece, ni en el kit de una ocasión."""
+    embedder = HashEmbedder()
+    add_store(db, 21, "mall", "Juguetería")
+    stock(
+        db,
+        embedder,
+        [
+            (951, "Fisher-price Juguete Para Bebés Set De Cocina De Madera", 21, "Juguetes"),
+            (952, "Set De Cocina De Madera", 21, "Juguetes"),
+        ],
+    )
+
+    def found(**offer):
+        outcome = search_products(db, "mall", "set de cocina de madera", [], embedder, **offer)
+        return {p.entity_id for p in outcome.products}
+
+    assert found() == {"951", "952"}
+    assert found(offer=True) == {"952"}
+    assert found(offer=True, adult_ok=True) == {"952"}
+
+
 def test_an_offer_never_brings_a_dish_whose_name_says_alcohol(db):
     """En la base real, cinco platos «Soju …» tienen concepto `asiatica`: la búsqueda los encuentra, una oferta no.
     En un menú «sake» es salmón y la «Margarita Familiar» de una pizzería es una pizza: los dos se ofrecen."""

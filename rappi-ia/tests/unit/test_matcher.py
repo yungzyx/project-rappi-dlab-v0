@@ -258,6 +258,8 @@ DISH_QUERIES = [
     ("pollo en salsa teriyaki", ["pollo", "salsas", "asiatica"]),
     ("sopa miso", ["sopas"]),
     ("mochi helado", ["helados"]),
+    ("bowl base arroz de sushi", ["ensaladas-bowls", "arroz-legumbres", "sushi"]),  # «arroz de sushi»: un plato
+    ("arroz sushi con cerdo", ["arroz-legumbres", "sushi", "carnes"]),
 ]
 
 
@@ -276,6 +278,8 @@ def test_dish_words_label_products_but_do_not_read_queries(query, concepts):
         ("Kimchi 200g", "despensa-asiatica"),
         ("Wasabi En Polvo 20 Gr", "despensa-asiatica"),
         ("Real Thai Fideos de Arroz", "despensa-asiatica"),
+        ("Arroz Sushi Tanaka 1 kg", "despensa-asiatica"),
+        ("Arroz de Sushi Kokuho Rose 1 kg", "despensa-asiatica"),
         ("Dorayaki Sabor Chocolate", "snacks-asiaticos"),
         ("Plato Vaso Yopokki Tteokbokki Tradicional", "snacks-asiaticos"),
         ("Coco Matcha Latte", "bebidas-asiaticas"),

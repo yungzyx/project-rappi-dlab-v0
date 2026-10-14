@@ -13,6 +13,7 @@ from ..embeddings.base import TextEmbedder
 from ..offers.guards import (
     alcohol_in_name,
     alcohol_section,
+    baby_in_name,
     is_offerable,
     offerable_vertical,
     unofferable_subverticals,
@@ -370,6 +371,8 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adu
         # En una oferta, un nombre que dice alcohol cuenta como +18 aunque la tienda no lo marque (offers/guards.py).
         age = age or (offer and alcohol_in_name(hit.entity_type, name, hit.concept_id))
         if offer and age and not adult_ok:  # +18 aunque su concepto sea corriente: el catálogo lo marca
+            continue
+        if offer and baby_in_name(hit.entity_type, name):  # de bebé aunque su concepto sea corriente: ni en un kit
             continue
         concept = taxonomy.concepts.get(hit.concept_id) if hit.concept_id else None
         prefix = "cat" if hit.entity_type == "catalog_item" else "menu"

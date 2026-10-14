@@ -137,6 +137,16 @@ def test_the_party_profile_has_no_alcohol():
         ("asiatico", "chocolateria", "Lindor Matcha", True),
         ("asiatico", "chocolateria", "Lindor Leche", False),
         ("asiatico", "turbo", "Kikkoman Salsa de Soya", True),  # sin palabras, calza todo
+        # La despensa italiana no es ketchup, mayonesa ni ramen (salían en el súper y en Express de la base real).
+        ("italiano", "supermercado", "Kraft Aderezo de Mayonesa", False),
+        ("italiano", "supermercado", "Heinz Salsa de Tomate Ketchup", False),
+        ("italiano", "supermercado", "Gourmet Salsa Pesto Receta Italiana", True),
+        ("italiano", "conveniencia", "Hellmann's Salsa de Tomate Ketchup", False),
+        ("italiano", "conveniencia", "Ramen Tostado Instantáneo Yakisoba Nissin 100 Gr", False),
+        ("italiano", "conveniencia", "Mostaza Dijon 200 g", False),
+        ("italiano", "conveniencia", "Coliseo Pasta Fettuccine Speciale", True),
+        ("italiano", "mall", "Plato de Pizza Perruno 22 x 1 x 22 cm Casaideas", False),  # un plato para perro
+        ("carrete", "mall", "Corona Blanca Guirnalda Feliz Navidad Decoración De Hogar Puertas 40 Cm", False),
     ],
 )
 def test_a_step_with_words_takes_them_at_the_start_of_a_word_and_avoids_what_it_does_not_promise(
