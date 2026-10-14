@@ -31,6 +31,7 @@ from ..catalog.stores import product_detail
 from ..concepts.taxonomy import Concept, load_taxonomy
 from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
 from ..retrieval.hybrid import _concepts_of, detect_concepts
+from ..text import contract_articles
 from .guards import (
     is_offerable,
     is_plannable,
@@ -216,10 +217,12 @@ def plan(conn: Connection, embedder: TextEmbedder | None, occasion_id: str) -> O
     if not kit:
         return None
     verticals = list(dict.fromkeys(p.vertical for _, p in kit))
-    text = PLAN_TEXT.format(
-        occasion=occasion.name,
-        concepts=_join([c.name.lower() for c, _ in kit]),
-        verticals=_join([VERTICAL_LABELS.get(v, v) for v in verticals]),
+    text = contract_articles(
+        PLAN_TEXT.format(
+            occasion=occasion.name,
+            concepts=_join([c.name.lower() for c, _ in kit]),
+            verticals=_join([VERTICAL_LABELS.get(v, v) for v in verticals]),
+        )
     )
     # «Más ideas» busca lo que el agente busca para una ocasión: los nombres de sus primeros conceptos que arma
     query = " ".join(c.name for c in concepts[:4])
@@ -360,7 +363,9 @@ def vertical_to_try(conn: Connection, stamped: list[str], interests: Interests) 
             if likes := affinity.get(vertical):
                 reason = _likes_reason(REASON_LIKES_VERTICAL, likes, interests, vertical=label)
             else:
-                reason = _reason(REASON_TO_TRY.format(vertical=label), [_context_signal("sello", vertical)])
+                reason = _reason(
+                    contract_articles(REASON_TO_TRY.format(vertical=label)), [_context_signal("sello", vertical)]
+                )
             return Offer("vertical_por_probar", text, products, vertical, reason, [action])
     return None
 
