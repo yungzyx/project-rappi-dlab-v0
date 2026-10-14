@@ -24,6 +24,7 @@
 | Conocer la capa de IA, su API y cómo se evalúa | [rappi-ia/README.md](../rappi-ia/README.md) | 10 min |
 | Usar o modificar el scraper | [rappi-scraper/README.md](../rappi-scraper/README.md) | 10 min |
 | Qué es el MVP integrado y cómo se armó (7 etapas) | [especificación del MVP](superpowers/specs/2026-10-10-mvp-integrado-design.md) | 10 min |
+| Saber cómo se arman los perfiles de gusto (el sushi como narrativa, escaleras de verticales) y qué falta para la app | [especificación](superpowers/specs/2026-10-14-perfiles-de-gusto-design.md) | 5 min |
 | Diseño original del juego de verticales (09-10, antes de pasar a la API) | [especificación](superpowers/specs/2026-10-09-juego-en-prototipo-design.md) | 5 min |
 
 ### Diagramas y mapas

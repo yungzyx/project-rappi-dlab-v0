@@ -84,12 +84,13 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `GET /live` · `GET /health` | El proceso responde (sin mirar la base) · lista para atender: 200 con capacidades y documentos, o 503 con `motivos` (`base`, `saturada`, `sin_documentos`, `migraciones_pendientes`, `busqueda_semantica`) |
 | `POST /session` | Sesión anónima: `{legacy_user_id?}` → `{user_id, token}`. El token va en la cabecera `X-User-Token` de toda ruta con datos de una persona (401 sin él, 403 con el de otra) |
 | `POST /agent/ask` | El agente (Mochi): `{message, vertical?, user_id?, session_id?, profile?, shown_topics?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
-| `POST /agent/offer` · `GET /agent/plans` | Lo que el agente propone en cada momento de la app (204 si no hay una buena oferta) · las ocasiones de la Home con su kit |
+| `POST /agent/offer` · `GET /agent/plans` | Lo que el agente propone en cada momento de la app (`plan`, `carrito`, `checkout`, `proximo_pedido`, `sin_resultado`, `vertical_por_probar` y `perfil`: la escalera de un perfil de gusto; 204 si no hay una buena oferta, 422 con un perfil desconocido) · las ocasiones de la Home con su kit |
 | `GET /catalog/home` · `/catalog/verticals/{vertical}/stores` · `/catalog/stores/{store_id}` · `/catalog/products/{entity_type}/{entity_id}` · `/catalog/restaurants` · `/catalog/restaurants/{store_id}/menu` · `/catalog/deals` | Las pantallas de catálogo del prototipo (Home, verticales, tienda, producto, restaurantes, menú, ofertas), con el precio vigente |
 | `GET /game/cards` · `GET /game/challenge` · `GET`/`PUT /game/state/{user_id}` | Tarjetas del juego, desafío de cada ronda y progreso por persona |
 | `GET /search` | Búsqueda híbrida en un vertical, con precios vigentes |
 | `GET /recommendations` | "Para ti, de otras tiendas": intereses → complementos → otro vertical |
 | `GET /profile/{id}` · `DELETE /profile/{id}` | Lo aprendido (sin sensibles) · "Olvidar" (todo o un concepto) |
+| `GET /profile/{id}/gustos` | Los perfiles de gusto de la persona (por ejemplo «🥢 Amante de lo asiático»): `{perfiles: [{id, nombre, emoji, nivel, principal, por_que, basis}]}`, o la lista vacía. Salen de sus segmentos y "Olvidar" los quita |
 | `POST /events` · `POST /orders` | Eventos y pedidos del prototipo (`source = prototype`). Un pedido sin vertical del catálogo es un 400 |
 | `POST /events/beacon` | Lo que queda en cola al cerrar la pestaña (`sendBeacon`, text/plain: sin preflight de CORS) |
 | `GET /analytics/{kpis, weekly, opportunities, trends, funnel, cohorts, rhythm, at-risk, suggestions, multi-vertical, affinity, assortment, services, catalog, offers, game, unmet}` | Métricas de negocio (las muestra el [panel](../dashboard-empresa/), parte del MVP). `offers`, `game` y `unmet` son las de «Uso del MVP» |
@@ -183,7 +184,7 @@ rappi-ia/
 │   ├── retrieval/     búsqueda híbrida por vertical
 │   ├── agent/         el agente (`RappiAgent`): entender, herramientas, redactar
 │   ├── catalog/       pantallas de catálogo para la API (/catalog)
-│   ├── offers/        ofertas del agente por momento (/agent/offer, /agent/plans)
+│   ├── offers/        ofertas del agente por momento (/agent/offer, /agent/plans) y perfiles de gusto (perfiles.toml, destinos.toml)
 │   ├── game/          tarjetas (knowledge.json, card_concepts.toml), desafíos y progreso (/game)
 │   ├── layers/        capa de datos: medidas, marcas, atributos, grafo y segmentos (esquema capa)
 │   ├── demo/          catálogo inventado de `seed-demo` (solo bases _test)
