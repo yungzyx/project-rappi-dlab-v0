@@ -1,7 +1,7 @@
-"""La búsqueda léxica con el df de cada palabra en la caché del catálogo (`retrieval/hybrid._lexical`): devuelve
-exactamente lo mismo que el SQL anterior, que contaba el df de cada palabra en cada búsqueda y puntuaba con un JOIN más
-GROUP BY (queda aquí como referencia), y una segunda búsqueda no vuelve a contar el df. Vence con la caché del
-catálogo."""
+"""La búsqueda léxica con el df de cada palabra en la caché del catálogo y el puntaje por documento sin JOIN ni GROUP BY
+(`retrieval/hybrid._lexical`): da los mismos documentos con el mismo puntaje que el SQL anterior (queda aquí como
+referencia) y el mismo orden salvo entre empates, que ahora salen por `entity_id`; una segunda búsqueda no vuelve a
+contar el df. Vence con la caché del catálogo."""
 
 import pytest
 from rappi_scraper.storage.search import VERTICALS, build_search_documents
@@ -94,7 +94,18 @@ def catalog(db):
     return db
 
 
-def test_lexical_returns_exactly_what_the_old_sql_returned(catalog):
+def by_score(rows):
+    """Los documentos de cada puntaje, del mayor al menor. El puntaje se redondea a 1e-9: el SQL anterior sumaba los IDF
+    en el orden que le entregaba un Sort inestable, y documentos con las mismas palabras quedaban con puntajes que
+    diferían en el último bit (hasta ~4e-15). Así se comparan los documentos, los puntajes y el orden entre puntajes
+    distintos, sin el orden de los empates."""
+    groups: dict[float, set] = {}
+    for key, score in rows:
+        groups.setdefault(round(score, 9), set()).add(key)
+    return sorted(groups.items(), reverse=True)
+
+
+def test_lexical_gives_the_same_documents_scores_and_order_as_the_old_sql_except_among_ties(catalog):
     with_results = 0
     for query in QUERIES:
         for vertical in VERTICALS:
@@ -102,9 +113,37 @@ def test_lexical_returns_exactly_what_the_old_sql_returned(catalog):
             for filters in FILTERS:
                 new = hybrid._lexical(catalog, vertical, query, filters, n)
                 old = old_lexical(catalog, vertical, query, filters, n)
-                assert new == old, (query, vertical, filters)  # mismo orden y mismo puntaje
+                assert len(old) < CANDIDATES  # el corte del LIMIT no parte un empate
+                assert by_score(new) == by_score(old), (query, vertical, filters)
                 with_results += bool(new)
     assert with_results >= 20  # la comparación no es entre listas vacías
+
+
+def test_documents_with_the_same_score_come_out_ordered_by_entity_id(catalog):
+    """Cuarenta productos con el mismo nombre (varias palabras, de IDF distinto) y ids en desorden: el mismo puntaje,
+    exacto, y el desempate de `ORDER BY score DESC, entity_id`. Con el JOIN más GROUP BY, la suma de los IDF dependía
+    del orden en que un Sort inestable entregaba las filas y los puntajes diferían en el último bit: el desempate
+    quedaba al azar (con este mismo catálogo daba dos puntajes y los ids en desorden)."""
+    store = catalog.execute(
+        "SELECT store_id FROM store_verticals WHERE vertical = 'supermercado' ORDER BY store_id LIMIT 1"
+    ).fetchone()[0]
+    name = "Papas fritas nativas premium con sal de mar"
+    ids = [str(991_000 + (17 * i) % 40) for i in range(40)]  # 17 y 40 son primos entre sí: todos distintos y revueltos
+    assert ids != sorted(ids)
+    for pid in ids:
+        add_product(catalog, int(pid), name, store)
+        add_price(catalog, store, int(pid), 1500)
+    catalog.commit()
+    build_search_documents(catalog)
+    catalog.commit()
+
+    found = hybrid._lexical(catalog, "supermercado", name, Filters(), vertical_doc_count(catalog, "supermercado"))
+
+    tied = [(key, score) for key, score in found if key[1] in set(ids)]
+    assert len(tied) == len(ids)
+    assert len({score for _, score in tied}) == 1  # el mismo puntaje, bit a bit
+    assert [key[1] for key, _ in tied] == sorted(ids)
+    assert [key[1] for key, _ in found[: len(ids)]] == sorted(ids)  # y ellos van primero
 
 
 def test_a_second_search_does_not_count_the_df_again(catalog):
@@ -123,8 +162,10 @@ def test_a_second_search_does_not_count_the_df_again(catalog):
     assert _df_counts(counting.statements) == []
     assert len([s for s in counting.statements if "scrape_runs" not in s]) == 2
 
-    assert second == old_lexical(catalog, "supermercado", "papas fritas", Filters(price_max=2500), n)
-    assert third == old_lexical(catalog, "supermercado", "papas", Filters(), n)
+    assert by_score(second) == by_score(
+        old_lexical(catalog, "supermercado", "papas fritas", Filters(price_max=2500), n)
+    )
+    assert by_score(third) == by_score(old_lexical(catalog, "supermercado", "papas", Filters(), n))
 
 
 def test_the_df_is_counted_again_when_the_catalog_cache_expires(catalog, monkeypatch):
@@ -155,4 +196,4 @@ def test_the_df_is_counted_again_when_the_catalog_cache_expires(catalog, monkeyp
 
     assert n > stale_n and _df_counts(counting.statements)  # contó de nuevo
     assert after != before
-    assert after == old_lexical(catalog, "supermercado", "papas", Filters(), n)
+    assert by_score(after) == by_score(old_lexical(catalog, "supermercado", "papas", Filters(), n))

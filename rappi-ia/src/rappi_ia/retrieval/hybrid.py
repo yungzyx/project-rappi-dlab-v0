@@ -198,41 +198,37 @@ def _lexical(
     no existe en el índice), así que las palabras con guion perdían su peso.
 
     El df de cada lexema sale de la caché del catálogo (`_document_frequencies`): contarlo en cada búsqueda costaba
-    tanto como puntuar con una palabra frecuente («sushi» en restaurantes, ~45 mil documentos). El resto de la consulta
-    es la de antes, con el mismo plan: la suma de los IDF depende del orden en que el GROUP BY recibe las filas (en el
-    último decimal), y sumarlos en otro orden (una subconsulta en vez del JOIN) cambiaba el desempate de puntajes
-    iguales en 87 de 3.552 listas de la base real. tests/integration/test_lexical_df_cache.py lo compara con el SQL
-    anterior.
+    tanto como puntuar con una palabra frecuente («sushi» en restaurantes, ~45 mil documentos).
+
+    El puntaje de cada documento es la suma de los IDF de las palabras que tiene más ts_rank_cd, en una subconsulta
+    sobre las palabras en vez de un JOIN más GROUP BY (unas 3 veces más rápida con palabras frecuentes). Es la misma
+    suma, pero ahora siempre en el orden de la consulta: el JOIN más GROUP BY la hacía en el orden en que un Sort
+    inestable entregaba las filas, y documentos con las mismas palabras quedaban con puntajes que diferían en el último
+    bit (hasta ~4e-15), así que su desempate quedaba al azar. Ahora los empates salen por `entity_id`, como dice el
+    ORDER BY. En la base real el orden cambió solo entre documentos empatados (87 de 3.552 listas) y la evaluación de
+    búsqueda dio el mismo reporte. (`search_documents` es única por vertical, tipo e id: sin GROUP BY no hay filas
+    repetidas.) tests/integration/test_lexical_df_cache.py lo compara con el SQL anterior.
     """
     lexemes = _lexemes(conn, query)
     if not lexemes:  # solo stopwords («té»): nada que calzar
         return []
     rows = conn.execute(
-        f"""WITH lexemes AS (
-                SELECT DISTINCT lexeme FROM unnest(to_tsvector('spanish', es_unaccent(%(query)s)))
+        f"""WITH weights AS MATERIALIZED (
+                SELECT quote_literal(w.lexeme)::tsquery AS q, ln(1 + %(n)s::float / (1 + w.df)) AS idf
+                FROM unnest(%(lexemes)s::text[], %(dfs)s::bigint[]) AS w(lexeme, df)
             ),
-            weights AS MATERIALIZED (
-                SELECT l.lexeme, quote_literal(l.lexeme)::tsquery AS q,
-                       ln(1 + %(n)s::float / (1 + (SELECT f.df FROM unnest(%(lexemes)s::text[], %(dfs)s::bigint[])
-                                                                 AS f(lexeme, df)
-                                                   WHERE f.lexeme = l.lexeme)))
-                       AS idf
-                FROM lexemes l
-            ),
-            any_q AS (SELECT string_agg(quote_literal(lexeme), ' | ')::tsquery AS q FROM lexemes)
+            any_q AS (SELECT string_agg(quote_literal(l), ' | ')::tsquery AS q FROM unnest(%(lexemes)s::text[]) AS l)
             SELECT d.entity_type, d.entity_id,
-                   sum(w.idf) + max(ts_rank_cd(d.tsv_unaccent, any_q.q)) AS score
+                   (SELECT sum(w.idf) FROM weights w WHERE d.tsv_unaccent @@ w.q)
+                   + ts_rank_cd(d.tsv_unaccent, any_q.q) AS score
             FROM search_documents d
             CROSS JOIN any_q
-            JOIN weights w ON d.tsv_unaccent @@ w.q
-            WHERE d.vertical = %(vertical)s AND d.entity_type = ANY(%(types)s) AND any_q.q IS NOT NULL
+            WHERE d.vertical = %(vertical)s AND d.entity_type = ANY(%(types)s)
               AND d.tsv_unaccent @@ any_q.q
               AND (%(price_max)s::numeric IS NULL OR {_PRICE} <= %(price_max)s::numeric)
-            GROUP BY d.entity_type, d.entity_id
             ORDER BY score DESC, d.entity_id
             LIMIT %(k)s""",
         {
-            "query": query,
             "lexemes": lexemes,
             "dfs": _document_frequencies(conn, vertical, lexemes, doc_count),
             "vertical": vertical,
