@@ -2,6 +2,7 @@
 de las entradas): viven aparte para que `app.py` incluya los routers (`catalog.py`, `agent.py`) sin que ellos tengan
 que importar `app`."""
 
+import logging
 import threading
 import time
 from collections.abc import AsyncIterator, Callable, Iterator
@@ -12,15 +13,19 @@ import anyio.from_thread
 import anyio.to_thread
 from fastapi import Depends
 from psycopg import Connection
+from psycopg import Error as DatabaseError
 from psycopg_pool import ConnectionPool, PoolTimeout
 from pydantic import BaseModel, model_validator
 from rappi_scraper.storage.search import VERTICALS
 
 from .. import config
+from ..agent.grouped_search import SpareConnector
 from ..agent.rappi_agent import PROTOTYPE_VERTICALS
 from ..db import database_url
 from .limits import ConcurrencyCap
 from .services import Services, services
+
+log = logging.getLogger(__name__)
 
 FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 
@@ -29,6 +34,14 @@ BACKGROUND_TIMEOUT_MS = 20_000  # las tareas después de responder (recalcular s
 # Lo que una conexión extra (`spare_connection`) espera al pool: lo justo para sacar una libre (y revisarla), no para
 # esperar a que otro request devuelva la suya. psycopg_pool no entrega nada con 0.
 SPARE_WAIT_S = 0.05
+
+
+def spare_reserve(pool_size: int) -> int:
+    """Turnos del pool que una conexión extra nunca toma: la mitad. Con API_POOL_MAX=10, una búsqueda sola usa 4
+    conexiones (la suya y 3 extra) y deja 6 libres; con dos a la vez, la segunda ya no pide extra (quedarían menos de
+    5). Así /health, el juego o una búsqueda nueva siempre encuentran la mitad del pool sin hacer fila detrás de las
+    búsquedas en paralelo, y una búsqueda sola en una API tranquila (la demo, el benchmark) igual usa sus 3 extra."""
+    return pool_size // 2
 
 
 def gate_for(pool) -> ConcurrencyCap:
@@ -170,26 +183,29 @@ def pooled_connection() -> Iterator[Connection]:
 
 @contextmanager
 def spare_connection() -> Iterator[Connection | None]:
-    """Una conexión más para el request en curso (la búsqueda en varias verticales), solo si hay una libre ya: un turno
-    sin hacer fila y una conexión que el pool entrega en SPARE_WAIT_S. Si no, None, y quien la pidió sigue con la
-    suya: nunca espera ni pasa API_POOL_MAX. Se pide desde el hilo del endpoint (un hilo de anyio, por el turno); la
-    conexión se puede usar desde otro hilo. Al salir confirma (o deshace) y la devuelve, y recién entonces el turno."""
+    """Una conexión más para el request en curso (la búsqueda en varias verticales), solo si sobra: un turno sin hacer
+    fila que deja libre la reserva (`spare_reserve`) y una conexión que el pool entrega en SPARE_WAIT_S (más las idas
+    y vueltas de revisarla y fijar su statement_timeout). Si no, o si falla al prepararla, None con el turno ya
+    devuelto, y quien la pidió sigue con la suya. Nunca pasa API_POOL_MAX. Se pide desde el hilo del endpoint (un
+    hilo de anyio, por el turno); la conexión se puede usar desde otro hilo. Al salir confirma (o deshace) y la
+    devuelve, y recién entonces el turno."""
     gate = _gate
-    if _pool is None or not anyio.from_thread.run(gate.acquire, 0):
+    if _pool is None or not anyio.from_thread.run_sync(gate.acquire_keeping, spare_reserve(gate.limit)):
         yield None
         return
-    try:
-        with ExitStack() as stack:
-            try:
-                conn = stack.enter_context(_checkout(config.API_TIMEOUT_INTERACTIVE_MS, SPARE_WAIT_S))
-            except PoolTimeout:
-                conn = None
-            yield conn
-    finally:
-        anyio.from_thread.run_sync(gate.release)
+    with ExitStack() as stack:
+        stack.callback(anyio.from_thread.run_sync, gate.release)  # al final: después de devolver la conexión
+        try:
+            conn = stack.enter_context(_checkout(config.API_TIMEOUT_INTERACTIVE_MS, SPARE_WAIT_S))
+        except DatabaseError as exc:  # PoolTimeout es uno: el pool no la entregó a tiempo
+            if not isinstance(exc, PoolTimeout):
+                log.warning("Sin conexión extra para la búsqueda (sigue con la del request): %s", exc)
+            stack.close()  # el turno vuelve ya, no cuando termine la búsqueda
+            conn = None
+        yield conn
 
 
-def get_spare_connector() -> Callable[[], AbstractContextManager[Connection | None]]:
+def get_spare_connector() -> SpareConnector:
     """Las conexiones extra de la búsqueda en varias verticales (`spare_connection`). Sin el pool de la API (los
     tests que usan la conexión del test) no hay ninguna y la búsqueda va en serie."""
     return spare_connection

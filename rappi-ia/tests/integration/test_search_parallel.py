@@ -1,8 +1,10 @@
-"""`/search` sin vertical busca las verticales en paralelo con conexiones extra del pool, sin esperar por ellas: con el
-pool libre devuelve los mismos grupos que en serie, con el pool agotado también (en serie, sin trabarse ni fallar) y
-nunca pasa el tope del pool ni el de conexiones extra por búsqueda. Contra `rappi_ia_test` con el catálogo de prueba."""
+"""`/search` sin vertical busca las verticales en paralelo con conexiones extra del pool, sin hacer fila por ellas: con
+el pool libre devuelve los mismos grupos que en serie, con el pool agotado también (en serie, sin trabarse ni fallar),
+nunca pasa el tope del pool ni el de conexiones extra por búsqueda y deja la reserva del pool a los demás requests.
+Contra `rappi_ia_test` con el catálogo de prueba."""
 
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
@@ -10,9 +12,11 @@ import pytest
 
 from owner_client import OwnerClient
 from rappi_ia import config
+from rappi_ia.agent import grouped_search
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.grouped_search import PARALLEL_SEARCHES, search_grouped
 from rappi_ia.agent.rappi_agent import RappiAgent
+from rappi_ia.agent.tools import SearchOutcome
 from rappi_ia.api import app as api
 from rappi_ia.api import deps, services
 from rappi_ia.api.services import Services
@@ -20,6 +24,7 @@ from rappi_ia.db import connect
 from rappi_ia.demo.seed import seed_demo
 from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
+from rappi_ia.retrieval.hybrid import RetrievalResult
 
 # Con concepto (sus verticales típicas), con ocasión, sin ninguno (las 8 verticales) y sin resultado.
 QUERIES = ["cerveza", "papas fritas", "algo para el carrete", "pizza", "chocolate", "café", "xyzzy", "té"]
@@ -205,3 +210,43 @@ def test_the_query_is_embedded_once_per_search(catalog, test_url, make_pool, mon
     finally:
         api.app.dependency_overrides.clear()
         services._load_services.cache_clear()
+
+
+SLOW_S = 0.6  # lo que tarda cada vertical falsa
+
+
+def test_searches_in_parallel_leave_room_for_other_requests(catalog, test_url, make_pool, client, spares, monkeypatch):
+    """Dos búsquedas lentas a la vez (8 verticales cada una) contra un pool de 4: la primera toma una conexión extra y
+    la segunda ninguna (quedaría bajo la reserva), así que /health no hace fila detrás de ellas. Sin la reserva, la
+    primera se quedaba con las 4 conexiones hasta su última vertical y /health esperaba más de un segundo."""
+    make_pool(test_url, max_size=4)
+    active = {"now": 0}
+    busy = threading.Condition()
+
+    def slow(conn, vertical, query, concepts, embedder, price_max=None, k=6, mode="hibrido", words=None):
+        with busy:
+            active["now"] += 1
+            busy.notify_all()
+        time.sleep(SLOW_S)
+        with busy:
+            active["now"] -= 1
+        result = RetrievalResult(vertical, query, [], [], 0, 0.5, False, True, "vertical lenta", True)
+        return SearchOutcome(result, [])
+
+    monkeypatch.setattr(grouped_search, "search_products", slow)
+    with ThreadPoolExecutor(2) as executor:
+        searches = [executor.submit(client.get, "/search", params={"q": "xyzzy"})]
+        with busy:  # la primera ya busca en paralelo
+            assert busy.wait_for(lambda: active["now"] >= 2, timeout=5)
+        searches.append(executor.submit(client.get, "/search", params={"q": "xyzzy"}))
+        with busy:  # y la segunda también: 2 verticales de la primera y 1 de la segunda (en serie)
+            assert busy.wait_for(lambda: active["now"] >= 3, timeout=5)
+        start = time.perf_counter()
+        health = client.get("/health")
+        waited = time.perf_counter() - start
+        codes = [future.result().status_code for future in searches]
+
+    assert health.status_code == 200, health.text
+    assert codes == [200, 200]
+    assert waited < SLOW_S / 2, f"/health esperó {waited:.2f} s"
+    assert spares["max_out"] == 1

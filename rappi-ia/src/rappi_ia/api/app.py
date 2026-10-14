@@ -24,7 +24,7 @@ from psycopg_pool import PoolTimeout
 from pydantic import Field, ValidationError, field_validator
 
 from .. import config
-from ..agent.grouped_search import search_grouped
+from ..agent.grouped_search import SpareConnector, search_grouped
 from ..agent.rappi_agent import PROTOTYPE_VERTICALS, Context
 from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
@@ -390,11 +390,11 @@ def search(
     mode: str = Query("hibrido"),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
-    spare=Depends(get_spare_connector),
+    spare: SpareConnector = Depends(get_spare_connector),
 ) -> dict:
     """Con `vertical`, busca solo ahí. Sin `vertical`, en las verticales que corresponden a la consulta (más la de la
     pantalla, `current`) y agrupa: `limit` es por grupo. Las verticales se buscan en paralelo con las conexiones del
-    pool que estén libres (`spare`); sin ninguna, en serie."""
+    pool que sobran (`spare`, sin tomar su reserva); sin ninguna, en serie."""
     if mode not in MODES:
         raise HTTPException(400, f"mode debe ser uno de {MODES}")
     if vertical is None:
