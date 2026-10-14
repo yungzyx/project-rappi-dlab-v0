@@ -17,7 +17,9 @@ from rappi_ia.embeddings.base import HashEmbedder
 from rappi_ia.embeddings.text_store import embed_search_documents
 
 GROUPED_SEARCH_BUDGET = 40  # con la caché del catálogo caliente (la versión y los conteos por vertical ya leídos)
-COLD_GROUPED_SEARCH_BUDGET = 45  # con la caché vacía: + la versión del catálogo y un conteo por vertical (42 medidas)
+# Con la caché vacía: + la versión del catálogo, un conteo por vertical, los lexemas de la consulta y su df en cada
+# vertical (51 medidas). El df se cuenta una vez por vertical y palabra hasta que cambia el catálogo (o 10 min).
+COLD_GROUPED_SEARCH_BUDGET = 54
 # `count(*)` de una vertical entera: sin otro filtro que la vertical.
 PARTITION_COUNT = re.compile(
     r"count\(\*\)(?:::\w+)?(?:\s+AS\s+\w+)?\s+FROM\s+search_documents(?:\s+\w+)?\s+WHERE\s+(?:\w+\.)?vertical\s*=\s*"

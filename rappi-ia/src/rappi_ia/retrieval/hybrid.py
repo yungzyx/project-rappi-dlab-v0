@@ -14,7 +14,7 @@ from pathlib import Path
 from psycopg import Connection
 from rappi_scraper.storage.search import VERTICALS
 
-from ..catalog.cache import cached
+from ..catalog.cache import cached, cached_many
 from ..concepts.assign import concept_matcher
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder, to_pgvector
@@ -196,16 +196,26 @@ def _lexical(
     ts_rank_cd solo desempata (palabras más juntas, más arriba). Cada lexema ya normalizado entra al tsquery tal
     cual (`::tsquery`): `to_tsquery` lo volvía a separar ("coca-col" → 'coca-col' <-> 'coca' <-> 'col', y 'coca'
     no existe en el índice), así que las palabras con guion perdían su peso.
+
+    El df de cada lexema sale de la caché del catálogo (`_document_frequencies`): contarlo en cada búsqueda costaba
+    tanto como puntuar con una palabra frecuente («sushi» en restaurantes, ~45 mil documentos). El resto de la consulta
+    es la de antes, con el mismo plan: la suma de los IDF depende del orden en que el GROUP BY recibe las filas (en el
+    último decimal), y sumarlos en otro orden (una subconsulta en vez del JOIN) cambiaba el desempate de puntajes
+    iguales en 87 de 3.552 listas de la base real. tests/integration/test_lexical_df_cache.py lo compara con el SQL
+    anterior.
     """
+    lexemes = _lexemes(conn, query)
+    if not lexemes:  # solo stopwords («té»): nada que calzar
+        return []
     rows = conn.execute(
         f"""WITH lexemes AS (
                 SELECT DISTINCT lexeme FROM unnest(to_tsvector('spanish', es_unaccent(%(query)s)))
             ),
             weights AS MATERIALIZED (
                 SELECT l.lexeme, quote_literal(l.lexeme)::tsquery AS q,
-                       ln(1 + %(n)s::float / (1 + (SELECT count(*) FROM search_documents d
-                                                   WHERE d.vertical = %(vertical)s
-                                                     AND d.tsv_unaccent @@ quote_literal(l.lexeme)::tsquery)))
+                       ln(1 + %(n)s::float / (1 + (SELECT f.df FROM unnest(%(lexemes)s::text[], %(dfs)s::bigint[])
+                                                                 AS f(lexeme, df)
+                                                   WHERE f.lexeme = l.lexeme)))
                        AS idf
                 FROM lexemes l
             ),
@@ -223,6 +233,8 @@ def _lexical(
             LIMIT %(k)s""",
         {
             "query": query,
+            "lexemes": lexemes,
+            "dfs": _document_frequencies(conn, vertical, lexemes, doc_count),
             "vertical": vertical,
             "n": doc_count,
             "types": list(filters.entity_types),
@@ -231,6 +243,42 @@ def _lexical(
         },
     ).fetchall()
     return [((t, i), r) for t, i, r in rows]
+
+
+def _lexemes(conn: Connection, query: str) -> list[str]:
+    """Las palabras de la consulta como las indexa `tsv_unaccent` (sin tildes ni stopwords, con su raíz), sin repetir.
+    La misma consulta se busca en varias verticales: se calculan una vez."""
+
+    def extract(queries: list[str]) -> dict[str, list[str]]:
+        return {
+            q: conn.execute(
+                """SELECT coalesce(array_agg(lexeme), '{}')
+                   FROM (SELECT DISTINCT lexeme FROM unnest(to_tsvector('spanish', es_unaccent(%s)))) l""",
+                (q,),
+            ).fetchone()[0]
+            for q in queries
+        }
+
+    return cached_many("lexemes", conn, [query], extract)[query]
+
+
+def _document_frequencies(conn: Connection, vertical: str, lexemes: list[str], doc_count: int) -> list[int]:
+    """En cuántos documentos del vertical está cada lexema (el df del IDF), en una sola consulta para los que faltan.
+    Solo cambia al rearmar los documentos: vive en la caché del catálogo como `vertical_doc_count`, con la cuenta de
+    documentos en la clave para que el N y el df del IDF sean del mismo catálogo."""
+
+    def count(missing: list[str]) -> dict[str, int]:
+        return dict(
+            conn.execute(
+                """SELECT l.lexeme, (SELECT count(*) FROM search_documents d
+                                     WHERE d.vertical = %s AND d.tsv_unaccent @@ quote_literal(l.lexeme)::tsquery)
+                   FROM unnest(%s::text[]) AS l(lexeme)""",
+                (vertical, missing),
+            ).fetchall()
+        )
+
+    found = cached_many(f"df:{vertical}:{doc_count}", conn, lexemes, count)
+    return [found[lexeme] for lexeme in lexemes]
 
 
 def _strict_lexical_count(conn: Connection, vertical: str, query: str, filters: Filters) -> int:
