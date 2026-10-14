@@ -85,6 +85,30 @@ def test_offers_group_old_and_new_origins_by_moment(concepts):
     ]
 
 
+def test_offers_of_the_taste_profile_have_their_own_moment(concepts):
+    """El momento `perfil` (perfiles de gusto) tiene su fila: sus ofertas no se pierden en «sin momento»."""
+    db = concepts
+    events.record(
+        db,
+        [
+            _offer("u1", "agent-perfil"),
+            _offer("u1", "agent-perfil", "suggestion_accepted"),
+            _offer("u2", "mochi-perfil"),  # el nombre viejo de los momentos también vale
+            _offer("u2", "agent-vertical_por_probar"),
+            _offer("u2", "agent-ask"),
+        ],
+    )
+
+    data = queries.offers(db, "prototype")
+
+    assert "perfil" in queries.OFFER_MOMENTS
+    assert _moments(data) == [
+        ("vertical_por_probar", 1, 0, None),
+        ("perfil", 2, 1, None),
+        ("pregunta", 1, 0, None),
+    ]
+
+
 def test_offers_unknown_origin_is_sin_momento(concepts):
     db = concepts
     events.record(db, [_offer("u1"), _offer("u1", "agent-nuevo"), _offer("u1", "otra-cosa"), _offer("u1", "")])

@@ -87,6 +87,30 @@ describe('MvpUsageView', () => {
     expect(within(await screen.findByRole('table', { name: 'Juego por vertical' })).getByText('Viajes')).toBeTruthy()
   })
 
+  test('the taste-profile moment has its own label and is not counted as «sin momento»', async () => {
+    serveWith({
+      offers: {
+        source: 'prototype',
+        data: {
+          personas: 2,
+          momentos: [
+            { momento: 'perfil', mostradas: 3, aceptadas: 1, aceptacion_pct: null },
+            { momento: 'sin_momento', mostradas: 1, aceptadas: 0, aceptacion_pct: null },
+          ],
+        },
+      },
+    })
+    await renderWithData(<MvpUsageView source="prototype" />)
+
+    const offers = await screen.findByRole('table', { name: 'Ofertas del agente por momento' })
+    const rows = within(offers).getAllByRole('row').slice(1)
+    expect(rows.map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))).toEqual([
+      ['Perfil de gusto', '3', '1', '—'],
+      ['Sin momento', '1', '0', '—'],
+    ])
+    expect(within(offers).queryByText('perfil')).toBeNull()
+  })
+
   test('a search without vertical says so, the stars label gives the scale and the offers note names the tab', async () => {
     serveWith({
       unmet: {

@@ -12,6 +12,7 @@ const MOMENTS = {
   proximo_pedido: 'Próximo pedido',
   sin_resultado: 'Sin resultado',
   vertical_por_probar: 'Vertical por probar',
+  perfil: 'Perfil de gusto',
   pregunta: 'Pregunta',
   para_ti: 'Para ti',
   sin_momento: 'Sin momento',
