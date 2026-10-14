@@ -1061,7 +1061,13 @@ def test_questions_about_the_app_get_an_answer_not_products(rappi_agent):
     agent, db = rappi_agent
     help_ = agent.reply(db, "quien eres", Context())
     assert not help_["products"] and "Mochi" in help_["text"]
-    assert [a["query"] for a in help_["actions"]] == ["algo para el carrete", "tengo hambre", "tengo fiebre"]
+    assert [a["label"] for a in help_["actions"]] == [
+        "🍣 Algo de sushi",
+        "🍽️ ¿Qué almuerzo hoy?",
+        "🤒 Tengo fiebre",
+        "🎉 Arma un carrete",  # sigue, pero ya no es lo primero que se ofrece
+    ]
+    assert [a["query"] for a in help_["actions"]] == ["sushi", "tengo hambre", "tengo fiebre", "algo para el carrete"]
     assert "envío" in agent.reply(db, "hacen delivery?", Context())["text"]
     assert "Ofertas" in agent.reply(db, "tienen ofertas?", Context())["text"]
     off_topic = agent.reply(db, "cuéntame un chiste", Context(mode="propuesta"))

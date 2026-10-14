@@ -60,7 +60,7 @@ class TemplateComposer:
         if d.kind == "ayuda":
             return (
                 f"Soy {config.AGENT_NAME} 🧡, tu asistente en Rappi. Pídeme lo que necesites («pañales talla G», "
-                "«algo para el carrete», «tengo fiebre») y te muestro lo que hay, aunque esté en otra vertical. "
+                "«algo de sushi», «tengo fiebre») y te muestro lo que hay, aunque esté en otra vertical. "
                 "También te llevo a RappiTravel o RappiFavor."
             )
         if d.kind == "envio":
@@ -96,7 +96,7 @@ class TemplateComposer:
                 "Si me dices qué buscas, te muestro lo más barato."
             )
         if d.kind == "vacio":
-            return "Cuéntame qué buscas: un producto, un antojo o una ocasión (asado, carrete, once…)."
+            return "Cuéntame qué buscas: un antojo (sushi, café…), un producto o una ocasión (asado, once…)."
         if d.kind == "aclarar":
             store = next((o for o in d.options if o != "restaurantes"), "una tienda")
             return f"¿{d.concept_label} para pedir ya de un restaurante o para comprar en {store}?"

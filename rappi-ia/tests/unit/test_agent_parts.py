@@ -322,6 +322,13 @@ def test_la_mascota_se_presenta_como_mochi():
         assert "😺" not in text and "😸" not in text, text
 
 
+def test_help_and_empty_texts_give_sushi_as_the_example_not_the_party():
+    """La demo parte con algo simple: el sushi. El carrete sigue existiendo como ocasión, pero no es el ejemplo."""
+    for kind in ("ayuda", "vacio"):
+        text = TemplateComposer().compose(Draft(kind=kind))
+        assert "sushi" in text and "carrete" not in text, text
+
+
 def test_claude_puede_nombrar_a_mochi():
     """«Mochi» es el nombre de la mascota, no un producto inventado: la verificación no descarta el texto por él."""
     refs = {"p1": "Cerveza Escudo 470 cc"}

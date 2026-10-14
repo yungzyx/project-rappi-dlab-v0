@@ -35,6 +35,12 @@ def test_vague_requests_become_occasions(text, occasion):
     assert U.understand(None, text, "supermercado").occasion == occasion
 
 
+def test_the_help_examples_the_app_shows_are_understood():
+    """«Algo de sushi» va primero en la ayuda; «Arma un carrete» sigue más abajo y sigue siendo una ocasión."""
+    assert U.understand(None, "sushi", "supermercado").concepts[:1] == ["sushi"]
+    assert U.understand(None, "algo para el carrete", "supermercado").occasion == "carrete"
+
+
 @pytest.mark.parametrize(
     ("text", "kind"),
     [
