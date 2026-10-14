@@ -38,7 +38,15 @@ from ..retrieval.hybrid import MODES
 from . import deps, identity, prewarm
 from .agent import router as agent_router
 from .catalog import router as catalog_router
-from .deps import Clean, backend_vertical, get_analytics_conn, get_conn, get_connector, get_services
+from .deps import (
+    Clean,
+    backend_vertical,
+    get_analytics_conn,
+    get_conn,
+    get_connector,
+    get_services,
+    get_spare_connector,
+)
 from .game import router as game_router
 from .identity import owner_in_path, owner_in_query, owner_of_body
 from .limits import TOO_MANY, MaxBodySize, RateLimit, busy, concurrency_cap
@@ -382,14 +390,16 @@ def search(
     mode: str = Query("hibrido"),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
+    spare=Depends(get_spare_connector),
 ) -> dict:
     """Con `vertical`, busca solo ahí. Sin `vertical`, en las verticales que corresponden a la consulta (más la de la
-    pantalla, `current`) y agrupa: `limit` es por grupo."""
+    pantalla, `current`) y agrupa: `limit` es por grupo. Las verticales se buscan en paralelo con las conexiones del
+    pool que estén libres (`spare`); sin ninguna, en serie."""
     if mode not in MODES:
         raise HTTPException(400, f"mode debe ser uno de {MODES}")
     if vertical is None:
         grouped = search_grouped(
-            conn, q, svc.embedder, backend_vertical(current), limit or GROUPED_SEARCH_LIMIT, price_max, mode
+            conn, q, svc.embedder, backend_vertical(current), limit or GROUPED_SEARCH_LIMIT, price_max, mode, spare
         )
         return grouped.to_dict()
     code = backend_vertical(vertical)

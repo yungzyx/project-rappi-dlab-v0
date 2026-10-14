@@ -1,0 +1,207 @@
+"""`/search` sin vertical busca las verticales en paralelo con conexiones extra del pool, sin esperar por ellas: con el
+pool libre devuelve los mismos grupos que en serie, con el pool agotado también (en serie, sin trabarse ni fallar) y
+nunca pasa el tope del pool ni el de conexiones extra por búsqueda. Contra `rappi_ia_test` con el catálogo de prueba."""
+
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+
+import pytest
+
+from owner_client import OwnerClient
+from rappi_ia import config
+from rappi_ia.agent.compose import TemplateComposer
+from rappi_ia.agent.grouped_search import PARALLEL_SEARCHES, search_grouped
+from rappi_ia.agent.rappi_agent import RappiAgent
+from rappi_ia.api import app as api
+from rappi_ia.api import deps, services
+from rappi_ia.api.services import Services
+from rappi_ia.db import connect
+from rappi_ia.demo.seed import seed_demo
+from rappi_ia.embeddings.base import HashEmbedder
+from rappi_ia.embeddings.text_store import embed_search_documents
+
+# Con concepto (sus verticales típicas), con ocasión, sin ninguno (las 8 verticales) y sin resultado.
+QUERIES = ["cerveza", "papas fritas", "algo para el carrete", "pizza", "chocolate", "café", "xyzzy", "té"]
+
+
+@pytest.fixture
+def catalog(db):
+    seed_demo(db)
+    embed_search_documents(db, HashEmbedder())
+    db.commit()
+    return db
+
+
+@pytest.fixture
+def make_pool(monkeypatch):
+    """Instala en la API un pool propio sobre `rappi_ia_test` (el de la API real nunca se abre en los tests)."""
+    pools = []
+
+    def make(url: str, max_size: int):
+        monkeypatch.setattr(config, "API_POOL_MIN", 1)
+        monkeypatch.setattr(config, "API_POOL_MAX", max_size)
+        monkeypatch.setattr(config, "API_POOL_TIMEOUT_S", 3.0)
+        pool = deps.make_pool(url)
+        pool.open(wait=True)
+        pools.append(pool)
+        monkeypatch.setattr(deps, "_pool", pool)
+        monkeypatch.setattr(deps, "_gate", deps.gate_for(pool))
+        return pool
+
+    yield make
+    for pool in pools:
+        pool.close(timeout=1)
+
+
+@pytest.fixture
+def client(monkeypatch):
+    """Un solo event loop para todos los requests, como uvicorn: el turno de las conexiones vive en él."""
+    monkeypatch.setenv("RAPPI_IA_LIGHT", "1")
+    services._load_services.cache_clear()
+    embedder = HashEmbedder()
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
+    try:
+        with OwnerClient(api.app) as client:
+            yield client
+    finally:
+        api.app.dependency_overrides.clear()
+        services._load_services.cache_clear()
+
+
+@pytest.fixture
+def spares(monkeypatch):
+    """Anota las conexiones extra que entrega `deps.spare_connection`: cuántas a la vez (lo más) y cuántas en total."""
+    seen = {"out": 0, "max_out": 0, "given": 0, "refused": 0}
+    lock = threading.Lock()
+    real = deps.spare_connection
+
+    @contextmanager
+    def counted():
+        with real() as conn:
+            with lock:
+                if conn is None:
+                    seen["refused"] += 1
+                else:
+                    seen["given"] += 1
+                    seen["out"] += 1
+                    seen["max_out"] = max(seen["max_out"], seen["out"])
+            try:
+                yield conn
+            finally:
+                if conn is not None:
+                    with lock:
+                        seen["out"] -= 1
+
+    monkeypatch.setattr(deps, "spare_connection", counted)
+    return seen
+
+
+def _serial(test_url, q: str) -> dict:
+    with connect(test_url) as conn:
+        return search_grouped(conn, q, HashEmbedder(), None, 6).to_dict()
+
+
+def test_with_a_free_pool_the_groups_are_the_same_as_in_series(catalog, test_url, make_pool, client, spares):
+    make_pool(test_url, max_size=10)
+
+    for q in QUERIES:
+        reply = client.get("/search", params={"q": q})
+        assert reply.status_code == 200, reply.text
+        assert reply.json() == _serial(test_url, q), q
+
+    assert spares["given"] > 0  # sí buscó en paralelo
+    assert spares["max_out"] <= PARALLEL_SEARCHES
+
+
+def test_with_the_pool_exhausted_it_searches_in_series_without_errors(catalog, test_url, make_pool, client, spares):
+    """Con un pool de una conexión, la petición tiene la única: no hay turno libre para otra y busca en serie."""
+    make_pool(test_url, max_size=1)
+
+    for q in QUERIES:
+        reply = client.get("/search", params={"q": q})
+        assert reply.status_code == 200, reply.text
+        assert reply.json() == _serial(test_url, q), q
+
+    assert spares["given"] == 0 and spares["refused"] > 0
+
+
+def test_with_the_pool_simulated_empty_it_searches_in_series(catalog, test_url, make_pool, client, monkeypatch):
+    make_pool(test_url, max_size=10)
+
+    @contextmanager
+    def none_free():
+        yield None
+
+    monkeypatch.setattr(deps, "spare_connection", none_free)
+
+    for q in ("cerveza", "papas fritas"):
+        reply = client.get("/search", params={"q": q})
+        assert reply.status_code == 200 and reply.json() == _serial(test_url, q), q
+
+
+def test_concurrent_searches_never_pass_the_pool(catalog, test_url, make_pool, client, spares):
+    """Seis búsquedas a la vez (bajo el cupo de /search, API_MAX_CONCURRENT_SEARCH) contra un pool de 4: nunca más de 4
+    conexiones de la API en Postgres, todas responden 200 y ninguna búsqueda usa más conexiones extra que el tope."""
+    make_pool(test_url, max_size=4)
+    clients = 6
+    barrier = threading.Barrier(clients)
+    done = threading.Event()
+    seen = []
+
+    def sample():
+        with connect(test_url, autocommit=True) as watcher:
+            while not done.is_set():
+                seen.append(
+                    watcher.execute(
+                        """SELECT count(*) FROM pg_stat_activity
+                           WHERE application_name = 'rappi-ia-api' AND datname = current_database()"""
+                    ).fetchone()[0]
+                )
+
+    def call(i):
+        barrier.wait()
+        return client.get("/search", params={"q": QUERIES[i % len(QUERIES)]}).status_code
+
+    watcher = threading.Thread(target=sample)
+    watcher.start()
+    try:
+        with ThreadPoolExecutor(clients) as executor:
+            codes = list(executor.map(call, range(clients)))
+    finally:
+        done.set()
+        watcher.join()
+
+    assert set(codes) == {200}
+    assert max(seen) <= 4
+    assert spares["max_out"] <= 3  # 4 en el pool, una es de la petición
+
+
+def test_the_query_is_embedded_once_per_search(catalog, test_url, make_pool, monkeypatch):
+    """Con las verticales en paralelo, el modelo codifica la consulta una vez por búsqueda (la memoria de la búsqueda se
+    comparte entre los hilos)."""
+    calls = []
+
+    class Counting(HashEmbedder):
+        def embed_queries(self, texts):
+            calls.append(list(texts))
+            return super().embed_queries(texts)
+
+    embedder = Counting()
+    monkeypatch.setenv("RAPPI_IA_LIGHT", "1")
+    services._load_services.cache_clear()
+    api.app.dependency_overrides[api.get_services] = lambda: Services(
+        RappiAgent(embedder, TemplateComposer()), embedder
+    )
+    try:
+        with OwnerClient(api.app) as client:
+            make_pool(test_url, max_size=10)
+            for q in ("papas fritas", "xyzzy"):  # con concepto (sus verticales típicas) y sin él (las 8)
+                calls.clear()
+                assert client.get("/search", params={"q": q}).status_code == 200
+                assert calls == [[q]], q
+    finally:
+        api.app.dependency_overrides.clear()
+        services._load_services.cache_clear()

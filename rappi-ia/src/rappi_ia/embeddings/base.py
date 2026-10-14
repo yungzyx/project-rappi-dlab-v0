@@ -1,6 +1,7 @@
 """Interfaz de los modelos de embeddings y un modelo falso determinista para tests (sin descargar nada)."""
 
 import hashlib
+import threading
 from typing import Protocol
 
 import numpy as np
@@ -47,19 +48,22 @@ def to_pgvector(vector: np.ndarray) -> str:
 
 class MemoizedQueryEmbedder:
     """Recuerda los vectores de las consultas: el mismo texto se embebe una sola vez aunque se busque en varias
-    verticales (cada `retrieve` embebe la consulta por su cuenta). Vale para la vida de una petición."""
+    verticales (cada `retrieve` embebe la consulta por su cuenta). Vale para la vida de una petición. Las verticales se
+    buscan en hilos a la vez: el candado hace que el primero embeba y los demás esperen su vector."""
 
     def __init__(self, inner: TextEmbedder):
         self.inner = inner
         self.model_name = inner.model_name
         self.dim = inner.dim
         self._queries: dict[str, np.ndarray] = {}
+        self._lock = threading.Lock()
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
         return self.inner.embed_documents(texts)
 
     def embed_queries(self, texts: list[str]) -> np.ndarray:
-        missing = [t for t in dict.fromkeys(texts) if t not in self._queries]
-        if missing:
-            self._queries.update(zip(missing, self.inner.embed_queries(missing), strict=True))
-        return np.stack([self._queries[t] for t in texts])
+        with self._lock:
+            missing = [t for t in dict.fromkeys(texts) if t not in self._queries]
+            if missing:
+                self._queries.update(zip(missing, self.inner.embed_queries(missing), strict=True))
+            return np.stack([self._queries[t] for t in texts])

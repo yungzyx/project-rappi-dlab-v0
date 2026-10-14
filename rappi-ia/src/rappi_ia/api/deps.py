@@ -5,7 +5,7 @@ que importar `app`."""
 import threading
 import time
 from collections.abc import AsyncIterator, Callable, Iterator
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 
 import anyio
 import anyio.from_thread
@@ -26,6 +26,9 @@ FROM_PROTOTYPE = {v: k for k, v in PROTOTYPE_VERTICALS.items() if k != "turbo"}
 
 APPLICATION_NAME = "rappi-ia-api"  # así se ven sus conexiones en pg_stat_activity
 BACKGROUND_TIMEOUT_MS = 20_000  # las tareas después de responder (recalcular segmentos) y el beacon
+# Lo que una conexión extra (`spare_connection`) espera al pool: lo justo para sacar una libre (y revisarla), no para
+# esperar a que otro request devuelva la suya. psycopg_pool no entrega nada con 0.
+SPARE_WAIT_S = 0.05
 
 
 def gate_for(pool) -> ConcurrencyCap:
@@ -163,6 +166,33 @@ def pooled_connection() -> Iterator[Connection]:
             yield conn
     finally:
         anyio.from_thread.run_sync(gate.release)
+
+
+@contextmanager
+def spare_connection() -> Iterator[Connection | None]:
+    """Una conexión más para el request en curso (la búsqueda en varias verticales), solo si hay una libre ya: un turno
+    sin hacer fila y una conexión que el pool entrega en SPARE_WAIT_S. Si no, None, y quien la pidió sigue con la
+    suya: nunca espera ni pasa API_POOL_MAX. Se pide desde el hilo del endpoint (un hilo de anyio, por el turno); la
+    conexión se puede usar desde otro hilo. Al salir confirma (o deshace) y la devuelve, y recién entonces el turno."""
+    gate = _gate
+    if _pool is None or not anyio.from_thread.run(gate.acquire, 0):
+        yield None
+        return
+    try:
+        with ExitStack() as stack:
+            try:
+                conn = stack.enter_context(_checkout(config.API_TIMEOUT_INTERACTIVE_MS, SPARE_WAIT_S))
+            except PoolTimeout:
+                conn = None
+            yield conn
+    finally:
+        anyio.from_thread.run_sync(gate.release)
+
+
+def get_spare_connector() -> Callable[[], AbstractContextManager[Connection | None]]:
+    """Las conexiones extra de la búsqueda en varias verticales (`spare_connection`). Sin el pool de la API (los
+    tests que usan la conexión del test) no hay ninguna y la búsqueda va en serie."""
+    return spare_connection
 
 
 def _own_connection() -> AbstractContextManager[Connection]:
