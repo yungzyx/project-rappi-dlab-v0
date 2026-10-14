@@ -9,8 +9,8 @@ Fecha: 14-10-2026. Estado: escrito de noche, a partir de decisiones ya aprobadas
 > | Datos, cargador y matcher | `1da56f23`, corregido por `edce5519` |
 > | Motor (`offers/profiles.py`) | `0e0c09de`, y `33676d95` (la guardia de alcohol por nombre, también en los platos) |
 > | API y contrato (`GET /profile/{id}/gustos`, momento `perfil`) | `169c737e`, y `9729f3e3` (mascotas sin comida de gato) |
-> | Persona simulada, ayuda del agente, etiqueta del panel y documentación | los commits `feat(simulados)`, `feat(agente)`, `feat(panel)` y `docs(perfiles)` de la rama |
-> | Correcciones de la revisión del motor | los `fix(perfiles)` que siguen en `git log` |
+> | Persona simulada, ayuda del agente, etiqueta del panel y ejemplos simulados del panel | `532c14c8`, `3c8f3437`, `c2b117c5` y `aed3fade` |
+> | Correcciones de la revisión del motor | `4ad8d3fc` (más nombres de tragos y secciones de menú) y `c1b25dbc` (consulta por palabras clave, cadenas, tiendas de licores y `gusto`) |
 >
 > **La app todavía no lo usa.** Los ejemplos `profile-gustos.json` y `agent-offer-perfil.json` están en `prototipo-app/src/api/fixtures/`, pero ninguna pantalla los lee: llevar la demo al MVP es otra etapa. En la base real faltan `rappi-ia concepts` y `make layers` tras fusionar; sin eso, el asiático solo tiene dos peldaños (restaurantes y chocolatería).
 >
@@ -21,7 +21,8 @@ Fecha: 14-10-2026. Estado: escrito de noche, a partir de decisiones ya aprobadas
 > - Dos ajustes de segmentos y conceptos: el peldaño de chocolaterías del asiático suma `te` («Lindor Matcha» viene en la categoría «Tés») y el italiano suma el segmento `pizzero`.
 > - La guardia de alcohol mira también el nombre del producto o del plato, porque la marca de la tienda puede estar mal («Soju Uva Verde 13» salía como fruta).
 > - `mochi` suelto no es palabra clave de producto, porque es el nombre del agente.
-> - El texto del momento sale del nombre del perfil («Como te gusta lo asiático…»), y la `basis` de una oferta sin persona trae `{kind: "perfil", source: "contexto"}`.
+> - El texto del momento dice «Como te gusta {gusto}…» con el campo opcional `gusto` de cada perfil (sin él, nombra al perfil). La `basis` de una oferta sin persona trae `{kind: "perfil", source: "contexto"}`; con persona, sus segmentos y lo que pidió y buscó, en la forma de `offers/personal.py`.
+> - La consulta de un peldaño sin `palabras` son los nombres de sus conceptos y sus primeras palabras clave, para que la búsqueda por texto sirva aun sin embeddings. Una escalera no repite un nombre entre peldaños, no muestra tiendas cuyo nombre o marca dice «licor» o «botillería» («Turbo Licores») y en restaurantes pone un plato por cadena.
 
 ## Qué pidió el usuario y qué ya aprobó (13-10)
 - **Narrativa:** la demo deja de partir con «armar carrete» y parte con algo simple, el sushi. Cuando la persona pide mucho sushi o comida china, Mochi arma un perfil «🥢 Amante de lo asiático» y, con él, ofrece en otras verticales. El sushi es el principal. Café, italiano y mascotas son perfiles adicionales. Carrete se menciona también, como secundario y sin alcohol.
