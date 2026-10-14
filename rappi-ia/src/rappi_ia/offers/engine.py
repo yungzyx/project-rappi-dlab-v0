@@ -51,7 +51,9 @@ KIT_CANDIDATES = 6  # productos que se piden por concepto y vertical: se saltan 
 ARTICLES = frozenset({"el", "la", "los", "las", "un", "una", "unos", "unas"})  # normalizados
 SHOWN_PRODUCTS = 3  # productos de una oferta que no es un kit
 FALLBACK_VERTICALS = 3  # verticales que se prueban para decir dónde sí está lo que no se encontró
-DEAL_POOL = 12  # ofertas que se piden por vertical antes de quitar las que el agente no propone
+# Ofertas que se piden por vertical antes de quitar las que el agente no propone y de poner primero las típicas de la
+# vertical. Con 12, en la base real las más rebajadas del súper eran mantas y accesorios de auto, y ninguna típica.
+DEAL_POOL = 60
 
 # El orden de la Home: lo que ya muestra hoy (la app tiene «Película» para panorama); después, el resto de la taxonomía.
 HOME_OCCASIONS = ("once", "carrete", "asado", "panorama", "regalo")
@@ -393,7 +395,8 @@ def _vertical_affinity(conn: Connection, interests: Interests) -> dict[str, dict
 def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
     """Las ofertas de la vertical que el agente puede proponer: ni +18, ni de un concepto que no ofrece, ni de una
     tienda Farmacia, Sex shop o Smoking shop (`deals` ya quita lo sensible, pero con vertical no quita esas tiendas). Un
-    producto que está dos veces con otro id (el catálogo repite nombres) sale una vez."""
+    producto que está dos veces con otro id (el catálogo repite nombres) sale una vez. Las de un concepto típico de la
+    vertical van primero."""
     concepts = load_taxonomy().concepts
     found = deals(conn, vertical, DEAL_POOL)
     blocked = {
@@ -413,7 +416,20 @@ def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
     unique: dict[str, dict] = {}
     for deal in offerable:
         unique.setdefault(" ".join(deal["name"].lower().split()), deal)
-    return list(unique.values())[:SHOWN_PRODUCTS]
+    return _typical_first(list(unique.values()), vertical, typical_verticals(conn))[:SHOWN_PRODUCTS]
+
+
+def _typical_first(found: list[dict], vertical: str, typical: dict[str, str]) -> list[dict]:
+    """Primero las ofertas de un concepto típico de la vertical (el súper ofrecía mantas y silicona para auto con 60 %
+    de descuento), después las de cualquier otro concepto y al final las sin concepto. Dentro de cada grupo se mantiene
+    el orden de llegada (el mayor descuento primero); si las típicas no alcanzan, completan las demás."""
+
+    def group(deal: dict) -> int:
+        if typical.get(deal["concept"]) == vertical:
+            return 0
+        return 1 if deal["concept"] else 2
+
+    return sorted(found, key=group)
 
 
 def _popular_dishes(conn: Connection) -> list[dict]:
