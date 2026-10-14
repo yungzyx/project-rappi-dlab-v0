@@ -14,7 +14,7 @@ from pathlib import Path
 from psycopg import Connection
 from rappi_scraper.storage.search import VERTICALS
 
-from ..catalog.cache import cached
+from ..catalog.cache import cached, cached_many
 from ..concepts.assign import concept_matcher
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder, to_pgvector
@@ -196,33 +196,41 @@ def _lexical(
     ts_rank_cd solo desempata (palabras más juntas, más arriba). Cada lexema ya normalizado entra al tsquery tal
     cual (`::tsquery`): `to_tsquery` lo volvía a separar ("coca-col" → 'coca-col' <-> 'coca' <-> 'col', y 'coca'
     no existe en el índice), así que las palabras con guion perdían su peso.
+
+    El df de cada lexema sale de la caché del catálogo (`_document_frequencies`): contarlo en cada búsqueda costaba
+    tanto como puntuar con una palabra frecuente («sushi» en restaurantes, ~45 mil documentos).
+
+    El puntaje de cada documento es la suma de los IDF de las palabras que tiene más ts_rank_cd, en una subconsulta
+    sobre las palabras en vez de un JOIN más GROUP BY (unas 3 veces más rápida con palabras frecuentes). Es la misma
+    suma, pero ahora siempre en el orden de la consulta: el JOIN más GROUP BY la hacía en el orden en que un Sort
+    inestable entregaba las filas, y documentos con las mismas palabras quedaban con puntajes que diferían en el último
+    bit (hasta ~4e-15), así que su desempate quedaba al azar. Ahora los empates salen por `entity_id`, como dice el
+    ORDER BY. En la base real el orden cambió solo entre documentos empatados (87 de 3.552 listas) y la evaluación de
+    búsqueda dio el mismo reporte. (`search_documents` es única por vertical, tipo e id: sin GROUP BY no hay filas
+    repetidas.) tests/integration/test_lexical_df_cache.py lo compara con el SQL anterior.
     """
+    lexemes = _lexemes(conn, query)
+    if not lexemes:  # solo stopwords («té»): nada que calzar
+        return []
     rows = conn.execute(
-        f"""WITH lexemes AS (
-                SELECT DISTINCT lexeme FROM unnest(to_tsvector('spanish', es_unaccent(%(query)s)))
+        f"""WITH weights AS MATERIALIZED (
+                SELECT quote_literal(w.lexeme)::tsquery AS q, ln(1 + %(n)s::float / (1 + w.df)) AS idf
+                FROM unnest(%(lexemes)s::text[], %(dfs)s::bigint[]) AS w(lexeme, df)
             ),
-            weights AS MATERIALIZED (
-                SELECT l.lexeme, quote_literal(l.lexeme)::tsquery AS q,
-                       ln(1 + %(n)s::float / (1 + (SELECT count(*) FROM search_documents d
-                                                   WHERE d.vertical = %(vertical)s
-                                                     AND d.tsv_unaccent @@ quote_literal(l.lexeme)::tsquery)))
-                       AS idf
-                FROM lexemes l
-            ),
-            any_q AS (SELECT string_agg(quote_literal(lexeme), ' | ')::tsquery AS q FROM lexemes)
+            any_q AS (SELECT string_agg(quote_literal(l), ' | ')::tsquery AS q FROM unnest(%(lexemes)s::text[]) AS l)
             SELECT d.entity_type, d.entity_id,
-                   sum(w.idf) + max(ts_rank_cd(d.tsv_unaccent, any_q.q)) AS score
+                   (SELECT sum(w.idf) FROM weights w WHERE d.tsv_unaccent @@ w.q)
+                   + ts_rank_cd(d.tsv_unaccent, any_q.q) AS score
             FROM search_documents d
             CROSS JOIN any_q
-            JOIN weights w ON d.tsv_unaccent @@ w.q
-            WHERE d.vertical = %(vertical)s AND d.entity_type = ANY(%(types)s) AND any_q.q IS NOT NULL
+            WHERE d.vertical = %(vertical)s AND d.entity_type = ANY(%(types)s)
               AND d.tsv_unaccent @@ any_q.q
               AND (%(price_max)s::numeric IS NULL OR {_PRICE} <= %(price_max)s::numeric)
-            GROUP BY d.entity_type, d.entity_id
             ORDER BY score DESC, d.entity_id
             LIMIT %(k)s""",
         {
-            "query": query,
+            "lexemes": lexemes,
+            "dfs": _document_frequencies(conn, vertical, lexemes, doc_count),
             "vertical": vertical,
             "n": doc_count,
             "types": list(filters.entity_types),
@@ -231,6 +239,42 @@ def _lexical(
         },
     ).fetchall()
     return [((t, i), r) for t, i, r in rows]
+
+
+def _lexemes(conn: Connection, query: str) -> list[str]:
+    """Las palabras de la consulta como las indexa `tsv_unaccent` (sin tildes ni stopwords, con su raíz), sin repetir.
+    La misma consulta se busca en varias verticales: se calculan una vez."""
+
+    def extract(queries: list[str]) -> dict[str, list[str]]:
+        return {
+            q: conn.execute(
+                """SELECT coalesce(array_agg(lexeme), '{}')
+                   FROM (SELECT DISTINCT lexeme FROM unnest(to_tsvector('spanish', es_unaccent(%s)))) l""",
+                (q,),
+            ).fetchone()[0]
+            for q in queries
+        }
+
+    return cached_many("lexemes", conn, [query], extract)[query]
+
+
+def _document_frequencies(conn: Connection, vertical: str, lexemes: list[str], doc_count: int) -> list[int]:
+    """En cuántos documentos del vertical está cada lexema (el df del IDF), en una sola consulta para los que faltan.
+    Solo cambia al rearmar los documentos: vive en la caché del catálogo como `vertical_doc_count`, con la cuenta de
+    documentos en la clave para que el N y el df del IDF sean del mismo catálogo."""
+
+    def count(missing: list[str]) -> dict[str, int]:
+        return dict(
+            conn.execute(
+                """SELECT l.lexeme, (SELECT count(*) FROM search_documents d
+                                     WHERE d.vertical = %s AND d.tsv_unaccent @@ quote_literal(l.lexeme)::tsquery)
+                   FROM unnest(%s::text[]) AS l(lexeme)""",
+                (vertical, missing),
+            ).fetchall()
+        )
+
+    found = cached_many(f"df:{vertical}:{doc_count}", conn, lexemes, count)
+    return [found[lexeme] for lexeme in lexemes]
 
 
 def _strict_lexical_count(conn: Connection, vertical: str, query: str, filters: Filters) -> int:

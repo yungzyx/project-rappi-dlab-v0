@@ -93,7 +93,7 @@ def test_vertical_to_try_without_history_keeps_passport_order(client, db):
     for user in (None, "nadie", "u1"):
         body = to_try(client, user)
         assert body["vertical"] == "supermercado"
-        assert body["reason"]["text"] == "Porque aún no tienes el sello de el súper."
+        assert body["reason"]["text"] == "Porque aún no tienes el sello del súper."
         assert body["reason"]["basis"] == [{"kind": "sello", "id": "supermercado", "source": "contexto"}]
 
 

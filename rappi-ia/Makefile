@@ -98,15 +98,22 @@ serve-lan: $(SERVE_PREP)  ## API en la red local (iPhone). Sin puerta de acceso 
 
 # Las frases del guion (docs/demo.md) sin user_id: no se registran. Frío, «una hamburguesa» tarda 2 a 5 s; caliente, 0,3 s.
 API ?= http://localhost:8000
-DEMO_PHRASES := "una hamburguesa" "vino tinto" "algo para el carrete" "tengo fiebre" \
+DEMO_PHRASES := "sushi" "una hamburguesa" "vino tinto" "algo para el carrete" "tengo fiebre" \
 	"me voy de vacaciones a la playa" "se me quedaron las llaves en la oficina"
 ANALYTICS := kpis weekly opportunities trends funnel cohorts rhythm at-risk suggestions services multi-vertical \
 	affinity assortment
+# Los perfiles de gusto (sus `id` en offers/perfiles.toml): la escalera de cada uno, sin persona. En frío, la primera
+# tardaba 4 a 5 s (el tope de la app para una oferta es 5 s); caliente, unos 0,2 a 0,3 s.
+PROFILES := $(shell sed -n 's/^id = "\(.*\)"$$/\1/p' src/rappi_ia/offers/perfiles.toml)
 
 warm:  ## Calienta la API antes de una demo (con la API ya corriendo; repetirlo tras un rato sin uso)
 	@for q in $(DEMO_PHRASES); do \
 	  curl -s -o /dev/null -w "  %{time_total}s  $$q\n" -X POST $(API)/agent/ask -H 'Content-Type: application/json' \
 	    -d "{\"message\": \"$$q\"}" || exit 1; done
+	@for p in $(PROFILES); do \
+	  curl -s -o /dev/null -w "  %{time_total}s  perfil $$p\n" -X POST $(API)/agent/offer \
+	    -H 'Content-Type: application/json' -d "{\"moment\": \"perfil\", \"context\": {\"perfil\": \"$$p\"}}" \
+	    || exit 1; done
 	@for m in $(ANALYTICS); do for s in synthetic prototype; do \
 	  curl -s -o /dev/null $(API)/analytics/$$m?source=$$s; done; done
 	@curl -s -o /dev/null $(API)/analytics/catalog && echo "Lista: API caliente."

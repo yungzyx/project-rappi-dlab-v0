@@ -5,9 +5,15 @@ Licores) ni se personaliza; lo sensible, como siempre, solo si se nombra (`_allo
 son productos y platos, nunca tiendas.
 """
 
+import contextvars
+import queue
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import AbstractContextManager, ExitStack, suppress
 from dataclasses import dataclass, field
 
 from psycopg import Connection
+from psycopg import Error as DatabaseError
 from rappi_scraper.storage.search import VERTICALS
 
 from ..concepts.matcher import KeywordMatcher
@@ -25,6 +31,14 @@ TYPICAL_VERTICALS = 3  # con un concepto detectado, las verticales donde es más
 # vertical calza todas las palabras, una vertical solo entra con este coseno. Calibrado con e5 en la base real: las
 # negativas sin concepto de eval/queries.json llegan a 0,840 («sofá de tres cuerpos») y la basura a 0,801.
 ALL_VERTICALS_TAU = 0.85
+
+# Verticales que se buscan a la vez además de la de la conexión del request: cada una ocupa una conexión más del pool
+# (API_POOL_MAX, 10 por defecto) y un hilo mientras dura la búsqueda. Una consulta va a 3 o 4 verticales con concepto y
+# a las 8 sin él. Las conexiones extra nunca toman la reserva del pool (api/deps.spare_reserve).
+PARALLEL_SEARCHES = 3
+
+# Lo que entrega una conexión extra (api/deps.spare_connection): una conexión, o None si no sobra ninguna.
+SpareConnector = Callable[[], AbstractContextManager[Connection | None]]
 
 # Pantalla de la app de cada vertical: la de `PROTOTYPE_VERTICALS`, salvo que Turbo abre su propia pantalla
 # (el resto de la API lo agrupa con Express).
@@ -87,6 +101,53 @@ def _verticals_to_search(
     return typical + [current] if current in VERTICALS and current not in typical else typical
 
 
+def _search_each[T](
+    conn: Connection,
+    verticals: list[str],
+    search: Callable[[Connection, str], T],
+    spare: SpareConnector | None,
+) -> list[T]:
+    """`search(conn, vertical)` en cada vertical, con los resultados en el orden de `verticals`. Con `spare` (una
+    conexión extra del pool si sobra, o None), hasta PARALLEL_SEARCHES verticales más a la vez, cada una con su
+    conexión; las que no consiguen una se reparten entre las que hay. Sin ninguna, todo en serie con la conexión del
+    request: no hace fila por una conexión (cada extra espera a lo más SPARE_WAIT_S y unas idas y vueltas) ni pasa el
+    tope del pool. En paralelo, cada vertical cierra su transacción al terminar (si no, una conexión que ya terminó
+    queda «idle in transaction» hasta la vertical más lenta, y Postgres la corta a los 10 s) y corre con el contexto
+    del request (su id en los registros). Un error de una vertical llega a quien llamó, después de que terminan las
+    demás y se devuelven las conexiones."""
+    if spare is None or len(verticals) < 2:
+        return [search(conn, vertical) for vertical in verticals]
+    with ExitStack() as stack:
+        extra = []
+        for _ in range(min(PARALLEL_SEARCHES, len(verticals) - 1)):
+            connection = stack.enter_context(spare())
+            if connection is None:
+                break
+            extra.append(connection)
+        if not extra:
+            return [search(conn, vertical) for vertical in verticals]
+        free: queue.SimpleQueue[Connection] = queue.SimpleQueue()
+        for connection in (conn, *extra):
+            free.put(connection)
+
+        def run(vertical: str) -> T:
+            connection = free.get()  # hay tantos hilos como conexiones: siempre hay una
+            try:
+                result = search(connection, vertical)
+                connection.commit()
+                return result
+            except BaseException:
+                with suppress(DatabaseError):  # la siguiente vertical en esta conexión no hereda el error
+                    connection.rollback()
+                raise
+            finally:
+                free.put(connection)
+
+        with ThreadPoolExecutor(len(extra) + 1, thread_name_prefix="busqueda-vertical") as pool:
+            tasks = [pool.submit(contextvars.copy_context().run, run, vertical) for vertical in verticals]
+            return [task.result() for task in tasks]
+
+
 def _related(outcomes: list) -> list:
     """Sin concepto: las verticales que calzan todas las palabras; si ninguna, las de coseno ≥ ALL_VERTICALS_TAU."""
     exact = [o for o in outcomes if o[1].result.strict_lexical_matches]
@@ -101,6 +162,7 @@ def search_grouped(
     limit: int,
     price_max: float | None = None,
     mode: str = "hibrido",
+    spare: SpareConnector | None = None,
 ) -> GroupedResult:
     """Productos por vertical, con `limit` por grupo y solo los grupos que traen algo. Con un concepto detectado el
     orden es el de sus verticales típicas. Una ocasión sin concepto nombrado («algo para el carrete») se busca como
@@ -108,7 +170,8 @@ def search_grouped(
     los dos, solo las verticales que calzan todas las palabras o, si ninguna, las muy cercanas (ALL_VERTICALS_TAU):
     primero las que calzan y luego por la cercanía vectorial. La pantalla actual (`current`), si trae productos, va
     siempre primero (el resto conserva su orden); sin productos, no aparece. `unmet` solo si ningún grupo trae
-    productos."""
+    productos. Con `spare` (las conexiones extra de la API), las verticales se buscan a la vez (`_search_each`); el
+    resultado es el mismo que en serie."""
     concepts = detect_concepts(q)
     occasion = None if concepts else _occasion(q)
     query, fixed = q, None
@@ -118,10 +181,12 @@ def search_grouped(
         query, fixed = " ".join(taxonomy.concepts[c].name for c in concepts[:4]), occasion.vertical
     memo = MemoizedQueryEmbedder(embedder) if embedder is not None else None
     words = has_words(conn, query)  # una vez, no una por vertical
-    searched = [
-        (vertical, search_products(conn, vertical, query, concepts, memo, price_max, k=limit, mode=mode, words=words))
-        for vertical in _verticals_to_search(conn, concepts, current, fixed)
-    ]
+    verticals = _verticals_to_search(conn, concepts, current, fixed)
+
+    def search(connection: Connection, vertical: str):
+        return search_products(connection, vertical, query, concepts, memo, price_max, k=limit, mode=mode, words=words)
+
+    searched = list(zip(verticals, _search_each(conn, verticals, search, spare), strict=True))
     outcomes = searched if concepts else _related(searched)
     if not concepts:  # sorted es estable: a igual relevancia queda el orden de VERTICALS
         outcomes.sort(key=lambda o: (o[1].result.strict_lexical_matches == 0, -(o[1].result.max_cosine or 0.0)))

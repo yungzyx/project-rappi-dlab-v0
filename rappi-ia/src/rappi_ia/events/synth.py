@@ -9,6 +9,8 @@ SUPUESTOS (editables aquí):
 - Personas pequeñas que ejercitan los segmentos de la capa de perfiles (sin gluten, vegana, mamá con bebé, perro, gato,
   fitness, nocturno, cazaofertas, gamer, cafetera, chocolatera, parrillera); algunas prefieren ítems con un atributo.
   La oficinista ya existe como «oficina». Los pesos (`share`) se normalizan al sortear: no hace falta que sumen 1.
+- Una persona asiática (sushi, comida asiática y su despensa, snacks y bebidas en Restaurantes, Súper, Turbo y Express)
+  alimenta el perfil de gusto principal; su peso sale del de la persona de carrete.
 - 26 semanas: la retención (días 61 a 120) necesita usuarios con 120 días de historia.
 - Quien no encuentra lo que busca (demanda no satisfecha) o abandona carros, se va antes (CHURN_*).
 - Parte de quienes encuentran productos se va sin agregar nada al carro (BROWSE_ONLY).
@@ -52,7 +54,7 @@ class Persona:
 PERSONAS = [
     Persona(
         "carrete",
-        0.22,
+        0.14,  # eran 0,22: 0,08 pasó al asiático (el carrete es el perfil secundario; el principal es el sushi)
         10,
         (19, 20, 21, 22, 23),
         {
@@ -62,6 +64,22 @@ PERSONAS = [
         },
         0.35,
         0.035,
+    ),
+    # El perfil principal de la demo (offers/perfiles.toml): sushi y comida asiática hecha, y lo que se lleva a casa
+    # para prepararla (despensa, snacks y bebidas asiáticas) en Súper, Turbo y Express.
+    Persona(
+        "asiatico",
+        0.08,
+        8,
+        (12, 13, 19, 20, 21),
+        {
+            "restaurantes": {"sushi": 4, "asiatica": 3},
+            "supermercado": {"despensa-asiatica": 2.5, "bebidas-asiaticas": 1},
+            "turbo": {"despensa-asiatica": 1.5, "snacks-asiaticos": 2},
+            "conveniencia": {"snacks-asiaticos": 1.5, "bebidas-asiaticas": 1},
+        },
+        0.28,
+        0.025,
     ),
     Persona(
         "familia",

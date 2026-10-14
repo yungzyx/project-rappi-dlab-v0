@@ -24,7 +24,7 @@ from psycopg_pool import PoolTimeout
 from pydantic import Field, ValidationError, field_validator
 
 from .. import config
-from ..agent.grouped_search import search_grouped
+from ..agent.grouped_search import SpareConnector, search_grouped
 from ..agent.rappi_agent import PROTOTYPE_VERTICALS, Context
 from ..agent.tools import search_products, suggest_complement
 from ..analytics import queries
@@ -34,11 +34,20 @@ from ..events import store as events
 from ..game.cards import did_you_know
 from ..layers.segments import recalculate_user_segments
 from ..offers.guards import is_offerable
+from ..offers.profiles import active_profiles
 from ..retrieval.hybrid import MODES
-from . import deps, identity
+from . import deps, identity, prewarm
 from .agent import router as agent_router
 from .catalog import router as catalog_router
-from .deps import Clean, backend_vertical, get_analytics_conn, get_conn, get_connector, get_services
+from .deps import (
+    Clean,
+    backend_vertical,
+    get_analytics_conn,
+    get_conn,
+    get_connector,
+    get_services,
+    get_spare_connector,
+)
 from .game import router as game_router
 from .identity import owner_in_path, owner_in_query, owner_of_body
 from .limits import TOO_MANY, MaxBodySize, RateLimit, busy, concurrency_cap
@@ -62,6 +71,7 @@ async def lifespan(app: FastAPI):
         await run_in_threadpool(services)
         # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
         logging.getLogger("uvicorn.error").info("Servicios cargados en %.1f s", time.perf_counter() - start)
+        prewarm.start()  # en su hilo: ni el arranque ni /health la esperan
         yield
     finally:
         await run_in_threadpool(deps.close_pool)
@@ -381,14 +391,16 @@ def search(
     mode: str = Query("hibrido"),
     conn: Connection = Depends(get_conn),
     svc: Services = Depends(get_services),
+    spare: SpareConnector = Depends(get_spare_connector),
 ) -> dict:
     """Con `vertical`, busca solo ahí. Sin `vertical`, en las verticales que corresponden a la consulta (más la de la
-    pantalla, `current`) y agrupa: `limit` es por grupo."""
+    pantalla, `current`) y agrupa: `limit` es por grupo. Las verticales se buscan en paralelo con las conexiones del
+    pool que sobran (`spare`, sin tomar su reserva); sin ninguna, en serie."""
     if mode not in MODES:
         raise HTTPException(400, f"mode debe ser uno de {MODES}")
     if vertical is None:
         grouped = search_grouped(
-            conn, q, svc.embedder, backend_vertical(current), limit or GROUPED_SEARCH_LIMIT, price_max, mode
+            conn, q, svc.embedder, backend_vertical(current), limit or GROUPED_SEARCH_LIMIT, price_max, mode, spare
         )
         return grouped.to_dict()
     code = backend_vertical(vertical)
@@ -473,6 +485,14 @@ def get_profile(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dic
             if c in taxonomy.concepts
         ],
     }
+
+
+@app.get("/profile/{user_id}/gustos", dependencies=[Depends(owner_in_path)])
+def tastes(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dict:
+    """Los perfiles de gusto de la persona (`offers/profiles.py`): `{ perfiles: [{ id, nombre, emoji, nivel, principal,
+    por_que, basis }] }`, el principal primero; la lista va vacía sin perfiles. «Olvidar» borra o recalcula sus
+    segmentos, y el perfil se va con ellos."""
+    return {"perfiles": [profile.to_dict() for profile in active_profiles(conn, user_id)]}
 
 
 @app.delete("/profile/{user_id}", dependencies=[Depends(owner_in_path)])

@@ -8,7 +8,8 @@ En los platos manda el nombre porque las secciones suelen ser genéricas ("Promo
 regla caiga fuera de lo que vende un restaurante ("Perro caliente" no es alimento para perros): ahí gana la sección
 o la cocina mapeada. En los productos manda la categoría porque el nombre trae marcas y ruido ("Fanta Naranja 1,5 L"),
 salvo que el nombre calce un concepto sensible y la categoría no (un lubricante en "Agua saborizada"), fuera de
-mascotas y juguetes (un analgésico veterinario sigue en mascotas).
+mascotas y juguetes (un analgésico veterinario sigue en mascotas), o que calce un concepto de especialidad que afina
+una categoría de comida («Kikkoman Salsa de Soya» en "Otras salsas" es despensa asiática).
 """
 
 from dataclasses import dataclass, replace
@@ -33,6 +34,12 @@ PROTEIN_CONCEPTS = frozenset({"pollo", "pescados-mariscos"})
 # Grupos cuya categoría manda aunque el nombre calce un sensible: ahí la palabra tiene otro sentido (un analgésico
 # veterinario, un insecto vibrador de juguete) y el concepto sensible los ocultaría.
 CATEGORY_WINS_GROUPS = frozenset({"mascotas", "juguetes"})
+# Conceptos de especialidad que el nombre reconoce mejor que la categoría: Rappi pone «Kikkoman Salsa de Soya» en
+# «Otras salsas» y «Pepero» en «Galletas», y con la categoría mandando quedaban casi vacíos. Solo afinan una categoría
+# de comida o bebida sin alcohol (`NAME_REFINES_GROUPS`): un shampoo de wasabi, un tazón para matcha o un licor siguen
+# donde los pone su categoría. Son productos de tienda: en un menú no cuentan (un roll en panko sigue siendo sushi).
+NAME_REFINES_CONCEPTS = frozenset({"despensa-asiatica", "snacks-asiaticos", "bebidas-asiaticas"})
+NAME_REFINES_GROUPS = frozenset({"bebidas", "snacks", "dulces", "despensa", "frescos", "comida"})
 # La categoría «Cigarrillos» de las tabaquerías de Rappi Mall trae también vapers, líquidos y papelillos. Dentro de
 # ella (y solo ahí: «Cereal Puffs» no es un vaper) estas palabras del nombre deciden el concepto.
 TOBACCONIST = KeywordMatcher(
@@ -62,15 +69,23 @@ class Assignment:
     confidence: float
     model_version: str | None
     source: str
+    # El concepto de la categoría que el nombre afinó (NAME_REFINES_CONCEPTS): el kNN lo respeta ante vecinas de comida.
+    # Solo vive durante `rappi-ia concepts`; no se guarda en la base.
+    refines: str | None = None
 
 
 def concept_matcher(taxonomy: Taxonomy, for_queries: bool = False) -> "KeywordMatcher | QueryMatcher":
     """`for_queries`: para entender consultas, no para asignar productos. Suma el nombre de los sensibles y sus
-    `query_keywords`: «necesito medicamentos» pide medicamentos aunque «Dosificador de medicamentos» no sea uno."""
+    `query_keywords`: «necesito medicamentos» pide medicamentos aunque «Dosificador de medicamentos» no sea uno. Sin
+    `for_queries` suma las `product_keywords`: «panko» nombra un producto del súper; en una consulta pide un roll."""
     entries = [
         (c.id, kw)
         for c in taxonomy.concepts.values()
-        for kw in (*_name_keyword(c, for_queries), *c.keywords, *(c.query_keywords if for_queries else ()))
+        for kw in (
+            *_name_keyword(c, for_queries),
+            *c.keywords,
+            *(c.query_keywords if for_queries else c.product_keywords),
+        )
     ]
     avoid = [(c.id, word) for c in taxonomy.concepts.values() for word in c.avoid]
     if not for_queries:
@@ -131,6 +146,8 @@ def assign_catalog_item(
 ) -> Assignment | None:
     mapped = category_map.get(_key(category)) if category else None
     rule = _from_rule("catalog_item", item_id, name, matcher)
+    if rule and rule.concept_id in NAME_REFINES_CONCEPTS and mapped and mapped.concept_id in refinable_by_name():
+        return replace(rule, refines=mapped.concept_id)
     # Guardia simétrica: un nombre sensible manda sobre una categoría común (un lubricante en «Agua saborizada»).
     sensitive_name = (
         rule is not None
@@ -159,7 +176,7 @@ def assign_menu_item(
     cuisine_map: dict[str, MappedName],
     matcher: KeywordMatcher,
 ) -> Assignment | None:
-    by_name = _from_rule("menu_item", item_id, name, matcher)
+    by_name = _from_rule("menu_item", item_id, name, matcher, exclude=NAME_REFINES_CONCEPTS)
     if by_name and by_name.concept_id in INGREDIENT_CONCEPTS:
         by_name = None
     if by_name and by_name.concept_id in name_wins_in_menus():
@@ -179,10 +196,20 @@ def assign_menu_item(
 
 def _from_section_name(item_id: str, section: str | None, matcher: KeywordMatcher) -> Assignment | None:
     """Una sección sin mapeo que nombra un plato («Empanadas de Horno», «Pizzas Familiares») dice qué son sus platos."""
-    match = matcher.best(section) if section else None
+    match = matcher.best(section, NAME_REFINES_CONCEPTS) if section else None
     if match is None or match.target not in _food_concepts() or match.target in INGREDIENT_CONCEPTS:
         return None
     return Assignment("menu_item", item_id, match.target, "regla", RULE_CONFIDENCE, None, f"seccion-nombre:{section}")
+
+
+@cache
+def refinable_by_name() -> frozenset[str]:
+    """Lo que un concepto de especialidad puede afinar por el nombre: comida y bebida, nunca alcohol ni un sensible."""
+    return frozenset(
+        c.id
+        for c in load_taxonomy().concepts.values()
+        if c.parent in NAME_REFINES_GROUPS and not (c.sensitive or c.age_restricted)
+    )
 
 
 @cache
@@ -247,8 +274,10 @@ def _from_map(entity_type: str, entity_id: str, mapped: MappedName, source: str,
     )
 
 
-def _from_rule(entity_type: str, entity_id: str, name: str, matcher: KeywordMatcher) -> Assignment | None:
-    match = matcher.best(name)
+def _from_rule(
+    entity_type: str, entity_id: str, name: str, matcher: KeywordMatcher, exclude: frozenset[str] = frozenset()
+) -> Assignment | None:
+    match = matcher.best(name, exclude)
     if match is None:
         return None
     return Assignment(entity_type, entity_id, match.target, "regla", RULE_CONFIDENCE, None, f"nombre:{match.keyword}")

@@ -32,6 +32,7 @@ where = ["src"]
 "rappi_ia.concepts" = ["*.toml", "*.csv"]
 "rappi_ia.eval" = ["*.json"]
 "rappi_ia.game" = ["*.json", "*.toml"]
+"rappi_ia.offers" = ["*.toml"]
 "rappi_ia.analytics" = ["*.html"]
 
 [tool.pytest.ini_options]

@@ -6,20 +6,20 @@
   "kind": "tipico",
   "options": [
     {
+      "id": "sushi",
+      "label": "🍣 Sushi"
+    },
+    {
+      "id": "energizantes",
+      "label": "⚡ Energéticas e isotónicas"
+    },
+    {
+      "id": "golosinas",
+      "label": "🍬 Golosinas"
+    },
+    {
       "id": "reposteria",
       "label": "🧁 Harinas y repostería"
-    },
-    {
-      "id": "juguetes-infantiles",
-      "label": "🧸 Juguetes"
-    },
-    {
-      "id": "desayuno",
-      "label": "🥞 Desayunos y brunch"
-    },
-    {
-      "id": "cuidado-cabello",
-      "label": "💇 Cuidado del cabello"
     }
   ],
   "question": "¿Cuál de estos es típico de Súper?",

@@ -24,9 +24,11 @@ REVOKE ALL ON DATABASE :"db" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"db" TO rappi_api;
 
 -- pgvector no es una extensión «trusted»: solo un superusuario la crea. Las migraciones y los dumps la piden con
--- IF NOT EXISTS, así que con esto rappi_owner migra y restaura sin ser superusuario.
+-- IF NOT EXISTS, así que con esto rappi_owner migra y restaura sin ser superusuario. pg_prewarm (migración 034) es la
+-- precarga de los índices de la búsqueda al arrancar la API; sin ella la API funciona igual, en frío.
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS unaccent;
+CREATE EXTENSION IF NOT EXISTS pg_prewarm;
 SQL
 
 echo "init-roles: rappi_owner y rappi_api creados en $POSTGRES_DB."

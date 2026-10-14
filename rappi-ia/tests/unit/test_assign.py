@@ -192,3 +192,97 @@ def test_an_unmapped_section_that_names_an_ingredient_gives_nothing(matcher):
 
 def test_the_real_combos_section_is_no_longer_sushi(csv_maps):
     assert "combos" not in csv_maps["seccion_menu"] or csv_maps["seccion_menu"]["combos"].concept_id != "sushi"
+
+
+# Categorías reales de los productos asiáticos (base real, 14-10-2026): Rappi los pone junto a lo genérico.
+ASIAN_CATEGORIES = {
+    "otras salsas": MappedName("salsas", "llm", 0.95),
+    "arroz": MappedName("arroz-legumbres", "llm", 0.95),
+    "galletas": MappedName("galletas", "llm", 0.95),
+    "sopas y cremas": MappedName("sopas", "llm", 0.95),
+    "helados": MappedName("helados", "llm", 0.95),
+    "tés": MappedName("te", "llm", 0.95),
+    "chocolates": MappedName("chocolates", "llm", 0.97),
+    "shampoo": MappedName("cuidado-cabello", "llm", 0.95),
+    "vajilla y cubertería": MappedName("cocina-menaje", "llm", 0.9),
+    "otros licores": MappedName("licores", "llm", 0.9),
+    "frutas": MappedName("frutas", "llm", 0.9),
+    "sushi": MappedName("sushi", "llm", 0.95),
+    "verduras": MappedName("verduras", "llm", 0.9),
+    "otros": MappedName("platos-listos", "llm", 0.4),  # dudoso: bajo MIN_MAP_CONFIDENCE
+}
+
+
+@pytest.mark.parametrize(
+    ("name", "category", "concept"),
+    [
+        ("Kikkoman Salsa de Soya", "Otras salsas", "despensa-asiatica"),
+        ("Tucapel Arroz para Sushi", "Arroz", "despensa-asiatica"),
+        ("Pepero Crunchy", "Galletas", "snacks-asiaticos"),
+        ("Maruchan Sopa Instantánea Sabor a Pollo", "Sopas y cremas", "snacks-asiaticos"),
+        ("Kai Mochi Helado Mochi Mango", "Helados", "snacks-asiaticos"),
+        ("Bebida Bubble Tea, Taro", "Tés", "bebidas-asiaticas"),
+        ("Tostani Arroz Sushi", "Sushi", "despensa-asiatica"),  # una categoría de comida preparada
+        ("Alga Nori Yumart 10 Uds", "Verduras", "despensa-asiatica"),  # una de frescos
+        ("Kikkoman Salsa de Soya", "Importados", "despensa-asiatica"),  # una categoría sin mapeo
+        ("Pepero Crunchy", "Otros", "snacks-asiaticos"),  # una con mapeo dudoso
+    ],
+)
+def test_an_asian_name_refines_a_generic_food_category(matcher, name, category, concept):
+    """«Kikkoman Salsa de Soya» está en «Otras salsas» y «Pepero» en «Galletas»: sin esto, la despensa, los snacks y
+    las bebidas asiáticas quedaban casi vacíos (la categoría manda sobre el nombre)."""
+    a = assign_catalog_item("50", name, category, ASIAN_CATEGORIES, matcher)
+    assert (a.concept_id, a.method) == (concept, "regla"), a
+
+
+@pytest.mark.parametrize(
+    ("name", "category", "concept"),
+    [
+        ("Salsa de Tomate Pomarola", "Otras salsas", "salsas"),  # lo demás sigue en su categoría
+        ("Lindor Matcha", "Tés", "te"),  # su categoría real: el matcha a secas sigue siendo té
+        ("Shampoo Líquido Wasabi Shan Kui Lush", "Shampoo", "cuidado-cabello"),
+        ("Mug Matcha Travel Verde Adagio Teas", "Vajilla y Cubertería", "cocina-menaje"),  # no es comida ni bebida
+        ("Umeshu Matcha 500 ml", "Otros licores", "licores"),  # el alcohol nunca pasa a un concepto que se ofrece
+        ("Sushi Box con Salsa Soya y Wasabi", "Sushi", "sushi"),  # un plato preparado no es despensa
+        ("Panko Roll Salmón", "Sushi", "sushi"),
+    ],
+)
+def test_an_asian_name_never_takes_a_product_out_of_other_groups_or_alcohol(matcher, name, category, concept):
+    assert assign_catalog_item("51", name, category, ASIAN_CATEGORIES, matcher).concept_id == concept
+
+
+def test_only_a_name_that_refined_a_food_category_is_marked_for_the_neighbors(matcher):
+    """El kNN respeta la regla solo si afinó una categoría de comida (`refines`, que no se guarda en la base)."""
+    refined = assign_catalog_item("53", "Kikkoman Salsa de Soya", "Otras salsas", ASIAN_CATEGORIES, matcher)
+    plain = assign_catalog_item("54", "Kikkoman Salsa de Soya", "Importados", ASIAN_CATEGORIES, matcher)
+    assert (refined.refines, plain.refines) == ("salsas", None)
+
+
+def test_a_mis_categorised_alcohol_with_an_asian_word_is_not_asian_and_is_never_offered(matcher):
+    """En la base real «Soju Uva Verde 13.0» está en «Frutas», sin marca de alcohol ni +18. Un soju con nombre asiático
+    no pasa a bebidas asiáticas (`avoid`); queda en su categoría, y la guardia de ofertas lo bloquea por el nombre."""
+    from rappi_ia.offers.guards import alcohol_in_name
+
+    for name in ("Soju Bubble Tea 360 ml", "Soju Uva Verde 13.0"):
+        assert assign_catalog_item("52", name, "Frutas", ASIAN_CATEGORIES, matcher).concept_id == "frutas"
+        assert alcohol_in_name("catalog_item", name)
+
+
+@pytest.mark.parametrize(
+    ("name", "section", "concept"),
+    [
+        ("55 Tori Panko", "Cuarto Caliente", "sushi"),  # un roll en panko o con nori sigue siendo sushi
+        ("Alaska Especial con Wakame", "Rolls con Topping", "sushi"),
+        ("Salsa Soya", "Sin mapeo", "salsas"),  # el agregado de soya de un local, como antes
+        ("Mochi de Maracuyá", "Postres", "postres"),  # el postre de un local no deja de serlo
+    ],
+)
+def test_asian_specialty_concepts_do_not_count_in_menus(matcher, name, section, concept):
+    """Son productos de tienda (ninguno se pide hecho): en un menú, «panko», «nori» o «mochi» sacaban de sushi y de
+    postres a ~1.000 platos de la base real, que dejaban de salir en restaurantes."""
+    sections = {
+        "cuarto caliente": MappedName("sushi", "llm", 0.9),
+        "rolls con topping": MappedName("sushi", "llm", 0.9),
+    }
+    sections["postres"] = MappedName("postres", "llm", 0.9)
+    assert assign_menu_item("60", name, section, [], sections, {}, matcher).concept_id == concept

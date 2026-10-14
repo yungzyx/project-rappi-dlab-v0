@@ -17,7 +17,7 @@ import numpy as np
 from psycopg import Connection
 
 from ..embeddings.base import TextEmbedder, to_pgvector
-from .assign import Assignment, dish_name_concepts
+from .assign import Assignment, dish_name_concepts, refinable_by_name
 from .taxonomy import keeps_sensitive, sensitive_concepts
 
 log = logging.getLogger(__name__)
@@ -167,6 +167,11 @@ def _decide(
         and item.entity_type == "menu_item"
         and current.concept_id in dish_name_concepts()
     ):
+        return current
+    # Un concepto de especialidad que el nombre reconoció sobre una categoría de comida (`refines`) no lo deshacen las
+    # vecinas que votan otra comida: son lo genérico de esa categoría («Kikkoman Salsa de Soya» entre las salsas). Si
+    # votan alcohol, algo sensible o algo que no es comida, sigue la regla de siempre; sin categoría de comida, también.
+    if current and current.refines and best in refinable_by_name():
         return current
     knn = Assignment(
         item.entity_type,

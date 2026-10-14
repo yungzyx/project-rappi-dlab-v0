@@ -227,6 +227,35 @@ def test_vertical_to_try_skips_stamped_and_pharmacy(client):
     assert_offerable(restaurants)
 
 
+def test_vertical_to_try_reason_contracts_de_el(client):
+    body = offer(client, "vertical_por_probar", {"stamped": []}).json()
+
+    assert body["vertical"] == "supermercado"
+    assert body["reason"]["text"] == "Porque aún no tienes el sello del súper."
+
+
+def test_offer_texts_never_say_de_el_or_a_el(client):
+    texts = []
+    for occasion in client.get("/agent/plans").json():
+        reply = offer(client, "plan", {"occasion": occasion["id"]})
+        if reply.status_code == 200:
+            texts += [reply.json()["text"], reply.json()["reason"]["text"]]
+    assert texts
+    for text in texts:
+        assert " de el " not in text and " a el " not in text, text
+
+
+def test_vertical_to_try_shows_what_is_typical_of_the_vertical_before_a_bigger_discount(client):
+    """En el Súper de prueba las galletas (típicas de chocolaterías) tienen más descuento que el café, que es lo típico
+    del súper: el café va primero y las otras completan hasta tres."""
+    body = offer(client, "vertical_por_probar", {"stamped": []}).json()
+
+    assert body["vertical"] == "supermercado"
+    concepts = [p["concept"] for p in body["products"]]
+    assert concepts[0] == "cafe"
+    assert {"galletas", "gaseosas"} <= set(concepts) and len(concepts) == 3  # completa, no queda corta
+
+
 def test_plans_lists_offerable_occasions_in_home_order(client):
     reply = client.get("/agent/plans")
 

@@ -448,7 +448,7 @@ def services(conn: Connection, source: str = "synthetic") -> list[dict]:
 # Momentos de las ofertas del agente, en el orden del panel. «pregunta» = lo que sugiere al preguntarle; «para_ti» =
 # la sección "Para ti"; «sin_momento» = sin origen o con uno desconocido (las sugerencias cruzadas simuladas no lo
 # traen): se cuentan aparte en vez de perderse.
-OFFER_MOMENTS = ("plan", "carrito", "checkout", "proximo_pedido", "sin_resultado", "vertical_por_probar")
+OFFER_MOMENTS = ("plan", "carrito", "checkout", "proximo_pedido", "sin_resultado", "vertical_por_probar", "perfil")
 OFFER_ORDER = (*OFFER_MOMENTS, "pregunta", "para_ti", "sin_momento")
 
 

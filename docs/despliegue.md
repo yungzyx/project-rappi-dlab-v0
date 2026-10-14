@@ -102,6 +102,7 @@ Todas van en `/etc/rappi/rappi.env`, salvo las que fija `docker-compose.yml` o l
 | `API_RATE_PER_MIN` / `API_RATE_WRITE_PER_MIN` | api (por IP; 429; `0` = sin tope) | `120` / `60` | — | no |
 | `API_NEW_USERS_PER_IP_DAY` | api (`POST /session`; `0` = sin tope) | `20` | `200` para un evento | no |
 | `API_TIMEOUT_INTERACTIVE_MS` / `API_TIMEOUT_ANALYTICS_MS` | api (tope por consulta; 504) | `5000` / `30000` | — | no |
+| `API_PREWARM` | api (precarga en segundo plano de los índices de la búsqueda al arrancar; `0` = sin precarga) | `1` | — | no |
 | `API_ALLOW_LAN` | api | se ignora en producción | — | no |
 | `LOG_LEVEL` | api | `INFO` | `DEBUG` | no |
 | `ANTHROPIC_API_KEY` | api | vacía: plantillas | `sk-…` | sí |
@@ -110,6 +111,7 @@ Todas van en `/etc/rappi/rappi.env`, salvo las que fija `docker-compose.yml` o l
 | `AGENT_NAME` | api | `Mochi` | — | no |
 | `GAME_MIN_ITEMS` | api | `20` | — | no |
 | `MVP_HOME_LAT` / `MVP_HOME_LNG` | api («Cerca de ti») | `-33.4263` / `-70.6106` | — | no |
+| `PROFILE_CITY` | api (la ciudad de los restaurantes de un perfil de gusto si la persona no tiene) | `Santiago de Chile` | `Viña del Mar` | no |
 | `TEXT_EMBEDDING_MODEL` | api, jobs | `intfloat/multilingual-e5-base` | — | no |
 | `TEXT_EMBEDDING_REVISION` | api, jobs, y al construir la imagen | `d128750597153bb5987e10b1c3493a34e5a4502a` (con el modelo por defecto) | — | no |
 | `HF_HUB_OFFLINE` / `HF_HOME` | api, jobs (los fija la imagen) | `1` / `/opt/hf` | — | no |
@@ -177,7 +179,7 @@ $COMPOSE up -d --wait db
 $COMPOSE logs db | grep init-roles   # «init-roles: rappi_owner y rappi_api creados en rappi.» (si no está, esperar unos segundos)
 ```
 
-Con el volumen `pgdata` vacío, la imagen de Postgres corre una vez [`deploy/db/init-roles.sh`](../deploy/db/init-roles.sh): crea `rappi_owner` (dueño de la base) y `rappi_api` (solo `CONNECT`), y las extensiones `vector` y `unaccent`. Si la línea no aparece, ver [§3.10](#310-si-algo-falla).
+Con el volumen `pgdata` vacío, la imagen de Postgres corre una vez [`deploy/db/init-roles.sh`](../deploy/db/init-roles.sh): crea `rappi_owner` (dueño de la base) y `rappi_api` (solo `CONNECT`), y las extensiones `vector`, `unaccent` y `pg_prewarm` (la precarga de los índices de la búsqueda al arrancar la API, migración 034). Si la línea no aparece, ver [§3.10](#310-si-algo-falla).
 
 ### 3.5 Restaurar el catálogo
 
@@ -266,6 +268,8 @@ deploy/smoke.sh https://<dominio>    # con BASIC_AUTH_PASSWORD exportada (§3.8)
 - **En producción ni la API ni la tarea semanal migran.** Solo `migrate` lo hace, con respaldo antes. Si la API arranca con migraciones pendientes, `/health` responde 503 `migraciones_pendientes` hasta que corre `migrate`.
 - `up -d` recrea solo los servicios cuya imagen o configuración cambió. Durante el cambio de la API hay unos segundos sin servicio (1 worker, sin réplica).
 - Un cambio de `VITE_DEMO` o `WITH_PANEL` exige `$COMPOSE build web` y `up -d`.
+- **`pg_prewarm` en un volumen de antes de la migración 034:** `init-roles.sh` no vuelve a correr y `rappi_owner` no puede crear la extensión, así que `migrate` la salta sin fallar (el aviso de Postgres no aparece en su salida). La señal está en el registro de la API al arrancar: `$COMPOSE logs api | grep -i precarga` muestra «Precarga de la búsqueda: falta la extensión pg_prewarm…», y la API funciona igual, sin precarga (la primera búsqueda de cada vertical lee sus índices del disco). Crearla una vez como superusuario: `$COMPOSE exec db psql -U postgres -d rappi -c 'CREATE EXTENSION IF NOT EXISTS pg_prewarm'` y `$COMPOSE restart api`; el registro dice entonces «Precarga de la búsqueda: N índices en X s». También hace falta antes de restaurar ahí un dump que ya la trae (uno del Mac mini después de la 034): sin ella, `pg_restore` como `rappi_owner` falla. En producción la extensión queda sin el comentario de la 034: solo su dueño (el superusuario que la creó) puede ponerlo, y la migración lo salta.
+- **`rappi_api` precarga solo con Postgres 17.7 o más nuevo:** desde esa versión `pg_prewarm` revisa el permiso SELECT sobre la tabla del índice, que da `grants.sql`; antes lo pedía sobre el índice, y un índice no tiene permisos que dar. La imagen `pgvector/pgvector:pg17` sigue al último 17.x, pero una ya descargada no se actualiza sola (`$COMPOSE exec db postgres --version`; para subirla, `$COMPOSE pull db` y `$COMPOSE up -d db`). Con una anterior, la API anota «No se pudo precargar los índices de la búsqueda (0 leídos): permission denied…» y sigue sin precarga.
 
 ## 5. Volver atrás
 
@@ -292,6 +296,7 @@ GRANT CONNECT ON DATABASE :"db" TO rappi_api;
 \connect :"db"
 CREATE EXTENSION vector;
 CREATE EXTENSION unaccent;
+CREATE EXTENSION pg_prewarm;
 SQL
 $COMPOSE --profile jobs run --rm -T jobs bash -s <<'EN_JOBS'
 set -euo pipefail

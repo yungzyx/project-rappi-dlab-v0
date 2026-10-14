@@ -1,6 +1,7 @@
 """Regla de decisión del kNN: cuándo los vecinos confirman, reemplazan o no tocan el concepto actual."""
 
 import numpy as np
+import pytest
 
 from rappi_ia.concepts.assign import Assignment
 from rappi_ia.concepts.knn import ItemText, _decide, _labels
@@ -106,3 +107,25 @@ def test_jev_assignments_do_not_vote_as_knn_labels():
     }
     label_idx, label_concepts = _labels(items, current)
     assert sorted(label_idx) == [0, 1] and label_concepts == ["cerveza", "cerveza"]
+
+
+SOY = ItemText("catalog_item", "1", "Kikkoman Salsa de Soya")
+REFINED = Assignment("catalog_item", "1", "despensa-asiatica", "regla", 0.7, None, "nombre:salsa de soya", "salsas")
+
+
+def test_neighbors_do_not_undo_an_asian_name_that_refined_a_food_category():
+    """Las vecinas de «Kikkoman Salsa de Soya» son las salsas de su categoría: votarían salsas y deshacían la regla."""
+    assert _decide(REFINED, SOY, *_neighbors(["salsas"] * 15), MODEL) == REFINED
+
+
+@pytest.mark.parametrize("voted", ["cerveza", "vapeo", "juguetes-infantiles"])
+def test_alcohol_sensitive_and_non_food_neighbors_still_win_over_a_refined_name(voted):
+    assert _decide(REFINED, SOY, *_neighbors([voted] * 15), MODEL).concept_id == voted
+
+
+def test_an_asian_name_without_a_food_category_is_an_ordinary_rule():
+    """«Peluche Bubble Tea» sin categoría (o con una dudosa): sus vecinas lo corrigen como a cualquier regla."""
+    item = ItemText("catalog_item", "1", "Peluche Bubble Tea")
+    rule = Assignment("catalog_item", "1", "bebidas-asiaticas", "regla", 0.7, None, "nombre:bubble tea")
+    assert _decide(rule, item, *_neighbors(["juguetes-infantiles"] * 15), MODEL).concept_id == "juguetes-infantiles"
+    assert _decide(rule, item, *_neighbors(["te"] * 15), MODEL).concept_id == "te"

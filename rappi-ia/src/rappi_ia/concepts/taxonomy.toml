@@ -10,11 +10,14 @@
 # - `query_keywords`: palabras que sirven para pedir el concepto en una consulta, pero que no asignan productos
 #   («lubricante» pide bienestar sexual; «Lubricante para lentes» no lo es). En las consultas también cuenta el nombre.
 #   Una palabra suelta de estas solo cuenta si es todo el pedido: «lubricante wd-40» no pide bienestar sexual.
+# - `product_keywords`: lo contrario; asignan productos del catálogo pero no leen consultas. Para palabras que en un
+#   producto nombran el concepto y en una consulta piden otra cosa: «Panko Blanco 1 kg» es despensa asiática, pero
+#   quien escribe «panko roll» pide sushi. Tampoco nombran el plato de un menú (concepts/assign.py).
 # - `age_restricted = true`: +18; la respuesta lleva el recordatorio.
 # - `prepared = true` (en el grupo o en el concepto): se pide hecho, así que también se busca en restaurantes.
 #   El resto nunca compite en restaurantes aunque sus locales lo tengan (gaseosas, papas fritas en combos).
 
-version = "2026-10-04"
+version = "2026-10-14"
 
 # ─── Grupos ───────────────────────────────────────────────────────────────────
 [[group]]
@@ -265,6 +268,19 @@ name = "Hielo"
 emoji = "🧊"
 keywords = ["hielo", "cubos de hielo"]
 
+# Lo asiático por nombre (la despensa, los snacks y las bebidas) afina la categoría de comida que Rappi le da
+# («Pepero» viene en «Galletas»): concepts/assign.py, NAME_REFINES_CONCEPTS. En los menús no cuenta. Palabras sacadas
+# del catálogo real. El matcha a secas sigue en té (los matcha latte de las cafeterías); aquí, el té matcha en polvo.
+[[concept]]
+id = "bebidas-asiaticas"
+parent = "bebidas"
+name = "Bebidas asiáticas"
+emoji = "🧋"
+keywords = ["té matcha", "té verde matcha", "matcha en polvo", "milkis", "pocari sweat", "okf", "bebida okf"]
+# Bebidas que también se piden en un local de bubble tea o una cafetería: ahí piden la bebida preparada.
+product_keywords = ["matcha latte", "bubble tea", "bubble milk tea", "milk tea", "té leche", "popping boba", "boba"]
+avoid = ["lindor", "lindt", "chocolate", "bombón", "trufa", "galleta", "vinagre", "snack", "bolitas", "cápsulas", "café", "caffe", "cappuccino", "macchiato", "mocha", "taza", "mug", "vaso", "bowl", "cuchara", "batidor", "difusor", "aromatizador", "ambientador", "vela", "collar", "peluche", "llavero", "shampoo", "jabón", "vape", "vaper", "puff", "pod", "soju", "sake", "licor", "cerveza", "highball"]
+
 # Snacks
 [[concept]]
 id = "snacks-salados"
@@ -295,6 +311,17 @@ parent = "snacks"
 name = "Barras de cereal"
 emoji = "🥣"
 keywords = ["barra de cereal", "barrita", "barra de proteína", "barra proteica", "granola bar", "costa barra"]
+
+# Con el ramen instantáneo, que deja «sopas»: es lo que se vende junto a Pepero y Pocky.
+[[concept]]
+id = "snacks-asiaticos"
+parent = "snacks"
+name = "Snacks asiáticos"
+emoji = "🍘"
+keywords = ["ramen instantáneo", "ramen sopa instantánea", "maruchan", "nissin", "buldak", "samyang", "nongshim", "ottogi", "shin ramyun", "shin ramen", "jin ramen", "chapagetti", "kang shi fu", "cup noodles", "pepero", "pocky", "yan yan", "choco pie", "chocopie"]
+# Platos y postres que también sirve un restaurante coreano o japonés. «mochi» a secas no: es el nombre del agente.
+product_keywords = ["ramyeon", "ramyun", "mochi helado", "helado mochi", "kai mochi", "dorayaki", "topokki", "tteokbokki", "yopokki"]
+avoid = ["vape", "vaper", "puff", "pod", "shampoo", "peluche", "llavero", "polera", "squishy", "flash"]
 
 # Dulces
 [[concept]]
@@ -370,7 +397,7 @@ id = "salsas"
 parent = "despensa"
 name = "Salsas y aderezos"
 emoji = "🥫"
-keywords = ["salsa", "ketchup", "kétchup", "mayonesa", "mostaza", "pesto", "salsa de tomate", "salsa de soya", "salsa de soja", "ají", "aji", "dip", "aderezo", "barbecue", "bbq", "sriracha", "chimichurri", "pebre"]
+keywords = ["salsa", "ketchup", "kétchup", "mayonesa", "mostaza", "pesto", "salsa de tomate", "ají", "aji", "dip", "aderezo", "barbecue", "bbq", "sriracha", "chimichurri", "pebre"]
 
 [[concept]]
 id = "conservas"
@@ -407,7 +434,20 @@ parent = "despensa"
 name = "Sopas y caldos"
 emoji = "🍜"
 keywords = ["sopa", "crema de", "caldo", "cubo de caldo", "sopa instantánea", "sopaipa", "consomé", "cazuela", "carbonada", "sopa de pollo"]
-avoid = ["manos", "corporal", "facial", "cuerpo", "pies", "labios", "peinar", "afeitar", "dental", "leche", "mani", "avellana", "chocolate"]
+avoid = ["manos", "corporal", "facial", "cuerpo", "pies", "labios", "peinar", "afeitar", "dental", "leche", "mani", "avellana", "chocolate", "maruchan", "nissin"]
+
+# La soya de la salsa de soya y del arroz para sushi: no la leche de soya ni el «Noris» de los lápices.
+[[concept]]
+id = "despensa-asiatica"
+parent = "despensa"
+name = "Despensa asiática"
+emoji = "🥢"
+keywords = ["salsa de soya", "salsa de soja", "salsa soya", "salsa soja", "sillao", "kikkoman", "salsa hoisin", "salsa de ostras", "salsa de ostra", "lee kum kee", "alga nori", "aceite de sésamo", "aceite sésamo", "sesame oil", "mirin", "vinagre de arroz", "arroz para sushi", "papel de arroz", "gochujang", "pasta de miso", "jengibre para sushi", "gengibre para sushi", "palitos para sushi", "palillos chinos", "palitos chinos"]
+# Lo que también lleva un roll, un ramen o un salteado: en una consulta piden el plato («bowl base arroz de sushi»,
+# «arroz sushi con cerdo»). «arroz para sushi» sí es el producto.
+product_keywords = ["nori", "wakame", "wasabi", "miso", "kimchi", "shoyu", "hoisin", "panko", "salsa teriyaki", "fideos de arroz", "fideo de arroz", "tallarines de arroz", "jengibre encurtido", "arroz sushi", "arroz de sushi"]
+# Un plato preparado con soya, nori o panko (en la categoría «Sushi» o «Platos listos») no es despensa.
+avoid = ["roll", "rolls", "piezas", "pzas", "ramen", "gyoza", "gyozas", "tempura", "ebi", "box", "combo", "gohan", "acevichado", "furai", "shampoo", "acondicionador", "lush", "noris", "staedtler", "acuarela", "lápiz", "lápices", "decoupage", "vape", "vaper", "puff", "pod"]
 
 # Frescos
 [[concept]]
@@ -513,7 +553,7 @@ parent = "comida"
 name = "Sushi"
 emoji = "🍣"
 keywords = ["sushi", "roll", "rolls", "nigiri", "sashimi", "handroll", "hand roll", "maki", "gohan", "uramaki", "tempura roll", "california roll"]
-avoid = ["roll on", "aceite", "brazalete"]
+avoid = ["roll on", "aceite", "brazalete", "canela", "cinna", "cinnamon", "cinamon", "cinammon", "manjar", "ny", "kathi", "pepperoni", "peperoni", "sausage"]
 
 [[concept]]
 id = "sandwiches"

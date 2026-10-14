@@ -75,6 +75,8 @@ edges = [
   ["hamburguesa", "gaseosas", 0.7],
   ["hamburguesa", "cerveza", 0.6],
   ["hamburguesa", "helados", 0.5],
+  ["sushi", "despensa-asiatica", 0.3],  # sushi en casa: arroz, soya y nori (después de los postres)
+  ["sushi", "bebidas-asiaticas", 0.3],
   ["sushi", "postres", 0.4],
   ["sushi", "vino", 0.4],
   ["sushi", "gaseosas", 0.4],
@@ -83,6 +85,7 @@ edges = [
   ["empanadas", "vino", 0.6],
   ["empanadas", "cerveza", 0.5],
   ["asiatica", "cerveza", 0.5],
+  ["asiatica", "snacks-asiaticos", 0.3],
   ["asiatica", "postres", 0.4],
   ["mexicana", "cerveza", 0.7],
   ["mexicana", "tequila", 0.4],

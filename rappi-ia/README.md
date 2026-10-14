@@ -84,12 +84,13 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `GET /live` · `GET /health` | El proceso responde (sin mirar la base) · lista para atender: 200 con capacidades y documentos, o 503 con `motivos` (`base`, `saturada`, `sin_documentos`, `migraciones_pendientes`, `busqueda_semantica`) |
 | `POST /session` | Sesión anónima: `{legacy_user_id?}` → `{user_id, token}`. El token va en la cabecera `X-User-Token` de toda ruta con datos de una persona (401 sin él, 403 con el de otra) |
 | `POST /agent/ask` | El agente (Mochi): `{message, vertical?, user_id?, session_id?, profile?, shown_topics?, mode}`. Acepta los ids de vertical del prototipo (`liquor`, `grocery`…) |
-| `POST /agent/offer` · `GET /agent/plans` | Lo que el agente propone en cada momento de la app (204 si no hay una buena oferta) · las ocasiones de la Home con su kit |
+| `POST /agent/offer` · `GET /agent/plans` | Lo que el agente propone en cada momento de la app (`plan`, `carrito`, `checkout`, `proximo_pedido`, `sin_resultado`, `vertical_por_probar` y `perfil`: la escalera de un perfil de gusto; 204 si no hay una buena oferta, 422 con un perfil desconocido) · las ocasiones de la Home con su kit |
 | `GET /catalog/home` · `/catalog/verticals/{vertical}/stores` · `/catalog/stores/{store_id}` · `/catalog/products/{entity_type}/{entity_id}` · `/catalog/restaurants` · `/catalog/restaurants/{store_id}/menu` · `/catalog/deals` | Las pantallas de catálogo del prototipo (Home, verticales, tienda, producto, restaurantes, menú, ofertas), con el precio vigente |
 | `GET /game/cards` · `GET /game/challenge` · `GET`/`PUT /game/state/{user_id}` | Tarjetas del juego, desafío de cada ronda y progreso por persona |
 | `GET /search` | Búsqueda híbrida en un vertical, con precios vigentes |
 | `GET /recommendations` | "Para ti, de otras tiendas": intereses → complementos → otro vertical |
 | `GET /profile/{id}` · `DELETE /profile/{id}` | Lo aprendido (sin sensibles) · "Olvidar" (todo o un concepto) |
+| `GET /profile/{id}/gustos` | Los perfiles de gusto de la persona (por ejemplo «🥢 Amante de lo asiático»): `{perfiles: [{id, nombre, emoji, nivel, principal, por_que, basis}]}`, o la lista vacía. Salen de sus segmentos y "Olvidar" los quita |
 | `POST /events` · `POST /orders` | Eventos y pedidos del prototipo (`source = prototype`). Un pedido sin vertical del catálogo es un 400 |
 | `POST /events/beacon` | Lo que queda en cola al cerrar la pestaña (`sendBeacon`, text/plain: sin preflight de CORS) |
 | `GET /analytics/{kpis, weekly, opportunities, trends, funnel, cohorts, rhythm, at-risk, suggestions, multi-vertical, affinity, assortment, services, catalog, offers, game, unmet}` | Métricas de negocio (las muestra el [panel](../dashboard-empresa/), parte del MVP). `offers`, `game` y `unmet` son las de «Uso del MVP» |
@@ -113,10 +114,12 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `API_CORS_ORIGINS` | `localhost` y `127.0.0.1` en los puertos 51xx | exactamente estos orígenes (el stack pone `https://<dominio>`) |
 | `API_ENABLE_ANALYTICS` / `API_DOCS` | `1` / `1` | `0` / `0` |
 | `API_POOL_MAX` · `API_POOL_TIMEOUT_S` | `10` · `3` | igual |
+| `API_PREWARM` | `1`: precarga los índices de la búsqueda al arrancar, sin esperarla | igual |
 | `API_RATE_PER_MIN` · `API_RATE_WRITE_PER_MIN` · `API_NEW_USERS_PER_IP_DAY` | `120` · `60` · `20` (este Mac sin tope) | igual, para todas las IP |
 | `API_REQUIRE_SEMANTIC` | `0` | `1` en el stack |
 | `LLM_DAILY_CALL_CAP` | `300` | igual |
 | `LOG_LEVEL` | `INFO` | igual |
+| `PROFILE_CITY` | `Santiago de Chile`: la ciudad de los restaurantes de un perfil de gusto cuando la persona no tiene ciudad (otra ciudad del scraper vale como su comuna) | igual |
 | `PROTOTYPE_USER_RETENTION_DAYS` | `180` | igual |
 | `RAPPI_ENV_FILE` · `RAPPI_IA_DATA_DIR` | `.env` · `data/` | `/etc/rappi/rappi.env` · `/data/ia` |
 
@@ -157,7 +160,7 @@ La cobertura por vertical sale de `rappi-ia concepts --solo-reporte`. La precisi
 
 - **Revisión:** 3 rondas de revisión adversarial automatizada (agentes de IA especializados en lógica, seguridad y privacidad, frontend, rendimiento y contratos entre piezas) el 27-09-2026: 66 hallazgos confirmados y corregidos, con tests de regresión. El 28-09 hubo una auditoría, cuyos 4 bloques de mejoras se aplicaron el 29 y 30-09, y el 11-10 una revisión integral del MVP (ver [docs/decisiones.md](../docs/decisiones.md)).
 - **Tests:** las cifras vigentes están en [README.md#resultados](../README.md#resultados) (fila «Calidad»); los de integración corren contra la base `rappi_ia_test`. CI en GitHub Actions (`.github/workflows/ci.yml`) con Postgres + pgvector y las versiones de `requirements.lock.txt`; un job semanal (`modelos-semanal.yml`) instala los modelos.
-- **Candado de la base de prueba:** `make test`, `make contract` y `make mvp-check` (raíz) toman `rappi-ia/.test-db.lock` para no pisarse en `rappi_ia_test`; correr `pytest` directamente se salta el candado, así que no lo lances mientras corre alguno de ellos.
+- **Candado de la base de prueba:** `make test`, `make contract` y `make mvp-check` (raíz) toman `.git/rappi-ia-test-db.lock` (en la carpeta común de git: lo comparten los worktrees; fuera de git, `rappi-ia/.test-db.lock`) para no pisarse en `rappi_ia_test`; correr `pytest` directamente se salta el candado, así que no lo lances mientras corre alguno de ellos.
 - **Optimizaciones del 28-09-2026:** textos por embeber ordenados por largo, índices HNSW con `maintenance_work_mem` de 1 GB (`HNSW_MAINTENANCE_WORK_MEM`) y kNN de conceptos que lee los vectores del caché en binario y por bloques.
 
 ## Límites
@@ -182,7 +185,7 @@ rappi-ia/
 │   ├── retrieval/     búsqueda híbrida por vertical
 │   ├── agent/         el agente (`RappiAgent`): entender, herramientas, redactar
 │   ├── catalog/       pantallas de catálogo para la API (/catalog)
-│   ├── offers/        ofertas del agente por momento (/agent/offer, /agent/plans)
+│   ├── offers/        ofertas del agente por momento (/agent/offer, /agent/plans) y perfiles de gusto (perfiles.toml, destinos.toml)
 │   ├── game/          tarjetas (knowledge.json, card_concepts.toml), desafíos y progreso (/game)
 │   ├── layers/        capa de datos: medidas, marcas, atributos, grafo y segmentos (esquema capa)
 │   ├── demo/          catálogo inventado de `seed-demo` (solo bases _test)
@@ -214,5 +217,6 @@ rappi-ia/
 | `030_jev.sql` | Caché de juicios de Jev (`eval_judgments`) y método `jev` en el mapa de categorías |
 | `031_order_mode.sql` | El modo de la app en que se hizo cada pedido (los de «Rappi hoy» no entran al perfil) |
 | `033_user_tokens.sql` | `app_users.token_issued_at`: cuándo recibió la persona su token firmado (un id ya firmado no se puede reclamar con `legacy_user_id`) |
+| `034_prewarm.sql` | Extensión `pg_prewarm`: al arrancar, la API lee en segundo plano los índices HNSW y de texto de la búsqueda (`API_PREWARM`). Si el rol no puede crearla (en producción la crea `init-roles.sh`), solo avisa |
 
 `014`–`015` (limpieza del HTML de los documentos de búsqueda), `017`–`019` y `021` (formatos de tienda, Turbo, vigencia y platos por local) y `032` (`latest_prices` y `latest_menu_prices`, el último precio mantenido por triggers, y la vista `v_latest_offers`, la definición única de oferta vigente, que esta capa también lee) son del scraper.

@@ -145,6 +145,16 @@ _PRODUCTS = [
     (97005, "Brownie con nueces (prueba)", "Postres", False, {"chocolateria": (2490, 2490)}),
     (97006, "Helado de chocolate 500 cc (prueba)", "Helados", False, {"chocolateria": (3990, 3990)}),
     (97007, "Galletas con chips de chocolate 150 g (prueba)", "Galletas", False, {"chocolateria": (1990, 1990)}),
+    # Lo asiático, para la escalera del perfil «Amante de lo asiático» (offers/perfiles.toml): el nombre lleva cada uno
+    # a su concepto (despensa, snacks o bebidas asiáticas) aunque la categoría diga salsas, sushi, sopas o té, como en
+    # la base real. Los del súper y Turbo están solo en la segunda tienda.
+    (93004, "Salsa de soya 150 ml (prueba)", "Otras salsas", False, {"turbo": (None, 1990)}),
+    (93005, "Arroz para sushi 500 g (prueba)", "Sushi", False, {"turbo": (None, 2490)}),
+    (92006, "Ramen instantáneo picante 120 g (prueba)", "Sopas y cremas", False, {"conveniencia": (1490, 1590)}),
+    (92007, "Bubble tea de taro 350 ml (prueba)", "Té listo", False, {"conveniencia": (1990, None)}),
+    (91501, "Alga nori 10 hojas (prueba)", "Sushi", False, {"supermercado": (None, 2950)}),
+    (91502, "Té matcha en polvo 100 g (prueba)", "Tés", False, {"supermercado": (None, 5990)}),
+    (97009, "Chocolate blanco con matcha 100 g (prueba)", "Chocolates", False, {"chocolateria": (2990, None)}),
 ]
 # fmt: on
 

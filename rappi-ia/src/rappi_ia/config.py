@@ -34,6 +34,11 @@ AGENT_NAME = os.environ.get("AGENT_NAME", "Mochi")
 # Productos que un concepto necesita en una vertical para que el juego diga que «pertenece» a ella.
 GAME_MIN_ITEMS = int(os.environ.get("GAME_MIN_ITEMS", "20"))
 
+# Ciudad de los restaurantes que ofrece la escalera de un perfil de gusto cuando la persona no tiene ciudad
+# (`app_users.city`; la app no la pide). Es una ciudad del scraper («Santiago de Chile», «Viña del Mar»): ver
+# offers/profiles.py, CITY_COMUNAS.
+PROFILE_CITY = os.environ.get("PROFILE_CITY") or "Santiago de Chile"
+
 # LLM opcional: sin ANTHROPIC_API_KEY, el agente responde con plantillas.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or None
 AGENT_LLM_MODEL = os.environ.get("AGENT_LLM_MODEL", "claude-sonnet-5")
@@ -63,6 +68,10 @@ API_DOCS = _flag("API_DOCS", not API_PRODUCTION)
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 if LOG_LEVEL not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
     raise RuntimeError(f"LOG_LEVEL debe ser DEBUG, INFO, WARNING, ERROR o CRITICAL (vale {LOG_LEVEL!r})")
+
+# Al arrancar, la API lee en segundo plano los índices de la búsqueda (pg_prewarm, migración 034) para que la primera
+# búsqueda de cada vertical no los lea del disco. Encendida por defecto; los tests la apagan (API_PREWARM=0).
+API_PREWARM = _flag("API_PREWARM", True)
 
 # Con API_REQUIRE_SEMANTIC=1, una API sin la búsqueda semántica (el modelo no cargó) no está lista: /health da 503.
 # Apagado por defecto: en local la demo sigue con la búsqueda léxica.

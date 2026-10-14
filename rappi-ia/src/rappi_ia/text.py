@@ -50,6 +50,16 @@ def tokens(text: str) -> list[str]:
     return normalize(text).split()
 
 
+# Solo el artículo en minúscula y entero: «de El Bodegón» (un nombre propio) y «de elote» se quedan como están.
+_CONTRACTION = re.compile(r"\b(de|a) el\b")
+
+
+def contract_articles(text: str) -> str:
+    """«de el súper» → «del súper» y «a el súper» → «al súper»: las plantillas interpolan etiquetas como «el súper»
+    después de «de» o «a»."""
+    return _CONTRACTION.sub(lambda m: "del" if m.group(1) == "de" else "al", text)
+
+
 def assistant_words() -> frozenset[str]:
     """Los nombres con que la persona llama al agente: `config.AGENT_NAME` (leído al usarlo, no al importar) y el
     antiguo «bigotes», normalizados."""

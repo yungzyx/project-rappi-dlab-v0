@@ -58,6 +58,14 @@ class ConcurrencyCap:
             return True
         return False
 
+    def acquire_keeping(self, reserve: int) -> bool:
+        """Un cupo sin esperar, solo si después quedan al menos `reserve` libres. Corre en el event loop (desde un hilo,
+        con `anyio.from_thread.run_sync`). No le quita el cupo a nadie en la fila: si alguien espera, no hay libres."""
+        if self.slots.value <= reserve:
+            return False
+        self.slots.acquire_nowait()
+        return True
+
     def release(self) -> None:
         self.slots.release()
 

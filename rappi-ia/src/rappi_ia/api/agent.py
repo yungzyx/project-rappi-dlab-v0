@@ -55,6 +55,12 @@ class ToTryContext(Clean):
     stamped: list[Annotated[str, Field(max_length=64)]] = Field(max_length=20)
 
 
+class ProfileContext(Clean):
+    """El perfil de gusto que se pide (`offers/perfiles.toml`); sin él, el primero de los de la persona."""
+
+    perfil: str | None = Field(default=None, min_length=1, max_length=64)
+
+
 class OfferBase(Clean):
     user_id: str | None = Field(default=None, max_length=64)
 
@@ -89,7 +95,14 @@ class ToTryIn(OfferBase):
     context: ToTryContext
 
 
-OfferIn = Annotated[PlanIn | CartIn | CheckoutIn | NoResultIn | NextOrderIn | ToTryIn, Field(discriminator="moment")]
+class ProfileIn(OfferBase):
+    moment: Literal["perfil"]
+    context: ProfileContext
+
+
+OfferIn = Annotated[
+    PlanIn | CartIn | CheckoutIn | NoResultIn | NextOrderIn | ToTryIn | ProfileIn, Field(discriminator="moment")
+]
 
 
 @router.post(
@@ -99,7 +112,9 @@ OfferIn = Annotated[PlanIn | CartIn | CheckoutIn | NoResultIn | NextOrderIn | To
 )
 def offer(body: OfferIn, request: Request, conn: Connection = Depends(get_conn), svc: Services = Depends(get_services)):
     """La oferta de un momento: `{ moment, text, products, vertical, prototype_vertical, reason, actions }`, o 204.
-    Una ocasión que no existe, o que el agente no arma (guagua, enfermo), es un 422."""
+    El momento `perfil` tiene su forma: `{ moment, text, perfil, escalera, viaje, reason, actions }` (la escalera de
+    un perfil de gusto: `offers/profiles.py`). Una ocasión o un perfil que no existe, o una ocasión que el agente no
+    arma (guagua, enfermo), es un 422."""
     owner_of_body(request, body.user_id)
     context = body.context.model_dump()
     if body.moment == "vertical_por_probar":

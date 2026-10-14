@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import sys
+import threading
 
 import anyio
 import pytest
@@ -8,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from rappi_ia import config
 from rappi_ia.api import app as api
-from rappi_ia.api import deps, services
+from rappi_ia.api import deps, prewarm, services
 from rappi_ia.db import database_url
 
 
@@ -22,6 +23,57 @@ def test_startup_loads_services_before_first_request(monkeypatch, caplog):
         assert "Servicios cargados en" in caplog.text  # en la salida de uvicorn, no en un logger sin handler
     finally:
         services._load_services.cache_clear()
+
+
+def test_startup_launches_the_prewarm_without_waiting_for_it(monkeypatch):
+    """La precarga de los índices de la búsqueda corre en su propio hilo, después de cargar los modelos: la API termina
+    de arrancar y responde mientras la precarga sigue."""
+    monkeypatch.setenv("RAPPI_IA_LIGHT", "1")
+    monkeypatch.setattr(config, "API_PREWARM", True)
+    started, release = threading.Event(), threading.Event()
+    threads = []
+
+    def slow_prewarm():
+        threads.append(threading.current_thread())
+        started.set()
+        release.wait(10)
+
+    monkeypatch.setattr(prewarm, "prewarm_search_indexes", slow_prewarm)
+    services._load_services.cache_clear()
+    try:
+        with TestClient(api.app) as client:
+            assert started.wait(5)
+            assert services._load_services.cache_info().currsize == 1  # después de los modelos
+            assert client.get("/live").status_code == 200  # arrancó con la precarga todavía corriendo
+    finally:
+        release.set()
+        services._load_services.cache_clear()
+
+    assert len(threads) == 1
+    assert threads[0] is not threading.main_thread() and threads[0].daemon  # no retiene el cierre de la API
+
+
+def test_api_prewarm_0_skips_the_prewarm(monkeypatch):
+    monkeypatch.setenv("RAPPI_IA_LIGHT", "1")
+    monkeypatch.setattr(config, "API_PREWARM", False)
+    calls = []
+    monkeypatch.setattr(prewarm, "prewarm_search_indexes", lambda: calls.append(1))
+    services._load_services.cache_clear()
+    try:
+        with TestClient(api.app):
+            pass
+    finally:
+        services._load_services.cache_clear()
+
+    assert calls == []
+
+
+def test_prewarm_with_the_database_down_only_warns(caplog):
+    """Sin Postgres, la precarga anota un aviso y termina: nunca tumba la API."""
+    with caplog.at_level(logging.WARNING, logger="rappi_ia.api.prewarm"):
+        assert prewarm.prewarm_search_indexes("postgresql://127.0.0.1:1/rappi_ia_test") == []
+
+    assert "No se pudo precargar" in caplog.text
 
 
 @pytest.mark.parametrize("module", ["rappi_ia.api.deps", "rappi_ia.api.catalog", "rappi_ia.api.app"])

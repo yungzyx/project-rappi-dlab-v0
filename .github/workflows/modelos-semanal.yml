@@ -38,8 +38,8 @@ jobs:
       - name: e5 carga y embebe
         run: >-
           python -c "from rappi_ia.embeddings.models import text_embedder;
-          v = text_embedder().embed_queries(['algo para el carrete']);
-          assert v.shape == (1, 768), v.shape; print('e5 ok', v.shape)"
+          v = text_embedder().embed_queries(['sushi', 'algo para el carrete']);
+          assert v.shape == (2, 768), v.shape; print('e5 ok', v.shape)"
 
       - name: Tests unitarios
         run: python -m pytest tests/unit

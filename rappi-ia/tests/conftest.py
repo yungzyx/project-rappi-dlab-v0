@@ -10,6 +10,9 @@ os.environ["API_RATE_WRITE_PER_MIN"] = "0"
 # (test_ownership lo prueba con el suyo).
 os.environ["API_SECRET"] = "secreto-de-los-tests-no-sirve-fuera-de-ellos"
 os.environ["API_NEW_USERS_PER_IP_DAY"] = "0"
+# Sin precarga de los índices al arrancar la API: abriría su propia conexión a DATABASE_URL (la base real) y alargaría
+# la suite. test_api_startup y test_prewarm la prueban por su cuenta.
+os.environ["API_PREWARM"] = "0"
 
 import pytest  # noqa: E402
 

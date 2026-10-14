@@ -10,7 +10,14 @@ from rappi_scraper.storage.search import MIN_PRICE
 
 from ..concepts.taxonomy import load_taxonomy
 from ..embeddings.base import TextEmbedder
-from ..offers.guards import is_offerable, offerable_vertical, unofferable_subverticals
+from ..offers.guards import (
+    alcohol_in_name,
+    alcohol_section,
+    baby_in_name,
+    is_offerable,
+    offerable_vertical,
+    unofferable_subverticals,
+)
 from ..retrieval.hybrid import Filters, RetrievalResult, retrieve
 from ..text import FILLER_WORDS, LEAFLET_WARNINGS, normalize, tokens
 from .verticals import ranked_verticals
@@ -343,15 +350,17 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adu
         ):
             prices[("catalog_item", pid)] = (name, price, real, store, age, store_id, presentation)
     if menu_ids:
-        for iid, name, price, real, store, store_id in conn.execute(
-            """SELECT mi.item_id::text, mi.name, mp.price, mp.real_price, s.name, mi.store_id
+        for iid, name, price, real, store, store_id, section in conn.execute(
+            """SELECT mi.item_id::text, mi.name, mp.price, mp.real_price, s.name, mi.store_id, ms.name
                FROM menu_items mi
                JOIN stores s USING (store_id)
                LEFT JOIN latest_menu_prices mp ON mp.item_id = mi.item_id
+               LEFT JOIN menu_sections ms ON ms.store_id = mi.store_id AND ms.section_id = mi.section_id
                WHERE mi.item_id = ANY(%s::bigint[])""",
             (menu_ids,),
         ):
-            prices[("menu_item", iid)] = (name, price, real, store, False, store_id, None)
+            # En una oferta, un plato de una sección de tragos cuenta como +18 (offers/guards.py).
+            prices[("menu_item", iid)] = (name, price, real, store, offer and alcohol_section(section), store_id, None)
     taxonomy = load_taxonomy()
     products = []
     for hit in hits:
@@ -359,7 +368,11 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adu
         if found is None:  # sin precio vigente en el vertical (agotado o sin stock): no se ofrece
             continue
         name, price, real, store, age, store_id, presentation = found
+        # En una oferta, un nombre que dice alcohol cuenta como +18 aunque la tienda no lo marque (offers/guards.py).
+        age = age or (offer and alcohol_in_name(hit.entity_type, name, hit.concept_id))
         if offer and age and not adult_ok:  # +18 aunque su concepto sea corriente: el catálogo lo marca
+            continue
+        if offer and baby_in_name(hit.entity_type, name):  # de bebé aunque su concepto sea corriente: ni en un kit
             continue
         concept = taxonomy.concepts.get(hit.concept_id) if hit.concept_id else None
         prefix = "cat" if hit.entity_type == "catalog_item" else "menu"

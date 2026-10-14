@@ -308,9 +308,10 @@ class RappiAgent:
         response = _base(intent, text)
         if intent.kind == "ayuda":  # ejemplos que se pueden tocar: nadie empieza frente a un campo vacío
             response["actions"] = [
-                {"label": "🎉 Arma un carrete", "query": "algo para el carrete"},
+                {"label": "🍣 Algo de sushi", "query": "sushi"},
                 {"label": "🍽️ ¿Qué almuerzo hoy?", "query": "tengo hambre"},
                 {"label": "🤒 Tengo fiebre", "query": "tengo fiebre"},
+                {"label": "🎉 Arma un carrete", "query": "algo para el carrete"},
             ]
         return response
 

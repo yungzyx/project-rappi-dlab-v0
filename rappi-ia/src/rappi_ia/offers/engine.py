@@ -2,20 +2,24 @@
 con su precio vigente) y pasando por las guardias de `offers/guards.py`.
 
 Momentos (`POST /agent/offer`): `plan` (el kit de una ocasión que la persona eligió), `carrito` (un complemento de
-otra tienda), `checkout`, `proximo_pedido`, `sin_resultado` (dónde sí está lo que buscó) y `vertical_por_probar` (la
-vertical del pasaporte sin sello donde más le gusta a la persona; sin historia, la primera). Si no hay una buena
-oferta, no hay oferta (`None`: 204): el agente no dice nada.
+otra tienda), `checkout`, `proximo_pedido`, `sin_resultado` (dónde sí está lo que buscó), `vertical_por_probar` (la
+vertical del pasaporte sin sello donde más le gusta a la persona; sin historia, la primera) y `perfil` (la escalera de
+un perfil de gusto, `offers/profiles.py`, con su forma propia: `ProfileOffer`). Si no hay una buena oferta, no hay
+oferta (`None`: 204): el agente no dice nada.
 
 Los textos son plantillas en español. Una oferta nunca nombra un concepto que el agente no puede proponer (el origen
 de un complemento puede ser cerveza o pañales, y el texto no lo repite).
 
 Cada oferta dice por qué (`Offer.reason`): las claves de siempre (`occasion`, `concept`, `from_concept`), el `text`
-(«Porque…») y la `basis`: las señales del contexto que la motivan (`kind` carrito, pedido, busqueda, ocasion o sello, e
-`id`; `source` «contexto» y sin `score`, que es de las señales de una persona en `offers/personal.py`). Lo que el agente
-no propone no entra a la base. Cuando la oferta se ordena por lo que le gusta a la persona (`vertical_por_probar` y las
-ocasiones de la Home), la `basis` son sus señales (con `score` y `source`) de los conceptos que más aportan. Un
-complemento cuyo primer producto es de una marca que la persona compra lo dice en el `text` y suma esa señal (`marca`,
-con los pedidos como `score`).
+(«Porque…») y la `basis`: las señales del contexto que la motivan (`kind` carrito, pedido, busqueda, ocasion, sello o
+perfil, este último en el momento `perfil` sin persona; e `id`; `source` «contexto» y sin `score`, que es de las
+señales de una persona en `offers/personal.py`). Lo que el agente no propone no entra a la base. Cuando la oferta se
+ordena por lo que le gusta a la persona (`vertical_por_probar` y las ocasiones de la Home), la `basis` son sus señales
+(`kind` concepto, con `score` y `source`) de los conceptos que más aportan. Un complemento cuyo primer producto es de
+una marca que la persona compra lo dice en el `text` y suma esa señal (`marca`, con los pedidos como `score`). En el
+momento `perfil` de una persona, el porqué es el «por qué» de su perfil y la `basis`, la suya (`offers/profiles.py`):
+la evidencia de sus segmentos (`source` «segmento:<id>», el peso de su nivel como `score`) y lo que pidió y buscó
+(`source` «pedidos» o «busquedas», cuántas veces como `score`).
 """
 
 from dataclasses import dataclass, field
@@ -28,10 +32,14 @@ from ..agent.tools import VERTICAL_LABELS, Product, search_products, suggest_com
 from ..agent.verticals import contending_verticals, ranked_verticals, typical_verticals
 from ..catalog.deals import deals
 from ..catalog.stores import product_detail
-from ..concepts.taxonomy import Concept, load_taxonomy
+from ..concepts.taxonomy import Concept, Service, load_taxonomy
 from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
 from ..retrieval.hybrid import _concepts_of, detect_concepts
+from ..text import contract_articles, normalize, tokens
 from .guards import (
+    alcohol_in_name,
+    alcohol_section,
+    baby_in_name,
     is_offerable,
     is_plannable,
     offerable_vertical,
@@ -40,15 +48,35 @@ from .guards import (
     unofferable_subverticals,
 )
 from .personal import Interests, Signal, bought_brands, user_interests
+from .profiles import (
+    ActiveProfile,
+    Destination,
+    Profile,
+    active_profiles,
+    ladder,
+    load_destinations,
+    load_profiles,
+    ordered_restaurants,
+    person_city,
+)
 
 KIT_SIZE = 4  # productos del kit de una ocasión
 # El concepto ya está elegido: la búsqueda léxica de su nombre (miles de platos «pizza») costaba ~140 ms por búsqueda en
 # restaurantes y la vectorial ~11 ms. Se prueba primero la vectorial y, si no trae nada (sin modelo, o documentos sin
 # embeddings), la de siempre.
 KIT_VERTICALS = 3  # verticales que se prueban por concepto del kit (las más típicas)
+KIT_CANDIDATES = 6  # productos que se piden por concepto y vertical: se saltan los de nombre pelado
+ARTICLES = frozenset({"el", "la", "los", "las", "un", "una", "unos", "unas"})  # normalizados
 SHOWN_PRODUCTS = 3  # productos de una oferta que no es un kit
 FALLBACK_VERTICALS = 3  # verticales que se prueban para decir dónde sí está lo que no se encontró
-DEAL_POOL = 12  # ofertas que se piden por vertical antes de quitar las que el agente no propone
+# Ofertas que se piden por vertical antes de quitar las que el agente no propone y de poner primero las típicas de la
+# vertical. Con 12, en la base real las más rebajadas del súper eran mantas y accesorios de auto, y ninguna típica; con
+# 60 había 4 típicas y con 200, 28. El costo de `deals()` no depende del tope.
+DEAL_POOL = 200
+# Las verticales donde se compra comida (el súper, Express y Turbo) y los grupos de la taxonomía que se comen o se
+# beben: en ellas, una oferta de otro grupo (cera para auto, papel higiénico) va después de la comida.
+FOOD_VERTICALS = ("supermercado", "conveniencia", "turbo")
+FOOD_GROUPS = ("bebidas", "snacks", "dulces", "despensa", "frescos", "comida")
 
 # El orden de la Home: lo que ya muestra hoy (la app tiene «Película» para panorama); después, el resto de la taxonomía.
 HOME_OCCASIONS = ("once", "carrete", "asado", "panorama", "regalo")
@@ -91,11 +119,18 @@ OPEN_ACTION = "Abrir {vertical}"
 REASON_LIKES_VERTICAL = "Porque te gusta {emoji} {name}, y en {vertical} hay más."
 REASON_LIKES_OCCASION = "Porque te gusta {emoji} {name}."
 REASON_BRAND = " Es {brand}, la marca que compras."  # se suma al porqué de un complemento de su marca
+# El momento `perfil`: «Como te gusta» y el `gusto` del perfil (offers/perfiles.toml); sin él, el nombre del perfil.
+PROFILE_TEXT = "Como te gusta {likes}, mira esto en otras verticales."
+PROFILE_TEXT_NAMED = "Para tu perfil {emoji} {name}: mira esto en otras verticales."
+REASON_PROFILE = "Porque elegiste «{name}»."  # sin persona, o con un perfil que no es suyo
+TRIP_SERVICE = "rappitravel"  # el servicio de la taxonomía al que lleva el viaje (sin catálogo)
+TRIP_LABEL = "Idea para {service}"
 BASIS_CONCEPTS = 3  # conceptos que más aportan, de los que la `basis` de una oferta lleva las señales
 
 
 class OfferError(ValueError):
-    """La petición no tiene sentido (una ocasión que no existe o que el agente no arma): un 422, no un «sin oferta»."""
+    """La petición no tiene sentido (una ocasión o un perfil que no existe, o una ocasión que el agente no arma): un
+    422, no un «sin oferta»."""
 
 
 @dataclass
@@ -114,6 +149,30 @@ class Offer:
             "products": self.products,
             "vertical": self.vertical,
             "prototype_vertical": SCREEN_VERTICALS.get(self.vertical),
+            "reason": self.reason,
+            "actions": self.actions,
+        }
+
+
+@dataclass
+class ProfileOffer:
+    """La oferta del momento `perfil`: la escalera de un perfil, de a un peldaño, y su viaje (una idea para
+    RappiTravel)."""
+
+    text: str
+    profile: dict  # id, nombre y emoji; con persona, además su nivel y su «por qué»
+    steps: list[dict]  # `LadderStep.to_dict()`
+    trip: dict | None
+    reason: dict
+    actions: list[dict]
+
+    def to_dict(self) -> dict:
+        return {
+            "moment": "perfil",
+            "text": self.text,
+            "perfil": self.profile,
+            "escalera": self.steps,
+            "viaje": self.trip,
             "reason": self.reason,
             "actions": self.actions,
         }
@@ -147,10 +206,11 @@ def _likes_reason(template: str, contributions: dict[str, float], interests: Int
 
 def make_offer(
     conn: Connection, embedder: TextEmbedder | None, moment: str, context: dict, user_id: str | None = None
-) -> Offer | None:
+) -> Offer | ProfileOffer | None:
     """La oferta de un momento, o None si no hay una buena. Con `user_id` de alguien del prototipo, los momentos que
-    personalizan se ordenan por lo que le gusta (`vertical_por_probar`; sus intereses se calculan una sola vez) o
-    prefieren las marcas que compra (el complemento de `carrito`, `checkout` y `proximo_pedido`)."""
+    personalizan se ordenan por lo que le gusta (`vertical_por_probar`; sus intereses se calculan una sola vez),
+    prefieren las marcas que compra (el complemento de `carrito`, `checkout` y `proximo_pedido`) o parten de sus
+    perfiles de gusto (`perfil`)."""
     if moment == "plan":
         return plan(conn, embedder, context["occasion"])
     if moment == "carrito":
@@ -163,6 +223,8 @@ def make_offer(
         return where_is_it(conn, embedder, context["query"])
     if moment == "vertical_por_probar":
         return vertical_to_try(conn, context["stamped"], user_interests(conn, user_id))
+    if moment == "perfil":
+        return profile_offer(conn, embedder, context.get("perfil"), user_id)
     raise OfferError(f"Momento desconocido: {moment}")
 
 
@@ -216,10 +278,12 @@ def plan(conn: Connection, embedder: TextEmbedder | None, occasion_id: str) -> O
     if not kit:
         return None
     verticals = list(dict.fromkeys(p.vertical for _, p in kit))
-    text = PLAN_TEXT.format(
-        occasion=occasion.name,
-        concepts=_join([c.name.lower() for c, _ in kit]),
-        verticals=_join([VERTICAL_LABELS.get(v, v) for v in verticals]),
+    text = contract_articles(
+        PLAN_TEXT.format(
+            occasion=occasion.name,
+            concepts=_join([c.name.lower() for c, _ in kit]),
+            verticals=_join([VERTICAL_LABELS.get(v, v) for v in verticals]),
+        )
     )
     # «Más ideas» busca lo que el agente busca para una ocasión: los nombres de sus primeros conceptos que arma
     query = " ".join(c.name for c in concepts[:4])
@@ -247,6 +311,7 @@ def _kit_verticals(conn: Connection, concept: Concept, fixed: str | None) -> lis
 
 
 def _kit_product(conn: Connection, embedder: TextEmbedder | None, concept: Concept, vertical: str) -> Product | None:
+    """El primer producto del concepto en la vertical que dice qué es: se saltan los de nombre pelado."""
     for mode in ("vector", "hibrido") if embedder is not None else ("hibrido",):
         outcome = search_products(
             conn,
@@ -254,14 +319,21 @@ def _kit_product(conn: Connection, embedder: TextEmbedder | None, concept: Conce
             concept.name,
             [concept.id],
             embedder,
-            k=3,
+            k=KIT_CANDIDATES,
             mode=mode,
             offer=True,
             adult_ok=concept.age_restricted,
         )
-        if product := next((p for p in outcome.products if p.concept == concept.id), None):
+        if product := next((p for p in outcome.products if p.concept == concept.id and not _bare(p, concept)), None):
             return product
     return None
+
+
+def _bare(product: Product, concept: Concept) -> bool:
+    """«POLLO», «Queso» o «el Pollo»: el nombre es una sola palabra (sin contar el artículo) o el del concepto mismo, y
+    no dice qué producto es."""
+    words = [w for w in tokens(product.name) if w not in ARTICLES]
+    return len(words) <= 1 or normalize(product.name) == normalize(concept.name)
 
 
 # ── carrito, checkout y próximo pedido ───────────────────────────────────────
@@ -360,7 +432,9 @@ def vertical_to_try(conn: Connection, stamped: list[str], interests: Interests) 
             if likes := affinity.get(vertical):
                 reason = _likes_reason(REASON_LIKES_VERTICAL, likes, interests, vertical=label)
             else:
-                reason = _reason(REASON_TO_TRY.format(vertical=label), [_context_signal("sello", vertical)])
+                reason = _reason(
+                    contract_articles(REASON_TO_TRY.format(vertical=label)), [_context_signal("sello", vertical)]
+                )
             return Offer("vertical_por_probar", text, products, vertical, reason, [action])
     return None
 
@@ -375,10 +449,83 @@ def _vertical_affinity(conn: Connection, interests: Interests) -> dict[str, dict
     return affinity
 
 
+# ── perfil ───────────────────────────────────────────────────────────────────
+def profile_offer(
+    conn: Connection, embedder: TextEmbedder | None, profile_id: str | None, user_id: str | None
+) -> ProfileOffer | None:
+    """La escalera de un perfil de gusto. Sin `profile_id`, el primero de los perfiles de la persona (el principal y
+    después por puntaje); con él, ese perfil, y con su «por qué» solo si es uno de los suyos (si no, «Porque elegiste…»,
+    como sin persona: lo que usan la demo y el contrato). El peldaño de restaurantes deja fuera los locales donde la
+    persona ya pidió y muestra los de su ciudad (`person_city`). None (204) sin perfil o sin escalera; un perfil que
+    no existe es un `OfferError` (422)."""
+    profiles = load_profiles()
+    if profile_id is not None and profile_id not in profiles:
+        raise OfferError(f"Perfil desconocido: «{profile_id}»")
+    mine = {active.profile.id: active for active in active_profiles(conn, user_id)}  # en su orden
+    if profile_id is None and not mine:
+        return None
+    profile = profiles[profile_id] if profile_id is not None else next(iter(mine.values())).profile
+    active = mine.get(profile.id)
+    steps = ladder(conn, embedder, profile, ordered_restaurants(conn, user_id), person_city(conn, user_id))
+    if not steps:
+        return None
+    shown = {"id": profile.id, "nombre": profile.name, "emoji": profile.emoji}
+    if active:
+        shown |= {"nivel": active.level, "por_que": active.reason}
+    actions = [
+        {
+            "label": OPEN_ACTION.format(vertical=VERTICAL_LABELS[s.step.vertical]),
+            "route": [SCREEN_VERTICALS[s.step.vertical]],
+        }
+        for s in steps
+    ]
+    trip = None
+    if profile.trip:
+        travel = load_taxonomy().services[TRIP_SERVICE]
+        trip = _trip(load_destinations()[profile.trip], travel)
+        actions.append(
+            {"label": OPEN_ACTION.format(vertical=travel.name), "route": [travel.route], "service": travel.id}
+        )
+    return ProfileOffer(
+        _profile_text(profile),
+        shown,
+        [s.to_dict() for s in steps],
+        trip,
+        _profile_reason(profile, active),
+        actions,
+    )
+
+
+def _profile_text(profile: Profile) -> str:
+    """«Como te gusta lo asiático…», con el `gusto` del perfil; sin él, el nombre del perfil con su emoji."""
+    if profile.likes:
+        return PROFILE_TEXT.format(likes=profile.likes)
+    return PROFILE_TEXT_NAMED.format(emoji=profile.emoji, name=profile.name)
+
+
+def _profile_reason(profile: Profile, active: ActiveProfile | None) -> dict:
+    if active:
+        return _reason(active.reason, list(active.basis))
+    return _reason(REASON_PROFILE.format(name=profile.name), [_context_signal("perfil", profile.id)])
+
+
+def _trip(destination: Destination, travel: Service) -> dict:
+    """El último peldaño: un destino curado, rotulado como idea para RappiTravel (sin precios ni fechas)."""
+    return {
+        "id": destination.id,
+        "nombre": destination.name,
+        "texto": destination.text,
+        "hechos": [{"texto": f.text, "fuente": f.source, "url": f.url} for f in destination.facts],
+        "etiqueta": TRIP_LABEL.format(service=travel.name),
+        "route": [travel.route],
+    }
+
+
 def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
-    """Las ofertas de la vertical que el agente puede proponer: ni +18, ni de un concepto que no ofrece, ni de una
-    tienda Farmacia, Sex shop o Smoking shop (`deals` ya quita lo sensible, pero con vertical no quita esas tiendas). Un
-    producto que está dos veces con otro id (el catálogo repite nombres) sale una vez."""
+    """Las ofertas de la vertical que el agente puede proponer: ni +18 (tampoco un nombre que dice alcohol), ni un
+    nombre que dice bebé, ni de un concepto que no ofrece, ni de una tienda Farmacia, Sex shop o Smoking shop (`deals`
+    ya quita lo sensible, pero con vertical no quita esas tiendas). Un producto que está dos veces con otro id (el
+    catálogo repite nombres) sale una vez. Las de un concepto típico de la vertical van primero."""
     concepts = load_taxonomy().concepts
     found = deals(conn, vertical, DEAL_POOL)
     blocked = {
@@ -392,18 +539,40 @@ def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
         d
         for d in found
         if not d["age_restricted"]
+        and not alcohol_in_name("catalog_item", d["name"])  # las ofertas de `deals` son del catálogo
+        and not baby_in_name("catalog_item", d["name"])
         and d["store_id"] not in blocked
         and (d["concept"] not in concepts or is_offerable(concepts[d["concept"]]))
     ]
     unique: dict[str, dict] = {}
     for deal in offerable:
         unique.setdefault(" ".join(deal["name"].lower().split()), deal)
-    return list(unique.values())[:SHOWN_PRODUCTS]
+    return _typical_first(list(unique.values()), vertical, typical_verticals(conn))[:SHOWN_PRODUCTS]
+
+
+def _typical_first(found: list[dict], vertical: str, typical: dict[str, str]) -> list[dict]:
+    """Primero las ofertas de un concepto típico de la vertical (el súper ofrecía mantas y silicona para auto con 60 %
+    de descuento), después las de cualquier otro concepto y al final las sin concepto. En las verticales de comida
+    (`FOOD_VERTICALS`), lo que no es de un grupo de comida va después de la comida aunque sea típico (Express partía
+    con una cera para auto: `automotriz` es típico de las tiendas de las bencineras). Dentro de cada grupo se mantiene
+    el orden de llegada (el mayor descuento primero); si las primeras no alcanzan, completan las demás."""
+    concepts = load_taxonomy().concepts
+
+    def group(deal: dict) -> int:
+        if not deal["concept"]:
+            return 3
+        concept = concepts.get(deal["concept"])
+        if vertical in FOOD_VERTICALS and concept and (concept.parent or concept.id) not in FOOD_GROUPS:
+            return 2
+        return 0 if typical.get(deal["concept"]) == vertical else 1
+
+    return sorted(found, key=group)
 
 
 def _popular_dishes(conn: Connection) -> list[dict]:
     """Los platos populares (`is_popular`) de los conceptos que más se piden hechos en restaurantes, uno por concepto y
-    solo de los que el agente puede proponer. Restaurantes no tiene ofertas ni otro dato de pedidos."""
+    solo de los que el agente puede proponer, sin un nombre que diga alcohol ni de una sección de tragos
+    (`alcohol_in_name`, `alcohol_section`). Restaurantes no tiene ofertas ni otro dato de pedidos."""
     concepts = load_taxonomy().concepts
     ranked = [
         concept_id
@@ -413,16 +582,19 @@ def _popular_dishes(conn: Connection) -> list[dict]:
         )
         if concept_id in concepts and is_offerable(concepts[concept_id])
     ]
-    dishes = dict(
-        conn.execute(
-            """SELECT DISTINCT ON (ic.concept_id) ic.concept_id, mi.item_id::text
-               FROM menu_items mi
-               JOIN item_concepts ic ON ic.entity_type = 'menu_item' AND ic.entity_id = mi.item_id::text
-               WHERE mi.is_popular AND ic.concept_id = ANY(%s)
-               ORDER BY ic.concept_id, mi.item_id""",
-            (ranked,),
-        ).fetchall()
-    )
+    dishes: dict[str, str] = {}
+    for concept_id, item_id, name, section in conn.execute(
+        """SELECT ic.concept_id, mi.item_id::text, mi.name, ms.name
+           FROM menu_items mi
+           JOIN item_concepts ic ON ic.entity_type = 'menu_item' AND ic.entity_id = mi.item_id::text
+           LEFT JOIN menu_sections ms ON ms.store_id = mi.store_id AND ms.section_id = mi.section_id
+           WHERE mi.is_popular AND ic.concept_id = ANY(%s)
+           ORDER BY ic.concept_id, mi.item_id""",
+        (ranked,),
+    ):
+        if concept_id in dishes or alcohol_in_name("menu_item", name, concept_id) or alcohol_section(section):
+            continue
+        dishes[concept_id] = item_id
     products: list[dict] = []
     for concept_id in ranked:
         if concept_id in dishes and (dish := product_detail(conn, "menu_item", dishes[concept_id])):

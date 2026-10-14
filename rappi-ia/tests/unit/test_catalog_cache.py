@@ -93,3 +93,63 @@ def test_version_is_asked_at_most_once_per_window(clock):
 
 def test_empty_catalog_has_version_zero(clock):
     assert cache.catalog_version(FakeConn(None)) == 0
+
+
+def _fetcher():
+    """`fetch(faltantes)` de `cached_many`: anota qué le pidieron y devuelve el largo de cada clave."""
+    asked = []
+
+    def fetch(keys):
+        asked.append(list(keys))
+        return {key: len(key) for key in keys}
+
+    return fetch, asked
+
+
+def test_many_fetches_only_what_is_missing(clock):
+    conn, (fetch, asked) = FakeConn(), _fetcher()
+
+    assert cache.cached_many("df:turbo", conn, ["papas", "frit"], fetch) == {"papas": 5, "frit": 4}
+    assert cache.cached_many("df:turbo", conn, ["frit", "sal"], fetch) == {"frit": 4, "sal": 3}
+
+    assert asked == [["papas", "frit"], ["sal"]]
+    assert cache.cached_many("df:mall", conn, ["papas"], fetch) == {"papas": 5}  # cada prefijo es aparte
+    assert asked[-1] == ["papas"]
+
+
+def test_many_follows_the_catalog_version_and_the_ttl(clock):
+    conn, (fetch, asked) = FakeConn(), _fetcher()
+    cache.cached_many("df:turbo", conn, ["papas"], fetch)
+
+    conn.run_id = 8  # corrida nueva
+    clock.now += cache.VERSION_TTL_S + 1
+    cache.cached_many("df:turbo", conn, ["papas"], fetch)
+    clock.now += cache.DEFAULT_TTL_S + 1  # vence sin corrida
+    cache.cached_many("df:turbo", conn, ["papas"], fetch)
+
+    assert asked == [["papas"], ["papas"], ["papas"]]
+
+
+def test_many_is_bounded_and_forgets_the_least_recently_used(clock, monkeypatch):
+    """Las palabras que la gente busca no tienen fin: la caché guarda a lo más MANY_MAX y olvida la usada hace más
+    tiempo."""
+    monkeypatch.setattr(cache, "MANY_MAX", 3)
+    conn, (fetch, asked) = FakeConn(), _fetcher()
+    cache.cached_many("df", conn, ["a", "b", "c"], fetch)
+    cache.cached_many("df", conn, ["a"], fetch)  # «a» pasa a ser la más reciente
+
+    cache.cached_many("df", conn, ["d"], fetch)  # entra «d» y sale «b»
+    cache.cached_many("df", conn, ["a", "c", "d"], fetch)
+    cache.cached_many("df", conn, ["b"], fetch)
+
+    assert asked == [["a", "b", "c"], ["d"], ["b"]]
+    assert len(cache._many) == 3
+
+
+def test_clear_also_forgets_many(clock):
+    conn, (fetch, asked) = FakeConn(), _fetcher()
+    cache.cached_many("df", conn, ["a"], fetch)
+    cache.clear()
+    cache.cached_many("df", conn, ["a"], fetch)
+
+    assert asked == [["a"], ["a"]]
