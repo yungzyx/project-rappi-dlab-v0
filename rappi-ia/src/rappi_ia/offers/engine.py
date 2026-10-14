@@ -2,22 +2,25 @@
 con su precio vigente) y pasando por las guardias de `offers/guards.py`.
 
 Momentos (`POST /agent/offer`): `plan` (el kit de una ocasión que la persona eligió), `carrito` (un complemento de
-otra tienda), `checkout`, `proximo_pedido`, `sin_resultado` (dónde sí está lo que buscó) y `vertical_por_probar` (la
-vertical del pasaporte sin sello donde más le gusta a la persona; sin historia, la primera). Si no hay una buena
-oferta, no hay oferta (`None`: 204): el agente no dice nada.
+otra tienda), `checkout`, `proximo_pedido`, `sin_resultado` (dónde sí está lo que buscó), `vertical_por_probar` (la
+vertical del pasaporte sin sello donde más le gusta a la persona; sin historia, la primera) y `perfil` (la escalera de
+un perfil de gusto, `offers/profiles.py`, con su forma propia: `ProfileOffer`). Si no hay una buena oferta, no hay
+oferta (`None`: 204): el agente no dice nada.
 
 Los textos son plantillas en español. Una oferta nunca nombra un concepto que el agente no puede proponer (el origen
 de un complemento puede ser cerveza o pañales, y el texto no lo repite).
 
 Cada oferta dice por qué (`Offer.reason`): las claves de siempre (`occasion`, `concept`, `from_concept`), el `text`
-(«Porque…») y la `basis`: las señales del contexto que la motivan (`kind` carrito, pedido, busqueda, ocasion o sello, e
-`id`; `source` «contexto» y sin `score`, que es de las señales de una persona en `offers/personal.py`). Lo que el agente
-no propone no entra a la base. Cuando la oferta se ordena por lo que le gusta a la persona (`vertical_por_probar` y las
-ocasiones de la Home), la `basis` son sus señales (con `score` y `source`) de los conceptos que más aportan. Un
-complemento cuyo primer producto es de una marca que la persona compra lo dice en el `text` y suma esa señal (`marca`,
-con los pedidos como `score`).
+(«Porque…») y la `basis`: las señales del contexto que la motivan (`kind` carrito, pedido, busqueda, ocasion, sello o
+perfil, e `id`; `source` «contexto» y sin `score`, que es de las señales de una persona en `offers/personal.py`). Lo
+que el agente no propone no entra a la base. Cuando la oferta se ordena por lo que le gusta a la persona
+(`vertical_por_probar` y las ocasiones de la Home), la `basis` son sus señales (con `score` y `source`) de los conceptos
+que más aportan. Un complemento cuyo primer producto es de una marca que la persona compra lo dice en el `text` y suma
+esa señal (`marca`, con los pedidos como `score`). En el momento `perfil` de una persona, el porqué es el «por qué» de
+su perfil y la `basis`, la suya (`offers/profiles.py`: sus segmentos y lo que pidió y buscó).
 """
 
+import re
 from dataclasses import dataclass, field
 
 from psycopg import Connection
@@ -28,7 +31,7 @@ from ..agent.tools import VERTICAL_LABELS, Product, search_products, suggest_com
 from ..agent.verticals import contending_verticals, ranked_verticals, typical_verticals
 from ..catalog.deals import deals
 from ..catalog.stores import product_detail
-from ..concepts.taxonomy import Concept, load_taxonomy
+from ..concepts.taxonomy import Concept, Service, load_taxonomy
 from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
 from ..retrieval.hybrid import _concepts_of, detect_concepts
 from ..text import contract_articles, normalize, tokens
@@ -42,6 +45,16 @@ from .guards import (
     unofferable_subverticals,
 )
 from .personal import Interests, Signal, bought_brands, user_interests
+from .profiles import (
+    ActiveProfile,
+    Destination,
+    Profile,
+    active_profiles,
+    ladder,
+    load_destinations,
+    load_profiles,
+    ordered_restaurants,
+)
 
 KIT_SIZE = 4  # productos del kit de una ocasión
 # El concepto ya está elegido: la búsqueda léxica de su nombre (miles de platos «pizza») costaba ~140 ms por búsqueda en
@@ -98,11 +111,20 @@ OPEN_ACTION = "Abrir {vertical}"
 REASON_LIKES_VERTICAL = "Porque te gusta {emoji} {name}, y en {vertical} hay más."
 REASON_LIKES_OCCASION = "Porque te gusta {emoji} {name}."
 REASON_BRAND = " Es {brand}, la marca que compras."  # se suma al porqué de un complemento de su marca
+# El momento `perfil`. El texto sale del nombre del perfil: «Amante de lo asiático» → «Como te gusta lo asiático…»; un
+# nombre de otra forma («Mascotero») va entero.
+PROFILE_TEXT = "Como te gusta {likes}, mira esto en otras verticales."
+PROFILE_TEXT_NAMED = "Para tu perfil {emoji} {name}: mira esto en otras verticales."
+LOVER_NAME = re.compile(r"Amante de(l)? (.+)")  # «del café» es «el café»
+REASON_PROFILE = "Porque elegiste «{name}»."  # sin persona, o con un perfil que no es suyo
+TRIP_SERVICE = "rappitravel"  # el servicio de la taxonomía al que lleva el viaje (sin catálogo)
+TRIP_LABEL = "Idea para {service}"
 BASIS_CONCEPTS = 3  # conceptos que más aportan, de los que la `basis` de una oferta lleva las señales
 
 
 class OfferError(ValueError):
-    """La petición no tiene sentido (una ocasión que no existe o que el agente no arma): un 422, no un «sin oferta»."""
+    """La petición no tiene sentido (una ocasión o un perfil que no existe, o una ocasión que el agente no arma): un
+    422, no un «sin oferta»."""
 
 
 @dataclass
@@ -121,6 +143,30 @@ class Offer:
             "products": self.products,
             "vertical": self.vertical,
             "prototype_vertical": SCREEN_VERTICALS.get(self.vertical),
+            "reason": self.reason,
+            "actions": self.actions,
+        }
+
+
+@dataclass
+class ProfileOffer:
+    """La oferta del momento `perfil`: la escalera de un perfil, de a un peldaño, y su viaje (una idea para
+    RappiTravel)."""
+
+    text: str
+    profile: dict  # id, nombre y emoji; con persona, además su nivel y su «por qué»
+    steps: list[dict]  # `LadderStep.to_dict()`
+    trip: dict | None
+    reason: dict
+    actions: list[dict]
+
+    def to_dict(self) -> dict:
+        return {
+            "moment": "perfil",
+            "text": self.text,
+            "perfil": self.profile,
+            "escalera": self.steps,
+            "viaje": self.trip,
             "reason": self.reason,
             "actions": self.actions,
         }
@@ -154,10 +200,11 @@ def _likes_reason(template: str, contributions: dict[str, float], interests: Int
 
 def make_offer(
     conn: Connection, embedder: TextEmbedder | None, moment: str, context: dict, user_id: str | None = None
-) -> Offer | None:
+) -> Offer | ProfileOffer | None:
     """La oferta de un momento, o None si no hay una buena. Con `user_id` de alguien del prototipo, los momentos que
-    personalizan se ordenan por lo que le gusta (`vertical_por_probar`; sus intereses se calculan una sola vez) o
-    prefieren las marcas que compra (el complemento de `carrito`, `checkout` y `proximo_pedido`)."""
+    personalizan se ordenan por lo que le gusta (`vertical_por_probar`; sus intereses se calculan una sola vez),
+    prefieren las marcas que compra (el complemento de `carrito`, `checkout` y `proximo_pedido`) o parten de sus
+    perfiles de gusto (`perfil`)."""
     if moment == "plan":
         return plan(conn, embedder, context["occasion"])
     if moment == "carrito":
@@ -170,6 +217,8 @@ def make_offer(
         return where_is_it(conn, embedder, context["query"])
     if moment == "vertical_por_probar":
         return vertical_to_try(conn, context["stamped"], user_interests(conn, user_id))
+    if moment == "perfil":
+        return profile_offer(conn, embedder, context.get("perfil"), user_id)
     raise OfferError(f"Momento desconocido: {moment}")
 
 
@@ -392,6 +441,78 @@ def _vertical_affinity(conn: Connection, interests: Interests) -> dict[str, dict
         if vertical := typical.get(concept_id):
             affinity.setdefault(vertical, {})[concept_id] = score
     return affinity
+
+
+# ── perfil ───────────────────────────────────────────────────────────────────
+def profile_offer(
+    conn: Connection, embedder: TextEmbedder | None, profile_id: str | None, user_id: str | None
+) -> ProfileOffer | None:
+    """La escalera de un perfil de gusto. Sin `profile_id`, el primero de los perfiles de la persona (el principal y
+    después por puntaje); con él, ese perfil, y con su «por qué» solo si es uno de los suyos (si no, «Porque elegiste…»,
+    como sin persona: lo que usan la demo y el contrato). El peldaño de restaurantes deja fuera los locales donde la
+    persona ya pidió. None (204) sin perfil o sin escalera; un perfil que no existe es un `OfferError` (422)."""
+    profiles = load_profiles()
+    if profile_id is not None and profile_id not in profiles:
+        raise OfferError(f"Perfil desconocido: «{profile_id}»")
+    mine = {active.profile.id: active for active in active_profiles(conn, user_id)}  # en su orden
+    if profile_id is None and not mine:
+        return None
+    profile = profiles[profile_id] if profile_id is not None else next(iter(mine.values())).profile
+    active = mine.get(profile.id)
+    steps = ladder(conn, embedder, profile, ordered_restaurants(conn, user_id))
+    if not steps:
+        return None
+    shown = {"id": profile.id, "nombre": profile.name, "emoji": profile.emoji}
+    if active:
+        shown |= {"nivel": active.level, "por_que": active.reason}
+    actions = [
+        {
+            "label": OPEN_ACTION.format(vertical=VERTICAL_LABELS[s.step.vertical]),
+            "route": [SCREEN_VERTICALS[s.step.vertical]],
+        }
+        for s in steps
+    ]
+    trip = None
+    if profile.trip:
+        travel = load_taxonomy().services[TRIP_SERVICE]
+        trip = _trip(load_destinations()[profile.trip], travel)
+        actions.append(
+            {"label": OPEN_ACTION.format(vertical=travel.name), "route": [travel.route], "service": travel.id}
+        )
+    return ProfileOffer(
+        _profile_text(profile),
+        shown,
+        [s.to_dict() for s in steps],
+        trip,
+        _profile_reason(profile, active),
+        actions,
+    )
+
+
+def _profile_text(profile: Profile) -> str:
+    """«Como te gusta lo asiático…» desde «Amante de lo asiático» (y «el café» desde «Amante del café»); un nombre de
+    otra forma va entero, con su emoji."""
+    if match := LOVER_NAME.fullmatch(profile.name):
+        return PROFILE_TEXT.format(likes=("el " if match[1] else "") + match[2])
+    return PROFILE_TEXT_NAMED.format(emoji=profile.emoji, name=profile.name)
+
+
+def _profile_reason(profile: Profile, active: ActiveProfile | None) -> dict:
+    if active:
+        return _reason(active.reason, list(active.basis))
+    return _reason(REASON_PROFILE.format(name=profile.name), [_context_signal("perfil", profile.id)])
+
+
+def _trip(destination: Destination, travel: Service) -> dict:
+    """El último peldaño: un destino curado, rotulado como idea para RappiTravel (sin precios ni fechas)."""
+    return {
+        "id": destination.id,
+        "nombre": destination.name,
+        "texto": destination.text,
+        "hechos": [{"texto": f.text, "fuente": f.source, "url": f.url} for f in destination.facts],
+        "etiqueta": TRIP_LABEL.format(service=travel.name),
+        "route": [travel.route],
+    }
 
 
 def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:

@@ -15,6 +15,7 @@ y tipos que la API sobre el catálogo de prueba.
 
 import json
 import os
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -153,6 +154,9 @@ CONTRACT: tuple[Example, ...] = (
         "/agent/offer",
         {"moment": "vertical_por_probar", "user_id": "u-afin", "context": {"stamped": []}},
     ),
+    # La escalera de un perfil elegido, sin persona: lo que usa la demo.
+    Example("agent-offer-perfil", "POST", "/agent/offer", {"moment": "perfil", "context": {"perfil": "asiatico"}}),
+    Example("profile-gustos", "GET", "/profile/u-gustos/gustos"),
     Example("game-cards", "GET", "/game/cards?vertical=supermercado"),
     Example("game-challenge", "GET", "/game/challenge?vertical=supermercado&seed=0"),
     Example(
@@ -210,7 +214,12 @@ def client(db, monkeypatch):
     def conn_override():
         yield db
 
+    @contextmanager
+    def shared_connection():  # el recálculo de segmentos después de un pedido, con la conexión del test
+        yield db
+
     api.app.dependency_overrides[api.get_conn] = conn_override
+    api.app.dependency_overrides[api.get_connector] = lambda: shared_connection
     api.app.dependency_overrides[api.get_services] = lambda: Services(
         RappiAgent(embedder, TemplateComposer()), embedder
     )
@@ -231,6 +240,16 @@ def client(db, monkeypatch):
         for c in ("chocolates", "carnes")
     ]
     assert test_client.post("/events", json={"user_id": "u-afin", "events": liked}).status_code == 200
+    # Una persona con un perfil de gusto (lo asiático), para `profile-gustos`: busca ramen y pide sushi dos veces. Cada
+    # pedido recalcula sus segmentos. La búsqueda no dice si encontró algo (`unmet`): no cambia el uso del MVP.
+    ramen = {"type": "search", "session_id": "s-gustos-1", "concept_id": "asiatica", "query": "ramen", "results": 3}
+    assert test_client.post("/events", json={"user_id": "u-gustos", "events": [ramen]}).status_code == 200
+    for n, roll in enumerate(("98005", "98006"), start=2):
+        line = {"entity_type": "menu_item", "entity_id": roll, "concept_id": "sushi"}
+        order = {"user_id": "u-gustos", "session_id": f"s-gustos-{n}", "cart_id": f"c-gustos-{n}"}
+        assert (
+            test_client.post("/orders", json={**order, "vertical": "restaurants", "lines": [line]}).status_code == 200
+        )
     # Ya descubrió el dato de la pizza: `agent-ask` (pizza) es la respuesta sin «¿Sabías que…?», y `agent-ask-dato`
     # (otro usuario, sin progreso) la que lo trae. `game-state-put` reemplaza este estado, así que no lo afecta.
     discovered = {**GAME_STATE, "discovered": {"restaurantes": ["restaurantes-01"]}, "cards": ["restaurantes-01"]}

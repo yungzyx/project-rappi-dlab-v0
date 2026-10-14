@@ -34,6 +34,7 @@ from ..events import store as events
 from ..game.cards import did_you_know
 from ..layers.segments import recalculate_user_segments
 from ..offers.guards import is_offerable
+from ..offers.profiles import active_profiles
 from ..retrieval.hybrid import MODES
 from . import deps, identity, prewarm
 from .agent import router as agent_router
@@ -484,6 +485,14 @@ def get_profile(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dic
             if c in taxonomy.concepts
         ],
     }
+
+
+@app.get("/profile/{user_id}/gustos", dependencies=[Depends(owner_in_path)])
+def tastes(user_id: ShortPath, conn: Connection = Depends(get_conn)) -> dict:
+    """Los perfiles de gusto de la persona (`offers/profiles.py`): `{ perfiles: [{ id, nombre, emoji, nivel, principal,
+    por_que, basis }] }`, el principal primero; la lista va vacía sin perfiles. «Olvidar» borra o recalcula sus
+    segmentos, y el perfil se va con ellos."""
+    return {"perfiles": [profile.to_dict() for profile in active_profiles(conn, user_id)]}
 
 
 @app.delete("/profile/{user_id}", dependencies=[Depends(owner_in_path)])
