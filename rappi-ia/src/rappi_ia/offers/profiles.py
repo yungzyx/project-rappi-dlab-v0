@@ -11,7 +11,8 @@ El motor:
 - `ladder`: la escalera de un perfil, con productos de verdad: una búsqueda de oferta por peldaño
   (`search_products(..., offer=True)`), así que pasan todas las guardias (nada +18, ni un nombre o una sección de menú
   que dice alcohol, ni tiendas Farmacia, Sex shop o Smoking shop). Además, una escalera no muestra tiendas que se
-  llaman «Licores» o «Botillería» (venden hielo y bebidas, pero el perfil no lleva ahí).
+  llaman «Licores» o «Botillería» (venden hielo y bebidas, pero el perfil no lleva ahí), y sus restaurantes son de la
+  ciudad de la persona (`person_city`).
 """
 
 import tomllib
@@ -23,6 +24,7 @@ from pathlib import Path
 from psycopg import Connection
 from rappi_scraper.storage.search import VERTICALS
 
+from .. import config
 from ..agent.grouped_search import SCREEN_VERTICALS
 from ..agent.tools import Product, search_products
 from ..concepts.taxonomy import load_taxonomy
@@ -46,6 +48,20 @@ RESTAURANT_CANDIDATES = 40
 # peldaño en la base real, y los platos se llaman por sus palabras clave (sushi, roll, wok, chorrillana).
 STEP_QUERY_KEYWORDS = 2
 LIQUOR_STORE_WORDS = ("licor", "botiller")  # tiendas (nombre o marca) que una escalera no muestra: «Turbo Licores»
+# Las comunas de una ciudad del scraper (la de `stores.city` en las tiendas: «Santiago de Chile»). Un restaurante guarda
+# la comuna de su página («Ñuñoa», «Maipú»), no esa ciudad: los restaurantes salen del sitemap, no de un listado por
+# ciudad. Gran Santiago: las 32 comunas de la provincia de Santiago, Puente Alto, San Bernardo, Colina (Chicureo) y
+# Lampa; Melipilla y el resto de la región quedan fuera. Una ciudad que no está aquí es su propia comuna («Viña del
+# Mar»).
+CITY_COMUNAS = {
+    "Santiago de Chile": (
+        *("Cerrillos", "Cerro Navia", "Conchalí", "El Bosque", "Estación Central", "Huechuraba", "Independencia"),
+        *("La Cisterna", "La Florida", "La Granja", "La Pintana", "La Reina", "Las Condes", "Lo Barnechea"),
+        *("Lo Espejo", "Lo Prado", "Macul", "Maipú", "Ñuñoa", "Pedro Aguirre Cerda", "Peñalolén", "Providencia"),
+        *("Pudahuel", "Quilicura", "Quinta Normal", "Recoleta", "Renca", "San Joaquín", "San Miguel", "San Ramón"),
+        *("Santiago", "Vitacura", "Puente Alto", "San Bernardo", "Colina", "Lampa"),
+    ),
+}
 REASON_CONCEPTS = 3  # conceptos que nombra el «por qué»
 QUERY_EVENTS = ("search", "chat", "ask")  # lo que cuenta como «buscaste»
 # El «por qué» sin nada que contar: un perfil que se armó con lo que el agente no nombra (los cócteles del carrete)
@@ -335,6 +351,30 @@ def _join(items: list[str]) -> str:
     return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " y " + items[-1]
 
 
+def person_city(conn: Connection, user_id: str | None) -> str:
+    """La ciudad de los restaurantes de una escalera: la de la persona del prototipo (`app_users.city`) o, si no la
+    tiene (la app no la pide), si es de otra fuente o si no hay persona, `config.PROFILE_CITY`."""
+    if user_id is not None:
+        row = conn.execute(
+            "SELECT city FROM app_users WHERE user_id = %s AND source = 'prototype'", (user_id,)
+        ).fetchone()
+        if row and row[0] and row[0].strip():
+            return row[0]
+    return config.PROFILE_CITY
+
+
+def city_places(city: str) -> frozenset[str]:
+    """Las comunas de una ciudad, normalizadas como se comparan (`text.normalize`): las de `CITY_COMUNAS` si se llama
+    así o si es una de ellas («Santiago», la ciudad de las personas simuladas, es Santiago de Chile); si no, la ciudad
+    misma («Concepcion», como la escribe el scraper, es la comuna de Concepción)."""
+    wanted = normalize(city)
+    for name, comunas in CITY_COMUNAS.items():
+        places = frozenset(normalize(comuna) for comuna in comunas)
+        if wanted == normalize(name) or wanted in places:
+            return places
+    return frozenset({wanted})
+
+
 def ordered_restaurants(conn: Connection, user_id: str | None) -> set[int]:
     """Los locales donde la persona ya pidió (sin «Rappi hoy»): el peldaño de restaurantes ofrece los que no conoce.
     Vacío si no es del prototipo."""
@@ -372,22 +412,24 @@ def ladder(
     embedder: TextEmbedder | None,
     profile: Profile,
     exclude_stores: set[int] | None = None,
+    city: str | None = None,
 ) -> list[LadderStep]:
     """Los peldaños del perfil que tienen productos, en su orden: de 1 a `STEP_PRODUCTS` por peldaño, sin repetir un
     nombre entre peldaños. Una lista vacía si quedan menos de `MIN_STEPS`: no hay escalera. `exclude_stores`
     (`ordered_restaurants`): los locales que el peldaño de restaurantes deja fuera, con las otras sucursales de su
-    cadena. Una búsqueda de oferta por peldaño (y una consulta por sus tiendas); cada consulta se embebe una vez, en un
-    solo lote."""
+    cadena. `city` (`person_city`; sin ella, `config.PROFILE_CITY`): los restaurantes son de sus comunas. Una búsqueda
+    de oferta por peldaño (y una consulta por sus tiendas); cada consulta se embebe una vez, en un solo lote."""
     queries = [_step_query(step) for step in profile.ladder]
     if embedder is not None:
         if not isinstance(embedder, MemoizedQueryEmbedder):
             embedder = MemoizedQueryEmbedder(embedder)
         embedder.embed_queries(list(dict.fromkeys(queries)))
+    places = city_places(city or config.PROFILE_CITY)
     steps: list[LadderStep] = []
     shown: set[str] = set()
     for step, query in zip(profile.ladder, queries, strict=True):
         known = set(exclude_stores or ()) if step.vertical == "restaurantes" else set()
-        if products := _step_products(conn, embedder, step, query, known, shown):
+        if products := _step_products(conn, embedder, step, query, known, shown, places):
             steps.append(LadderStep(step, products))
             shown |= {_name_key(p.name) for p in products}
     return steps if len(steps) >= MIN_STEPS else []
@@ -420,11 +462,18 @@ def _step_query(step: Step) -> str:
 
 
 def _step_products(
-    conn: Connection, embedder: TextEmbedder | None, step: Step, query: str, known: set[int], shown: set[str]
+    conn: Connection,
+    embedder: TextEmbedder | None,
+    step: Step,
+    query: str,
+    known: set[int],
+    shown: set[str],
+    city: frozenset[str],
 ) -> list[Product]:
     """Los productos de los conceptos del peldaño que calzan sus palabras y que otro peldaño no mostró, primero los con
     foto y alternando sus conceptos (la despensa italiana no son cuatro pastas). Ninguno de una tienda de licores. Los
-    platos, uno por cadena (o local, si no tiene) y no de las que la persona ya conoce."""
+    platos, de un local en una comuna de `city` (`city_places`), uno por cadena (o local, si no tiene) y no de las que
+    la persona ya conoce."""
     k = RESTAURANT_CANDIDATES if step.vertical == "restaurantes" else STEP_CANDIDATES
     outcome = search_products(conn, step.vertical, query, list(step.concepts), embedder, k=k, offer=True)
     stores = _stores(conn, {p.store_id for p in outcome.products if p.store_id is not None} | known)
@@ -433,11 +482,11 @@ def _step_products(
     for product in sorted(outcome.products, key=lambda p: p.img is None):  # estable: sigue el orden de la búsqueda
         if product.concept not in by_concept or not step.fits(product.name) or _name_key(product.name) in shown:
             continue
-        place, liquor = stores.get(product.store_id, (("local", product.store_id), False))
+        place, liquor, comuna = stores.get(product.store_id, (("local", product.store_id), False, ""))
         if liquor or _liquor_store(product.store):
             continue
         if product.entity_type == "menu_item":
-            if place in places:
+            if place in places or comuna not in city:
                 continue
             places.add(place)
         by_concept[product.concept].append(product)
@@ -445,19 +494,24 @@ def _step_products(
     return mixed[:STEP_PRODUCTS]
 
 
-def _stores(conn: Connection, store_ids: set[int]) -> dict[int, tuple[tuple[str, int], bool]]:
-    """store_id → (su cadena, o el local si no tiene; si su nombre o su marca dicen licores o botillería)."""
+def _stores(conn: Connection, store_ids: set[int]) -> dict[int, tuple[tuple[str, int], bool, str]]:
+    """store_id → (su cadena, o el local si no tiene; si su nombre o su marca dicen licores o botillería; su comuna,
+    `stores.city`, normalizada)."""
     if not store_ids:
         return {}
     rows = conn.execute(
-        """SELECT s.store_id, s.brand_id, s.name, b.name
+        """SELECT s.store_id, s.brand_id, s.name, b.name, s.city
            FROM stores s LEFT JOIN brands b USING (brand_id)
            WHERE s.store_id = ANY(%s)""",
         (sorted(store_ids),),
     )
     return {
-        store_id: (("cadena", brand_id) if brand_id is not None else ("local", store_id), _liquor_store(name, brand))
-        for store_id, brand_id, name, brand in rows
+        store_id: (
+            ("cadena", brand_id) if brand_id is not None else ("local", store_id),
+            _liquor_store(name, brand),
+            normalize(city or ""),
+        )
+        for store_id, brand_id, name, brand, city in rows
     }
 
 

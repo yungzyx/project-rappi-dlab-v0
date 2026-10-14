@@ -171,6 +171,21 @@ def test_a_person_who_picks_a_profile_gets_their_why_only_if_it_is_theirs(client
     assert SUSHI_STORE not in {p["store_id"] for s in other["escalera"] for p in s["products"]}
 
 
+def test_the_restaurants_step_is_in_the_city_of_the_person(client, db):
+    """Los restaurantes de la escalera son de la ciudad de la persona (`app_users.city`) o, si no la tiene (la app no
+    la pide), de PROFILE_CITY: Santiago de Chile."""
+    db.execute("UPDATE stores SET city = 'Viña del Mar' WHERE store_id = %s", (OTHER_SUSHI,))
+    user = newcomer(client)
+
+    def places():
+        body = offer(client, {"perfil": "asiatico"}, user).json()
+        return {p["store_id"] for s in body["escalera"] if s["vertical"] == "restaurantes" for p in s["products"]}
+
+    assert OTHER_SUSHI not in places()
+    db.execute("UPDATE app_users SET city = 'Viña del Mar' WHERE user_id = %s", (user,))
+    assert places() == {OTHER_SUSHI}
+
+
 def test_no_profile_or_no_ladder_is_204(client):
     newcomer(client)
 

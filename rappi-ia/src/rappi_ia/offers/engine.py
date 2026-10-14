@@ -56,6 +56,7 @@ from .profiles import (
     load_destinations,
     load_profiles,
     ordered_restaurants,
+    person_city,
 )
 
 KIT_SIZE = 4  # productos del kit de una ocasión
@@ -450,7 +451,8 @@ def profile_offer(
     """La escalera de un perfil de gusto. Sin `profile_id`, el primero de los perfiles de la persona (el principal y
     después por puntaje); con él, ese perfil, y con su «por qué» solo si es uno de los suyos (si no, «Porque elegiste…»,
     como sin persona: lo que usan la demo y el contrato). El peldaño de restaurantes deja fuera los locales donde la
-    persona ya pidió. None (204) sin perfil o sin escalera; un perfil que no existe es un `OfferError` (422)."""
+    persona ya pidió y muestra los de su ciudad (`person_city`). None (204) sin perfil o sin escalera; un perfil que
+    no existe es un `OfferError` (422)."""
     profiles = load_profiles()
     if profile_id is not None and profile_id not in profiles:
         raise OfferError(f"Perfil desconocido: «{profile_id}»")
@@ -459,7 +461,7 @@ def profile_offer(
         return None
     profile = profiles[profile_id] if profile_id is not None else next(iter(mine.values())).profile
     active = mine.get(profile.id)
-    steps = ladder(conn, embedder, profile, ordered_restaurants(conn, user_id))
+    steps = ladder(conn, embedder, profile, ordered_restaurants(conn, user_id), person_city(conn, user_id))
     if not steps:
         return None
     shown = {"id": profile.id, "nombre": profile.name, "emoji": profile.emoji}

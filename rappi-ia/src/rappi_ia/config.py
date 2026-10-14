@@ -34,6 +34,11 @@ AGENT_NAME = os.environ.get("AGENT_NAME", "Mochi")
 # Productos que un concepto necesita en una vertical para que el juego diga que «pertenece» a ella.
 GAME_MIN_ITEMS = int(os.environ.get("GAME_MIN_ITEMS", "20"))
 
+# Ciudad de los restaurantes que ofrece la escalera de un perfil de gusto cuando la persona no tiene ciudad
+# (`app_users.city`; la app no la pide). Es una ciudad del scraper («Santiago de Chile», «Viña del Mar»): ver
+# offers/profiles.py, CITY_COMUNAS.
+PROFILE_CITY = os.environ.get("PROFILE_CITY") or "Santiago de Chile"
+
 # LLM opcional: sin ANTHROPIC_API_KEY, el agente responde con plantillas.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or None
 AGENT_LLM_MODEL = os.environ.get("AGENT_LLM_MODEL", "claude-sonnet-5")

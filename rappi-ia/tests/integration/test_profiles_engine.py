@@ -9,6 +9,7 @@ import pytest
 from psycopg.types.json import Jsonb
 from test_query_budget import CountingConnection
 
+from rappi_ia import config
 from rappi_ia.agent.tools import search_products
 from rappi_ia.concepts.taxonomy import load_taxonomy
 from rappi_ia.demo import seed
@@ -28,6 +29,7 @@ from rappi_ia.offers.profiles import (
     ladder,
     load_profiles,
     ordered_restaurants,
+    person_city,
 )
 
 NOW = datetime.now(UTC)
@@ -350,6 +352,38 @@ def test_the_restaurants_step_leaves_out_places_already_ordered_from(catalog, db
     assert steps[0].step.vertical == "restaurantes"
     assert [p.store_id for p in steps[0].products] == [OTHER_SUSHI]
     assert len(steps) >= MIN_STEPS
+
+
+def test_the_restaurants_step_only_shows_places_in_the_city(catalog, db, monkeypatch):
+    """Un restaurante guarda su comuna (`stores.city`). Sin ciudad, la escalera usa PROFILE_CITY (Santiago de Chile):
+    sale la cadena de Maipú y no el local de Viña del Mar (en la base real salían Viña, Copiapó y Chillán). Con otra
+    ciudad, solo los de ahí."""
+    db.execute("UPDATE stores SET city = 'Viña del Mar' WHERE store_id = %s", (OTHER_SUSHI,))
+    db.execute("UPDATE stores SET city = 'Maipú' WHERE store_id IN (%s, %s)", (SUSHI_STORE, CHAIN_BRANCH))
+    asian = load_profiles()["asiatico"]
+
+    def places(**city):
+        steps = ladder(db, catalog, asian, **city)
+        assert steps[0].step.vertical == "restaurantes"
+        return {p.store_id for p in steps[0].products}
+
+    assert len(places()) == 1 and places() <= {SUSHI_STORE, CHAIN_BRANCH}  # la cadena, una vez
+    assert places(city="Viña del Mar") == {OTHER_SUSHI}
+    monkeypatch.setattr(config, "PROFILE_CITY", "Viña del Mar")
+    assert places() == {OTHER_SUSHI}
+
+
+def test_the_city_of_a_ladder_is_the_person_one_or_the_default(catalog, db):
+    """La de la persona del prototipo (`app_users.city`); sin ella (la app no la pide), de otra fuente o sin persona,
+    PROFILE_CITY."""
+    events.ensure_user(db, "u-vina")
+    events.ensure_user(db, "u-sin-ciudad")
+    events.ensure_user(db, "u-sim", "synthetic", city="Valparaíso")
+    db.execute("UPDATE app_users SET city = 'Viña del Mar' WHERE user_id = 'u-vina'")
+
+    assert person_city(db, "u-vina") == "Viña del Mar"
+    for user in ("u-sin-ciudad", "u-sim", "nadie", None):
+        assert person_city(db, user) == config.PROFILE_CITY == "Santiago de Chile", user
 
 
 def test_step_words_match_the_start_of_a_word_and_avoid_what_the_step_does_not_promise(catalog, db):

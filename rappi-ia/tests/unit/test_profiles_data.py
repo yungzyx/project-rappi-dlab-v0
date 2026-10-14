@@ -326,3 +326,17 @@ def test_a_step_query_says_what_its_products_are_called():
     assert _step_query(steps["asiatico", "restaurantes"]) == "sushi roll wok chapsui"
     assert _step_query(steps["asiatico", "chocolateria"]) == "matcha"
     assert _step_query(steps["carrete", "mall"]) == "vaso guirnalda globo cotillon"
+
+
+def test_a_city_is_its_comunas():
+    """Un restaurante guarda su comuna (`stores.city`), no la ciudad en que el scraper descubre tiendas. Santiago de
+    Chile (la de PROFILE_CITY) son sus comunas, y «Santiago», la ciudad de las personas simuladas, es la misma. Otra
+    ciudad es su propia comuna, sin tildes ni mayúsculas («Concepcion», como la escribe el descubrimiento)."""
+    from rappi_ia.offers.profiles import city_places
+
+    santiago = city_places("Santiago de Chile")
+    assert {"santiago", "providencia", "nunoa", "maipu", "lo barnechea", "puente alto"} <= santiago
+    assert not {"vina del mar", "valparaiso", "copiapo", "chillan", "melipilla"} & santiago
+    assert city_places("Santiago") == santiago == city_places("santiago de chile")
+    assert city_places("Viña del Mar") == {"vina del mar"}
+    assert city_places("Concepcion") == city_places("Concepción") == {"concepcion"}

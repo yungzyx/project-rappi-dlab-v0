@@ -111,6 +111,7 @@ Todas van en `/etc/rappi/rappi.env`, salvo las que fija `docker-compose.yml` o l
 | `AGENT_NAME` | api | `Mochi` | — | no |
 | `GAME_MIN_ITEMS` | api | `20` | — | no |
 | `MVP_HOME_LAT` / `MVP_HOME_LNG` | api («Cerca de ti») | `-33.4263` / `-70.6106` | — | no |
+| `PROFILE_CITY` | api (la ciudad de los restaurantes de un perfil de gusto si la persona no tiene) | `Santiago de Chile` | `Viña del Mar` | no |
 | `TEXT_EMBEDDING_MODEL` | api, jobs | `intfloat/multilingual-e5-base` | — | no |
 | `TEXT_EMBEDDING_REVISION` | api, jobs, y al construir la imagen | `d128750597153bb5987e10b1c3493a34e5a4502a` (con el modelo por defecto) | — | no |
 | `HF_HUB_OFFLINE` / `HF_HOME` | api, jobs (los fija la imagen) | `1` / `/opt/hf` | — | no |
