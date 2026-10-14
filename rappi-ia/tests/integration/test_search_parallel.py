@@ -40,11 +40,13 @@ def catalog(db):
 
 @pytest.fixture
 def make_pool(monkeypatch):
-    """Instala en la API un pool propio sobre `rappi_ia_test` (el de la API real nunca se abre en los tests)."""
+    """Instala en la API un pool propio sobre `rappi_ia_test` (el de la API real nunca se abre en los tests), ya con
+    todas sus conexiones abiertas: una conexión extra espera al pool solo SPARE_WAIT_S (50 ms), y en un CI lento abrir
+    una nueva tarda más (la búsqueda iba en serie y la prueba fallaba a ratos)."""
     pools = []
 
     def make(url: str, max_size: int):
-        monkeypatch.setattr(config, "API_POOL_MIN", 1)
+        monkeypatch.setattr(config, "API_POOL_MIN", max_size)
         monkeypatch.setattr(config, "API_POOL_MAX", max_size)
         monkeypatch.setattr(config, "API_POOL_TIMEOUT_S", 3.0)
         pool = deps.make_pool(url)

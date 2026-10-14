@@ -39,8 +39,10 @@ SPARE_WAIT_S = 0.05
 def spare_reserve(pool_size: int) -> int:
     """Turnos del pool que una conexión extra nunca toma: la mitad. Con API_POOL_MAX=10, una búsqueda sola usa 4
     conexiones (la suya y 3 extra) y deja 6 libres; con dos a la vez, la segunda ya no pide extra (quedarían menos de
-    5). Así /health, el juego o una búsqueda nueva siempre encuentran la mitad del pool sin hacer fila detrás de las
-    búsquedas en paralelo, y una búsqueda sola en una API tranquila (la demo, el benchmark) igual usa sus 3 extra."""
+    5). La reserva vale solo contra las conexiones extra: las búsquedas en paralelo no se la comen, y /health, el juego
+    o una búsqueda nueva no hacen fila detrás de ellas. Los requests corrientes (una conexión cada uno) sí pueden llenar
+    el pool entero; entonces las búsquedas van en serie. Una búsqueda sola en una API tranquila (la demo, el benchmark)
+    igual usa sus 3 extra."""
     return pool_size // 2
 
 
