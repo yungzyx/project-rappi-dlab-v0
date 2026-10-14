@@ -111,6 +111,31 @@ def test_prewarm_without_permission_only_warns(searchable, test_url, monkeypatch
     assert "No se pudo precargar" in caplog.text and "permission denied" in caplog.text
 
 
+def test_the_time_budget_also_caps_the_first_queries(searchable, test_url, monkeypatch):
+    """El tope de tiempo rige desde que conecta: también para revisar la extensión y listar los índices."""
+    real_connect = psycopg.connect
+    statements = []
+
+    class Recording:
+        def __init__(self, conn):
+            self._conn = conn
+
+        def execute(self, query, *args, **kwargs):
+            statements.append(str(query))
+            return self._conn.execute(query, *args, **kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return self._conn.__exit__(*exc)
+
+    monkeypatch.setattr(prewarm.psycopg, "connect", lambda *a, **kw: Recording(real_connect(*a, **kw)))
+
+    assert prewarm.prewarm_search_indexes(test_url)
+    assert "statement_timeout" in statements[0]
+
+
 def test_prewarm_stops_at_its_time_budget(searchable, test_url, caplog):
     with caplog.at_level(logging.WARNING, logger="rappi_ia.api.prewarm"):
         assert prewarm.prewarm_search_indexes(test_url, budget_s=0) == []
@@ -129,6 +154,17 @@ def test_migration_034_does_not_fail_without_permission_to_create_the_extension(
     db.execute(MIGRATION.read_text(encoding="utf-8"))
 
     assert db.execute("SELECT count(*) FROM pg_extension WHERE extname = 'pg_prewarm'").fetchone()[0] == 0
+    db.rollback()
+
+
+def test_migration_034_does_not_fail_on_a_postgres_without_the_extension(db):
+    """Un Postgres sin contrib no tiene pg_prewarm (undefined_file): la migración solo avisa, como sin permiso. Se
+    simula con una extensión que no existe."""
+    missing = MIGRATION.read_text(encoding="utf-8").replace("pg_prewarm", "pg_prewarm_que_no_existe")
+
+    db.execute(missing)
+
+    assert db.execute("SELECT count(*) FROM pg_extension WHERE extname = 'pg_prewarm_que_no_existe'").fetchone()[0] == 0
     db.rollback()
 
 

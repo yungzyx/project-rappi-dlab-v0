@@ -40,14 +40,27 @@ INDEXES = """
 
 
 def prewarm_search_indexes(url: str | None = None, budget_s: float = BUDGET_S) -> list[str]:
-    """Lee los índices de la búsqueda (INDEXES) hasta `budget_s` segundos. Devuelve los que alcanzó a leer. Nunca
-    lanza: un error (sin extensión, sin permiso, sin base) queda en un aviso."""
+    """Lee los índices de la búsqueda (INDEXES) hasta `budget_s` segundos, contados desde que conecta: cada consulta
+    (también revisar la extensión y listar los índices) lleva de statement_timeout lo que queda. Devuelve los que
+    alcanzó a leer. Nunca lanza: un error (sin extensión, sin permiso, sin base) queda en un aviso."""
     start = time.monotonic()
     done: list[str] = []
+    indexes: list[str] = []
     try:
         with psycopg.connect(
             url or database_url(), connect_timeout=3, autocommit=True, application_name="rappi-ia-precarga"
         ) as conn:
+
+            def within_budget() -> bool:
+                left = budget_s - (time.monotonic() - start)
+                if left > 0:
+                    conn.execute(
+                        "SELECT set_config('statement_timeout', %s, false)", (f"{max(int(left * 1000), 1)}ms",)
+                    )
+                return left > 0
+
+            if not within_budget():
+                raise psycopg.errors.QueryCanceled("sin tiempo")
             if not conn.execute("SELECT 1 FROM pg_extension WHERE extname = 'pg_prewarm'").fetchone():
                 log.warning(
                     "Precarga de la búsqueda: falta la extensión pg_prewarm (migración 034; en producción la crea el "
@@ -56,20 +69,17 @@ def prewarm_search_indexes(url: str | None = None, budget_s: float = BUDGET_S) -
                 return done
             indexes = [name for (name,) in conn.execute(INDEXES)]
             for name in indexes:
-                left = budget_s - (time.monotonic() - start)
-                if left <= 0:
-                    log.warning(
-                        "Precarga de la búsqueda: se cumplió el tope de %s s con %d de %d índices leídos",
-                        budget_s,
-                        len(done),
-                        len(indexes),
-                    )
-                    return done
-                conn.execute("SELECT set_config('statement_timeout', %s, false)", (f"{max(int(left * 1000), 1)}ms",))
+                if not within_budget():
+                    raise psycopg.errors.QueryCanceled("sin tiempo")
                 conn.execute("SELECT pg_prewarm(%s::regclass, 'read')", (name,))
                 done.append(name)
     except psycopg.errors.QueryCanceled:
-        log.warning("Precarga de la búsqueda: se cumplió el tope de %s s con %d índices leídos", budget_s, len(done))
+        log.warning(
+            "Precarga de la búsqueda: se cumplió el tope de %s s con %d de %d índices leídos",
+            budget_s,
+            len(done),
+            len(indexes),
+        )
         return done
     except (psycopg.Error, RuntimeError) as exc:  # RuntimeError: falta DATABASE_URL
         log.warning("No se pudo precargar los índices de la búsqueda (%d leídos): %s", len(done), exc)
