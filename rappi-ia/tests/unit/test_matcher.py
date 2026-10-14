@@ -80,6 +80,7 @@ def test_avoid_words_block_a_keyword_in_the_same_name_but_not_elsewhere():
         ("California Roll 10 piezas", "sushi"),
         ("Almond Roll", "sushi"),
         ("Hand Roll Salmón", "sushi"),
+        ("New york roll", "sushi"),  # «ny» bloquea por palabra entera: «york» no lo contiene
         ("Roll De Canela", None),  # un pastel, no sushi (el 14-10-2026 salía en el Súper y en Chocolaterías)
         ("Sumkha Granol Gluten Free Cinna Roll", None),
         ("Cinnamon Rolls (2 unds)", None),

@@ -52,8 +52,9 @@ ARTICLES = frozenset({"el", "la", "los", "las", "un", "una", "unos", "unas"})  #
 SHOWN_PRODUCTS = 3  # productos de una oferta que no es un kit
 FALLBACK_VERTICALS = 3  # verticales que se prueban para decir dónde sí está lo que no se encontró
 # Ofertas que se piden por vertical antes de quitar las que el agente no propone y de poner primero las típicas de la
-# vertical. Con 12, en la base real las más rebajadas del súper eran mantas y accesorios de auto, y ninguna típica.
-DEAL_POOL = 60
+# vertical. Con 12, en la base real las más rebajadas del súper eran mantas y accesorios de auto, y ninguna típica; con
+# 60 había 4 típicas y con 200, 28. El costo de `deals()` no depende del tope.
+DEAL_POOL = 200
 
 # El orden de la Home: lo que ya muestra hoy (la app tiene «Película» para panorama); después, el resto de la taxonomía.
 HOME_OCCASIONS = ("once", "carrete", "asado", "panorama", "regalo")
