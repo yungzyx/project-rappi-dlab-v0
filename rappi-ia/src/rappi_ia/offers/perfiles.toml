@@ -5,8 +5,10 @@
 # - `principal = true`: va primero entre los perfiles de la persona (solo uno; hoy, el asiático).
 # - `segmentos`: ids de segments.toml que lo activan, en un nivel igual o mayor a `nivel_minimo`. Nunca sensibles.
 # - `escalera`: peldaños en orden, de lo más cercano a lo más lejano. Cada uno busca en su `vertical` los productos de
-#   sus `conceptos`; con `palabras`, solo los que tienen alguna en el nombre (se comparan sin tildes ni mayúsculas;
-#   basta el comienzo: «tiramis» es tiramisú). `texto` es lo que dice el agente al ofrecerlo.
+#   sus `conceptos`; con `palabras`, solo los que tienen alguna en el nombre (se comparan sin tildes ni mayúsculas, al
+#   comienzo de una palabra: «tiramis» es tiramisú y «vaso» calza «Vasos», no «Posavasos»). Con `evitar`, ninguno que
+#   tenga una de esas (lo que dice la palabra sin ser lo que promete el peldaño: un limpiador «en pasta», un juguete
+#   que la tienda puso en cocina). `texto` es lo que dice el agente al ofrecerlo.
 # - `viaje`: id de un destino de destinos.toml (el último peldaño, «Idea para RappiTravel»), o nada.
 #
 # Las guardias de ofertas mandan (offers/guards.py): ningún peldaño nombra alcohol, farmacia, bebé, salud ni algo
@@ -73,7 +75,9 @@ texto = "Café para el día a día"
 [[perfil.escalera]]
 vertical = "mall"
 conceptos = ["electrohogar", "cocina-menaje"]
-palabras = ["cafetera", "molinillo", "prensa francesa"]
+# «molinillo» a secas traía 25 molinillos de sal y pimienta (Le Creuset); dos salían entre los cuatro primeros.
+palabras = ["cafetera", "molinillo de café", "molinillo eléctrico", "prensa francesa"]
+evitar = ["hape", "juguete"]  # «Cafetera + Accesorios Hape Juguetes De Madera», en electrohogar
 texto = "Para prepararlo como en la cafetería"
 
 [[perfil.escalera]]
@@ -109,6 +113,8 @@ texto = "Queso y pasta en minutos"
 vertical = "mall"
 conceptos = ["cocina-menaje"]
 palabras = ["pizza", "rallador", "pasta"]
+# En cocina-menaje: «Limpia Ollas En Pasta», «Juego De Pizza De Madera Melissa & Doug» y «Set De Pastas Hape».
+evitar = ["limpia", "melissa", "hape"]
 texto = "Para tu noche de pizza en casa"
 
 [[perfil.escalera]]
@@ -137,6 +143,9 @@ texto = "Su comida y snacks, en minutos"
 [[perfil.escalera]]
 vertical = "mall"
 conceptos = ["accesorios-mascota"]
+# Sin palabras, salían libros para colorear y frascos de Casaideas, que la tienda pone en «Otros accesorios mascotas».
+palabras = ["perro", "juguete", "pelota", "correa", "collar", "arnés"]
+evitar = ["puzzle"]  # «Puzzle Redondo 500 Piezas Perros Del Mundo», también ahí
 texto = "Juguetes y paseo"
 
 [[perfil.escalera]]
@@ -170,6 +179,8 @@ texto = "Maní, papas y salsas para picar"
 vertical = "mall"
 conceptos = ["decoracion"]
 palabras = ["vaso", "guirnalda", "globo", "cotillón"]
+# Lo de despedida de soltera: «Guirnalda Globo Foil "un Pene Forever"» salía entre los cuatro primeros.
+evitar = ["pene", "despedida", "soltera", "soltero", "sexy"]
 texto = "Deco para la fiesta"
 
 [[perfil.escalera]]

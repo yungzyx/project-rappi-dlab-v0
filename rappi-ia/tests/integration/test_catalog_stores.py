@@ -68,8 +68,9 @@ def test_vertical_stores_lists_one_card_per_format_with_current_offers(seeded):
     assert centro["logo"] == f"{LOGO_BASE_URL}prueba-{CENTRO}.png"
     assert re.fullmatch(r"\d+ min", centro["eta"])
     assert centro["vertical"] == "supermercado"
-    # Ofertas vigentes: el atún (corrida anterior) y la mermelada (agotada) no cuentan. Más ofertas primero.
-    assert (centro["products"], norte["products"], pharmacy["products"]) == (36, 33, 2)
+    # Ofertas vigentes: el atún (corrida anterior) y la mermelada (agotada) no cuentan. Más ofertas primero. Norte
+    # tiene además el nori y el matcha de la escalera del perfil asiático.
+    assert (centro["products"], norte["products"], pharmacy["products"]) == (36, 35, 2)
 
 
 def test_vertical_stores_limit_and_restaurants(seeded):
@@ -127,7 +128,7 @@ def test_a_format_downloaded_in_two_branches_has_one_card_the_one_with_more_offe
 
     assert [(card["id"], card["products"]) for card in vertical_stores(seeded, "supermercado")] == [
         (CENTRO, 36),
-        (NORTE, 33),
+        (NORTE, 35),
         (PHARMACY_IN_SUPER, 2),
     ]
     assert store_page(seeded, 9105)["store"]["products"] == 1  # la otra sucursal sigue abierta por su id

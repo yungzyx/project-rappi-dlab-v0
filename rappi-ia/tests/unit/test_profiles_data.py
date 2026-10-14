@@ -21,7 +21,11 @@ LADDERS = {
         ("supermercado", ("cafe",), ()),
         ("turbo", ("cafe",), ()),
         ("conveniencia", ("cafe",), ()),
-        ("mall", ("electrohogar", "cocina-menaje"), ("cafetera", "molinillo", "prensa francesa")),
+        (
+            "mall",
+            ("electrohogar", "cocina-menaje"),
+            ("cafetera", "molinillo de cafe", "molinillo electrico", "prensa francesa"),
+        ),
         ("chocolateria", ("chocolates",), ("cafe",)),  # las palabras quedan sin tildes, como se comparan
     ],
     "italiano": [
@@ -34,7 +38,7 @@ LADDERS = {
     "mascotas": [
         ("conveniencia", ("alimento-perro",), ()),
         ("turbo", ("alimento-perro",), ()),
-        ("mall", ("accesorios-mascota",), ()),
+        ("mall", ("accesorios-mascota",), ("perro", "juguete", "pelota", "correa", "collar", "arnes")),
         ("supermercado", ("alimento-perro", "alimento-gato"), ()),
     ],
     "carrete": [
@@ -96,6 +100,46 @@ def test_the_party_profile_has_no_alcohol():
     assert not [c.id for c in named if c.age_restricted or c.parent == "alcohol"]
 
 
+# Nombres de la base real (14-10-2026) que calzan o no un peldaño con palabras: la palabra va al comienzo de una
+# palabra del nombre, y `evitar` saca lo que dice la palabra sin ser lo que promete el peldaño (un limpiador «en pasta»,
+# juguetes de cocina con concepto `cocina-menaje`).
+@pytest.mark.parametrize(
+    ("profile", "vertical", "name", "fits"),
+    [
+        ("carrete", "mall", "Vaso Polipapel Lunares Colores Surtidos", True),
+        ("carrete", "mall", "Guirnalda Feliz Cumpleaños Unicornio Grande", True),
+        ("carrete", "mall", "Posavasos Chile X 6", False),
+        ("carrete", "mall", "Alfombra Mat Secavasos de Goma 38 x 51 cm Casaideas", False),
+        ("italiano", "mall", "Cortador Pizza O Ruleta Mt", True),
+        ("italiano", "mall", "Olla Para Pasta 24 Cm, 5 Piezas. Magehogar", True),
+        ("italiano", "mall", "Rallador y Rebanador Manual Sumo Slicer", True),
+        ("italiano", "mall", "Limpia Ollas En Pasta De 500 Gr Para Aceros Y Cocinas.", False),
+        ("italiano", "mall", "Juego De Pizza De Madera Melissa & Doug", False),
+        ("italiano", "mall", "Set De Pastas Hape", False),
+        ("italiano", "chocolateria", "Tiramisú individual", True),
+        ("cafe", "mall", "Cafetera Francesa de Vidrio 600 mL", True),
+        ("cafe", "mall", "Cafetera + Accesorios Hape Juguetes De Madera", False),
+        ("cafe", "mall", "Molinillo Eléctrico De Café Y Granos 150w Color Cromo", True),
+        ("cafe", "mall", "Molinillo de Sal Néctar 21 cm Le Creuset", False),  # de sal y pimienta, no de café
+        ("cafe", "mall", "Set de Molinillos S&P Cereza 11 cm Le Creuset", False),
+        ("carrete", "mall", 'Guirnalda Globo Foil "un Pene Forever" Rose Gold', False),  # despedida de soltera
+        ("carrete", "mall", "Set Globo Metálico Soltera Corbatín", False),
+        ("mascotas", "mall", "Buddy Pet Pelota Con Cuerda Para Perros", True),
+        ("mascotas", "mall", "Set Libros Para Colorear Casaideas", False),  # en «Otros accesorios mascotas»
+        ("mascotas", "mall", "Puzzle Redondo 500 Piezas Perros Del Mundo", False),
+        ("cafe", "chocolateria", "Bombones de Café", True),
+        ("asiatico", "chocolateria", "Lindor Matcha", True),
+        ("asiatico", "chocolateria", "Lindor Leche", False),
+        ("asiatico", "turbo", "Kikkoman Salsa de Soya", True),  # sin palabras, calza todo
+    ],
+)
+def test_a_step_with_words_takes_them_at_the_start_of_a_word_and_avoids_what_it_does_not_promise(
+    profile, vertical, name, fits
+):
+    step = next(s for s in load_profiles()[profile].ladder if s.vertical == vertical)
+    assert step.fits(name) is fits
+
+
 def test_every_trip_is_a_question_with_two_sourced_facts():
     destinations = load_destinations()
     assert list(destinations) == ["japon", "colombia", "italia"]
@@ -136,6 +180,7 @@ texto = "Uno"
 vertical = "supermercado"
 conceptos = ["gaseosas"]
 palabras = ["Colá", "Té Verde"]
+evitar = ["Limpiá"]
 texto = "Dos"
 """
 
@@ -149,6 +194,7 @@ def _write(tmp_path, text, name="perfiles.toml"):
 def test_a_valid_profile_file_loads(tmp_path):
     profile = load_profiles(_write(tmp_path, VALID_PROFILE))["prueba"]
     assert (profile.main, profile.ladder[1].words, profile.trip) == (False, ("cola", "te verde"), "japon")
+    assert (profile.ladder[0].avoid, profile.ladder[1].avoid) == ((), ("limpia",))
 
 
 @pytest.mark.parametrize(
