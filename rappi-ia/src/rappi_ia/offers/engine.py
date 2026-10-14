@@ -31,7 +31,7 @@ from ..catalog.stores import product_detail
 from ..concepts.taxonomy import Concept, load_taxonomy
 from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
 from ..retrieval.hybrid import _concepts_of, detect_concepts
-from ..text import contract_articles
+from ..text import contract_articles, normalize, tokens
 from .guards import (
     is_offerable,
     is_plannable,
@@ -47,6 +47,8 @@ KIT_SIZE = 4  # productos del kit de una ocasión
 # restaurantes y la vectorial ~11 ms. Se prueba primero la vectorial y, si no trae nada (sin modelo, o documentos sin
 # embeddings), la de siempre.
 KIT_VERTICALS = 3  # verticales que se prueban por concepto del kit (las más típicas)
+KIT_CANDIDATES = 6  # productos que se piden por concepto y vertical: se saltan los de nombre pelado
+ARTICLES = frozenset({"el", "la", "los", "las", "un", "una", "unos", "unas"})  # normalizados
 SHOWN_PRODUCTS = 3  # productos de una oferta que no es un kit
 FALLBACK_VERTICALS = 3  # verticales que se prueban para decir dónde sí está lo que no se encontró
 DEAL_POOL = 12  # ofertas que se piden por vertical antes de quitar las que el agente no propone
@@ -250,6 +252,7 @@ def _kit_verticals(conn: Connection, concept: Concept, fixed: str | None) -> lis
 
 
 def _kit_product(conn: Connection, embedder: TextEmbedder | None, concept: Concept, vertical: str) -> Product | None:
+    """El primer producto del concepto en la vertical que dice qué es: se saltan los de nombre pelado."""
     for mode in ("vector", "hibrido") if embedder is not None else ("hibrido",):
         outcome = search_products(
             conn,
@@ -257,14 +260,21 @@ def _kit_product(conn: Connection, embedder: TextEmbedder | None, concept: Conce
             concept.name,
             [concept.id],
             embedder,
-            k=3,
+            k=KIT_CANDIDATES,
             mode=mode,
             offer=True,
             adult_ok=concept.age_restricted,
         )
-        if product := next((p for p in outcome.products if p.concept == concept.id), None):
+        if product := next((p for p in outcome.products if p.concept == concept.id and not _bare(p, concept)), None):
             return product
     return None
+
+
+def _bare(product: Product, concept: Concept) -> bool:
+    """«POLLO», «Queso» o «el Pollo»: el nombre es una sola palabra (sin contar el artículo) o el del concepto mismo, y
+    no dice qué producto es."""
+    words = [w for w in tokens(product.name) if w not in ARTICLES]
+    return len(words) <= 1 or normalize(product.name) == normalize(concept.name)
 
 
 # ── carrito, checkout y próximo pedido ───────────────────────────────────────
