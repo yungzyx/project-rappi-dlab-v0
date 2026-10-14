@@ -264,7 +264,7 @@ def test_a_soda_sold_only_by_a_licores_store_in_the_seed_is_not_suggested(demo):
 
 def test_an_offer_never_brings_a_catalog_item_whose_name_says_alcohol(db):
     """«Soju Uva Verde 13.0» está en «Frutas» en la base real, sin marca de alcohol ni +18: quien lo busca lo encuentra,
-    pero el agente no lo ofrece. Un plato «Sake Roll» (salmón) sí se ofrece: los platos no se revisan por el nombre."""
+    pero el agente no lo ofrece. Un plato «Sake Roll» (salmón) sí se ofrece: los platos tienen su propia lista."""
     embedder = HashEmbedder()
     add_store(db, 21, "supermercado", "Súper")
     add_store(db, 22, "restaurantes", "Sushi")
@@ -283,3 +283,45 @@ def test_an_offer_never_brings_a_catalog_item_whose_name_says_alcohol(db):
     soju = next(p for p in kit.products if p.entity_id == "931")  # en un kit elegido, con su marca +18
     assert soju.age_restricted
     assert [p.entity_id for p in dish.products] == ["941"]
+
+
+def test_an_offer_never_brings_a_dish_whose_name_says_alcohol(db):
+    """En la base real, cinco platos «Soju …» tienen concepto `asiatica`: la búsqueda los encuentra, una oferta no.
+    En un menú «sake» es salmón y la «Margarita Familiar» de una pizzería es una pizza: los dos se ofrecen."""
+    embedder = HashEmbedder()
+    add_store(db, 22, "restaurantes", "Sushi")
+    add_store(db, 23, "restaurantes", "Pizzería")
+    db.execute("INSERT INTO scrape_runs (run_id, kind, status) VALUES (999, 'restaurants', 'done')")
+    for item_id, name, store, section in (
+        (941, "Sake Roll", 22, "Rolls"),
+        (942, "Soju Durazno", 22, "Rolls"),
+        (943, "Margarita Familiar", 23, "Pizzas"),
+        (944, "Michelada clásica", 23, "Pizzas"),
+    ):
+        add_dish(db, item_id, name, store, section)
+        db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, %s, 6990)", (item_id,))
+    stock(db, embedder, [])
+    # Aquí el nombre la lleva a `cocteles`; en la base real 24 pizzas así quedaron con concepto pizza.
+    db.execute("UPDATE item_concepts SET concept_id = 'pizza' WHERE entity_type = 'menu_item' AND entity_id = '943'")
+    concepts = dict(db.execute("SELECT entity_id, concept_id FROM item_concepts WHERE entity_type = 'menu_item'"))
+    assert (concepts["942"], concepts["944"]) == ("sushi", "pizza")  # conceptos que se ofrecen
+
+    def offered(query, offer):
+        return {p.name for p in search_products(db, "restaurantes", query, [], embedder, offer=offer).products}
+
+    for query, name in (("soju", "Soju Durazno"), ("michelada", "Michelada clásica")):
+        assert name in offered(query, False)  # la búsqueda no cambia
+        assert name not in offered(query, True)
+    assert "Sake Roll" in offered("sake roll", True)
+    assert "Margarita Familiar" in offered("margarita", True)
+
+
+def test_vertical_to_try_never_offers_a_popular_dish_whose_name_says_alcohol(demo):
+    """«Vertical por probar» muestra en restaurantes sus platos populares, que no pasan por la búsqueda de ofertas."""
+    from rappi_ia.offers.engine import _popular_dishes
+
+    db, _ = demo
+    assert "Tiramisú individual (prueba)" in {d["name"] for d in _popular_dishes(db)}
+    db.execute("UPDATE menu_items SET name = 'Mojito de la casa (prueba)' WHERE item_id = 98004")  # sigue en postres
+
+    assert "Mojito de la casa (prueba)" not in {d["name"] for d in _popular_dishes(db)}

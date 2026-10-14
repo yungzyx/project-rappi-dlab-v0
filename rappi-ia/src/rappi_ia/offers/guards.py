@@ -28,8 +28,8 @@ NOT_PLANNABLE_OCCASIONS = ("guagua", "enfermo")  # bebé y salud: ni siquiera co
 # Palabras de un nombre que dicen alcohol aunque la tienda no lo marque: las marcas de la tienda (`is_alcoholic`,
 # `age_restricted`) y la categoría pueden estar mal. En la base real del 14-10-2026, «Soju Uva Verde 13.0» venía en
 # «Frutas» sin ninguna marca, y una cerveza, un ron y un vino tinto quedaban en frutas, decoración y útiles. Palabra
-# entera, con su plural: «ron» no está en «ronda» ni «gin» en «ginger». Solo para productos del catálogo: en un menú
-# «sake» es salmón («Sake Roll»). Bloquea también lo que solo nombra el alcohol (vinagre de vino, copas de vino,
+# entera, con su plural: «ron» no está en «ronda» ni «gin» en «ginger». Es la lista de los productos del catálogo; los
+# platos tienen la suya (abajo). Bloquea también lo que solo nombra el alcohol (vinagre de vino, copas de vino,
 # galletas Vino): de una oferta que nadie pidió, sobra; quien lo busca por su nombre lo sigue encontrando.
 ALCOHOL_NAME_WORDS = frozenset(
     {
@@ -38,6 +38,22 @@ ALCOHOL_NAME_WORDS = frozenset(
     }
 )
 _ALCOHOL_NAMES = KeywordMatcher(("alcohol", word) for word in ALCOHOL_NAME_WORDS)
+# Lo mismo en los platos de un menú, que no traen ninguna marca de alcohol: en la base real del 14-10-2026 cinco
+# «Soju …» venían con concepto `asiatica` y dos «Sangría» con `gaseosas`. Lista propia porque en un menú «sake» es
+# salmón («Sake Roll», más de 2.400 platos de sushi) y los tragos tienen otros nombres (schop, chela, piscola,
+# terremoto). «margarita» bloquea solo si el nombre no dice pizza ni el concepto del plato es pizza: «Pizza Margarita»
+# y la «Margarita Familiar» de una pizzería son pizzas. También bloquea platos que solo nombran el alcohol («bife al
+# vino», «pasas al ron»): en una oferta, sobran; la búsqueda y la pregunta no cambian.
+MENU_ALCOHOL_NAME_WORDS = frozenset(
+    {
+        *("soju", "sangria", "michelada", "cerveza", "schop", "shop", "chela", "vino", "pisco", "piscola", "vodka"),
+        *("whisky", "tequila", "ron", "gin", "mojito", "margarita", "terremoto", "spritz"),
+    }
+)
+_MENU_ALCOHOL_NAMES = KeywordMatcher(
+    ((word if word == "margarita" else "alcohol", word) for word in MENU_ALCOHOL_NAME_WORDS),
+    avoid=[("margarita", "pizza"), ("margarita", "pizzeta")],
+)
 
 
 def is_plannable(concept: Concept) -> bool:
@@ -65,9 +81,14 @@ def plannable_occasion(occasion: Occasion) -> bool:
     return occasion.id not in NOT_PLANNABLE_OCCASIONS and any(is_plannable(concepts[c]) for c in occasion.concepts)
 
 
-def alcohol_in_name(entity_type: str, name: str) -> bool:
-    """Si el nombre de un producto del catálogo dice alcohol (`ALCOHOL_NAME_WORDS`). Un plato, nunca."""
-    return entity_type == "catalog_item" and _ALCOHOL_NAMES.best(name) is not None
+def alcohol_in_name(entity_type: str, name: str, concept_id: str | None = None) -> bool:
+    """Si el nombre de un producto del catálogo (`ALCOHOL_NAME_WORDS`) o de un plato (`MENU_ALCOHOL_NAME_WORDS`) dice
+    alcohol. `concept_id`: el del plato, si se sabe (una «Margarita» con concepto pizza es una pizza)."""
+    if entity_type == "catalog_item":
+        return _ALCOHOL_NAMES.best(name) is not None
+    if entity_type != "menu_item":
+        return False
+    return any(m.target == "alcohol" or concept_id != "pizza" for m in _MENU_ALCOHOL_NAMES.matches(name))
 
 
 def offerable_vertical(vertical: str) -> bool:

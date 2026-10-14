@@ -437,7 +437,8 @@ def _typical_first(found: list[dict], vertical: str, typical: dict[str, str]) ->
 
 def _popular_dishes(conn: Connection) -> list[dict]:
     """Los platos populares (`is_popular`) de los conceptos que más se piden hechos en restaurantes, uno por concepto y
-    solo de los que el agente puede proponer. Restaurantes no tiene ofertas ni otro dato de pedidos."""
+    solo de los que el agente puede proponer, sin un nombre que diga alcohol (`alcohol_in_name`). Restaurantes no tiene
+    ofertas ni otro dato de pedidos."""
     concepts = load_taxonomy().concepts
     ranked = [
         concept_id
@@ -447,16 +448,17 @@ def _popular_dishes(conn: Connection) -> list[dict]:
         )
         if concept_id in concepts and is_offerable(concepts[concept_id])
     ]
-    dishes = dict(
-        conn.execute(
-            """SELECT DISTINCT ON (ic.concept_id) ic.concept_id, mi.item_id::text
-               FROM menu_items mi
-               JOIN item_concepts ic ON ic.entity_type = 'menu_item' AND ic.entity_id = mi.item_id::text
-               WHERE mi.is_popular AND ic.concept_id = ANY(%s)
-               ORDER BY ic.concept_id, mi.item_id""",
-            (ranked,),
-        ).fetchall()
-    )
+    dishes: dict[str, str] = {}
+    for concept_id, item_id, name in conn.execute(
+        """SELECT ic.concept_id, mi.item_id::text, mi.name
+           FROM menu_items mi
+           JOIN item_concepts ic ON ic.entity_type = 'menu_item' AND ic.entity_id = mi.item_id::text
+           WHERE mi.is_popular AND ic.concept_id = ANY(%s)
+           ORDER BY ic.concept_id, mi.item_id""",
+        (ranked,),
+    ):
+        if concept_id not in dishes and not alcohol_in_name("menu_item", name, concept_id):
+            dishes[concept_id] = item_id
     products: list[dict] = []
     for concept_id in ranked:
         if concept_id in dishes and (dish := product_detail(conn, "menu_item", dishes[concept_id])):

@@ -7,6 +7,7 @@ from rappi_ia.concepts.taxonomy import load_taxonomy
 from rappi_ia.demo.seed import DEMO_VERTICALS
 from rappi_ia.offers.guards import (
     ALCOHOL_NAME_WORDS,
+    MENU_ALCOHOL_NAME_WORDS,
     NOT_PLANNABLE_OCCASIONS,
     OFFER_BLOCKED_VERTICALS,
     alcohol_in_name,
@@ -117,16 +118,69 @@ def test_a_catalog_name_that_says_alcohol_is_never_offered(name):
         ("catalog_item", "Ronda de quesos"),  # «ron» es palabra entera: ni «ronda» ni «roncito»
         ("catalog_item", "Roncito Chocolate"),
         ("catalog_item", "Ginger Ale 350 ml"),  # «gin» tampoco está en «ginger»
-        ("menu_item", "Sake Roll"),  # en un menú «sake» es salmón: los platos no se revisan
+        ("menu_item", "Sake Roll"),  # en un menú «sake» es salmón: la lista de los platos no lo tiene
         ("menu_item", "Sake Nigiri 2 piezas"),
+        ("menu_item", "Margarita pizza"),  # la margarita de una pizza no es el cóctel
+        ("menu_item", "Pizza Margarita Familiar"),
+        ("menu_item", "Pizzas margarita x 2"),
+        ("menu_item", "Ginger roll"),
+        ("menu_item", "Ronda de empanadas"),
+        ("store", "Cervecería del Centro"),  # solo productos y platos
     ],
 )
 def test_words_that_only_look_like_alcohol_are_not_blocked(entity_type, name):
     assert not alcohol_in_name(entity_type, name)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Soju Durazno",  # en la base real: 5 platos «Soju …» con concepto `asiatica`
+        "Sangría de la casa",  # y dos «Sangría» en `gaseosas`
+        "Michelada clásica",
+        "Schop Kunstmann 500 cc",
+        "Shop artesanal",
+        "Promo pizza familiar + cerveza",  # «pizza» solo libra a la margarita, no a la cerveza
+        "Chelas x 2",
+        "Copa de vino tinto",
+        "Pisco sour",
+        "Piscola doble",
+        "Vodka tonic",
+        "Whisky con hielo",
+        "Tequila shot",
+        "Ron con cola",
+        "Gin tonic",
+        "Mojito de maracuyá",
+        "Margarita frozen",
+        "Terremoto",
+        "Aperol Spritz",
+    ],
+)
+def test_a_dish_name_that_says_alcohol_is_never_offered(name):
+    """Los platos no traen marca de alcohol ni +18: el nombre lo dice, con la lista de los menús."""
+    assert alcohol_in_name("menu_item", name)
+
+
+def test_a_margarita_that_is_a_pizza_by_its_concept_is_not_blocked():
+    """En la base real, 24 pizzas se llaman «Margarita Familiar», «Margarita Mediana»… sin decir pizza."""
+    assert not alcohol_in_name("menu_item", "Margarita Familiar", "pizza")
+    assert alcohol_in_name("menu_item", "Margarita Familiar", "cocteles")
+    assert alcohol_in_name("menu_item", "Margarita Familiar")
+    assert alcohol_in_name("menu_item", "Margarita familiar + cerveza", "pizza")  # la cerveza sí
+
+
 def test_the_alcohol_words_are_whole_words_in_spanish_and_include_the_asian_ones():
     assert {"soju", "makgeolli", "umeshu", "sake", "ron", "gin", "licor"} <= ALCOHOL_NAME_WORDS
+
+
+def test_the_menu_alcohol_words_leave_out_sake():
+    assert "sake" not in MENU_ALCOHOL_NAME_WORDS
+    assert {"soju", "sangria", "michelada", "cerveza", "schop", "shop", "chela", "vino", "pisco", "piscola"} <= (
+        MENU_ALCOHOL_NAME_WORDS
+    )
+    assert {"vodka", "whisky", "tequila", "ron", "gin", "mojito", "margarita", "terremoto", "spritz"} <= (
+        MENU_ALCOHOL_NAME_WORDS
+    )
 
 
 def test_vertical_to_try_never_offers_a_deal_whose_name_says_alcohol(monkeypatch):

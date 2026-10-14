@@ -360,7 +360,7 @@ def _with_prices(conn: Connection, vertical: str, hits, offer: bool = False, adu
             continue
         name, price, real, store, age, store_id, presentation = found
         # En una oferta, un nombre que dice alcohol cuenta como +18 aunque la tienda no lo marque (offers/guards.py).
-        age = age or (offer and alcohol_in_name(hit.entity_type, name))
+        age = age or (offer and alcohol_in_name(hit.entity_type, name, hit.concept_id))
         if offer and age and not adult_ok:  # +18 aunque su concepto sea corriente: el catálogo lo marca
             continue
         concept = taxonomy.concepts.get(hit.concept_id) if hit.concept_id else None
