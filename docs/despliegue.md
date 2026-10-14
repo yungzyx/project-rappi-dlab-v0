@@ -102,6 +102,7 @@ Todas van en `/etc/rappi/rappi.env`, salvo las que fija `docker-compose.yml` o l
 | `API_RATE_PER_MIN` / `API_RATE_WRITE_PER_MIN` | api (por IP; 429; `0` = sin tope) | `120` / `60` | — | no |
 | `API_NEW_USERS_PER_IP_DAY` | api (`POST /session`; `0` = sin tope) | `20` | `200` para un evento | no |
 | `API_TIMEOUT_INTERACTIVE_MS` / `API_TIMEOUT_ANALYTICS_MS` | api (tope por consulta; 504) | `5000` / `30000` | — | no |
+| `API_PREWARM` | api (precarga en segundo plano de los índices de la búsqueda al arrancar; `0` = sin precarga) | `1` | — | no |
 | `API_ALLOW_LAN` | api | se ignora en producción | — | no |
 | `LOG_LEVEL` | api | `INFO` | `DEBUG` | no |
 | `ANTHROPIC_API_KEY` | api | vacía: plantillas | `sk-…` | sí |
@@ -177,7 +178,7 @@ $COMPOSE up -d --wait db
 $COMPOSE logs db | grep init-roles   # «init-roles: rappi_owner y rappi_api creados en rappi.» (si no está, esperar unos segundos)
 ```
 
-Con el volumen `pgdata` vacío, la imagen de Postgres corre una vez [`deploy/db/init-roles.sh`](../deploy/db/init-roles.sh): crea `rappi_owner` (dueño de la base) y `rappi_api` (solo `CONNECT`), y las extensiones `vector` y `unaccent`. Si la línea no aparece, ver [§3.10](#310-si-algo-falla).
+Con el volumen `pgdata` vacío, la imagen de Postgres corre una vez [`deploy/db/init-roles.sh`](../deploy/db/init-roles.sh): crea `rappi_owner` (dueño de la base) y `rappi_api` (solo `CONNECT`), y las extensiones `vector`, `unaccent` y `pg_prewarm` (la precarga de los índices de la búsqueda al arrancar la API, migración 034). Si la línea no aparece, ver [§3.10](#310-si-algo-falla).
 
 ### 3.5 Restaurar el catálogo
 
@@ -266,6 +267,7 @@ deploy/smoke.sh https://<dominio>    # con BASIC_AUTH_PASSWORD exportada (§3.8)
 - **En producción ni la API ni la tarea semanal migran.** Solo `migrate` lo hace, con respaldo antes. Si la API arranca con migraciones pendientes, `/health` responde 503 `migraciones_pendientes` hasta que corre `migrate`.
 - `up -d` recrea solo los servicios cuya imagen o configuración cambió. Durante el cambio de la API hay unos segundos sin servicio (1 worker, sin réplica).
 - Un cambio de `VITE_DEMO` o `WITH_PANEL` exige `$COMPOSE build web` y `up -d`.
+- **`pg_prewarm` en un volumen de antes de la migración 034:** `init-roles.sh` no vuelve a correr y `rappi_owner` no puede crear la extensión, así que `migrate` solo avisa («pg_prewarm: sin permiso…») y la API arranca sin precarga (un aviso en su registro: la primera búsqueda de cada vertical lee sus índices del disco). Crearla una vez como superusuario: `$COMPOSE exec db psql -U postgres -d rappi -c 'CREATE EXTENSION IF NOT EXISTS pg_prewarm'` y `$COMPOSE restart api`. También hace falta antes de restaurar ahí un dump que ya la trae (uno del Mac mini después de la 034): sin ella, `pg_restore` como `rappi_owner` falla.
 
 ## 5. Volver atrás
 
@@ -292,6 +294,7 @@ GRANT CONNECT ON DATABASE :"db" TO rappi_api;
 \connect :"db"
 CREATE EXTENSION vector;
 CREATE EXTENSION unaccent;
+CREATE EXTENSION pg_prewarm;
 SQL
 $COMPOSE --profile jobs run --rm -T jobs bash -s <<'EN_JOBS'
 set -euo pipefail

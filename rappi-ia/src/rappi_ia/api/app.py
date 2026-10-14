@@ -35,7 +35,7 @@ from ..game.cards import did_you_know
 from ..layers.segments import recalculate_user_segments
 from ..offers.guards import is_offerable
 from ..retrieval.hybrid import MODES
-from . import deps, identity
+from . import deps, identity, prewarm
 from .agent import router as agent_router
 from .catalog import router as catalog_router
 from .deps import Clean, backend_vertical, get_analytics_conn, get_conn, get_connector, get_services
@@ -62,6 +62,7 @@ async def lifespan(app: FastAPI):
         await run_in_threadpool(services)
         # uvicorn solo muestra sus propios loggers: así la duración queda junto a «Application startup complete»
         logging.getLogger("uvicorn.error").info("Servicios cargados en %.1f s", time.perf_counter() - start)
+        prewarm.start()  # en su hilo: ni el arranque ni /health la esperan
         yield
     finally:
         await run_in_threadpool(deps.close_pool)

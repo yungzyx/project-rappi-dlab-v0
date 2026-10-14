@@ -64,6 +64,10 @@ LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 if LOG_LEVEL not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
     raise RuntimeError(f"LOG_LEVEL debe ser DEBUG, INFO, WARNING, ERROR o CRITICAL (vale {LOG_LEVEL!r})")
 
+# Al arrancar, la API lee en segundo plano los índices de la búsqueda (pg_prewarm, migración 034) para que la primera
+# búsqueda de cada vertical no los lea del disco. Encendida por defecto; los tests la apagan (API_PREWARM=0).
+API_PREWARM = _flag("API_PREWARM", True)
+
 # Con API_REQUIRE_SEMANTIC=1, una API sin la búsqueda semántica (el modelo no cargó) no está lista: /health da 503.
 # Apagado por defecto: en local la demo sigue con la búsqueda léxica.
 API_REQUIRE_SEMANTIC = _flag("API_REQUIRE_SEMANTIC", False)

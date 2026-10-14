@@ -113,6 +113,7 @@ La tarea semanal del scraper (`make schedule` en `rappi-scraper/`) ya lo hace so
 | `API_CORS_ORIGINS` | `localhost` y `127.0.0.1` en los puertos 51xx | exactamente estos orígenes (el stack pone `https://<dominio>`) |
 | `API_ENABLE_ANALYTICS` / `API_DOCS` | `1` / `1` | `0` / `0` |
 | `API_POOL_MAX` · `API_POOL_TIMEOUT_S` | `10` · `3` | igual |
+| `API_PREWARM` | `1`: precarga los índices de la búsqueda al arrancar, sin esperarla | igual |
 | `API_RATE_PER_MIN` · `API_RATE_WRITE_PER_MIN` · `API_NEW_USERS_PER_IP_DAY` | `120` · `60` · `20` (este Mac sin tope) | igual, para todas las IP |
 | `API_REQUIRE_SEMANTIC` | `0` | `1` en el stack |
 | `LLM_DAILY_CALL_CAP` | `300` | igual |
@@ -214,5 +215,6 @@ rappi-ia/
 | `030_jev.sql` | Caché de juicios de Jev (`eval_judgments`) y método `jev` en el mapa de categorías |
 | `031_order_mode.sql` | El modo de la app en que se hizo cada pedido (los de «Rappi hoy» no entran al perfil) |
 | `033_user_tokens.sql` | `app_users.token_issued_at`: cuándo recibió la persona su token firmado (un id ya firmado no se puede reclamar con `legacy_user_id`) |
+| `034_prewarm.sql` | Extensión `pg_prewarm`: al arrancar, la API lee en segundo plano los índices HNSW y de texto de la búsqueda (`API_PREWARM`). Si el rol no puede crearla (en producción la crea `init-roles.sh`), solo avisa |
 
 `014`–`015` (limpieza del HTML de los documentos de búsqueda), `017`–`019` y `021` (formatos de tienda, Turbo, vigencia y platos por local) y `032` (`latest_prices` y `latest_menu_prices`, el último precio mantenido por triggers, y la vista `v_latest_offers`, la definición única de oferta vigente, que esta capa también lee) son del scraper.

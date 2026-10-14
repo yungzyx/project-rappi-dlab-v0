@@ -25,8 +25,9 @@ drop_check_db() {
 drop_check_db  # la de una prueba anterior que se cortó
 trap drop_check_db EXIT
 echo "CREATE DATABASE $CHECK_DB OWNER rappi_owner;" | superuser_sql postgres
-# pgvector y unaccent no son extensiones «trusted»: las crea el superusuario, como init-roles.sh en la base de la app.
-echo "CREATE EXTENSION vector; CREATE EXTENSION unaccent;" | superuser_sql "$CHECK_DB"
+# pgvector, unaccent y pg_prewarm no son extensiones «trusted»: las crea el superusuario, como init-roles.sh en la base
+# de la app (un dump que trae una que falta no se restaura como rappi_owner).
+echo "CREATE EXTENSION vector; CREATE EXTENSION unaccent; CREATE EXTENSION pg_prewarm;" | superuser_sql "$CHECK_DB"
 
 # En el contenedor jobs: la URL de rappi_owner con la base de prueba (DATABASE_URL termina en /<base>, sin opciones).
 # El comentario de las extensiones se salta: las creó el superusuario y rappi_owner no puede cambiarlo.
