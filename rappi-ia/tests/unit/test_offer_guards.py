@@ -11,6 +11,7 @@ from rappi_ia.offers.guards import (
     NOT_PLANNABLE_OCCASIONS,
     OFFER_BLOCKED_VERTICALS,
     alcohol_in_name,
+    alcohol_section,
     is_offerable,
     is_plannable,
     offerable_vertical,
@@ -126,10 +127,82 @@ def test_a_catalog_name_that_says_alcohol_is_never_offered(name):
         ("menu_item", "Ginger roll"),
         ("menu_item", "Ronda de empanadas"),
         ("store", "Cervecería del Centro"),  # solo productos y platos
+        # Nombres reales que dicen una palabra de trago sin serlo.
+        ("menu_item", "Sour Cream"),
+        ("menu_item", "Papas fritas sour cream"),
+        ("menu_item", "Sweet And Sour Roll"),
+        ("menu_item", "Papas Sour"),
+        ("menu_item", "Sopa Hot Sour"),
+        ("menu_item", "Hamburguesa la Corona"),
+        ("menu_item", "La corona de Juana"),
+        ("menu_item", "Corona Sacra"),  # quesadillas
+        ("menu_item", "Pizza stella mediana"),
+        ("menu_item", "Merluza Austral"),  # «austral» no es la cerveza: 47 platos de merluza
+        ("menu_item", "Iced Latte Cristal"),
+        ("menu_item", "Negroni / Salame Milano Laminado 100 G"),
     ],
 )
 def test_words_that_only_look_like_alcohol_are_not_blocked(entity_type, name):
     assert not alcohol_in_name(entity_type, name)
+
+
+@pytest.mark.parametrize(
+    ("name", "concept"),
+    [
+        ("Margarita Familiar", "pizza"),
+        ("Tako Sour", "sushi"),  # un roll
+        ("Ceviche Sour", "pescados-mariscos"),
+        ("Sour", "salsas"),
+    ],
+)
+def test_a_drink_word_is_food_when_the_dish_concept_says_so(name, concept):
+    assert not alcohol_in_name("menu_item", name, concept)
+    assert alcohol_in_name("menu_item", name)
+
+
+@pytest.mark.parametrize(
+    "section",
+    [
+        "Cervezas",
+        "Bebidas y Cervezas",  # mezclada: tampoco se ofrecen sus bebidas
+        "Cervezas Japonesas y Sake",
+        "Bebidas Alcohólicas",
+        "Alcohol +18",
+        "Licores",
+        "Vinos y Piscos",
+        "Espumantes",
+        "Pisco Sour",
+        "Tragos de Autor",
+        "Cócteles",
+        "CÓCTELES 1 LITRO",
+        "Coctelería",
+        "Cocktails",
+    ],
+)
+def test_a_dish_from_a_drinks_section_is_never_offered(section):
+    assert alcohol_section(section)
+
+
+@pytest.mark.parametrize(
+    "section",
+    [
+        None,
+        "",
+        "Bebidas",
+        "Bebidas sin Alcohol",
+        "Bebestibles Sin Alcohol",
+        "Bebidas No Alcoholicas",
+        "Mocktails, Not Alcohol",
+        "Cocktail",  # en Chile, un cóctel es también comida para picar: tablas, empanaditas
+        "Empanadas de Cóctel",
+        "Cocktail De Aperitivo",
+        "Chop Suey",
+        "Rolls",
+        "Salsas",
+    ],
+)
+def test_other_sections_are_not_blocked(section):
+    assert not alcohol_section(section)
 
 
 @pytest.mark.parametrize(
@@ -154,6 +227,33 @@ def test_words_that_only_look_like_alcohol_are_not_blocked(entity_type, name):
         "Margarita frozen",
         "Terremoto",
         "Aperol Spritz",
+        # Lo que se escapaba en la base real (revisión de P2), con concepto ofrecible y precio.
+        "Chelada",
+        "Negroni",
+        "Mango Sour 480ml",
+        "Amareto Sour",
+        "Sake sour",  # sin concepto: el «sour» de un trago
+        "Sour Peruano 1 l",
+        "Makgeoli 750ml",
+        "Caipiriña",
+        "Daiquiri Mango",
+        "Escudo 350 ml",
+        "Lata Guinness - Draught nitro",
+        "Cono sur bicicleta",
+        "Corona 620c.c",
+        "Corona Sin Alcohol",  # una cerveza igual: una oferta no la propone
+        "Novas carmenere",
+        "Novas chardonnay",
+        "Whiskey con red bull",
+        "Kunstmann Torobayo 330 cc",
+        "Heineken lata",
+        "Stella Artois 330 cc",
+        "Budweiser 355 cc",
+        "Champaña Brut",
+        "Espumante Rosé",
+        "Licor de café",
+        "Sidra de manzana",
+        "Umeshu",
     ],
 )
 def test_a_dish_name_that_says_alcohol_is_never_offered(name):

@@ -325,3 +325,49 @@ def test_vertical_to_try_never_offers_a_popular_dish_whose_name_says_alcohol(dem
     db.execute("UPDATE menu_items SET name = 'Mojito de la casa (prueba)' WHERE item_id = 98004")  # sigue en postres
 
     assert "Mojito de la casa (prueba)" not in {d["name"] for d in _popular_dishes(db)}
+
+
+def test_an_offer_never_brings_a_dish_from_a_drinks_section(db):
+    """En la base real, «Sake Dry» y «Sake Nigori» (sección «Cervezas Japonesas y Sake») tienen concepto `asiatica` y un
+    nombre que no dice alcohol: la sección lo dice. Una sección «sin alcohol» sí se ofrece."""
+    embedder = HashEmbedder()
+    add_store(db, 22, "restaurantes", "Sushi")
+    db.execute("INSERT INTO scrape_runs (run_id, kind, status) VALUES (999, 'restaurants', 'done')")
+    for item_id, name, section in (
+        (951, "Sake Dry", "Cervezas Japonesas y Sake"),
+        (952, "Misiones de Rengo 3/4 Lt", "Licores"),
+        (953, "Limonada menta", "Bebidas sin Alcohol"),
+        (954, "Gyozas de cerdo", "Cocktail De Aperitivo"),  # «cóctel» en singular: comida para picar
+    ):
+        add_dish(db, item_id, name, 22, section)
+        db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, %s, 4990)", (item_id,))
+    stock(db, embedder, [])
+    db.execute(
+        """INSERT INTO item_concepts (entity_type, entity_id, concept_id, method, confidence)
+           SELECT 'menu_item', id, 'asiatica', 'regla', 1 FROM unnest(%s::text[]) AS id
+           ON CONFLICT (entity_type, entity_id) DO UPDATE SET concept_id = 'asiatica'""",
+        (["951", "952", "953", "954"],),
+    )
+
+    def offered(query, offer):
+        found = search_products(db, "restaurantes", query, ["asiatica"], embedder, offer=offer).products
+        return {p.name for p in found}
+
+    for query, name in (("sake dry", "Sake Dry"), ("misiones de rengo", "Misiones de Rengo 3/4 Lt")):
+        assert name in offered(query, False)  # la búsqueda no cambia
+        assert name not in offered(query, True)
+    assert "Limonada menta" in offered("limonada", True)
+    assert "Gyozas de cerdo" in offered("gyozas", True)
+
+
+def test_vertical_to_try_never_offers_a_popular_dish_from_a_drinks_section(demo):
+    from rappi_ia.offers.engine import _popular_dishes
+
+    db, _ = demo
+    assert "Tiramisú individual (prueba)" in {d["name"] for d in _popular_dishes(db)}
+    db.execute(
+        """UPDATE menu_sections SET name = 'Tragos de autor'
+           WHERE (store_id, section_id) = (SELECT store_id, section_id FROM menu_items WHERE item_id = 98004)"""
+    )
+
+    assert "Tiramisú individual (prueba)" not in {d["name"] for d in _popular_dishes(db)}
