@@ -78,6 +78,12 @@ def test_avoid_words_block_a_keyword_in_the_same_name_but_not_elsewhere():
         ("Mood Aceite Esencial Roll-On Calma", None),
         ("Sticki Rolls Set Brazalete", None),
         ("California Roll 10 piezas", "sushi"),
+        ("Almond Roll", "sushi"),
+        ("Hand Roll Salmón", "sushi"),
+        ("Roll De Canela", None),  # un pastel, no sushi (el 14-10-2026 salía en el Súper y en Chocolaterías)
+        ("Sumkha Granol Gluten Free Cinna Roll", None),
+        ("Cinnamon Rolls (2 unds)", None),
+        ("Sausage roll", None),
         ("Hilos Mulina Ariadna Café 1728", None),
         ("Botón Nacar Figuras Café Flor", None),
         ("Café Molido 250 g", "cafe"),
@@ -118,3 +124,28 @@ def test_known_false_positives_of_name_rules(matcher, text, expected):
 def test_a_hand_cream_is_dermocosmetics_not_soup_or_fruit(matcher):
     assert matcher.best("Crema De Manos Cartera Limon").target == "dermocosmetica"
     assert matcher.best("Crema de Manos Nivea 75 ml").target == "dermocosmetica"
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("roll de canela", None),
+        ("cinna roll", None),
+        ("almond roll", "sushi"),
+        ("california roll", "sushi"),
+        ("hand roll salmón", "sushi"),
+    ],
+)
+def test_roll_in_a_query_is_sushi_only_when_it_is_sushi(query, expected):
+    match = concept_matcher(load_taxonomy(), for_queries=True).best(query)
+
+    assert (match.target if match else None) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Maxi roll manjar", "NY Roll de Pistacho 9 cm", "Kathi Roll Chicken (1 Piece)", "Rolls de Pepperoni y Queso"],
+)
+def test_rolls_of_other_cuisines_and_pastry_are_not_sushi(matcher, text):
+    """«Roll» solo es sushi si el plato no es un pastel, un wrap ni un pan de pizzería (otro concepto puede calzar)."""
+    assert "sushi" not in [m.target for m in matcher.matches(text)]

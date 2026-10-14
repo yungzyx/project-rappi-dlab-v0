@@ -513,7 +513,7 @@ parent = "comida"
 name = "Sushi"
 emoji = "🍣"
 keywords = ["sushi", "roll", "rolls", "nigiri", "sashimi", "handroll", "hand roll", "maki", "gohan", "uramaki", "tempura roll", "california roll"]
-avoid = ["roll on", "aceite", "brazalete"]
+avoid = ["roll on", "aceite", "brazalete", "canela", "cinna", "cinnamon", "cinamon", "cinammon", "manjar", "ny", "kathi", "pepperoni", "peperoni", "sausage"]
 
 [[concept]]
 id = "sandwiches"
