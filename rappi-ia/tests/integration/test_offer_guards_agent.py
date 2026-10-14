@@ -4,7 +4,7 @@ servicios nunca proponen alcohol, farmacia, bebé, salud, conceptos sensibles, s
 import pytest
 from rappi_scraper.storage.search import build_search_documents
 
-from conftest import add_price, add_product, add_store
+from conftest import add_dish, add_price, add_product, add_store
 from owner_client import OwnerClient
 from rappi_ia.agent.compose import TemplateComposer
 from rappi_ia.agent.rappi_agent import Context, RappiAgent
@@ -260,3 +260,26 @@ def test_a_soda_sold_only_by_a_licores_store_in_the_seed_is_not_suggested(demo):
 
     suggestion = suggest_complement(db, ["pizza"], "restaurantes", embedder)  # pasa a la arista siguiente, si hay
     assert suggestion is None or (suggestion.concept != "gaseosas" and suggestion.vertical != "licores")
+
+
+def test_an_offer_never_brings_a_catalog_item_whose_name_says_alcohol(db):
+    """«Soju Uva Verde 13.0» está en «Frutas» en la base real, sin marca de alcohol ni +18: quien lo busca lo encuentra,
+    pero el agente no lo ofrece. Un plato «Sake Roll» (salmón) sí se ofrece: los platos no se revisan por el nombre."""
+    embedder = HashEmbedder()
+    add_store(db, 21, "supermercado", "Súper")
+    add_store(db, 22, "restaurantes", "Sushi")
+    db.execute("INSERT INTO scrape_runs (run_id, kind, status) VALUES (999, 'restaurants', 'done')")
+    add_dish(db, 941, "Sake Roll", 22, "Rolls")
+    db.execute("INSERT INTO menu_price_snapshots (run_id, item_id, price) VALUES (999, 941, 6990)")
+    stock(db, embedder, [(931, "Soju Uva Verde 13.0", 21, "Frutas"), (932, "Uva Verde 1 kg", 21, "Frutas")])
+
+    searched = search_products(db, "supermercado", "uva verde", [], embedder)
+    offered = search_products(db, "supermercado", "uva verde", [], embedder, offer=True)
+    kit = search_products(db, "supermercado", "uva verde", [], embedder, offer=True, adult_ok=True)
+    dish = search_products(db, "restaurantes", "sake roll", [], embedder, offer=True)
+
+    assert {p.entity_id for p in searched.products} == {"931", "932"}
+    assert [p.entity_id for p in offered.products] == ["932"]
+    soju = next(p for p in kit.products if p.entity_id == "931")  # en un kit elegido, con su marca +18
+    assert soju.age_restricted
+    assert [p.entity_id for p in dish.products] == ["941"]

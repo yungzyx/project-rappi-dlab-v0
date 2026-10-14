@@ -15,14 +15,14 @@ LADDERS = {
         ("turbo", ("despensa-asiatica",), ()),
         ("conveniencia", ("snacks-asiaticos", "bebidas-asiaticas"), ()),
         ("supermercado", ("despensa-asiatica", "bebidas-asiaticas"), ()),
-        ("chocolateria", ("chocolates",), ("matcha",)),
+        ("chocolateria", ("chocolates", "te"), ("matcha",)),  # Lindor Matcha está en la categoría «Tés»
     ],
     "cafe": [
         ("supermercado", ("cafe",), ()),
         ("turbo", ("cafe",), ()),
         ("conveniencia", ("cafe",), ()),
         ("mall", ("electrohogar", "cocina-menaje"), ("cafetera", "molinillo", "prensa francesa")),
-        ("chocolateria", ("chocolates",), ("café",)),
+        ("chocolateria", ("chocolates",), ("cafe",)),  # las palabras quedan sin tildes, como se comparan
     ],
     "italiano": [
         ("supermercado", ("pastas", "quesos", "salsas", "aceites-condimentos"), ()),
@@ -41,14 +41,14 @@ LADDERS = {
         ("turbo", ("hielo", "gaseosas"), ()),
         ("conveniencia", ("snacks-salados",), ()),
         ("supermercado", ("frutos-secos", "snacks-salados", "salsas"), ()),
-        ("mall", ("decoracion",), ("vaso", "guirnalda", "globo", "cotillón")),
+        ("mall", ("decoracion",), ("vaso", "guirnalda", "globo", "cotillon")),
         ("restaurantes", ("pizza", "picoteo"), ()),
     ],
 }
 SEGMENTS = {
     "asiatico": ("sushi", "asiatica", "japonesa", "china"),
     "cafe": ("cafetero", "cafe-de-especialidad"),
-    "italiano": ("italiana", "pastas"),
+    "italiano": ("italiana", "pastas", "pizzero"),
     "mascotas": ("tiene-perro",),
     "carrete": ("fiestero",),
 }
@@ -107,13 +107,13 @@ def test_every_trip_is_a_question_with_two_sourced_facts():
     assert "35 COM 8B.43" in destinations["colombia"].facts[0].source
 
 
-def test_the_three_approved_graph_edges_exist():
-    edges = {(source, target) for source, target, _ in load_complements()}
-    assert {
-        ("sushi", "despensa-asiatica"),
-        ("sushi", "bebidas-asiaticas"),
-        ("asiatica", "snacks-asiaticos"),
-    } <= edges
+def test_the_three_approved_graph_edges_exist_below_the_first_cross_sell():
+    """Las aristas se aprobaron, no su peso: el primer complemento del sushi y de lo asiático sigue siendo el postre."""
+    weights = {(source, target): weight for source, target, weight in load_complements()}
+    new = [("sushi", "despensa-asiatica"), ("sushi", "bebidas-asiaticas"), ("asiatica", "snacks-asiaticos")]
+    assert all(edge in weights for edge in new)
+    assert max(weights[edge] for edge in new[:2]) < weights[("sushi", "postres")]
+    assert weights[new[2]] < weights[("asiatica", "postres")]
 
 
 # ── Validación: un error de datos se detecta al cargar, en español y con el id ────────────────────────────────
@@ -135,7 +135,7 @@ texto = "Uno"
 [[perfil.escalera]]
 vertical = "supermercado"
 conceptos = ["gaseosas"]
-palabras = ["cola"]
+palabras = ["Colá", "Té Verde"]
 texto = "Dos"
 """
 
@@ -148,7 +148,7 @@ def _write(tmp_path, text, name="perfiles.toml"):
 
 def test_a_valid_profile_file_loads(tmp_path):
     profile = load_profiles(_write(tmp_path, VALID_PROFILE))["prueba"]
-    assert (profile.main, profile.ladder[1].words, profile.trip) == (False, ("cola",), "japon")
+    assert (profile.main, profile.ladder[1].words, profile.trip) == (False, ("cola", "te verde"), "japon")
 
 
 @pytest.mark.parametrize(
@@ -201,6 +201,11 @@ texto = "¿Y si un día vas a la Luna?"
 texto = "Está lejos."
 fuente = "Wikipedia"
 url = "https://es.wikipedia.org/wiki/Luna"
+
+[[destino.hechos]]
+texto = "Tiene fases."
+fuente = "NASA"
+url = "https://science.nasa.gov/moon/"
 """
 
 
@@ -226,3 +231,11 @@ def test_a_destination_needs_facts(tmp_path):
     without_facts = VALID_DESTINATION[: VALID_DESTINATION.index("[[destino.hechos]]")]
     with pytest.raises(ValueError, match="luna.*hechos"):
         load_destinations(_write(tmp_path, without_facts, "destinos.toml"))
+
+
+@pytest.mark.parametrize("facts", [1, 3])
+def test_a_destination_has_exactly_two_facts(tmp_path, facts):
+    header, first_fact, _ = VALID_DESTINATION.split("[[destino.hechos]]")
+    text = header + "".join(["[[destino.hechos]]" + first_fact] * facts)
+    with pytest.raises(ValueError, match="luna.*2 hechos"):
+        load_destinations(_write(tmp_path, text, "destinos.toml"))

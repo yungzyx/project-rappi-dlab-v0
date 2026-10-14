@@ -17,6 +17,7 @@ Esto reemplaza a docs/diseno-ia.md regla 6b, que permitía el alcohol como compl
 Las reglas viven solo aquí; las consultas de productos las aplican con `search_products(..., offer=True)`.
 """
 
+from ..concepts.matcher import KeywordMatcher
 from ..concepts.taxonomy import Concept, Occasion, load_taxonomy
 
 OFFER_BLOCKED_GROUPS = ("bebe", "salud")  # grupos de taxonomy.toml; el alcohol y el tabaco se bloquean por sus marcas
@@ -24,6 +25,19 @@ OFFER_BLOCKED_GROUPS = ("bebe", "salud")  # grupos de taxonomy.toml; el alcohol 
 OFFER_BLOCKED_VERTICALS = ("farmacia", "licores")
 ALCOHOL_VERTICALS = ("licores",)  # las bloqueadas de las que el alcohol de un kit elegido sí puede salir
 NOT_PLANNABLE_OCCASIONS = ("guagua", "enfermo")  # bebé y salud: ni siquiera como kit que la persona pide
+# Palabras de un nombre que dicen alcohol aunque la tienda no lo marque: las marcas de la tienda (`is_alcoholic`,
+# `age_restricted`) y la categoría pueden estar mal. En la base real del 14-10-2026, «Soju Uva Verde 13.0» venía en
+# «Frutas» sin ninguna marca, y una cerveza, un ron y un vino tinto quedaban en frutas, decoración y útiles. Palabra
+# entera, con su plural: «ron» no está en «ronda» ni «gin» en «ginger». Solo para productos del catálogo: en un menú
+# «sake» es salmón («Sake Roll»). Bloquea también lo que solo nombra el alcohol (vinagre de vino, copas de vino,
+# galletas Vino): de una oferta que nadie pidió, sobra; quien lo busca por su nombre lo sigue encontrando.
+ALCOHOL_NAME_WORDS = frozenset(
+    {
+        *("soju", "makgeolli", "umeshu", "sake", "cerveza", "vino", "whisky", "pisco", "ron", "vodka", "gin"),
+        *("tequila", "licor", "aperitivo", "espumante", "champagne", "sidra"),
+    }
+)
+_ALCOHOL_NAMES = KeywordMatcher(("alcohol", word) for word in ALCOHOL_NAME_WORDS)
 
 
 def is_plannable(concept: Concept) -> bool:
@@ -49,6 +63,11 @@ def plannable_occasion(occasion: Occasion) -> bool:
     que pueda ir en el kit."""
     concepts = load_taxonomy().concepts
     return occasion.id not in NOT_PLANNABLE_OCCASIONS and any(is_plannable(concepts[c]) for c in occasion.concepts)
+
+
+def alcohol_in_name(entity_type: str, name: str) -> bool:
+    """Si el nombre de un producto del catálogo dice alcohol (`ALCOHOL_NAME_WORDS`). Un plato, nunca."""
+    return entity_type == "catalog_item" and _ALCOHOL_NAMES.best(name) is not None
 
 
 def offerable_vertical(vertical: str) -> bool:

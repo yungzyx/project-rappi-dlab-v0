@@ -116,3 +116,27 @@ def test_follows_agent_name_env(understander, monkeypatch):
     assert understander.understand(None, "gracias Pelusa", "restaurantes").kind == "gracias"
     assert understander.understand(None, "hola pelusa quiero sushi", "restaurantes").query == "sushi"
     assert understander.understand(None, "hola bigotes quiero sushi", "restaurantes").query == "sushi"  # el antiguo
+
+
+@pytest.mark.parametrize(
+    ("text", "kind", "occasion", "concepts"),
+    [
+        ("Mochi, ¿qué me recomiendas?", "recomendar", None, []),
+        ("Mochi, ¿qué hay de rico para cenar?", "ocasion", "hambre", None),
+        ("Mochi se me antoja algo dulce", "ocasion", "antojo", None),
+        ("te quiero mochi", "fuera", None, []),
+        ("Mochi, ¿cuál es el mejor sushi?", "buscar", None, ["sushi"]),
+        ("quiero mochi", "buscar", None, []),
+    ],
+)
+def test_the_agent_name_is_not_read_as_a_product(understander, monkeypatch, text, kind, occasion, concepts):
+    """Con «mochi» como palabra de los snacks asiáticos, estos mensajes al agente pedían snacks asiáticos (revisión
+    del 14-10-2026). Dicen lo mismo que antes de los conceptos asiáticos."""
+    from rappi_ia import config
+
+    monkeypatch.setattr(config, "AGENT_NAME", "Mochi")
+    intent = understander.understand(None, text, "restaurantes")
+    assert (intent.kind, intent.occasion) == (kind, occasion), text
+    assert "snacks-asiaticos" not in intent.concepts
+    if concepts is not None:
+        assert intent.concepts == concepts, text

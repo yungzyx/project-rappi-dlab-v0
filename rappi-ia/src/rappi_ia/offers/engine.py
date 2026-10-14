@@ -33,6 +33,7 @@ from ..embeddings.base import MemoizedQueryEmbedder, TextEmbedder
 from ..retrieval.hybrid import _concepts_of, detect_concepts
 from ..text import contract_articles, normalize, tokens
 from .guards import (
+    alcohol_in_name,
     is_offerable,
     is_plannable,
     offerable_vertical,
@@ -394,10 +395,10 @@ def _vertical_affinity(conn: Connection, interests: Interests) -> dict[str, dict
 
 
 def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
-    """Las ofertas de la vertical que el agente puede proponer: ni +18, ni de un concepto que no ofrece, ni de una
-    tienda Farmacia, Sex shop o Smoking shop (`deals` ya quita lo sensible, pero con vertical no quita esas tiendas). Un
-    producto que está dos veces con otro id (el catálogo repite nombres) sale una vez. Las de un concepto típico de la
-    vertical van primero."""
+    """Las ofertas de la vertical que el agente puede proponer: ni +18 (tampoco un nombre que dice alcohol), ni de un
+    concepto que no ofrece, ni de una tienda Farmacia, Sex shop o Smoking shop (`deals` ya quita lo sensible, pero con
+    vertical no quita esas tiendas). Un producto que está dos veces con otro id (el catálogo repite nombres) sale una
+    vez. Las de un concepto típico de la vertical van primero."""
     concepts = load_taxonomy().concepts
     found = deals(conn, vertical, DEAL_POOL)
     blocked = {
@@ -411,6 +412,7 @@ def _offerable_deals(conn: Connection, vertical: str) -> list[dict]:
         d
         for d in found
         if not d["age_restricted"]
+        and not alcohol_in_name("catalog_item", d["name"])  # las ofertas de `deals` son del catálogo
         and d["store_id"] not in blocked
         and (d["concept"] not in concepts or is_offerable(concepts[d["concept"]]))
     ]

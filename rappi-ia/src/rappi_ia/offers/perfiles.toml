@@ -5,8 +5,8 @@
 # - `principal = true`: va primero entre los perfiles de la persona (solo uno; hoy, el asiático).
 # - `segmentos`: ids de segments.toml que lo activan, en un nivel igual o mayor a `nivel_minimo`. Nunca sensibles.
 # - `escalera`: peldaños en orden, de lo más cercano a lo más lejano. Cada uno busca en su `vertical` los productos de
-#   sus `conceptos`; con `palabras`, solo los que tienen alguna en el nombre (sin tildes ni mayúsculas; basta el
-#   comienzo: «tiramis» es tiramisú). `texto` es lo que dice el agente al ofrecerlo.
+#   sus `conceptos`; con `palabras`, solo los que tienen alguna en el nombre (se comparan sin tildes ni mayúsculas;
+#   basta el comienzo: «tiramis» es tiramisú). `texto` es lo que dice el agente al ofrecerlo.
 # - `viaje`: id de un destino de destinos.toml (el último peldaño, «Idea para RappiTravel»), o nada.
 #
 # Las guardias de ofertas mandan (offers/guards.py): ningún peldaño nombra alcohol, farmacia, bebé, salud ni algo
@@ -43,7 +43,7 @@ texto = "Tu despensa asiática"
 
 [[perfil.escalera]]
 vertical = "chocolateria"
-conceptos = ["chocolates"]
+conceptos = ["chocolates", "te"]  # «Lindor Matcha» viene en la categoría «Tés»
 palabras = ["matcha"]
 texto = "El matcha, pero en chocolate"
 
@@ -86,7 +86,7 @@ texto = "El café, pero en chocolate"
 id = "italiano"
 nombre = "Amante de lo italiano"
 emoji = "🍝"
-segmentos = ["italiana", "pastas"]
+segmentos = ["italiana", "pastas", "pizzero"]
 nivel_minimo = "medio"
 viaje = "italia"
 

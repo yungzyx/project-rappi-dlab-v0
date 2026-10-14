@@ -10,7 +10,7 @@ from rappi_ia.concepts.assign import Assignment, MappedName, assign_catalog_item
 from rappi_ia.concepts.knn import ItemText, _decide
 from rappi_ia.concepts.taxonomy import load_taxonomy, sensitive_concepts
 from rappi_ia.retrieval.hybrid import _query_concepts
-from rappi_ia.text import normalize
+from rappi_ia.text import assistant_words, normalize, tokens
 
 
 @pytest.fixture(scope="module")
@@ -22,9 +22,24 @@ def test_no_keyword_belongs_to_two_concepts():
     """Con una keyword en dos conceptos, gana el que aparece primero en el archivo: una regla que nadie decidió."""
     owners = defaultdict(set)
     for concept in load_taxonomy().concepts.values():
-        for keyword in (concept.name, *concept.keywords, *concept.query_keywords):
+        for keyword in (concept.name, *concept.keywords, *concept.query_keywords, *concept.product_keywords):
             owners[normalize(keyword)].add(concept.id)
     assert {kw: sorted(ids) for kw, ids in owners.items() if len(ids) > 1} == {}
+
+
+def test_the_agent_name_never_reads_a_query_as_a_product():
+    """«Mochi» es el agente y también un postre: con «mochi» entre las palabras de una consulta, «Mochi, ¿qué me
+    recomiendas?» pedía snacks asiáticos. Ninguna palabra que lee consultas (nombres, keywords, query_keywords,
+    ocasiones y servicios) puede tener el nombre del agente; en `product_keywords` sí, porque solo nombran productos
+    («Kai Mochi Helado»)."""
+    names = assistant_words()
+    taxonomy = load_taxonomy()
+    words = [
+        *((c.id, kw) for c in taxonomy.concepts.values() for kw in (c.name, *c.keywords, *c.query_keywords)),
+        *((o.id, kw) for o in taxonomy.occasions.values() for kw in (o.name, *o.keywords)),
+        *((s.id, kw) for s in taxonomy.services.values() for kw in (s.name, *s.keywords)),
+    ]
+    assert [(owner, kw) for owner, kw in words if names & set(tokens(kw))] == []
 
 
 @pytest.mark.parametrize(

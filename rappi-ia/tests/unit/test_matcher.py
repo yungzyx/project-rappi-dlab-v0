@@ -221,7 +221,7 @@ def test_lookalikes_are_not_asian(matcher, text):
         ("pepero", "snacks-asiaticos"),
         ("ramen instantáneo", "snacks-asiaticos"),
         ("té matcha", "bebidas-asiaticas"),
-        ("bubble tea", "bebidas-asiaticas"),
+        ("milkis", "bebidas-asiaticas"),
         ("sushi", "sushi"),  # lo de siempre no cambia
         ("ramen", "asiatica"),
         ("salsa de tomate", "salsas"),
@@ -235,3 +235,52 @@ def test_asian_concepts_in_a_query(query, expected):
 def test_lookalike_queries_are_not_asian(query):
     found = concept_matcher(load_taxonomy(), for_queries=True).matches(query)
     assert not ASIAN & {m.target for m in found}
+
+
+# Lo que el catálogo llamaba antes de los conceptos asiáticos (taxonomía 2026-10-04): son platos y bebidas de
+# restaurante, y los conceptos asiáticos no se piden hechos (`prepared`), así que no compiten en restaurantes.
+DISH_QUERIES = [
+    ("miso ramen", ["asiatica"]),
+    ("shoyu ramen", ["asiatica"]),
+    ("kimchi ramen", ["asiatica"]),
+    ("panko roll", ["sushi"]),
+    ("wasabi roll", ["sushi"]),
+    ("bubble tea", []),
+    ("boba", []),
+    ("milk tea", []),
+    ("tteokbokki", []),
+    ("dorayaki", []),
+    ("tempura panko", []),
+    ("ramyeon", []),
+    ("hoisin", []),
+    ("matcha latte", ["te", "cafe"]),
+    ("fideos de arroz", ["pastas", "arroz-legumbres"]),
+    ("pollo en salsa teriyaki", ["pollo", "salsas", "asiatica"]),
+    ("sopa miso", ["sopas"]),
+    ("mochi helado", ["helados"]),
+]
+
+
+@pytest.mark.parametrize(("query", "concepts"), DISH_QUERIES)
+def test_dish_words_label_products_but_do_not_read_queries(query, concepts):
+    """«panko», «miso» o «bubble tea» en una consulta piden un plato o una bebida de restaurante: siguen con el concepto
+    de antes. En un producto del catálogo sí lo nombran (`product_keywords`)."""
+    found = concept_matcher(load_taxonomy(), for_queries=True).matches(query)
+    assert [m.target for m in found] == concepts
+
+
+@pytest.mark.parametrize(
+    ("name", "concept"),
+    [
+        ("Panko Blanco 1kg", "despensa-asiatica"),
+        ("Kimchi 200g", "despensa-asiatica"),
+        ("Wasabi En Polvo 20 Gr", "despensa-asiatica"),
+        ("Real Thai Fideos de Arroz", "despensa-asiatica"),
+        ("Dorayaki Sabor Chocolate", "snacks-asiaticos"),
+        ("Plato Vaso Yopokki Tteokbokki Tradicional", "snacks-asiaticos"),
+        ("Coco Matcha Latte", "bebidas-asiaticas"),
+        ("Gunys Popping Boba Uva 350ml", "bebidas-asiaticas"),
+    ],
+)
+def test_product_only_words_still_label_catalog_products(matcher, name, concept):
+    assert matcher.best(name).target == concept

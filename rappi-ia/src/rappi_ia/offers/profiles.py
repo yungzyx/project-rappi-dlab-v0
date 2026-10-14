@@ -14,10 +14,12 @@ from rappi_scraper.storage.search import VERTICALS
 
 from ..concepts.taxonomy import load_taxonomy
 from ..layers.segments import LEVELS, load_segment_rules
+from ..text import normalize
 from .guards import is_offerable, offerable_vertical
 
 DATA_DIR = Path(__file__).resolve().parent
 MIN_STEPS = 2  # con menos peldaños no hay escalera que ofrecer
+FACTS = 2  # hechos por destino: los que muestra la tarjeta del viaje
 
 
 @dataclass(frozen=True)
@@ -40,7 +42,7 @@ class Step:
     vertical: str
     concepts: tuple[str, ...]
     text: str
-    words: tuple[str, ...] = ()  # si las hay, el nombre del producto debe tener alguna
+    words: tuple[str, ...] = ()  # si las hay, el nombre del producto debe tener alguna (normalizadas, `text.normalize`)
 
 
 @dataclass(frozen=True)
@@ -63,8 +65,8 @@ def load_destinations(path: Path = DATA_DIR / "destinos.toml") -> dict[str, Dest
         _check_keys(raw, {"id", "nombre", "texto", "hechos"}, set(), where)
         if raw["id"] in destinations:
             raise ValueError(f"{where}: id repetido")
-        if not raw["hechos"]:
-            raise ValueError(f"{where}: sin hechos")
+        if len(raw["hechos"]) != FACTS:
+            raise ValueError(f"{where}: lleva {FACTS} hechos, no {len(raw['hechos'])}")
         facts = []
         for fact in raw["hechos"]:
             _check_keys(fact, {"texto", "fuente", "url"}, set(), f"{where}, hecho")
@@ -132,7 +134,9 @@ def _step(raw: dict, concepts: dict, where: str) -> Step:
             raise ValueError(f"{where}: concepto desconocido «{concept}»")
         if not is_offerable(concepts[concept]):
             raise ValueError(f"{where}: el agente no ofrece «{concept}» por su cuenta (offers/guards.py)")
-    return Step(vertical, tuple(raw["conceptos"]), raw["texto"], tuple(raw.get("palabras", ())))
+    # Como se comparan con el nombre normalizado: «café» calza «Bombones de Cafe» y «cotillón», «Cotillon».
+    words = tuple(normalize(word) for word in raw.get("palabras", ()))
+    return Step(vertical, tuple(raw["conceptos"]), raw["texto"], words)
 
 
 def _check_keys(raw: dict, required: set[str], optional: set[str], where: str) -> None:

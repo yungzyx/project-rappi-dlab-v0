@@ -69,15 +69,23 @@ class Assignment:
     confidence: float
     model_version: str | None
     source: str
+    # El concepto de la categoría que el nombre afinó (NAME_REFINES_CONCEPTS): el kNN lo respeta ante vecinas de comida.
+    # Solo vive durante `rappi-ia concepts`; no se guarda en la base.
+    refines: str | None = None
 
 
 def concept_matcher(taxonomy: Taxonomy, for_queries: bool = False) -> "KeywordMatcher | QueryMatcher":
     """`for_queries`: para entender consultas, no para asignar productos. Suma el nombre de los sensibles y sus
-    `query_keywords`: «necesito medicamentos» pide medicamentos aunque «Dosificador de medicamentos» no sea uno."""
+    `query_keywords`: «necesito medicamentos» pide medicamentos aunque «Dosificador de medicamentos» no sea uno. Sin
+    `for_queries` suma las `product_keywords`: «panko» nombra un producto del súper; en una consulta pide un roll."""
     entries = [
         (c.id, kw)
         for c in taxonomy.concepts.values()
-        for kw in (*_name_keyword(c, for_queries), *c.keywords, *(c.query_keywords if for_queries else ()))
+        for kw in (
+            *_name_keyword(c, for_queries),
+            *c.keywords,
+            *(c.query_keywords if for_queries else c.product_keywords),
+        )
     ]
     avoid = [(c.id, word) for c in taxonomy.concepts.values() for word in c.avoid]
     if not for_queries:
@@ -138,8 +146,8 @@ def assign_catalog_item(
 ) -> Assignment | None:
     mapped = category_map.get(_key(category)) if category else None
     rule = _from_rule("catalog_item", item_id, name, matcher)
-    if rule and rule.concept_id in NAME_REFINES_CONCEPTS and mapped and mapped.concept_id in _refinable_by_name():
-        return rule
+    if rule and rule.concept_id in NAME_REFINES_CONCEPTS and mapped and mapped.concept_id in refinable_by_name():
+        return replace(rule, refines=mapped.concept_id)
     # Guardia simétrica: un nombre sensible manda sobre una categoría común (un lubricante en «Agua saborizada»).
     sensitive_name = (
         rule is not None
@@ -195,7 +203,7 @@ def _from_section_name(item_id: str, section: str | None, matcher: KeywordMatche
 
 
 @cache
-def _refinable_by_name() -> frozenset[str]:
+def refinable_by_name() -> frozenset[str]:
     """Lo que un concepto de especialidad puede afinar por el nombre: comida y bebida, nunca alcohol ni un sensible."""
     return frozenset(
         c.id

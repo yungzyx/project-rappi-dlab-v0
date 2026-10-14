@@ -1,11 +1,15 @@
 """Las guardias de ofertas: lo que Mochi nunca propone por su cuenta (rappi_ia/offers/guards.py)."""
 
+import pytest
+
 from rappi_ia.catalog.stores import NOT_PUSHED_SUBVERTICALS
 from rappi_ia.concepts.taxonomy import load_taxonomy
 from rappi_ia.demo.seed import DEMO_VERTICALS
 from rappi_ia.offers.guards import (
+    ALCOHOL_NAME_WORDS,
     NOT_PLANNABLE_OCCASIONS,
     OFFER_BLOCKED_VERTICALS,
+    alcohol_in_name,
     is_offerable,
     is_plannable,
     offerable_vertical,
@@ -84,3 +88,64 @@ def test_a_kit_never_comes_from_pharmacy_and_only_alcohol_comes_from_licores():
     assert not plannable_vertical("licores", concept("gaseosas"))
     for vertical in ("supermercado", "conveniencia", "turbo", "mall", "chocolateria", "restaurantes"):
         assert plannable_vertical(vertical, concept("cerveza")) and plannable_vertical(vertical, concept("pizza"))
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Soju Uva Verde 13.0",  # en la base real: categoría «Frutas», sin marca de alcohol ni +18
+        "Patagonia Cerveza Red Lager Austral",  # en «frutas»
+        "3R Pisco 35 + Coca-Cola Gaseosa + Hielo Líquidos",  # en «gaseosas»
+        "Viejo de Caldas Ron",  # en «decoracion»
+        "Toreto Vino Tinto Cabernet Sauvignon Gran Reserva",  # en «utiles»
+        "Gin Santos + 2 Red Bull Yellow + Sprite Zero 1.5lts + Hielo 2kg",
+        "Makgeolli Original 750 ml",
+        "Umeshu Choya 500 ml",
+        "Sake Gekkeikan 750 ml",
+        "Pack Cervezas Kunstmann",  # el plural también
+        "Licores Mistral Surtidos",
+    ],
+)
+def test_a_catalog_name_that_says_alcohol_is_never_offered(name):
+    """Las marcas de la tienda (`is_alcoholic`, `age_restricted`) y la categoría pueden estar mal; el nombre lo dice."""
+    assert alcohol_in_name("catalog_item", name)
+
+
+@pytest.mark.parametrize(
+    ("entity_type", "name"),
+    [
+        ("catalog_item", "Ronda de quesos"),  # «ron» es palabra entera: ni «ronda» ni «roncito»
+        ("catalog_item", "Roncito Chocolate"),
+        ("catalog_item", "Ginger Ale 350 ml"),  # «gin» tampoco está en «ginger»
+        ("menu_item", "Sake Roll"),  # en un menú «sake» es salmón: los platos no se revisan
+        ("menu_item", "Sake Nigiri 2 piezas"),
+    ],
+)
+def test_words_that_only_look_like_alcohol_are_not_blocked(entity_type, name):
+    assert not alcohol_in_name(entity_type, name)
+
+
+def test_the_alcohol_words_are_whole_words_in_spanish_and_include_the_asian_ones():
+    assert {"soju", "makgeolli", "umeshu", "sake", "ron", "gin", "licor"} <= ALCOHOL_NAME_WORDS
+
+
+def test_vertical_to_try_never_offers_a_deal_whose_name_says_alcohol(monkeypatch):
+    """«Vertical por probar» ofrece rebajas de `deals()`, que trae `is_alcoholic OR age_restricted` de la tienda: un
+    soju sin esas marcas tampoco se ofrece."""
+    from rappi_ia.offers import engine
+
+    found = [
+        {"name": "Soju Uva Verde 13.0", "concept": "frutas", "age_restricted": False, "store_id": 1},
+        {"name": "Uva Verde 1 kg", "concept": "frutas", "age_restricted": False, "store_id": 1},
+    ]
+
+    class NoBlockedStores:
+        def execute(self, *args):
+            return []
+
+    monkeypatch.setattr(engine, "deals", lambda conn, vertical, limit: found)
+    monkeypatch.setattr(engine, "typical_verticals", lambda conn: {})
+
+    offered = engine._offerable_deals(NoBlockedStores(), "supermercado")
+
+    assert [d["name"] for d in offered] == ["Uva Verde 1 kg"]
