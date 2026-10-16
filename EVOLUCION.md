@@ -19,6 +19,7 @@ Para ver una etapa: `git checkout <etiqueta>`. Cada rama `feat/*`, `fix/*` y `do
 | `etapa-09-prototipo-final` | 09-10-2026 | Dos modos: «Rappi hoy» y «Prototipo final»; la Home ya no sugiere productos; respuesta de Bigotes sin repetir (PR #40). | Base del prototipo actual. |
 | `etapa-10-juego-en-prototipo` | 09-10-2026 | El juego de verticales dentro del prototipo final, con un solo pasaporte y una ronda mientras llega el pedido (PR #41). | Es el prototipo actual de `rappi-dlab`. |
 | `etapa-11-todo-fusionado` | 09-10-2026 | `main` de `rappi-dlab` con todo fusionado (PRs #37 a #41 y #38), con el panel y la presentación todavía dentro. También como rama `dlab-antes-de-la-limpieza`. | Desde aquí `rappi-dlab` se enfocó en el prototipo final. |
+| `etapa-12-pasaporte-y-juego` | 16-10-2026 | Último `main` de `rappi-dlab` con el pasaporte Rappi y el juego de verticales dentro del MVP integrado (v1.0.0, perfiles de gusto, PR #88). También como rama `dlab-con-pasaporte-y-juego`. | El pasaporte y el juego salieron del proyecto ([rappi-dlab#89](https://github.com/yungzyx/rappi-dlab/pull/89)): el foco pasó a la Home dinámica y al motor de recomendaciones entre verticales. |
 
 ## Lo que salió de `rappi-dlab`
 
@@ -26,6 +27,8 @@ Para ver una etapa: `git checkout <etiqueta>`. Cada rama `feat/*`, `fix/*` y `do
 - **Modos «Propuesta» y «Bigotes vivo»** del prototipo: ver etapas 07 y 08.
 - **Chat escrito de Bigotes** (con voz y foto): ver etapa 04.
 
+- **Pasaporte Rappi y juego de verticales** (16-10-2026): las tarjetas «¿Sabías que…?» del agente, las rondas, los sellos, el pasaporte de la Home con su envío gratis y «Juega mientras llega tu pedido». Ver etapa 12 (código, las 108 tarjetas en `rappi-ia/src/rappi_ia/game/` y sus planes en `docs/superpowers/`).
+
 ## El juego de verticales
 
-`juego-verticales/` es el repo [`rappi-juego-verticales`](https://github.com/yungzyx/rappi-juego-verticales) (rama `feat/juego`), traído con su historial: un juego para celular que enseña las 8 verticales con rondas, sellos y cartas «¿Sabías que…?». Desde el 09-10-2026 vive dentro del prototipo final de `rappi-dlab`, donde su pasaporte es el pasaporte Rappi.
+`juego-verticales/` es el repo [`rappi-juego-verticales`](https://github.com/yungzyx/rappi-juego-verticales) (rama `feat/juego`), traído con su historial: un juego para celular que enseña las 8 verticales con rondas, sellos y cartas «¿Sabías que…?». Del 09-10 al 16-10-2026 vivió dentro del prototipo final de `rappi-dlab`, donde su pasaporte era el pasaporte Rappi (etapas 10 a 12).
